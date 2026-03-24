@@ -1026,7 +1026,7 @@ exports.getGrievances = async (req, res) => {
 const multer = require('multer');
  
 
-const uploadDir = '/data/grievances';
+const uploadDir = process.env.GRIEVANCE_UPLOAD_DIR || path.resolve(process.cwd(), 'data', 'grievances');
 
 // Ensure the directory exists
 if (!fs.existsSync(uploadDir)) {
@@ -1039,7 +1039,7 @@ if (!fs.existsSync(uploadDir)) {
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, '/data/grievances'); // Define the directory where uploaded files will be stored
+    cb(null, uploadDir); // Use configurable upload directory
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname); // Keep the original file name
@@ -1094,7 +1094,9 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.name = myFiles[i].originalname
                 obj.location = myFiles[i].path
                 obj.code = shortid.generate()
-                obj.action_id = req.body.action_id[i] ? req.body.action_id[i] : null
+                obj.action_id = (req.body.action_id && Array.isArray(req.body.action_id))
+                  ? (req.body.action_id[i] || null)
+                  : (req.body.action_id || null)
                 obj.type = (req.body.type && Array.isArray(req.body.type)) ? (req.body.type[i] || 'Documentation') : (req.body.type || 'Documentation')
                 objs.push(obj)
 
@@ -1103,7 +1105,7 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.action_id = req.body.action_id ?  req.body.action_id : null
                 obj.format = req.body.format 
                 obj.size = req.body.size 
-                obj.protected_file = req.body.protected_file[i] 
+                obj.protected_file = req.body.protected_file
                 obj.name = myFiles[i].originalname
                 obj.location = myFiles[i].path
                 obj.code =shortid.generate()
@@ -1135,11 +1137,26 @@ exports.uploadGrievanceDocument = (req, res) => {
      
     catch (error) {
     console.log(error)
+    const isDuplicateDoc =
+      error &&
+      (error.name === 'SequelizeUniqueConstraintError' ||
+        error.parent?.code === '23505' ||
+        error.original?.code === '23505') &&
+      (error.parent?.constraint === 'grievance_document_name_grievance_id' ||
+        error.original?.constraint === 'grievance_document_name_grievance_id')
 
-    
+    if (isDuplicateDoc) {
+      const duplicateName = error.fields?.name || 'this file'
+      return res.status(409).send({
+        message: `Upload failed: ${duplicateName} already exists for this grievance. Rename the file or remove the existing one first.`,
+        code: 'DUPLICATE_GRIEVANCE_DOCUMENT'
+      })
+    }
+
+    const backendMessage = error?.message || 'Unknown upload error'
     res.status(500).send({
-    message: 'Upload failed. ' + error + ' errors',
-    code: '0000'
+      message: `Upload failed: ${backendMessage}`,
+      code: 'UPLOAD_FAILED'
     })
     }
 
@@ -3081,7 +3098,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
  exports.downloadFile = (req, res) => {
       console.log("Received files:", req.body);
     
-      const uploadedFile = path.join('/data/grievances' , req.body.filename);
+      const uploadedFile = path.join(uploadDir, req.body.filename);
     
       console.log(uploadedFile);
     

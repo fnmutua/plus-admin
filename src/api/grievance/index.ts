@@ -31,12 +31,12 @@ export const getOnePublicGrievance = (data: any): Promise<IResponse> => {
 }
 
 
-export const uploadGrievanceDocuments = (data: any): Promise<IResponse> => {
-   return request.post({ url: prod + '/api/v1/grv/upload', data })
+export const uploadGrievanceDocuments = (data: any, silent = false): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/upload', data, silent })
 }
 
-export const logGrievanceAction = (data: any): Promise<IResponse> => {
-  return request.post({ url: prod + '/api/v1/grv/log', data })
+export const logGrievanceAction = (data: any, silent = false): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/grv/log', data, silent })
 }
 
 
@@ -50,14 +50,14 @@ export const getGrievanceStatus = (data: any): Promise<IResponse> => {
  
 
 
- export const updateGrievanceStatus = (data: any): Promise<IResponse> => {
-   return request.post({ url: prod + '/api/v1/grv/status/update', data })
+ export const updateGrievanceStatus = (data: any, silent = false): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/status/update', data, silent })
  }
 
 
 
- export const updateGrievance  = (data: any): Promise<IResponse> => {
-   return request.post({ url: prod + '/api/v1/grv/update', data })
+ export const updateGrievance  = (data: any, silent = false): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/update', data, silent })
  }
 
 

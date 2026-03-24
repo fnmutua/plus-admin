@@ -378,8 +378,8 @@ const processGrievance = async() => {
   Grievance.value.code = res.data.code
   Grievance.value.complainant = res.data.name
   Grievance.value.telephone = res.data.phone
-  Grievance.value.county = res.data.county.name
-  Grievance.value.settlement = res.data.settlement.name
+  Grievance.value.county = res.data.county?.name || '-'
+  Grievance.value.settlement = res.data.settlement?.name || '-'
   Grievance.value.nature = res.data.nature
   Grievance.value.is_GBV = res.data.isgbv
   Grievance.value.description = res.data.description
@@ -1073,6 +1073,7 @@ const form = ref({
 const dialogFormVisible = ref(false)
 const isSubmittingSuccessfully = ref(false)
 const showSupportingDocDialog = ref(false)
+const isSupportingDocUploading = ref(false)
 const supportingDocFileList = ref([])
 const supportingDocType = ref('Supporting Documentation')
 
@@ -1252,6 +1253,13 @@ const rollbackStatusUpdate = async (
 }
 
 const submitResolutionForm = async () => {
+  const extractApiErrorMessage = (error: any, fallback = 'Request failed') =>
+    error?.response?.data?.message || error?.message || fallback
+  const isDuplicateDocumentError = (error: any) =>
+    error?.response?.status === 409 ||
+    error?.response?.data?.code === 'DUPLICATE_GRIEVANCE_DOCUMENT' ||
+    error?.isDuplicateDocument === true
+
   const formInstance = dynamicFormRef
 
   formInstance.value.validate(async (valid: boolean) => {
@@ -1352,17 +1360,12 @@ const submitResolutionForm = async () => {
 
       // Step 1: Update Status
       console.log('Starting status update...', formData)
-      ElMessage({
-        message: 'Updating grievance status...',
-        type: 'info',
-        duration: 2000
-      })
       
       let updatedGrievance
       let statusUpdateSuccess = false
       try {
         console.log('Calling updateGrievanceStatus with:', formData)
-        updatedGrievance = await updateGrievanceStatus(formData)
+        updatedGrievance = await updateGrievanceStatus(formData, true)
         console.log('updateGrievanceStatus returned:', updatedGrievance)
         
         // Check if the response indicates success
@@ -1375,19 +1378,7 @@ const submitResolutionForm = async () => {
         console.log('Status update successful! Response:', updatedGrievance)
         console.log('About to show success message...')
         
-        // Show success message immediately - use object syntax for reliability
-        ElMessage({
-          message: 'Status updated successfully',
-          type: 'success',
-          duration: 5000,
-          showClose: false,
-          center: false
-        })
-        console.log('Success message displayed successfully')
-        
-        // Wait to ensure the success message is visible before proceeding
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        console.log('Waited 2 seconds, proceeding to next step')
+        // Continue to next steps; show one final toast only.
       } catch (error) {
         console.error('Error updating status:', error)
         ElMessage({
@@ -1409,28 +1400,23 @@ const submitResolutionForm = async () => {
       
       try {
         if (hasFiles) {
-          // Wait longer before showing upload message to ensure status success is visible
-          await new Promise(resolve => setTimeout(resolve, 500))
-          ElMessage({
-            message: 'Uploading documents...',
-            type: 'info',
-            duration: 2000,
-            grouping: true
-          })
-          
           try {
             // Create log entry temporarily to get action_id for file uploads
             // We'll show the success message for logging at the end
             const logData = { ...form.value };
             logData.action = msg;
-            logRes = await logGrievanceAction(logData)
+            logRes = await logGrievanceAction(logData, true)
             actionIdForLogging = logRes.data.id
             loggingSuccess = true
             
-            await uploadFiles(actionIdForLogging, Grievance.value.id)
+            await uploadFiles(actionIdForLogging, Grievance.value.id, true)
             uploadSuccess = true
           } catch (error) {
-            console.error('Error uploading documents:', error)
+            if (isDuplicateDocumentError(error)) {
+              console.warn('Duplicate document blocked during resolution upload:', error)
+            } else {
+              console.error('Error uploading documents:', error)
+            }
             // If upload fails, we need to rollback status and delete the log entry if created
             if (statusUpdateSuccess) {
               await rollbackStatusUpdate(previousStatus, previousCurrentLevel, previousStatusDate, previousStatusExpiryDate)
@@ -1439,26 +1425,19 @@ const submitResolutionForm = async () => {
                 // This would require a delete API endpoint
                 console.warn('Log entry created but upload failed. Log entry ID:', logRes.data.id)
               }
-              throw new Error('Document upload failed. Status has been reverted.')
+              const uploadError: any = new Error(`${extractApiErrorMessage(error, 'Document upload failed')}. Status has been reverted.`)
+              uploadError.isDuplicateDocument = isDuplicateDocumentError(error)
+              throw uploadError
             }
           }
         }
 
         // Step 3: Log Action (only if not already logged for uploads)
         if (!actionIdForLogging) {
-          // Wait longer before showing logging message
-          await new Promise(resolve => setTimeout(resolve, 500))
-          ElMessage({
-            message: 'Logging action...',
-            type: 'info',
-            duration: 2000,
-            grouping: true
-          })
-          
           try {
             const logData = { ...form.value };
             logData.action = msg;
-            logRes = await logGrievanceAction(logData)
+            logRes = await logGrievanceAction(logData, true)
             actionIdForLogging = logRes.data.id
             loggingSuccess = true
           } catch (error) {
@@ -1532,19 +1511,20 @@ const submitResolutionForm = async () => {
       } catch (rollbackError: any) {
         // This catch handles rollback errors from Step 2 or Step 3
         console.error('Rollback error:', rollbackError)
+        const isDuplicate = isDuplicateDocumentError(rollbackError)
         ElMessage({
-          message: rollbackError?.message || 'Operation failed and status has been reverted',
-          type: 'error',
+          message: extractApiErrorMessage(rollbackError, 'Operation failed and status has been reverted'),
+          type: isDuplicate ? 'warning' : 'error',
           duration: 5000
         })
-        // Refresh grievance data to reflect reverted state
+        // Refresh grievance data to reflect reverted state and stop to avoid duplicate error toast
         await processGrievance()
-        throw rollbackError
+        return
       }
       } catch (error) {
         console.error('Error submitting form:', error)
         ElMessage({
-          message: 'Failed to submit. Please try again.',
+          message: extractApiErrorMessage(error, 'Failed to submit. Please try again.'),
           type: 'error'
         })
       }
@@ -1562,7 +1542,7 @@ const submitResolutionForm = async () => {
 };
 
 
-const uploadFiles = async (action_id, grievance_id) => {
+const uploadFiles = async (action_id, grievance_id, silent = false) => {
   const formData = new FormData();
 
   // Assuming `fileList` is an array of file objects and `grievance_id` is defined
@@ -1582,7 +1562,7 @@ const uploadFiles = async (action_id, grievance_id) => {
     console.log(`${key}: ${value}`);
   }
 
-  const res = await uploadGrievanceDocuments(formData)
+  const res = await uploadGrievanceDocuments(formData, silent)
 
   console.log("Docuemnts Uploaded", res)
 
@@ -1592,6 +1572,12 @@ const uploadFiles = async (action_id, grievance_id) => {
 }
 
 const uploadSupportingDocuments = async () => {
+  const extractApiErrorMessage = (error: any, fallback = 'Failed to upload documents. Please try again.') =>
+    error?.response?.data?.message || error?.message || fallback
+  const isDuplicateDocumentError = (error: any) =>
+    error?.response?.status === 409 ||
+    error?.response?.data?.code === 'DUPLICATE_GRIEVANCE_DOCUMENT'
+
   if (!supportingDocFileList.value || supportingDocFileList.value.length === 0) {
     ElMessage({
       message: 'Please select at least one file to upload',
@@ -1601,6 +1587,7 @@ const uploadSupportingDocuments = async () => {
   }
 
   try {
+    isSupportingDocUploading.value = true
     const formData = new FormData()
     const grievance_id = Grievance.value.id
 
@@ -1614,12 +1601,6 @@ const uploadSupportingDocuments = async () => {
       formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2))
       formData.append('code', uuid.v4())
     }
-
-    ElMessage({
-      message: 'Uploading documents...',
-      type: 'info',
-      duration: 2000
-    })
 
     const res = await uploadGrievanceDocuments(formData)
     console.log("Supporting Documents Uploaded", res)
@@ -1637,11 +1618,18 @@ const uploadSupportingDocuments = async () => {
     supportingDocType.value = 'Supporting Documentation'
     showSupportingDocDialog.value = false
   } catch (error: any) {
-    console.error('Error uploading supporting documents:', error)
+    const isDuplicate = isDuplicateDocumentError(error)
+    if (isDuplicate) {
+      console.warn('Duplicate supporting document upload blocked:', error?.response?.data || error)
+    } else {
+      console.error('Error uploading supporting documents:', error)
+    }
     ElMessage({
-      message: error.response?.data?.message || 'Failed to upload documents. Please try again.',
-      type: 'error'
+      message: extractApiErrorMessage(error),
+      type: isDuplicate ? 'warning' : 'error'
     })
+  } finally {
+    isSupportingDocUploading.value = false
   }
 }
 
@@ -1940,12 +1928,12 @@ const saveGrievance = async () => {
       form.value.action = actionMessage;
  
       // Log the action 
-      const res = await logGrievanceAction(form.value)
+      const res = await logGrievanceAction(form.value, true)
 
       // Upload files if any - temporarily set form.value.fileList for upload
       if (fileList.value && fileList.value.length > 0) {
         form.value.fileList = fileList.value
-      await uploadFiles(res.data.id, Grievance.value.id)
+      await uploadFiles(res.data.id, Grievance.value.id, true)
         form.value.fileList = []
       }
 
@@ -1954,7 +1942,7 @@ const saveGrievance = async () => {
       formData.updatedData = grmForm.value
 
       // Update the grievance
-     await updateGrievance(formData)
+     await updateGrievance(formData, true)
 
      await processGrievance()
 
@@ -4033,6 +4021,7 @@ width="340"
     :width="isMobile ? '95%' : '600px'"
     :close-on-click-modal="false"
     :close-on-press-escape="true"
+    :show-close="!isSupportingDocUploading"
   >
     <el-form>
       <el-form-item label="Document Type" label-position="top" required>
@@ -4070,14 +4059,22 @@ width="340"
             </div>
           </template>
         </el-upload>
+        <el-text size="small" type="info" style="margin-top: 8px; display: block;">
+          Selected files: {{ supportingDocFileList.length }} / 10
+        </el-text>
       </el-form-item>
     </el-form>
     
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="showSupportingDocDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="uploadSupportingDocuments" :disabled="supportingDocFileList.length === 0 || !supportingDocType">
-          Upload
+        <el-button @click="showSupportingDocDialog = false" :disabled="isSupportingDocUploading">Cancel</el-button>
+        <el-button
+          type="primary"
+          @click="uploadSupportingDocuments"
+          :loading="isSupportingDocUploading"
+          :disabled="supportingDocFileList.length === 0 || !supportingDocType || isSupportingDocUploading"
+        >
+          {{ isSupportingDocUploading ? 'Uploading...' : 'Upload Documents' }}
         </el-button>
       </span>
     </template>
