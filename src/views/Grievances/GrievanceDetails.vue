@@ -1476,12 +1476,7 @@ const submitResolutionForm = async () => {
         console.log('Old Grievance.value', Grievance.value)
         console.log('New Grievance.value', updatedGrievance)
  
-        // Generate PDF in background (only if we have a valid log entry)
-        if (logRes && logRes.data) {
-          generatePDFform(Grievance.value, logRes.data).catch(err => {
-            console.error('PDF generation failed:', err)
-          })
-        }
+        // Auto-generation of resolution PDF has been disabled.
 
         // Final summary message
         let finalMessage = 'Grievance status updated successfully'
