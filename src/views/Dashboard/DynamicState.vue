@@ -1332,8 +1332,8 @@ const getCharts = async (section_id) => {
       console.log('This Chart:', thisChart)
 
       const filterLabel = getActiveFilterLabel()
-      const subtitleText = filterLabel || 'National Statistics'
-      const sourceText = `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`
+      const subtitleText = filterLabel ? `${filterLabel} |` : ''
+      const sourceText = `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`
       const subtitleWithSource = `${subtitleText}\n${sourceText}`
 
       // Set initial loading state for this chart
@@ -2029,7 +2029,7 @@ const getCharts = async (section_id) => {
                   left: 'center',
                   bottom: 5,
                   style: {
-                    text: `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                    text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
                     fill: '#666',
                     font: '12px sans-serif'
                   }
@@ -2852,7 +2852,7 @@ const getCharts = async (section_id) => {
                   left: 'center',
                   bottom: 5,
                   style: {
-                    text: `| Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                    text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
                     fill: '#666',
                     font: '12px sans-serif'
                   }
@@ -3082,13 +3082,20 @@ function getActiveFilterLabel() {
     return ''
   }
 
+  const summarize = (labels: string[], max = 3) => {
+    if (!labels || labels.length === 0) return ''
+    if (labels.length <= max) return labels.join(', ')
+    const head = labels.slice(0, max).join(', ')
+    return `${head} (+${labels.length - max} more)`
+  }
+
   // County level: list selected counties
   if (filterLevel.value === 'county' && selectedCounties.value?.length) {
     const labels = countyList.value
       .filter((c: any) => selectedCounties.value.includes(c.value))
       .map((c: any) => c.label)
 
-    return labels.length ? labels.join(', ') : ''
+    return summarize(labels)
   }
 
   // Subcounty level: list selected subcounties
@@ -3097,7 +3104,7 @@ function getActiveFilterLabel() {
       .filter((s: any) => selectedSubCounties.value.includes(s.value))
       .map((s: any) => s.label)
 
-    return labels.length ? labels.join(', ') : ''
+    return summarize(labels)
   }
 
   return ''

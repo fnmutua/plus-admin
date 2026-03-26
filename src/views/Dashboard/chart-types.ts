@@ -155,7 +155,7 @@ function resizedataURL(datas, wantedWidth, wantedHeight) {
 export const simpleBarChart = {
   title: {
     text: '',
-    left: 'center',
+    align: 'left',
     textStyle: {
       fontSize: 14,
       color: isDark.value ? '#ffffff' : '#000000'
@@ -234,7 +234,7 @@ export const simpleBarChart = {
 export const stackedbarOptions = {
   title: {
     text: '',
-    left: 'center',
+    align: 'left',
     textStyle: {
       fontSize: 14,
       color: isDark.value ? '#ffffff' : '#000000'
@@ -313,7 +313,7 @@ export const stackedbarOptions = {
 export const stackedbarOptionsAbs = {
   title: {
     text: '',
-    left: 'center',
+    align: 'left',
     textStyle: {
       fontSize: 14,
       color: isDark.value ? '#ffffff' : '#000000'
@@ -386,7 +386,7 @@ export const stackedbarOptionsAbs = {
 export const multipleBarChart = {
   title: {
     text: '',
-    left: 'center',
+    align: 'left',
     textStyle: {
       fontSize: 14
     },
@@ -529,7 +529,7 @@ export const pieDonutOptions = {
 
   title: {
     text: 'National Slum Database',
-    align: 'center',
+    align: 'left',
     style: {
       fontSize: '16px',
       fontWeight: 'bold',
@@ -551,6 +551,10 @@ export const pieDonutOptions = {
       color: '#9699a2'
     }
   },
+  legend: {
+    position: 'bottom',
+    horizontalAlign: 'right'
+  },
   labels: [],
   series: [],
   responsive: [{
@@ -560,7 +564,8 @@ export const pieDonutOptions = {
         width: 200
       },
       legend: {
-        position: 'bottom'
+        position: 'bottom',
+        horizontalAlign: 'right'
       }
     }
   }]
@@ -610,7 +615,7 @@ export const pieOptions = {
 
   title: {
     text: 'National Slum Database',
-    align: 'center',
+    align: 'left',
     style: {
       fontSize: '16px',
       fontWeight: 'bold',
@@ -633,6 +638,10 @@ export const pieOptions = {
       color: '#9699a2'
     }
   },
+  legend: {
+    position: 'bottom',
+    horizontalAlign: 'right'
+  },
   labels: [],
   series: [],
   responsive: [{
@@ -642,7 +651,8 @@ export const pieOptions = {
         width: 200
       },
       legend: {
-        position: 'bottom'
+        position: 'bottom',
+        horizontalAlign: 'right'
       }
     }
   }]
@@ -652,7 +662,7 @@ export const pieOptions = {
 export const treemapOptions = {
   title: {
     text: '',
-    left: 'center',
+    align: 'left',
     textStyle: {
       fontSize: 14,
       color: isDark.value ? '#ffffff' : '#000000'
@@ -716,7 +726,7 @@ export const barOptions: EChartsOption = {
   //color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'barchart',
-    left: 'center'
+    left: 'left'
   },
   darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
