@@ -16,12 +16,13 @@ import {
   Back,
   Plus,
   ArrowDown,
-  InfoFilled
+  InfoFilled,
+  SwitchButton
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { activateUserApi, updateUserApi, getGRMStaff, getUsersLastLogin, resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, getGRMStaff, resetUserPassword, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
@@ -138,10 +139,8 @@ const updatePageSize = () => {
 };
 
 onMounted(async () => {
-
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
-
 })
 
 
@@ -290,10 +289,6 @@ const onPageChange = async (selPage: any) => {
     getFilteredData(filters, filterValues)
   }
 
-  // Fetch last login for newly visible users after page change
-  setTimeout(() => {
-    fetchLastLoginForVisibleUsers()
-  }, 100)
 }
 
 const onPageSizeChange = async (size: any) => {
@@ -304,11 +299,6 @@ const onPageSizeChange = async (size: any) => {
   } else {
     getFilteredData(filters, filterValues)
   }
-
-  // Fetch last login for newly visible users after page size change
-  setTimeout(() => {
-    fetchLastLoginForVisibleUsers()
-  }, 100)
 }
 
 const getInterventionsAll = async () => {
@@ -461,6 +451,15 @@ const activateDeactivate = async (data: TableSlotDefault) => {
   }
 }
 
+const handleForceLogout = async (data: TableSlotDefault) => {
+  try {
+    await forceLogoutUserApi(data.row.id)
+    ElMessage.success(`${data.row.username} has been forcefully logged out.`)
+  } catch (error) {
+    ElMessage.error('Failed to force logout user.')
+  }
+}
+
 
 
 
@@ -558,15 +557,6 @@ const getFilteredBySearchData = async (searchString) => {
 
   tblData = [] // reset the table data
 
-  // Fetch last login asynchronously for currently displayed records (non-blocking)
-  // Delay on mobile to let table render first
-  if (isMobile.value) {
-    setTimeout(() => {
-      fetchLastLoginForVisibleUsers()
-    }, 300)
-  } else {
-    fetchLastLoginForVisibleUsers()
-  }
 }
 
 
@@ -671,15 +661,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   loadingCounty.value = false
   loadingSettlement.value = false
 
-  // Fetch last login asynchronously for currently displayed records (non-blocking)
-  // Delay on mobile to let table render first
-  if (isMobile.value) {
-    setTimeout(() => {
-      fetchLastLoginForVisibleUsers()
-    }, 300)
-  } else {
-    fetchLastLoginForVisibleUsers()
-  }
 }
 
 const searchByName = async (filterString: any) => {
@@ -835,10 +816,6 @@ const handleTabChange = (tabName: string) => {
   activeTab.value = tabName
   // Data is already loaded and separated, just switch the view
   // No need to re-fetch from backend - the computed properties will handle the display
-  // Fetch last login for newly visible users after tab change
-  setTimeout(() => {
-    fetchLastLoginForVisibleUsers()
-  }, 100)
 }
 
 // Format date for display
@@ -861,45 +838,6 @@ const formatDate = (dateString: string | Date | null) => {
 }
 
 // Fetch last login for currently visible users (non-blocking, background)
-const fetchLastLoginForVisibleUsers = async () => {
-  try {
-    // Get currently displayed users based on active tab
-    const currentUsers = getCurrentTableData.value
-    if (!currentUsers || currentUsers.length === 0) return
-
-    // Extract user IDs from currently displayed records
-    const userIds = currentUsers.map(user => user.id).filter(id => id != null)
-    if (userIds.length === 0) return
-
-    // Fetch last login in background (non-blocking)
-    const response = await getUsersLastLogin(userIds)
-    const lastLoginMap = response.data || {}
-
-    // Update last_login for users in all three arrays reactively
-    const updateUserLastLogin = (userArray: any[]) => {
-      userArray.forEach(user => {
-        if (user.id && lastLoginMap[user.id] !== undefined) {
-          // Set to null if no login found, otherwise set to the date
-          user.last_login = lastLoginMap[user.id]
-        } else if (user.id && user.last_login === undefined) {
-          // If user ID exists but not in response, set to null (never logged in)
-          user.last_login = null
-        }
-      })
-    }
-
-    // Update in all arrays
-    updateUserLastLogin(tableDataListNational.value)
-    updateUserLastLogin(tableDataListCounty.value)
-    updateUserLastLogin(tableDataListSettlement.value)
-    updateUserLastLogin(tableDataList.value)
-
-    console.log('Last login data updated for visible users')
-  } catch (error) {
-    console.error('Error fetching last login for visible users:', error)
-    // Silently fail - don't block the UI
-  }
-}
 
 const search = ref('')
 
@@ -1401,6 +1339,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
+            <PermissionWrapper  :permissions="['user:update']">
+              <el-tooltip content="Force Logout" placement="top">
+                <ElButton type="danger" :icon="SwitchButton" size="small" @click="handleForceLogout(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
             <el-tooltip
               :content="(!scope.row.email && !scope.row.phone) ? 'No email or phone on file' : 'Reset password'"
               placement="top"
@@ -1527,6 +1470,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper  :permissions="['user:update']">
+              <el-tooltip content="Force Logout" placement="top">
+                <ElButton type="danger" :icon="SwitchButton" size="small" @click="handleForceLogout(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
             <el-tooltip
@@ -1658,6 +1606,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper  :permissions="['user:update']">
+              <el-tooltip content="Force Logout" placement="top">
+                <ElButton type="danger" :icon="SwitchButton" size="small" @click="handleForceLogout(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
             <el-tooltip

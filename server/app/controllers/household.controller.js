@@ -30,7 +30,7 @@ exports.createHousehold = (req, res) => {
     console.log('creating......')
     var obj = req.body
     let name = req.body.name
-    obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, '***REDACTED***')
+    obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, process.env.AES_KEY)
     delete obj.model // or delete person["age"];
   
     console.log('One record... ----', obj)
@@ -63,7 +63,7 @@ exports.updateHousehold = (req, res) => {
     console.log('creating......')
     var obj = req.body
     let name = req.body.name
-    obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, '***REDACTED***')
+    obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, process.env.AES_KEY)
     delete obj.model // or delete person["age"];
   
     console.log('One record... ----', obj)
@@ -337,7 +337,7 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
     if (req.body.searchKeyword) {
         qry.where = {
             [op.and]: [
-                Sequelize.where(Sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'), '***REDACTED***'), {
+                Sequelize.where(Sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'), process.env.AES_KEY), {
                     [op.iLike]: `%${searchKeyword}%`,
                 }),
                 queryCondition
@@ -419,7 +419,7 @@ exports.getOneHousehold = (req, res) => {
       var obj = data[i];
       let name = data[i].name;
       console.log("---------------->>>>---------------------->>", name)
-      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, '***REDACTED***')
+      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, process.env.AES_KEY)
       //obj.name=name
       delete obj.model;
       //console.log(obj)
@@ -471,7 +471,7 @@ exports.getOneHousehold = (req, res) => {
       const national_id = obj.national_id;
       const name = obj.name;
 
-      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, '***REDACTED***')
+      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, process.env.AES_KEY)
 
       // Check if a record with the same unique key constraint exists
       const existingRecord = await db.models.households.findOne({
@@ -537,7 +537,7 @@ exports.getOneHousehold = (req, res) => {
 
       const national_id = obj.national_id;
  
-      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, '***REDACTED***')
+      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, process.env.AES_KEY)
 
   
       try {

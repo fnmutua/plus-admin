@@ -2438,3 +2438,23 @@ exports.modelSupportUsers = async (req, res) => {
   }
 };
  
+exports.forceLogout = async (req, res) => {
+  try {
+    const targetUserId = parseInt(req.params.id, 10);
+    if (isNaN(targetUserId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    const user = await Users.findByPk(targetUserId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    await Users.update(
+      { lastLogoutAt: new Date() },
+      { where: { id: targetUserId } }
+    );
+    res.status(200).json({ code: '0000', message: `User ${user.username} has been forcefully logged out.` });
+  } catch (error) {
+    console.error('Force logout error:', error);
+    res.status(500).json({ message: 'Unable to force logout user.' });
+  }
+};

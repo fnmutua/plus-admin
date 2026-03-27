@@ -15,12 +15,13 @@ import {
   Edit,
   Back,
   Plus,
-  InfoFilled
+  InfoFilled,
+  SwitchButton
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { activateUserApi, updateUserApi, getSupportStaff, resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, getSupportStaff, resetUserPassword, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
@@ -360,6 +361,15 @@ const activateDeactivate = async (data: any) => {
   } finally {
     // Clear loading state for this user
     userLoadingStates.value[userId] = false
+  }
+}
+
+const handleForceLogout = async (data: any) => {
+  try {
+    await forceLogoutUserApi(data.row.id)
+    ElMessage.success(`${data.row.username} has been forcefully logged out.`)
+  } catch (error) {
+    ElMessage.error('Failed to force logout user.')
   }
 }
 
@@ -899,6 +909,11 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper  :permissions="['user:update']">
+              <el-tooltip content="Force Logout" placement="top">
+                <ElButton type="danger" :icon="SwitchButton" size="small" @click="handleForceLogout(scope)" circle />
               </el-tooltip>
             </PermissionWrapper>
             <el-tooltip

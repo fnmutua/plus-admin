@@ -1539,7 +1539,7 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     if (searchField === 'name') {
       // For encrypted name field, try the same approach as getGrievancesByKeyword
       const nameSearchCondition = sequelize.where(
-        sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
+        sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('grievance.name'), 'bytea'), process.env.AES_KEY),
         { [op.iLike]: `%${searchString}%` }
       );
       

@@ -17,12 +17,13 @@ import {
   Back,
   Plus,
   ArrowDown,
-  InfoFilled
+  InfoFilled,
+  SwitchButton
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { activateUserApi, updateUserApi, getCountyStaff, getUsersLastLogin, resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, getCountyStaff, resetUserPassword, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
@@ -149,10 +150,8 @@ const updatePageSize = () => {
 };
 
 onMounted(async () => {
-
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
-
 })
 
 
@@ -438,8 +437,14 @@ const activateDeactivate = async (data: TableSlotDefault) => {
   }
 }
 
-
-
+const handleForceLogout = async (data: TableSlotDefault) => {
+  try {
+    await forceLogoutUserApi(data.row.id)
+    ElMessage.success(`${data.row.username} has been forcefully logged out.`)
+  } catch (error) {
+    ElMessage.error('Failed to force logout user.')
+  }
+}
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
@@ -479,10 +484,6 @@ const getFilteredBySearchData = async (searchString) => {
   loading.value = false
 
   tblData = [] // reset the table data
-
-  setTimeout(() => {
-    fetchLastLoginForVisibleUsers()
-  }, 100)
 }
 
 
@@ -538,10 +539,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('TBL-4f', tblData)
   loading.value = false
-
-  setTimeout(() => {
-    fetchLastLoginForVisibleUsers()
-  }, 100)
 }
 
 // Format date for display
@@ -563,29 +560,6 @@ const formatDate = (dateString: string | Date | null) => {
   }
 }
 
-// Fetch last login for currently visible users (non-blocking, background)
-const fetchLastLoginForVisibleUsers = async () => {
-  try {
-    const currentUsers = tableDataList.value
-    if (!currentUsers || currentUsers.length === 0) return
-
-    const userIds = currentUsers.map(user => user.id).filter(id => id != null)
-    if (userIds.length === 0) return
-
-    const response = await getUsersLastLogin(userIds)
-    const lastLoginMap = response.data || {}
-
-    currentUsers.forEach(user => {
-      if (user.id && lastLoginMap[user.id] !== undefined) {
-        user.last_login = lastLoginMap[user.id]
-      } else if (user.id && user.last_login === undefined) {
-        user.last_login = null
-      }
-    })
-  } catch (error) {
-    console.error('Error fetching last login for visible users:', error)
-  }
-}
 
 const searchByName = async (filterString: any) => {
   searchString.value = filterString
@@ -1109,6 +1083,12 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                     <span style="margin-left: 8px;">Edit</span>
                   </el-dropdown-item>
                 </PermissionWrapper>
+                <PermissionWrapper  :permissions="['user:update']">
+                  <el-dropdown-item @click="handleForceLogout(scope as TableSlotDefault)">
+                    <el-icon><SwitchButton /></el-icon>
+                    <span style="margin-left: 8px;">Force Logout</span>
+                  </el-dropdown-item>
+                </PermissionWrapper>
                 <el-dropdown-item
                   :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
                   @click="handleRowPasswordReset(scope.row)"
@@ -1132,6 +1112,11 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper  :permissions="['user:update']">
+              <el-tooltip content="Force Logout" placement="top">
+                <ElButton type="danger" :icon="SwitchButton" size="small" @click="handleForceLogout(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
             <el-tooltip

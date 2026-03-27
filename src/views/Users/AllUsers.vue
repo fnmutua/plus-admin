@@ -14,18 +14,17 @@ import {
 import { ElMessage } from 'element-plus'
 import {
   Position,
- 
   Edit,
- 
   Plus,
-  Download, 
-  Filter 
+  Download,
+  Filter,
+  SwitchButton
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider,ElCol } from 'element-plus'
 import { useRouter } from 'vue-router'
- import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
+ import { activateUserApi, updateUserApi, getCountyStaff, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
@@ -396,6 +395,14 @@ const activateDeactivate = async (data: TableSlotDefault) => {
   }
 }
 
+const handleForceLogout = async (data: any) => {
+  try {
+    await forceLogoutUserApi(data.row.id)
+    ElMessage.success(`${data.row.username} has been forcefully logged out.`)
+  } catch (error) {
+    ElMessage.error('Failed to force logout user.')
+  }
+}
 
 
 const getFilteredBySearchData = async (searchString) => {
@@ -755,6 +762,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <PermissionWrapper :permissions="['user:update']">
                   <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
                 </PermissionWrapper>
+                <PermissionWrapper :permissions="['user:update']">
+                  <el-dropdown-item @click="handleForceLogout(scope as TableSlotDefault)" :icon="SwitchButton">Force Logout</el-dropdown-item>
+                </PermissionWrapper>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -764,7 +774,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             <PermissionWrapper :permissions="['user:activate']">
               <el-tooltip content="Activate" placement="top">
                 <el-switch
-                  v-model="scope.row.isactive" 
+                  v-model="scope.row.isactive"
                   @click="activateDeactivate(scope as TableSlotDefault)"
                   :loading="userLoadingStates[scope.row.id]"
                   :disabled="userLoadingStates[scope.row.id]"
@@ -773,13 +783,18 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             </PermissionWrapper>
             <el-tooltip content="No permission to activate" placement="top">
               <el-switch
-                v-model="scope.row.isactive" 
+                v-model="scope.row.isactive"
                 disabled
                 class="my-switch" />
             </el-tooltip>
             <PermissionWrapper :permissions="['user:update']">
               <el-tooltip content="Edit" placement="top">
                 <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper :permissions="['user:update']">
+              <el-tooltip content="Force Logout" placement="top">
+                <ElButton type="warning" :icon="SwitchButton" size="small" @click="handleForceLogout(scope as TableSlotDefault)" circle />
               </el-tooltip>
             </PermissionWrapper>
           </div>

@@ -333,8 +333,8 @@ exports.createGrievanceRecord = async (req, res) => {
     let national_id = req.body.national_id;
     
     // Encrypt the fields
-    obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', name, '***REDACTED***');
-    obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', national_id, '***REDACTED***');
+    obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', name, process.env.AES_KEY);
+    obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', national_id, process.env.AES_KEY);
 
     obj.code = generatedCode; // Assign the generated code
 
@@ -347,7 +347,7 @@ exports.createGrievanceRecord = async (req, res) => {
 
     // Decrypt the fields after creation
     const decryptedName = await db.sequelize.query(
-      `SELECT PGP_SYM_DECRYPT(name::bytea, '***REDACTED***') AS name FROM grievance WHERE id = :id`,
+      `SELECT PGP_SYM_DECRYPT(name::bytea, '${process.env.AES_KEY}') AS name FROM grievance WHERE id = :id`,
       {
         replacements: { id: item.id },
         type: Sequelize.QueryTypes.SELECT
@@ -355,7 +355,7 @@ exports.createGrievanceRecord = async (req, res) => {
     );
 
     const decryptedNationalId = await db.sequelize.query(
-      `SELECT PGP_SYM_DECRYPT(national_id::bytea, '***REDACTED***') AS national_id FROM grievance WHERE id = :id`,
+      `SELECT PGP_SYM_DECRYPT(national_id::bytea, '${process.env.AES_KEY}') AS national_id FROM grievance WHERE id = :id`,
       {
         replacements: { id: item.id },
         type: Sequelize.QueryTypes.SELECT
@@ -445,7 +445,7 @@ exports.createGrievanceRecord = async (req, res) => {
           attributes.splice(index, 1);
       }
 
-      let encrytpedField = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'),'***REDACTED***'),'name']
+      let encrytpedField = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'),process.env.AES_KEY),'name']
         attributes.push(encrytpedField)
 
 
@@ -505,8 +505,8 @@ exports.createGrievanceBatchRecords = async (req, res) => {
       
       // Prepare and encrypt fields
       let obj = grievance;
-      obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.name, '***REDACTED***');
-       obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.national_id, '***REDACTED***');
+      obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.name, process.env.AES_KEY);
+       obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.national_id, process.env.AES_KEY);
       //obj.national_id =   grievance.national_id;
 
       
@@ -517,7 +517,7 @@ exports.createGrievanceBatchRecords = async (req, res) => {
       
       // Decrypt fields (optional, if needed)
       const decryptedName = await db.sequelize.query(
-        `SELECT PGP_SYM_DECRYPT(name::bytea, '***REDACTED***') AS name FROM grievance WHERE id = :id`,
+        `SELECT PGP_SYM_DECRYPT(name::bytea, '${process.env.AES_KEY}') AS name FROM grievance WHERE id = :id`,
         { replacements: { id: item.id }, type: Sequelize.QueryTypes.SELECT }
       );
       item.name = decryptedName[0].name;
@@ -788,12 +788,12 @@ exports.getGrievances = async (req, res) => {
 
   // Decrypt name and national_id
   const decryptedName = hasSuperAdminRole
-    ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'), 'name']
+    ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), process.env.AES_KEY), 'name']
     : [
         Sequelize.literal(`
           CASE 
             WHEN "grievance"."isgbv" = false AND "grievance"."name" IS NOT NULL THEN 
-              PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+              PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '${process.env.AES_KEY}')
             ELSE 
               '[REDACTED]'
           END
@@ -802,12 +802,12 @@ exports.getGrievances = async (req, res) => {
       ];
 
   const decryptedNationalId = hasSuperAdminRole
-    ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'), 'national_id']
+    ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), process.env.AES_KEY), 'national_id']
     : [
         Sequelize.literal(`
           CASE 
             WHEN "grievance"."isgbv" = false AND "grievance"."national_id" IS NOT NULL THEN 
-              PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+              PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '${process.env.AES_KEY}')
             ELSE 
               '[REDACTED]'
           END
@@ -1324,11 +1324,11 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
           redactedFields = [
             // Decrypt the name field
             [
-              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
+              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), process.env.AES_KEY),
               'name'
             ],
             [
-              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'),
+              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), process.env.AES_KEY),
               'national_id'
             ],
              
@@ -1341,7 +1341,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
               Sequelize.literal(`
                 CASE 
                   WHEN "grievance"."isgbv" = false THEN 
-                    PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+                    PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '${process.env.AES_KEY}')
                   ELSE 
                     '[REDACTED]'
                 END
@@ -1352,7 +1352,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
               Sequelize.literal(`
                 CASE 
                   WHEN "grievance"."isgbv" = false THEN 
-                    PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+                    PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '${process.env.AES_KEY}')
                   ELSE 
                     '[REDACTED]'
                 END
@@ -1405,7 +1405,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
     
         // Include the national_id field decrypted
         // let decryptedNationalId = [
-        //   Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'),
+        //   Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), process.env.AES_KEY),
         //   'national_id'
         // ];
         // attributes.push(decryptedNationalId);
@@ -1501,7 +1501,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
         Sequelize.literal(`
           CASE 
             WHEN "grievance"."isgbv" = false THEN 
-              PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+              PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '${process.env.AES_KEY}')
             ELSE 
               '[REDACTED]'
           END
@@ -1512,7 +1512,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
         Sequelize.literal(`
           CASE 
             WHEN "grievance"."isgbv" = false THEN 
-              PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+              PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '${process.env.AES_KEY}')
             ELSE 
               '[REDACTED]'
           END
@@ -1672,11 +1672,11 @@ exports.getGrievanceByPublicId = async (req, res) => {
       redactedFields = [
         // Decrypt the name field
         [
-          Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
+          Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), process.env.AES_KEY),
           'name'
         ],
         [
-          Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'),
+          Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), process.env.AES_KEY),
           'name'
         ],
          
@@ -1689,7 +1689,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
           Sequelize.literal(`
             CASE 
               WHEN "grievance"."isgbv" = false THEN 
-                PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+                PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '${process.env.AES_KEY}')
               ELSE 
                 '[REDACTED]'
             END
@@ -1700,7 +1700,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
           Sequelize.literal(`
             CASE 
               WHEN "grievance"."isgbv" = false THEN 
-                PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+                PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '${process.env.AES_KEY}')
               ELSE 
                 '[REDACTED]'
             END
@@ -2028,10 +2028,10 @@ exports.modelImportGrievances = async (req, res) => {
     
             // Encrypt 'name' and 'national_id' - ensure they are strings before encryption
             if (item.name != null && item.name !== undefined) {
-              item.name = Sequelize.fn('PGP_SYM_ENCRYPT', Sequelize.cast(item.name, 'TEXT'), '***REDACTED***');
+              item.name = Sequelize.fn('PGP_SYM_ENCRYPT', Sequelize.cast(item.name, 'TEXT'), process.env.AES_KEY);
             }
             if (item.national_id != null && item.national_id !== undefined) {
-              item.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', Sequelize.cast(item.national_id, 'TEXT'), '***REDACTED***');
+              item.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', Sequelize.cast(item.national_id, 'TEXT'), process.env.AES_KEY);
             }
     
             // Use upsert to insert or update depending on conflicts
@@ -2049,7 +2049,7 @@ exports.modelImportGrievances = async (req, res) => {
             // Decrypt the fields after creation (only if they were encrypted)
             try {
               const decryptedName = await db.sequelize.query(
-                `SELECT PGP_SYM_DECRYPT(name::bytea, '***REDACTED***') AS name FROM grievance WHERE id = :id`,
+                `SELECT PGP_SYM_DECRYPT(name::bytea, '${process.env.AES_KEY}') AS name FROM grievance WHERE id = :id`,
                 {
                   replacements: { id: item.id },
                   type: Sequelize.QueryTypes.SELECT
@@ -2061,7 +2061,7 @@ exports.modelImportGrievances = async (req, res) => {
               }
 
               const decryptedNationalId = await db.sequelize.query(
-                `SELECT PGP_SYM_DECRYPT(national_id::bytea, '***REDACTED***') AS national_id FROM grievance WHERE id = :id`,
+                `SELECT PGP_SYM_DECRYPT(national_id::bytea, '${process.env.AES_KEY}') AS national_id FROM grievance WHERE id = :id`,
                 {
                   replacements: { id: item.id },
                   type: Sequelize.QueryTypes.SELECT
@@ -2602,12 +2602,12 @@ exports.modelImportGrievances = async (req, res) => {
         if (updatedData.name) {
           //updatedData.name = encryptData(updatedData.name);
 
-          updatedData.name = Sequelize.fn('PGP_SYM_ENCRYPT', updatedData.name, '***REDACTED***');
+          updatedData.name = Sequelize.fn('PGP_SYM_ENCRYPT', updatedData.name, process.env.AES_KEY);
 
         }
         if (updatedData.national_id) {
        //   updatedData.national_id = encryptData(updatedData.national_id);
-          updatedData.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', updatedData.national_id, '***REDACTED***');
+          updatedData.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', updatedData.national_id, process.env.AES_KEY);
 
         }
     
@@ -2993,8 +2993,8 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     
   const attributes = getSanitizedGrievanceAttributes();
       attributes.push(
-        [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'), 'name'],
-        [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'), 'national_id']
+        [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), process.env.AES_KEY), 'name'],
+        [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), process.env.AES_KEY), 'national_id']
       );
     
       findAndCountOptions.attributes = attributes;
@@ -3029,11 +3029,11 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       if (searchString) {
         const searchConditions = [
           Sequelize.where(
-            Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
+            Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), process.env.AES_KEY),
             { [Op.iLike]: `%${searchString}%` }
           ),
           Sequelize.where(
-            Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'),
+            Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), process.env.AES_KEY),
             { [Op.iLike]: `%${searchString}%` }
           ),
         ];
