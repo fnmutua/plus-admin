@@ -31,3 +31,7 @@ yarn.lock
 **/.env
 **/**/.env
 **/**/**/.env
+
+# Database config files with credentials
+app/config/db.config-local.js
+app/config/db.config-live.js
