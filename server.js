@@ -84,6 +84,30 @@ app.use(bodyParser.json({ limit: '200mb' }))
 app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 app.use(auditContext)
 
+// Brute-force protection on login and OTP endpoints
+const rateLimit = require('express-rate-limit')
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Please try again in 15 minutes.' }
+})
+
+// OTP verify: 4-digit code = 10k combos — keep this tight
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many OTP attempts. Please request a new code.' }
+})
+
+app.use('/api/auth/signin', loginLimiter)
+app.use('/api/app/signin', loginLimiter)
+app.use('/api/app/verify', otpLimiter)
+
 const db = require('./server/app/models')
 const Role = db.role
 db.sequelize.sync().then(() => {
