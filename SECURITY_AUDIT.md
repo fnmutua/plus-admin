@@ -71,7 +71,7 @@
 3. [x] Fix CORS to explicit domain allowlist only (remove wildcard `'*'`)
 4. [x] Add `express-rate-limit` to all auth routes (`/signin`, `/signup`, `/reset`, `/verify`)
 5. [x] Untrack `.env*` and `db.config-*.js` from git
-6. [x] Purge credential history from git with git-filter-repo (2026-03-27)
+6. [x] Purge credential history from git with git-filter-repo (2026-03-27) — 2 passes: redact values, then delete files entirely
 7. [ ] Rotate ALL credentials listed above — treat all as compromised
 
 ### Phase 2 — This Week
