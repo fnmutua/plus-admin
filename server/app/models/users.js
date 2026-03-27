@@ -73,6 +73,10 @@ module.exports = function (sequelize, DataTypes) {
       data_use_description: {
         type: DataTypes.TEXT,
         allowNull: true
+      },
+      last_login: {
+        type: DataTypes.DATE,
+        allowNull: true
       }
     },
     {

@@ -1015,6 +1015,7 @@ const getSelectedRows = () => {
           location_level: "settlement",
           location_id: res.data.id,
           location_field: "settlement_id",
+          county_id: res.data.county_id,
         };
 
         signupGRC(formData).then((response) => {

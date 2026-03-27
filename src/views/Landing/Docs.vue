@@ -2972,6 +2972,15 @@ const allNavGroups: NavGroup[] = [
           <p>The <strong>Users</strong> section lists all system users and provides filtering, search, and export tools. Users are organised into sub-views accessible from the top navigation: <em>All</em>, <em>Admin</em>, <em>GRM</em>, <em>Support</em>, and <em>New Accounts</em>.</p>
           <img src="${userListingImg}" alt="User listing" class="docs-screenshot" />
 
+          <h2>Location-level tabs (Admin &amp; GRM views)</h2>
+          <p>The <strong>Admin</strong> and <strong>GRM</strong> sub-views split users into three tabs by their assigned location level:</p>
+          <table><thead><tr><th>Tab</th><th>Who is shown</th><th>Visible to</th></tr></thead><tbody>
+            <tr><td><strong>National Level</strong></td><td>Users with a national-scope role assignment.</td><td>National admins, super admins, root admins only.</td></tr>
+            <tr><td><strong>County Level</strong></td><td>Users with a county-scope role assignment.</td><td>All admins; county admins see only users in their own county.</td></tr>
+            <tr><td><strong>Settlement Level</strong></td><td>Users with a settlement-scope role assignment.</td><td>All admins; county admins see only users in settlements within their county.</td></tr>
+          </tbody></table>
+          <blockquote>County-level administrators land on the <strong>County Level</strong> tab by default and cannot see the National Level tab. They have <strong>read-only</strong> access — the Operations column is hidden.</blockquote>
+
           <h2>Table columns</h2>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>#</strong></td><td>Row number.</td></tr>
@@ -2980,14 +2989,15 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Username</strong></td><td>Login username.</td></tr>
             <tr><td><strong>Country</strong></td><td>Country of the user.</td></tr>
             <tr><td><strong>Organization</strong></td><td>Organisation affiliation.</td></tr>
-            <tr><td><strong>County</strong></td><td>Assigned county.</td></tr>
-            <tr><td><strong>Operations</strong></td><td>Activate/deactivate switch and Edit button (permission-gated).</td></tr>
+            <tr><td><strong>County / Settlement</strong></td><td>Assigned county (County tab) or settlement name (Settlement tab).</td></tr>
+            <tr><td><strong>Last Login</strong></td><td>Date and time of the user's most recent login. Shows <em>Never</em> if the user has never logged in.</td></tr>
+            <tr><td><strong>Operations</strong></td><td>Activate/deactivate switch, Edit, Force Logout, and Reset Password actions (permission-gated). Hidden for county-restricted admins.</td></tr>
           </tbody></table>
 
           <h2>Filtering</h2>
           <p>Use the filter bar above the table to narrow results:</p>
           <ul>
-            <li><strong>Filter by County</strong> — multi-select dropdown; choose one or more counties to show only users assigned to those counties.</li>
+            <li><strong>Filter by County</strong> — multi-select dropdown; choose one or more counties to show only users assigned to those counties. Hidden for county-restricted admins (their county is pre-applied).</li>
             <li><strong>Search by name, username, email or phone</strong> — remote search field; type to filter results in real time.</li>
             <li><strong>Clear filters</strong> (Filter icon button) — resets all active filters and reloads the full list.</li>
           </ul>
@@ -3038,7 +3048,7 @@ const allNavGroups: NavGroup[] = [
           <h3>Dialog fields</h3>
           <table><thead><tr><th>Field</th><th>Editable</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Name</strong></td><td>Yes</td><td>Full display name of the user.</td></tr>
-            <tr><td><strong>Email</strong></td><td>No</td><td>Login email — read-only after registration.</td></tr>
+            <tr><td><strong>Email</strong></td><td>National / super / root admins only</td><td>Login email. Editable by national admins, super admins, and root admins. Read-only for county-level admins.</td></tr>
             <tr><td><strong>Username</strong></td><td>No</td><td>System username — read-only after registration.</td></tr>
             <tr><td><strong>Phone</strong></td><td>Yes</td><td>Contact phone number.</td></tr>
             <tr><td><strong>Role</strong></td><td>Yes</td><td>The system role to assign (e.g. Admin, Staff, GRM).</td></tr>
@@ -3063,7 +3073,7 @@ const allNavGroups: NavGroup[] = [
             <li>Click <strong>Confirm</strong> to save. The user's access updates immediately on their next page load.</li>
           </ol>
 
-          <p><em>Note: County-level administrators can only assign roles within their own county and cannot grant National-level access.</em></p>
+          <p><em>Note: County-level administrators can only assign roles within their own county and cannot grant National-level access. When viewing the Admin, GRM, Support, or New Accounts user lists, county admins have read-only access — the Operations column (edit, activate, force logout) is not shown.</em></p>
 
           <h2>Standard built-in roles</h2>
           <table><thead><tr><th>Role</th><th>Typical access level</th></tr></thead><tbody>

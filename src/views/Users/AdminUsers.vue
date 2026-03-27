@@ -542,7 +542,7 @@ const getFilteredBySearchData = async (searchString) => {
   
   // Single optimized pass through data
   res.data.forEach(user => {
-    user.last_login = undefined // undefined = loading, null = never, Date = last login
+    // keep backend last_login value as-is
     
     if (user.user_roles && Array.isArray(user.user_roles)) {
       // Backend already ensures all user_roles are admin roles, so just check location_level
@@ -649,7 +649,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   
   // Single optimized pass through data
   res.data.forEach(user => {
-    user.last_login = undefined // undefined = loading, null = never, Date = last login
+    // keep backend last_login value as-is
 
     if (user.user_roles && Array.isArray(user.user_roles)) {
       // Backend already ensures all user_roles are admin roles, so just check location_level
@@ -1337,11 +1337,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Organization" prop="organization_name" sortable />
       <el-table-column label="Last Login" width="180" sortable>
         <template #default="scope">
-          <span v-if="scope.row.last_login">
-            {{ formatDate(scope.row.last_login) }}
-          </span>
-          <span v-else-if="scope.row.last_login === null" style="color: #999;">Never</span>
-          <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
+          <span v-if="scope.row.last_login">{{ formatDate(scope.row.last_login) }}</span>
+          <span v-else style="color: #999;">Never</span>
         </template>
       </el-table-column>
 
@@ -1477,11 +1474,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Organization" prop="organization_name" sortable />
       <el-table-column label="Last Login" width="180" sortable>
         <template #default="scope">
-          <span v-if="scope.row.last_login">
-            {{ formatDate(scope.row.last_login) }}
-          </span>
-          <span v-else-if="scope.row.last_login === null" style="color: #999;">Never</span>
-          <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
+          <span v-if="scope.row.last_login">{{ formatDate(scope.row.last_login) }}</span>
+          <span v-else style="color: #999;">Never</span>
         </template>
       </el-table-column>
       <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1610,17 +1604,16 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
-      <el-table-column label="Country" prop="country_name" sortable />
-
-      <el-table-column label="County" prop="county.name" width="120" sortable />
+      <el-table-column label="Settlement" width="160">
+        <template #default="scope">
+          {{ settlementOptions.find(s => s.value === scope.row.user_roles?.find((r: any) => r.settlement_id)?.settlement_id)?.label || '—' }}
+        </template>
+      </el-table-column>
       <el-table-column label="Organization" prop="organization_name" sortable />
       <el-table-column label="Last Login" width="180" sortable>
         <template #default="scope">
-          <span v-if="scope.row.last_login">
-            {{ formatDate(scope.row.last_login) }}
-          </span>
-          <span v-else-if="scope.row.last_login === null" style="color: #999;">Never</span>
-          <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
+          <span v-if="scope.row.last_login">{{ formatDate(scope.row.last_login) }}</span>
+          <span v-else style="color: #999;">Never</span>
         </template>
       </el-table-column>
       <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">

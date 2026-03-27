@@ -475,7 +475,7 @@ const getFilteredBySearchData = async (searchString) => {
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
   res.data.forEach(user => {
-    user.last_login = undefined // undefined = loading, null = never, Date = last login
+    // keep backend last_login value as-is
   })
 
   //tableDataList_orig.value = res.data // back for post filter
@@ -518,7 +518,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   tableDataList.value = res.data
   tableDataList_orig.value = res.data // back for post filter
   res.data.forEach(user => {
-    user.last_login = undefined // undefined = loading, null = never, Date = last login
+    // keep backend last_login value as-is
   })
 
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
@@ -1045,11 +1045,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column label="Last Login" width="180" sortable>
         <template #default="scope">
-          <span v-if="scope.row.last_login">
-            {{ formatDate(scope.row.last_login) }}
-          </span>
-          <span v-else-if="scope.row.last_login === null" style="color: #999;">Never</span>
-          <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
+          <span v-if="scope.row.last_login">{{ formatDate(scope.row.last_login) }}</span>
+          <span v-else style="color: #999;">Never</span>
         </template>
       </el-table-column>
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">

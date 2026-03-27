@@ -66,6 +66,10 @@ module.exports = function (sequelize, DataTypes) {
       photo: {
         type: DataTypes.BLOB,
         allowNull: true
+      },
+      last_login: {
+        type: DataTypes.DATE,
+        allowNull: true
       }
     },
     {
