@@ -275,8 +275,8 @@ watch(
 
 const loginUserToCollector = async () => {
   const formData: { email: string; password: string } = {
-    email: 'kisip.mis@gmail.com',
-    password: '***REDACTED***'
+    email: import.meta.env.VITE_APP_COLLECTOR_EMAIL,
+    password: import.meta.env.VITE_APP_COLLECTOR_PASSWORD
   }
 
   loading.value = true

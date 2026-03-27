@@ -965,8 +965,8 @@ const loginUserToCollector = async () => {
 
     loading.value = true
     var formData = {}
-    formData.email = "kisip.mis@gmail.com"
-    formData.password = "***REDACTED***"
+    formData.email = import.meta.env.VITE_APP_COLLECTOR_EMAIL
+    formData.password = import.meta.env.VITE_APP_COLLECTOR_PASSWORD
 
     console.log("gettign fields")
 

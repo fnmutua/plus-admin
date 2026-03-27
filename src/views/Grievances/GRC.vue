@@ -107,8 +107,8 @@ const dataFetchStatus = ref('')
 
 const loginUserToCollector = async () => {
   var formData = {}
-  formData.email = "kisip.mis@gmail.com"
-  formData.password = "***REDACTED***"
+  formData.email = import.meta.env.VITE_APP_COLLECTOR_EMAIL
+  formData.password = import.meta.env.VITE_APP_COLLECTOR_PASSWORD
 
   loading.value = true
   fetchingData.value = true

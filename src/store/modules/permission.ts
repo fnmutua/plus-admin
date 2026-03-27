@@ -634,7 +634,7 @@ export const usePermissionStore = defineStore('permission', {
     }
   },
   actions: {
-    async generateRoutes(type, locationLevel) {
+    async generateRoutes(_type: string, _locationLevel: string, userPermissions: string[] = []) {
       return new Promise<void>(async (resolve) => {
         // Initialize dynamic routes first if not already loaded
         const hasRoutes = dashboardsLoaded.value && programmeComponentOptions.value.length > 0
@@ -650,26 +650,23 @@ export const usePermissionStore = defineStore('permission', {
           console.log('Routes stale, revalidating in background...');
           initializeRoutes().then(() => { routesLoadedAt.value = Date.now() })
         }
-        
-        // Function to recursively filter routes and their children based on 'type' and 'locationLevel'
+
+        // Filter routes by granular permissions only. Routes with no permissions declared are visible to all authenticated users.
+        // Operate on a deep clone so the module-level adminRoutes is never mutated between calls.
         const filterRoutes = (routes) => {
-          const filteredRoutes = routes.filter((route) => {
-            // Check if route has 'meta' and if the 'role' and 'locationLevel' match
-            if (!route.meta || (!route.meta.role && !route.meta.locationLevel)) return true;
-            const matchesRole = route.meta.role ? route.meta.role.includes(type) : true;
-            const matchesLocation = route.meta.locationLevel ? route.meta.locationLevel.includes(locationLevel) : true;
-            return matchesRole && matchesLocation;
-          });
-          // Recursively filter the children of each route
-          filteredRoutes.forEach((route) => {
-            if (route.children) {
-              route.children = filterRoutes(route.children);
-            }
-          });
-          return filteredRoutes;
+          return routes
+            .filter((route) => {
+              if (!route.meta?.permissions?.length) return true;
+              return route.meta.permissions.some((p: string) => userPermissions.includes(p));
+            })
+            .map((route) => {
+              if (route.children?.length) {
+                return { ...route, children: filterRoutes(route.children) };
+              }
+              return route;
+            });
         };
-        // Filter routes based on role and location level
-        const filteredRoutes = filterRoutes(adminRoutes);
+        const filteredRoutes = filterRoutes(cloneDeep(adminRoutes));
         // Clone the filtered routes to avoid modifying the original routes
         const newRouterMap = cloneDeep(filteredRoutes);
         // Check if this.addRouters is empty (first call) or if it contains already added routes

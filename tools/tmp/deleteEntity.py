@@ -6,7 +6,7 @@ BASE_URL = "https://collector.kesmis.go.ke"
 PROJECT_ID = "30"  # Replace with your Project ID
 dataset = "settlements"  # Replace with your dataset name
 USERNAME = "kisip.mis@gmail.com"  # Replace with your ODK Central username
-PASSWORD = "***REDACTED***"  # Replace with your ODK Central password
+PASSWORD = "Admin@2011"  # Replace with your ODK Central password
 
 # Authenticate and fetch entities
 def get_entities():

@@ -1565,10 +1565,10 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     if (res.multiCountyMerged) {
       const startIndex = (page.value - 1) * pageSize.value
       const endIndex = startIndex + pageSize.value
-      tableDataList.value = res.data.slice(startIndex, endIndex)
+      tableDataList.value = Array.isArray(res.data) ? res.data.slice(startIndex, endIndex) : []
       total.value = res.total
     } else {
-      tableDataList.value = res.data
+      tableDataList.value = Array.isArray(res.data) ? res.data : []
     }
     availableFields.value = extractFields(tableDataList.value);
 
@@ -2066,6 +2066,7 @@ const extractFields = (data) => {
     return geoKeywords.some(keyword => fieldName.toLowerCase().includes(keyword));
   }
 
+  if (!Array.isArray(data)) return [];
   data.forEach(item => traverse(item));
   return Array.from(fields);
 };

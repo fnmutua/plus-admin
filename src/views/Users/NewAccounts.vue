@@ -60,7 +60,35 @@ const currentUserInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
+// County restriction — mirrors User.vue pattern
+const isSuperAdmin = computed(() => {
+  return currentUser?.roles?.some((role: any) =>
+    ['super_admin', 'root_admin'].includes(role.name) ||
+    (role.name === 'admin' && role.user_roles?.location_level === 'national')
+  ) || false
+})
 
+const isCountyAdmin = computed(() => {
+  return currentUser?.roles?.some((role: any) =>
+    ['admin', 'staff'].includes(role.name) &&
+    role.user_roles?.location_level === 'county'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return currentUser?.roles?.find((role: any) =>
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+// County admins (non-super) should only see users in their own county
+const isCountyRestricted = computed(() => {
+  return isCountyAdmin.value && !isSuperAdmin.value && !!userCountyId.value
+})
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -422,10 +450,14 @@ const getFilteredBySearchData = async (searchString) => {
   const res = await getByName(formData)
 
   console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  // tableDataList_orig.value = res.data // back for post filter
+  const filteredData = isCountyRestricted.value && userCountyId.value
+    ? res.data.filter((user: any) =>
+        user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
+      )
+    : res.data
+  tableDataList.value = filteredData
 
-  total.value = res.total
+  total.value = filteredData.length
   loading.value = false
 
   tblData = [] // reset the table data
@@ -461,15 +493,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getCountyStaff(formData)
 
   console.log('After getting all users', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
+  const filteredData = isCountyRestricted.value && userCountyId.value
+    ? res.data.filter((user: any) =>
+        user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
+      )
+    : res.data
+  tableDataList.value = filteredData
+  tableDataList_orig.value = filteredData // back for post filter
 
-  total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
+  total.value = filteredData.length
 
-
-
-
-  res.data.forEach(function (arrayItem) {
+  filteredData.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
     // delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
     // delete arrayItem['photo'] //  remove the geometry column
@@ -975,7 +1009,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </template>
       </el-table-column>
 
-      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+      <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
           <el-dropdown v-if="isMobile" trigger="click">

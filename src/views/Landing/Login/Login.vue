@@ -188,7 +188,9 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
   console.log('[Login] kesmis_is_admin set to', isAdmin ? '1' : '0', 'for role', highestRole)
 
   let routers: RouteRecordRaw[] = []
-  await permissionStore.generateRoutes((formData as any).role, (formData as any).level).catch(() => {})
+  const cachedUser = wsCache.get(appStore.getUserInfo)
+  const userPermissions: string[] = Array.isArray(cachedUser?.permissions) ? cachedUser.permissions : []
+  await permissionStore.generateRoutes((formData as any).role, (formData as any).level, userPermissions).catch(() => {})
   routers = [...new Set(permissionStore.getAddRouters.map(route => route as RouteRecordRaw))]
 
   wsCache.set('roleRouters', routers)

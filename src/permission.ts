@@ -45,8 +45,11 @@ router.beforeEach(async (to, from, next) => {
       }
 
       const roles = userInfo.roles; // Get all roles for the user
+      const userPermissions: string[] = Array.isArray(userInfo.permissions)
+        ? userInfo.permissions as string[]
+        : [];
 
- 
+
         const adminRoles = ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring'];
         const nonAdminRoles = ['grm', 'consultant'];
 
@@ -57,7 +60,7 @@ router.beforeEach(async (to, from, next) => {
         for (const role of roles) {
           console.log("getting user roles: ", role);
 
-          await permissionStore.generateRoutes(role.name, role.user_roles.location_level);
+          await permissionStore.generateRoutes(role.name, role.user_roles.location_level, userPermissions);
 
           if (adminRoles.includes(role.name)) {
             hasAdminRole = true;

@@ -80,6 +80,36 @@ const canEditEmail = computed(() => {
   }) || false
 })
 
+// County restriction — mirrors User.vue pattern
+const isSuperAdmin = computed(() => {
+  return currentUser?.roles?.some((role: any) =>
+    ['super_admin', 'root_admin'].includes(role.name) ||
+    (role.name === 'admin' && role.user_roles?.location_level === 'national')
+  ) || false
+})
+
+const isCountyAdmin = computed(() => {
+  return currentUser?.roles?.some((role: any) =>
+    ['admin', 'staff'].includes(role.name) &&
+    role.user_roles?.location_level === 'county'
+  ) || false
+})
+
+const userCountyRole = computed(() => {
+  return currentUser?.roles?.find((role: any) =>
+    role.user_roles?.location_level === 'county'
+  )
+})
+
+const userCountyId = computed(() => {
+  return userCountyRole.value?.user_roles?.county_id || null
+})
+
+// County admins (non-super) should only see users in their own county
+const isCountyRestricted = computed(() => {
+  return isCountyAdmin.value && !isSuperAdmin.value && !!userCountyId.value
+})
+
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
@@ -531,8 +561,18 @@ const getFilteredBySearchData = async (searchString) => {
 
   // Get unique users for each level
   const uniqueNationalUsers = getUniqueUsers(allNationalUsers)
-  const uniqueCountyUsers = getUniqueUsers(allCountyUsers)
-  const uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
+  let uniqueCountyUsers = getUniqueUsers(allCountyUsers)
+  let uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
+
+  // Restrict county admins to only see users in their own county
+  if (isCountyRestricted.value && userCountyId.value) {
+    uniqueCountyUsers = uniqueCountyUsers.filter(user =>
+      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
+    )
+    uniqueSettlementUsers = uniqueSettlementUsers.filter(user =>
+      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
+    )
+  }
 
   // Update totals
   totalNational.value = uniqueNationalUsers.length
@@ -610,26 +650,36 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // Single optimized pass through data
   res.data.forEach(user => {
     user.last_login = undefined // undefined = loading, null = never, Date = last login
-    
+
     if (user.user_roles && Array.isArray(user.user_roles)) {
       // Backend already ensures all user_roles are admin roles, so just check location_level
       const hasNationalAdmin = user.user_roles.some(role => role.location_level === 'national')
       const hasCountyAdmin = user.user_roles.some(role => role.location_level === 'county')
       const hasSettlementAdmin = user.user_roles.some(role => role.location_level === 'settlement')
-      
+
       if (hasNationalAdmin) allNationalUsers.push(user)
       if (hasCountyAdmin) allCountyUsers.push(user)
       if (hasSettlementAdmin) allSettlementUsers.push(user)
     }
   })
-  
+
   tableDataList.value = res.data
   tableDataList_orig.value = res.data // back for post filter
 
   // Get unique users for each level
   const uniqueNationalUsers = getUniqueUsers(allNationalUsers)
-  const uniqueCountyUsers = getUniqueUsers(allCountyUsers)
-  const uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
+  let uniqueCountyUsers = getUniqueUsers(allCountyUsers)
+  let uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
+
+  // Restrict county admins to only see users in their own county
+  if (isCountyRestricted.value && userCountyId.value) {
+    uniqueCountyUsers = uniqueCountyUsers.filter(user =>
+      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
+    )
+    uniqueSettlementUsers = uniqueSettlementUsers.filter(user =>
+      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
+    )
+  }
 
   // Update totals
   totalNational.value = uniqueNationalUsers.length
@@ -772,6 +822,11 @@ const formatDate = (dateString: string | Date | null) => {
 getRoles()
 getCountyNames()
 getSettlementsOptions()
+
+// County admins land on the county tab by default
+if (isCountyRestricted.value) {
+  activeTab.value = 'county'
+}
 getInterventionsAll()
 
 
@@ -1256,7 +1311,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
     <el-tabs v-model="activeTab" @tab-change="handleTabChange" style="margin-top: 20px;">
-      <el-tab-pane label="National Level" name="national">
+      <el-tab-pane v-if="!isCountyRestricted" label="National Level" name="national">
         <el-table :data="getCurrentTableData" style="width: 100% ; margin-top: 30px" v-loading="getCurrentLoading">
 
       <el-table-column prop="id" label="#" width="50" />
@@ -1290,7 +1345,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </template>
       </el-table-column>
 
-      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+      <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
           <el-dropdown v-if="isMobile" trigger="click">
@@ -1429,7 +1484,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
         </template>
       </el-table-column>
-      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+      <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
           <el-dropdown v-if="isMobile" trigger="click">
@@ -1568,7 +1623,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           <span v-else style="color: #ccc; font-style: italic;">Loading...</span>
         </template>
       </el-table-column>
-      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+      <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
           <el-dropdown v-if="isMobile" trigger="click">

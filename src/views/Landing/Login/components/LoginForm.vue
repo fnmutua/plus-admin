@@ -276,7 +276,9 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
 
   // Generate and collect routes based on the highest role and level
   let routers = [];
-  await permissionStore.generateRoutes(formData.role, formData.level).catch(() => {});
+  const cachedUser = wsCache.get(appStore.getUserInfo);
+  const userPermissions: string[] = Array.isArray(cachedUser?.permissions) ? cachedUser.permissions : [];
+  await permissionStore.generateRoutes(formData.role, formData.level, userPermissions).catch(() => {});
   routers = [...new Set(permissionStore.getAddRouters.map(route => route as RouteRecordRaw))];
 
   // Cache the role's routers (wsCache already declared at top)
