@@ -3095,13 +3095,31 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     };
     
 
- exports.downloadFile = (req, res) => {
+ exports.downloadFile = async (req, res) => {
       console.log("Received files:", req.body);
-    
-      const uploadedFile = path.join(uploadDir, req.body.filename);
-    
+
+      let filename = req.body.filename;
+      if (req.body.doc_id != null && req.body.doc_id !== '') {
+        try {
+          const gd = await db.models.grievance_document.findByPk(Number(req.body.doc_id));
+          if (gd && gd.name) filename = gd.name;
+        } catch (e) {
+          console.error('grievance_document lookup in downloadFile', e);
+        }
+      }
+
+      if (!filename || String(filename).trim() === '') {
+        return res.status(500).send({
+          message: 'File not found.',
+          code: '0000'
+        });
+      }
+
+      const safeName = path.basename(String(filename));
+      const uploadedFile = path.join(uploadDir, safeName);
+
       console.log(uploadedFile);
-    
+
       // Check if the file exists
       fs.access(uploadedFile, fs.constants.F_OK, (err) => {
         if (err) {

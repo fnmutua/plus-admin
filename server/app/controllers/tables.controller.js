@@ -5668,14 +5668,31 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
     }
 
     try {
-      // First, check if records exist with the pcode
-      const records = await db.models[req.body.model].findAll({
+      const ParentModel = db.models[req.body.model]
+      if (!ParentModel) {
+        return res.status(400).send({
+          message: `Unknown parent model: ${req.body.model}`,
+          code: '0000'
+        })
+      }
+
+      // Parent lookup must use the model's actual Sequelize attribute (e.g. police_station uses `Code`, not `code`).
+      const parentAttrs = ParentModel.rawAttributes || {}
+      const codeAttr = Object.keys(parentAttrs).find((k) => k.toLowerCase() === 'code')
+      if (!codeAttr) {
+        return res.status(400).send({
+          message: `Model "${req.body.model}" has no code attribute for parent lookup`,
+          code: '0000'
+        })
+      }
+
+      const records = await ParentModel.findAll({
         where: {
-          code: {
+          [codeAttr]: {
             [Op.eq]: req.body.pcode
           }
         }
-      });
+      })
 
       if (!records || records.length === 0) {
         return res.status(404).send({
