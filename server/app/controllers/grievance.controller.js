@@ -1026,7 +1026,10 @@ exports.getGrievances = async (req, res) => {
 const multer = require('multer');
  
 
-const uploadDir = process.env.GRIEVANCE_UPLOAD_DIR || path.resolve(process.cwd(), 'data', 'grievances');
+// Production layout: same root as pdf.controller (`/data/grievances`), not under repo cwd (e.g. `/data/plus-admin/data/grievances`).
+const uploadDir = process.env.GRIEVANCE_UPLOAD_DIR || '/data/grievances';
+/** Previous default when cwd was the app folder — used only as a download fallback for unmigrated files. */
+const grievanceUploadDirLegacy = path.resolve(process.cwd(), 'data', 'grievances');
 
 // Ensure the directory exists
 if (!fs.existsSync(uploadDir)) {
@@ -3116,48 +3119,45 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       }
 
       const safeName = path.basename(String(filename));
-      const uploadedFile = path.join(uploadDir, safeName);
+      const primaryPath = path.join(uploadDir, safeName);
+      const legacyPath = path.join(grievanceUploadDirLegacy, safeName);
+      const pathsToTry =
+        path.normalize(primaryPath) === path.normalize(legacyPath)
+          ? [primaryPath]
+          : [primaryPath, legacyPath];
 
-      console.log(uploadedFile);
-
-      // Check if the file exists
-      fs.access(uploadedFile, fs.constants.F_OK, (err) => {
-        if (err) {
-          console.log(err);
-       
-    
-          db.models.document.destroy({ where: { name: req.body.filename } })
-          .then(() => {
-            console.log('succeed')
+      const trySendFrom = (i) => {
+        if (i >= pathsToTry.length) {
+          db.models.document.destroy({ where: { name: req.body.filename } }).then(() => {
+            console.log('succeed');
             res.status(500).send({
               message: 'File not found.',
-              code: '0000'
+              code: '0000',
             });
-        }) 
-    
-          
-        } else {
-          // File exists, send it
-        //  res.sendFile(path.resolve(filePath));
-    
-          res.sendFile(path.resolve(uploadedFile), function(err) {
-            if (err) {
-              console.log(err);
+          });
+          return;
+        }
+        const uploadedFile = pathsToTry[i];
+        console.log(uploadedFile);
+        fs.access(uploadedFile, fs.constants.F_OK, (err) => {
+          if (err) {
+            console.log(err);
+            trySendFrom(i + 1);
+            return;
+          }
+          res.sendFile(path.resolve(uploadedFile), function (sendErr) {
+            if (sendErr) {
+              console.log(sendErr);
               res.status(500).send({
                 message: 'Download failed. Error occurred.',
-                code: '0000'
+                code: '0000',
               });
-            } else {
-              // File sent successfully
-              // Handle success logic here if needed
-              // res.status(200).send({
-              //   message: 'File Found. Downloading...',
-              //   code: '0000'
-              // });
             }
           });
-        }
-      });
+        });
+      };
+
+      trySendFrom(0);
     };
 
 
