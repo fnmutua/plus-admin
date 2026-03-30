@@ -416,8 +416,10 @@ onMounted(() => {
   gap: 12px;
 }
 .card-header .title {
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  letter-spacing: -0.02em;
 }
 .card-header .actions {
   display: flex;

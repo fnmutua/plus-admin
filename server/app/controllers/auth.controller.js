@@ -253,6 +253,15 @@ exports.signup = (req, res) => {
   const admin_phones = []
   // Save User to Database
   console.log(req.body)
+  const accessReason =
+    req.body.access_reason != null && String(req.body.access_reason).trim() !== ''
+      ? String(req.body.access_reason).trim().slice(0, 50)
+      : null
+  const dataUseDescription =
+    req.body.data_use_description != null && String(req.body.data_use_description).trim() !== ''
+      ? String(req.body.data_use_description).trim()
+      : null
+
   User.create({
     username: req.body.username.trim().toLowerCase(),
     name: req.body.name,
@@ -262,6 +271,8 @@ exports.signup = (req, res) => {
     county_id: req.body.county_id,
     country_name: req.body.country_name,
     organization_name: req.body.organization_name,
+    access_reason: accessReason,
+    data_use_description: dataUseDescription,
     password: bcrypt.hashSync(req.body.password, 8)
   })
     .then((user) => {
