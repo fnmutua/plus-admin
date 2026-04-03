@@ -537,32 +537,54 @@ const getAssociations = (row: any): { label: string; route: any | null; key: str
     results.push({ label, route, key })
   }
 
-  // Add primary FK associations
-  if (row.settlement_id && row['settlement.name'])
-    addPrimary('settlement', row.settlement_id, row['settlement.name'], { name: 'SettlementDetails', params: { id: row.settlement_id } })
-  if (row.project_id && row['project.title'])
-    addPrimary('project', row.project_id, row['project.title'], { name: 'ProjectDetails', params: { id: row.project_id } })
-  if (row.health_facility_id && row['health_facility.name'])
-    addPrimary('health_facility', row.health_facility_id, row['health_facility.name'], { name: 'HealthFacilityDetails', params: { id: row.health_facility_id } })
-  if (row.education_facility_id && row['education_facility.name'])
-    addPrimary('education_facility', row.education_facility_id, row['education_facility.name'], { name: 'EducationFacilityDetails', params: { id: row.education_facility_id } })
-  if (row.road_id && row['road.name'])
-    addPrimary('road', row.road_id, row['road.name'], { name: 'RoadsDetails', params: { id: row.road_id } })
-  if (row.road_asset_id && row['road_asset.name'])
-    addPrimary('road_asset', row.road_asset_id, row['road_asset.name'], { name: 'RoadsDetails', params: { id: row.road_asset_id } })
-  if (row.water_point_id && row['water_point.name'])
-    addPrimary('water_point', row.water_point_id, row['water_point.name'], { name: 'WaterDetails', params: { id: row.water_point_id } })
-  if (row.sewer_id && row['sewer.name'])
-    addPrimary('sewer', row.sewer_id, row['sewer.name'], { name: 'SewerFacilityDetails', params: { id: row.sewer_id } })
-  if (row.other_facility_id && row['other_facility.name'])
-    addPrimary('other_facility', row.other_facility_id, row['other_facility.name'], { name: 'OtherFacilityDetails', params: { id: row.other_facility_id } })
-  if (row.contractor_id && (row['contractor.name'] || row['contractor.contract_number']))
-    addPrimary('contractor', row.contractor_id, row['contractor.name'] || row['contractor.contract_number'], { name: 'SettingsContractor' })
+  // Add primary FK associations (always when id set; label from join or resolveLinkLabel)
+  if (row.settlement_id) {
+    const label = row['settlement.name'] || resolveLinkLabel('settlement', Number(row.settlement_id))
+    addPrimary('settlement', Number(row.settlement_id), label, { name: 'SettlementDetails', params: { id: row.settlement_id } })
+  }
+  if (row.project_id) {
+    const label = row['project.title'] || resolveLinkLabel('project', Number(row.project_id))
+    addPrimary('project', Number(row.project_id), label, { name: 'ProjectDetails', params: { id: row.project_id } })
+  }
+  if (row.health_facility_id) {
+    const label = row['health_facility.name'] || resolveLinkLabel('health_facility', Number(row.health_facility_id))
+    addPrimary('health_facility', Number(row.health_facility_id), label, { name: 'HealthFacilityDetails', params: { id: row.health_facility_id } })
+  }
+  if (row.education_facility_id) {
+    const label = row['education_facility.name'] || resolveLinkLabel('education_facility', Number(row.education_facility_id))
+    addPrimary('education_facility', Number(row.education_facility_id), label, { name: 'EducationFacilityDetails', params: { id: row.education_facility_id } })
+  }
+  if (row.road_id) {
+    const label = row['road.name'] || resolveLinkLabel('road', Number(row.road_id))
+    addPrimary('road', Number(row.road_id), label, { name: 'RoadsDetails', params: { id: row.road_id } })
+  }
+  if (row.road_asset_id) {
+    const label = row['road_asset.name'] || resolveLinkLabel('road_asset', Number(row.road_asset_id))
+    addPrimary('road_asset', Number(row.road_asset_id), label, { name: 'RoadsDetails', params: { id: row.road_asset_id } })
+  }
+  if (row.water_point_id) {
+    const label = row['water_point.name'] || resolveLinkLabel('water_point', Number(row.water_point_id))
+    addPrimary('water_point', Number(row.water_point_id), label, { name: 'WaterDetails', params: { id: row.water_point_id } })
+  }
+  if (row.sewer_id) {
+    const label = row['sewer.name'] || resolveLinkLabel('sewer', Number(row.sewer_id))
+    addPrimary('sewer', Number(row.sewer_id), label, { name: 'SewerFacilityDetails', params: { id: row.sewer_id } })
+  }
+  if (row.other_facility_id) {
+    const label = row['other_facility.name'] || resolveLinkLabel('other_facility', Number(row.other_facility_id))
+    addPrimary('other_facility', Number(row.other_facility_id), label, { name: 'OtherFacilityDetails', params: { id: row.other_facility_id } })
+  }
+  if (row.contractor_id) {
+    const label = row['contractor.name'] || row['contractor.contract_number'] || resolveLinkLabel('contractor', Number(row.contractor_id))
+    addPrimary('contractor', Number(row.contractor_id), label, { name: 'SettingsContractor' })
+  }
 
   // Add extra links from document_link, skipping any already in seen
-  const links: any[] = row.entity_links || []
+  const rawLinks = row.entity_links
+  const links: any[] = Array.isArray(rawLinks) ? rawLinks : rawLinks ? [rawLinks] : []
   for (const link of links) {
-    const key = `${link.entity_type}:${link.entity_id}`
+    if (!link || link.entity_type == null || link.entity_id == null) continue
+    const key = `${link.entity_type}:${Number(link.entity_id)}`
     if (seen.has(key)) continue
     seen.add(key)
     const label = resolveLinkLabel(link.entity_type, link.entity_id)

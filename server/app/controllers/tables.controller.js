@@ -7153,7 +7153,9 @@ exports.getDocumentRepository = async (req, res) => {
         model: db.models.document_link,
         as: 'entity_links',
         attributes: ['entity_type', 'entity_id'],
-        required: false
+        required: false,
+        // Required with limit + distinct: otherwise Sequelize JOIN collapses to one link per document
+        separate: true
       }
     ];
 
@@ -7476,7 +7478,8 @@ exports.getDocumentRepository = async (req, res) => {
             model: db.models.document_link,
             as: 'entity_links',
             attributes: ['entity_type', 'entity_id'],
-            required: false
+            required: false,
+            separate: true
           }
         ],
         attributes: [
