@@ -5074,13 +5074,14 @@ exports.batchDocumentsUpload = (req, res) => {
       for (const nobj of objs) {
         const existingDoc = await db.models[reg_model].findOne({
           where: {
-            name: nobj.name,
-            location: nobj.location
+            name: nobj.name
           }
         });
 
         if (existingDoc) {
           console.log(`Document already exists: ${nobj.name} — checking document_link`);
+          // Remove the duplicate uploaded file since we'll use the existing document's location
+          try { if (nobj.location && fs.existsSync(nobj.location)) fs.unlinkSync(nobj.location) } catch (_) {}
           // Document exists; ensure the entity link is created if it isn't already
           const linkEntityType = nobj.settlement_id ? 'settlement'
             : nobj.project_id ? 'project'
@@ -7470,6 +7471,12 @@ exports.getDocumentRepository = async (req, res) => {
             model: db.models.users,
             as: 'user',
             attributes: ['id', 'name']
+          },
+          {
+            model: db.models.document_link,
+            as: 'entity_links',
+            attributes: ['entity_type', 'entity_id'],
+            required: false
           }
         ],
         attributes: [

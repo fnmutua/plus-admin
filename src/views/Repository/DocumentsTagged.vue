@@ -1143,6 +1143,8 @@ const doLinkDocument = async () => {
     })
     ElMessage.success(res.data?.message || 'Document linked successfully')
     linkDialogVisible.value = false
+    await loadDocumentRepository()
+    await loadDocumentsByTab()
   } catch (e: any) {
     ElMessage.error(e?.message || 'Failed to link document')
   } finally {
