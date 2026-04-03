@@ -6,9 +6,9 @@ module.exports = {
   PORT:process.env.VUE_APP_DB_PORT,
   dialect: "postgres",
   pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
+    max: 500,
+    min: 2,
+    acquire: 60000,
     idle: 10000
   }
 };
