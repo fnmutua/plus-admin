@@ -5081,8 +5081,36 @@ exports.batchDocumentsUpload = (req, res) => {
         });
 
         if (existingDoc) {
-          console.log(`Skipping existing document: ${nobj.name}`);
-          uploadStats.skipped++;
+          console.log(`Document already exists: ${nobj.name} — checking document_link`);
+          // Document exists; ensure the entity link is created if it isn't already
+          const linkEntityType = nobj.settlement_id ? 'settlement'
+            : nobj.project_id ? 'project'
+            : nobj.health_facility_id ? 'health_facility'
+            : nobj.education_facility_id ? 'education_facility'
+            : nobj.road_id ? 'road'
+            : nobj.water_point_id ? 'water_point'
+            : nobj.sewer_id ? 'sewer'
+            : nobj.other_facility_id ? 'other_facility'
+            : nobj.contractor_id ? 'contractor'
+            : null
+          const linkEntityId = nobj.settlement_id || nobj.project_id || nobj.health_facility_id
+            || nobj.education_facility_id || nobj.road_id || nobj.water_point_id
+            || nobj.sewer_id || nobj.other_facility_id || nobj.contractor_id || null
+          if (linkEntityType && linkEntityId) {
+            const [, created] = await db.models.document_link.findOrCreate({
+              where: { document_id: existingDoc.id, entity_type: linkEntityType, entity_id: parseInt(linkEntityId) },
+              defaults: { document_id: existingDoc.id, entity_type: linkEntityType, entity_id: parseInt(linkEntityId) }
+            })
+            if (created) {
+              console.log(`Linked existing document ${nobj.name} → ${linkEntityType}:${linkEntityId}`)
+              uploadStats.uploaded++
+            } else {
+              console.log(`Link already exists for ${nobj.name} → ${linkEntityType}:${linkEntityId}`)
+              uploadStats.skipped++
+            }
+          } else {
+            uploadStats.skipped++
+          }
           continue;
         }
 
@@ -5091,6 +5119,27 @@ exports.batchDocumentsUpload = (req, res) => {
           const savedDoc = await db.models[reg_model].create(nobj);
           uploadStats.uploaded++;
           console.log(`Inserted document: ${nobj.name}`);
+
+          // Mirror into document_link for multi-entity referencing
+          const linkEntityType = nobj.settlement_id ? 'settlement'
+            : nobj.project_id ? 'project'
+            : nobj.health_facility_id ? 'health_facility'
+            : nobj.education_facility_id ? 'education_facility'
+            : nobj.road_id ? 'road'
+            : nobj.water_point_id ? 'water_point'
+            : nobj.sewer_id ? 'sewer'
+            : nobj.other_facility_id ? 'other_facility'
+            : nobj.contractor_id ? 'contractor'
+            : null
+          const linkEntityId = nobj.settlement_id || nobj.project_id || nobj.health_facility_id
+            || nobj.education_facility_id || nobj.road_id || nobj.water_point_id
+            || nobj.sewer_id || nobj.other_facility_id || nobj.contractor_id || null
+          if (linkEntityType && linkEntityId) {
+            db.models.document_link.findOrCreate({
+              where: { document_id: savedDoc.id, entity_type: linkEntityType, entity_id: linkEntityId },
+              defaults: { document_id: savedDoc.id, entity_type: linkEntityType, entity_id: parseInt(linkEntityId) }
+            }).catch(e => console.log('document_link mirror error:', e))
+          }
 
           // Process document with AI (asynchronous, don't wait for completion)
           processDocumentWithAI(nobj.location, nobj.name, nobj.size)
@@ -6496,8 +6545,69 @@ exports.RemoveDocument = (req, res) => {
 
 
 
+// Link an existing document to an additional entity (e.g. a second settlement)
+exports.linkDocument = async (req, res) => {
+  try {
+    const { document_id, entity_type, entity_id } = req.body
+    if (!document_id || !entity_type || !entity_id) {
+      return res.status(400).send({ code: '0001', message: 'document_id, entity_type and entity_id are required' })
+    }
+    const [link, created] = await db.models.document_link.findOrCreate({
+      where: { document_id, entity_type, entity_id },
+      defaults: { document_id, entity_type, entity_id }
+    })
+    res.status(200).send({ code: '0000', message: created ? 'Linked' : 'Already linked', data: link })
+  } catch (e) {
+    console.error('linkDocument error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to link document' })
+  }
+}
+
+// Remove a specific document→entity link (does NOT delete the document record or file)
+exports.unlinkDocument = async (req, res) => {
+  try {
+    const { document_id, entity_type, entity_id } = req.body
+    if (!document_id || !entity_type || !entity_id) {
+      return res.status(400).send({ code: '0001', message: 'document_id, entity_type and entity_id are required' })
+    }
+    const deleted = await db.models.document_link.destroy({
+      where: { document_id, entity_type, entity_id }
+    })
+    res.status(200).send({ code: '0000', message: deleted ? 'Unlinked' : 'Link not found' })
+  } catch (e) {
+    console.error('unlinkDocument error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to unlink document' })
+  }
+}
+
+// Get all documents linked to a specific entity via document_link
+exports.getLinkedDocuments = async (req, res) => {
+  try {
+    const { entity_type, entity_id } = req.body
+    if (!entity_type || !entity_id) {
+      return res.status(400).send({ code: '0001', message: 'entity_type and entity_id are required' })
+    }
+    const links = await db.models.document_link.findAll({
+      where: { entity_type, entity_id },
+      include: [{
+        model: db.models.document,
+        as: 'linked_document',
+        include: [
+          { model: db.models.document_type, as: 'document_type', attributes: ['id', 'type', 'group'], required: false },
+          { model: db.models.users, as: 'user', attributes: ['id', 'name'], required: false }
+        ]
+      }]
+    })
+    const documents = links.map(l => l.linked_document).filter(Boolean)
+    res.status(200).send({ code: '0000', data: documents, count: documents.length })
+  } catch (e) {
+    console.error('getLinkedDocuments error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to retrieve linked documents' })
+  }
+}
+
 /// Submit  New settlments to ODK Central
- 
+
 // Define the endpoint URL and bearer token
 
  
@@ -7038,6 +7148,12 @@ exports.getDocumentRepository = async (req, res) => {
         model: db.models.users,
         as: 'user',
         attributes: ['id', 'name']
+      },
+      {
+        model: db.models.document_link,
+        as: 'entity_links',
+        attributes: ['entity_type', 'entity_id'],
+        required: false
       }
     ];
 
@@ -7123,17 +7239,22 @@ exports.getDocumentRepository = async (req, res) => {
       console.log('getDocumentRepository - Applied uploader filter:', uploaderCondition);
     }
 
-    // Add settlement filter — only documents directly tagged to one of the selected settlements
+    // Add settlement filter — documents directly tagged OR linked via document_link
     if (settlementFilter) {
-      const settlementCondition = Array.isArray(settlementFilter)
-        ? { settlement_id: { [Op.in]: settlementFilter } }
-        : { settlement_id: settlementFilter };
+      const ids = Array.isArray(settlementFilter) ? settlementFilter : [settlementFilter]
+      const idsStr = ids.map(id => parseInt(id)).filter(Boolean).join(',')
+      const settlementCondition = {
+        [Op.or]: [
+          { settlement_id: { [Op.in]: ids } },
+          ...(idsStr ? [literal(`EXISTS (SELECT 1 FROM document_link dl WHERE dl.document_id = "document"."id" AND dl.entity_type = 'settlement' AND dl.entity_id IN (${idsStr}))`)] : [])
+        ]
+      }
       if (baseQuery.where) {
         baseQuery.where = { [Op.and]: [baseQuery.where, settlementCondition] };
       } else {
         baseQuery.where = settlementCondition;
       }
-      console.log('getDocumentRepository - Applied settlementFilter:', settlementFilter);
+      console.log('getDocumentRepository - Applied settlementFilter (incl. document_link):', settlementFilter);
     }
 
     // Add project filter — only documents directly tagged to one of the selected projects
@@ -7603,6 +7724,12 @@ exports.getDocumentRepository = async (req, res) => {
         result['contractor.name'] = flatDoc.contractor?.name;
         result['contractor.contract_number'] = flatDoc.contractor?.contract_number;
       }
+
+      // Additional entity links (document_link table) — preserve the array
+      result.entity_links = (flatDoc.entity_links || []).map(l => ({
+        entity_type: l.entity_type,
+        entity_id: l.entity_id
+      }));
 
       return result;
     });

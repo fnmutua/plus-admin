@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { uploadFilesBatch,checkFilesExist } from '@/api/settlements'
+import { uploadFilesBatch, checkFilesExist, linkDocument } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFilteredHouseholdsByColumn,   } from '@/api/households'
 import { uuid } from 'vue-uuid'
@@ -705,43 +705,72 @@ const importFiles = async () => {
       throw new Error(checkData.message || 'Failed to check documents');
     }
 
-    // Step 3: Find existing documents
-    const existingDocs = checkData.results
-      .filter(result => result.exists)
-      .map(result => result.name);
+    // Step 3: For existing documents, create a document_link instead of skipping
+    const existingResults = checkData.results.filter((r: any) => r.exists)
+    const linkedNames: string[] = []
+    const alreadyLinkedNames: string[] = []
 
-    if (existingDocs.length > 0) {
-      // Warn user about existing docs
-      ElNotification({
-        title: 'Warning: Some Documents Already Exist',
-        message: `
-          <div style="max-height: 65vh; overflow-y: auto; font-size: 13px; line-height: 1.4;">
-            The following documents already exist and will be skipped:<br>
-            ${existingDocs.join('<br>')}
-          </div>
-        `,
-        type: 'warning',
-        duration: 0,
-        dangerouslyUseHTMLString: true
-      });
+    if (existingResults.length > 0) {
+      for (let idx = 0; idx < fileList.value.length; idx++) {
+        const file = fileList.value[idx]
+        const match = existingResults.find((r: any) => r.name === file.name)
+        if (!match) continue
 
-      // Remove existing documents from fileList and fileMetadata
-      const filteredFiles = [];
-      const filteredMetadata = [];
-      fileList.value.forEach((file, idx) => {
-        if (!existingDocs.includes(file.name)) {
-          filteredFiles.push(file);
-          filteredMetadata.push(fileMetadata.value[idx]);
+        const metadata = fileMetadata.value[idx]
+        const fieldId = metadata.field_id // e.g. 'settlement_id'
+        const entityId = fieldId ? metadata[fieldId] : null
+        const entityType = fieldId ? fieldId.replace(/_id$/, '') : null
+
+        if (match.document_id && entityType && entityId) {
+          try {
+            const res: any = await linkDocument({
+              document_id: match.document_id,
+              entity_type: entityType,
+              entity_id: Number(entityId)
+            })
+            if (res?.data?.message === 'Already linked') {
+              alreadyLinkedNames.push(file.name)
+            } else {
+              linkedNames.push(file.name)
+            }
+          } catch {
+            alreadyLinkedNames.push(file.name)
+          }
+        } else {
+          alreadyLinkedNames.push(file.name)
         }
-      });
+      }
 
-      // Update reactive references with filtered files and metadata
-      fileList.value = filteredFiles;
-      fileMetadata.value = filteredMetadata;
+      // Remove existing docs from upload list
+      const existingNames = existingResults.map((r: any) => r.name)
+      const filteredFiles: any[] = []
+      const filteredMetadata: any[] = []
+      fileList.value.forEach((file, idx) => {
+        if (!existingNames.includes(file.name)) {
+          filteredFiles.push(file)
+          filteredMetadata.push(fileMetadata.value[idx])
+        }
+      })
+      fileList.value = filteredFiles
+      fileMetadata.value = filteredMetadata
+
+      // Show summary for existing docs
+      const parts: string[] = []
+      if (linkedNames.length) parts.push(`Linked to new entity: ${linkedNames.join(', ')}`)
+      if (alreadyLinkedNames.length) parts.push(`Already linked (skipped): ${alreadyLinkedNames.join(', ')}`)
+      if (parts.length) {
+        ElNotification({
+          title: 'Existing Documents',
+          message: `<div style="font-size:13px;line-height:1.5;">${parts.join('<br>')}</div>`,
+          type: 'info',
+          duration: 8000,
+          dangerouslyUseHTMLString: true
+        })
+      }
 
       if (fileList.value.length === 0) {
-        // Nothing left to upload, so stop
-        return;
+        loading.value.import = false
+        return
       }
     }
 

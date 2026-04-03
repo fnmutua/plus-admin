@@ -50,7 +50,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
-import { revertHistory } from '@/api/settlements'
+import { revertHistory, getLinkedDocuments, unlinkDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 
 
@@ -510,10 +510,27 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     utilities.near_river = settlementData.near_river || false;
     utilities.encumbrance = settlementData.encumbrance || '';
 
-    // Set documents
+    // Set documents (direct settlement_id association)
     if (settlementData.documents) {
       const nestedArray = settlementData.documents;
-  settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
+      settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
+    }
+
+    // Merge additional linked documents from document_link
+    const sid = Number(route.params.id)
+    if (sid) {
+      try {
+        const linkedRes: any = await getLinkedDocuments({ entity_type: 'settlement', entity_id: sid })
+        if (linkedRes?.data?.length) {
+          const existingIds = new Set(settlementDocuments.value.map((d: any) => d.id))
+          const extras = linkedRes.data
+            .filter((d: any) => !existingIds.has(d.id))
+            .map((d: any) => ({ ...flattenObject(d), _isLinked: true }))
+          settlementDocuments.value = [...settlementDocuments.value, ...extras]
+        }
+      } catch {
+        // non-fatal: linked docs are supplementary
+      }
     }
 
     settGeom.value = settlementData.geom;
@@ -1103,9 +1120,50 @@ watch(photos, () => {
   initializeDocumentSections();
 }, { immediate: true });
 
+const handleUnlinkDocument = async (row: any) => {
+  const sid = Number(route.params.id)
+  if (!sid || !row.id) return
+  try {
+    await unlinkDocument({ document_id: row.id, entity_type: 'settlement', entity_id: sid })
+    settlementDocuments.value = settlementDocuments.value.filter((d: any) => d.id !== row.id)
+    ElMessage.success('Document unlinked from this settlement')
+  } catch {
+    ElMessage.error('Failed to unlink document')
+  }
+}
 
+const canUserDeleteDocument = (doc: any): boolean => {
+  if (!doc) return false
+  if (isSuperAdmin.value) return true
+  const hasNationalAccess = processedRoles.some(r => !r.field)
+  if (hasNationalAccess) return true
+  const userPermissions = userInfo.permissions || []
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
+    if (doc.createdBy === userInfo.id) return true
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin')
+    if (countyRole && countyRole.user_roles?.county_id === profile.county_id) return true
+  }
+  return false
+}
 
-
+const RemoveDocument = async (row: any) => {
+  if (!canUserDeleteDocument(row)) {
+    ElMessage({
+      message: 'You do not have permission to delete this document. Only Super Admins, National Staff, or the County Admin who created this document can delete it.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    })
+    return
+  }
+  try {
+    await DeleteRecord({ model: 'document', id: row.id } as any)
+    settlementDocuments.value = settlementDocuments.value.filter((d: any) => d.id !== row.id)
+    ElMessage.success('Document deleted successfully')
+  } catch {
+    ElMessage.error('Failed to delete document')
+  }
+}
 
 // Toggle collapse state for a specific type (accordion behavior - only one open at a time)
 const toggleCollapse = (type) => {
@@ -2887,9 +2945,14 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                <div v-show="!collapsedDocumentSections[type]" :class="[`${prefixCls}-content`, 'p-10px']">
                  <el-table :data="docs" style="width: 100%">
                    <el-table-column type="index" width="50" />
-                   <el-table-column prop="name" label="Name" />
-                   <el-table-column prop="createdAt" label="Uploaded" />
-                  <el-table-column fixed="right" label="" width="220">
+                   <el-table-column label="Name">
+                     <template #default="scope">
+                       {{ scope.row.name }}
+                       <el-tag v-if="scope.row._isLinked" size="small" type="info" style="margin-left:6px;">Linked</el-tag>
+                     </template>
+                   </el-table-column>
+                  <el-table-column prop="createdAt" label="Uploaded" />
+                 <el-table-column fixed="right" label="" min-width="200">
                    <template #default="scope">
                      <div class="doc-actions">
                        <el-button
@@ -2911,6 +2974,35 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                        >
                          Edit
                        </el-button>
+                       <el-popconfirm
+                         v-if="canUserDeleteDocument(scope.row)"
+                         title="Unlink this document from this settlement? The document will not be deleted."
+                         confirm-button-text="Unlink"
+                         cancel-button-text="Cancel"
+                         @confirm="handleUnlinkDocument(scope.row)"
+                       >
+                         <template #reference>
+                           <el-button plain type="warning" class="doc-action-button">
+                             <Icon icon="mdi:link-off" style="margin-right: 5px;" />
+                             Unlink
+                           </el-button>
+                         </template>
+                       </el-popconfirm>
+                       <el-popconfirm
+                         v-if="canUserDeleteDocument(scope.row)"
+                         title="Delete this document permanently? This cannot be undone."
+                         confirm-button-text="Delete"
+                         cancel-button-text="Cancel"
+                         confirm-button-type="danger"
+                         @confirm="RemoveDocument(scope.row)"
+                       >
+                         <template #reference>
+                           <el-button plain type="danger" class="doc-action-button">
+                             <Icon icon="material-symbols-light:delete-outline" style="margin-right: 5px;" />
+                             Remove
+                           </el-button>
+                         </template>
+                       </el-popconfirm>
                      </div>
                    </template>
                  </el-table-column>
@@ -3733,14 +3825,16 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 /* Document actions alignment */
 .doc-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .doc-action-button {
-  padding: 4px 10px;
+  padding: 5px 12px;
   height: auto;
+  margin: 0 !important;
 }
 
 .success-background {

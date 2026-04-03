@@ -20,7 +20,7 @@ import { useRouter } from 'vue-router'
 import { uploadFilesBatch, checkFilesExist } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import { searchByKeyWord } from '@/api/settlements'
-import { shareDocuments } from '@/api/settlements'
+import { shareDocuments, linkDocument } from '@/api/settlements'
 
 // Type definitions
 interface UserRole {
@@ -275,7 +275,12 @@ const getDocumentActionButtons = (document: Document): string[] => {
   if (userPermissions.includes('document:delete') && canUserDeleteDocument(document)) {
     buttons.push('delete')
   }
-  
+
+  // Allow linking to additional settlements if user has create permission
+  if (userPermissions.includes('document:create')) {
+    buttons.push('linkToSettlement')
+  }
+
   return buttons
 }
 
@@ -317,6 +322,78 @@ const shareForm = reactive({
 })
 const shareResultUrl = ref('')
 const shareError = ref('')
+
+// Link document to entity dialog state
+const linkDialogVisible = ref(false)
+const linkingDoc = ref<Document | null>(null)
+const linkEntityType = ref<string>('settlement')
+const linkEntityId = ref<number | null>(null)
+const linkEntityOptions = ref<{ value: number; label: string }[]>([])
+const linkEntityOptionsLoading = ref(false)
+const linkLoading = ref(false)
+
+const LINK_ENTITY_TYPES = [
+  { value: 'settlement',          label: 'Settlement',          model: 'settlement',          searchField: 'name'  },
+  { value: 'project',             label: 'Project',             model: 'project',             searchField: 'title' },
+  { value: 'health_facility',     label: 'Health Facility',     model: 'health_facility',     searchField: 'name'  },
+  { value: 'education_facility',  label: 'Education Facility',  model: 'education_facility',  searchField: 'name'  },
+  { value: 'road',                label: 'Road',                model: 'road',                searchField: 'name'  },
+  { value: 'road_asset',          label: 'Road Asset',          model: 'road_asset',          searchField: 'name'  },
+  { value: 'water_point',         label: 'Water Point',         model: 'water_point',         searchField: 'name'  },
+  { value: 'piped_water',         label: 'Piped Water',         model: 'piped_water',         searchField: 'name'  },
+  { value: 'sewer',               label: 'Sewer',               model: 'sewer',               searchField: 'name'  },
+  { value: 'other_facility',      label: 'Other Facility',      model: 'other_facility',      searchField: 'name'  },
+  { value: 'police_station',      label: 'Police Station',      model: 'police_station',      searchField: 'PC_Name' },
+  { value: 'community_hall',      label: 'Community Hall',      model: 'community_hall',      searchField: 'community_hall_name' },
+  { value: 'community_project',   label: 'Community Project',   model: 'community_project',   searchField: 'name'  },
+  { value: 'powerline',           label: 'Powerline',           model: 'powerline',           searchField: 'name'  },
+  { value: 'railway',             label: 'Railway',             model: 'railway',             searchField: 'name'  },
+  { value: 'floodlight',          label: 'Floodlight',          model: 'floodlight',          searchField: 'name'  },
+  { value: 'crime_hotspot',       label: 'Crime Hotspot',       model: 'crime_hotspot',       searchField: 'name'  },
+  { value: 'hazard_zone',         label: 'Hazard Zone',         model: 'hazard_zone',         searchField: 'name'  },
+  { value: 'mast',                label: 'Mast',                model: 'mast',                searchField: 'name'  },
+  { value: 'street_light',        label: 'Streetlight',         model: 'street_light',        searchField: 'name'  },
+  { value: 'dumping_site',        label: 'Dumping Site',        model: 'dumping_site',        searchField: 'name'  },
+  { value: 'contractor',          label: 'Contractor',          model: 'contractor',          searchField: 'name'  },
+]
+
+const loadLinkEntityOptions = async (entityType: string) => {
+  linkEntityId.value = null
+  linkEntityOptions.value = []
+  // Use pre-loaded options for settlement and project
+  if (entityType === 'settlement') {
+    linkEntityOptions.value = settlementOptions.value
+    return
+  }
+  if (entityType === 'project') {
+    linkEntityOptions.value = projectOptions.value
+    return
+  }
+  // Fetch on demand for other types
+  const typeConfig = LINK_ENTITY_TYPES.find(t => t.value === entityType)
+  if (!typeConfig) return
+  linkEntityOptionsLoading.value = true
+  try {
+    const res: any = await searchByKeyWord({
+      curUser: 1,
+      model: typeConfig.model,
+      searchField: typeConfig.searchField,
+      searchKeyword: '',
+      excludeGeom: true,
+      excludeGeomAssoc: true,
+      associated_multiple_models: [],
+    } as any)
+    const data = res?.data || []
+    linkEntityOptions.value = data.map((item: any) => ({
+      value: item.id,
+      label: item[typeConfig.searchField] || item.name || item.contract_number || `#${item.id}`,
+    }))
+  } catch {
+    linkEntityOptions.value = []
+  } finally {
+    linkEntityOptionsLoading.value = false
+  }
+}
 const drawerSearchTerm = ref('')
 const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: number } }>({})
 const activeFilterTab = ref('category')
@@ -387,8 +464,8 @@ const isProcessingExisting = ref(false)
 
 const { t } = useI18n()
 
-// Resolve a document row's association as { label, route } or null
-const getAssociation = (row: any): { label: string; route: any } | null => {
+// Resolve primary association from direct FK fields
+const getPrimaryAssociation = (row: any): { label: string; route: any } | null => {
   if (row['settlement.name'])
     return { label: row['settlement.name'], route: { name: 'SettlementDetails', params: { id: row['settlement.id'] } } }
   if (row['project.title'])
@@ -411,6 +488,93 @@ const getAssociation = (row: any): { label: string; route: any } | null => {
     return { label: row['contractor.name'] || row['contractor.contract_number'], route: { name: 'SettingsContractor' } }
   return null
 }
+
+const ENTITY_ROUTE_MAP: Record<string, string> = {
+  settlement: 'SettlementDetails',
+  project: 'ProjectDetails',
+  health_facility: 'HealthFacilityDetails',
+  education_facility: 'EducationFacilityDetails',
+  road: 'RoadsDetails',
+  water_point: 'WaterDetails',
+  piped_water: 'PipedWaterFacilityDetails',
+  sewer: 'SewerFacilityDetails',
+  other_facility: 'OtherFacilityDetails',
+  police_station: 'PoliceDetails',
+  community_hall: 'CommunityHallDetails',
+  community_project: 'CommunityProjectDetails',
+}
+
+const resolveEntityRoute = (entityType: string, entityId: number): any | null => {
+  const routeName = ENTITY_ROUTE_MAP[entityType]
+  if (!routeName) return null
+  return { name: routeName, params: { id: entityId } }
+}
+
+// Resolve a label for a document_link entry using already-loaded option lists
+const resolveLinkLabel = (entityType: string, entityId: number): string => {
+  if (entityType === 'settlement') {
+    return settlementOptions.value.find(s => s.value === entityId)?.label || `Settlement #${entityId}`
+  }
+  if (entityType === 'project') {
+    return projectOptions.value.find(p => p.value === entityId)?.label || `Project #${entityId}`
+  }
+  const typeConfig = LINK_ENTITY_TYPES.find(t => t.value === entityType)
+  const friendlyName = typeConfig?.label || entityType.replace(/_/g, ' ')
+  return `${friendlyName} #${entityId}`
+}
+
+// Return ALL associations (primary FK + document_link extras) as a deduplicated array
+const getAssociations = (row: any): { label: string; route: any | null; key: string }[] => {
+  const results: { label: string; route: any | null; key: string }[] = []
+
+  // Track which entity_type:entity_id pairs are already represented to avoid duplicates
+  const seen = new Set<string>()
+
+  const addPrimary = (entityType: string, entityId: number, label: string, route: any) => {
+    const key = `${entityType}:${entityId}`
+    if (seen.has(key)) return
+    seen.add(key)
+    results.push({ label, route, key })
+  }
+
+  // Add primary FK associations
+  if (row.settlement_id && row['settlement.name'])
+    addPrimary('settlement', row.settlement_id, row['settlement.name'], { name: 'SettlementDetails', params: { id: row.settlement_id } })
+  if (row.project_id && row['project.title'])
+    addPrimary('project', row.project_id, row['project.title'], { name: 'ProjectDetails', params: { id: row.project_id } })
+  if (row.health_facility_id && row['health_facility.name'])
+    addPrimary('health_facility', row.health_facility_id, row['health_facility.name'], { name: 'HealthFacilityDetails', params: { id: row.health_facility_id } })
+  if (row.education_facility_id && row['education_facility.name'])
+    addPrimary('education_facility', row.education_facility_id, row['education_facility.name'], { name: 'EducationFacilityDetails', params: { id: row.education_facility_id } })
+  if (row.road_id && row['road.name'])
+    addPrimary('road', row.road_id, row['road.name'], { name: 'RoadsDetails', params: { id: row.road_id } })
+  if (row.road_asset_id && row['road_asset.name'])
+    addPrimary('road_asset', row.road_asset_id, row['road_asset.name'], { name: 'RoadsDetails', params: { id: row.road_asset_id } })
+  if (row.water_point_id && row['water_point.name'])
+    addPrimary('water_point', row.water_point_id, row['water_point.name'], { name: 'WaterDetails', params: { id: row.water_point_id } })
+  if (row.sewer_id && row['sewer.name'])
+    addPrimary('sewer', row.sewer_id, row['sewer.name'], { name: 'SewerFacilityDetails', params: { id: row.sewer_id } })
+  if (row.other_facility_id && row['other_facility.name'])
+    addPrimary('other_facility', row.other_facility_id, row['other_facility.name'], { name: 'OtherFacilityDetails', params: { id: row.other_facility_id } })
+  if (row.contractor_id && (row['contractor.name'] || row['contractor.contract_number']))
+    addPrimary('contractor', row.contractor_id, row['contractor.name'] || row['contractor.contract_number'], { name: 'SettingsContractor' })
+
+  // Add extra links from document_link, skipping any already in seen
+  const links: any[] = row.entity_links || []
+  for (const link of links) {
+    const key = `${link.entity_type}:${link.entity_id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const label = resolveLinkLabel(link.entity_type, link.entity_id)
+    const route = resolveEntityRoute(link.entity_type, link.entity_id)
+    results.push({ label, route, key })
+  }
+
+  return results
+}
+
+// Keep old getAssociation for any legacy callers (returns first only)
+const getAssociation = (row: any) => getPrimaryAssociation(row)
 
 // Format functions
 const formatEndDate = (data: any) => {
@@ -955,6 +1119,35 @@ const copyShareUrl = async () => {
 const onShareDocument = (data: Document) => {
   selectedDocuments.value = new Set([data.id])
   openShareDialog()
+}
+
+const onLinkToSettlement = (doc: Document) => {
+  linkingDoc.value = doc
+  linkEntityType.value = 'settlement'
+  linkEntityId.value = null
+  linkEntityOptions.value = settlementOptions.value
+  linkDialogVisible.value = true
+}
+
+const doLinkDocument = async () => {
+  if (!linkingDoc.value || !linkEntityType.value || !linkEntityId.value) {
+    ElMessage.warning('Please select an entity type and item')
+    return
+  }
+  linkLoading.value = true
+  try {
+    const res: any = await linkDocument({
+      document_id: linkingDoc.value.id,
+      entity_type: linkEntityType.value,
+      entity_id: linkEntityId.value
+    })
+    ElMessage.success(res.data?.message || 'Document linked successfully')
+    linkDialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Failed to link document')
+  } finally {
+    linkLoading.value = false
+  }
 }
 
 // Edit document functionality
@@ -2588,15 +2781,18 @@ const handleTabChange = async (tabName: string) => {
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column label="Association" min-width="200" show-overflow-tooltip>
+                <el-table-column label="Association" min-width="220">
                   <template #default="{ row }">
-                    <template v-if="getAssociation(row)">
+                    <span v-if="getAssociations(row).length === 0" style="color: var(--el-text-color-secondary);">—</span>
+                    <span v-else v-for="(assoc, idx) in getAssociations(row)" :key="assoc.key || idx">
                       <a
+                        v-if="assoc.route"
                         style="color: var(--el-color-primary); cursor: pointer; text-decoration: none;"
-                        @click.stop="router.push(getAssociation(row)!.route)"
-                      >{{ getAssociation(row)!.label }}</a>
-                    </template>
-                    <span v-else style="color: var(--el-text-color-secondary);">—</span>
+                        @click.stop="router.push(assoc.route)"
+                      >{{ assoc.label }}</a>
+                      <span v-else>{{ assoc.label }}</span>
+                      <span v-if="idx < getAssociations(row).length - 1" style="color: #909399;">, </span>
+                    </span>
                   </template>
                 </el-table-column>
       <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" min-width="120" />
@@ -2609,14 +2805,15 @@ const handleTabChange = async (tabName: string) => {
         <template #default="{ row }">
              <PermissionWrapper :permissions="['document:read', 'document:delete', 'document:create']">
  
-            <TableActions 
-              :item="row" 
-              :buttons="getDocumentActionButtons(row)" 
-              @edit="editDocument" 
-              @delete="removeDocument" 
-              @preview="viewDocument" 
+            <TableActions
+              :item="row"
+              :buttons="getDocumentActionButtons(row)"
+              @edit="editDocument"
+              @delete="removeDocument"
+              @preview="viewDocument"
               @download="downloadFile(row)"
               @share="onShareDocument(row)"
+              @linkToSettlement="onLinkToSettlement(row)"
             />
           </PermissionWrapper>
         </template>
@@ -3132,6 +3329,55 @@ const handleTabChange = async (tabName: string) => {
           <el-button :loading="shareGenerating" @click="submitShare(true)">Generate Link</el-button>
           <el-button type="primary" :disabled="shareForm.sendEmail && !shareForm.emailsText" :loading="shareGenerating" @click="submitShare(false)">Send Link</el-button>
         </span>
+      </template>
+    </el-dialog>
+
+    <!-- Link Document to Entity Dialog -->
+    <el-dialog
+      v-model="linkDialogVisible"
+      title="Link Document"
+      width="500px"
+      :close-on-click-modal="false"
+      append-to-body
+    >
+      <div v-if="linkingDoc" style="margin-bottom: 14px; color: #606266; font-size: 13px;">
+        Linking: <strong>{{ linkingDoc.name }}</strong>
+      </div>
+      <el-form label-position="top">
+        <el-form-item label="Association Type">
+          <el-select
+            v-model="linkEntityType"
+            style="width: 100%"
+            @change="loadLinkEntityOptions(linkEntityType)"
+          >
+            <el-option
+              v-for="t in LINK_ENTITY_TYPES"
+              :key="t.value"
+              :label="t.label"
+              :value="t.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="LINK_ENTITY_TYPES.find(t => t.value === linkEntityType)?.label || 'Item'">
+          <el-select
+            v-model="linkEntityId"
+            filterable
+            :loading="linkEntityOptionsLoading"
+            placeholder="Search and select..."
+            style="width: 100%"
+          >
+            <el-option
+              v-for="opt in linkEntityOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="linkDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="linkLoading" :disabled="!linkEntityId" @click="doLinkDocument">Link</el-button>
       </template>
     </el-dialog>
 

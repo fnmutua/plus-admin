@@ -432,6 +432,21 @@ export const unrevokeDocumentShare = (shareId: number): Promise<IResponse<any>> 
 
 
  
+// Link an existing document to an additional entity (e.g. a second settlement)
+export const linkDocument = (data: { document_id: number; entity_type: string; entity_id: number }): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/docs/link', data })
+}
+
+// Remove a document→entity link without deleting the document
+export const unlinkDocument = (data: { document_id: number; entity_type: string; entity_id: number }): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/docs/unlink', data })
+}
+
+// Get all documents linked to a specific entity via document_link
+export const getLinkedDocuments = (data: { entity_type: string; entity_id: number }): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/docs/linked', data })
+}
+
 export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
 
   return request.post({ url: prod + '/api/v1/documents/raw' , data})

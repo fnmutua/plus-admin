@@ -99,11 +99,18 @@
             <span style="margin-left: 8px;">Download</span>
           </el-dropdown-item>
 
-          <el-dropdown-item 
-            v-if="buttons.includes('share')" 
+          <el-dropdown-item
+            v-if="buttons.includes('share')"
             @click="onShare(item)">
             <el-icon><TopRight /></el-icon>
             <span style="margin-left: 8px;">Share</span>
+          </el-dropdown-item>
+
+          <el-dropdown-item
+            v-if="buttons.includes('linkToSettlement')"
+            @click="onLinkToSettlement(item)">
+            <el-icon><Connection /></el-icon>
+            <span style="margin-left: 8px;">Link</span>
           </el-dropdown-item>
 
           <!-- Dangerous Actions (with dividers and confirmation) -->
@@ -174,7 +181,7 @@
 <script lang="ts" setup>
 import { ref, PropType, computed } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog, ElAlert } from 'element-plus';
-import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus } from '@element-plus/icons-vue';
+import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus, Connection } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -184,7 +191,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation", "addFacility"]);
+const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation", "addFacility", "linkToSettlement"]);
 
 // Simple mobile detection for per-row actions (non-reactive to resize, good enough)
 const isMobile = computed(() => window.innerWidth <= 768);
@@ -239,6 +246,10 @@ const onUpdateLocation = (item) => {
 
 const onDecommission = (item) => {
   emit("decommission", item);
+};
+
+const onLinkToSettlement = (item) => {
+  emit("linkToSettlement", item);
 };
 
 // Handle delete with confirmation

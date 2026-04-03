@@ -3010,6 +3010,9 @@ module.exports = function (app) {
    */
   app.post('/api/v1/docs/repository', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentRepository)
   app.get('/api/v1/docs/uploaders', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentUploaders)
+  app.post('/api/v1/docs/link', [authJwt.verifyToken, hasPermission('document:create')], controller.linkDocument)
+  app.post('/api/v1/docs/unlink', [authJwt.verifyToken, hasPermission('document:delete')], controller.unlinkDocument)
+  app.post('/api/v1/docs/linked', [authJwt.verifyToken, hasPermission('document:read')], controller.getLinkedDocuments)
 
   /**
    * @swagger

@@ -1990,6 +1990,10 @@ db.models.article.hasMany(db.models.document, {
   foreignKey: 'article_id'
 })
 
+// document_link associations
+db.models.document_link.belongsTo(db.models.document, { foreignKey: 'document_id', as: 'linked_document' })
+db.models.document.hasMany(db.models.document_link, { foreignKey: 'document_id', as: 'entity_links' })
+
 db.models.settlement_history.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id',
   onDelete: 'SET NULL', // Ensures the foreign key is set to NULL when the parent is deleted

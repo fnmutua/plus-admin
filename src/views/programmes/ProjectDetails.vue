@@ -8,7 +8,7 @@ import {
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
 import { uuid } from 'vue-uuid'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getLinkedDocuments, unlinkDocument } from '@/api/settlements'
 import type { RouteLocationNormalizedLoaded, RouterLinkProps } from 'vue-router'
 
 import { getOneGeo } from '@/api/settlements'
@@ -1134,6 +1134,23 @@ onMounted(async () => {
     { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
   )
 
+  // Merge additional linked documents from document_link
+  try {
+    const linkedRes: any = await getLinkedDocuments({ entity_type: 'project', entity_id: Number(route.params.id) })
+    if (linkedRes?.data?.length) {
+      const existingIds = new Set((projectDocuments.value as any[]).map((d: any) => d.id))
+      const extras = linkedRes.data
+        .filter((d: any) => !existingIds.has(d.id))
+        .map((d: any) => ({ ...d, _isLinked: true, deletable: false }))
+      if (extras.length) {
+        projectDocuments.value = [...(projectDocuments.value as any[]), ...extras]
+        projectDocumentsTotal.value = (projectDocumentsTotal.value || 0) + extras.length
+      }
+    }
+  } catch {
+    // non-fatal
+  }
+
   getprojectDisbursements(route.params.id)
 
 
@@ -2189,6 +2206,18 @@ const RemoveDocument = async (row) => {
 
 }
 
+
+const handleUnlinkDocument = async (row: any) => {
+  const pid = Number(route.params.id)
+  if (!pid || !row.id) return
+  try {
+    await unlinkDocument({ document_id: row.id, entity_type: 'project', entity_id: pid })
+    projectDocuments.value = (projectDocuments.value as any[]).filter((d: any) => d.id !== row.id)
+    ElMessage.success('Document unlinked from this project')
+  } catch {
+    ElMessage.error('Failed to unlink document')
+  }
+}
 
 const RemoveDisbursement = async (row) => {
   if (!canUserDeleteDisbursement(row)) {
@@ -4335,7 +4364,12 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                 {{ rowNumber($index, docsCurrentPage, docsPageSize) }}
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="Name" />
+            <el-table-column label="Name">
+              <template #default="{ row }">
+                {{ row.name }}
+                <el-tag v-if="row._isLinked" size="small" type="info" style="margin-left:6px;">Linked</el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="type" label="Type" />
             <el-table-column prop="createdAt" label="Uploaded" />
             <el-table-column label="Size (MB)">
@@ -4369,6 +4403,20 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
+                <el-popconfirm
+                  v-if="canUserDeleteDocument(scope.row)"
+                  title="Unlink this document from this project? The document will not be deleted."
+                  confirm-button-text="Unlink"
+                  cancel-button-text="Cancel"
+                  @confirm="handleUnlinkDocument(scope.row)"
+                >
+                  <template #reference>
+                    <el-button plain type="warning">
+                      <Icon icon="mdi:link-off" style="margin-right: 5px;" />
+                      Unlink
+                    </el-button>
+                  </template>
+                </el-popconfirm>
               </template>
             </el-table-column>
           </el-table>

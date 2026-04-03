@@ -38,6 +38,7 @@ var _indicator_category_report = require('./indicator_category_report')
 var _project= require('./project')
 var _programme= require('./programme')
 var _document= require('./document')
+var _document_link = require('./document_link')
 var _document_share = require('./document_share')
 var _document_share_item = require('./document_share_item')
 var _component= require('./component')
@@ -163,6 +164,7 @@ function initModels(sequelize) {
   var project = _project(sequelize, DataTypes)
   var programme = _programme(sequelize, DataTypes)
   var document = _document(sequelize, DataTypes)
+  var document_link = _document_link(sequelize, DataTypes)
   var document_share = _document_share(sequelize, DataTypes)
   var document_share_item = _document_share_item(sequelize, DataTypes)
   var component = _component(sequelize, DataTypes)
@@ -290,7 +292,7 @@ var role = _role(sequelize, DataTypes)
      indicator_category_report,
      project,
     
-    document, document_share, document_share_item,
+    document, document_link, document_share, document_share_item,
     component,
     domain,
     project_category,

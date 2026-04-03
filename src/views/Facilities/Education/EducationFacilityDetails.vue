@@ -3,12 +3,13 @@
 // @ts-nocheck
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElCard, ElTabs, ElTabPane, ElButton, ElDescriptions, ElDescriptionsItem, ElTag, ElAlert, ElCollapseTransition } from 'element-plus'
+import { ElCard, ElTabs, ElTabPane, ElButton, ElDescriptions, ElDescriptionsItem, ElTag, ElAlert, ElCollapseTransition, ElTable, ElTableColumn, ElMessage, ElPopconfirm } from 'element-plus'
 import { Back } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
 import { GoogleMap, Polygon, Marker, InfoWindow } from 'vue3-google-map'
 import { useDesign } from '@/hooks/web/useDesign'
-import { getSettlementListByCounty, getOneGeo, getSettlementMapData } from '@/api/settlements'
+import { getSettlementListByCounty, getOneGeo, getSettlementMapData, getLinkedDocuments, unlinkDocument, DeleteRecord } from '@/api/settlements'
+import { getFile } from '@/api/summary'
 
 const route = useRoute()
 const router = useRouter()
@@ -99,7 +100,55 @@ const fitMapBounds = () => {
 }
 
 const onMapReady = () => { if (activeTab.value === 'map') fitMapBounds() }
-const onTabChange = (tab: string) => { if (tab === 'map') loadMapData() }
+const facilityDocuments = ref<any[]>([])
+const docsLoading = ref(false)
+const downloadingDocId = ref<number | null>(null)
+
+const loadDocuments = async () => {
+  docsLoading.value = true
+  try {
+    const res: any = await getLinkedDocuments({ entity_type: 'education_facility', entity_id: Number(id) })
+    facilityDocuments.value = res?.data || []
+  } catch { facilityDocuments.value = [] }
+  finally { docsLoading.value = false }
+}
+
+const downloadFile = async (row: any) => {
+  downloadingDocId.value = row.id
+  try {
+    const res = await getFile({ filename: row.location || row.name, doc_id: row.id, responseType: 'blob' } as any)
+    const blob = new Blob([res as any])
+    const link = document.createElement('a')
+    link.href = window.URL.createObjectURL(blob)
+    link.setAttribute('download', row.name)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(link.href)
+  } catch { ElMessage.error('Failed to download document') }
+  finally { downloadingDocId.value = null }
+}
+
+const handleUnlinkDocument = async (row: any) => {
+  try {
+    await unlinkDocument({ document_id: row.id, entity_type: 'education_facility', entity_id: Number(id) })
+    facilityDocuments.value = facilityDocuments.value.filter(d => d.id !== row.id)
+    ElMessage.success('Document unlinked')
+  } catch { ElMessage.error('Failed to unlink document') }
+}
+
+const handleRemoveDocument = async (row: any) => {
+  try {
+    await DeleteRecord({ model: 'document', id: row.id } as any)
+    facilityDocuments.value = facilityDocuments.value.filter(d => d.id !== row.id)
+    ElMessage.success('Document deleted')
+  } catch { ElMessage.error('Failed to delete document') }
+}
+
+const onTabChange = (tab: string) => {
+  if (tab === 'map') loadMapData()
+  if (tab === 'documents' && !facilityDocuments.value.length) loadDocuments()
+}
 
 onMounted(loadProfile)
 </script>
@@ -306,6 +355,41 @@ onMounted(loadProfile)
               <span style="display:inline-block;width:16px;height:4px;background:#1a73e8;border-radius:2px;"></span>
               {{ d.settlement.name }} boundary
             </span>
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="Documents" name="documents">
+          <div v-loading="docsLoading" style="min-height: 120px;">
+            <el-alert v-if="!docsLoading && !facilityDocuments.length" title="No documents linked to this facility." type="info" :closable="false" show-icon style="margin-bottom: 12px;" />
+            <el-table v-if="facilityDocuments.length" :data="facilityDocuments" style="width: 100%;">
+              <el-table-column type="index" width="50" />
+              <el-table-column label="Name" prop="name" />
+              <el-table-column label="Type" prop="document_type.type" width="160" />
+              <el-table-column label="Format" prop="format" width="90" />
+              <el-table-column label="Uploaded" prop="createdAt" width="180" />
+              <el-table-column fixed="right" label="" min-width="200">
+                <template #default="scope">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;">
+                    <el-button plain :loading="downloadingDocId === scope.row.id" @click="downloadFile(scope.row)">
+                      <Icon icon="fa-solid:download" style="margin-right:5px;" /> Download
+                    </el-button>
+                    <el-popconfirm title="Unlink this document from this facility? The document will not be deleted." confirm-button-text="Unlink" cancel-button-text="Cancel" @confirm="handleUnlinkDocument(scope.row)">
+                      <template #reference>
+                        <el-button plain type="warning">
+                          <Icon icon="mdi:link-off" style="margin-right:5px;" /> Unlink
+                        </el-button>
+                      </template>
+                    </el-popconfirm>
+                    <el-popconfirm title="Delete this document permanently? This cannot be undone." confirm-button-text="Delete" cancel-button-text="Cancel" confirm-button-type="danger" @confirm="handleRemoveDocument(scope.row)">
+                      <template #reference>
+                        <el-button plain type="danger">
+                          <Icon icon="material-symbols-light:delete-outline" style="margin-right:5px;" /> Remove
+                        </el-button>
+                      </template>
+                    </el-popconfirm>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
         </el-tab-pane>
       </el-tabs>
