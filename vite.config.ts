@@ -170,6 +170,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           secure: true,
           rewrite: (path) => path.replace(/^\/imagery/, '')
         },
+        '/geoserver': {
+          target: 'https://kesmis.go.ke',
+          changeOrigin: true,
+          secure: true,
+        },
 
       },
       hmr: {

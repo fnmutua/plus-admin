@@ -83,6 +83,7 @@ module.exports = function(app) {
      *                   type: string
      *                   example: "0000"
      */
+    app.get("/api/v1/geoserver/layers", [authJwt.verifyToken], controller.getLayers);
     app.post("/api/v1/geoserver/upload", [authJwt.verifyToken ],controller.uploadToGeoserver);
 
     /**

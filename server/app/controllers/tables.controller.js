@@ -1060,11 +1060,10 @@ exports.getSettlementImageryLayers = async (req, res) => {
       }
     }
 
-    // GeoServer configuration
     const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver'
     const WORKSPACE = 'kisip'
     const username = process.env.GEOSERVER_USERNAME || 'admin'
-    const password = process.env.GEOSERVER_PASSWORD || ''
+    const password = process.env.GEOSERVER_PASSWORD || 'Admin@2011'
 
     // Fetch all layers from GeoServer REST API
     const restApiUrl = `${GEO_SERVER_URL}/rest/layers.json`

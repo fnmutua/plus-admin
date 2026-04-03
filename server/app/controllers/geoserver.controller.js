@@ -4,8 +4,9 @@ const shortid = require('shortid');
 const axios = require('axios');
 const multer = require('multer');
 
-// Configure multer for file uploads
-
+const GEO_USERNAME = process.env.GEOSERVER_USERNAME || 'admin';
+const GEO_PASSWORD = process.env.GEOSERVER_PASSWORD || 'Admin@2011';
+const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
 
 const uploadDir = '/data/imagery';
 
@@ -100,8 +101,8 @@ exports._uploadToGeoserver = async (req, res) => {
 
     console.log('files to upload',myFiles )
     console.log('Properties Document',req.body.crs )
-    const username = 'admin';
-  const password = '***REDACTED***';
+    const username = GEO_USERNAME;
+    const password = GEO_PASSWORD;
    
     try {
       if (!myFiles || myFiles.length === 0) {
@@ -112,25 +113,16 @@ exports._uploadToGeoserver = async (req, res) => {
         const extname = path.extname(file.originalname).toLowerCase();
         
         console.log('file',file)
-        // Check for valid file types (ECW or TIFF)
         if (extname !== '.ecw' && extname !== '.tiff') {
           return res.status(400).json({ error: 'Invalid file type, only ECW and TIFF files are supported' });
         }
- 
-         // Step 1 Update the layer details
 
-
-
-        // GeoServer Configuration
-        const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
         const WORKSPACE = 'kisip';
         const coverageStoreName = path.parse(file.originalname).name;
         const geoserverUrl = `${GEO_SERVER_URL}/rest/workspaces/${WORKSPACE}/coveragestores/${coverageStoreName}/file${extname}`;
 
-        // Read the file stream
         const fileStream = fs.createReadStream(file.path);
 
-           // Upload to GeoServer
            const response = await axios.put(
             geoserverUrl,
             fileStream,
@@ -138,10 +130,7 @@ exports._uploadToGeoserver = async (req, res) => {
               headers: {
                 'Content-Type': 'application/octet-stream',
               },
-              auth: {
-                username: 'admin',
-                password: '***REDACTED***',
-              },
+              auth: { username, password },
               params: {
                 projectionPolicy: "FORCE_DECLARED",
                 recalculate: "latlonbbox",
@@ -210,8 +199,8 @@ exports.uploadToGeoserver = async (req, res) => {
 
     console.log('files to upload',myFiles )
     console.log('Properties Document',req.body.crs )
-    const username = 'admin';
-  const password = '***REDACTED***';
+    const username = GEO_USERNAME;
+    const password = GEO_PASSWORD;
    
     try {
       if (!myFiles || myFiles.length === 0) {
@@ -222,25 +211,16 @@ exports.uploadToGeoserver = async (req, res) => {
         const extname = path.extname(file.originalname).toLowerCase();
         
         console.log('file',file)
-        // Check for valid file types (ECW or TIFF)
         if (extname !== '.ecw' && extname !== '.tiff') {
           return res.status(400).json({ error: 'Invalid file type, only ECW and TIFF files are supported' });
         }
- 
-         // Step 1 Update the layer details
 
-
-
-        // GeoServer Configuration
-        const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
         const WORKSPACE = 'kisip';
         const coverageStoreName = path.parse(file.originalname).name;
         const geoserverUrl = `${GEO_SERVER_URL}/rest/workspaces/${WORKSPACE}/coveragestores/${coverageStoreName}/file${extname}`;
 
-        // Read the file stream
         const fileStream = fs.createReadStream(file.path);
 
-           // Upload to GeoServer
            const response = await axios.put(
             geoserverUrl,
             fileStream,
@@ -248,10 +228,7 @@ exports.uploadToGeoserver = async (req, res) => {
               headers: {
                 'Content-Type': 'application/octet-stream',
               },
-              auth: {
-                username: 'admin',
-                password: '***REDACTED***',
-              },
+              auth: { username, password },
               params: {
                 projectionPolicy: "FORCE_DECLARED",
                 recalculate: "latlonbbox",
@@ -342,10 +319,8 @@ exports.deleteCoverageStore =async  (req, res) => {
   console.log(req.body )
 //exports.deleteCoverageStore = async (storeName, workspace, uploadDir) => {
   try {
-    // GeoServer Configuration
-    const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
-    const username = 'admin';
-    const password = '***REDACTED***';
+    const username = GEO_USERNAME;
+    const password = GEO_PASSWORD;
     const {storeName, workspace}  =req.body 
 
 
@@ -423,11 +398,27 @@ exports.deleteCoverageStore =async  (req, res) => {
 };
 
 
+exports.getLayers = async (req, res) => {
+  try {
+    const response = await axios.get(`${GEO_SERVER_URL}/rest/layers.json`, {
+      timeout: 15000,
+      headers: { 'Accept': 'application/json' },
+      auth: { username: GEO_USERNAME, password: GEO_PASSWORD },
+    });
+
+    res.status(200).json(response.data);
+  } catch (error) {
+    console.error('Failed to fetch GeoServer layers:', error.message);
+    res.status(500).send({
+      message: `Failed to fetch layers: ${error.message}`,
+      code: '0001',
+    });
+  }
+};
+
 exports.editLayerDetails = async (req, res) => {
-  // GeoServer Configuration
-  const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
-  const username = 'admin';
-  const password = '***REDACTED***';
+  const username = GEO_USERNAME;
+  const password = GEO_PASSWORD;
 
   const { oldLayerName, newLayerName, workspace, newCrs } = req.body;
 

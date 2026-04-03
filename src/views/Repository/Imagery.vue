@@ -1,6 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   ElButton,
   ElSelect,
@@ -28,13 +29,14 @@ import {
   Position,
   Delete,
 } from '@element-plus/icons-vue';
+import { Icon } from '@iconify/vue';
 // import { useAppStoreWithOut } from '@/store/modules/app';
 // import { useCache } from '@/hooks/web/useCache';
-import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver';
+import { uploadToGeoServer, deleteLayer, EditLayerDetails, getGeoServerLayers } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { countyOptions } from '@/views/Facilities/common/index';
-import { getOneGeo } from '@/api/settlements';
+import { getOneGeo, searchByKeyWord } from '@/api/settlements';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { useCache } from '@/hooks/web/useCache';
 import * as turf from '@turf/turf';
@@ -84,7 +86,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 // const envt = import.meta.env.VITE_APP_HOST;
 //const serverUrl = envt === 'http://localhost' ? 'http://localhost:8080/geoserver/kisip' : 'https://kesmis.go.ke/geoserver/kisip';
-const serverUrl =  'https://kesmis.go.ke/geoserver/kisip';
+const serverUrl = '/geoserver/kisip';
 
 // Note: Now using direct REST API call to https://kesmis.go.ke/geoserver/rest/layers.json
 
@@ -168,12 +170,10 @@ const progressPct = computed(() =>
 
 // Form data
 const form = ref<FormData>({
-  geoserverUrl: import.meta.env.VITE_GEOSERVER_URL || 'https://kesmis.go.ke/geoserver',
+  geoserverUrl: import.meta.env.VITE_GEOSERVER_URL || '/geoserver',
   workspace: 'kisip',
-  // username: import.meta.env.VITE_GEOSERVER_USERNAME || '',
-  // password: import.meta.env.VITE_GEOSERVER_PASSWORD || '',
-    username: 'admin',
-  password: '***REDACTED***',
+  username: import.meta.env.VITE_GEOSERVER_USERNAME || 'admin',
+  password: import.meta.env.VITE_GEOSERVER_PASSWORD || '',
   
   crs: 'EPSG:21037',
   name: undefined,
@@ -271,7 +271,6 @@ const updateMapLayer = () => {
         tileSize: 256,
       });
 
-      // Add new layer
       map.value!.addLayer({
         id: layerId,
         type: 'raster',
@@ -361,24 +360,25 @@ const refreshLayerData = async (layerName: string) => {
     console.log(`🔄 Refreshing data for layer: ${layerName}`);
     
     // Fetch detailed layer information
-    const layerDetailsUrl = `https://kesmis.go.ke/geoserver/rest/layers/kisip:${layerName}.json`;
+    const layerDetailsUrl = `/geoserver/rest/layers/kisip:${layerName}.json`;
     console.log(`📡 Fetching layer details from: ${layerDetailsUrl}`);
     
+    const geoAuth = { username: form.value.username, password: form.value.password };
     const layerResponse = await axios.get(layerDetailsUrl, {
       timeout: 10000,
       headers: { 'Accept': 'application/json, */*' },
-      auth: { username: 'admin', password: '***REDACTED***' }
+      auth: geoAuth,
     });
 
     if (layerResponse.status === 200 && layerResponse.data.layer && layerResponse.data.layer.resource) {
       // Follow the resource href to get detailed information
       let resourceUrl = layerResponse.data.layer.resource.href;
-      resourceUrl = resourceUrl.replace("http://", "https://");
+      resourceUrl = resourceUrl.replace(/^https?:\/\/[^/]+/, '');
       
       const resourceResponse = await axios.get(resourceUrl, {
         timeout: 10000,
         headers: { 'Accept': 'application/json, */*' },
-        auth: { username: 'admin', password: '***REDACTED***' }
+        auth: geoAuth,
       });
 
       if (resourceResponse.status === 200) {
@@ -747,8 +747,41 @@ const handleCountyChange = async (countyId: number | undefined) => {
 };
 
 // Navigation
+const router = useRouter()
+
 const goBack = () => {
   window.history.back();
+};
+
+const navigatingLayer = ref<string | null>(null)
+
+const goToSettlement = async (layer: Layer) => {
+  navigatingLayer.value = layer.name
+  try {
+    const layerLabel = layer.title || layer.name
+    const cleanName = layerLabel.replace(/^kisip:/i, '').replace(/_/g, ' ').trim()
+
+    const res: any = await searchByKeyWord({
+      name: cleanName,
+      county_id: 0,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: cleanName,
+      excludeGeom: true,
+      associated_multiple_models: [],
+    } as any)
+
+    const settlements = res?.data || []
+    if (settlements.length > 0) {
+      router.push({ name: 'SettlementDetails', params: { id: settlements[0].id } })
+    } else {
+      ElMessage.warning(`No settlement found matching "${cleanName}"`)
+    }
+  } catch {
+    ElMessage.error('Failed to look up settlement')
+  } finally {
+    navigatingLayer.value = null
+  }
 };
 
 const selectDownload = () => {
@@ -756,25 +789,31 @@ const selectDownload = () => {
 };
 
 // Function to fetch layers from GeoServer REST API
+// Tries backend proxy first (keeps credentials server-side), then falls back to direct call
 const fetchLayersFromRestAPI = async (): Promise<any> => {
-  const restApiUrl = 'https://kesmis.go.ke/geoserver/rest/layers.json';
+  // Strategy 1: backend proxy (no credentials in browser)
+  try {
+    console.log('Fetching layers via backend proxy /api/v1/geoserver/layers');
+    const proxyRes: any = await getGeoServerLayers();
+    const data = proxyRes?.data || proxyRes;
+    if (data && data.layers) {
+      return { response: { status: 200, data }, serverUrl: '/geoserver/kisip' };
+    }
+  } catch (e: any) {
+    console.warn('Backend proxy failed, falling back to direct call:', e.message);
+  }
+
+  // Strategy 2: direct relative-URL call through Vite proxy / same-origin
+  const restApiUrl = '/geoserver/rest/layers.json';
   console.log(`Fetching layers from REST API: ${restApiUrl}`);
-  
   try {
     const response = await axios.get(restApiUrl, {
-      timeout: 15000, // 15 second timeout
-      headers: {
-        'Accept': 'application/json, */*'
-      },
-      auth: {
-        username: 'admin',
-        password: '***REDACTED***'
-      }
+      timeout: 15000,
+      headers: { 'Accept': 'application/json, */*' },
+      auth: { username: form.value.username, password: form.value.password },
     });
-    
     console.log(`Success with REST API: ${restApiUrl}`);
-    return { response, serverUrl: 'https://kesmis.go.ke/geoserver/kisip' };
-    
+    return { response, serverUrl: '/geoserver/kisip' };
   } catch (error: any) {
     console.error(`Failed to fetch from REST API:`, error.message);
     throw error;
@@ -838,11 +877,12 @@ onMounted(() => {
       totalLayers.value = inputLayers.length;
       processedLayers.value = 0;
 
+      const geoAuth = { username: form.value.username, password: form.value.password };
       const geo = axios.create({
-        baseURL: 'https://kesmis.go.ke/geoserver',
+        baseURL: '/geoserver',
         timeout: 10000,
         headers: { 'Accept': 'application/json, */*' },
-        auth: { username: 'admin', password: '***REDACTED***' }
+        auth: geoAuth,
       });
 
       const limit = 6;
@@ -866,8 +906,12 @@ onMounted(() => {
                 bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
               });
             } else {
-              const resUrl = href.replace('http://', 'https://');
-              const resResp = await geo.get(resUrl);
+              const resUrl = href.replace(/^https?:\/\/[^/]+/, '');
+              const resResp = await axios.get(resUrl, {
+                timeout: 10000,
+                headers: { 'Accept': 'application/json, */*' },
+                auth: geoAuth,
+              });
               const dataSource = resResp.data.coverage || resResp.data.featureType;
               const crs = dataSource?.srs ? [dataSource.srs] : ['EPSG:4326'];
               let bbox = {
@@ -1177,8 +1221,17 @@ const xdownloadImagery = (layerName) => {
           {{ getCrsLabel(scope.row.crs[0]) }}
         </template>
       </el-table-column>
-      <el-table-column fixed="right" label="Actions" width="450">
+      <el-table-column fixed="right" label="Actions" width="560">
         <template #default="scope">
+          <el-button
+            size="small"
+            plain
+            :loading="navigatingLayer === scope.row.name"
+            @click="goToSettlement(scope.row)"
+          >
+            <Icon icon="mdi:map-marker-outline" style="margin-right:4px;" />
+            Settlement
+          </el-button>
           <PermissionWrapper :permissions="['geoserver:read']">
             <el-button
               size="small"
