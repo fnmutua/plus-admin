@@ -6,7 +6,7 @@ import { getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
   ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker } from 'element-plus'
 import { Document, Loading } from '@element-plus/icons-vue'
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
@@ -311,6 +311,93 @@ const settlementOptions = ref<{ value: number, label: string }[]>([])
 const projectOptions = ref<{ value: number, label: string }[]>([])
 const currentlyFiltered = ref(false)
 const selectedDocuments = ref<Set<number>>(new Set())
+/** Row snapshots for IDs selected on other pages (batch download / preview names). */
+const selectedDocumentsMeta = shallowRef(new Map<number, Document>())
+const DOCUMENTS_SHARE_SELECTION_KEY = 'documentsTagged_shareSelectionIds'
+const documentsTableRef = ref<InstanceType<typeof ElTable> | null>(null)
+const isSyncingTableSelection = ref(false)
+
+const persistShareSelectionIds = () => {
+  try {
+    sessionStorage.setItem(DOCUMENTS_SHARE_SELECTION_KEY, JSON.stringify([...selectedDocuments.value]))
+  } catch {
+    /* ignore */
+  }
+}
+
+const restoreShareSelectionIds = () => {
+  try {
+    const raw = sessionStorage.getItem(DOCUMENTS_SHARE_SELECTION_KEY)
+    if (!raw) return
+    const ids = JSON.parse(raw) as unknown
+    if (!Array.isArray(ids)) return
+    const next = new Set<number>()
+    ids.forEach((x) => {
+      const n = Number(x)
+      if (Number.isFinite(n)) next.add(n)
+    })
+    if (next.size > 0) selectedDocuments.value = next
+  } catch {
+    /* ignore */
+  }
+}
+
+const clearDocumentSelection = () => {
+  selectedDocuments.value.clear()
+  selectedDocumentsMeta.value = new Map()
+  try {
+    sessionStorage.removeItem(DOCUMENTS_SHARE_SELECTION_KEY)
+  } catch {
+    /* ignore */
+  }
+  documentsTableRef.value?.clearSelection()
+}
+
+/** Merge visible-row selection with existing picks so search / page change does not clear the share set. */
+const handleSelectionChange = (selection: Document[]) => {
+  if (isSyncingTableSelection.value) return
+  const selectedIds = new Set(selection.map((d) => d.id))
+  const visibleIds = new Set(filteredDocuments.value.map((d) => d.id))
+  const next = new Set(selectedDocuments.value)
+  const meta = new Map(selectedDocumentsMeta.value)
+  visibleIds.forEach((id) => {
+    if (selectedIds.has(id)) {
+      next.add(id)
+      const row =
+        selection.find((d) => d.id === id) || filteredDocuments.value.find((d) => d.id === id)
+      if (row) meta.set(id, row)
+    } else {
+      next.delete(id)
+      meta.delete(id)
+    }
+  })
+  selectedDocuments.value = next
+  selectedDocumentsMeta.value = meta
+  persistShareSelectionIds()
+}
+
+const syncDocumentsTableSelection = () => {
+  const table = documentsTableRef.value
+  if (!table || activeTab.value !== 'documents' || filteredDocuments.value.length === 0) return
+  isSyncingTableSelection.value = true
+  nextTick(() => {
+    const set = selectedDocuments.value
+    filteredDocuments.value.forEach((row) => {
+      table.toggleRowSelection(row, set.has(row.id))
+    })
+    nextTick(() => {
+      isSyncingTableSelection.value = false
+    })
+  })
+}
+
+const selectedSharePreviewNames = computed(() =>
+  Array.from(selectedDocuments.value).map((id) => {
+    const d = selectedDocumentsMeta.value.get(id)
+    return d?.name || `Document #${id}`
+  })
+)
+
 // Share dialog state
 const shareDialogVisible = ref(false)
 const shareGenerating = ref(false)
@@ -1083,7 +1170,17 @@ const removeDocument = async (data: Document) => {
     // Update total count
     totalDocs.value = Math.max(0, totalDocs.value - 1)
     totalDocuments.value = Math.max(0, totalDocuments.value - 1)
-    
+
+    if (selectedDocuments.value.has(data.id)) {
+      const next = new Set(selectedDocuments.value)
+      next.delete(data.id)
+      selectedDocuments.value = next
+      const meta = new Map(selectedDocumentsMeta.value)
+      meta.delete(data.id)
+      selectedDocumentsMeta.value = meta
+      persistShareSelectionIds()
+    }
+
     ElMessage.success('Document deleted successfully')
   } catch (error) {
     console.error('Error deleting document:', error)
@@ -1099,8 +1196,21 @@ const batchDownload = async () => {
   }
 
   try {
-    const selectedDocs = documents.value.filter(doc => selectedDocuments.value.has(doc.id))
-    
+    const selectedDocs = Array.from(selectedDocuments.value)
+      .map((id) => selectedDocumentsMeta.value.get(id) || documents.value.find((d) => d.id === id))
+      .filter(Boolean) as Document[]
+
+    const missing = selectedDocuments.value.size - selectedDocs.length
+    if (missing > 0) {
+      ElMessage.warning(
+        `${missing} selected document(s) are not on the loaded list. Open the page(s) where they appear to cache them, or clear selection and pick again.`
+      )
+    }
+    if (selectedDocs.length === 0) {
+      ElMessage.warning('No downloadable rows found for the current selection.')
+      return
+    }
+
     ElMessage.info(`Starting batch download of ${selectedDocs.length} document(s). This may take a while...`)
     
     for (const doc of selectedDocs) {
@@ -1110,7 +1220,7 @@ const batchDownload = async () => {
     }
     
     ElMessage.success(`Batch download completed: ${selectedDocs.length} document(s)`)
-    selectedDocuments.value.clear()
+    clearDocumentSelection()
   } catch (error) {
     console.error('Error in batch download:', error)
     ElMessage.error('Failed to download some documents')
@@ -1120,11 +1230,6 @@ const batchDownload = async () => {
 // Download all documents function
 
 // Select all documents
-
-// Handle table selection change
-const handleSelectionChange = (selection: Document[]) => {
-  selectedDocuments.value = new Set(selection.map(doc => doc.id))
-}
 
 const openShareDialog = () => {
   shareDialogVisible.value = true
@@ -1189,7 +1294,14 @@ const copyShareUrl = async () => {
 }
 
 const onShareDocument = (data: Document) => {
-  selectedDocuments.value = new Set([data.id])
+  const next = new Set(selectedDocuments.value)
+  next.add(data.id)
+  selectedDocuments.value = next
+  const meta = new Map(selectedDocumentsMeta.value)
+  meta.set(data.id, data)
+  selectedDocumentsMeta.value = meta
+  persistShareSelectionIds()
+  syncDocumentsTableSelection()
   openShareDialog()
 }
 
@@ -2019,10 +2131,15 @@ onMounted(async () => {
   // Set action buttons after component is mounted and DOM is ready
   await nextTick()
   setActionButtons()
-  
+
+  restoreShareSelectionIds()
+
   await loadDocumentRepository()
   // Load documents based on current tab after loading
   await loadDocumentsByTab()
+  await nextTick()
+  syncDocumentsTableSelection()
+
   getSettlementOptions()
   getProjectOptions()
   window.addEventListener('resize', handleResize) // Add event listener for resize
@@ -2480,6 +2597,15 @@ const photoPreviewUrls = ref<Map<number, string>>(new Map())
 const documentsCount = computed(() => filteredDocuments.value.length)
 const photosCount = computed(() => filteredPhotos.value.length)
 
+watch(
+  () => [filteredDocuments.value, loading.value, activeTab.value] as const,
+  () => {
+    if (activeTab.value !== 'documents' || loading.value || filteredDocuments.value.length === 0) return
+    syncDocumentsTableSelection()
+  },
+  { flush: 'post' }
+)
+
 // Function to load documents based on tab
 const loadDocumentsByTab = async () => {
   if (activeTab.value === 'documents') {
@@ -2667,9 +2793,7 @@ const handleImageError = (event: Event) => {
 
 const handleTabChange = async (tabName: string) => {
   activeTab.value = tabName
-  // Reset selection when switching tabs
-  selectedDocuments.value.clear()
-  // Load documents based on the selected tab
+  clearDocumentSelection()
   await loadDocumentsByTab()
 }
 
@@ -2780,7 +2904,7 @@ const handleTabChange = async (tabName: string) => {
                   class="selection-button"
                 >
                   <Icon icon="material-symbols:share" width="16" style="margin-right: 4px;" />
-                  Share Selected
+                  Share Selected ({{ selectedDocuments.size }})
                 </el-button>
             <el-button 
               @click="batchDownload" 
@@ -2792,7 +2916,7 @@ const handleTabChange = async (tabName: string) => {
               Download Selected ({{ selectedDocuments.size }})
             </el-button>
             <el-button 
-              @click="selectedDocuments.clear()" 
+              @click="clearDocumentSelection" 
               type="info" 
               plain 
               size="small"
@@ -2827,6 +2951,8 @@ const handleTabChange = async (tabName: string) => {
          
          <el-table 
            v-if="filteredDocuments.length > 0"
+           ref="documentsTableRef"
+           row-key="id"
            :data="filteredDocuments" 
            style="width: 100%" 
            size="small" 
@@ -2836,7 +2962,7 @@ const handleTabChange = async (tabName: string) => {
            @selection-change="handleSelectionChange"
          >
       <!-- Selection Column -->
-      <el-table-column type="selection" width="55" />
+      <el-table-column type="selection" width="55" reserve-selection />
       
       <el-table-column label="#" type="index" width="50">
         <template #default="{ $index }">
@@ -2889,7 +3015,7 @@ const handleTabChange = async (tabName: string) => {
               @preview="viewDocument"
               @download="downloadFile(row)"
               @share="onShareDocument(row)"
-              @linkToSettlement="onLinkToSettlement(row)"
+              @link-to-settlement="onLinkToSettlement(row)"
             />
           </PermissionWrapper>
         </template>
@@ -3364,7 +3490,7 @@ const handleTabChange = async (tabName: string) => {
     <!-- Share Documents Dialog -->
     <el-dialog 
       v-model="shareDialogVisible" 
-      title="Share selected documents" 
+      :title="`Share selected documents (${selectedDocuments.size})`" 
       width="520px"
     >
       <div>
@@ -3375,6 +3501,11 @@ const handleTabChange = async (tabName: string) => {
           show-icon 
           class="mb-2"/>
         <el-form label-width="auto">
+          <el-form-item :label="`Documents collected (${selectedDocuments.size})`">
+            <div style="max-height: 140px; overflow-y: auto; font-size: 13px; color: var(--el-text-color-regular); line-height: 1.5;">
+              <div v-for="(name, idx) in selectedSharePreviewNames" :key="idx">{{ idx + 1 }}. {{ name }}</div>
+            </div>
+          </el-form-item>
           <el-form-item label="Recipient emails">
             <el-input 
               v-model="shareForm.emailsText" 
