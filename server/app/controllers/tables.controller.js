@@ -7213,18 +7213,30 @@ exports.getDocumentRepository = async (req, res) => {
       console.log('getDocumentRepository - Applied photo exclusion filter:', photoFilter);
     }
 
-    // Add category filter
+    // Add category filter (coerce to integers — UI may send string ids)
     if (categoryFilter) {
-      const categoryCondition = Array.isArray(categoryFilter) 
-        ? { category: { [op.in]: categoryFilter } }
-        : { category: categoryFilter };
-      
-      if (baseQuery.where) {
-        baseQuery.where = { [Op.and]: [baseQuery.where, categoryCondition] };
+      let categoryCondition = null
+      if (Array.isArray(categoryFilter)) {
+        const catIds = categoryFilter
+          .map((c) => parseInt(String(c), 10))
+          .filter((n) => !Number.isNaN(n))
+        if (catIds.length > 0) {
+          categoryCondition = { category: { [op.in]: catIds } }
+        }
       } else {
-        baseQuery.where = categoryCondition;
+        const n = parseInt(String(categoryFilter), 10)
+        if (!Number.isNaN(n)) {
+          categoryCondition = { category: n }
+        }
       }
-      console.log('getDocumentRepository - Applied category filter:', categoryCondition);
+      if (categoryCondition) {
+        if (baseQuery.where) {
+          baseQuery.where = { [Op.and]: [baseQuery.where, categoryCondition] };
+        } else {
+          baseQuery.where = categoryCondition;
+        }
+        console.log('getDocumentRepository - Applied category filter:', categoryCondition);
+      }
     }
 
     // Add uploader filter
@@ -7272,30 +7284,43 @@ exports.getDocumentRepository = async (req, res) => {
       console.log('getDocumentRepository - Applied projectFilter:', projectFilter);
     }
 
-    // Add date filter
+    // Add date filter (YYYY-MM-DD only → inclusive UTC day; full ISO → use as sent)
     if (dateFilter && dateFilter.startDate && dateFilter.endDate) {
-      const startDate = new Date(dateFilter.startDate);
-      const endDate = new Date(dateFilter.endDate);
-      
+      const rawStart = String(dateFilter.startDate).trim();
+      const rawEnd = String(dateFilter.endDate).trim();
+      const ymdRe = /^\d{4}-\d{2}-\d{2}$/;
+      let startDate;
+      let endDate;
+      if (ymdRe.test(rawStart) && ymdRe.test(rawEnd)) {
+        startDate = new Date(`${rawStart}T00:00:00.000Z`);
+        endDate = new Date(`${rawEnd}T23:59:59.999Z`);
+      } else {
+        startDate = new Date(dateFilter.startDate);
+        endDate = new Date(dateFilter.endDate);
+      }
+
       console.log('getDocumentRepository - Date filter received:');
       console.log('  Raw startDate:', dateFilter.startDate);
       console.log('  Raw endDate:', dateFilter.endDate);
       console.log('  Parsed startDate:', startDate);
       console.log('  Parsed endDate:', endDate);
-      
-      const dateCondition = {
-        createdAt: {
-          [Op.between]: [startDate, endDate]
-        }
-      };
-      
-      if (baseQuery.where) {
-        baseQuery.where = { [Op.and]: [baseQuery.where, dateCondition] };
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        console.warn('getDocumentRepository - Invalid date filter bounds, skipping date filter');
       } else {
-        baseQuery.where = dateCondition;
-      }
-      console.log('getDocumentRepository - Applied date filter:', dateCondition);
-      
+        const dateCondition = {
+          createdAt: {
+            [Op.between]: [startDate, endDate]
+          }
+        };
+
+        if (baseQuery.where) {
+          baseQuery.where = { [Op.and]: [baseQuery.where, dateCondition] };
+        } else {
+          baseQuery.where = dateCondition;
+        }
+        console.log('getDocumentRepository - Applied date filter:', dateCondition);
+
       // Test query to see what documents exist in date range
       try {
         const testCount = await db.models.document.count({
@@ -7320,6 +7345,7 @@ exports.getDocumentRepository = async (req, res) => {
         
       } catch (testError) {
         console.log('getDocumentRepository - Error testing date range:', testError.message);
+      }
       }
     }
 

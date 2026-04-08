@@ -406,10 +406,10 @@ const activeTab = ref('documents')
 // Sort options
 const sortOption = ref('date') // 'date' or 'popularity'
 
-// Date filter variables
-const dateRange = ref<[Date, Date] | null>(null)
+// Date filter variables (presets use Date; custom el-date-picker with value-format uses YYYY-MM-DD strings)
+const dateRange = ref<[Date | string, Date | string] | null>(null)
 const selectedDateRange = ref('')
-const customDateRange = ref<[Date, Date] | null>(null)
+const customDateRange = ref<[Date | string, Date | string] | null>(null)
 
 // Note: Using customDateRange directly for the date picker
 
@@ -611,6 +611,40 @@ const formatText = (str: string | number) => {
   })
 }
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Inclusive calendar-day bounds for the API (handles Date presets and YYYY-MM-DD strings from the custom picker). */
+const buildDateFilterPayload = (): { startDate: string; endDate: string } | undefined => {
+  const range = dateRange.value
+  if (!range?.[0] || !range?.[1]) return undefined
+  const startVal = range[0]
+  const endVal = range[1]
+
+  const toStartIso = (v: Date | string) => {
+    if (typeof v === 'string') {
+      const d = v.trim()
+      if (DATE_ONLY_RE.test(d)) return `${d}T00:00:00.000Z`
+      const parsed = new Date(d)
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+    }
+    return v.toISOString()
+  }
+  const toEndIso = (v: Date | string) => {
+    if (typeof v === 'string') {
+      const d = v.trim()
+      if (DATE_ONLY_RE.test(d)) return `${d}T23:59:59.999Z`
+      const parsed = new Date(d)
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+    }
+    return v.toISOString()
+  }
+
+  const startDate = toStartIso(startVal)
+  const endDate = toEndIso(endVal)
+  if (!startDate || !endDate) return undefined
+  return { startDate, endDate }
+}
+
 // Main data loading function (Documents tab: request excludes image formats so list count matches pagination)
 const loadDocumentRepository = async (params: any = {}) => {
   loading.value = true
@@ -626,10 +660,7 @@ const loadDocumentRepository = async (params: any = {}) => {
       uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
       settlementFilter: selectedSettlements.value.size > 0 ? Array.from(selectedSettlements.value) : undefined,
       projectFilter: selectedProjects.value.size > 0 ? Array.from(selectedProjects.value) : undefined,
-      dateFilter: dateRange.value ? {
-        startDate: dateRange.value[0].toISOString(),
-        endDate: dateRange.value[1].toISOString()
-      } : undefined,
+      dateFilter: buildDateFilterPayload(),
       userFilters: roles_filters.length > 0 ? roles_filters : undefined,
       sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
       sortOrder: 'DESC', // Ensure latest uploads appear first for date, most popular first for popularity
@@ -806,47 +837,65 @@ const dateRangeOptions = [
   { label: 'Yesterday', value: 'yesterday' },
   { label: 'Last 7 days', value: 'last7days' },
   { label: 'Last 30 days', value: 'last30days' },
+  { label: 'Last month (calendar)', value: 'lastMonthCalendar' },
   { label: 'Last 3 months', value: 'last3months' },
   { label: 'Last 6 months', value: 'last6months' },
   { label: 'This year', value: 'thisyear' },
   { label: 'Custom range', value: 'custom' }
 ]
 
-// Date filter handlers
+// Date filter handlers (use moment for calendar days / months — avoids DST bugs and matches “last N days” = N inclusive calendar days)
 const handleDateRangeSelect = (value: string) => {
   selectedDateRange.value = value
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  
+  const now = moment()
+  const todayStart = moment().startOf('day')
+
   switch (value) {
     case 'today':
-      const endOfToday = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1)
-      dateRange.value = [today, endOfToday]
+      dateRange.value = [todayStart.toDate(), todayStart.clone().endOf('day').toDate()]
       break
-    case 'yesterday':
-      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
-      const endOfYesterday = new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1)
-      dateRange.value = [yesterday, endOfYesterday]
+    case 'yesterday': {
+      const y = todayStart.clone().subtract(1, 'day')
+      dateRange.value = [y.startOf('day').toDate(), y.endOf('day').toDate()]
       break
+    }
     case 'last7days':
-      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-      dateRange.value = [sevenDaysAgo, now]
+      // 7 calendar days including today: start at 00:00 six days ago → now
+      dateRange.value = [
+        todayStart.clone().subtract(6, 'days').toDate(),
+        now.toDate()
+      ]
       break
     case 'last30days':
-      const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-      dateRange.value = [thirtyDaysAgo, now]
+      // 30 calendar days including today: start at 00:00 twenty-nine days ago → now
+      dateRange.value = [
+        todayStart.clone().subtract(29, 'days').toDate(),
+        now.toDate()
+      ]
       break
+    case 'lastMonthCalendar': {
+      // Previous calendar month: first instant → last instant of that month (local)
+      const inLastMonth = moment().subtract(1, 'month')
+      dateRange.value = [
+        inLastMonth.clone().startOf('month').toDate(),
+        inLastMonth.clone().endOf('month').toDate()
+      ]
+      break
+    }
     case 'last3months':
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-      dateRange.value = [threeMonthsAgo, now]
+      dateRange.value = [
+        now.clone().subtract(3, 'months').startOf('day').toDate(),
+        now.toDate()
+      ]
       break
     case 'last6months':
-      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate())
-      dateRange.value = [sixMonthsAgo, now]
+      dateRange.value = [
+        now.clone().subtract(6, 'months').startOf('day').toDate(),
+        now.toDate()
+      ]
       break
     case 'thisyear':
-      const startOfYear = new Date(now.getFullYear(), 0, 1)
-      dateRange.value = [startOfYear, now]
+      dateRange.value = [moment().startOf('year').toDate(), now.toDate()]
       break
     case 'custom':
       dateRange.value = customDateRange.value
@@ -860,12 +909,15 @@ const handleDateRangeSelect = (value: string) => {
     console.log('Date range selected:', value)
     console.log('Start date:', dateRange.value[0])
     console.log('End date:', dateRange.value[1])
-    console.log('Start ISO:', dateRange.value[0].toISOString())
-    console.log('End ISO:', dateRange.value[1].toISOString())
+    const df = buildDateFilterPayload()
+    if (df) {
+      console.log('Start ISO:', df.startDate)
+      console.log('End ISO:', df.endDate)
+    }
   }
 }
 
-const handleCustomDateChange = (dates: [Date, Date] | null) => {
+const handleCustomDateChange = (dates: [Date | string, Date | string] | null) => {
   customDateRange.value = dates
   if (selectedDateRange.value === 'custom') {
     dateRange.value = dates
@@ -882,11 +934,9 @@ const applyFilters = async () => {
   console.log('applyFilters - selectedCategories:', Array.from(selectedCategories.value));
   console.log('applyFilters - selectedUploaders:', Array.from(selectedUploaders.value));
   console.log('applyFilters - dateRange:', dateRange.value);
-  if (dateRange.value) {
-    console.log('applyFilters - dateRange ISO strings:', {
-      startDate: dateRange.value[0].toISOString(),
-      endDate: dateRange.value[1].toISOString()
-    });
+  const df = buildDateFilterPayload()
+  if (df) {
+    console.log('applyFilters - dateRange ISO strings:', df)
   }
   currentPage.value = 1
   currentlyFiltered.value = selectedCategories.value.size > 0 || selectedUploaders.value.size > 0 || selectedSettlements.value.size > 0 || selectedProjects.value.size > 0 || !!dateRange.value || !!searchTerm.value
@@ -2417,7 +2467,7 @@ const handleTabChange2 = (tabName: string) => {
   }
 };
 
-const filterDrawerSize = computed(() => isMobile.value ? '100%' : '400px')
+const filterDrawerSize = computed(() => isMobile.value ? '100%' : '560px')
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 
@@ -2466,10 +2516,7 @@ const loadDocumentsByTab = async () => {
         searchTerm: searchTerm.value || undefined,
         categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
         uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
-        dateFilter: dateRange.value ? {
-          startDate: dateRange.value[0].toISOString(),
-          endDate: dateRange.value[1].toISOString()
-        } : undefined,
+        dateFilter: buildDateFilterPayload(),
         userFilters: roles_filters.length > 0 ? roles_filters : undefined,
         sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
         sortOrder: 'DESC',
