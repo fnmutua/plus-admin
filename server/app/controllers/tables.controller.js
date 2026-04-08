@@ -5968,18 +5968,22 @@ exports.xdownloadFile = (req, res) => {
   fs.access(uploadedFile, fs.constants.F_OK, (err) => {
     if (err) {
       console.log(err);
-   
 
-      db.models.document.destroy({ where: { name: req.body.filename } })
-      .then((result) => {
-        console.log('succeed')
-        res.status(500).send({
-          message: 'File not found.',
-          code: '0000'
-        });
-    }) 
-
-      
+      destroyDocumentsWithDependencies({ name: req.body.filename })
+        .then(() => {
+          console.log('Stale document row(s) removed after missing file')
+          res.status(500).send({
+            message: 'File not found.',
+            code: '0000'
+          })
+        })
+        .catch((delErr) => {
+          console.error('Could not remove document after missing file:', delErr)
+          res.status(500).send({
+            message: 'File not found.',
+            code: '0000'
+          })
+        })
     } else {
       // File exists, send it
       res.sendFile(uploadedFile, function(err) {
@@ -6013,18 +6017,22 @@ exports.downloadFile = (req, res) => {
   fs.access(uploadedFile, fs.constants.F_OK, (err) => {
     if (err) {
       console.log(err);
-   
 
-      db.models.document.destroy({ where: { name: req.body.filename } })
-      .then(() => {
-        console.log('succeed')
-        res.status(500).send({
-          message: 'File not found.',
-          code: '0000'
-        });
-    }) 
-
-      
+      destroyDocumentsWithDependencies({ name: req.body.filename })
+        .then(() => {
+          console.log('Stale document row(s) removed after missing file')
+          res.status(500).send({
+            message: 'File not found.',
+            code: '0000'
+          })
+        })
+        .catch((delErr) => {
+          console.error('Could not remove document after missing file:', delErr)
+          res.status(500).send({
+            message: 'File not found.',
+            code: '0000'
+          })
+        })
     } else {
       // File exists, send it
     //  res.sendFile(path.resolve(filePath));
@@ -6505,17 +6513,15 @@ exports.RemoveDocument = (req, res) => {
         // Continue with database deletion even if file doesn't exist
       }
     
-      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
+      destroyDocumentsWithDependencies({ name: req.body.filesToDelete[i].name })
         .then((result) => {
-       console.log('Database record deleted successfully for:', req.body.filesToDelete[i].name)
-       successCount++
-      }) 
-      .catch(function (err) {
-        // handle error;
-        console.log('Database deletion error---------->', err)
-        errors.push(err)
-  
-      })
+          console.log('Database record deleted successfully for:', req.body.filesToDelete[i].name, 'rows:', result)
+          successCount++
+        })
+        .catch(function (err) {
+          console.log('Database deletion error---------->', err)
+          errors.push(err)
+        })
     } else {
 
      // var filePath = './public/' + req.body.filesToDelete[i];
@@ -6530,17 +6536,15 @@ exports.RemoveDocument = (req, res) => {
         // Continue with database deletion even if file doesn't exist
       }
     
-      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
+      destroyDocumentsWithDependencies({ name: req.body.filesToDelete[i] })
         .then((result) => {
-       console.log('Database record deleted successfully for:', req.body.filesToDelete[i])
-       successCount++
-      }) 
-      .catch(function (err) {
-        // handle error;
-        console.log('Database deletion error---------->', err)
-        errors.push(err)
-  
-      })
+          console.log('Database record deleted successfully for:', req.body.filesToDelete[i], 'rows:', result)
+          successCount++
+        })
+        .catch(function (err) {
+          console.log('Database deletion error---------->', err)
+          errors.push(err)
+        })
 
     }
  
@@ -7067,8 +7071,58 @@ async function updateSettlementDataInODK(settToUpdate) {
   });
 }
 
- 
- 
+/**
+ * Documents with protectedFile=true: super/root admin; national or county scope only for admin/super_admin/root_admin (not staff).
+ * Settlement / ward / subcounty-only users do not see them.
+ */
+async function canUserSeeProtectedDocuments(user) {
+  if (!user || typeof user.getRoles !== 'function') return false
+  const elevatedRoleNames = ['admin', 'super_admin', 'root_admin']
+  try {
+    const roles = await user.getRoles()
+    return roles.some((role) => {
+      const name = role && role.name
+      if (name === 'super_admin' || name === 'root_admin') return true
+      const ur = role.user_roles
+      if (!ur) {
+        return false
+      }
+      const level = ur.location_level
+      if (level === 'national') {
+        return elevatedRoleNames.includes(name)
+      }
+      if (level === 'county') {
+        return elevatedRoleNames.includes(name)
+      }
+      if ((level == null || level === '') && name === 'admin') return true
+      return false
+    })
+  } catch (e) {
+    console.error('canUserSeeProtectedDocuments:', e && e.message)
+    return false
+  }
+}
+
+/**
+ * Remove share items and entity links, then delete document row(s).
+ * Prevents FK errors: document_share_item_document_id_fkey, document_link, etc.
+ */
+async function destroyDocumentsWithDependencies(whereClause) {
+  const docs = await db.models.document.findAll({
+    where: whereClause,
+    attributes: ['id']
+  })
+  const ids = docs.map((d) => d.id)
+  if (ids.length === 0) return 0
+  await db.models.document_share_item.destroy({
+    where: { document_id: { [Op.in]: ids } }
+  })
+  await db.models.document_link.destroy({
+    where: { document_id: { [Op.in]: ids } }
+  })
+  return db.models.document.destroy({ where: whereClause })
+}
+
 exports.getDocumentRepository = async (req, res) => {
   try {
     const { 
@@ -7087,6 +7141,11 @@ exports.getDocumentRepository = async (req, res) => {
       settlementFilter = null,
       projectFilter = null
     } = req.body;
+
+    const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
+    const excludeProtectedWhere = canSeeProtected
+      ? null
+      : { [Op.or]: [{ protectedFile: false }, { protectedFile: null }] }
 
     console.log('getDocumentRepository - Request body:', req.body);
     console.log('getDocumentRepository - categoryFilter:', categoryFilter);
@@ -7486,6 +7545,15 @@ exports.getDocumentRepository = async (req, res) => {
       }
     }
 
+    if (excludeProtectedWhere) {
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, excludeProtectedWhere] }
+      } else {
+        baseQuery.where = excludeProtectedWhere
+      }
+      console.log('getDocumentRepository - Excluding protectedFile rows for non-national/county user')
+    }
+
     // Get documents with count
     let documentsResult;
     try {
@@ -7549,6 +7617,13 @@ exports.getDocumentRepository = async (req, res) => {
       if (searchConditions.length > 0) {
         simpleQuery.where = { [Op.or]: searchConditions };
       }
+      if (excludeProtectedWhere) {
+        if (simpleQuery.where) {
+          simpleQuery.where = { [Op.and]: [simpleQuery.where, excludeProtectedWhere] }
+        } else {
+          simpleQuery.where = excludeProtectedWhere
+        }
+      }
       
       documentsResult = await db.models.document.findAndCountAll(simpleQuery);
     }
@@ -7594,8 +7669,7 @@ exports.getDocumentRepository = async (req, res) => {
           [db.sequelize.col('document_type.id'), 'document_type_id']
         ],
         group: ['document_type.group', 'document_type.type', 'document_type.id'],
-        // Don't apply document filters to category counts - show all available types
-        where: {}, 
+        where: excludeProtectedWhere || {},
         raw: true,
         nest: false
       });
@@ -7634,6 +7708,7 @@ exports.getDocumentRepository = async (req, res) => {
           as: 'document_type',
           attributes: ['id', 'type', 'group']
         }],
+        where: excludeProtectedWhere || {},
         raw: true,
         nest: false
       });
@@ -7681,8 +7756,7 @@ exports.getDocumentRepository = async (req, res) => {
           [db.sequelize.col('document_type.group'), 'group']
         ],
         group: ['document_type.group'],
-        // Don't apply document filters to group totals - show all groups
-        where: {}, 
+        where: excludeProtectedWhere || {},
         raw: true,
         nest: false
       });
@@ -7840,6 +7914,7 @@ exports.getDocumentRepository = async (req, res) => {
           [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'count']
         ],
         group: ['document.createdBy', 'user.id', 'user.name'],
+        ...(excludeProtectedWhere ? { where: excludeProtectedWhere } : {}),
         raw: true,
         nest: false
       });
@@ -7903,7 +7978,15 @@ exports.getDocumentUploaders = async (req, res) => {
   try {
     // Exclude photo formats - same list as in getDocumentRepository
     const photoFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'];
-    
+    const canSeeProtectedUp = await canUserSeeProtectedDocuments(req.thisUser)
+    const excludeProtectedUp = canSeeProtectedUp
+      ? null
+      : { [Op.or]: [{ protectedFile: false }, { protectedFile: null }] }
+    const formatWhereUp = { format: { [Op.notIn]: photoFormats } }
+    const uploadersWhere = excludeProtectedUp
+      ? { [Op.and]: [formatWhereUp, excludeProtectedUp] }
+      : formatWhereUp
+
     const uploaders = await db.models.document.findAll({
       include: [{
         model: db.models.users,
@@ -7914,9 +7997,7 @@ exports.getDocumentUploaders = async (req, res) => {
         'createdBy',
         [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'count']
       ],
-      where: {
-        format: { [Op.notIn]: photoFormats }
-      },
+      where: uploadersWhere,
       group: ['document.createdBy', 'user.id', 'user.name'],
       order: [[db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'DESC']],
       raw: true,
@@ -8120,10 +8201,7 @@ exports.DeleteRawDocuments = async (req, res) => {
     // File exists, proceed with deletion
     await fs.promises.unlink(filePath);
 
-    // Now, query the Sequelize model and delete the corresponding row
-    const deletedRows = await db.models.document.destroy({
-      where: { name: fileName },
-    });
+    const deletedRows = await destroyDocumentsWithDependencies({ name: fileName })
 
     if (deletedRows > 0) {
       //res.json({ message: 'File and corresponding database record deleted successfully' });
