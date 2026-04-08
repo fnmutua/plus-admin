@@ -415,7 +415,7 @@ const customDateRange = ref<[Date, Date] | null>(null)
 
 // Mobile responsiveness
 const isMobile = computed(() => appStore.getMobile)
-const actionColumnWidth = ref(isMobile.value ? "100px" : "160px")
+const actionColumnWidth = ref(isMobile.value ? '60px' : '76px')
 
 // Responsive page size based on screen height
 const getResponsivePageSize = () => {
@@ -1989,6 +1989,36 @@ const getDocumentTypeNameFromId = (typeId: string) => {
   return doc ? doc['document_type.type'] : `Type ${typeId}`
 }
 
+/** Resolve type name from sidebar category counts when row lacks joined type label */
+const getTypeNameFromCategoryCounts = (typeId: string): string | null => {
+  const id = String(typeId)
+  const groups = categoryCounts.value as Record<string, Record<string, { name?: string; count?: number } | number>>
+  for (const types of Object.values(groups)) {
+    if (!types || typeof types !== 'object') continue
+    const entry = types[id]
+    if (entry && typeof entry === 'object' && (entry as any).name) {
+      return String((entry as any).name)
+    }
+  }
+  return null
+}
+
+/** Display label for document type (RIM, Survey Plans, Settlement profile report, etc.) */
+const getRowDocumentTypeLabel = (row: any): string => {
+  const nested = row?.document_type?.type
+  if (nested) return String(nested)
+  const flat = row['document_type.type']
+  if (flat) return String(flat)
+  const typeId = row['document_type.id'] ?? row.category
+  if (typeId != null && typeId !== '') {
+    const idStr = String(typeId)
+    const fromCounts = getTypeNameFromCategoryCounts(idStr)
+    if (fromCounts) return fromCounts
+    return getDocumentTypeNameFromId(idStr)
+  }
+  return '—'
+}
+
 // Filtered category counts for drawer
 const filteredCategoryCounts = computed(() => {
   if (!drawerSearchTerm.value) {
@@ -2014,22 +2044,6 @@ const filteredCategoryCounts = computed(() => {
   })
   
   return filtered
-})
-
-// Computed property to show filtered vs total (use displayed list length so it matches what users see)
-const displayInfo = computed(() => {
-  const totalCount = totalDocs.value
-  const displayedCount = activeTab.value === 'documents'
-    ? filteredDocuments.value.length
-    : filteredPhotos.value.length
-  if (displayedCount === totalCount || totalCount <= 0) {
-    return activeTab.value === 'documents'
-      ? `Showing ${displayedCount} document${displayedCount !== 1 ? 's' : ''}`
-      : `Showing ${displayedCount} photo${displayedCount !== 1 ? 's' : ''}`
-  }
-  return activeTab.value === 'documents'
-    ? `Showing ${displayedCount} of ${totalCount} documents`
-    : `Showing ${displayedCount} of ${totalCount} photos`
 })
 
 const importDrawerVisible = ref(false)
@@ -2618,97 +2632,88 @@ const handleTabChange = async (tabName: string) => {
 
 <template>
   <el-card v-loading="loading && activeTab !== 'photos'" :element-loading-text="loadingText">
-    <!-- Card Header -->
     <template #header>
-      <div>
-        <h3 style="margin: 0;">Document Repository</h3>
+      <div class="controls-container controls-container--in-header">
+        <el-row :gutter="16" class="controls-row">
+          <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" class="search-col">
+            <el-input
+              v-model="searchTerm"
+              placeholder="Search documents by name, settlement, county, format, or uploader..."
+              clearable
+              @change="handleSearch"
+              @clear="clearFilters"
+              size="default"
+              class="search-input"
+            >
+              <template #prepend>
+                <Icon icon="material-symbols:search" width="16" />
+              </template>
+              <template #append>
+                <el-button @click="handleSearch" type="primary" :loading="loading || photosLoading">
+                  Search
+                </el-button>
+              </template>
+            </el-input>
+          </el-col>
+
+          <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10" class="actions-col">
+            <div class="action-buttons">
+              <div class="sort-options">
+                <span class="sort-label">Sort by:</span>
+                <el-select
+                  v-model="sortOption"
+                  @change="handleSortChange"
+                  size="small"
+                  style="width: 120px;"
+                >
+                  <el-option label="Date" value="date" />
+                  <el-option label="Popularity" value="popularity" />
+                </el-select>
+              </div>
+
+              <el-button
+                @click="importDrawerVisible = true"
+                type="success"
+                plain
+                class="action-btn"
+              >
+                <Icon icon="material-symbols:upload" width="16" />
+                <span class="btn-text">Upload</span>
+              </el-button>
+
+              <el-button
+                @click="filterDrawer = true"
+                type="primary"
+                plain
+                class="action-btn"
+                :class="{ 'active-filter': currentlyFiltered }"
+              >
+                <Icon icon="material-symbols:filter-list" width="16" />
+                <span class="btn-text">Filters</span>
+                <el-badge
+                  v-if="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0) > 0"
+                  :value="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0)"
+                  class="filter-badge"
+                />
+              </el-button>
+
+              <el-button
+                @click="clearFilters"
+                type="warning"
+                plain
+                class="action-btn clear-btn"
+                :disabled="!currentlyFiltered"
+                v-if="currentlyFiltered"
+              >
+                <Icon icon="material-symbols:clear" width="16" />
+                <span class="btn-text">Clear</span>
+              </el-button>
+            </div>
+          </el-col>
+        </el-row>
       </div>
     </template>
 
-    <!-- Search and Filter Controls -->
-    <div class="controls-container">
-      <el-row :gutter="16" class="controls-row">
-        <!-- Search Section -->
-        <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" class="search-col">
-          <el-input
-            v-model="searchTerm"
-            placeholder="Search documents by name, settlement, county, format, or uploader..."
-            clearable
-            @change="handleSearch"
-            @clear="clearFilters"
-            size="default"
-            class="search-input"
-          >
-            <template #prepend>
-              <Icon icon="material-symbols:search" width="16" />
-            </template>
-            <template #append>
-              <el-button @click="handleSearch" type="primary" :loading="loading || photosLoading">
-                Search
-              </el-button>
-            </template>
-          </el-input>
-        </el-col>
-        
-        <!-- Action Buttons Section -->
-        <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10" class="actions-col">
-        
-          <div class="action-buttons">
-            <div class="sort-options">
-              <span class="sort-label">Sort by:</span>
-              <el-select 
-                v-model="sortOption" 
-                @change="handleSortChange"
-                size="small"
-                style="width: 120px;"
-              >
-                <el-option label="Date" value="date" />
-                <el-option label="Popularity" value="popularity" />
-              </el-select>
-            </div>
-
-            <el-button 
-              @click="importDrawerVisible = true" 
-              type="success" 
-              plain
-              class="action-btn"
-            >
-              <Icon icon="material-symbols:upload" width="16" />
-              <span class="btn-text">Upload</span>
-            </el-button>
-            
-            <el-button 
-              @click="filterDrawer = true" 
-              type="primary" 
-              plain
-              class="action-btn"
-              :class="{ 'active-filter': currentlyFiltered }"
-            >
-              <Icon icon="material-symbols:filter-list" width="16" />
-              <span class="btn-text">Filters</span>
-              <el-badge 
-                v-if="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0) > 0"
-                :value="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0)"
-                class="filter-badge"
-              />
-            </el-button>
-            
-            <el-button 
-              @click="clearFilters" 
-              type="warning" 
-              plain
-              class="action-btn clear-btn"
-              :disabled="!currentlyFiltered"
-              v-if="currentlyFiltered"
-            >
-              <Icon icon="material-symbols:clear" width="16" />
-              <span class="btn-text">Clear</span>
-            </el-button>
-          </div>
-        </el-col>
-      </el-row>
-    </div>
-    
     <!-- Selection Controls -->
     <div v-if="selectedDocuments.size > 0" style="margin: 10px 0; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
       <el-row :gutter="16" align="middle">
@@ -2755,11 +2760,6 @@ const handleTabChange = async (tabName: string) => {
     </div>
  
 
-         <!-- Documents Display Info -->
-     <div class="documents-info" style="margin: 10px 0; padding: 8px; background-color: #f0f9ff; border-radius: 4px; border-left: 4px solid #3b82f6;">
-       <span style="font-size: 14px; color: #1e40af;">{{ displayInfo }}</span>
-     </div>
-
      <!-- Tabs for Documents and Photos -->
      <el-tabs v-model="activeTab" class="documents-tabs" @tab-change="handleTabChange">
        <!-- Documents Tab -->
@@ -2805,6 +2805,11 @@ const handleTabChange = async (tabName: string) => {
                     </div>
                   </template>
                 </el-table-column>
+                <el-table-column label="Type" min-width="200" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span>{{ getRowDocumentTypeLabel(row) }}</span>
+                  </template>
+                </el-table-column>
                 <el-table-column label="Association" min-width="220">
                   <template #default="{ row }">
                     <span v-if="getAssociations(row).length === 0" style="color: var(--el-text-color-secondary);">—</span>
@@ -2819,10 +2824,10 @@ const handleTabChange = async (tabName: string) => {
                     </span>
                   </template>
                 </el-table-column>
-      <el-table-column prop="createdAt" label="Date" :formatter="formatEndDate" min-width="120" />
-                 <el-table-column prop="user.name" label="User" min-width="100" show-overflow-tooltip />
+      <el-table-column prop="createdAt" label="Date Uploaded" :formatter="formatEndDate" min-width="120" />
+                 <el-table-column prop="user.name" label="Uploaded By" min-width="100" show-overflow-tooltip />
                 <el-table-column prop="size" label="Size(Mb)" min-width="80" />
-                <el-table-column label="Downloads"  prop="downloadCount"  min-width="50" align="center"/>
+                <el-table-column label="Downloads"  prop="downloadCount"  min-width="70" align="center"/>
               
           
       <el-table-column label="Actions" :width="actionColumnWidth">
@@ -3891,6 +3896,14 @@ const handleTabChange = async (tabName: string) => {
   border: 1px solid var(--el-border-color-light);
 }
 
+.controls-container--in-header {
+  margin-bottom: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
 .controls-row {
   align-items: flex-end;
 }
@@ -3975,7 +3988,7 @@ const handleTabChange = async (tabName: string) => {
 
 /* Mobile Responsive Adjustments */
 @media (max-width: 768px) {
-  .controls-container {
+  .controls-container:not(.controls-container--in-header) {
     padding: 12px;
   }
   
