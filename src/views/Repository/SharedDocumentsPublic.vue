@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { ElButton, ElCard, ElMessage, ElEmpty, ElTable, ElTableColumn, ElDescriptions, ElDescriptionsItem } from 'element-plus'
+import { ElButton, ElCard, ElMessage, ElEmpty, ElTable, ElTableColumn, ElDescriptions, ElDescriptionsItem, ElInput } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
@@ -26,6 +26,19 @@ const shareError = ref<string | null>(null)
 const expiresAt = ref<string | null>(null)
 const downloadingDocId = ref<number | null>(null)
 const downloadingAll = ref(false)
+/** Client-side filter for the shared document list (name, format, raw date string). */
+const shareListSearch = ref('')
+
+const filteredShareDocuments = computed(() => {
+  const q = shareListSearch.value.trim().toLowerCase()
+  if (!q) return documents.value
+  return documents.value.filter((doc) => {
+    const name = (doc.name || '').toLowerCase()
+    const fmt = (doc.format || '').toLowerCase()
+    const created = String(doc.createdAt || '').toLowerCase()
+    return name.includes(q) || fmt.includes(q) || created.includes(q)
+  })
+})
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A'
@@ -429,12 +442,42 @@ onMounted(() => {
 
           <!-- Documents Table -->
           <div :class="isMobile ? 'mt-2' : 'mt-6'">
-            <h3 v-if="!isMobile" class="text-lg font-semibold mb-4">Documents</h3>
+            <div class="share-doc-search flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+              <el-input
+                v-model="shareListSearch"
+                clearable
+                placeholder="Search files by name, type, or date…"
+                class="flex-1"
+              >
+                <template #prefix>
+                  <Icon icon="material-symbols:search" width="18" class="text-gray-400" />
+                </template>
+              </el-input>
+              <span
+                v-if="shareListSearch.trim()"
+                class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"
+              >
+                {{ filteredShareDocuments.length }} / {{ documents.length }} shown
+              </span>
+            </div>
+
+            <h3 v-if="!isMobile && filteredShareDocuments.length > 0" class="text-lg font-semibold mb-4">Documents</h3>
+
+            <el-empty
+              v-if="filteredShareDocuments.length === 0 && shareListSearch.trim()"
+              description="No documents match your search"
+              class="py-6"
+            >
+              <el-button type="primary" plain size="small" @click="shareListSearch = ''">Clear search</el-button>
+            </el-empty>
             
             <!-- Mobile View: Card Layout -->
-            <div v-if="isMobile" class="space-y-3 max-h-[calc(100vh-220px)] min-h-[120px] overflow-y-auto -mx-1 px-1">
+            <div
+              v-else-if="isMobile"
+              class="space-y-3 max-h-[calc(100vh-220px)] min-h-[120px] overflow-y-auto -mx-1 px-1"
+            >
               <div
-                v-for="doc in documents"
+                v-for="doc in filteredShareDocuments"
                 :key="doc.id"
                 class="document-card bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-200 dark:border-gray-700"
               >
@@ -474,9 +517,9 @@ onMounted(() => {
             </div>
 
             <!-- Desktop View: Table Layout -->
-            <div v-else class="documents-table-wrapper">
+            <div v-else-if="!isMobile" class="documents-table-wrapper">
               <el-table
-                :data="documents"
+                :data="filteredShareDocuments"
                 style="width: 100%"
                 border
                 stripe
