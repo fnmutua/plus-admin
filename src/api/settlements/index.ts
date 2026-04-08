@@ -384,6 +384,7 @@ export const getPublicSharedDocuments = (token: string): Promise<IResponse<any>>
   // Use direct axios for public endpoint (no auth token)
   return axios.get(prod + `/api/public/share/${token}`)
     .then(response => {
+      console.log('[getPublicSharedDocuments] raw HTTP response.data:', response.data)
       if (response.data.code === '0000') {
         const payload = response.data.data
         // Support both old (array) and new ({ documents, expiresAt }) structures

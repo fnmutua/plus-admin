@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { ElButton, ElCard, ElMessage, ElEmpty, ElTable, ElTableColumn, ElDescriptions, ElDescriptionsItem } from 'element-plus'
-import { Download, Back } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
@@ -26,6 +25,7 @@ const shareFound = ref(true)
 const shareError = ref<string | null>(null)
 const expiresAt = ref<string | null>(null)
 const downloadingDocId = ref<number | null>(null)
+const downloadingAll = ref(false)
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A'
@@ -62,16 +62,23 @@ const isExpired = computed(() => {
   return new Date(expiresAt.value).getTime() < Date.now()
 })
 
-const getFileIcon = (name: string) => {
-  if (!name) return 'vscode-icons:file-type-document'
-  const ext = name.split('.').pop()?.toLowerCase() || ''
-  
-  switch (ext) {
+/** Icon type from API `document.format` only — never inferred from filename. */
+const resolveFileType = (doc: Pick<SharedDocument, 'format'>): string => {
+  return (doc.format || '').toLowerCase().replace(/^\./, '').trim()
+}
+
+/** File-type icons from DB `format` only (see DocumentsTagged.vue for the same switch shapes). */
+const getFileIcon = (doc: Pick<SharedDocument, 'format'>) => {
+  const fileType = resolveFileType(doc)
+  if (!fileType) return 'material-symbols:description'
+
+  switch (fileType) {
     case 'pdf':
       return 'vscode-icons:file-type-pdf2'
     case 'doc':
     case 'docx':
       return 'vscode-icons:file-type-word2'
+    case 'csv':
     case 'xls':
     case 'xlsx':
       return 'vscode-icons:file-type-excel2'
@@ -84,6 +91,9 @@ const getFileIcon = (name: string) => {
     case 'gif':
     case 'bmp':
     case 'svg':
+    case 'webp':
+    case 'tiff':
+    case 'tif':
       return 'vscode-icons:file-type-image'
     case 'txt':
       return 'vscode-icons:file-type-text'
@@ -91,8 +101,49 @@ const getFileIcon = (name: string) => {
     case 'rar':
     case '7z':
       return 'vscode-icons:file-type-zip'
+    case 'mp4':
+    case 'avi':
+    case 'mov':
+    case 'wmv':
+      return 'vscode-icons:file-type-video'
+    case 'mp3':
+    case 'wav':
+    case 'flac':
+      return 'vscode-icons:file-type-audio'
+    case 'dwg':
+    case 'dxf':
+    case 'dgn':
+      return 'vscode-icons:file-type-cad'
+    case 'json':
+    case 'geojson':
+      return 'vscode-icons:file-type-json'
+    case 'xml':
+      return 'vscode-icons:file-type-xml'
+    case 'html':
+    case 'htm':
+      return 'vscode-icons:file-type-html'
+    case 'css':
+      return 'vscode-icons:file-type-css'
+    case 'js':
+      return 'vscode-icons:file-type-js'
+    case 'ts':
+      return 'vscode-icons:file-type-typescript-official'
+    case 'py':
+      return 'vscode-icons:file-type-python'
+    case 'java':
+      return 'vscode-icons:file-type-java'
+    case 'cpp':
+    case 'c':
+      return 'vscode-icons:file-type-cpp'
+    case 'sql':
+      return 'vscode-icons:file-type-sql'
+    case 'md':
+      return 'vscode-icons:file-type-markdown'
+    case 'kml':
+    case 'kmz':
+      return 'material-symbols:map'
     default:
-      return 'vscode-icons:file-type-document'
+      return 'material-symbols:description'
   }
 }
 
@@ -109,11 +160,12 @@ const fetchSharedDocuments = async () => {
     }
 
     const response = await getPublicSharedDocuments(token)
-    
+    console.log('[SharedDocumentsPublic] API response (getPublicSharedDocuments):', response)
     if (response.code === '0000' && response.results) {
       const results: any = response.results
       documents.value = Array.isArray(results) ? results : (results.documents || [])
       expiresAt.value = Array.isArray(results) ? (results?.[0]?.expiresAt || null) : (results.expiresAt || null)
+      console.log('[SharedDocumentsPublic] parsed documents:', documents.value, 'expiresAt:', expiresAt.value)
       shareFound.value = documents.value.length > 0
       if (documents.value.length === 0) {
         shareError.value = 'No documents found in this share'
@@ -150,11 +202,13 @@ const handleDownload = async (document: SharedDocument): Promise<boolean> => {
     
     const blob = await downloadSharedDocument(token, document.id)
     
-    // Extract file extension from name or use format
-    let fileName = document.name
-    if (!fileName.includes('.')) {
-      const ext = document.format || 'pdf'
-      fileName = `${fileName}.${ext}`
+    // Download name: extension from backend `format` only (strip any name suffix; do not trust it as type)
+    let fileName = (document.name || '').trim()
+    const fmt = (document.format || '').replace(/^\./, '').trim().toLowerCase()
+    if (fmt) {
+      const base = fileName.replace(/\.[^./\\]+$/i, '').trim()
+      const stem = base || 'download'
+      fileName = `${stem}.${fmt}`
     }
     
     const url = window.URL.createObjectURL(blob)
@@ -218,27 +272,38 @@ const downloadAll = async () => {
     return
   }
 
+  downloadingAll.value = true
   ElMessage.info(`Starting batch download of ${documents.value.length} document(s)...`)
-  
+
   let successCount = 0
   let failCount = 0
-  
-  for (const doc of documents.value) {
-    const success = await handleDownload(doc)
-    if (success) {
-      successCount++
-    } else {
-      failCount++
+
+  try {
+    for (const doc of documents.value) {
+      const success = await handleDownload(doc)
+      if (success) {
+        successCount++
+      } else {
+        failCount++
+      }
+      await new Promise(resolve => setTimeout(resolve, 500))
     }
-    // Small delay between downloads to prevent browser blocking
-    await new Promise(resolve => setTimeout(resolve, 500))
+
+    if (failCount === 0) {
+      ElMessage.success(`Batch download completed: ${successCount} document(s)`)
+    } else {
+      ElMessage.warning(`Batch download completed: ${successCount} succeeded, ${failCount} failed`)
+    }
+  } finally {
+    downloadingAll.value = false
   }
-  
-  if (failCount === 0) {
-    ElMessage.success(`Batch download completed: ${successCount} document(s)`)
-  } else {
-    ElMessage.warning(`Batch download completed: ${successCount} succeeded, ${failCount} failed`)
-  }
+}
+
+const formatExpiryShort = (dateString: string) => {
+  if (!dateString) return ''
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+    new Date(dateString)
+  )
 }
 
 const goBack = () => {
@@ -261,29 +326,67 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 px-4 sm:px-6 overflow-y-auto min-h-screen">
+  <div class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 px-2 sm:px-6 overflow-y-auto min-h-screen">
     <Transition name="fade">
       <el-card 
         v-loading="loading" 
-        class="container mx-auto my-6 sm:my-8 p-4 sm:p-6 max-w-full sm:max-w-6xl"
+        class="container mx-auto my-3 sm:my-8 p-2 sm:p-6 max-w-full sm:max-w-6xl shared-public-card"
       >
         <template #header>
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <div class="flex items-center space-x-4">
-              <img src="/gok.png" alt="Logo" class="w-10 h-10 sm:w-12 sm:h-12" />
-              <h2 class="text-xl sm:text-2xl font-bold">
-                KesMIS -  Shared Documents
+          <!-- Mobile: minimal header + download all -->
+          <div v-if="isMobile" class="shared-public-header-mobile -mx-1">
+            <div class="flex items-center gap-2">
+              <el-button circle text type="primary" @click="goBack" aria-label="Go back">
+                <Icon icon="material-symbols:arrow-back" width="22" />
+              </el-button>
+              <span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate flex-1 min-w-0">
+                Shared documents
+              </span>
+            </div>
+            <el-button
+              v-if="shareFound && documents.length > 0"
+              type="primary"
+              class="w-full mt-3"
+              size="large"
+              :loading="downloadingAll"
+              :disabled="isExpired || !!downloadingDocId"
+              @click="downloadAll"
+            >
+              <Icon
+                v-if="!downloadingAll"
+                icon="material-symbols:download"
+                width="20"
+                class="inline-block align-text-bottom mr-1"
+              />
+              Download all ({{ documents.length }})
+            </el-button>
+            <p
+              v-if="shareFound && documents.length > 0 && expiresAt"
+              class="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-snug"
+            >
+              <span v-if="isExpired" class="text-red-600 dark:text-red-400">This link has expired.</span>
+              <span v-else>Valid until {{ formatExpiryShort(expiresAt) }}</span>
+            </p>
+          </div>
+          <!-- Desktop: full header -->
+          <div v-else class="flex flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-4 min-w-0">
+              <img src="/gok.png" alt="Logo" class="w-12 h-12 shrink-0" />
+              <h2 class="text-2xl font-bold truncate">
+                KesMIS — Shared Documents
               </h2>
             </div>
-            <el-button type="primary" plain :icon="Back" @click="goBack" class="w-full sm:w-auto">
+            <el-button type="primary" plain @click="goBack">
+              <Icon icon="material-symbols:arrow-back" width="18" class="inline-block align-text-bottom mr-1" />
               Back
             </el-button>
           </div>
         </template>
 
         <div v-if="shareFound && documents.length > 0">
-          <!-- Document Info Summary -->
+          <!-- Document info: desktop only (mobile uses compact header lines) -->
           <el-descriptions
+            v-if="!isMobile"
             title="Share Information"
             :column="columns"
             border
@@ -307,10 +410,17 @@ onMounted(() => {
                 <el-button
                   type="primary"
                   plain
-                  :icon="Download"
+                  :loading="downloadingAll"
+                  :disabled="isExpired || !!downloadingDocId"
                   @click="downloadAll"
                   class="w-full sm:w-auto"
                 >
+                  <Icon
+                    v-if="!downloadingAll"
+                    icon="material-symbols:download"
+                    width="18"
+                    class="inline-block align-text-bottom mr-1"
+                  />
                   Download All ({{ documents.length }})
                 </el-button>
               </div>
@@ -318,19 +428,19 @@ onMounted(() => {
           </el-descriptions>
 
           <!-- Documents Table -->
-          <div class="mt-6">
-            <h3 class="text-lg font-semibold mb-4">Documents</h3>
+          <div :class="isMobile ? 'mt-2' : 'mt-6'">
+            <h3 v-if="!isMobile" class="text-lg font-semibold mb-4">Documents</h3>
             
             <!-- Mobile View: Card Layout -->
-            <div v-if="isMobile" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div v-if="isMobile" class="space-y-3 max-h-[calc(100vh-220px)] min-h-[120px] overflow-y-auto -mx-1 px-1">
               <div
                 v-for="doc in documents"
                 :key="doc.id"
-                class="document-card bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border border-gray-200 dark:border-gray-700"
+                class="document-card bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-200 dark:border-gray-700"
               >
                 <div class="flex items-start space-x-4">
                   <div class="flex-shrink-0 pt-1">
-                    <Icon :icon="getFileIcon(doc.name)" width="32" />
+                    <Icon :icon="getFileIcon(doc)" width="32" class="flex-shrink-0 text-gray-700 dark:text-gray-200" />
                   </div>
                   <div class="flex-1 min-w-0">
                     <h4 class="text-base font-semibold text-gray-900 dark:text-white mb-2 break-words">
@@ -344,14 +454,19 @@ onMounted(() => {
                       type="primary"
                       plain
                       size="small"
-                      :icon="Download"
-                :loading="downloadingDocId === doc.id"
-                :disabled="downloadingDocId === doc.id"
+                      :loading="downloadingDocId === doc.id"
+                      :disabled="downloadingDocId === doc.id || downloadingAll || isExpired"
                       @click="handleDownload(doc)"
                       class="mt-3 w-full"
                     >
-                <span v-if="downloadingDocId === doc.id">Downloading…</span>
-                <span v-else>Download</span>
+                      <Icon
+                        v-if="downloadingDocId !== doc.id"
+                        icon="material-symbols:download"
+                        width="16"
+                        class="inline-block align-text-bottom mr-1"
+                      />
+                      <span v-if="downloadingDocId === doc.id">Downloading…</span>
+                      <span v-else>Download</span>
                     </el-button>
                   </div>
                 </div>
@@ -373,7 +488,7 @@ onMounted(() => {
               <el-table-column label="File" min-width="300">
                 <template #default="{ row }">
                   <div class="flex items-center space-x-3">
-                    <Icon :icon="getFileIcon(row.name)" width="24" class="flex-shrink-0" />
+                    <Icon :icon="getFileIcon(row)" width="24" class="flex-shrink-0 text-gray-700 dark:text-gray-200" />
                     <span class="font-medium text-gray-900 dark:text-white">{{ row.name }}</span>
                   </div>
                 </template>
@@ -397,11 +512,16 @@ onMounted(() => {
                     type="primary"
                     plain
                     size="small"
-                    :icon="Download"
-                  :loading="downloadingDocId === row.id"
-                  :disabled="downloadingDocId === row.id"
+                    :loading="downloadingDocId === row.id"
+                    :disabled="downloadingDocId === row.id || downloadingAll || isExpired"
                     @click="handleDownload(row)"
                   >
+                    <Icon
+                      v-if="downloadingDocId !== row.id"
+                      icon="material-symbols:download"
+                      width="16"
+                      class="inline-block align-text-bottom mr-1"
+                    />
                     <span v-if="downloadingDocId === row.id">Downloading…</span>
                     <span v-else>Download</span>
                   </el-button>
@@ -418,7 +538,8 @@ onMounted(() => {
           :description="shareError || 'No documents found in this share'"
           class="mt-6"
         >
-          <el-button type="primary" plain :icon="Back" @click="goBack">
+          <el-button type="primary" plain @click="goBack">
+            <Icon icon="material-symbols:arrow-back" width="18" class="inline-block align-text-bottom mr-1" />
             Go Back
           </el-button>
         </el-empty>
@@ -441,9 +562,21 @@ onMounted(() => {
   transition: all 0.3s ease;
 }
 
-.document-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+@media (min-width: 640px) {
+  .document-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+}
+
+/* Tighter card chrome on small screens */
+@media (max-width: 639px) {
+  .shared-public-card :deep(.el-card__header) {
+    padding: 10px 10px 8px;
+  }
+  .shared-public-card :deep(.el-card__body) {
+    padding: 10px;
+  }
 }
 
 .documents-table-wrapper {

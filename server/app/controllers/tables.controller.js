@@ -6270,8 +6270,23 @@ exports.getPublicShare = async (req, res) => {
     if (!share) return res.status(404).send('Share not found')
     if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) return res.status(410).send('Link expired')
 
-    const items = await db.models.document_share_item.findAll({ where: { share_id: share.id }, include: [{ model: db.models.document, as: 'document' }] })
-    const docs = items.map(i => i.document).filter(Boolean)
+    const items = await db.models.document_share_item.findAll({
+      where: { share_id: share.id },
+      include: [{
+        model: db.models.document,
+        as: 'document',
+        required: true,
+        attributes: ['id', 'name', 'format', 'size', 'createdAt']
+      }]
+    })
+    const docs = items.map((i) => i.document).filter(Boolean)
+
+    const formatFromName = (name) => {
+      if (!name || typeof name !== 'string' || !name.includes('.')) return null
+      const ext = name.split('.').pop()
+      if (!ext || ext.length > 12) return null
+      return ext.toLowerCase().replace(/^\./, '')
+    }
 
     // If Accept header prefers HTML, render a basic page with download links
     const accept = (req.headers['accept'] || '').toLowerCase()
@@ -6283,10 +6298,21 @@ exports.getPublicShare = async (req, res) => {
       return res.status(200).send(html)
     }
 
-    res.status(200).send({ 
-      code: '0000', 
+    res.status(200).send({
+      code: '0000',
       data: {
-        documents: docs.map(d => ({ id: d.id, name: d.name, size: d.size, createdAt: d.createdAt })),
+        documents: docs.map((d) => {
+          const row = d.get ? d.get({ plain: true }) : d
+          const rawFormat = row.format != null && String(row.format).trim() !== '' ? String(row.format).trim().replace(/^\./, '').toLowerCase() : null
+          const format = rawFormat || formatFromName(row.name) || null
+          return {
+            id: row.id,
+            name: row.name,
+            format,
+            size: row.size,
+            createdAt: row.createdAt
+          }
+        }),
         expiresAt: share.expiresAt || null
       }
     })
