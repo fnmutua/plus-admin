@@ -2,8 +2,9 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getDocumentRepository, getDocumentUploaders } from '@/api/settlements'
-import { getListWithoutGeo } from '@/api/counties'
-import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElTag,ElForm,ElFormItem,
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElSwitch, ElSteps, ElStep
+  ,ElForm,ElFormItem,
   ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker } from 'element-plus'
 import { Document, Loading } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
@@ -2142,6 +2143,7 @@ onMounted(async () => {
 
   getSettlementOptions()
   getProjectOptions()
+  getImportDocTypes()
   window.addEventListener('resize', handleResize) // Add event listener for resize
 })
 
@@ -2239,13 +2241,15 @@ const IMPORT_UPLOAD_OPTIONS = [
   { value: 'other_facility', label: 'Other Facilities' },
   { value: 'other_documents', label: 'Other Documents' },
 ]
-const IMPORT_MODEL_MAPPINGS = {
+const IMPORT_MODEL_MAPPINGS: Record<string, string | null> = {
   settlement: 'settlement_id',
   project: 'project_id',
+  health_facility: 'health_facility_id',
   education_facility: 'education_facility_id',
   road: 'road_id',
   road_asset: 'road_asset_id',
   water_point: 'water_point_id',
+  piped_water: 'piped_water_id',
   sewer: 'sewer_id',
   other_facility: 'other_facility_id',
   other_documents: null,
@@ -2310,7 +2314,16 @@ const importHandleFileUpload = (uploadFile) => {
     return;
   }
   const currentIndex = importFileList.value.length;
-  importFileList.value.push({ ...uploadFile, protected: false, type: '', field_id: '' });
+  // Keep `raw` explicitly — spread alone can drop the File on some Element Plus versions
+  importFileList.value.push({
+    ...uploadFile,
+    raw: file,
+    name: uploadFile.name || file.name,
+    size: uploadFile.size ?? file.size,
+    protected: false,
+    type: '',
+    field_id: '',
+  });
   importFileMetadata.value.push({
     name: file.name,
     type: '',
@@ -2378,7 +2391,14 @@ const importHandleSelectModel = async (model: string) => {
         filterValues: filterValues,
       };
       const response = await searchByKeyWord(formData as any);
-      const data = (response as any).data;
+      const resp = response as any
+      const data = Array.isArray(resp)
+        ? resp
+        : Array.isArray(resp?.data)
+          ? resp.data
+          : Array.isArray(resp?.results)
+            ? resp.results
+            : []
       if (data && data.length > 0) {
         // Filter results based on user restrictions (client-side additional filtering)
         let filteredData = data.filter((item: any) => {
@@ -2409,7 +2429,7 @@ const importHandleSelectModel = async (model: string) => {
           ward: item.ward?.name,
           ward_id: item.ward?.id,
           subcounty_id: item.subcounty?.id,
-          county_id: item.county?.id,
+          county_id: item.county_id || item.county?.id,
         }));
       } else {
         ElMessage.warning('No parent options found for the selected entity.');
@@ -2420,13 +2440,12 @@ const importHandleSelectModel = async (model: string) => {
       importLoading.value.fetchParents = false;
     }
   }
-  importStep.value++;
 }
 
-// Add docTypes fetch for import drawer
+/** Same API as ImportData/Document.vue — nogeo list was empty / wrong shape for document_type here */
 const getImportDocTypes = async () => {
   try {
-    const res = await getListWithoutGeo({
+    const res = await getCountyListApi({
       params: {
         pageIndex: 1,
         limit: 100,
@@ -2436,20 +2455,48 @@ const getImportDocTypes = async () => {
         searchKeyword: '',
         sort: 'ASC',
       },
-    });
-    const nestedData = res.data.reduce((acc: any, cur: any) => {
-      const group = cur.group || 'Other';
-      if (!acc[group]) acc[group] = [];
-      acc[group].push({ value: cur.id, label: cur.type });
-      return acc;
-    }, {});
-    importDocTypes.value = Object.entries(nestedData).map(([label, options]) => ({ label, options }));
+    })
+    const rows = res?.data
+    if (!Array.isArray(rows) || rows.length === 0) {
+      importDocTypes.value = []
+      ElMessage.warning('No document types returned — check API or permissions')
+      return
+    }
+    const nestedData = rows.reduce((acc: any, cur: any) => {
+      const group = cur.group || 'Other'
+      if (!acc[group]) acc[group] = []
+      acc[group].push({ value: cur.id, label: cur.type })
+      return acc
+    }, {})
+    importDocTypes.value = Object.entries(nestedData).map(([label, options]) => ({ label, options }))
   } catch (err) {
-    ElMessage.error('Failed to load document types');
+    console.error('getImportDocTypes', err)
+    ElMessage.error('Failed to load document types')
   }
 }
-// Fetch doc types on mount
-onMounted(() => { getImportDocTypes(); });
+
+const importOnTargetModelChange = async (model: string) => {
+  if (!model) return
+  await importHandleSelectModel(model)
+  importStep.value = 2
+}
+
+const importDrawerPrimaryClick = async () => {
+  if (importStep.value === 3) {
+    await importFiles()
+    return
+  }
+  if (importStep.value === 1) {
+    if (!importTargetModel.value) {
+      ElMessage.warning('Please select where to attach documents.')
+      return
+    }
+    await importHandleSelectModel(importTargetModel.value)
+    importStep.value = 2
+    return
+  }
+  importStep.value++
+}
 
 const importFiles = async () => {
   importLoading.value.import = true;
@@ -2506,23 +2553,30 @@ const importFiles = async () => {
       }
       return metadata;
     });
-    // Build FormData
+    // Build FormData (same field order/shape as ImportData/Document.vue)
     const formData = new FormData();
-    importFileList.value.forEach((file, index) => {
-      const metadata = importFileMetadata.value[index];
-      formData.append('files', file.raw);
-      formData.append('model', 'document');
-      formData.append('createdBy', userInfo.id.toString());
-      formData.append('format', metadata.format);
-      formData.append('category', metadata.type);
-      if (metadata.field_id && metadata[metadata.field_id]) {
-        formData.append('field_id', metadata.field_id);
-        formData.append(metadata.field_id, metadata[metadata.field_id].toString());
+    for (let index = 0; index < importFileList.value.length; index++) {
+      const file = importFileList.value[index]
+      const metadata = importFileMetadata.value[index]
+      const raw = file.raw ?? file.file
+      if (!raw || !(raw instanceof Blob)) {
+        ElMessage.error(`Missing file data for "${file.name || index}". Re-add the file and try again.`)
+        importLoading.value.import = false
+        return
       }
-      formData.append('protected', metadata.protected.toString());
-      formData.append('size', metadata.size);
-      formData.append('code', uuid.v4());
-    });
+      formData.append('files', raw as Blob)
+      formData.append('model', 'document')
+      formData.append('createdBy', userInfo.id.toString())
+      formData.append('format', metadata.format)
+      formData.append('category', String(metadata.type))
+      if (metadata.field_id && metadata[metadata.field_id]) {
+        formData.append('field_id', metadata.field_id)
+        formData.append(metadata.field_id, metadata[metadata.field_id].toString())
+      }
+      formData.append('protected', metadata.protected.toString())
+      formData.append('size', metadata.size)
+      formData.append('code', uuid.v4())
+    }
     // Upload
     const response = await uploadFilesBatch(formData as any);
     const resData = (response as any).data || response;
@@ -3624,7 +3678,7 @@ const handleTabChange = async (tabName: string) => {
           filterable
           clearable
           placeholder="Select entity to attach the documents to"
-          @change="importHandleSelectModel"
+          @change="importOnTargetModelChange"
           :disabled="importLoading.fetchParents"
         >
           <el-option v-for="item in IMPORT_UPLOAD_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
@@ -3729,7 +3783,7 @@ const handleTabChange = async (tabName: string) => {
               block
               type="primary"
               :loading="importLoading.import && importStep === 3"
-              @click="importStep === 3 ? importFiles() : importStep++"
+              @click="importDrawerPrimaryClick"
             >
               {{ importStep === 3 ? 'Import' : (importStep === 2 ? 'Review' : 'Next') }}
             </el-button>
