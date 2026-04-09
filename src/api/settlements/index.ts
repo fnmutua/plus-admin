@@ -416,6 +416,17 @@ export const downloadSharedDocument = (token: string, documentId: number): Promi
   }).then(response => response.data)
 }
 
+/** Zip multiple documents from a public share (no auth). */
+export const downloadSharedDocumentsZip = (token: string, documentIds: number[]): Promise<Blob> => {
+  return axios
+    .post(
+      prod + `/api/public/share/${token}/download-zip`,
+      { documentIds },
+      { responseType: 'blob', headers: { 'Content-Type': 'application/json' } }
+    )
+    .then((response) => response.data)
+}
+
 // Get all document shares
 export const getDocumentShares = (): Promise<IResponse<any>> => {
   return request.get({ url: prod + '/api/v1/documents/shares' })

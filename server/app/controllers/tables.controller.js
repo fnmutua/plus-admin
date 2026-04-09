@@ -6394,6 +6394,106 @@ exports.downloadSharedFile = async (req, res) => {
   }
 }
 
+// Public: zip multiple shared documents (same token + documentIds must be in share)
+exports.downloadSharedZip = async (req, res) => {
+  try {
+    const { token } = req.params
+    const rawIds = req.body && req.body.documentIds
+    if (!Array.isArray(rawIds) || rawIds.length === 0) {
+      return res.status(400).json({ code: '4000', message: 'documentIds array required' })
+    }
+    const MAX_ZIP_FILES = 400
+    if (rawIds.length > MAX_ZIP_FILES) {
+      return res.status(400).json({ code: '4000', message: `At most ${MAX_ZIP_FILES} files per zip` })
+    }
+
+    const uniqueIds = []
+    const seen = new Set()
+    for (const x of rawIds) {
+      const n = parseInt(String(x), 10)
+      if (Number.isNaN(n)) continue
+      if (seen.has(n)) continue
+      seen.add(n)
+      uniqueIds.push(n)
+    }
+    if (uniqueIds.length === 0) {
+      return res.status(400).json({ code: '4000', message: 'No valid document ids' })
+    }
+
+    const share = await db.models.document_share.findOne({ where: { token, isRevoked: false } })
+    if (!share) return res.status(404).json({ code: '4040', message: 'Share not found' })
+    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) {
+      return res.status(410).json({ code: '4100', message: 'Link expired' })
+    }
+
+    const items = await db.models.document_share_item.findAll({
+      where: { share_id: share.id, document_id: { [op.in]: uniqueIds } },
+      attributes: ['document_id'],
+      raw: true
+    })
+    const allowed = new Set(items.map((i) => i.document_id))
+    for (const id of uniqueIds) {
+      if (!allowed.has(id)) {
+        return res.status(403).json({ code: '4030', message: 'One or more documents are not in this share' })
+      }
+    }
+
+    const docs = await db.models.document.findAll({ where: { id: { [op.in]: uniqueIds } } })
+    const byId = new Map(docs.map((d) => [d.id, d]))
+
+    const JSZip = require('jszip')
+    const zip = new JSZip()
+    const usedNames = new Set()
+
+    for (const id of uniqueIds) {
+      const doc = byId.get(id)
+      if (!doc) {
+        return res.status(404).json({ code: '4040', message: `Document ${id} not found` })
+      }
+      const row = doc.get ? doc.get({ plain: true }) : doc
+      const filePath = path.isAbsolute(row.location) ? row.location : path.join('/data/uploads', row.name)
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ code: '4040', message: `File missing on server: ${row.name}` })
+      }
+      const buf = fs.readFileSync(filePath)
+      let base = path.basename(row.name || `document-${id}`).replace(/[/\\]/g, '_')
+      if (!base || base === '.' || base === '..') base = `document-${id}`
+      let entryName = base
+      if (usedNames.has(entryName)) {
+        const ext = path.extname(base)
+        const stem = path.basename(base, ext) || `file-${id}`
+        entryName = `${stem}-${id}${ext}`
+      }
+      usedNames.add(entryName)
+      zip.file(entryName, buf)
+    }
+
+    try {
+      for (const id of uniqueIds) {
+        await db.models.document.increment('downloadCount', { where: { id } })
+      }
+    } catch (incErr) {
+      console.warn('downloadSharedZip downloadCount increment:', incErr && incErr.message)
+    }
+
+    const out = await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    })
+
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', 'attachment; filename="shared-documents.zip"')
+    res.setHeader('Content-Length', String(out.length))
+    return res.send(out)
+  } catch (e) {
+    console.error('downloadSharedZip error', e)
+    if (!res.headersSent) {
+      res.status(500).json({ code: '5000', message: 'Failed to build zip' })
+    }
+  }
+}
+
 // Get all document shares for the current user or all if admin
 exports.getDocumentShares = async (req, res) => {
   try {

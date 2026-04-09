@@ -2496,6 +2496,7 @@ module.exports = function (app) {
   // Public share access (no auth)
   app.get('/api/public/share/:token', controller.getPublicShare)
   app.get('/api/public/share/:token/download/:documentId', controller.downloadSharedFile)
+  app.post('/api/public/share/:token/download-zip', controller.downloadSharedZip)
 
   // Public files (no auth) – like logo
   app.get('/api/public/tool-a', controller.getPublicToolA)

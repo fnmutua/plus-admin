@@ -4,7 +4,7 @@ import { ElButton, ElCard, ElMessage, ElEmpty, ElTable, ElTableColumn, ElInput }
 import { Icon } from '@iconify/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
-import { getPublicSharedDocuments, downloadSharedDocument } from '@/api/settlements'
+import { getPublicSharedDocuments, downloadSharedDocument, downloadSharedDocumentsZip } from '@/api/settlements'
 
 const appStore = useAppStore()
 const route = useRoute()
@@ -320,6 +320,16 @@ const handleDownload = async (document: SharedDocument): Promise<boolean> => {
   }
 }
 
+const parseBlobErrorMessage = async (blob: Blob): Promise<string> => {
+  try {
+    const text = await blob.text()
+    const j = JSON.parse(text) as { message?: string }
+    return j.message || text || 'Download failed'
+  } catch {
+    return 'Download failed'
+  }
+}
+
 const downloadAll = async () => {
   const list = filteredShareDocuments.value
   if (list.length === 0) {
@@ -327,28 +337,64 @@ const downloadAll = async () => {
     return
   }
 
+  const token = route.params.token as string
   downloadingAll.value = true
-  ElMessage.info(`Starting batch download of ${list.length} document(s)...`)
-
-  let successCount = 0
-  let failCount = 0
 
   try {
-    for (const doc of list) {
-      const success = await handleDownload(doc)
-      if (success) {
-        successCount++
-      } else {
-        failCount++
+    const blob = await downloadSharedDocumentsZip(
+      token,
+      list.map((d) => d.id)
+    )
+
+    const zipName =
+      list.length === 1
+        ? `${(list[0].name || 'document').replace(/[/\\]/g, '_').replace(/\.[^.]+$/, '') || 'document'}.zip`
+        : `shared-documents-${list.length}-files.zip`
+
+    const url = window.URL.createObjectURL(blob)
+    const link = window.document.createElement('a')
+    link.href = url
+    link.setAttribute('download', zipName)
+    window.document.body.appendChild(link)
+    link.click()
+    window.document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success(`Download started (${list.length} file${list.length === 1 ? '' : 's'} in zip)`)
+  } catch (error: any) {
+    console.error('Error downloading zip:', error)
+    try {
+      ;(ElMessage as any).closeAll && (ElMessage as any).closeAll()
+    } catch {}
+
+    let errorMessage = 'Failed to download zip'
+
+    if (error?.response && typeof error.response.status === 'number') {
+      const status = error.response.status
+      const data = error.response.data
+
+      if (data instanceof Blob) {
+        errorMessage = await parseBlobErrorMessage(data)
+      } else if (data?.message) {
+        errorMessage = data.message
+      } else if (status === 404) {
+        errorMessage = 'Share or file not found'
+      } else if (status === 410) {
+        errorMessage = 'This share link has expired'
+      } else if (status === 403) {
+        errorMessage = 'You do not have permission to download these files'
+      } else if (status === 400) {
+        errorMessage = 'Invalid download request'
+      } else if (status === 500) {
+        errorMessage = 'Server error while building the zip. Try again later.'
       }
-      await new Promise(resolve => setTimeout(resolve, 500))
+    } else if (error?.code === 'ERR_NETWORK' || error?.message?.includes('Network Error')) {
+      errorMessage = 'Network error. Please check your connection and try again.'
+    } else if (error?.message) {
+      errorMessage = error.message
     }
 
-    if (failCount === 0) {
-      ElMessage.success(`Batch download completed: ${successCount} document(s)`)
-    } else {
-      ElMessage.warning(`Batch download completed: ${successCount} succeeded, ${failCount} failed`)
-    }
+    ElMessage.error({ message: errorMessage, duration: 6000, showClose: true })
   } finally {
     downloadingAll.value = false
   }
