@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { ElButton, ElCard, ElMessage, ElEmpty, ElTable, ElTableColumn, ElDescriptions, ElDescriptionsItem, ElInput } from 'element-plus'
+import { ElButton, ElCard, ElMessage, ElEmpty, ElTable, ElTableColumn, ElInput } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/store/modules/app'
@@ -17,6 +17,11 @@ interface SharedDocument {
   size: number
   createdAt: string
   format?: string
+  category?: number
+  document_type?: { id?: number; type?: string; group?: string }
+  'document_type.id'?: number
+  'document_type.type'?: string
+  'document_type.group'?: string
 }
 
 const loading = ref(false)
@@ -29,6 +34,30 @@ const downloadingAll = ref(false)
 /** Client-side filter for the shared document list (name, format, raw date string). */
 const shareListSearch = ref('')
 
+/**
+ * Same rules as DocumentsTagged `getRowDocumentTypeLabel` (repository API shape).
+ * No categoryCounts / full doc list: resolve name from another row with same type id if needed.
+ */
+const getSharedDocumentTypeLabel = (row: SharedDocument): string => {
+  const nested = row.document_type?.type
+  if (nested) return String(nested)
+  const flat = row['document_type.type']
+  if (flat) return String(flat)
+  const typeId = row['document_type.id'] ?? row.category
+  if (typeId != null && String(typeId).trim() !== '') {
+    const idStr = String(typeId)
+    const peer = documents.value.find((d) => {
+      if (d.id === row.id) return false
+      const pid = d['document_type.id'] ?? d.category
+      return pid != null && String(pid) === idStr && (d['document_type.type'] || d.document_type?.type)
+    })
+    const peerLabel = peer?.['document_type.type'] || peer?.document_type?.type
+    if (peerLabel) return String(peerLabel)
+    return `Type ${idStr}`
+  }
+  return '—'
+}
+
 const filteredShareDocuments = computed(() => {
   const q = shareListSearch.value.trim().toLowerCase()
   if (!q) return documents.value
@@ -36,7 +65,8 @@ const filteredShareDocuments = computed(() => {
     const name = (doc.name || '').toLowerCase()
     const fmt = (doc.format || '').toLowerCase()
     const created = String(doc.createdAt || '').toLowerCase()
-    return name.includes(q) || fmt.includes(q) || created.includes(q)
+    const typeLabel = getSharedDocumentTypeLabel(doc).toLowerCase()
+    return name.includes(q) || fmt.includes(q) || created.includes(q) || typeLabel.includes(q)
   })
 })
 
@@ -51,6 +81,17 @@ const formatDate = (dateString: string) => {
     minute: '2-digit',
     hour12: true,
   }).format(date)
+}
+
+/** Document upload time for list UI (calendar date only). */
+const formatUploadedDate = (dateString: string) => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return 'N/A'
+  const d = String(date.getDate()).padStart(2, '0')
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const y = date.getFullYear()
+  return `${d}/${m}/${y}`
 }
 
 const formatFileSize = (size: number | string | null | undefined) => {
@@ -280,19 +321,20 @@ const handleDownload = async (document: SharedDocument): Promise<boolean> => {
 }
 
 const downloadAll = async () => {
-  if (documents.value.length === 0) {
+  const list = filteredShareDocuments.value
+  if (list.length === 0) {
     ElMessage.warning('No documents to download')
     return
   }
 
   downloadingAll.value = true
-  ElMessage.info(`Starting batch download of ${documents.value.length} document(s)...`)
+  ElMessage.info(`Starting batch download of ${list.length} document(s)...`)
 
   let successCount = 0
   let failCount = 0
 
   try {
-    for (const doc of documents.value) {
+    for (const doc of list) {
       const success = await handleDownload(doc)
       if (success) {
         successCount++
@@ -323,18 +365,8 @@ const goBack = () => {
   router.back()
 }
 
-const columns = ref(1)
-const descriptionDirection = ref<'horizontal' | 'vertical'>('horizontal')
-
-const updateColumns = () => {
-  columns.value = window.innerWidth >= 640 ? 2 : 1
-  descriptionDirection.value = window.innerWidth >= 640 ? 'horizontal' : 'vertical'
-}
-
 onMounted(() => {
   fetchSharedDocuments()
-  updateColumns()
-  window.addEventListener('resize', updateColumns)
 })
 </script>
 
@@ -359,10 +391,11 @@ onMounted(() => {
             <el-button
               v-if="shareFound && documents.length > 0"
               type="primary"
-              class="w-full mt-3"
+              plain
+              class="w-full mt-3 share-plain-primary-btn"
               size="large"
               :loading="downloadingAll"
-              :disabled="isExpired || !!downloadingDocId"
+              :disabled="isExpired || !!downloadingDocId || filteredShareDocuments.length === 0"
               @click="downloadAll"
             >
               <Icon
@@ -371,7 +404,7 @@ onMounted(() => {
                 width="20"
                 class="inline-block align-text-bottom mr-1"
               />
-              Download all ({{ documents.length }})
+              Download all ({{ filteredShareDocuments.length }})
             </el-button>
             <p
               v-if="shareFound && documents.length > 0 && expiresAt"
@@ -397,48 +430,46 @@ onMounted(() => {
         </template>
 
         <div v-if="shareFound && documents.length > 0">
-          <!-- Document info: desktop only (mobile uses compact header lines) -->
-          <el-descriptions
+          <!-- Document info: desktop only — single compact row (mobile uses header) -->
+          <div
             v-if="!isMobile"
-            title="Share Information"
-            :column="columns"
-            border
-            :direction="descriptionDirection"
-            class="mt-6 mb-6"
+            class="share-info-row mt-4 mb-4 flex flex-nowrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm overflow-x-auto"
           >
-            <el-descriptions-item label="Total Documents" :span="2">
-              {{ documents.length }} file(s)
-            </el-descriptions-item>
-            <el-descriptions-item label="Expires" :span="2" v-if="expiresAt">
-              <span>
-                {{ formatDate(expiresAt) }}
-                <el-tag type="danger" size="small" v-if="isExpired" style="margin-left: 6px;">Expired</el-tag>
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="Total Size" :span="2">
-              {{ formatFileSize(documents.reduce((sum, doc) => sum + (Number(doc.size) || 0), 0)) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="Actions" :span="2">
-              <div class="flex flex-wrap gap-2">
-                <el-button
-                  type="primary"
-                  plain
-                  :loading="downloadingAll"
-                  :disabled="isExpired || !!downloadingDocId"
-                  @click="downloadAll"
-                  class="w-full sm:w-auto"
-                >
-                  <Icon
-                    v-if="!downloadingAll"
-                    icon="material-symbols:download"
-                    width="18"
-                    class="inline-block align-text-bottom mr-1"
-                  />
-                  Download All ({{ documents.length }})
-                </el-button>
-              </div>
-            </el-descriptions-item>
-          </el-descriptions>
+            <span class="share-info-row__heading shrink-0 font-semibold text-gray-800 dark:text-gray-100 pr-3 border-r border-gray-200">
+              Share information
+            </span>
+            <span class="shrink-0 whitespace-nowrap">
+              <span class="text-gray-500 dark:text-gray-400">Documents</span>
+              {{ ' ' }}{{ documents.length }} file(s)
+            </span>
+            <span v-if="expiresAt" class="shrink-0 min-w-0 max-w-[min(100%,20rem)] sm:max-w-[28rem] truncate" :title="formatDate(expiresAt)">
+              <span class="text-gray-500 dark:text-gray-400">Expires</span>
+              {{ ' ' }}{{ formatDate(expiresAt) }}
+              <el-tag type="danger" size="small" v-if="isExpired" class="ml-1 align-middle">Expired</el-tag>
+            </span>
+            <span class="shrink-0 whitespace-nowrap">
+              <span class="text-gray-500 dark:text-gray-400">Total size</span>
+              {{ ' ' }}{{ formatFileSize(documents.reduce((sum, doc) => sum + (Number(doc.size) || 0), 0)) }}
+            </span>
+            <span class="shrink-0 ml-auto pl-2">
+              <el-button
+                type="primary"
+                plain
+                :loading="downloadingAll"
+                :disabled="isExpired || !!downloadingDocId || filteredShareDocuments.length === 0"
+                @click="downloadAll"
+                class="share-plain-primary-btn"
+              >
+                <Icon
+                  v-if="!downloadingAll"
+                  icon="material-symbols:download"
+                  width="18"
+                  class="inline-block align-text-bottom mr-1"
+                />
+                Download all ({{ filteredShareDocuments.length }})
+              </el-button>
+            </span>
+          </div>
 
           <!-- Documents Table -->
           <div :class="isMobile ? 'mt-2' : 'mt-6'">
@@ -490,8 +521,9 @@ onMounted(() => {
                       {{ doc.name }}
                     </h4>
                     <div class="flex flex-col space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                      <span>Type: {{ getSharedDocumentTypeLabel(doc) }}</span>
                       <span>Size: {{ formatFileSize(doc.size) }}</span>
-                      <span>Date: {{ formatDate(doc.createdAt) }}</span>
+                      <span>Uploaded: {{ formatUploadedDate(doc.createdAt) }}</span>
                     </div>
                     <el-button
                       type="primary"
@@ -500,7 +532,7 @@ onMounted(() => {
                       :loading="downloadingDocId === doc.id"
                       :disabled="downloadingDocId === doc.id || downloadingAll || isExpired"
                       @click="handleDownload(doc)"
-                      class="mt-3 w-full"
+                      class="mt-3 w-full share-plain-primary-btn"
                     >
                       <Icon
                         v-if="downloadingDocId !== doc.id"
@@ -537,15 +569,21 @@ onMounted(() => {
                 </template>
               </el-table-column>
               
+              <el-table-column label="Type" min-width="200" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span class="text-gray-600 dark:text-gray-400">{{ getSharedDocumentTypeLabel(row) }}</span>
+                </template>
+              </el-table-column>
+              
               <el-table-column label="Size" width="120" align="center">
                 <template #default="{ row }">
                   <span class="text-gray-600 dark:text-gray-400">{{ formatFileSize(row.size) }}</span>
                 </template>
               </el-table-column>
               
-              <el-table-column label="Date" width="180">
+              <el-table-column label="Uploaded" width="120" align="center">
                 <template #default="{ row }">
-                  <span class="text-gray-600 dark:text-gray-400">{{ formatDate(row.createdAt) }}</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ formatUploadedDate(row.createdAt) }}</span>
                 </template>
               </el-table-column>
               
@@ -558,6 +596,7 @@ onMounted(() => {
                     :loading="downloadingDocId === row.id"
                     :disabled="downloadingDocId === row.id || downloadingAll || isExpired"
                     @click="handleDownload(row)"
+                    class="share-plain-primary-btn"
                   >
                     <Icon
                       v-if="downloadingDocId !== row.id"
@@ -622,6 +661,42 @@ onMounted(() => {
   }
 }
 
+/* Share info toolbar: simple clear outline on dark backgrounds */
+html.dark .share-info-row {
+  background-color: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+html.dark .share-info-row .share-info-row__heading {
+  border-right-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Primary plain buttons: white outline + text in dark mode (cards / dark UI) */
+html.dark .share-plain-primary-btn.el-button.is-plain.el-button--primary {
+  --el-button-text-color: #ffffff;
+  --el-button-bg-color: transparent;
+  --el-button-border-color: rgba(255, 255, 255, 0.88);
+  --el-button-outline-color: rgba(255, 255, 255, 0.45);
+  --el-button-hover-text-color: #ffffff;
+  --el-button-hover-bg-color: rgba(255, 255, 255, 0.12);
+  --el-button-hover-border-color: #ffffff;
+  --el-button-active-text-color: #ffffff;
+  --el-button-active-bg-color: rgba(255, 255, 255, 0.18);
+  --el-button-active-border-color: #ffffff;
+}
+
+html.dark .share-plain-primary-btn.el-button.is-plain.el-button--primary.is-disabled,
+html.dark .share-plain-primary-btn.el-button.is-plain.el-button--primary.is-disabled:hover {
+  --el-button-disabled-text-color: rgba(255, 255, 255, 0.42);
+  --el-button-disabled-bg-color: transparent;
+  --el-button-disabled-border-color: rgba(255, 255, 255, 0.28);
+}
+
+html.dark .share-plain-primary-btn.el-button.is-plain.el-button--primary :deep(.el-icon),
+html.dark .share-plain-primary-btn.el-button.is-plain.el-button--primary :deep(svg) {
+  color: #ffffff;
+}
+
 .documents-table-wrapper {
   width: 100%;
 }
@@ -630,45 +705,32 @@ onMounted(() => {
   width: 100%;
 }
 
-.documents-table :deep(.el-table__body tr:hover > td) {
-  background-color: #f5f7fa !important;
+/* No row hover highlight (keep stripe colors; EP uses hover-row + hover-cell too) */
+.documents-table :deep(.el-table__body tr:hover > td.el-table__cell),
+.documents-table :deep(.el-table__body tr.hover-row > td.el-table__cell) {
+  background-color: var(--el-fill-color-blank) !important;
+}
+
+.documents-table :deep(.el-table__body tr.el-table__row--striped:hover > td.el-table__cell),
+.documents-table :deep(.el-table__body tr.el-table__row--striped.hover-row > td.el-table__cell) {
+  background-color: var(--el-fill-color-lighter) !important;
+}
+
+.documents-table :deep(.el-table__body tr > td.hover-cell) {
+  background-color: var(--el-fill-color-blank) !important;
+}
+
+.documents-table :deep(.el-table__body tr.el-table__row--striped > td.hover-cell) {
+  background-color: var(--el-fill-color-lighter) !important;
+}
+
+.documents-table :deep(.el-table__body td.el-table__cell) {
+  transition: none;
 }
 
 .documents-table :deep(.el-table__header) {
   background-color: #fafafa;
 }
 
-.documents-table :deep(.el-table__row) {
-  transition: background-color 0.2s ease;
-}
-
-.el-descriptions :deep(.el-descriptions__header) {
-  @apply text-2xl font-semibold mb-4 text-gray-900 dark:text-white;
-}
-
-.el-descriptions :deep(.el-descriptions__body) {
-  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md;
-}
-
-.el-descriptions :deep(.el-descriptions__label) {
-  @apply font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700;
-}
-
-.el-descriptions :deep(.el-descriptions__content) {
-  @apply text-gray-900 dark:text-white;
-}
-
-@media (max-width: 640px) {
-  .el-descriptions {
-    @apply block;
-  }
-  .el-descriptions :deep(.el-descriptions__body) {
-    @apply flex flex-col;
-  }
-  .el-descriptions :deep(.el-descriptions__label),
-  .el-descriptions :deep(.el-descriptions__content) {
-    @apply w-full;
-  }
-}
 </style>
 

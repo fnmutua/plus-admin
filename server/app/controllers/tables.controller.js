@@ -6278,16 +6278,42 @@ exports.getPublicShare = async (req, res) => {
     if (!share) return res.status(404).send('Share not found')
     if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) return res.status(410).send('Link expired')
 
-    const items = await db.models.document_share_item.findAll({
+    // Load share item order, then documents with the same include pattern as getDocumentRepository
+    // (nested include on document_share_item omitted `as: 'document_type'`, so document_type was missing).
+    const itemRows = await db.models.document_share_item.findAll({
       where: { share_id: share.id },
-      include: [{
-        model: db.models.document,
-        as: 'document',
-        required: true,
-        attributes: ['id', 'name', 'format', 'size', 'createdAt']
-      }]
+      attributes: ['id', 'document_id'],
+      order: [['id', 'ASC']]
     })
-    const docs = items.map((i) => i.document).filter(Boolean)
+    const docIdsOrdered = itemRows.map((r) => r.document_id).filter((id) => id != null)
+    let docs = []
+    if (docIdsOrdered.length > 0) {
+      const uniqueIds = [...new Set(docIdsOrdered)]
+      const docsByQuery = await db.models.document.findAll({
+        where: { id: { [op.in]: uniqueIds } },
+        attributes: ['id', 'name', 'format', 'size', 'createdAt', 'category'],
+        include: [{
+          model: db.models.document_type,
+          as: 'document_type',
+          attributes: ['id', 'type', 'group'],
+          required: false
+        }]
+      })
+      const byId = new Map(docsByQuery.map((d) => [d.id, d]))
+      docs = docIdsOrdered.map((id) => byId.get(id)).filter(Boolean)
+    }
+
+    // category = document_type.id (same as getDocumentRepository); map types by id for reliable labels
+    const categoryIds = [...new Set(docs.map((d) => d.get('category')).filter((id) => id != null))]
+    let typeByCategoryId = {}
+    if (categoryIds.length > 0) {
+      const typeRows = await db.models.document_type.findAll({
+        where: { id: { [op.in]: categoryIds } },
+        attributes: ['id', 'type', 'group'],
+        raw: true
+      })
+      typeByCategoryId = typeRows.reduce((acc, t) => { acc[t.id] = t; return acc }, {})
+    }
 
     const formatFromName = (name) => {
       if (!name || typeof name !== 'string' || !name.includes('.')) return null
@@ -6313,12 +6339,23 @@ exports.getPublicShare = async (req, res) => {
           const row = d.get ? d.get({ plain: true }) : d
           const rawFormat = row.format != null && String(row.format).trim() !== '' ? String(row.format).trim().replace(/^\./, '').toLowerCase() : null
           const format = rawFormat || formatFromName(row.name) || null
+          const joined = row.document_type || null
+          const dt =
+            joined && (joined.id != null || joined.type != null || joined.group != null)
+              ? joined
+              : (row.category != null ? typeByCategoryId[row.category] : null) || null
+          // Match getDocumentRepository processed document shape for type fields
           return {
             id: row.id,
             name: row.name,
             format,
             size: row.size,
-            createdAt: row.createdAt
+            createdAt: row.createdAt,
+            category: row.category,
+            'document_type.id': dt?.id,
+            'document_type.type': dt?.type,
+            'document_type.group': dt?.group,
+            document_type: dt ? { id: dt.id, type: dt.type, group: dt.group } : undefined
           }
         }),
         expiresAt: share.expiresAt || null
