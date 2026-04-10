@@ -13,7 +13,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
   loginCollector, deleteSubmissions, editSubmissions,
-  getSubmissions, createSubmission
+  getSubmissions, createSubmission, getSettlements
 } from '@/api/collector'
 
 import {
@@ -127,6 +127,7 @@ const loginUserToCollector = async () => {
         })
       })
 
+    await fetchEntitySettlements()
     await getGRCData()
     await loadSecRoster()
   } catch (error) {
@@ -146,7 +147,70 @@ const loginUserToCollector = async () => {
 
 const grc_officials = ref([])
 
+type SettlementItem = { id: string; code: string; sett_name: string; county_name: string; county_id?: string }
 
+const entitySettlementsList = ref<SettlementItem[]>([])
+
+const entityCountyFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+  return entitySettlementsList.value
+    .filter((s) => s.county_name && !seen.has(s.county_name) && seen.add(s.county_name))
+    .map((s) => ({ label: s.county_name, value: s.county_name }))
+})
+
+const entitySettlementFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+  let matchingCountyIds: Set<string> | null = null
+  if (county_value.value) {
+    matchingCountyIds = new Set(
+      entitySettlementsList.value
+        .filter((s) => s.county_name === county_value.value && s.county_id != null)
+        .map((s) => String(s.county_id))
+    )
+  }
+  return entitySettlementsList.value
+    .filter((s) => {
+      if (matchingCountyIds) {
+        const byId = s.county_id != null && matchingCountyIds.has(String(s.county_id))
+        const byName = s.county_name === county_value.value
+        if (!byId && !byName) return false
+      }
+      return s.sett_name && !seen.has(s.sett_name) && seen.add(s.sett_name)
+    })
+    .map((s) => ({ label: s.sett_name, value: s.sett_name }))
+})
+
+const entityCountyOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+  return entitySettlementsList.value
+    .filter((s) => s.county_name && !seen.has(s.county_name) && seen.add(s.county_name))
+    .map((s) => ({ label: s.county_name, value: s.county_name }))
+})
+
+const entitySettlementOptionsByCounty = computed<{ label: string; value: string }[]>(() => {
+  if (!grcCreateForm.group_location.county) return []
+  const seen = new Set<string>()
+  return entitySettlementsList.value
+    .filter((s) => s.county_name === grcCreateForm.group_location.county && s.sett_name && !seen.has(s.sett_name) && seen.add(s.sett_name))
+    .map((s) => ({ label: s.sett_name, value: s.sett_name }))
+})
+
+const fetchEntitySettlements = async () => {
+  try {
+    const res = await getSettlements({ project: '1', token: localStorage.getItem('collectorToken') })
+    const data: any[] = (res as any).data || []
+    entitySettlementsList.value = data.map((s: any) => ({
+      id: s.id || s.__id,
+      code: s.code,
+      sett_name: s.sett_name,
+      county_name: s.county_name,
+      county_id: s.county_id || null
+    }))
+    console.log('GRC entitySettlements total:', entitySettlementsList.value.length)
+  } catch (error) {
+    console.error('Fetch entity settlements error:', error)
+  }
+}
 
 const countyOptions = ref([])
 const settlementOptions = ref([])
@@ -194,8 +258,9 @@ const extractData = async (dataArray) => {
 
 
     // Ensure group_location and settlement_name exist before using them
+    const matchedEntity = entitySettlementsList.value.find((s: SettlementItem) => s.sett_name === data.settlement_name)
     const official_details = {
-      county: data.group_location?.county || "N/A",
+      county: matchedEntity?.county_name || data.group_location?.county || "N/A",
       settlement: data.settlement_name || "N/A",
       returning_officer: data.grp_certification?.returning_officer || "N/A",
       npct_representative: data.grp_certification?.npct_representative || "N/A",
@@ -818,6 +883,8 @@ const county_value = ref()
 const sett_value = ref()
 const position = ref()
 
+watch(county_value, () => { sett_value.value = undefined })
+
 
 const filteredData = computed(() => {
   // return grc_officials.value; // Return all data if no search term
@@ -1088,12 +1155,12 @@ type="flex" justify="start" gutter="10"
       <el-select
 v-model="county_value" placeholder="Filter County" style=" margin-right: 5px;  width:250px" clearable
         filterable>
-        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in entityCountyFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
       <el-select
 v-model="sett_value" placeholder="Filter Settlement" clearable filterable
         style=" margin-right: 5px; width:350px">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in entitySettlementFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
       <el-select
@@ -1180,8 +1247,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-row :gutter="10">
         <el-col :xs="24" :sm="12" :md="12">
           <el-form-item label="County">
-            <el-select v-model="grcCreateForm.group_location.county" filterable clearable placeholder="Select county">
-              <el-option v-for="c in countyOptions" :key="c.value" :label="c.label" :value="c.value" />
+            <el-select v-model="grcCreateForm.group_location.county" filterable clearable placeholder="Select county" @change="() => { grcCreateForm.group_location.settlement = '' }">
+              <el-option v-for="c in entityCountyOptions" :key="c.value" :label="c.label" :value="c.value" />
     </el-select>
           </el-form-item>
         </el-col>
@@ -1193,7 +1260,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               clearable
               placeholder="Select settlement"
             >
-              <el-option v-for="s in settlementOptions" :key="s.value" :label="s.label" :value="s.value" />
+              <el-option v-for="s in entitySettlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
             </el-select>
           </el-form-item>
         </el-col>

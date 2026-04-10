@@ -18,7 +18,6 @@ import {
   createSubmission,
   getSettlements
 } from '@/api/collector'
-import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyByIdApi } from '@/api/adminunits'
 import { watch, onMounted } from 'vue';
 
@@ -71,6 +70,64 @@ const settlementOptionsByCounty = computed<{ label: string; value: string; code:
         : s.county_name === createForm.group_location.county
     )
     .map((s: SettlementItem) => ({ label: s.sett_name, value: s.code, code: s.code }))
+})
+
+// Entity-settlements-based lookups for the Add SEC form and list filters
+const entitySettlementsList = ref<SettlementItem[]>([])
+
+const entityCountyOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Map<string, string>()
+  entitySettlementsList.value.forEach((s: SettlementItem) => {
+    const key = s.county_id ? String(s.county_id) : String(s.county_name || '')
+    const label = s.county_name || key
+    if (key && !seen.has(key)) seen.set(key, label)
+  })
+  return Array.from(seen, ([value, label]) => ({ label, value }))
+})
+
+const entitySettlementOptionsByCounty = computed<{ label: string; value: string; code: string }[]>(() => {
+  if (!createForm.group_location.county) return []
+  return entitySettlementsList.value
+    .filter((s: SettlementItem) =>
+      s.county_id
+        ? String(s.county_id) === String(createForm.group_location.county)
+        : s.county_name === createForm.group_location.county
+    )
+    .map((s: SettlementItem) => ({ label: s.sett_name, value: s.code, code: s.code }))
+})
+
+// Filter-bar options: values are names (matching the string names stored in collector submissions)
+const entityCountyFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+  return entitySettlementsList.value
+    .filter((s: SettlementItem) => s.county_name && !seen.has(s.county_name) && seen.add(s.county_name))
+    .map((s: SettlementItem) => ({ label: s.county_name, value: s.county_name }))
+})
+
+const entitySettlementFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+
+  // Resolve county_id(s) for the selected county name so we can match even
+  // when some settlement rows have a null county_name (association not loaded)
+  let matchingCountyIds: Set<string> | null = null
+  if (county_value.value) {
+    matchingCountyIds = new Set(
+      entitySettlementsList.value
+        .filter((s: SettlementItem) => s.county_name === county_value.value && s.county_id != null)
+        .map((s: SettlementItem) => String(s.county_id))
+    )
+  }
+
+  return entitySettlementsList.value
+    .filter((s: SettlementItem) => {
+      if (matchingCountyIds) {
+        const byId = s.county_id != null && matchingCountyIds.has(String(s.county_id))
+        const byName = s.county_name === county_value.value
+        if (!byId && !byName) return false
+      }
+      return s.sett_name && !seen.has(s.sett_name) && seen.add(s.sett_name)
+    })
+    .map((s: SettlementItem) => ({ label: s.sett_name, value: s.sett_name }))
 })
 
 const resetCreateForm = () => {
@@ -158,7 +215,6 @@ onMounted(async () => {
 
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
-
 
 })
 
@@ -308,7 +364,7 @@ const loginUserToCollector = async () => {
     })
 
 
-    await fetchSettlements()
+    await fetchEntitySettlements()
     getSecData()
   } catch (error) {
     loading.value = false
@@ -375,8 +431,11 @@ const extractData = async (dataArray) => {
 
 
     // Ensure group_location and settlement_name exist before using them
+    const matchedEntity = entitySettlementsList.value.find(
+      (s: SettlementItem) => s.sett_name === data.settlement_name
+    )
     const official_details = {
-      county: data.group_location?.county || "N/A",
+      county: matchedEntity?.county_name || data.group_location?.county || "N/A",
       settlement: data.settlement_name || "N/A",
       returning_officer: data.grp_certification?.returning_officer || "N/A",
       npct_representative: data.grp_certification?.npct_representative || "N/A",
@@ -594,6 +653,28 @@ const fetchSettlementsByCounty = async (countyId: string | number) => {
 
 
 
+const fetchEntitySettlements = async () => {
+  try {
+    const payload: any = {
+      project: '1',
+      token: localStorage.getItem('collectorToken')
+    }
+    const res = await getSettlements(payload)
+    const data: any[] = (res as any).data || []
+    console.log('entitySettlements total from collector:', data.length)
+    entitySettlementsList.value = data.map((s: any) => ({
+      id: s.id || s.__id,
+      code: s.code,
+      sett_name: s.sett_name,
+      county_name: s.county_name,
+      county_id: s.county_id || null
+    }))
+  } catch (error) {
+    console.error('Fetch entity settlements error:', error)
+    ElNotification({ title: 'Error', message: 'Failed to load settlements for form', type: 'error' })
+  }
+}
+
 const totalItems = ref<number>(0); // Total number of rows (initially full dataset)
 
 
@@ -758,10 +839,6 @@ const handleCountyChange = (val: string | number) => {
   createForm.group_location.county = val ? String(val) : ''
   createForm.group_location.settlement = ''
   createForm.group_location.pcode = ''
-  // Fetch settlements from main backend (Sett.vue style) for this county if numeric id exists
-  if (val && !Number.isNaN(Number(val))) {
-    fetchSettlementsByCounty(val)
-  }
 }
 
 const submitCreate = async () => {
@@ -977,7 +1054,7 @@ watch(filteredData, (newValue) => {
 watch(
   () => createForm.group_location.settlement,
   (val) => {
-    const sel = settlementOptionsByCounty.value.find((s) => s.value === val)
+    const sel = entitySettlementOptionsByCounty.value.find((s) => s.value === val)
     if (sel) {
       createForm.group_location.pcode = sel.code
     }
@@ -991,6 +1068,10 @@ watch(
     createForm.group_location.pcode = ''
   }
 )
+
+watch(county_value, () => {
+  sett_value.value = []
+})
 
 
 const router = useRouter()
@@ -1074,13 +1155,13 @@ type="flex" justify="start" :gutter="10"
         <el-select
 v-model="county_value" placeholder="Filter County" clearable filterable
         style=" margin-right: 5px;  width:250px">
-          <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in entityCountyFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-select
 multiple
 v-model="sett_value" placeholder="Filter Settlement" clearable filterable collapse-tags	
         style=" margin-right: 5px; width:350px">
-          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in entitySettlementFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
 
         <el-select
@@ -1177,7 +1258,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 placeholder="Select county"
                 @change="handleCountyChange"
               >
-                <el-option v-for="c in countyListFromSettlements" :key="c.value" :label="c.label" :value="c.value" />
+                <el-option v-for="c in entityCountyOptions" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -1190,7 +1271,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 placeholder="Select settlement"
                 :disabled="disableSettlementSelect"
               >
-                <el-option v-for="s in settlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
+                <el-option v-for="s in entitySettlementOptionsByCounty" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -1313,7 +1394,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <el-descriptions-item label="County">{{ createForm.group_location.county }}</el-descriptions-item>
         <el-descriptions-item label="Settlement">
           {{
-            settlementOptionsByCounty.find((s) => s.value === createForm.group_location.settlement)?.label ||
+            entitySettlementOptionsByCounty.find((s) => s.value === createForm.group_location.settlement)?.label ||
             createForm.group_location.settlement
           }}
         </el-descriptions-item>

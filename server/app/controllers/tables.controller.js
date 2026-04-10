@@ -4162,9 +4162,11 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   }
 
   const response = await Model.findAndCountAll(query);
-  
+
   const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
-  
+
+  console.log(`[modelPaginatedDatafilterByColumn] model=${modelName} returnAll=${returnAll} total=${response.count} returned=${processedData.length}`)
+
   return res.status(200).json({
     fromCache: false,
     data: processedData,

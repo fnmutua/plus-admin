@@ -349,12 +349,12 @@ async function getEntities(token, project, countyFilter = null) {
   console.log('getEntities', project, 'countyFilter:', countyFilter)
   return new Promise((resolve, reject) => {
     //const url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/datasets/settlements.svc/Entities';
-    let url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/Entities'; // get entites from Project 1
+    let url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/Entities?$top=10000'; // get entites from Project 1
 
     // Add county filtering to the OData query if specified
     if (countyFilter) {
       const countyODataFilter = `county_name eq '${countyFilter}'`;
-      url += `?$filter=${encodeURIComponent(countyODataFilter)}`;
+      url += `&$filter=${encodeURIComponent(countyODataFilter)}`;
     }
 
     request({
@@ -369,6 +369,7 @@ async function getEntities(token, project, countyFilter = null) {
         reject(error);
       } else if (response.statusCode === 200) {
         const dataset = JSON.parse(body);
+        console.log(`[getEntities] total returned: ${dataset.value?.length}`)
           resolve(dataset);
 
 

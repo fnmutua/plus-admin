@@ -13,7 +13,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
     loginCollector,deleteSubmissions,getSubmissionAttachments,downloadSubmissionAttachments,uploadSubmissionAttachment,
-    getSubmissions, getSubmissionXml, updateSubmissionXml, createSubmission} from '@/api/collector'
+    getSubmissions, getSubmissionXml, updateSubmissionXml, createSubmission, getSettlements} from '@/api/collector'
 
 import { watch,onMounted } from 'vue';
  import writeXlsxFile from 'write-excel-file';
@@ -72,7 +72,10 @@ const grcFormId = computed(() => forms.value.find((f:any) => f.xmlFormId === 'gr
 const secXmlId = computed(() => forms.value.find((f:any) => f.xmlFormId === 'sec_officials')?.xmlFormId || 'sec_officials')
 const grcXmlId = computed(() => forms.value.find((f:any) => f.xmlFormId === 'grc_officials')?.xmlFormId || 'grc_officials')
 
-const normalizeInstanceId = (id: string) => (id && id.startsWith('uuid:') ? id : `uuid:${id}`)
+const normalizeInstanceId = (id: any) => {
+  if (!id || typeof id !== 'string') return ''
+  return id.startsWith('uuid:') ? id : `uuid:${id}`
+}
 const buildReturnUrl = (xmlId: string, instanceId: string) =>
   `https://collector.kesmis.go.ke/#/projects/1/forms/${encodeURIComponent(xmlId)}/submissions/${encodeURIComponent(instanceId)}`
 
@@ -213,6 +216,7 @@ const loginUserToCollector = async () => {
       })
     })
 
+    await fetchEntitySettlements()
     // Load SEC data first, then GRC data (which merges them)
     await getSecData()
     await getGRCData()
@@ -228,6 +232,56 @@ const grc_officials =ref([])
 
 const countyOptions  =ref([])
 const settlementOptions  =ref([])
+
+type SettlementItem = { id: string; code: string; sett_name: string; county_name: string; county_id?: string }
+
+const entitySettlementsList = ref<SettlementItem[]>([])
+
+const entityCountyFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+  return entitySettlementsList.value
+    .filter((s) => s.county_name && !seen.has(s.county_name) && seen.add(s.county_name))
+    .map((s) => ({ label: s.county_name, value: s.county_name }))
+})
+
+const entitySettlementFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  const seen = new Set<string>()
+  let matchingCountyIds: Set<string> | null = null
+  if (county_value.value) {
+    matchingCountyIds = new Set(
+      entitySettlementsList.value
+        .filter((s) => s.county_name === county_value.value && s.county_id != null)
+        .map((s) => String(s.county_id))
+    )
+  }
+  return entitySettlementsList.value
+    .filter((s) => {
+      if (matchingCountyIds) {
+        const byId = s.county_id != null && matchingCountyIds.has(String(s.county_id))
+        const byName = s.county_name === county_value.value
+        if (!byId && !byName) return false
+      }
+      return s.sett_name && !seen.has(s.sett_name) && seen.add(s.sett_name)
+    })
+    .map((s) => ({ label: s.sett_name, value: s.sett_name }))
+})
+
+const fetchEntitySettlements = async () => {
+  try {
+    const res = await getSettlements({ project: '1', token: localStorage.getItem('collectorToken') })
+    const data: any[] = (res as any).data || []
+    entitySettlementsList.value = data.map((s: any) => ({
+      id: s.id || s.__id,
+      code: s.code,
+      sett_name: s.sett_name,
+      county_name: s.county_name,
+      county_id: s.county_id || null
+    }))
+    console.log('SEC_V2 entitySettlements total:', entitySettlementsList.value.length)
+  } catch (error) {
+    console.error('Fetch entity settlements error:', error)
+  }
+}
  
 
  
@@ -247,7 +301,8 @@ const extractData = async (dataArray) => {
     if (!data) return; // Skip if no data exists
 
     // Extract county and settlement
-    const county = data.group_location?.county || "N/A";
+    const matchedEntitySec = entitySettlementsList.value.find((s: SettlementItem) => s.sett_name === data.settlement_name)
+    const county = matchedEntitySec?.county_name || data.group_location?.county || "N/A";
     const settlement = data.settlement_name  || "N/A";
     const settlement_code = data.group_location.pcode  || "N/A";
     const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
@@ -346,13 +401,14 @@ const extractGRCData = async (dataArray) => {
   grc_officials.value = [];
 
   // Helper function to create a unique key for each county and settlement
- 
+
   // Loop through the array of data
   dataArray.forEach(data => {
     if (!data) return; // Skip if no data exists
 
     // Extract county and settlement
-    const county = data.group_location?.county || "N/A";
+    const matchedEntityGrc = entitySettlementsList.value.find((s: SettlementItem) => s.sett_name === data.settlement_name)
+    const county = matchedEntityGrc?.county_name || data.group_location?.county || "N/A";
     const settlement = data.settlement_name  || "N/A";
     const settlement_code = data.group_location.pcode  || "N/A";
 
@@ -701,6 +757,8 @@ console.log(columnsx);
 
 const county_value =ref()
 const sett_value =ref()
+
+watch(county_value, () => { sett_value.value = undefined })
 const xfilteredData = computed(() => { 
      const searchTerm = search.value.toLowerCase();
         const selectedCounty = county_value.value;
@@ -826,9 +884,9 @@ const AddRecord = async () => {
    showAddDialog.value=true
 }
 
-const openAddSec = (overallId: string, currentId: string) => {
-  if (!overallId) {
-    ElMessage.error('Cannot add SEC official: missing instance id.')
+const openAddSec = (overallId: any, currentId: any) => {
+  if (!overallId || typeof overallId !== 'string') {
+    ElMessage.warning('Please use the Add SEC button on a specific settlement row.')
     return
   }
   secAddOverallId.value = normalizeInstanceId(overallId)
@@ -2474,7 +2532,7 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
      filterable
     >
       <el-option
-        v-for="item in countyOptions"
+        v-for="item in entityCountyFilterOptions"
         :key="item.value"
         :label="item.label"
         :value="item.value"
@@ -2487,7 +2545,7 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
      filterable
       style=" margin-right: 5px; width:350px">
       <el-option
-        v-for="item in filteredSettlementOptions"
+        v-for="item in entitySettlementFilterOptions"
         :key="item.value"
         :label="item.label"
         :value="item.value"
@@ -2499,8 +2557,6 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
         <el-icon style="margin-right: 5px;"><Download /></el-icon>
         Download
       </el-button>
-      <el-button v-if="showEditButtons" @click="openAddSec" type="primary" plain style="margin-right: 8px;">Add SEC</el-button>
-      <el-button v-if="showEditButtons" @click="openAddGrc" type="primary" plain>Add GRC</el-button>
 
       <!-- <DownloadCustom    :data="paginatedData"   :all="sec_officials" /> -->
      </el-row>
