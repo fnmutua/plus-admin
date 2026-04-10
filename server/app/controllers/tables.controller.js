@@ -6740,7 +6740,19 @@ exports.unlinkDocument = async (req, res) => {
     const deleted = await db.models.document_link.destroy({
       where: { document_id, entity_type, entity_id }
     })
-    res.status(200).send({ code: '0000', message: deleted ? 'Unlinked' : 'Link not found' })
+    let clearedFk = false
+    if (entity_type === 'settlement') {
+      const doc = await db.models.document.findByPk(document_id)
+      if (doc && doc.settlement_id != null && Number(doc.settlement_id) === Number(entity_id)) {
+        await doc.update({ settlement_id: null })
+        clearedFk = true
+      }
+    }
+    const ok = deleted > 0 || clearedFk
+    if (!ok) {
+      return res.status(400).send({ code: '0001', message: 'Link not found' })
+    }
+    res.status(200).send({ code: '0000', message: 'Unlinked' })
   } catch (e) {
     console.error('unlinkDocument error', e)
     res.status(500).send({ code: '1006', message: 'Failed to unlink document' })
@@ -6770,6 +6782,118 @@ exports.getLinkedDocuments = async (req, res) => {
   } catch (e) {
     console.error('getLinkedDocuments error', e)
     res.status(500).send({ code: '1006', message: 'Failed to retrieve linked documents' })
+  }
+}
+
+// Primary FKs + all document_link rows for one document (for link dialog / association UI)
+exports.getDocumentAssociationSnapshot = async (req, res) => {
+  try {
+    const document_id = parseInt(String(req.body.document_id), 10)
+    if (!document_id) {
+      return res.status(400).send({ code: '0001', message: 'document_id is required' })
+    }
+    const snapshotIncludes = [
+      {
+        model: db.models.settlement,
+        as: 'settlement',
+        attributes: ['id', 'name'],
+        required: false,
+        include: [{
+          model: db.models.county,
+          as: 'county',
+          attributes: ['id', 'name'],
+          required: false
+        }]
+      },
+      { model: db.models.project, as: 'project', attributes: ['id', 'title'], required: false },
+      { model: db.models.health_facility, as: 'health_facility', attributes: ['id', 'name'], required: false },
+      { model: db.models.education_facility, as: 'education_facility', attributes: ['id', 'name'], required: false },
+      { model: db.models.road, as: 'road', attributes: ['id', 'name'], required: false },
+      { model: db.models.road_asset, as: 'road_asset', attributes: ['id', 'RA_Name'], required: false },
+      { model: db.models.water_point, as: 'water_point', attributes: ['id', 'name'], required: false },
+      { model: db.models.sewer, as: 'sewer', attributes: ['id', 'name'], required: false },
+      { model: db.models.other_facility, as: 'other_facility', attributes: ['id', 'name'], required: false },
+      { model: db.models.contractor, as: 'contractor', attributes: ['id', 'name', 'contract_number'], required: false }
+    ]
+    const row = await db.models.document.findByPk(document_id, {
+      attributes: [
+        'settlement_id', 'project_id', 'health_facility_id', 'education_facility_id',
+        'road_id', 'road_asset_id', 'water_point_id', 'sewer_id', 'other_facility_id', 'contractor_id'
+      ],
+      include: snapshotIncludes
+    })
+    if (!row) {
+      return res.status(404).send({ code: '0001', message: 'Document not found' })
+    }
+    const linkRows = await db.models.document_link.findAll({
+      where: { document_id },
+      attributes: ['entity_type', 'entity_id'],
+      raw: true
+    })
+    const flatDoc = row.get({ plain: true })
+    const result = {
+      entity_links: linkRows.map((l) => ({
+        entity_type: l.entity_type,
+        entity_id: l.entity_id
+      }))
+    }
+    if (flatDoc.settlement_id) {
+      result.settlement_id = flatDoc.settlement_id
+      result['settlement.id'] = flatDoc.settlement?.id
+      result['settlement.name'] = flatDoc.settlement?.name
+      result['settlement.county.id'] = flatDoc.settlement?.county?.id
+      result['settlement.county.name'] = flatDoc.settlement?.county?.name
+    }
+    if (flatDoc.project_id) {
+      result.project_id = flatDoc.project_id
+      result['project.id'] = flatDoc.project?.id
+      result['project.title'] = flatDoc.project?.title
+    }
+    if (flatDoc.health_facility_id) {
+      result.health_facility_id = flatDoc.health_facility_id
+      result['health_facility.id'] = flatDoc.health_facility?.id
+      result['health_facility.name'] = flatDoc.health_facility?.name
+    }
+    if (flatDoc.education_facility_id) {
+      result.education_facility_id = flatDoc.education_facility_id
+      result['education_facility.id'] = flatDoc.education_facility?.id
+      result['education_facility.name'] = flatDoc.education_facility?.name
+    }
+    if (flatDoc.road_id) {
+      result.road_id = flatDoc.road_id
+      result['road.id'] = flatDoc.road?.id
+      result['road.name'] = flatDoc.road?.name
+    }
+    if (flatDoc.road_asset_id) {
+      result.road_asset_id = flatDoc.road_asset_id
+      result['road_asset.id'] = flatDoc.road_asset?.id
+      result['road_asset.name'] = flatDoc.road_asset?.RA_Name
+    }
+    if (flatDoc.water_point_id) {
+      result.water_point_id = flatDoc.water_point_id
+      result['water_point.id'] = flatDoc.water_point?.id
+      result['water_point.name'] = flatDoc.water_point?.name
+    }
+    if (flatDoc.sewer_id) {
+      result.sewer_id = flatDoc.sewer_id
+      result['sewer.id'] = flatDoc.sewer?.id
+      result['sewer.name'] = flatDoc.sewer?.name
+    }
+    if (flatDoc.other_facility_id) {
+      result.other_facility_id = flatDoc.other_facility_id
+      result['other_facility.id'] = flatDoc.other_facility?.id
+      result['other_facility.name'] = flatDoc.other_facility?.name
+    }
+    if (flatDoc.contractor_id) {
+      result.contractor_id = flatDoc.contractor_id
+      result['contractor.id'] = flatDoc.contractor?.id
+      result['contractor.name'] = flatDoc.contractor?.name
+      result['contractor.contract_number'] = flatDoc.contractor?.contract_number
+    }
+    res.status(200).send({ code: '0000', data: result })
+  } catch (e) {
+    console.error('getDocumentAssociationSnapshot error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to load association snapshot' })
   }
 }
 
@@ -7279,6 +7403,13 @@ exports.getDocumentRepository = async (req, res) => {
       projectFilter = null
     } = req.body;
 
+    const documentIdList = (() => {
+      const ids = req.body.documentIds
+      const single = req.body.documentId
+      const arr = Array.isArray(ids) ? ids : ids != null ? [ids] : single != null ? [single] : []
+      return arr.map((id) => parseInt(String(id), 10)).filter((n) => !Number.isNaN(n))
+    })()
+
     const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
     const excludeProtectedWhere = canSeeProtected
       ? null
@@ -7691,6 +7822,15 @@ exports.getDocumentRepository = async (req, res) => {
       console.log('getDocumentRepository - Excluding protectedFile rows for non-national/county user')
     }
 
+    if (documentIdList.length > 0) {
+      const idCond = { id: { [Op.in]: documentIdList } }
+      if (baseQuery.where) {
+        baseQuery.where = { [Op.and]: [baseQuery.where, idCond] }
+      } else {
+        baseQuery.where = idCond
+      }
+    }
+
     // Get documents with count
     let documentsResult;
     try {
@@ -7761,7 +7901,15 @@ exports.getDocumentRepository = async (req, res) => {
           simpleQuery.where = excludeProtectedWhere
         }
       }
-      
+      if (documentIdList.length > 0) {
+        const idCond = { id: { [Op.in]: documentIdList } }
+        if (simpleQuery.where) {
+          simpleQuery.where = { [Op.and]: [simpleQuery.where, idCond] }
+        } else {
+          simpleQuery.where = idCond
+        }
+      }
+
       documentsResult = await db.models.document.findAndCountAll(simpleQuery);
     }
 

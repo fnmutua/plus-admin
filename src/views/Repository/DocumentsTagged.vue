@@ -1,7 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getDocumentRepository, getDocumentUploaders } from '@/api/settlements'
+import { getDocumentRepository, getDocumentUploaders, getDocumentAssociationSnapshot } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElSwitch, ElSteps, ElStep
   ,ElForm,ElFormItem,
@@ -21,7 +21,7 @@ import { useRouter } from 'vue-router'
 import { uploadFilesBatch, checkFilesExist } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import { searchByKeyWord } from '@/api/settlements'
-import { shareDocuments, linkDocument } from '@/api/settlements'
+import { shareDocuments, linkDocument, unlinkDocument } from '@/api/settlements'
 
 // Type definitions
 interface UserRole {
@@ -415,10 +415,39 @@ const shareError = ref('')
 const linkDialogVisible = ref(false)
 const linkingDoc = ref<Document | null>(null)
 const linkEntityType = ref<string>('settlement')
-const linkEntityId = ref<number | null>(null)
+const linkEntityIds = ref<number[]>([])
 const linkEntityOptions = ref<{ value: number; label: string }[]>([])
 const linkEntityOptionsLoading = ref(false)
 const linkLoading = ref(false)
+const linkDialogPreparing = ref(false)
+const originalLinkedIds = ref<number[]>([])
+
+const linkedSettlementRows = computed(() => {
+  const doc = linkingDoc.value
+  if (!doc) return []
+  return getAssociations(doc)
+    .filter((a) => a.key.toLowerCase().startsWith('settlement:'))
+    .map((a) => ({
+      key: a.key,
+      label: a.label,
+      settlementId: Number(a.key.split(':')[1])
+    }))
+})
+
+const getExistingIdsForType = (entityType: string): number[] => {
+  if (!linkingDoc.value) return []
+  return getAssociations(linkingDoc.value)
+    .filter(a => a.key.toLowerCase().startsWith(entityType.toLowerCase() + ':'))
+    .map(a => Number(a.key.split(':')[1]))
+    .filter(id => !isNaN(id) && id > 0)
+}
+
+const refreshLinkingDocFromRepo = () => {
+  const doc = linkingDoc.value
+  if (!doc?.id) return
+  const updated = documents.value.find((d) => d.id === doc.id)
+  if (updated) linkingDoc.value = updated
+}
 
 const LINK_ENTITY_TYPES = [
   { value: 'settlement',          label: 'Settlement',          model: 'settlement',          searchField: 'name'  },
@@ -446,15 +475,23 @@ const LINK_ENTITY_TYPES = [
 ]
 
 const loadLinkEntityOptions = async (entityType: string) => {
-  linkEntityId.value = null
+  linkEntityIds.value = []
   linkEntityOptions.value = []
-  // Use pre-loaded options for settlement and project
+  // Use pre-loaded options for settlement and project (fetch if not yet loaded)
   if (entityType === 'settlement') {
-    linkEntityOptions.value = settlementOptions.value
+    if (!settlementOptions.value.length) {
+      linkEntityOptionsLoading.value = true
+      try { await getSettlementOptions() } catch { /* ignore */ } finally { linkEntityOptionsLoading.value = false }
+    }
+    linkEntityOptions.value = [...settlementOptions.value]
     return
   }
   if (entityType === 'project') {
-    linkEntityOptions.value = projectOptions.value
+    if (!projectOptions.value.length) {
+      linkEntityOptionsLoading.value = true
+      try { await getProjectOptions() } catch { /* ignore */ } finally { linkEntityOptionsLoading.value = false }
+    }
+    linkEntityOptions.value = [...projectOptions.value]
     return
   }
   // Fetch on demand for other types
@@ -619,16 +656,26 @@ const getAssociations = (row: any): { label: string; route: any | null; key: str
   const seen = new Set<string>()
 
   const addPrimary = (entityType: string, entityId: number, label: string, route: any) => {
-    const key = `${entityType}:${entityId}`
+    const et = String(entityType).toLowerCase()
+    const key = `${et}:${entityId}`
     if (seen.has(key)) return
     seen.add(key)
     results.push({ label, route, key })
   }
 
   // Add primary FK associations (always when id set; label from join or resolveLinkLabel)
-  if (row.settlement_id) {
-    const label = row['settlement.name'] || resolveLinkLabel('settlement', Number(row.settlement_id))
-    addPrimary('settlement', Number(row.settlement_id), label, { name: 'SettlementDetails', params: { id: row.settlement_id } })
+  const settlementIdRaw = row.settlement_id ?? row['settlement.id'] ?? row.settlement?.id
+  const settlementIdNum =
+    settlementIdRaw != null && settlementIdRaw !== '' ? Number(settlementIdRaw) : NaN
+  if (!Number.isNaN(settlementIdNum) && settlementIdNum > 0) {
+    const label =
+      row['settlement.name'] ||
+      row.settlement?.name ||
+      resolveLinkLabel('settlement', settlementIdNum)
+    addPrimary('settlement', settlementIdNum, label, {
+      name: 'SettlementDetails',
+      params: { id: settlementIdNum }
+    })
   }
   if (row.project_id) {
     const label = row['project.title'] || resolveLinkLabel('project', Number(row.project_id))
@@ -668,15 +715,24 @@ const getAssociations = (row: any): { label: string; route: any | null; key: str
   }
 
   // Add extra links from document_link, skipping any already in seen
-  const rawLinks = row.entity_links
+  let rawLinks = row.entity_links ?? row.entityLinks
+  if (typeof rawLinks === 'string') {
+    try {
+      rawLinks = JSON.parse(rawLinks)
+    } catch {
+      rawLinks = null
+    }
+  }
   const links: any[] = Array.isArray(rawLinks) ? rawLinks : rawLinks ? [rawLinks] : []
   for (const link of links) {
     if (!link || link.entity_type == null || link.entity_id == null) continue
-    const key = `${link.entity_type}:${Number(link.entity_id)}`
+    const et = String(link.entity_type).trim().toLowerCase()
+    const eid = Number(link.entity_id)
+    const key = `${et}:${eid}`
     if (seen.has(key)) continue
     seen.add(key)
-    const label = resolveLinkLabel(link.entity_type, link.entity_id)
-    const route = resolveEntityRoute(link.entity_type, link.entity_id)
+    const label = resolveLinkLabel(et, eid)
+    const route = resolveEntityRoute(et, eid)
     results.push({ label, route, key })
   }
 
@@ -1306,36 +1362,130 @@ const onShareDocument = (data: Document) => {
   openShareDialog()
 }
 
-const onLinkToSettlement = (doc: Document) => {
+/** Merge association snapshot (document_link + FKs) into the row used by the link dialog. */
+const mergeAssociationSnapshotIntoDoc = async (baseDoc: Document): Promise<void> => {
+  try {
+    const res: any = await getDocumentAssociationSnapshot({ document_id: baseDoc.id }, { silent: true })
+    const snap = res?.data
+    if (res?.code === '0000' && snap && typeof snap === 'object') {
+      linkingDoc.value = {
+        ...baseDoc,
+        ...snap,
+        id: baseDoc.id,
+        name: baseDoc.name,
+        deletable: baseDoc.deletable ?? canUserDeleteDocument(baseDoc)
+      }
+      return
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const response: any = await getDocumentRepository({
+      page: 1,
+      limit: 1,
+      documentIds: [baseDoc.id],
+      userFilters: roles_filters.length > 0 ? roles_filters : undefined,
+    })
+    let responseData: any
+    let success = false
+    if (response && typeof response === 'object') {
+      if ('success' in response) {
+        success = Boolean(response.success)
+        responseData = response.data || response.results || response
+      } else if ('data' in response) {
+        success = true
+        responseData = response.data
+      } else if (Array.isArray(response)) {
+        success = true
+        responseData = { documents: response }
+      } else {
+        success = true
+        responseData = response
+      }
+    }
+    if (!success || !responseData) return
+    let allDocuments: Document[] = []
+    if (responseData.documents && Array.isArray(responseData.documents)) {
+      allDocuments = responseData.documents as Document[]
+    } else if (responseData.data && Array.isArray(responseData.data)) {
+      allDocuments = responseData.data as Document[]
+    } else if (Array.isArray(responseData)) {
+      allDocuments = responseData as Document[]
+    } else if (responseData.results && Array.isArray(responseData.results)) {
+      allDocuments = responseData.results as Document[]
+    }
+    const found =
+      allDocuments.find((d) => Number(d.id) === Number(baseDoc.id)) || allDocuments[0] || null
+    if (found) {
+      found.deletable = canUserDeleteDocument(found)
+      linkingDoc.value = { ...baseDoc, ...found, name: baseDoc.name, id: baseDoc.id }
+    }
+  } catch {
+    /* keep baseDoc */
+  }
+}
+
+const onLinkToSettlement = async (doc: Document) => {
   linkingDoc.value = doc
   linkEntityType.value = 'settlement'
-  linkEntityId.value = null
-  linkEntityOptions.value = settlementOptions.value
   linkDialogVisible.value = true
+  linkDialogPreparing.value = true
+  try {
+    await mergeAssociationSnapshotIntoDoc(doc)
+    await loadLinkEntityOptions('settlement')
+    const existingIds = getExistingIdsForType('settlement')
+    originalLinkedIds.value = existingIds
+    linkEntityIds.value = [...existingIds]
+  } finally {
+    linkDialogPreparing.value = false
+  }
 }
 
 const doLinkDocument = async () => {
-  if (!linkingDoc.value || !linkEntityType.value || !linkEntityId.value) {
-    ElMessage.warning('Please select an entity type and item')
+  if (!linkingDoc.value || !linkEntityType.value) return
+
+  const toLink = linkEntityIds.value.filter(id => !originalLinkedIds.value.includes(id))
+  const toUnlink = originalLinkedIds.value.filter(id => !linkEntityIds.value.includes(id))
+  if (!toLink.length && !toUnlink.length) {
+    ElMessage.info('No changes to save')
     return
   }
   linkLoading.value = true
+  let ok = 0, fail = 0
   try {
-    const res: any = await linkDocument({
-      document_id: linkingDoc.value.id,
-      entity_type: linkEntityType.value,
-      entity_id: linkEntityId.value
-    })
-    ElMessage.success(res.data?.message || 'Document linked successfully')
-    linkDialogVisible.value = false
+    for (const id of toLink) {
+      try { await linkDocument({ document_id: linkingDoc.value.id, entity_type: linkEntityType.value, entity_id: id }); ok++ }
+      catch { fail++ }
+    }
+    for (const id of toUnlink) {
+      try { await unlinkDocument({ document_id: linkingDoc.value.id, entity_type: linkEntityType.value, entity_id: id }, { silent: true }); ok++ }
+      catch { fail++ }
+    }
+    if (!fail) ElMessage.success(`Saved ${ok} change${ok !== 1 ? 's' : ''}`)
+    else if (ok) ElMessage.warning(`Saved ${ok}; ${fail} failed`)
+    else ElMessage.error('Failed to save changes')
+    originalLinkedIds.value = [...linkEntityIds.value]
     await loadDocumentRepository()
     await loadDocumentsByTab()
-  } catch (e: any) {
-    ElMessage.error(e?.message || 'Failed to link document')
+    refreshLinkingDocFromRepo()
   } finally {
     linkLoading.value = false
   }
 }
+
+const onLinkEntityTypeChange = async (newType: string) => {
+  await loadLinkEntityOptions(newType)
+  const existingIds = getExistingIdsForType(newType)
+  originalLinkedIds.value = existingIds
+  linkEntityIds.value = [...existingIds]
+}
+
+watch(linkDialogVisible, (open) => {
+  if (!open) {
+    originalLinkedIds.value = []
+  }
+})
 
 // Edit document functionality
 const documentForm = reactive({
@@ -3597,48 +3747,61 @@ const handleTabChange = async (tabName: string) => {
     <el-dialog
       v-model="linkDialogVisible"
       title="Link Document"
-      width="500px"
+      width="560px"
       :close-on-click-modal="false"
       append-to-body
     >
-      <div v-if="linkingDoc" style="margin-bottom: 14px; color: #606266; font-size: 13px;">
-        Linking: <strong>{{ linkingDoc.name }}</strong>
+      <div
+        v-loading="linkDialogPreparing"
+        element-loading-text="Loading associations…"
+        style="min-height: 100px"
+      >
+      <template v-if="linkingDoc">
+        <div style="margin-bottom: 14px; color: #606266; font-size: 13px;">
+          Document: <strong>{{ linkingDoc.name }}</strong>
+        </div>
+        <el-form label-position="top">
+          <el-form-item label="Association Type">
+            <el-select
+              v-model="linkEntityType"
+              style="width: 100%"
+              @change="onLinkEntityTypeChange"
+            >
+              <el-option
+                v-for="t in LINK_ENTITY_TYPES"
+                :key="t.value"
+                :label="t.label"
+                :value="t.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="LINK_ENTITY_TYPES.find(t => t.value === linkEntityType)?.label || 'Item'">
+            <el-select
+              v-model="linkEntityIds"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              :loading="linkEntityOptionsLoading"
+              placeholder="Search and select one or more…"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="opt in linkEntityOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </template>
       </div>
-      <el-form label-position="top">
-        <el-form-item label="Association Type">
-          <el-select
-            v-model="linkEntityType"
-            style="width: 100%"
-            @change="loadLinkEntityOptions(linkEntityType)"
-          >
-            <el-option
-              v-for="t in LINK_ENTITY_TYPES"
-              :key="t.value"
-              :label="t.label"
-              :value="t.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="LINK_ENTITY_TYPES.find(t => t.value === linkEntityType)?.label || 'Item'">
-          <el-select
-            v-model="linkEntityId"
-            filterable
-            :loading="linkEntityOptionsLoading"
-            placeholder="Search and select..."
-            style="width: 100%"
-          >
-            <el-option
-              v-for="opt in linkEntityOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
       <template #footer>
-        <el-button @click="linkDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="linkLoading" :disabled="!linkEntityId" @click="doLinkDocument">Link</el-button>
+        <span class="dialog-footer" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; width: 100%;">
+          <el-button @click="linkDialogVisible = false">Close</el-button>
+          <el-button type="primary" :loading="linkLoading" @click="doLinkDocument">Save</el-button>
+        </span>
       </template>
     </el-dialog>
 

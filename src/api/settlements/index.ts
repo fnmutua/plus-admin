@@ -344,15 +344,22 @@ export const getDocumentRepository = (
 ): Promise<IResponse<any>> => {
   // Handle photo filtering based on request
   const requestData = { ...data }
-  
-  // Check if includeFormats or formatFilter is provided (for photos)
-  if (data.includeFormats || data.formatFilter) {
+
+  const fetchByDocumentIds =
+    (Array.isArray(requestData.documentIds) && requestData.documentIds.length > 0) ||
+    requestData.documentId != null
+
+  // Fetching explicit ids (e.g. link dialog) must not apply default non-image format exclusion
+  if (fetchByDocumentIds) {
+    requestData.excludePhotos = false
+    delete requestData.excludeFormats
+  } else if (data.includeFormats || data.formatFilter) {
     // If includeFormats or formatFilter is provided, include only those formats (for photos)
     requestData.includeFormats = data.includeFormats || data.formatFilter
     requestData.excludePhotos = false
     // Remove excludeFormats when including specific formats
     delete requestData.excludeFormats
-  } else {
+  } else if (!fetchByDocumentIds) {
     // Default behavior: exclude photos (must match frontend imageFormats so list count matches pagination)
     requestData.excludePhotos = true
     requestData.excludeFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'tif']
@@ -450,13 +457,32 @@ export const linkDocument = (data: { document_id: number; entity_type: string; e
 }
 
 // Remove a document→entity link without deleting the document
-export const unlinkDocument = (data: { document_id: number; entity_type: string; entity_id: number }): Promise<IResponse<any>> => {
-  return request.post({ url: prod + '/api/v1/docs/unlink', data })
+export const unlinkDocument = (
+  data: { document_id: number; entity_type: string; entity_id: number },
+  options?: { silent?: boolean }
+): Promise<IResponse<any>> => {
+  return request.post({
+    url: prod + '/api/v1/docs/unlink',
+    data,
+    ...(options?.silent ? { silent: true } : {})
+  })
 }
 
 // Get all documents linked to a specific entity via document_link
 export const getLinkedDocuments = (data: { entity_type: string; entity_id: number }): Promise<IResponse<any>> => {
   return request.post({ url: prod + '/api/v1/docs/linked', data })
+}
+
+/** Primary FKs + document_link rows for one document (link dialog, etc.) */
+export const getDocumentAssociationSnapshot = (
+  data: { document_id: number },
+  options?: { silent?: boolean }
+): Promise<IResponse<any>> => {
+  return request.post({
+    url: prod + '/api/v1/docs/association-snapshot',
+    data,
+    ...(options?.silent ? { silent: true } : {})
+  })
 }
 
 export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {

@@ -3014,6 +3014,7 @@ module.exports = function (app) {
   app.post('/api/v1/docs/link', [authJwt.verifyToken, hasPermission('document:create')], controller.linkDocument)
   app.post('/api/v1/docs/unlink', [authJwt.verifyToken, hasPermission('document:delete')], controller.unlinkDocument)
   app.post('/api/v1/docs/linked', [authJwt.verifyToken, hasPermission('document:read')], controller.getLinkedDocuments)
+  app.post('/api/v1/docs/association-snapshot', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentAssociationSnapshot)
 
   /**
    * @swagger
