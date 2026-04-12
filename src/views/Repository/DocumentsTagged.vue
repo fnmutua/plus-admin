@@ -14,6 +14,7 @@ import moment from "moment"
 import { getFile, getPhoto } from '@/api/summary'
 import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
 import { useAppStore } from '@/store/modules/app'
+import { userHasPrivilegedNationalLocation, isPublicOrGuestRole } from '@/utils/roleScope'
 import TableActions from '@/views/Components/TableActions.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { Icon } from '@iconify/vue'
@@ -132,7 +133,7 @@ const processedRoles: ProcessedRole[] = userInfo.roles.map((role: UserRole) => {
   } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
     return {
       role: role.name,
-      model: "national",
+      model: isPublicOrGuestRole(role) ? "public_scope" : "national",
       field: null,
       fieldvalue: null
     }
@@ -156,18 +157,14 @@ const isNationalStaff = computed(() => {
     (role.user_roles?.location_level === "national" || role.user_roles?.location_level === null)
   ) || false
 })
-const roles_filters = isSuperAdmin ? [] : processedRoles.filter(role => role.model !== "national").map(role => ({
+const roles_filters = isSuperAdmin ? [] : processedRoles.filter(role => role.model !== "national" && role.model !== "public_scope").map(role => ({
   role: role.role,
   field: role.field,
   value: role.fieldvalue
 }))
 
 // User location-based filtering (computed properties)
-const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: UserRole) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const userCountyRole = computed(() => {
   return userInfo?.roles?.find((role: UserRole) => 

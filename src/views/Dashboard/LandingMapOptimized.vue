@@ -77,6 +77,7 @@ import {
 } from '@/api/settlements-optimized'
 import { getOneSettlement } from '@/api/settlements'
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { debounce } from '@/utils/debounce'
 
 const { push } = useRouter()
@@ -91,11 +92,7 @@ const isSuperAdmin = computed(() => {
   ) || false
 })
 
-const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const userCountyRole = computed(() => {
   return userInfo?.roles?.find((role: any) => 

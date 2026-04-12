@@ -9,6 +9,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { Plus, Filter, Search, Back } from '@element-plus/icons-vue'
 
 const powerlineModel = 'powerline'
@@ -43,7 +44,7 @@ const showEditButtons = ref(appStore.getEditButtons)
 const isMobile = computed(() => appStore.getMobile)
 
 const isSuperAdmin = computed(() => userInfo?.roles?.some((role: any) => role.name === 'super_admin' || role.name === 'root_admin') || false)
-const hasNationalAccess = computed(() => userInfo?.roles?.some((role: any) => role.user_roles?.location_level === 'national') || false)
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 const userCountyRole = computed(() => userInfo?.roles?.find((role: any) => role.user_roles?.location_level === 'county'))
 const userCountyId = computed(() => userCountyRole.value?.user_roles?.county_id || null)
 const userSettlementRole = computed(() => userInfo?.roles?.find((role: any) => role.user_roles?.location_level === 'settlement'))

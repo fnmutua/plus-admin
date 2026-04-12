@@ -49,6 +49,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalOrRegionalLocation, isPublicOrGuestRole } from '@/utils/roleScope'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { revertHistory, getLinkedDocuments, unlinkDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
@@ -75,9 +76,7 @@ const isCountyUser = computed(() => {
   }
   // Check if user has county-level role and no national/regional access
   const hasCountyRole = userInfo.roles.some(role => role.user_roles?.location_level === "county");
-  const hasNationalAccess = userInfo.roles.some(role => 
-    role.user_roles?.location_level === "national" || role.user_roles?.location_level === "regional"
-  );
+  const hasNationalAccess = userHasPrivilegedNationalOrRegionalLocation(userInfo.roles)
   return hasCountyRole && !hasNationalAccess;
 });
 
@@ -96,7 +95,7 @@ const processedRoles = userInfo.roles.map(role => {
     field = null;
     fieldvalue = null;
   }
-  return { field, value: fieldvalue, location_level: role.user_roles.location_level };
+  return { field, value: fieldvalue, location_level: role.user_roles.location_level, roleName: role.name };
 });
 
 // Location-aware permission checking function
@@ -145,7 +144,10 @@ const canUserAccessHouseholds = (settlement: any): boolean => {
   // Check location-based access - user must have access to this settlement
   return processedRoles.some(role => {
     if (!role.field) {
-      // National/Regional level - has access to all settlements
+      if (isPublicOrGuestRole({ name: role.roleName })) {
+        return false;
+      }
+      // National/Regional staff — has access to all settlements
       return true;
     }
     
@@ -1135,8 +1137,7 @@ const handleUnlinkDocument = async (row: any) => {
 const canUserDeleteDocument = (doc: any): boolean => {
   if (!doc) return false
   if (isSuperAdmin.value) return true
-  const hasNationalAccess = processedRoles.some(r => !r.field)
-  if (hasNationalAccess) return true
+  if (userHasPrivilegedNationalOrRegionalLocation(userInfo.roles)) return true
   const userPermissions = userInfo.permissions || []
   if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
     if (doc.createdBy === userInfo.id) return true

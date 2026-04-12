@@ -27,6 +27,7 @@ import {
 
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, searchByKeyWord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
@@ -76,11 +77,7 @@ const isSuperAdmin = computed(() => {
   ) || false
 })
 
-const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const userCountyRole = computed(() => {
   return userInfo?.roles?.find((role: any) => 

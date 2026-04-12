@@ -12,6 +12,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import QRCode from 'qrcode'
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { useAppStoreWithOut } from '@/store/modules/app'
 
 const loading = ref(false)
@@ -34,11 +35,7 @@ const isSuperAdmin = computed(() => {
   ) || false
 })
 
-const hasNationalAccess = computed(() => {
-  return currentUser.value?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(currentUser.value?.roles))
 
 const userCountyRole = computed(() => {
   return currentUser.value?.roles?.find((role: any) => 

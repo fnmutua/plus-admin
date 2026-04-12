@@ -192,6 +192,7 @@ import TableActions from '@/views/Components/TableActions.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { getListWithoutGeo } from '@/api/counties'
 import { getSettlementListByCounty } from '@/api/settlements'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 
 const router = useRouter()
 const { wsCache } = useCache()
@@ -219,10 +220,7 @@ const assignedCountyRoleIds = computed<number[]>(() => {
   return [...new Set(countyIds)]
 })
 
-const hasNationalRole = computed<boolean>(() => {
-  const roles = Array.isArray(userInfo?.roles) ? userInfo.roles : []
-  return roles.some((role: any) => role?.user_roles?.location_level === 'national')
-})
+const hasNationalRole = computed<boolean>(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const isPrivilegedUser = computed<boolean>(() => {
   const roles = Array.isArray(userInfo?.roles) ? userInfo.roles : []

@@ -208,7 +208,10 @@ const getUserRoles = async () => {
       field = "id"; // Use 'id' for settlement_id filter
       fieldvalue = role.user_roles.settlement_id;
     } else if (level === "national" || level === null) {
-      isNationalStaff.value = true;
+      const rn = String(role.name ?? '').toLowerCase()
+      if (rn !== 'public' && rn !== 'guest') {
+        isNationalStaff.value = true
+      }
       return {
         role: role.name,
         model: "national",
@@ -4154,7 +4157,9 @@ const Statuses = computed(() => [
     value: 'Deleted',
     icon: CircleClose,
     count: deletedSegmentBadgeCount,
-    hidden: !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value)
+    hidden:
+      isPublicUser.value ||
+      !(isNationalStaff.value || isSuperAdmin.value || isCountyAdmin.value)
   },
 ])
 
@@ -4188,6 +4193,10 @@ const getThisHistory = async (sett_id) => {
 
 // Watch activeSegment to ensure non-national/non-admin users always stay on Approved
 watch(activeSegment, (newValue) => {
+  if (isPublicUser.value && newValue === 'Deleted') {
+    activeSegment.value = 'Approved'
+    return
+  }
   if (!isNationalStaff.value && !isSuperAdmin.value && !isCountyAdmin.value && newValue !== 'Approved') {
     activeSegment.value = 'Approved'
   }
@@ -4205,6 +4214,10 @@ watch(selectedCounty, (newValue) => {
 }, { immediate: true, deep: true })
 
 const onSegmentClick = async () => {
+  if (isPublicUser.value && activeSegment.value === 'Deleted') {
+    activeSegment.value = 'Approved'
+    return
+  }
   // Prevent non-national/non-admin users from changing segments
   if (!isNationalStaff.value && !isSuperAdmin.value && !isCountyAdmin.value) {
     activeSegment.value = 'Approved'

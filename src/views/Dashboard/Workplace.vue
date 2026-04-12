@@ -15,6 +15,7 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { getAuditLogs } from '@/api/audit'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import { isPublicOrGuestRole, userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -30,8 +31,9 @@ const can = (perm: string) =>
 const isSuperAdmin = computed(() =>
   userInfo?.roles?.some((r: any) => r.name === 'super_admin' || r.name === 'root_admin') || false
 )
-const hasNationalAccess = computed(() =>
-  userInfo?.roles?.some((r: any) => r.user_roles?.location_level === 'national') || false
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
+const isPublicLikeUser = computed(
+  () => Array.isArray(userInfo?.roles) && userInfo.roles.some((r: any) => isPublicOrGuestRole(r))
 )
 const countyRole = computed(() =>
   userInfo?.roles?.find((r: any) => r.user_roles?.location_level === 'county')
@@ -41,6 +43,7 @@ const userRoleLabel = computed(() => {
   if (isSuperAdmin.value)      return 'Super Admin'
   if (hasNationalAccess.value) return 'National'
   if (countyRole.value)        return 'County'
+  if (isPublicLikeUser.value)  return 'Public'
   return 'User'
 })
 
@@ -48,6 +51,7 @@ const userRoleTagType = computed((): 'danger' | 'warning' | 'success' | 'info' =
   if (isSuperAdmin.value)      return 'danger'
   if (hasNationalAccess.value) return 'warning'
   if (countyRole.value)        return 'success'
+  if (isPublicLikeUser.value)  return 'info'
   return 'info'
 })
 

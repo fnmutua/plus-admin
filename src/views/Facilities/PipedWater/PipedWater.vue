@@ -48,6 +48,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 
 import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
 const { wsCache } = useCache()
@@ -64,11 +65,7 @@ const isSuperAdmin = computed(() => {
   ) || false
 })
 
-const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const userCountyRole = computed(() => {
   return userInfo?.roles?.find((role: any) => 

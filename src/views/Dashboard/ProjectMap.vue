@@ -117,6 +117,7 @@ import { getListWithoutGeo } from '@/api/counties'
 import { getOneSettlement } from '@/api/settlements'
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 
 // User and role setup
 const appStore = useAppStore()
@@ -132,11 +133,7 @@ const isSuperAdmin = computed(() => {
   ) || false
 })
 
-const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const userCountyRole = computed(() => {
   return userInfo?.roles?.find((role: any) => 

@@ -259,6 +259,7 @@ import shortid from 'shortid';
 import { useRoute } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { isPublicOrGuestRole } from '@/utils/roleScope'
 
 import { Loader } from '@googlemaps/js-api-loader'
 import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck, getAdminUnitsFromCoordinates } from '@/api/settlements'
@@ -405,7 +406,7 @@ const processedRoles = userInfo.roles.map(role => {
   } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
     return {
       role: role.name,
-      model: "national",
+      model: isPublicOrGuestRole(role) ? "public_scope" : "national",
       field: null,
       fieldvalue: null
     };

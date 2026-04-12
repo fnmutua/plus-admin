@@ -48,6 +48,7 @@ const generalOwnershipLocal = [
   { label: 'Community', value: 'community' }
 ]
 import { useCache } from '@/hooks/web/useCache'
+import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import type { FormInstance } from 'element-plus'
 import shortid from 'shortid'
 
@@ -63,11 +64,7 @@ const isSuperAdmin = computed(() => {
   ) || false
 })
 
-const hasNationalAccess = computed(() => {
-  return userInfo?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
-})
+const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
 
 const userCountyRole = computed(() => {
   return userInfo?.roles?.find((role: any) => 
