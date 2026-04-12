@@ -146,7 +146,7 @@ const targetModel = ref('');
 const docTypes = ref<any[]>([]);
 const parentOptions = ref<any[]>([]);
 const fileMetadata = ref<FileMetadata[]>([]);
-const fieldMappings = ref<{ fileIndex: number; type: string; field_id?: string; parent_id?: number }[]>([]);
+const fieldMappings = ref<{ fileIndex: number; type: string; field_id?: string; parent_ids?: number[] }[]>([]);
 const usedParentIds = ref<Set<number>>(new Set());
 const loading = ref({
   upload: false,
@@ -289,6 +289,36 @@ getDocumentTypes();
   }
 };
 
+// Fuzzy protection check for beneficiary-related filenames
+const levenshtein = (a: string, b: string): number => {
+  const dp = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    let prev = i
+    for (let j = 1; j <= b.length; j++) {
+      const temp = dp[j]
+      dp[j] = a[i - 1] === b[j - 1] ? dp[j - 1] : 1 + Math.min(dp[j - 1], dp[j], prev)
+      prev = temp
+    }
+  }
+  return dp[b.length]
+}
+
+const PROTECTED_FUZZY_WORDS = ['beneficiary', 'beneficiaries']
+
+const checkFilenameProtected = (filename: string): 'confident' | 'uncertain' | null => {
+  const base = filename.replace(/\.[^.]+$/, '').toLowerCase()
+  const tokens = base.split(/[^a-z]+/).filter(Boolean)
+  let best: 'confident' | 'uncertain' | null = null
+  for (const target of PROTECTED_FUZZY_WORDS) {
+    for (const token of tokens) {
+      if ((token.length >= 5 && target.startsWith(token)) || levenshtein(token, target) <= 1)
+        return 'confident'
+      if (levenshtein(token, target) === 2) best = 'uncertain'
+    }
+  }
+  return best
+}
+
 // Handle file validation before upload
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   // Check file type and size
@@ -387,11 +417,13 @@ const handleFileUpload = async (uploadFile: any) => {
   loading.value.upload = true;
   try {
     const currentIndex = fileList.value.length;
+    const fuzzyResult = checkFilenameProtected(file.name)
+    const isProtected = fuzzyResult !== null
 
     console.log( 'fileList.value', fileList.value)
     fileList.value.push({
       ...uploadFile,
-      protected: false,
+      protected: isProtected,
       type: '',
       field_id: ''
     });
@@ -401,14 +433,15 @@ const handleFileUpload = async (uploadFile: any) => {
       type: '',
       format: file.name.split('.').pop() || '',
       size: (file.size / 1024 / 1024).toFixed(2),
-      protected: false,
+      protected: isProtected,
       field_id: ''
     });
 
     fieldMappings.value.push({
       fileIndex: currentIndex,
       type: '',
-      field_id: ''
+      field_id: '',
+      parent_ids: [],
     });
 
     ElMessage.success(`File ${file.name} loaded successfully!`);
@@ -421,6 +454,12 @@ const handleFileUpload = async (uploadFile: any) => {
   }
 };
 
+
+const onDocTypeChange = (row: any, typeId: any) => {
+  if ([47, 7].includes(Number(typeId))) {
+    fileList.value[row.fileIndex].protected = true
+  }
+}
 
 const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
   ElMessage.warning(
@@ -443,6 +482,7 @@ const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
     fileIndex: index,
     type: '',
     field_id: mappedFieldId,
+    parent_ids: [],
   }));
 
   if (mappedFieldId) {
@@ -461,13 +501,13 @@ const remapFileMetadata = () => {
 
   // Validate parent selections for county-restricted users
   if (isCountyRestricted.value && userCountyId.value && targetModel.value !== 'other_documents') {
-    const invalidMappings = fieldMappings.value.filter((mapping, index) => {
-      if (!mapping.parent_id) return false // Skip if no parent selected
-      
-      const selectedParent = parentOptions.value.find(opt => opt.value === mapping.parent_id)
-      if (!selectedParent) return false // Skip if parent not found (shouldn't happen)
-      
-      // Check if selected parent is in user's county
+    const invalidMappings = fieldMappings.value.filter((mapping) => {
+      const primaryId = mapping.parent_ids?.[0]
+      if (!primaryId) return false // Skip if no parent selected
+
+      const selectedParent = parentOptions.value.find(opt => opt.value === primaryId)
+      if (!selectedParent) return false // Skip if parent not found
+
       const parentCountyId = selectedParent.county_id
       if (parentCountyId && parentCountyId !== userCountyId.value) {
         return true // Invalid - parent is outside user's county
@@ -492,8 +532,9 @@ const remapFileMetadata = () => {
       protected: file.protected || false,
       field_id: mapping.field_id,
     };
-    if (mapping.field_id && mapping.parent_id) {
-      metadata[mapping.field_id] = mapping.parent_id;
+    const primaryParentId = mapping.parent_ids?.[0]
+    if (mapping.field_id && primaryParentId) {
+      metadata[mapping.field_id] = primaryParentId;
     }
     return metadata;
   });
@@ -705,6 +746,17 @@ const importFiles = async () => {
       throw new Error(checkData.message || 'Failed to check documents');
     }
 
+    // Build extra parent IDs map by file name (before any filtering)
+    const extraLinksByName: Record<string, number[]> = {}
+    if (targetModel.value && targetModel.value !== 'other_documents') {
+      for (const mapping of fieldMappings.value) {
+        const file = fileList.value[mapping.fileIndex]
+        if (!file) continue
+        const extras = (mapping.parent_ids ?? []).slice(1)
+        if (extras.length > 0) extraLinksByName[file.name] = extras
+      }
+    }
+
     // Step 3: For existing documents, create a document_link instead of skipping
     const existingResults = checkData.results.filter((r: any) => r.exists)
     const linkedNames: string[] = []
@@ -735,6 +787,10 @@ const importFiles = async () => {
             }
           } catch {
             alreadyLinkedNames.push(file.name)
+          }
+          // Extra parent links for existing doc
+          for (const extraId of extraLinksByName[file.name] ?? []) {
+            try { await linkDocument({ document_id: match.document_id, entity_type: entityType, entity_id: Number(extraId) }) } catch { }
           }
         } else {
           alreadyLinkedNames.push(file.name)
@@ -818,6 +874,23 @@ const importFiles = async () => {
     }
 
     if (resData.code === '0000') {
+      // Extra parent links for newly uploaded files
+      const extraNames = Object.keys(extraLinksByName).filter(name =>
+        fileList.value.some(f => f.name === name)
+      )
+      if (extraNames.length > 0 && targetModel.value && targetModel.value !== 'other_documents') {
+        try {
+          const recheck = await checkFilesExist({ documents: extraNames.map(n => ({ name: n })) })
+          const recheckData = recheck.data || recheck
+          for (const result of recheckData.results ?? []) {
+            if (!result.exists || !result.document_id) continue
+            for (const extraId of extraLinksByName[result.name] ?? []) {
+              try { await linkDocument({ document_id: result.document_id, entity_type: targetModel.value, entity_id: Number(extraId) }) } catch { }
+            }
+          }
+        } catch { /* best effort */ }
+      }
+
       ElMessage.success(`Files imported successfully! ${fileList.value.length} files imported.`);
       push({ path: '/repository/docs', name: 'RepositoryTagged' });
     } else {
@@ -936,7 +1009,7 @@ const handleReset = () => {
             </el-table-column>
             <el-table-column label="Document Type">
               <template #default="{ row }">
-                <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
+                <el-select v-model="row.type" placeholder="Select Type" clearable filterable @change="(val) => onDocTypeChange(row, val)">
                   <el-option-group v-for="group in docTypes" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
                   </el-option-group>
@@ -946,7 +1019,10 @@ const handleReset = () => {
             <el-table-column v-if="targetModel !== 'other_documents'" label="Parent Entity">
               <template #default="{ row }">
                 <el-select
-                  v-model="row.parent_id"
+                  v-model="row.parent_ids"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
                   filterable
                   remote
                   :remote-method="getParentOptions.bind(null, targetModel)"

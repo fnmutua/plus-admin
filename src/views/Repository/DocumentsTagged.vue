@@ -1751,6 +1751,9 @@ const editDocument = async (data: Document) => {
     }
   }
 
+  // Coerce protected to boolean — DB returns 0/1 integers which el-switch won't match against true
+  documentForm.protected = !!(data as any).protected || !!(data as any).protectedFile
+
   // Set document type/category - check multiple possible locations
   if (data.document_type?.id) {
     documentForm.category = data.document_type.id
