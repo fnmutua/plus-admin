@@ -235,6 +235,14 @@ const canUserDeleteDocument = (document: Document): boolean => {
 // Get user permissions
 const userPermissions = userInfo.permissions || []
 
+const canShareDocuments = computed(
+  () => userPermissions.includes('*.*.*') || userPermissions.includes('document:update')
+)
+
+const canUploadDocuments = computed(
+  () => userPermissions.includes('*.*.*') || userPermissions.includes('document:upload')
+)
+
 // Action buttons based on user permissions
 const action_buttons = ref<string[]>([])
 
@@ -246,8 +254,10 @@ const setActionButtons = () => {
     if (userPermissions.includes('document:delete')) {
     action_buttons.value.push('delete')
   }
-  // Always allow preview/download/share for all users
-  action_buttons.value.push('preview', 'download', 'share')
+  action_buttons.value.push('preview', 'download')
+  if (canShareDocuments.value) {
+    action_buttons.value.push('share')
+  }
   
   // Check for edit permission
   if (userPermissions.includes('document:update')) {
@@ -264,8 +274,10 @@ const setActionButtons = () => {
 const getDocumentActionButtons = (document: Document): string[] => {
   const buttons: string[] = []
   
-  // Always allow preview/download/share for all users
-  buttons.push('preview', 'download', 'share')
+  buttons.push('preview', 'download')
+  if (canShareDocuments.value) {
+    buttons.push('share')
+  }
   
   // Check for edit permission
   if (userPermissions.includes('document:update')) {
@@ -1290,6 +1302,10 @@ const batchDownload = async () => {
 // Select all documents
 
 const openShareDialog = () => {
+  if (!canShareDocuments.value) {
+    ElMessage.warning('You do not have permission to share documents')
+    return
+  }
   shareDialogVisible.value = true
   shareForm.emailsText = ''
   shareForm.message = ''
@@ -1352,6 +1368,10 @@ const copyShareUrl = async () => {
 }
 
 const onShareDocument = (data: Document) => {
+  if (!canShareDocuments.value) {
+    ElMessage.warning('You do not have permission to share documents')
+    return
+  }
   const next = new Set(selectedDocuments.value)
   next.add(data.id)
   selectedDocuments.value = next
@@ -3125,6 +3145,7 @@ const handleTabChange = async (tabName: string) => {
               </div>
 
               <el-button
+                v-if="canUploadDocuments"
                 @click="importDrawerVisible = true"
                 type="success"
                 plain
@@ -3180,6 +3201,7 @@ const handleTabChange = async (tabName: string) => {
         <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" class="selection-actions">
           <div class="selection-buttons">
                 <el-button 
+                  v-if="canShareDocuments"
                   @click="openShareDialog" 
                   type="success" 
                   size="small"

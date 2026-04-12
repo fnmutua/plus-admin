@@ -1144,6 +1144,66 @@ exports.signin = async (req, res) => {
 
 }
 
+exports.guestLogin = async (req, res) => {
+  const GUEST_USERNAME = process.env.GUEST_USERNAME || 'guest'
+  try {
+    const user = await User.findOne({
+      where: { username: { [Op.iLike]: GUEST_USERNAME } }
+    })
+
+    if (!user || !user.isactive) {
+      return res.status(503).send({ message: 'Guest access is currently unavailable.' })
+    }
+
+    // Short-lived token for guest — 2 hours
+    const token = jwt.sign({ id: user.id }, config.secret, { expiresIn: 7200 })
+
+    await user.update({ last_login: new Date() })
+
+    await writeLegacyAndAuditLog(
+      { table: 'auth', action: 'Login', date: new Date(), userId: user.id, userName: user.username, status: 'Successful (guest)' },
+      { action: 'login', actorId: user.id, actorName: user.username, entityType: 'auth', outcome: 'success', statusCode: 200 }
+    )
+
+    // Always return public role regardless of what the account holds in the DB,
+    // so a misconfigured guest account can never accidentally escalate privileges.
+    const publicRole = [{ name: 'public', user_roles: { location_level: 'national' } }]
+    const publicUserRoles = [{ role: 'public', county_id: null, subcounty_id: null, ward_id: null, settlement_id: null }]
+
+    // Fetch public role permissions directly so the frontend can skip the
+    // getUserPermissions round-trip and use a consistent permission set.
+    const publicRoleRecord = await db.role.findOne({
+      where: { name: 'public' },
+      include: [db.permission]
+    })
+    const permissions = publicRoleRecord
+      ? publicRoleRecord.permissions.map(p => p.name)
+      : []
+
+    return res.status(200).send({
+      id: user.id,
+      username: user.username,
+      phone: user.phone,
+      name: user.name,
+      email: user.email,
+      roles: publicRole,
+      user_roles: publicUserRoles,
+      county_id: user.county_id,
+      country_name: user.country_name || '-',
+      accessToken: token,
+      code: '0000',
+      photo: user.avatar,
+      avatar: user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
+      data: token,
+      permissions,
+      message: 'Login Successful'
+    })
+  } catch (err) {
+    console.error('Guest login error:', err)
+    return res.status(500).send({ message: 'Guest login failed. Please try again later.' })
+  }
+}
+
 exports.updatePassword = (req, res) => {
   console.log('Update user password....')
 

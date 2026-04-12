@@ -105,6 +105,7 @@ const otpLimiter = rateLimit({
 })
 
 app.use('/api/auth/signin', loginLimiter)
+app.use('/api/auth/guest', loginLimiter)
 app.use('/api/app/signin', loginLimiter)
 app.use('/api/app/verify', otpLimiter)
 

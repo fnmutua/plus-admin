@@ -2481,17 +2481,17 @@ module.exports = function (app) {
   app.post('/api/v1/download', [authJwt.verifyToken, hasPermission('document:read')], controller.downloadFile)
   // Get photo/image for display
   app.post('/api/v1/photo', [authJwt.verifyToken, hasPermission('document:read')], controller.getPhoto)
-  // Create a document share link and send email
-  app.post('/api/v1/documents/share', [authJwt.verifyToken, hasPermission('document:read')], controller.createDocumentShare)
+  // Create a document share link and send email (requires update, not read-only / public)
+  app.post('/api/v1/documents/share', [authJwt.verifyToken, hasPermission('document:update')], controller.createDocumentShare)
   
   // Get all document shares (for current user or all if admin)
-  app.get('/api/v1/documents/shares', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentShares)
+  app.get('/api/v1/documents/shares', [authJwt.verifyToken, hasPermission('document:update')], controller.getDocumentShares)
   
   // Revoke a document share
-  app.post('/api/v1/documents/share/revoke', [authJwt.verifyToken, hasPermission('document:read')], controller.revokeDocumentShare)
+  app.post('/api/v1/documents/share/revoke', [authJwt.verifyToken, hasPermission('document:update')], controller.revokeDocumentShare)
 
   // Unrevoke a document share
-  app.post('/api/v1/documents/share/unrevoke', [authJwt.verifyToken, hasPermission('document:read')], controller.unrevokeDocumentShare)
+  app.post('/api/v1/documents/share/unrevoke', [authJwt.verifyToken, hasPermission('document:update')], controller.unrevokeDocumentShare)
 
   // Public share access (no auth)
   app.get('/api/public/share/:token', controller.getPublicShare)

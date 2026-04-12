@@ -4,8 +4,11 @@
 // Database configuration - supports both kisip and kesmis
 process.env.VUE_APP_DB_HOST = 'localhost';
 process.env.VUE_APP_USER = 'postgres';
-process.env.VUE_APP_PASSWORD = '***REDACTED***';
-process.env.VUE_APP_DB_PORT = '5432';
+process.env.VUE_APP_PASSWORD =
+  process.env.VUE_APP_PASSWORD ?? process.env.DB_PASSWORD ?? process.env.PGPASSWORD ?? 'Admin@2011';
+process.env.VUE_APP_DB_PORT = String(
+  process.env.VUE_APP_DB_PORT ?? process.env.DB_PORT ?? '5432'
+);
 
 // Check for database name from command line argument or environment variable
 const databaseName = process.argv[2] || process.env.DATABASE_NAME  || 'kisip';
@@ -170,7 +173,7 @@ async function seedPermissions() {
 
       // Households
       { name: 'households:create', description: `Create household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
-      { name: 'households:read', description: `Read household data`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'public', 'gbv', 'support'] },
+      { name: 'households:read', description: `Read household data`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
       { name: 'households:update', description: `Update household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
       { name: 'households:delete', description: `Delete household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
 
@@ -4356,8 +4359,6 @@ async function seedPermissions() {
   "public": [
     "article:read",
     "chart_indicator:read",
-    "collector:read",
-    "collector:submit",
     "community_hall:read",
     "community_project:read",
     "component:read",
@@ -4375,7 +4376,6 @@ async function seedPermissions() {
     "domain:read",
     "dumping_site:read",
     "education_facility:read",
-    "facility:read",
     "floodlight:read",
     "hazard_zone:read",
     "health_facility:read",
@@ -4418,8 +4418,7 @@ async function seedPermissions() {
     "ward:read",
     "water_point:read",
     "health_facility:read",
-    "police_station:read",
-    "households:read"
+    "police_station:read"
   ]
 };
 
@@ -4439,6 +4438,31 @@ async function seedPermissions() {
     }
 
     console.log('🎉 Permissions and role-permissions seeded successfully!');
+
+    // Ensure the guest account has the public role assigned in user_roles
+    const GUEST_USERNAME = process.env.GUEST_USERNAME || 'guest'
+    const guestUser = await db.user.findOne({ where: { username: GUEST_USERNAME } })
+    const publicRole = await db.role.findOne({ where: { name: 'public' } })
+
+    if (guestUser && publicRole) {
+      const existing = await db.models.user_roles.findOne({
+        where: { userid: guestUser.id, roleid: publicRole.id }
+      })
+      if (!existing) {
+        await db.models.user_roles.create({
+          userid: guestUser.id,
+          roleid: publicRole.id,
+          location_level: 'national'
+        })
+        console.log(`✅ Assigned public role to guest user '${GUEST_USERNAME}'`)
+      } else {
+        console.log(`ℹ️  Guest user '${GUEST_USERNAME}' already has public role`)
+      }
+    } else {
+      if (!guestUser) console.log(`⚠️  Guest user '${GUEST_USERNAME}' not found — create the account first`)
+      if (!publicRole) console.log('⚠️  public role not found in roles table')
+    }
+
     console.log(`📊 Database used: ${databaseName}`);
     process.exit(0);
   } catch (error) {

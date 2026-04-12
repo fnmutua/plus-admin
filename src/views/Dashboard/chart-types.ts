@@ -1271,6 +1271,3 @@ export const pyramidOptions  = {
   },
 };
 
-
-
- 

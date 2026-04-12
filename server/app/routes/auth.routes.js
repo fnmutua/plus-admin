@@ -204,6 +204,22 @@ module.exports = function (app) {
 
   /**
    * @swagger
+   * /api/auth/guest:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: Guest login
+   *     description: Obtain a short-lived (2 h) read-only guest token without supplying credentials.
+   *     responses:
+   *       200:
+   *         description: Guest token issued
+   *       503:
+   *         description: Guest access unavailable
+   */
+  app.post('/api/auth/guest', controller.guestLogin)
+
+  /**
+   * @swagger
    * /api/auth/reset:
    *   post:
    *     tags:

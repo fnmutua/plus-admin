@@ -79,11 +79,37 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const isSuperAdmin = ref(
   userInfo.roles?.some((role: any) => role.name === "super_admin" || role.name === "root_admin")
 )
+// National scope alone must not grant staff powers: guest/public use national + role "public".
 const isNationalStaff = computed(() => {
-  return userInfo?.roles?.some((role: any) => 
-    role.user_roles?.location_level === 'national'
-  ) || false
+  return userInfo?.roles?.some((role: any) => {
+    if (role.user_roles?.location_level !== 'national') return false
+    const n = role.name
+    if (n === 'public' || n === 'guest') return false
+    return true
+  }) || false
 })
+
+function getUserPerms(): string[] {
+  const p = userInfo?.permissions
+  return Array.isArray(p) ? p : []
+}
+
+function hasPerm(perm: string): boolean {
+  const perms = getUserPerms()
+  return perms.includes('*.*.*') || perms.includes(perm)
+}
+
+const canEditProjectMeta = computed(() => isSuperAdmin.value || hasPerm('project:update'))
+const canCreateProjectLocation = computed(() => isSuperAdmin.value || hasPerm('project_location:create'))
+const canUpdateProjectLocation = computed(() => isSuperAdmin.value || hasPerm('project_location:update'))
+const canManageProjectScope = computed(() => isSuperAdmin.value || hasPerm('project:update'))
+const canAddMonitoringReport = computed(
+  () => isSuperAdmin.value || hasPerm('programme_implementation:create')
+)
+const canUploadProjectDocument = computed(() => isSuperAdmin.value || hasPerm('document:upload'))
+const canManageProjectTeam = computed(() => isSuperAdmin.value || hasPerm('project_team:create'))
+const canManageProjectContractors = computed(() => isSuperAdmin.value || hasPerm('project_contractor:create'))
+const canManageDisbursements = computed(() => isSuperAdmin.value || hasPerm('disbursement:create'))
 
 // Process user roles for permission checking
 let processedRoles: any[] = []
@@ -4139,7 +4165,7 @@ function formatLocation(item) {
           <el-descriptions title="Project Information" border>
             <template #extra>
               <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <el-button type="primary" :icon="Edit" plain @click="editProject">
+                <el-button v-if="canEditProjectMeta" type="primary" :icon="Edit" plain @click="editProject">
                   Edit Project
                 </el-button>
 
@@ -4169,7 +4195,7 @@ v-for="item in projectDescription" :key="item.property"
       </el-tab-pane>
 
       <el-tab-pane v-if="implementation_scope != 'national'" label="Locations" name="Locations">
-        <el-button :onClick="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
+        <el-button v-if="canCreateProjectLocation" :onClick="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
           <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Location
         </el-button>
 
@@ -4188,7 +4214,7 @@ v-for="item in projectDescription" :key="item.property"
 
           <el-table-column label="Actions" width="280">
             <template #default="scope">
-              <el-button size="small" :icon="Position" @click="openMapDialog(scope)" type="primary" plain>
+              <el-button v-if="canUpdateProjectLocation" size="small" :icon="Position" @click="openMapDialog(scope)" type="primary" plain>
                 Edit Location 
               </el-button>
 
@@ -4268,7 +4294,7 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
       <el-tab-pane label="Scope" name="Scope">
         <el-card>
           <div style="display: flex; align-items: center; gap: 16px; margin-left: 5px; margin-bottom: 10px;">
-            <el-button :onClick="updateChanges" type="success" plain>
+            <el-button v-if="canManageProjectScope" :onClick="updateChanges" type="success" plain>
               <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
               Save Changes
             </el-button>
@@ -4280,6 +4306,7 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
           <el-row :gutter="10">
             <el-col v-for="(activity) in activityOptions" :key="activity.id" :sm="24" :md="24" :lg="24" :xl="12">
               <el-checkbox
+:disabled="!canManageProjectScope"
 v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                 style="max-width: 100%;">
                 <span
@@ -4298,7 +4325,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       <el-tab-pane v-if="projectLocations.length > 0" label="Monitoring" name="Indicator">
         <el-card>
 
-          <el-button :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canAddMonitoringReport" :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Report/Achievement
           </el-button>
 
@@ -4433,7 +4460,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             @size-change="handleDocsSizeChange"
             @current-change="handleDocsPageChange"
           />
-          <el-button plain @click="toggleComponent(Project)" style=" margin-top:10px">
+          <el-button v-if="canUploadProjectDocument" plain @click="toggleComponent(Project)" style=" margin-top:10px">
             <Icon icon="fa-solid:upload" style=" margin-right:10px" />
             Upload
           </el-button>
@@ -4444,7 +4471,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
 
       <el-tab-pane label="Team" name="team">
         <el-card>
-          <el-button :onClick="AddTeam" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canManageProjectTeam" :onClick="AddTeam" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Team
           </el-button>
           <el-table :data="projectTeamData" style="width: 100%">
@@ -4573,7 +4600,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       <el-tab-pane label="Contractor" name="contractor">
         <el-card>
 
-          <el-button :onClick="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canManageProjectContractors" :onClick="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Contractor(s)
           </el-button>
           <el-table :data="projectContractors" style="width: 100%">
@@ -4604,7 +4631,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       <el-tab-pane label="Disbursements" name="disbursement">
         <el-card>
 
-          <el-button :onClick="AddDisbursement" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canManageDisbursements" :onClick="AddDisbursement" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Disbursement(s)
           </el-button>
           <el-table :data="projectDisbursements" style="width: 100%" show-summary :summary-method="getSummaries">

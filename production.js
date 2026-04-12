@@ -75,6 +75,30 @@ app.use(bodyParser.json({ limit: '10gb' }));
 app.use(bodyParser.urlencoded({ limit: '10gb', extended: true }));
 app.use(auditContext)
 
+// Brute-force protection on login and OTP endpoints
+const rateLimit = require('express-rate-limit')
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Please try again in 15 minutes.' }
+})
+
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many OTP attempts. Please request a new code.' }
+})
+
+app.use('/api/auth/signin', loginLimiter)
+app.use('/api/auth/guest', loginLimiter)
+app.use('/api/app/signin', loginLimiter)
+app.use('/api/app/verify', otpLimiter)
+
 // simple route
 app.use(express.static(path.join(__dirname, '/dist-pro')));
 

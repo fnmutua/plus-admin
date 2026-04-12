@@ -3,7 +3,7 @@ import { computed, reactive, ref, unref, watch } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { ElButton, ElForm, ElFormItem, ElInput, ElTabs, ElTabPane, FormInstance, ElMessage, ElLink, ElDialog } from 'element-plus'
 import { InputPassword } from '@/components/InputPassword'
-import { loginApi } from '@/api/login'
+import { loginApi, guestLoginApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
@@ -253,11 +253,27 @@ const signIn = async () => {
 const guestLogin = async () => {
   guestLoading.value = true
   try {
-    loginForm.username = 'guest'
-    loginForm.password = 'Guest@123'
-    await signIn()
-  } catch (error) {
-    // Error handled in signIn
+    const res: any = await guestLoginApi()
+    const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) =>
+      ({ id, name, roles, data, county_id, avatar, phone, photo }))(res)
+    if (selUserDetails) {
+      // Use permissions embedded in the guest response — no separate getUserPermissions call needed
+      const guestPermissions: string[] = Array.isArray(res.permissions) ? res.permissions : []
+      wsCache.set(appStore.getUserInfo, { ...selUserDetails, permissions: guestPermissions })
+
+      try { localStorage.setItem('kesmis_is_admin', '0') } catch {}
+      appStore.setAdminButtons(false)
+      appStore.setEditButtons(false)
+
+      await permissionStore.generateRoutes('public', 'national', guestPermissions).catch(() => {})
+      permissionStore.getAddRouters.forEach((route) => {
+        addRoute(route as RouteRecordRaw)
+      })
+      permissionStore.setIsAddRouters(true)
+      push({ path: '/dashboard/national' })
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || 'Guest access is unavailable. Please try again later.')
   } finally {
     guestLoading.value = false
   }

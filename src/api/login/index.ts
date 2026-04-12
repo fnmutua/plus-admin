@@ -5,6 +5,10 @@ interface RoleParams {
 }
 const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
+export const guestLoginApi = (): Promise<any> => {
+  return request.post({ url: prod + '/api/auth/guest' })
+}
+
 export const loginApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('Login....', data)
 

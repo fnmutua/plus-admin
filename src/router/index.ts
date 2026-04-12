@@ -424,7 +424,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             },
             meta: {
               hidden: true,
-              title: 'Households'
+              title: 'Households',
+              permissions: ['households:read']
             }
           },
           
@@ -451,7 +452,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: true,
               props: true,
               icon:'bi:house-add',
-              title: 'Add Household'
+              title: 'Add Household',
+              permissions: ['households:create']
             }
           },        
           {
@@ -1042,6 +1044,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Import',
           icon: 'mdi:file-upload-outline',
+          permissions: ['document:upload']
         }
       },
       
@@ -1093,7 +1096,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Document Shares',
           hidden: false,
-          permissions: ['document:read'],
+          permissions: ['document:update'],
           icon:'material-symbols:share'
         }
       },
@@ -1522,7 +1525,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Add Project',
           hidden: true,
           props: true,
-          icon:'material-symbols:add-circle-rounded'
+          icon:'material-symbols:add-circle-rounded',
+          permissions: ['project:create']
         },
    
       },
@@ -1971,7 +1975,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Profile',
           hidden: false,
           icon:'pajamas:profile',
-
+          permissions: ['user:read', 'user:update']
         }
       }, 
 
