@@ -5,8 +5,8 @@ import { getDocumentRepository, getDocumentUploaders, getDocumentAssociationSnap
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElSwitch, ElSteps, ElStep
   ,ElForm,ElFormItem,
-  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker } from 'element-plus'
-import { Document, Loading } from '@element-plus/icons-vue'
+  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker, ElTooltip, ElIcon } from 'element-plus'
+import { Document, Loading, QuestionFilled, Lock } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
@@ -434,9 +434,10 @@ const linkedSettlementRows = computed(() => {
     }))
 })
 
-const getExistingIdsForType = (entityType: string): number[] => {
-  if (!linkingDoc.value) return []
-  return getAssociations(linkingDoc.value)
+const getExistingIdsForType = (entityType: string, doc?: any): number[] => {
+  const source = doc ?? linkingDoc.value
+  if (!source) return []
+  return getAssociations(source)
     .filter(a => a.key.toLowerCase().startsWith(entityType.toLowerCase() + ':'))
     .map(a => Number(a.key.split(':')[1]))
     .filter(id => !isNaN(id) && id > 0)
@@ -534,7 +535,7 @@ const sortOption = ref('date') // 'date' or 'popularity'
 // Date filter variables (presets use Date; custom el-date-picker with value-format uses YYYY-MM-DD strings)
 const dateRange = ref<[Date | string, Date | string] | null>(null)
 const selectedDateRange = ref('')
-const customDateRange = ref<[Date | string, Date | string] | null>(null)
+const customDateRange = ref<[Date | string, Date | string] | undefined>(undefined)
 
 // Note: Using customDateRange directly for the date picker
 
@@ -1491,12 +1492,15 @@ watch(linkDialogVisible, (open) => {
 const documentForm = reactive({
   id: null,
   name: '',
-  category: undefined as number | undefined, // This will be the document type/category (Report, Checklist, etc.)
-  parent_id: undefined as number | undefined, // This will be the specific parent ID (settlement, facility, etc.)
+  category: undefined as number | undefined,
+  parent_ids: [] as number[],
   format: '',
-  document_type_id: undefined as number | undefined, // This will be the document type (Report, Checklist, etc.)
-  originalName: '' // Store original file name for renaming
+  document_type_id: undefined as number | undefined,
+  originalName: '',
+  protected: false
 })
+const editingDoc = ref<any>(null)
+const originalParentIds = ref<number[]>([])
 
 const docCategories = ref<any[]>([])
 const docTypes = ref<any[]>([])
@@ -1667,96 +1671,67 @@ function remoteFetchParents(kw: string) {
 
 const handleSelectType = async (type: string) => {
   theParentModel.value = type
-  console.log('Selected.....>', type)
 
   // Reset state when type changes
   hide_parent.value = false
-  documentForm.parent_id = null
+  documentForm.parent_ids = []
+  originalParentIds.value = []
 
-  // Notify county-restricted users about filtering
   if (isCountyRestricted.value && type !== 'other_documents') {
     ElMessage.info('Only entities from your assigned county are available.')
   }
 
   disable_submit.value = false
-  if (type === 'settlement') {
-    document_field.value = 'settlement_id'
-    parentTitle.value = "Settlement"
-    getparentOptions()
-  }
-  else if (type === 'beneficiary') {
-    document_field.value = 'beneficiary_id'
-    parentTitle.value = "Beneficiary"
-    getparentOptions()
-  }
-  else if (type === 'project') {
-    document_field.value = 'project_id'
-    parentTitle.value = "Project"
-    getparentOptions()
-  }
-  else if (type === 'contractor') {
-    document_field.value = 'contractor_id'
-    parentTitle.value = "Contract"
-    getparentOptions()
-  }
-  else if (type === 'health_facility') {
-    document_field.value = 'health_facility_id'
-    parentTitle.value = "Health Facility"
-    getparentOptions()
-  }
-  else if (type === 'education_facility') {
-    document_field.value = 'education_facility_id'
-    parentTitle.value = "Education Facility"
-    getparentOptions()
-  }
-  else if (type === 'road') {
-    document_field.value = 'road_id'
-    parentTitle.value = "Road"
-    getparentOptions()
-  }
-  else if (type === 'road_asset') {
-    document_field.value = 'road_asset_id'
-    parentTitle.value = "Asset"
-    getparentOptions()
-  }
-  else if (type === 'water_point') {
-    document_field.value = 'water_point_id'
-    parentTitle.value = "Water Point"
-    getparentOptions()
-  }
-  else if (type === 'sewer') {
-    document_field.value = 'sewer_id'
-    parentTitle.value = "Sewer"
-    getparentOptions()
-  }
-  else if (type === 'other_facility') {
-    document_field.value = 'other_facility_id'
-    parentTitle.value = "Other Facility"
-    getparentOptions()
-  }
-  else if (type === 'indicator_category_report') {
-    document_field.value = 'indicator_category_report'
-    parentTitle.value = "M&E Report"
-    getparentOptions()
-  }
-  else if (type === 'other_documents') {
-    hide_parent.value = true
+
+  const typeMap: Record<string, { field: string; title: string }> = {
+    settlement:                 { field: 'settlement_id',                title: 'Settlement' },
+    beneficiary:                { field: 'beneficiary_id',               title: 'Beneficiary' },
+    project:                    { field: 'project_id',                   title: 'Project' },
+    contractor:                 { field: 'contractor_id',                title: 'Contract' },
+    health_facility:            { field: 'health_facility_id',           title: 'Health Facility' },
+    education_facility:         { field: 'education_facility_id',        title: 'Education Facility' },
+    road:                       { field: 'road_id',                      title: 'Road' },
+    road_asset:                 { field: 'road_asset_id',                title: 'Asset' },
+    water_point:                { field: 'water_point_id',               title: 'Water Point' },
+    sewer:                      { field: 'sewer_id',                     title: 'Sewer' },
+    other_facility:             { field: 'other_facility_id',            title: 'Other Facility' },
+    indicator_category_report:  { field: 'indicator_category_report',    title: 'M&E Report' },
   }
 
-  console.log(theParentModel.value)
+  if (type === 'other_documents') {
+    hide_parent.value = true
+    return
+  }
+
+  const cfg = typeMap[type]
+  if (cfg) {
+    document_field.value = cfg.field
+    parentTitle.value = cfg.title
+    await getparentOptions()
+
+    // Pre-populate with existing associations of this type
+    if (editingDoc.value) {
+      const existingIds = getExistingIdsForType(type, editingDoc.value)
+      originalParentIds.value = existingIds
+      documentForm.parent_ids = [...existingIds]
+    }
+  }
 }
 
 const editDocument = async (data: Document) => {
   console.log('Edit', data)
 
   // Reset form state
-  theParentModel.value = null
+  theParentModel.value = undefined
   parentOptions.value = []
   document_field.value = ''
   hide_parent.value = false
   disable_submit.value = true
   parentTitle.value = "Parent (selected)"
   currentAssociation.value = null
+  editingDoc.value = data
+  originalParentIds.value = []
+  documentForm.parent_ids = []
 
   // Store original file name (with extension) for file renaming
   const originalFileName = (data as any).name || ''
@@ -1866,7 +1841,10 @@ const editDocument = async (data: Document) => {
     }
     if (foundParentId) {
       await nextTick()
-      documentForm.parent_id = foundParentId
+      const existingIds = getExistingIdsForType(foundParentModel, data as any)
+      if (!existingIds.includes(foundParentId)) existingIds.unshift(foundParentId)
+      originalParentIds.value = existingIds
+      documentForm.parent_ids = [...existingIds]
     }
   } else {
     handleSelectType(foundParentModel || 'other_documents')
@@ -1879,7 +1857,6 @@ const editDocument = async (data: Document) => {
   console.log('documentForm after edit setup', documentForm)
   console.log('theParentModel:', theParentModel.value)
   console.log('document_field:', document_field.value)
-  console.log('parent_id:', documentForm.parent_id)
   documentName.value = "Editing: " + data.name
 
   dialogVisible.value = true
@@ -1949,14 +1926,13 @@ const getDocumentTypes = async () => {
 
 const handleSubmitData = async () => {
   try {
-    // Validate parent selection for county-restricted users
-    if (isCountyRestricted.value && userCountyId.value && documentForm.parent_id && theParentModel.value !== 'other_documents') {
-      const selectedParent = parentOptions.value.find(opt => opt.value === documentForm.parent_id)
-      if (selectedParent) {
-        const parentCountyId = selectedParent.county_id
-        if (parentCountyId && parentCountyId !== userCountyId.value) {
-          ElMessage.error('Cannot update: The selected entity is outside your assigned county. Please select an entity from your county only.');
-          return;
+    // Validate parent selections for county-restricted users
+    if (isCountyRestricted.value && userCountyId.value && documentForm.parent_ids.length && theParentModel.value !== 'other_documents') {
+      for (const pid of documentForm.parent_ids) {
+        const selectedParent = parentOptions.value.find(opt => opt.value === pid)
+        if (selectedParent?.county_id && selectedParent.county_id !== userCountyId.value) {
+          ElMessage.error('Cannot update: One or more selected entities are outside your assigned county.')
+          return
         }
       }
     }
@@ -1987,7 +1963,7 @@ const handleSubmitData = async () => {
       console.warn('Warning: Original file name not available - backend will use database name');
     }
     
-    // Clear all association fields first, then set only the active one
+    // Clear all association fields first, then set primary FK from first selection
     const allAssociationFields = [
       'settlement_id', 'beneficiary_id', 'project_id', 'contractor_id',
       'health_facility_id', 'education_facility_id', 'road_id', 'road_asset_id',
@@ -1995,9 +1971,9 @@ const handleSubmitData = async () => {
     ]
     allAssociationFields.forEach(f => { (documentForm as any)[f] = null })
 
-    // Set the parent_id based on the selected parent
-    if (documentForm.parent_id && document_field.value) {
-      (documentForm as any)[document_field.value] = parseInt(documentForm.parent_id.toString());
+    const primaryId = documentForm.parent_ids[0] ?? null
+    if (primaryId && document_field.value) {
+      (documentForm as any)[document_field.value] = primaryId
     }
     
     // Set the category to the selected document type
@@ -2006,7 +1982,20 @@ const handleSubmitData = async () => {
     }
     
     await updateOneRecord(documentForm as any)
- 
+
+    // Sync additional associations via document_link (diff-based)
+    if (theParentModel.value && theParentModel.value !== 'other_documents') {
+      const toLink = documentForm.parent_ids.filter(id => !originalParentIds.value.includes(id))
+      const toUnlink = originalParentIds.value.filter(id => !documentForm.parent_ids.includes(id))
+      for (const id of toLink) {
+        try { await linkDocument({ document_id: (documentForm as any).id, entity_type: theParentModel.value, entity_id: id }) } catch { /* ignore */ }
+      }
+      for (const id of toUnlink) {
+        try { await unlinkDocument({ document_id: (documentForm as any).id, entity_type: theParentModel.value, entity_id: id }, { silent: true }) } catch { /* ignore */ }
+      }
+      originalParentIds.value = [...documentForm.parent_ids]
+    }
+
     dialogVisible.value = false;
     ElMessage.success('Document updated successfully' + (hasNameChanged ? ' and file renamed' : ''));
     
@@ -2454,6 +2443,54 @@ const importBeforeUpload = (file) => {
   return true;
 };
 
+/** Levenshtein distance — O(n·m) time, O(min(n,m)) space */
+const levenshtein = (a: string, b: string): number => {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+  if (a.length > b.length) [a, b] = [b, a]
+  let row = Array.from({ length: a.length + 1 }, (_, i) => i)
+  for (let j = 1; j <= b.length; j++) {
+    let prev = j
+    for (let i = 1; i <= a.length; i++) {
+      const val = b[j - 1] === a[i - 1] ? row[i - 1] : 1 + Math.min(row[i - 1], row[i], prev)
+      row[i - 1] = prev
+      prev = val
+    }
+    row[a.length] = prev
+  }
+  return row[a.length]
+}
+
+/**
+ * Fuzzy-checks a filename and returns true if it should be auto-flagged as protected.
+ * Triggers on "beneficiary" (and common misspellings) or the phrase "area list".
+ */
+const PROTECTED_FUZZY_WORDS = ['beneficiary', 'beneficiaries']
+
+/** Returns 'confident' (lock switch), 'uncertain' (pre-tick but editable), or null (no match). */
+const checkFilenameProtected = (filename: string): 'confident' | 'uncertain' | null => {
+  const base = filename.replace(/\.[^.]+$/, '').toLowerCase()
+  const tokens = base.split(/[^a-z]+/).filter(Boolean)
+
+  let best: 'confident' | 'uncertain' | null = null
+
+  for (const target of PROTECTED_FUZZY_WORDS) {
+    for (const token of tokens) {
+      // Prefix hit or ≤1 edit → confident
+      if ((token.length >= 5 && target.startsWith(token)) || levenshtein(token, target) <= 1) {
+        return 'confident'
+      }
+      // edit distance 2 → uncertain (keep scanning for better hit)
+      if (levenshtein(token, target) === 2) {
+        best = 'uncertain'
+      }
+    }
+  }
+
+  return best
+}
+
 const importHandleFileUpload = (uploadFile) => {
   const file = uploadFile.raw || uploadFile.file;
   if (!file || !importBeforeUpload(file)) return;
@@ -2465,12 +2502,14 @@ const importHandleFileUpload = (uploadFile) => {
   }
   const currentIndex = importFileList.value.length;
   // Keep `raw` explicitly — spread alone can drop the File on some Element Plus versions
+  const confidence = checkFilenameProtected(uploadFile.name || file.name)
+  const autoProtected = confidence !== null
   importFileList.value.push({
     ...uploadFile,
     raw: file,
     name: uploadFile.name || file.name,
     size: uploadFile.size ?? file.size,
-    protected: false,
+    protected: autoProtected,
     type: '',
     field_id: '',
   });
@@ -2479,7 +2518,7 @@ const importHandleFileUpload = (uploadFile) => {
     type: '',
     format: file.name.split('.').pop() || '',
     size: (file.size / 1024 / 1024).toFixed(2),
-    protected: false,
+    protected: autoProtected,
     field_id: ''
   });
   importFieldMappings.value.push({ fileIndex: currentIndex, type: '', field_id: '' });
@@ -2500,6 +2539,7 @@ const importHandleSelectModel = async (model: string) => {
     fileIndex: index,
     type: '',
     field_id: mappedFieldId,
+    parent_ids: [] as number[],
   }));
   if (mappedFieldId) {
     importLoading.value.fetchParents = true;
@@ -2625,6 +2665,22 @@ const getImportDocTypes = async () => {
   }
 }
 
+/** Returns true when a doc-type ID resolves to a beneficiary-related label. */
+const isBeneficiaryDocType = (typeId: any): boolean => {
+  if (!typeId) return false
+  for (const group of importDocTypes.value) {
+    const opt = group.options?.find((o: any) => o.value === typeId)
+    if (opt && checkFilenameProtected(opt.label) !== null) return true
+  }
+  return false
+}
+
+const onImportDocTypeChange = (row: any, typeId: any) => {
+  if ([47, 7].includes(typeId)) {
+    importFileList.value[row.fileIndex].protected = true
+  }
+}
+
 const importOnTargetModelChange = async (model: string) => {
   if (!model) return
   await importHandleSelectModel(model)
@@ -2658,7 +2714,7 @@ const importFiles = async () => {
         importLoading.value.import = false;
         return;
       }
-      if (importTargetModel.value !== 'other_documents' && !mapping.parent_id) {
+      if (importTargetModel.value !== 'other_documents' && !mapping.parent_ids?.length) {
         ElMessage.error('Please select a parent entity for all files.');
         importLoading.value.import = false;
         return;
@@ -2668,17 +2724,11 @@ const importFiles = async () => {
     // Validate parent selections for county-restricted users
     if (isCountyRestricted.value && userCountyId.value && importTargetModel.value !== 'other_documents') {
       const invalidMappings = importFieldMappings.value.filter((mapping) => {
-        if (!mapping.parent_id) return false // Skip if no parent selected
-        
-        const selectedParent = importParentOptions.value.find(opt => opt.value === mapping.parent_id)
-        if (!selectedParent) return false // Skip if parent not found (shouldn't happen)
-        
-        // Check if selected parent is in user's county
-        const parentCountyId = selectedParent.county_id
-        if (parentCountyId && parentCountyId !== userCountyId.value) {
-          return true // Invalid - parent is outside user's county
-        }
-        return false
+        if (!mapping.parent_ids?.length) return false
+        return mapping.parent_ids.some((pid: number) => {
+          const selectedParent = importParentOptions.value.find(opt => opt.value === pid)
+          return selectedParent?.county_id && selectedParent.county_id !== userCountyId.value
+        })
       })
       
       if (invalidMappings.length > 0) {
@@ -2698,9 +2748,11 @@ const importFiles = async () => {
         protected: file.protected || false,
         field_id: mapping.field_id,
       };
-      if (mapping.field_id && mapping.parent_id) {
-        metadata[mapping.field_id] = mapping.parent_id;
+      const primaryParentId = mapping.parent_ids?.[0] ?? null
+      if (mapping.field_id && primaryParentId) {
+        metadata[mapping.field_id] = primaryParentId
       }
+      metadata._extra_parent_ids = mapping.parent_ids?.slice(1) ?? []
       return metadata;
     });
     // Build FormData (same field order/shape as ImportData/Document.vue)
@@ -2744,8 +2796,31 @@ const importFiles = async () => {
       ElMessage.success(`Files imported successfully! ${importFileList.value.length} files imported.`);
       importDrawerVisible.value = false;
       await loadDocumentRepository();
-      // Refresh filtered documents to ensure deletable property is set
       await loadDocumentsByTab();
+
+      // Link extra parent IDs (indices 1+) via document_link, matched by file name
+      let extraLinksCreated = false
+      if (importTargetModel.value && importTargetModel.value !== 'other_documents') {
+        for (const mapping of importFieldMappings.value) {
+          const extraIds = mapping.parent_ids?.slice(1) ?? []
+          if (!extraIds.length) continue
+          const fileName = importFileList.value[mapping.fileIndex]?.name
+          if (!fileName) continue
+          const doc = documents.value.find((d: any) => d.name === fileName)
+          if (!doc) continue
+          for (const id of extraIds) {
+            try {
+              await linkDocument({ document_id: doc.id, entity_type: importTargetModel.value, entity_id: id })
+              extraLinksCreated = true
+            } catch { /* ignore */ }
+          }
+        }
+      }
+      // Reload to reflect extra links in the table
+      if (extraLinksCreated) {
+        await loadDocumentRepository()
+        await loadDocumentsByTab()
+      }
     } else {
       ElMessage.warning(`Imported ${importFileList.value.length - (resData.failedCount || 0)} of ${importFileList.value.length} files successfully.`);
     }
@@ -3176,8 +3251,10 @@ const handleTabChange = async (tabName: string) => {
                       <el-table-column prop="name" label="Title" min-width="300" show-overflow-tooltip>
                   <template #default="{ row }">
                     <div class="file-icon clickable-file" @click="downloadFile(row)">
-                      <!-- File format icon (PDF, XLSX, ZIP, etc.) -->
                       <Icon :icon="getFileIcon(row.format)" width="20" />
+                      <el-tooltip v-if="row.protected" content="Protected file" placement="top">
+                        <el-icon style="color: var(--el-color-warning); margin-right: 3px; flex-shrink: 0;"><Lock /></el-icon>
+                      </el-tooltip>
                       <span class="file-link document-title">{{ row.name }}</span>
                     </div>
                   </template>
@@ -3611,6 +3688,22 @@ const handleTabChange = async (tabName: string) => {
               </el-form-item>
 
               <el-form-item>
+                <template #label>
+                  <span style="display: inline-flex; align-items: center; gap: 4px;">
+                    Protected file
+                    <el-tooltip
+                      content="Protected files are hidden from general users and can only be accessed by users with explicit permission. Use this for sensitive or restricted documents."
+                      placement="top"
+                      :max-width="260"
+                    >
+                      <el-icon style="cursor: help; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </span>
+                </template>
+                <el-switch v-model="documentForm.protected" />
+              </el-form-item>
+
+              <el-form-item>
                 <el-button type="primary" @click="handleSubmitData" :disabled="disable_submit">Save Changes</el-button>
                 <el-button @click="dialogVisible = false">Cancel</el-button>
               </el-form-item>
@@ -3655,9 +3748,11 @@ const handleTabChange = async (tabName: string) => {
 
               <el-form-item v-if="!hide_parent" :label="parentTitle">
                 <el-select
-                  clearable
-                  v-model="documentForm.parent_id"
-                  placeholder="Search and select record"
+                  v-model="documentForm.parent_ids"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  placeholder="Search and select one or more…"
                   :loading="parentLoading"
                   filterable
                   remote
@@ -3864,7 +3959,7 @@ const handleTabChange = async (tabName: string) => {
             </el-table-column>
             <el-table-column label="Document Type">
               <template #default="{ row }">
-                <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
+                <el-select v-model="row.type" placeholder="Select Type" clearable filterable @change="(val) => onImportDocTypeChange(row, val)">
                   <el-option-group v-for="group in importDocTypes" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
                   </el-option-group>
@@ -3874,13 +3969,13 @@ const handleTabChange = async (tabName: string) => {
             <el-table-column v-if="importTargetModel !== 'other_documents'" label="Parent Entity">
               <template #default="{ row }">
                 <el-select
-                  v-model="row.parent_id"
+                  v-model="row.parent_ids"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
                   filterable
-                  remote
-                  :remote-method="(kw) => {/* optionally implement remote search */}"
                   :loading="importLoading.fetchParents"
-                  placeholder="Search parent entity"
-                  aria-label="Select parent entity"
+                  placeholder="Select one or more…"
                 >
                   <el-option
                     v-for="item in importParentOptions"
@@ -3898,9 +3993,30 @@ const handleTabChange = async (tabName: string) => {
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="Protected">
+            <el-table-column>
+              <template #header>
+                <span style="display: inline-flex; align-items: center; gap: 4px;">
+                  Protected
+                  <el-tooltip
+                    content="Protected files are hidden from general users and can only be accessed by users with explicit permission. Use this for sensitive or restricted documents."
+                    placement="top"
+                    :max-width="260"
+                  >
+                    <el-icon style="cursor: help; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+                  </el-tooltip>
+                </span>
+              </template>
               <template #default="{ row }">
-                <el-switch v-model="importFileList[row.fileIndex].protected" />
+                <el-tooltip
+                  :content="[47, 7].includes(row.type) ? 'Locked — this document type is always protected' : ''"
+                  :disabled="![47, 7].includes(row.type)"
+                  placement="top"
+                >
+                  <el-switch
+                    v-model="importFileList[row.fileIndex].protected"
+                    :disabled="[47, 7].includes(row.type)"
+                  />
+                </el-tooltip>
               </template>
             </el-table-column>
           </el-table>
@@ -3948,7 +4064,7 @@ const handleTabChange = async (tabName: string) => {
               :loading="importLoading.import && importStep === 3"
               @click="importDrawerPrimaryClick"
             >
-              {{ importStep === 3 ? 'Import' : (importStep === 2 ? 'Review' : 'Next') }}
+              {{ importStep === 3 ? 'Import' : (importStep === 2 ? 'Next' : 'Next') }}
             </el-button>
           </el-col>
         </el-row>
