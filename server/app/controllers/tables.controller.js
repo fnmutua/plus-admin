@@ -5031,7 +5031,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj.category = req.body.category[i];
           obj.format = req.body.format[i];
           obj.size = req.body.size[i];
-          obj.createdBy = req.body.createdBy[i];
+          obj.createdBy = req.thisUser?.id;
           obj.protectedFile = req.body.protected[i];
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
@@ -5040,7 +5040,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj[column] = req.body[column];
           obj.format = req.body.format;
           obj.size = req.body.size;
-          obj.createdBy = req.body.createdBy[i];
+          obj.createdBy = req.thisUser?.id;
           obj.protectedFile = req.body.protected[i];
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
@@ -5052,7 +5052,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj.category = req.body.category[i];
           obj.format = req.body.format[i];
           obj.size = req.body.size[i];
-          obj.createdBy = req.body.createdBy[i];
+          obj.createdBy = req.thisUser?.id;
           obj.protectedFile = req.body.protected[i];
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
@@ -5060,7 +5060,7 @@ exports.batchDocumentsUpload = (req, res) => {
         } else {
           obj.format = req.body.format;
           obj.size = req.body.size;
-          obj.createdBy = req.body.createdBy[i];
+          obj.createdBy = req.thisUser?.id;
           obj.protectedFile = req.body.protected[i];
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
@@ -5342,6 +5342,7 @@ exports.ReportDocumentationUpload = async (req, res) => {
       obj.format = req.body.DocType[i]
       obj.location = `./public/${fname}`
       obj[column] = req.body.parent_code
+      obj.createdBy = req.thisUser?.id
       obj.code = crypto.randomUUID()
 
       console.log("kinsert Object", obj)
@@ -5434,7 +5435,7 @@ exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
         obj.category = req.body.category[i]
         obj.format = req.body.format[i]
         obj.size = req.body.size[i]
-        obj.createdBy = req.body.createdBy[i]
+        obj.createdBy = req.thisUser?.id
         obj.protectedFile = req.body.protected[i]
 
 
@@ -5453,11 +5454,11 @@ exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
               obj[column] = '';
             }
           });
-    
+
           // obj.name = myFiles[i].originalname
           // obj.code = crypto.randomUUID()
           // obj.location = myFiles[i].path
-      
+
 
       } else {
         var column = req.body.field_id
@@ -5465,7 +5466,7 @@ exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
         obj.category = req.body.category
         obj.format = req.body.format
         obj.size = req.body.size
-        obj.createdBy = req.body.createdBy
+        obj.createdBy = req.thisUser?.id
         obj.protectedFile = req.body.protected
 
 
@@ -5579,10 +5580,10 @@ exports.xxbatchDocumentsUploadByParentCode = async (req, res) => {
         obj.type = req.body.type
         obj.format = req.body.format
         obj.size = req.body.size
-        obj.createdBy = req.body.createdBy
+        obj.createdBy = req.thisUser?.id
         obj.category = req.body.category
         obj.protectedFile = req.body.protected
-        obj.public = req.body.public 
+        obj.public = req.body.public
 
         obj.name = myFiles[i].originalname
         obj.location =  myFiles[i].path
@@ -5761,7 +5762,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
           type: req.body.type || 'Document',
           format: req.body.format || 'png',
           size: req.body.size || myFiles[i].size,
-          createdBy: req.body.createdBy || 1,
+          createdBy: req.thisUser?.id,
           category: req.body.category || '10',
           protectedFile: req.body.protected === 'true',
           public: req.body.public === 'true',
