@@ -8,7 +8,7 @@ import { Back } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue'
 import { GoogleMap, Polygon, Polyline } from 'vue3-google-map'
 import { useDesign } from '@/hooks/web/useDesign'
-import { getSettlementListByCounty, getOneGeo, getSettlementMapData, getLinkedDocuments, unlinkDocument, DeleteRecord } from '@/api/settlements'
+import { getSettlementListByCounty, getOneGeo, getSettlementMapData, getLinkedDocuments, unlinkDocument, DeleteRecord, deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 
 const route = useRoute()
@@ -138,7 +138,8 @@ const handleUnlinkDocument = async (row: any) => {
 
 const handleRemoveDocument = async (row: any) => {
   try {
-    await DeleteRecord({ model: 'document', id: row.id } as any)
+    try { await unlinkDocument({ document_id: row.id, entity_type: 'piped_water', entity_id: Number(id) }) } catch { /* ignore */ }
+    await deleteDocument({ id: row.id, model: 'document', filesToDelete: [row.name] } as any)
     facilityDocuments.value = facilityDocuments.value.filter(d => d.id !== row.id)
     ElMessage.success('Document deleted')
   } catch { ElMessage.error('Failed to delete document') }

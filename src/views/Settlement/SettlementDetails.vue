@@ -51,7 +51,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalOrRegionalLocation, isPublicOrGuestRole } from '@/utils/roleScope'
 import { useAppStoreWithOut } from '@/store/modules/app'
-import { revertHistory, getLinkedDocuments, unlinkDocument } from '@/api/settlements'
+import { revertHistory, getLinkedDocuments, unlinkDocument, deleteDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 
 
@@ -1158,7 +1158,9 @@ const RemoveDocument = async (row: any) => {
     return
   }
   try {
-    await DeleteRecord({ model: 'document', id: row.id } as any)
+    const sid = Number(route.params.id)
+    try { await unlinkDocument({ document_id: row.id, entity_type: 'settlement', entity_id: sid }) } catch { /* ignore */ }
+    await deleteDocument({ id: row.id, model: 'document', filesToDelete: [row.name] } as any)
     settlementDocuments.value = settlementDocuments.value.filter((d: any) => d.id !== row.id)
     ElMessage.success('Document deleted successfully')
   } catch {
@@ -2995,6 +2997,7 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                          confirm-button-text="Delete"
                          cancel-button-text="Cancel"
                          confirm-button-type="danger"
+                         width="260"
                          @confirm="RemoveDocument(scope.row)"
                        >
                          <template #reference>

@@ -6,7 +6,7 @@ import {
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { getFile } from '@/api/summary'
-import { deleteDocument } from '@/api/settlements'
+import { deleteDocument, unlinkDocument } from '@/api/settlements'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
@@ -245,13 +245,19 @@ const removeDocument = async (doc) => {
     
     console.log('Deleting document:', doc)
     console.log('Doc model:', props.docmodel)
-    
+
+    // Step 1: unlink from the current entity before deleting
+    const entityId = Number(props.data?.id)
+    if (props.docmodel && !isNaN(entityId)) {
+      try { await unlinkDocument({ document_id: doc.id, entity_type: props.docmodel, entity_id: entityId }) } catch { /* ignore */ }
+    }
+
     const formData = {
       id: doc.id,
       model: props.docmodel,
       filesToDelete: [doc.name]
     }
-    
+
     console.log('Sending delete request with data:', formData)
     const response = await deleteDocument(formData)
     console.log('Delete response:', response)

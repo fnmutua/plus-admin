@@ -12,14 +12,14 @@ import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
 import { getFile, getPhoto } from '@/api/summary'
-import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
+import { getAIProviders, getAIModels } from '@/api/ai'
 import { useAppStore } from '@/store/modules/app'
 import { userHasPrivilegedNationalLocation, isPublicOrGuestRole } from '@/utils/roleScope'
 import TableActions from '@/views/Components/TableActions.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { Icon } from '@iconify/vue'
 import { useRouter } from 'vue-router'
-import { uploadFilesBatch, checkFilesExist } from '@/api/settlements'
+import { uploadFilesBatch } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import { searchByKeyWord } from '@/api/settlements'
 import { shareDocuments, linkDocument, unlinkDocument } from '@/api/settlements'
@@ -1210,6 +1210,19 @@ const removeDocument = async (data: Document) => {
   }
 
   try {
+    // Step 1: unlink all associations before deleting
+    const associations = getAssociations(data)
+    for (const assoc of associations) {
+      const colonIdx = assoc.key.indexOf(':')
+      if (colonIdx === -1) continue
+      const entityType = assoc.key.slice(0, colonIdx)
+      const entityId = Number(assoc.key.slice(colonIdx + 1))
+      if (entityType && !isNaN(entityId)) {
+        try { await unlinkDocument({ document_id: data.id, entity_type: entityType, entity_id: entityId }, { silent: true } as any) } catch { /* ignore */ }
+      }
+    }
+
+    // Step 2: delete the document
     const formData = {
       id: data.id,
       model: 'document',
@@ -1946,6 +1959,12 @@ const getDocumentTypes = async () => {
 
 const handleSubmitData = async () => {
   try {
+    // Validate parent is selected when an association type is chosen
+    if (theParentModel.value && theParentModel.value !== 'other_documents' && !hide_parent.value && !documentForm.parent_ids.length) {
+      ElMessage.error('Please select at least one record to associate with.')
+      return
+    }
+
     // Validate parent selections for county-restricted users
     if (isCountyRestricted.value && userCountyId.value && documentForm.parent_ids.length && theParentModel.value !== 'other_documents') {
       for (const pid of documentForm.parent_ids) {
@@ -3700,7 +3719,7 @@ const handleTabChange = async (tabName: string) => {
               </el-form-item>
 
               <el-form-item label="Document category">
-                <el-select v-model="documentForm.category" placeholder="Select document category">
+                <el-select v-model="documentForm.category" placeholder="Select document category" filterable>
                   <el-option v-for="item in docCategories" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
@@ -3752,7 +3771,7 @@ const handleTabChange = async (tabName: string) => {
                 />
               </el-form-item>
               <el-form-item label="Change to">
-                <el-select v-model="theParentModel" placeholder="Select association type" @change="handleSelectType" style="width: 100%;">
+                <el-select v-model="theParentModel" placeholder="Select association type" @change="handleSelectType" style="width: 100%;" filterable>
                   <el-option-group
                     v-for="group in uploadOptions"
                     :key="group.label"
