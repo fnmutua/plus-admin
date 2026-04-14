@@ -714,18 +714,15 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
     mapRef.value?.map.fitBounds(bounds)
   }
 
-  // After fitting to bounds, check if there's exactly one settlement
-  if (polygons.value.length === 1 && polygons.value[0].type == 'point') {
-    // Get the first settlement's coordinates (adjust this based on your feature structure)
-    const settlement = polygons.value[0]; // Adjust this if your settlement data has a different structure
-    const zoomLevel = 15; // Adjust zoom level as needed
-
-    // Assuming your settlement has latitude and longitude properties:
-    const latLng = { lat: settlement.lat, lng: settlement.lng };
-
-    // Set the zoom and center the map on the settlement
-    mapRef.value?.map.setZoom(zoomLevel);
-    mapRef.value?.map.setCenter(latLng);
+  // After fitting to bounds, check if there's exactly one settlement (centroid / point geometry)
+  if (polygons.value.length === 1 && polygons.value[0].type === 'point') {
+    const settlement = polygons.value[0]
+    const zoomLevel = 15
+    const latLng = settlement.position || { lat: settlement.lat, lng: settlement.lng }
+    if (latLng && isFinite(latLng.lat) && isFinite(latLng.lng)) {
+      mapRef.value?.map.setZoom(zoomLevel)
+      mapRef.value?.map.setCenter(latLng)
+    }
   }
 }
 
@@ -1071,18 +1068,15 @@ const loadSelectedLayers = async (layers: string[]) => {
     mapRef.value?.map.fitBounds(bounds)
   }
 
-  // After fitting to bounds, check if there's exactly one settlement
-if (polygons.value.length === 1 && polygons.value[0].type=='point') {
-  // Get the first settlement's coordinates (adjust this based on your feature structure)
-  const settlement = polygons.value[0]; // Adjust this if your settlement data has a different structure
-  const zoomLevel = 15; // Adjust zoom level as needed
-
-  // Assuming your settlement has latitude and longitude properties:
-  const latLng = { lat: settlement.lat, lng: settlement.lng };
-
-  // Set the zoom and center the map on the settlement
-  mapRef.value?.map.setZoom(zoomLevel);
-  mapRef.value?.map.setCenter(latLng);
+  // After fitting to bounds, check if there's exactly one settlement (centroid / point geometry)
+  if (polygons.value.length === 1 && polygons.value[0].type === 'point') {
+    const settlement = polygons.value[0]
+    const zoomLevel = 15
+    const latLng = settlement.position || { lat: settlement.lat, lng: settlement.lng }
+    if (latLng && isFinite(latLng.lat) && isFinite(latLng.lng)) {
+      mapRef.value?.map.setZoom(zoomLevel)
+      mapRef.value?.map.setCenter(latLng)
+    }
   }
 }
 
@@ -2361,6 +2355,15 @@ const loadMapData = async () => {
         </div>
 
         <div v-if="settVisibile">
+          <Marker
+            v-for="settPoint in polygons.filter(p => p.type === 'point')"
+            :key="settPoint.id"
+            :options="{
+              position: settPoint.position,
+              icon: settPoint.icon,
+            }"
+            @click="onPolygonClick(settPoint)"
+          />
           <Polygon v-for="polygon in polygons.filter(p => p.type !== 'point')" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
         </div>
 
