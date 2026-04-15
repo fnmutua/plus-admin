@@ -1209,6 +1209,23 @@ const getNewOrRejectedSettlements = async (tab) => {
   }
 }
 
+/** Client-side location filter for Deleted tab rows (API/history filters can miss county). */
+function filterDeletedCombinedRowsBySelectedLocation(rows: any[]): any[] {
+  const c = (Array.isArray(selectedCounty.value) ? selectedCounty.value : []).map(String)
+  const s = (Array.isArray(selectedSubCounty.value) ? selectedSubCounty.value : []).map(String)
+  const w = (Array.isArray(selectedWard.value) ? selectedWard.value : []).map(String)
+  if (!c.length && !s.length && !w.length) return rows
+  const cSet = new Set(c)
+  const sSet = new Set(s)
+  const wSet = new Set(w)
+  return rows.filter((row) => {
+    if (c.length && (row.county_id == null || !cSet.has(String(row.county_id)))) return false
+    if (s.length && (row.subcounty_id == null || !sSet.has(String(row.subcounty_id)))) return false
+    if (w.length && (row.ward_id == null || !wSet.has(String(row.ward_id)))) return false
+    return true
+  })
+}
+
 async function fetchRejectedSettlementsForDeletedTab(): Promise<any[]> {
   filters.value = ['isApproved', 'isActive']
   filterValues.value = [['Rejected'], ['true']]
@@ -1218,7 +1235,8 @@ async function fetchRejectedSettlementsForDeletedTab(): Promise<any[]> {
     : (selectedCounty.value !== null && selectedCounty.value !== undefined
         ? [selectedCounty.value]
         : [])
-  if (!isCountyStaff.value && countyFilterArray.length > 0) {
+  // Always send explicit county_id when the user has a county selection (county staff + national).
+  if (countyFilterArray.length > 0) {
     const selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
       filters.value.push(selectOption)
@@ -1379,7 +1397,7 @@ async function loadDeletedSegment() {
     deletedHistoryEntryCount.value = historyRows.length
     const taggedRejected = rejectedData.map((r: any) => ({ ...r, _deletedTabSource: 'rejected' }))
     const taggedHistory = historyRows.map((r: any) => ({ ...r, _deletedTabSource: 'history' }))
-    const combined = [...taggedRejected, ...taggedHistory]
+    const combined = filterDeletedCombinedRowsBySelectedLocation([...taggedRejected, ...taggedHistory])
     deletedSegmentRowsRaw.value = combined
     deletedSettlements.value = combined
     deletedSettlementsCount.value = combined.length
@@ -1633,11 +1651,25 @@ const selectedSettlementsRejected = ref<any[]>([])
 const selectedSettlementsDecommissioned = ref<any[]>([])
 const deletedPage = ref(1)
 const deletedPageSize = ref(10)
+const deletedPaginationTotal = computed(() => deletedSettlements.value.length)
+
 const deletedPageData = computed(() => {
   const start = (deletedPage.value - 1) * deletedPageSize.value
   const end = start + deletedPageSize.value
   return deletedSettlements.value.slice(start, end)
 })
+
+watch(
+  [() => deletedSettlements.value.length, deletedPageSize],
+  () => {
+    const len = deletedSettlements.value.length
+    const ps = deletedPageSize.value || 10
+    const maxPage = len === 0 ? 1 : Math.max(1, Math.ceil(len / ps))
+    if (deletedPage.value > maxPage) deletedPage.value = maxPage
+    if (deletedPage.value < 1) deletedPage.value = 1
+  },
+  { flush: 'post' }
+)
 
 const Review = (data: TableSlotDefault) => {
   reviewIsRejectedSettlement.value = data._deletedTabSource === 'rejected'
@@ -5289,10 +5321,10 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
         v-model:current-page="deletedPage"
         v-model:page-size="deletedPageSize"
         :page-sizes="[5, 10, 15, 20, 50, 100, 1000, 2000]"
-        :total="deletedSettlementsCount"
+        :total="deletedPaginationTotal"
         :background="true"
-        @size-change="(size) => { deletedPageSize = size; deletedPage = 1; }"
-        @current-change="(page) => { deletedPage = page; }"
+        @size-change="handleDeletedSizeChange"
+        @current-change="handleDeletedPageChange"
         class="mt-4"
       />
 
