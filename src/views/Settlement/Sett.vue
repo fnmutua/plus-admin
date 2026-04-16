@@ -1961,6 +1961,26 @@ getCountyNames()
 const wardOptions = ref([])
 const subcountiesOptions = ref([])
 
+const activeFilterTags = computed(() => {
+  const tags: { label: string; type: string }[] = []
+  for (const id of (value4.value || [])) {
+    const opt = availableCountyOptions.value.find((o: any) => o.value === id)
+    tags.push({ label: opt?.label || String(id), type: 'primary' })
+  }
+  for (const id of (value5.value || [])) {
+    const opt = subcountiesOptions.value.find((o: any) => o.value === id)
+    tags.push({ label: opt?.label || String(id), type: 'success' })
+  }
+  for (const id of (value6.value || [])) {
+    const opt = wardOptions.value.find((o: any) => o.value === id)
+    tags.push({ label: opt?.label || String(id), type: 'warning' })
+  }
+  if (search_string.value?.trim()) {
+    tags.push({ label: `"${search_string.value.trim()}"`, type: 'info' })
+  }
+  return tags
+})
+
 const getSubCountyNames = async () => {
   const countyIds = Array.isArray(selectedCounty.value)
     ? selectedCounty.value.filter((id) => id !== null && id !== undefined)
@@ -4718,7 +4738,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
         </template>
       </el-alert>
       <el-table
-        table-layout="fixed" 
+        table-layout="fixed"
         :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
         style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" row-key="id"
         @selection-change="handleSelectionChange" :lazy="false" :default-sort="{ prop: 'id', order: 'descending' }">
