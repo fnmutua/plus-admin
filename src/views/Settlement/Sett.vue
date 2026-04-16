@@ -73,6 +73,9 @@ const saveFiltersToStorage = () => {
     value4: value4.value,
     value5: value5.value,
     value6: value6.value,
+    page: page.value,
+    pageSize: pageSize.value,
+    activeSegment: activeSegment.value,
   }
   localStorage.setItem('settlementFilters', JSON.stringify(filterState))
 }
@@ -106,6 +109,9 @@ const loadFiltersFromStorage = () => {
     filterValues.value = filterState.filterValues || []
     value5.value = filterState.value5 || []
     value6.value = filterState.value6 || []
+    if (filterState.pageSize) pageSize.value = filterState.pageSize
+    if (filterState.page) page.value = filterState.page
+    if (filterState.activeSegment) activeSegment.value = filterState.activeSegment
   } else if (isCountyStaff.value && selectedCounty.value.length > 0) {
     // No saved filters; for county staff ensure UI reflects their role county
     value4.value = selectedCounty.value
@@ -118,6 +124,7 @@ const loadFiltersFromStorage = () => {
   if (value4.value && !Array.isArray(value4.value)) {
     value4.value = [value4.value]
   }
+
 }
 
 // User and role setup
