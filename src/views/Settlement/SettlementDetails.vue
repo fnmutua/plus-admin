@@ -49,7 +49,11 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 
 import { useCache } from '@/hooks/web/useCache'
-import { userHasPrivilegedNationalOrRegionalLocation, isPublicOrGuestRole } from '@/utils/roleScope'
+import {
+  userHasPrivilegedNationalOrRegionalLocation,
+  settlementDetailsViewAccessForRole,
+  settlementDetailsMutationAccessForRole,
+} from '@/utils/roleScope'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { revertHistory, getLinkedDocuments, unlinkDocument, deleteDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
@@ -105,22 +109,11 @@ const canUserAccessSettlement = (settlement: any, action: 'edit' | 'delete' | 'v
     return true;
   }
 
-  // For view action, allow if user has any location access
   if (action === 'view') {
-    return processedRoles.some(role => role.field !== null);
+    return processedRoles.some((role) => settlementDetailsViewAccessForRole(role))
   }
 
-  // For edit/delete actions, check specific location permissions
-  return processedRoles.some(role => {
-    if (!role.field) return false; // No location restriction means no access for edit/delete
-    
-    if (role.field === "settlement_id") {
-      return settlement.id === role.value;
-    } else if (role.field === "county_id") {
-      return settlement.county_id === role.value;
-    }
-    return false;
-  });
+  return processedRoles.some((role) => settlementDetailsMutationAccessForRole(settlement, role))
 };
 
 // Household-specific permission checking function
@@ -142,22 +135,7 @@ const canUserAccessHouseholds = (settlement: any): boolean => {
   }
 
   // Check location-based access - user must have access to this settlement
-  return processedRoles.some(role => {
-    if (!role.field) {
-      if (isPublicOrGuestRole({ name: role.roleName })) {
-        return false;
-      }
-      // National/Regional staff — has access to all settlements
-      return true;
-    }
-    
-    if (role.field === "settlement_id") {
-      return settlement.id === role.value;
-    } else if (role.field === "county_id") {
-      return settlement.county_id === role.value;
-    }
-    return false;
-  });
+  return processedRoles.some((role) => settlementDetailsMutationAccessForRole(settlement, role))
 };
 
 const showAdminButtons = ref(appStore.getAdminButtons)

@@ -370,7 +370,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: true,
               title: 'Add',
               icon:'material-symbols:add-location-rounded',
-              noCache: true
+              noCache: true,
+              permissions: ['settlement:create'],
             }
           },
           {
@@ -381,7 +382,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: true,
               props: true,
               icon:'bi:house-add',
-              title: 'AddSettX'
+              title: 'AddSettX',
+              permissions: ['settlement:create'],
             }
           },
           {
@@ -392,7 +394,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: true,
               props: true,
               icon:'bi:house-add',
-              title: 'Add Settlement'
+              title: 'Add Settlement',
+              permissions: ['settlement:create'],
             }
           }, 
           {
@@ -568,7 +571,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: false,
               icon: 'ph:shield-plus-bold',
               title: 'Add Facility',
-              noCache: true
+              noCache: true,
+              permissions: ['facility:create'],
             }
           },
           {
@@ -599,8 +603,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'Health',
             meta: { icon: 'uis:hospital-symbol', title: 'Health' }
           },
-          { path: 'health/add', component: () => import('@/views/Facilities/Health/AddX.vue'), name: 'AddhealthX', meta: { hidden: true, title: 'Add', noCache: true } },
-          { path: 'health/addNew', component: () => import('@/views/Facilities/Health/AddHealthNew.vue'), name: 'AddHealthNew', meta: { hidden: true, title: 'Add Health Facility', noCache: true } },
+          { path: 'health/add', component: () => import('@/views/Facilities/Health/AddX.vue'), name: 'AddhealthX', meta: { hidden: true, title: 'Add', noCache: true, permissions: ['facility:create'] } },
+          { path: 'health/addNew', component: () => import('@/views/Facilities/Health/AddHealthNew.vue'), name: 'AddHealthNew', meta: { hidden: true, title: 'Add Health Facility', noCache: true, permissions: ['facility:create'] } },
           { path: 'health/map/:id', component: () => import('@/views/Facilities/Health/HealthMap.vue'), name: 'HealthFacilityMap', meta: { hidden: true, props: true, title: 'Facility Map' } },
           { path: 'health/details/:id', component: () => import('@/views/Facilities/Health/HealthFacilityDetails.vue'), name: 'HealthFacilityDetails', meta: { hidden: true, props: true, title: 'Facility Profile' } },
 
@@ -611,9 +615,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'Education',
             meta: { icon: 'material-symbols:school-rounded', title: 'Education' }
           },
-          { path: 'edu/add', component: () => import('@/views/Facilities/Education/Add.vue'), name: 'AddEducation', meta: { hidden: true, title: 'Add', noCache: true } },
-          { path: 'edu/addX', component: () => import('@/views/Facilities/Education/AddX.vue'), name: 'AddEducationX', meta: { hidden: true, title: 'Add', props: true, noCache: true } },
-          { path: 'edu/addNew', component: () => import('@/views/Facilities/Education/AddEducationNew.vue'), name: 'AddEducationNew', meta: { hidden: true, title: 'Add Education Facility', noCache: true } },
+          { path: 'edu/add', component: () => import('@/views/Facilities/Education/Add.vue'), name: 'AddEducation', meta: { hidden: true, title: 'Add', noCache: true, permissions: ['facility:create'] } },
+          { path: 'edu/addX', component: () => import('@/views/Facilities/Education/AddX.vue'), name: 'AddEducationX', meta: { hidden: true, title: 'Add', props: true, noCache: true, permissions: ['facility:create'] } },
+          { path: 'edu/addNew', component: () => import('@/views/Facilities/Education/AddEducationNew.vue'), name: 'AddEducationNew', meta: { hidden: true, title: 'Add Education Facility', noCache: true, permissions: ['facility:create'] } },
           { path: 'edu/map/:id', component: () => import('@/views/Facilities/Education/SchoolMap.vue'), name: 'EducationFacilityMap', meta: { hidden: true, props: true, title: 'School Map' } },
           { path: 'edu/details/:id', component: () => import('@/views/Facilities/Education/EducationFacilityDetails.vue'), name: 'EducationFacilityDetails', meta: { hidden: true, props: true, title: 'School Profile' } },
 
@@ -662,13 +666,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'Road',
             meta: { icon: 'hugeicons:road-wayside', title: 'Roads' }
           },
-          { path: 'road/add', component: () => import('@/views/Facilities/Roads/AddRoadNew.vue'), name: 'AddRoadX', meta: { hidden: true, title: 'Add', noCache: true } },
+          { path: 'road/add', component: () => import('@/views/Facilities/Roads/AddRoadNew.vue'), name: 'AddRoadX', meta: { hidden: true, title: 'Add', noCache: true, permissions: ['facility:create'] } },
           { path: 'road/details/:id', component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'), name: 'RoadsDetails', meta: { hidden: true, props: true, title: 'Road Profile' } },
           { path: 'road/map/:id', component: () => import('@/views/Facilities/Roads/RoadMap.vue'), name: 'RoadMap', meta: { hidden: true, props: true, title: 'Road Map' } },
 
           /// Road Assets -----------------------
           { path: 'roadasset', component: () => import('@/views/Facilities/Roads/Assets.vue'), name: 'RoadAsset', meta: { icon: 'game-icons:arch-bridge', hidden: true, title: 'Road Structures' } },
-          { path: 'roadasset/add', component: () => import('@/views/Facilities/Roads/AddAssetX.vue'), name: 'AddRoadStructure', meta: { hidden: true, title: 'Add', noCache: true } },
+          { path: 'roadasset/add', component: () => import('@/views/Facilities/Roads/AddAssetX.vue'), name: 'AddRoadStructure', meta: { hidden: true, title: 'Add', noCache: true, permissions: ['facility:create'] } },
 
           /// Water -----------------------
           {
@@ -678,15 +682,15 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: { icon: 'ic:sharp-water-drop', title: 'Water' },
             children: [
               { path: 'wp', component: () => import('@/views/Facilities/Water/Water.vue'), name: 'WaterPoint', meta: { hidden: false, icon: 'ic:sharp-water-drop', title: 'Water Points', noCache: true } },
-              { path: 'wp/add', component: () => import('@/views/Facilities/Water/AddX.vue'), name: 'AddWaterPoint', meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' } },
+              { path: 'wp/add', component: () => import('@/views/Facilities/Water/AddX.vue'), name: 'AddWaterPoint', meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled', permissions: ['facility:create'] } },
               { path: 'pipedwater', component: () => import('@/views/Facilities/PipedWater/PipedWater.vue'), name: 'PipedWater', meta: { icon: 'game-icons:tap', title: 'Piped Water' } },
-              { path: 'pipedwater/add', component: () => import('@/views/Facilities/PipedWater/AddPipedWaterNew.vue'), name: 'PipedWaterAddX', meta: { icon: 'ic:sharp-water-drop', title: 'Add Piped Water', hidden: true } },
+              { path: 'pipedwater/add', component: () => import('@/views/Facilities/PipedWater/AddPipedWaterNew.vue'), name: 'PipedWaterAddX', meta: { icon: 'ic:sharp-water-drop', title: 'Add Piped Water', hidden: true, permissions: ['facility:create'] } },
               { path: 'pipedwater/details/:id', component: () => import('@/views/Facilities/PipedWater/PipedWaterFacilityDetails.vue'), name: 'PipedWaterFacilityDetails', meta: { hidden: true, props: true, title: 'Scheme Profile' } },
               { path: 'water/map/:id', component: () => import('@/views/Facilities/Water/WaterMap.vue'), name: 'WaterMap', meta: { hidden: true, icon: 'ant-design:plus-square-filled', props: true, title: 'Water Point Map' } },
               { path: 'water/details/:id', component: () => import('@/views/Facilities/Water/WaterFacilityDetails.vue'), name: 'WaterDetails', meta: { hidden: true, props: true, title: 'Water Point Profile' } },
-              { path: 'water/addNew', component: () => import('@/views/Facilities/Water/AddWaterNew.vue'), name: 'AddWaterNew', meta: { hidden: true, title: 'Add Water Point', noCache: true } },
+              { path: 'water/addNew', component: () => import('@/views/Facilities/Water/AddWaterNew.vue'), name: 'AddWaterNew', meta: { hidden: true, title: 'Add Water Point', noCache: true, permissions: ['facility:create'] } },
               { path: 'sewer', component: () => import('@/views/Facilities/Sewer/Sewer.vue'), name: 'Sewer', meta: { icon: 'ph:toilet-fill', title: 'Sewer' } },
-              { path: 'sewer/add', component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'), name: 'AddSewer', meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled' } },
+              { path: 'sewer/add', component: () => import('@/views/Facilities/Sewer/AddSewerNew.vue'), name: 'AddSewer', meta: { hidden: true, title: 'Add', noCache: true, icon: 'ant-design:plus-square-filled', permissions: ['facility:create'] } },
               { path: 'sewer/map/:id', component: () => import('@/views/Facilities/Sewer/SewerMap.vue'), name: 'SewerMap', meta: { hidden: true, props: true, title: 'Road Map', icon: 'ant-design:plus-square-filled' } },
               { path: 'sewer/details/:id', component: () => import('@/views/Facilities/Sewer/SewerFacilityDetails.vue'), name: 'SewerFacilityDetails', meta: { hidden: true, props: true, title: 'Sewer Profile' } }
             ]
@@ -1163,9 +1167,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           props: true,
           icon:'bi:house-add',
-          title: 'Add Article'
+          title: 'Add Article',
+          permissions: ['article:create'],
         }
-      }, 
+      },
 
     ]
   

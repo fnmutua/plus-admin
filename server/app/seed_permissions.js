@@ -59,6 +59,7 @@ async function seedPermissions() {
       { name: 'consultant', description: 'Consultant role' },
       { name: 'gbv', description: 'Gender Based Violence specialist role' },
       { name: 'support', description: 'Support role' },
+      { name: 'donor', description: 'Donor: read-only access to settlements, projects, repository, facilities, and media (articles/video); view and download; no create/edit' },
       { name: 'public', description: 'Public access role' }
     ];
 
@@ -4356,6 +4357,75 @@ async function seedPermissions() {
     "project_contractor:update",
     "project_contractor:delete"
   ],
+  "donor": [
+    "activity:read",
+    "article:read",
+    "category:read",
+    "chart_indicator:read",
+    "climate_assessment:read",
+    "community_hall:read",
+    "community_project:read",
+    "component:read",
+    "contractor:read",
+    "county:read",
+    "crime_hotspot:read",
+    "dashboard:read",
+    "dashboard_card:read",
+    "dashboard_section:read",
+    "dashboard_section_chart:read",
+    "data:export",
+    "disbursement:read",
+    "document:read",
+    "document_category:read",
+    "document_type:read",
+    "domain:read",
+    "dumping_site:read",
+    "education_facility:read",
+    "facility:read",
+    "floodlight:read",
+    "hazard_zone:read",
+    "health_facility:read",
+    "intervention:read",
+    "intervention_type:read",
+    "lot:read",
+    "mast:read",
+    "other_facility:read",
+    "parcel:read",
+    "path:read",
+    "piped_water:read",
+    "police:read",
+    "police_station:read",
+    "powerline:read",
+    "programme:read",
+    "programme_implementation:read",
+    "project:read",
+    "project_activity:read",
+    "project_beneficiary:read",
+    "project_contractor:read",
+    "project_location:read",
+    "project_team:read",
+    "public_facility:read",
+    "railway:read",
+    "report:export",
+    "road:read",
+    "road_asset:read",
+    "settlement:downloadGeo",
+    "settlement:export",
+    "settlement:export_data",
+    "settlement:history",
+    "settlement:read",
+    "settlement:view_map",
+    "settlement:viewMap",
+    "settlement_history:export",
+    "settlement_history:read",
+    "sewer:read",
+    "stream:read",
+    "streetlight:read",
+    "structure:read",
+    "subcounty:read",
+    "ward:read",
+    "water_point:read"
+  ],
   "public": [
     "article:read",
     "chart_indicator:read",
@@ -4438,6 +4508,30 @@ async function seedPermissions() {
     }
 
     console.log('🎉 Permissions and role-permissions seeded successfully!');
+
+    // Donor is a subordinate of root_admin and super_admin only (for role hierarchy / assignment UI)
+    const donorRole = await db.role.findOne({ where: { name: 'donor' } })
+    if (donorRole) {
+      const donorId = donorRole.id
+      const addDonorSubordinate = async (roleName) => {
+        const r = await db.role.findOne({ where: { name: roleName } })
+        if (!r) {
+          console.log(`⚠️  Role ${roleName} not found — skipping subordinate link for donor`)
+          return
+        }
+        const current = Array.isArray(r.subordinates) ? [...r.subordinates] : []
+        if (!current.includes(donorId)) {
+          await r.update({ subordinates: [...current, donorId] })
+          console.log(`✅ Added donor (id ${donorId}) to ${roleName}.subordinates`)
+        } else {
+          console.log(`ℹ️  donor already listed under ${roleName}.subordinates`)
+        }
+      }
+      await addDonorSubordinate('root_admin')
+      await addDonorSubordinate('super_admin')
+    } else {
+      console.log('⚠️  donor role not found — skipping subordinate hierarchy update')
+    }
 
     // Ensure the guest account has the public role assigned in user_roles
     const GUEST_USERNAME = process.env.GUEST_USERNAME || 'guest'

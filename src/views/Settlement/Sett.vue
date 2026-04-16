@@ -4648,9 +4648,11 @@ v-model="search_string" clearable :onClear="handleClear"
 
 
 
-          <el-tooltip content="Add Settlement" placement="top">
-            <el-button v-if="!isPublicUser" :onClick="AddSettlement" type="primary" :icon="Plus" />
-          </el-tooltip>
+          <PermissionWrapper :permissions="['settlement:create']">
+            <el-tooltip content="Add Settlement" placement="top">
+              <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+            </el-tooltip>
+          </PermissionWrapper>
           
           <el-tooltip content="Clear" placement="top">
             <el-button @click="handleClear" type="primary">
