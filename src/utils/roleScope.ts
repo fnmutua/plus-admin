@@ -13,17 +13,32 @@ export function isPublicOrGuestRole(role: RoleWithLocation | null | undefined): 
   return n === 'public' || n === 'guest'
 }
 
-/** Any role with location_level === 'national', excluding public/guest. */
+/**
+ * Accounts that use national/regional scope but must not receive "staff" shortcuts
+ * (e.g. document delete, privileged filters). Not the same as public/guest — do not use
+ * for public_scope vs national UI routing; see isPublicOrGuestRole.
+ */
+export function isReadOnlyNationalVisitorRole(role: RoleWithLocation | null | undefined): boolean {
+  const n = String(role?.name ?? '').toLowerCase()
+  return n === 'donor'
+}
+
+/** Any role with location_level === 'national', excluding public/guest and read-only visitors (donor). */
 export function userHasPrivilegedNationalLocation(roles: RoleWithLocation[] | undefined | null): boolean {
   if (!Array.isArray(roles) || roles.length === 0) return false
-  return roles.some((r) => !isPublicOrGuestRole(r) && r.user_roles?.location_level === 'national')
+  return roles.some(
+    (r) =>
+      !isPublicOrGuestRole(r) &&
+      !isReadOnlyNationalVisitorRole(r) &&
+      r.user_roles?.location_level === 'national'
+  )
 }
 
 /** National or null (legacy) — excludes public/guest. */
 export function userHasPrivilegedNationalOrNullLocation(roles: RoleWithLocation[] | undefined | null): boolean {
   if (!Array.isArray(roles) || roles.length === 0) return false
   return roles.some((r) => {
-    if (isPublicOrGuestRole(r)) return false
+    if (isPublicOrGuestRole(r) || isReadOnlyNationalVisitorRole(r)) return false
     const lv = r.user_roles?.location_level
     return lv === 'national' || lv === null
   })
@@ -35,6 +50,7 @@ export function userHasPrivilegedNationalOrRegionalLocation(roles: RoleWithLocat
   return roles.some(
     (r) =>
       !isPublicOrGuestRole(r) &&
+      !isReadOnlyNationalVisitorRole(r) &&
       (r.user_roles?.location_level === 'national' || r.user_roles?.location_level === 'regional')
   )
 }

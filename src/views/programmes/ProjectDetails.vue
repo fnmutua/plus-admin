@@ -84,7 +84,7 @@ const isNationalStaff = computed(() => {
   return userInfo?.roles?.some((role: any) => {
     if (role.user_roles?.location_level !== 'national') return false
     const n = role.name
-    if (n === 'public' || n === 'guest') return false
+    if (n === 'public' || n === 'guest' || n === 'donor') return false
     return true
   }) || false
 })
@@ -2234,10 +2234,19 @@ const RemoveDocument = async (row) => {
 
 
 const handleUnlinkDocument = async (row: any) => {
+  if (!canUserUnlinkDocument(row)) {
+    ElMessage({
+      message: 'You do not have permission to unlink this document.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    });
+    return;
+  }
   const pid = Number(route.params.id)
   if (!pid || !row.id) return
   try {
-    await unlinkDocument({ document_id: row.id, entity_type: 'project', entity_id: pid })
+  await unlinkDocument({ document_id: row.id, entity_type: 'project', entity_id: pid })
     projectDocuments.value = (projectDocuments.value as any[]).filter((d: any) => d.id !== row.id)
     ElMessage.success('Document unlinked from this project')
   } catch {
@@ -4431,7 +4440,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                   Remove
                 </el-button>
                 <el-popconfirm
-                  v-if="canUserDeleteDocument(scope.row)"
+                  v-if="canUserUnlinkDocument(scope.row)"
                   title="Unlink this document from this project? The document will not be deleted."
                   confirm-button-text="Unlink"
                   cancel-button-text="Cancel"

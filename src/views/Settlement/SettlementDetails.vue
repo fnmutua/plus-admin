@@ -1101,6 +1101,15 @@ watch(photos, () => {
 }, { immediate: true });
 
 const handleUnlinkDocument = async (row: any) => {
+  if (!canUserUnlinkDocument(row)) {
+    ElMessage({
+      message: 'You do not have permission to unlink this document.',
+      type: 'warning',
+      duration: 5000,
+      showClose: true
+    })
+    return
+  }
   const sid = Number(route.params.id)
   if (!sid || !row.id) return
   try {
@@ -1112,16 +1121,30 @@ const handleUnlinkDocument = async (row: any) => {
   }
 }
 
+const hasPerm = (perm: string) => {
+  const p = userInfo.permissions || []
+  return p.includes('*.*.*') || p.includes(perm)
+}
+
+const canUserUnlinkDocument = (doc: any): boolean => {
+  if (!doc) return false
+  if (isSuperAdmin.value) return true
+  if (!(hasPerm('settlement:deleteDocument') || hasPerm('document:update'))) return false
+  if (userHasPrivilegedNationalOrRegionalLocation(userInfo.roles)) return true
+  if (doc.createdBy === userInfo.id) return true
+  const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin')
+  if (countyRole && countyRole.user_roles?.county_id === profile.county_id) return true
+  return false
+}
+
 const canUserDeleteDocument = (doc: any): boolean => {
   if (!doc) return false
   if (isSuperAdmin.value) return true
+  if (!hasPerm('document:delete')) return false
   if (userHasPrivilegedNationalOrRegionalLocation(userInfo.roles)) return true
-  const userPermissions = userInfo.permissions || []
-  if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
-    if (doc.createdBy === userInfo.id) return true
-    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin')
-    if (countyRole && countyRole.user_roles?.county_id === profile.county_id) return true
-  }
+  if (doc.createdBy === userInfo.id) return true
+  const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin')
+  if (countyRole && countyRole.user_roles?.county_id === profile.county_id) return true
   return false
 }
 
@@ -2956,7 +2979,7 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                          Edit
                        </el-button>
                        <el-popconfirm
-                         v-if="canUserDeleteDocument(scope.row)"
+                         v-if="canUserUnlinkDocument(scope.row)"
                          title="Unlink this document from this settlement? The document will not be deleted."
                          confirm-button-text="Unlink"
                          cancel-button-text="Cancel"

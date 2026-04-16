@@ -21,6 +21,9 @@ import { Icon } from '@iconify/vue'
 import { GoogleMap, Polygon, Marker, Polyline, InfoWindow } from 'vue3-google-map'
 import { getSettlementListByCounty, getOneGeo, getLinkedDocuments, unlinkDocument, DeleteRecord, deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { canUnlinkDocumentFromFacility, canPermanentlyDeleteFacilityLinkedDocument } from '@/utils/documentPermissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +31,12 @@ const router = useRouter()
 const id = route.params.id
 const model = computed(() => route.query.model || 'other_facility')
 const pageTitle = computed(() => (route.query.title as string) || 'Facility Profile')
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+const canUnlinkFacilityDoc = computed(() => canUnlinkDocumentFromFacility(userInfo))
+const canRemoveFacilityDoc = computed(() => canPermanentlyDeleteFacilityLinkedDocument(userInfo))
 
 const loading = ref(true)
 const error = ref('')
@@ -209,6 +218,10 @@ const downloadFile = async (row: any) => {
 }
 
 const handleUnlinkDocument = async (row: any) => {
+  if (!canUnlinkFacilityDoc.value) {
+    ElMessage.warning('You do not have permission to unlink documents.')
+    return
+  }
   try {
     await unlinkDocument({ document_id: row.id, entity_type: model.value, entity_id: Number(id) })
     facilityDocuments.value = facilityDocuments.value.filter(d => d.id !== row.id)
@@ -217,6 +230,10 @@ const handleUnlinkDocument = async (row: any) => {
 }
 
 const handleRemoveDocument = async (row: any) => {
+  if (!canRemoveFacilityDoc.value) {
+    ElMessage.warning('You do not have permission to delete documents.')
+    return
+  }
   try {
     try { await unlinkDocument({ document_id: row.id, entity_type: model.value, entity_id: Number(id) }) } catch { /* ignore */ }
     await deleteDocument({ id: row.id, model: 'document', filesToDelete: [row.name] } as any)
@@ -351,14 +368,14 @@ onMounted(loadProfile)
                     <el-button plain :loading="downloadingDocId === scope.row.id" @click="downloadFile(scope.row)">
                       <Icon icon="fa-solid:download" style="margin-right:5px;" /> Download
                     </el-button>
-                    <el-popconfirm title="Unlink this document from this facility? The document will not be deleted." confirm-button-text="Unlink" cancel-button-text="Cancel" @confirm="handleUnlinkDocument(scope.row)">
+                    <el-popconfirm v-if="canUnlinkFacilityDoc" title="Unlink this document from this facility? The document will not be deleted." confirm-button-text="Unlink" cancel-button-text="Cancel" @confirm="handleUnlinkDocument(scope.row)">
                       <template #reference>
                         <el-button plain type="warning">
                           <Icon icon="mdi:link-off" style="margin-right:5px;" /> Unlink
                         </el-button>
                       </template>
                     </el-popconfirm>
-                    <el-popconfirm title="Delete this document permanently? This cannot be undone." confirm-button-text="Delete" cancel-button-text="Cancel" confirm-button-type="danger" @confirm="handleRemoveDocument(scope.row)">
+                    <el-popconfirm v-if="canRemoveFacilityDoc" title="Delete this document permanently? This cannot be undone." confirm-button-text="Delete" cancel-button-text="Cancel" confirm-button-type="danger" @confirm="handleRemoveDocument(scope.row)">
                       <template #reference>
                         <el-button plain type="danger">
                           <Icon icon="material-symbols-light:delete-outline" style="margin-right:5px;" /> Remove

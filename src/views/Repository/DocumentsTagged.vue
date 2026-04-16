@@ -198,34 +198,34 @@ const canUserDeleteDocument = (document: Document): boolean => {
     return true;
   }
 
-  // Check if user is national staff/admin (national level access)
+  const userPermissions = userInfo.permissions || [];
+  const hasDelete = userPermissions.includes('*.*.*') || userPermissions.includes('document:delete');
+  if (!hasDelete) {
+    return false;
+  }
+
+  // National staff/admin must still have document:delete
   if (isNationalStaff.value) {
     return true;
   }
 
-  // Check if user has global document:delete permission
-  const userPermissions = userInfo.permissions || [];
-  if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
-    // If the document has a createdBy field, check if the current user created it
-    if (document.createdBy === userInfo.id) {
-      return true;
-    }
+  // If the document has a createdBy field, check if the current user created it
+  if (document.createdBy === userInfo.id) {
+    return true;
+  }
 
-    // For county staff, check if they are a county admin and the document is in their county
-    const countyRole = userInfo.roles.find(role => 
-      role.user_roles?.location_level === 'county' && 
-      role.name === 'admin'
-    );
-    if (countyRole && countyRole.user_roles?.county_id) {
-      // If the document is associated with a settlement, check the settlement's county_id
-      const documentCountyId = document.settlement?.county?.id;
-      if (documentCountyId === countyRole.user_roles.county_id) {
-        return true;
-      }
+  // For county staff, check if they are a county admin and the document is in their county
+  const countyRole = userInfo.roles.find(role => 
+    role.user_roles?.location_level === 'county' && 
+    role.name === 'admin'
+  );
+  if (countyRole && countyRole.user_roles?.county_id) {
+    const documentCountyId = document.settlement?.county?.id;
+    if (documentCountyId === countyRole.user_roles.county_id) {
+      return true;
     }
   }
 
-  // No other users can delete
   return false;
 };
 
