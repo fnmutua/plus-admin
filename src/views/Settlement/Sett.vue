@@ -17,7 +17,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument, revertMerge } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent, onMounted, onActivated } from 'vue';
+import { defineAsyncComponent, onMounted, onActivated, onUnmounted } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
@@ -747,11 +747,19 @@ const loadDataWithCurrentFilters = async () => {
   }
 }
 
+const segmentsScrollLayout = ref(false)
+const updateSegmentsScrollLayout = () => {
+  if (typeof window === 'undefined') return
+  segmentsScrollLayout.value = window.innerWidth <= 768
+}
+
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize)
   window.addEventListener('resize', () => {
     windowWidth.value = window.innerWidth
   })
+  window.addEventListener('resize', updateSegmentsScrollLayout)
+  updateSegmentsScrollLayout()
   updatePageSize()
   await getUserRoles()
 
@@ -775,6 +783,10 @@ onMounted(async () => {
   await getCounts()
   await refreshDeletedHistoryEntryCount()
   await loadDataWithCurrentFilters()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateSegmentsScrollLayout)
 })
 
 // When navigating back from AddSettlementNew or details, re-apply stored filters and reload data
@@ -855,6 +867,28 @@ const { t } = useI18n()
 const isMobile = computed(() => appStore.getMobile)
 const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+
+/** Create-date range has both bounds selected. */
+const isDateRangeFilterActive = computed(() => {
+  const d = dateRange.value
+  if (!d || !Array.isArray(d) || d.length < 2) return false
+  return !!(d[0] && d[1])
+})
+
+/** Any toolbar filter is applied (search, date, location, or narrowed county for multi-county staff). */
+const hasActiveToolbarFilters = computed(() => {
+  if (search_string.value?.trim()) return true
+  if (isDateRangeFilterActive.value) return true
+  if (value5.value?.length) return true
+  if (value6.value?.length) return true
+  if (!isCountyStaff.value && Array.isArray(value4.value) && value4.value.length > 0) return true
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 1) {
+    const v4 = [...(value4.value || [])].map(Number).sort((x, y) => x - y).join(',')
+    const full = [...assignedCountyRoleIds.value].map(Number).sort((x, y) => x - y).join(',')
+    if (v4 !== full) return true
+  }
+  return false
+})
 
 const handleClear = async () => {
   // Preserve role-based location filters before clearing
@@ -4604,8 +4638,8 @@ duplicateRecords.value.forEach(county => {
 
 
 
-    <el-row :gutter="5" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
+    <el-row :gutter="16" class="sett-toolbar-row" style=" margin-bottom:10px;">
+      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px sett-toolbar-col">
 
         <div class="max-w-200px">
           <el-button type="primary" plain :icon="Back" @click="goBack" size="small" style="margin-right: 10px;">
@@ -4614,7 +4648,7 @@ duplicateRecords.value.forEach(county => {
         </div>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3" v-if="shouldShowCountyFilter">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3" v-if="shouldShowCountyFilter" class="sett-toolbar-col">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style="width: 100%; margin-right: 5px;">
@@ -4622,7 +4656,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3" class="sett-toolbar-col">
         <el-select
 :disabled="!value5" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
           clearable filterable collapse-tags placeholder="By Subcounty" style="width: 100%; margin-right: 5px;">
@@ -4630,7 +4664,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3">
+      <el-col :xs="24" :sm="24" :md="11" :lg="3" class="sett-toolbar-col">
         <el-select
 :disabled="!value6" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward" style="width: 100%; margin-right: 5px;">
@@ -4638,7 +4672,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="4">
+      <el-col :xs="24" :sm="24" :md="11" :lg="4" class="sett-toolbar-col">
 
         <el-input
 v-model="search_string" clearable :onClear="handleClear"
@@ -4650,30 +4684,23 @@ v-model="search_string" clearable :onClear="handleClear"
         </el-input>
       </el-col>
 
-       
+      <el-col :xs="24" :sm="24" :md="24" :lg="9" class="sett-toolbar-col">
 
+        <div class="sett-toolbar-actions">
 
-      <el-col :xs="24" :sm="24" :md="24" :lg="9">
-
-        <div style="display: flex; align-items: center; gap: 2px; flex-wrap: wrap;">
-
-          <el-tooltip content="Filter By Date" placement="top">
-            <el-button @click="DateDialogVisible = true">
-            <Icon
-              :icon="(dateRange && dateRange.length > 0)
-                ? 'ph:calendar-fill'
-                : 'solar:calendar-bold'"
-              width="24"
-              height="24"
-              style="margin-left: 4px;"
-            />
-          </el-button>
-
-
-
-        </el-tooltip>
-
-
+          <el-tooltip
+            :content="isDateRangeFilterActive ? 'Create date filter active — click to change' : 'Filter by create date'"
+            placement="top"
+          >
+            <el-button type="primary" @click="DateDialogVisible = true">
+              <Icon
+                :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
+                width="24"
+                height="24"
+                style="margin-left: 4px;"
+              />
+            </el-button>
+          </el-tooltip>
 
           <PermissionWrapper :permissions="['settlement:create']">
             <el-tooltip content="Add Settlement" placement="top">
@@ -4681,9 +4708,9 @@ v-model="search_string" clearable :onClear="handleClear"
             </el-tooltip>
           </PermissionWrapper>
           
-          <el-tooltip content="Clear" placement="top">
-            <el-button @click="handleClear" type="primary">
-              <Icon icon="mdi:filter-remove" />
+          <el-tooltip v-if="hasActiveToolbarFilters" content="Clear all filters" placement="top">
+            <el-button type="primary" @click="handleClear">
+              <Icon icon="mdi:filter-remove" width="22" height="22" />
             </el-button>
           </el-tooltip>
           <DownloadCustom
@@ -4702,30 +4729,44 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
               </el-button>
             </el-tooltip>
           </PermissionWrapper>
- 
-       
         </div>
 
-
       </el-col>
-
-
 
     </el-row>
 
 
     <div class="custom-style" v-if="isNationalStaff || isSuperAdmin || isCountyAdmin">
 
-      <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
-        <template #default="{ item }">
-          <div class="flex flex-col items-center gap-2 p-2">
-            <el-icon size="18">
-              <component :is="item.icon" />
-            </el-icon>
-            <div>{{ item.label }} ({{ item.count }}) </div>
-          </div>
-        </template>
-      </el-segmented>
+      <div
+        class="sett-segments-scroll"
+        :class="{ 'sett-segments-scroll--narrow': segmentsScrollLayout }"
+      >
+        <el-segmented
+          v-model="activeSegment"
+          :options="filteredSegments"
+          :block="!segmentsScrollLayout"
+          :onChange="onSegmentClick"
+        >
+          <template #default="{ item }">
+            <div
+              class="sett-segment-item"
+              :class="{ 'sett-segment-item--compact': segmentsScrollLayout }"
+            >
+              <el-icon :size="segmentsScrollLayout ? 16 : 18">
+                <component :is="item.icon" />
+              </el-icon>
+              <template v-if="segmentsScrollLayout">
+                <div class="sett-segment-item__label">{{ item.label }}</div>
+                <div class="sett-segment-item__count">({{ item.count }})</div>
+              </template>
+              <div v-else class="sett-segment-item__inline">
+                {{ item.label }} ({{ item.count }})
+              </div>
+            </div>
+          </template>
+        </el-segmented>
+      </div>
     </div>
     <div v-if="activeSegment === 'Approved'">
       <el-alert
@@ -6014,6 +6055,30 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   width: 100%;
   height: 75vh;
 }
+
+.sett-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+/* Space between filter toolbar columns (gutter + vertical gap when stacked) */
+.sett-toolbar-row :deep(.sett-toolbar-col) {
+  margin-bottom: 12px;
+}
+
+.sett-toolbar-row :deep(.sett-toolbar-col:last-child) {
+  margin-bottom: 0;
+}
+
+@media (min-width: 992px) {
+  .sett-toolbar-row :deep(.sett-toolbar-col) {
+    margin-bottom: 0;
+  }
+}
 </style>
 
 <style>
@@ -6106,34 +6171,63 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   --el-border-radius-base: 5px;
 }
 
-.segment-label {
-  white-space: nowrap;
-  /* Prevent text from wrapping */
-  overflow: hidden;
-  /* Hide overflowing text */
-  text-overflow: ellipsis;
-  /* Add ellipsis for truncated text */
+.sett-segment-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  text-align: center;
+  box-sizing: border-box;
+  min-height: 100%;
 }
 
-@media (max-width: 600px) {
-  .custom-style .el-segmented {
-    font-size: 10px;
-    /* Adjust font size on mobile */
-    padding: 5px;
-    /* Adjust padding for smaller screens */
-  }
+.sett-segment-item__inline {
+  font-size: 14px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
 
-  .segment-label {
-    font-size: 12px;
-    /* Smaller font size for labels */
-    text-align: center;
-    /* Center align text */
-    padding: 0 5px;
-    /* Add some padding for spacing */
-    white-space: normal;
-    /* Allow wrapping on smaller screens */
-    overflow: visible;
-    /* Allow the text to flow properly */
-  }
+.sett-segment-item--compact {
+  gap: 4px;
+  padding: 8px 10px;
+  max-width: 112px;
+}
+
+.sett-segment-item__label {
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 500;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.sett-segment-item__count {
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--el-text-color-secondary);
+}
+
+/* Narrow viewport: horizontal scroll, fixed min width per segment */
+.sett-segments-scroll--narrow {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  margin-left: -4px;
+  margin-right: -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.sett-segments-scroll--narrow :deep(.el-segmented) {
+  width: max-content;
+}
+
+.sett-segments-scroll--narrow :deep(.el-segmented__item) {
+  flex: 0 0 auto;
+  min-width: 92px;
+  align-items: stretch;
 }
 </style>
