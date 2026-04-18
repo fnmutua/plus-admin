@@ -2396,7 +2396,7 @@ const downloadSettlementData = async () => {
               <ElSkeleton animated :loading="true">
                 <template #template>
                   <div class="chart-skeleton-placeholder">
-                    <p class="chart-skeleton-loading-text">Loading charts…</p>
+                    <p class="chart-skeleton-loading-text">…</p>
                     <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                     <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                   </div>
@@ -2411,7 +2411,6 @@ const downloadSettlementData = async () => {
     <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
       <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
-          <div class="tab-content-scrollable">
             <el-row :gutter="20">
               <el-col v-if="(!tab.charts || tab.charts.length === 0) && !chartsLoading" :span="24">
                 <el-empty description="No charts available for this section" />
@@ -2424,7 +2423,7 @@ const downloadSettlementData = async () => {
                       <ElSkeleton animated :loading="true">
                         <template #template>
                           <div class="chart-skeleton-placeholder">
-                            <p class="chart-skeleton-loading-text">Loading charts…</p>
+                            <p class="chart-skeleton-loading-text">Loading chart…</p>
                             <ElSkeletonItem variant="h3" style="width:40%;margin-bottom:16px" />
                             <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                           </div>
@@ -2511,7 +2510,6 @@ const downloadSettlementData = async () => {
                 </div>
               </el-col>
             </el-row>
-          </div>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -2521,13 +2519,24 @@ const downloadSettlementData = async () => {
 
 <style scoped>
 .dashboard-container {
-  padding: px;
-  min-height: 100vh;
+  box-sizing: border-box;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Fit below app header + tags; keep cards + tab bar on screen */
+  height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  max-height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px;
 }
 
 .tabs-skeleton-container {
   padding: 0 4px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .tabs-skeleton-header {
@@ -2631,6 +2640,7 @@ const downloadSettlementData = async () => {
 }
 
 .cards-row {
+  flex-shrink: 0;
   margin-top: 1rem;
   position: relative;
   z-index: 1;
@@ -2696,14 +2706,59 @@ const downloadSettlementData = async () => {
 }
 
 .main-tabs {
-   border-radius: 8px;
+  border-radius: 8px;
   padding: 10px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* flex:1 + min-height:0 for the flex chain only — do NOT set flex-direction here.
+   ElTabs renders [content, header] in DOM and uses .el-tabs--top { flex-direction: column-reverse }
+   so the nav stays on top; overriding with column puts tabs at the bottom. */
+.dashboard-tabs {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Scroll chart pane only; red thumb; no scroll chaining past end */
+.dashboard-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 4px 10px 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d41515 #f0f0f0;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar-thumb {
+  background: #d41515;
+  border-radius: 4px;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar-thumb:hover {
+  background: #b01010;
 }
 
 .dashboard-tabs :deep(.el-tabs__header) {
   margin-bottom: 10px;
   border-bottom: 1px solid #e4e7ed;
+  flex-shrink: 0;
 }
 
 .dashboard-tabs :deep(.el-tabs__nav-wrap::after) {
@@ -2810,29 +2865,6 @@ const downloadSettlementData = async () => {
 
 .chart-card:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.tab-content-scrollable {
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
-  padding: 10px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar {
-  width: 8px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar-thumb {
-  border-radius: 4px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar-thumb:hover {
-  background: #555;
 }
 
 .filter-header {
