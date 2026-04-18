@@ -19,11 +19,13 @@ import {
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import {
+  getSummarybyFieldFromMultipleIncludes,
+  getSummaryBatchByFieldFromMultipleIncludes,
+  getSummaryGroupByMultipleFields,
+} from '@/api/summary'
 import { getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
-
-import { getSummaryGroupByMultipleFields } from '@/api/summary'
 
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
@@ -595,293 +597,204 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
 
  
 
-const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
-  
-  //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+/** Build POST body for /summary/byfield/multiple (batch + single). */
+function buildChartSummaryFormData(thisChart: any) {
+  const associated_Models: string[] = []
+  const filterFields: string[] = []
+  const filterValues: any[] = []
+  const groupFields: string[] = []
+  const filterOperators: string[] = []
 
-  let associated_Models = []
-  let filterFields = []
-  let filterValues = []
-  let groupFields = []
-  let filterOperators = []
+  const cmodel = thisChart.card_model
+  const filters = thisChart.filters
+  const cfield = thisChart.card_model_field
+  const cAggregation = thisChart.aggregation
+  const chartType = thisChart.type
+  const categorizedField = thisChart.categorized
+  const unique = thisChart.unique ? thisChart.unique : false
+  const ignoreEmpty = thisChart.ignore_empty ? thisChart.ignore_empty : false
 
-
-  var cmodel = thisChart.card_model
-  var filters = thisChart.filters
-
-  var cfield = thisChart.card_model_field
-  var cAggregation = thisChart.aggregation
-  var chartType = thisChart.type
-  var categorizedField =thisChart.categorized
-  var unique = thisChart.unique?thisChart.unique:false 
-  var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
-  console.log('unique',unique)
- 
-
-  
-  if(filters) {
-
-for (const item of filters ) {
-  if(item.field) {
-    filterFields.push(item.field);
-  filterValues.push(item.value);
-  filterOperators.push(item.operation);
+  if (filters) {
+    for (const item of filters) {
+      if (item.field) {
+        filterFields.push(item.field)
+        filterValues.push(item.value)
+        filterOperators.push(item.operation)
+      }
+    }
   }
-
-}
-}
-
 
   if (categorizedField) {
     groupFields.push(cmodel + '.' + cfield)
-
   }
 
   if (chartType == 5 || chartType == 6) {
-    // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
     groupFields.push(cmodel + '.createdAt')
-
   }
- 
 
-  
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-   
-
     filterFields.push('county_id')
-     filterValues.push(selectedCounties.value)
+    filterValues.push(selectedCounties.value)
     filterOperators.push('or')
-
-    if(chartType!=3 &&chartType!=10 ) { 
+    if (chartType != 3 && chartType != 10) {
       groupFields.push('subcounty.name')
     }
-
-  }
-
-
-  else if (filterLevel.value === 'subcounty') { 
-    // filter by subcounty 
+  } else if (filterLevel.value === 'subcounty') {
     associated_Models.push('ward')
-    // filterValues.push(selectedSubCounties.value)
-
-    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
-    //   filterFields.push('subcounty_id')
-    // }
-
     filterFields.push('subcounty_id')
-     filterValues.push(selectedSubCounties.value)
+    filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
-
-
-    if(chartType!=3&&chartType!=10) { 
+    if (chartType != 3 && chartType != 10) {
       groupFields.push('ward.name')
     }
-  }
-
-
-
-
-  else if (filterLevel.value === 'national' ) {
+  } else if (filterLevel.value === 'national') {
     associated_Models.push('county')
-
-
-     if(chartType!=3&&chartType!=10) { 
+    if (chartType != 3 && chartType != 10) {
       groupFields.push('county.name')
     }
-
   }
 
-  if(chartType==3 ||chartType==10 ) { 
-      groupFields.push(cmodel + '.' + cfield )
-    }
+  if (chartType == 3 || chartType == 10) {
+    groupFields.push(cmodel + '.' + cfield)
+  }
 
-  console.log('xgroupFields', groupFields)
-  console.log('associated_Models', associated_Models)
-
-
-
-  const formData = {}
+  const formData: Record<string, any> = {}
   formData.model = cmodel
-  formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
+  formData.summaryField = cmodel + '.' + cfield
   formData.summaryFunction = cAggregation
-  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
-  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
-  // formData.filterField = ['indicator_category_id']
-  // formData.filterValue = [indicator_categories]  // Bitumen
+  formData.assoc_models = associated_Models
+  formData.groupFields = groupFields
   formData.filterField = filterFields
-  formData.filterOperator =filterOperators // Bitumen
+  formData.filterOperator = filterOperators
   formData.filterValue = filterValues
-
-  // added for unique couts 
+  if (cmodel === 'indicator_category_report' && thisChart.indicator_category_id) {
+    formData.indicator_category_id = thisChart.indicator_category_id
+  }
   formData.uniqueCounts = unique
   formData.ignoreEmpty = ignoreEmpty
-  
-
-  console.log('form-2-Data',formData)
-
-
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-    console.log('Data xcounty', amount)
-
-
-    let categoryArray = [];
-    let seriesData = [];
-    amount.forEach(obj => {
-      if (!categoryArray.includes(obj.name)) {
-        categoryArray.push(obj.name);
-      }
-    });
-
-
-
-
-
-    if (chartType == 5) {
-      console.log('Data line chart ', amount)
-      // Aggregate by date so one point per date (sum when backend grouped by date + county/etc.)
-      const dateSums = {};
-      for (const obj of amount) {
-        const d = obj.createdAt != null ? String(obj.createdAt).trim() : '';
-        if (!d) continue;
-        const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0;
-        dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val);
-      }
-      const sortedDates = Object.keys(dateSums).sort();
-      categoryArray = sortedDates;
-      seriesData = sortedDates.map((d) => dateSums[d]);
-    }
-
-   
-
- 
-    else if (chartType == 6 ) {
-      console.log('Multi-line chart ', amount)
-      // Aggregate by series and date (sum when backend returned multiple rows per date)
-      const bySeriesAndDate = {};
-      for (const item of amount) {
-        const d = item.createdAt != null ? String(item.createdAt).trim() : '';
-        if (!d) continue;
-        const seriesName = item[cfield];
-        if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {};
-        const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0;
-        bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val);
-      }
-      const dates = [...new Set(amount.map((item) => item.createdAt).filter(Boolean))].sort();
-      const result = {};
-      for (const seriesName of Object.keys(bySeriesAndDate)) {
-        result[seriesName] = {
-          name: seriesName,
-          type: 'line',
-          stack: 'Total',
-          data: dates.map((d, i) => [i, bySeriesAndDate[seriesName][d] || 0])
-        };
-      }
-      seriesData = Object.values(result);
-      categoryArray = dates;
-      console.log('seriesData>>>>6', seriesData);
-    }
-
-    else if (chartType == 3 || chartType ==10) {
-      console.log('thisChart--- ', thisChart)
-      console.log('piechart--- ', amount)
-  
-      
-     // seriesData = xtransformData(amount, chartType, cAggregation, cfield);
-     // categoryArray.sort();
-
-      // Extract keys (property names) from the first object
-        const keys = Object.keys(amount[0]);
-
-        // Extract values for each key into separate arrays
-        const extractedData = keys.map(key => amount.map(item => item[key]));
-
-        console.log('extractedData',extractedData)
-        categoryArray =extractedData[0]
-        seriesData =convertStringsToNumbers(extractedData[1])
-
-
-    }
-
-
-    else if (chartType == 7) {
-      console.log('Map chart ', amount)
-
-
-      let maxSum = Number.MIN_SAFE_INTEGER;
-      let minSum = Number.MAX_SAFE_INTEGER;
-
-      for (const item of amount) {
-        const values = Object.values(item);
-        for (const value of values) {
-          if (!isNaN(value)) {
-            const numValue = parseInt(value);
-            maxSum = Math.max(maxSum, numValue);
-            minSum = Math.min(minSum, numValue);
-          }
-        }
-      }
-      // if only one value then use min=0
-      if (minSum === maxSum) {
-        minSum = 0
-      }
-
-      console.log("Maximum sum:", maxSum);
-      console.log("Minimum sum:", minSum);
-
-
-      // Rename the property to value 
-      const newPropertyName = "value";
-
-      for (let i = 0; i < amount.length; i++) {
-        const keys = Object.keys(amount[i]);
-        if (keys.length > 1) {
-          const oldValue = keys[1];
-          amount[i][newPropertyName] = amount[i][oldValue];
-          delete amount[i][oldValue];
-        }
-      }
-      categoryArray = [minSum, maxSum]
-      seriesData = amount
-
-      console.log('Map chart2 ', amount)
-
-
-    }
-
-
-    else {
-
-      //  const valuesArray = amount.map(obj => obj.sum);
-      seriesData = xtransformData(amount, chartType, cAggregation, cfield);
-      categoryArray.sort();
-
-
-      console.log('xseries', seriesData)
-    }
-
-
-
-
-
-    //   return amount;
-    return [categoryArray, seriesData];
-  } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
-    console.error(error);
-    //return null; // or any default value you prefer
-    return []; // or any default value you prefer
-  }
-
-
+  return formData
 }
 
-function convertStringsToNumbers(stringArray) {
-        return stringArray.map(Number);
-      }
+function convertStringsToNumbers(stringArray: any[]) {
+  return stringArray.map(Number)
+}
 
+function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
+  const cfield = thisChart.card_model_field
+  const cAggregation = thisChart.aggregation
+  const chartType = thisChart.type
+
+  if (!amount || !Array.isArray(amount) || amount.length === 0) {
+    return [[], []]
+  }
+
+  let categoryArray: any[] = []
+  let seriesData: any[] = []
+  amount.forEach((obj) => {
+    if (!categoryArray.includes(obj.name)) {
+      categoryArray.push(obj.name)
+    }
+  })
+
+  if (chartType == 5) {
+    const dateSums: Record<string, number> = {}
+    for (const obj of amount) {
+      const d = obj.createdAt != null ? String(obj.createdAt).trim() : ''
+      if (!d) continue
+      const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0
+      dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val)
+    }
+    const sortedDates = Object.keys(dateSums).sort()
+    categoryArray = sortedDates
+    seriesData = sortedDates.map((d) => dateSums[d])
+    return [categoryArray, seriesData]
+  }
+
+  if (chartType == 6) {
+    const bySeriesAndDate: Record<string, Record<string, number>> = {}
+    for (const item of amount) {
+      const d = item.createdAt != null ? String(item.createdAt).trim() : ''
+      if (!d) continue
+      const seriesName = item[cfield]
+      if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {}
+      const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0
+      bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val)
+    }
+    const dates = [...new Set(amount.map((item) => item.createdAt).filter(Boolean))].sort()
+    const result: Record<string, any> = {}
+    for (const seriesName of Object.keys(bySeriesAndDate)) {
+      result[seriesName] = {
+        name: seriesName,
+        type: 'line',
+        stack: 'Total',
+        data: dates.map((d, i) => [i, bySeriesAndDate[seriesName][d] || 0]),
+      }
+    }
+    seriesData = Object.values(result)
+    categoryArray = dates
+    return [categoryArray, seriesData]
+  }
+
+  if (chartType == 3 || chartType == 10) {
+    if (!amount[0]) return [[], []]
+    const keys = Object.keys(amount[0])
+    const extractedData = keys.map((key) => amount.map((item) => item[key]))
+    categoryArray = extractedData[0]
+    seriesData = convertStringsToNumbers(extractedData[1])
+    return [categoryArray, seriesData]
+  }
+
+  if (chartType == 7) {
+    let maxSum = Number.MIN_SAFE_INTEGER
+    let minSum = Number.MAX_SAFE_INTEGER
+    for (const item of amount) {
+      const values = Object.values(item)
+      for (const value of values) {
+        if (!isNaN(value as number)) {
+          const numValue = parseInt(String(value), 10)
+          maxSum = Math.max(maxSum, numValue)
+          minSum = Math.min(minSum, numValue)
+        }
+      }
+    }
+    if (minSum === maxSum) {
+      minSum = 0
+    }
+    const newPropertyName = 'value'
+    for (let i = 0; i < amount.length; i++) {
+      const keys = Object.keys(amount[i])
+      if (keys.length > 1) {
+        const oldValue = keys[1]
+        amount[i][newPropertyName] = amount[i][oldValue]
+        delete amount[i][oldValue]
+      }
+    }
+    categoryArray = [minSum, maxSum]
+    seriesData = amount
+    return [categoryArray, seriesData]
+  }
+
+  seriesData = xtransformData(amount, chartType, cAggregation, cfield)
+  categoryArray.sort()
+  return [categoryArray, seriesData]
+}
+
+const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any) => {
+  try {
+    let amount: any
+    if (preloaded && preloaded.Total !== undefined && preloaded.Total !== null) {
+      amount = preloaded.Total
+    } else {
+      const formData = buildChartSummaryFormData(thisChart)
+      const response = await getSummarybyFieldFromMultipleIncludes(formData)
+      amount = response.Total
+    }
+    return transformMultipleSummaryTotal(thisChart, amount)
+  } catch {
+    return []
+  }
+}
 
 const getSummaryChart = async (thisChart) => {
   // Check if this is an indicator chart or entity chart
@@ -1327,6 +1240,29 @@ const getCharts = async (section_id) => {
     //  const charts = response.data;
     console.log('Getting the charts ', response.data)
 
+    const summaryByChartId = new Map<string, any>()
+    try {
+      const forBatch = response.data.filter(
+        (c: any) =>
+          c.category === 'Status' &&
+          Number(c.type) !== 8 &&
+          c.card_model &&
+          c.card_model_field,
+      )
+      if (forBatch.length > 0) {
+        const items = forBatch.map((c: any) => ({
+          id: String(c.id),
+          payload: buildChartSummaryFormData(c),
+        }))
+        const batchRes: any = await getSummaryBatchByFieldFromMultipleIncludes({ items })
+        const list = batchRes?.results ?? []
+        for (const r of list) {
+          if (r.ok && r.data) summaryByChartId.set(r.id, r.data)
+        }
+      }
+    } catch {
+      /* charts fall back to individual /summary/byfield/multiple calls */
+    }
 
     const processPromises = response.data.map(async (thisChart) => {
       console.log('This Chart:', thisChart)
@@ -1352,7 +1288,7 @@ const getCharts = async (section_id) => {
     setChartLoading(thisChart.id, 'Loading pie chart data...');
 
     try {
-      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
       console.log('piechart - cdata', thisChart);
 
       const isDonut = thisChart.type == '10'; // Custom flag you can define
@@ -1426,7 +1362,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             console.log('cdata[0]',cdata[0]);
 
             const UpdatedBarOptionsMultiple = {
@@ -1490,7 +1426,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             console.log('Multi[e]', cdata);
 
             const UpdatedBarOptionsMultiple = {
@@ -1555,7 +1491,7 @@ const getCharts = async (section_id) => {
  
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             console.log('stacked.Male.female.', cdata);
 
 
@@ -1647,7 +1583,7 @@ const getCharts = async (section_id) => {
  
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             console.log('stacked.Male.female.', cdata);
             for (var i = 0; i < cdata[1].length; i++) {
               cdata[1][i].label = {
@@ -1726,7 +1662,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
             // Normalize: API can return [] on error or null; ensure [categories, seriesData]
             var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
             var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
@@ -1804,7 +1740,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
             var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
             var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
             console.log('Multi[e]', cdata);
@@ -1887,7 +1823,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            const cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             console.log('map data raw', cdata)
             const rawRange = Array.isArray(cdata?.[0]) ? cdata[0] : [0, 0]
             const rawData = Array.isArray(cdata?.[1]) ? cdata[1] : []
@@ -3267,21 +3203,21 @@ onMounted(() => {
 
 const selectCounty = ref([])
 const selectSubCounty = ref([])
-const handleClear = async () => { 
-  selectSubCounty.value=null
-  selectCounty.value = null
+const handleClear = async () => {
+  selectSubCounty.value = []
+  selectCounty.value = []
+  selectedSubCounties.value = []
+  selectedCounties.value = []
+  filteredSubCountyList.value = [...subCountyList.value]
+  filterLevel.value = 'national'
 
   cardLoading.value = true
   chartsLoading.value = true
   try {
-    await Promise.all([
-      getCards(),
-      getTabs()
-    ])
+    await Promise.all([getCards(), getTabs()])
   } catch (error) {
     console.error('Error in handleClear:', error)
   } finally {
-    // Ensure loading states are cleared
     cardLoading.value = false
     chartsLoading.value = false
   }
@@ -3289,18 +3225,21 @@ const handleClear = async () => {
 
 
 const filterCounty = async (county_id) => {
-  //selectSubCounty.value=null
-  filteredSubCountyList.value = subCountyList.value.filter(option => county_id.includes(option.county_id));
-   console.log('xyz', filteredSubCountyList.value)
+  if (!county_id || county_id.length === 0) {
+    filteredSubCountyList.value = [...subCountyList.value]
+  } else {
+    filteredSubCountyList.value = subCountyList.value.filter((option) =>
+      county_id.includes(option.county_id),
+    )
+  }
+  const validIds = new Set(filteredSubCountyList.value.map((o: any) => o.value))
+  selectSubCounty.value = (selectSubCounty.value || []).filter((id: any) => validIds.has(id))
 
-selectedCounties.value = county_id;
- 
-console.log(selectedCounties.value);  // [1]
- if (selectedCounties.value.length == 0) {
-  filterLevel.value = 'national'
-} else {
-  filterLevel.value = 'county'
- 
+  selectedCounties.value = county_id || []
+  if (selectedCounties.value.length == 0) {
+    filterLevel.value = 'national'
+  } else {
+    filterLevel.value = 'county'
   }
   cardLoading.value = true
   chartsLoading.value = true
@@ -3330,12 +3269,10 @@ selectedSubCounties.value = subcountyId;
 
 
   if (selectedSubCounties.value.length == 0) {
-  filterLevel.value = 'county'
-} else {
-  filterLevel.value = 'subcounty'
-
-
-}  
+    filterLevel.value = selectedCounties.value.length ? 'county' : 'national'
+  } else {
+    filterLevel.value = 'subcounty'
+  }
   cardLoading.value = true
   chartsLoading.value = true
   try {
@@ -3519,7 +3456,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="dashboard-container">
+  <div
+    class="dashboard-container"
+    v-loading="dashboardLoading"
+    element-loading-text="Loading dashboard..."
+    element-loading-background="rgba(255, 255, 255, 0.75)"
+  >
     <!-- Filter Drawer -->
     <el-drawer
       v-model="filtersVisible"
@@ -3633,6 +3575,7 @@ onBeforeUnmount(() => {
               <ElSkeleton animated :loading="true">
                 <template #template>
                   <div class="chart-skeleton-placeholder">
+                    <p class="chart-skeleton-loading-text">Loading charts…</p>
                     <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                     <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                   </div>
@@ -3645,10 +3588,9 @@ onBeforeUnmount(() => {
     </div>
   </template>
 
-  <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container">
-    <el-tabs v-model="activeTab"  class="dashboard-tabs">
+  <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
+    <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
       <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
-        <div class="tab-content-scrollable">
           <el-row :gutter="20">
             <el-col v-if="(!tab.charts || tab.charts.length === 0) && !chartsLoading" :span="24">
               <el-empty description="No charts available for this section" />
@@ -3669,6 +3611,7 @@ onBeforeUnmount(() => {
                     <ElSkeleton :loading="chartsLoading || isChartLoading(chart.id)" animated>
                       <template #template>
                         <div class="chart-skeleton-placeholder">
+                          <p class="chart-skeleton-loading-text">{{ getChartLoadingMessage(chart.id) }}</p>
                           <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                           <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                         </div>
@@ -3696,6 +3639,7 @@ onBeforeUnmount(() => {
                   <ElSkeleton :loading="true" animated>
                     <template #template>
                       <div class="chart-skeleton-placeholder">
+                        <p class="chart-skeleton-loading-text">Loading chart…</p>
                         <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                         <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                       </div>
@@ -3714,7 +3658,6 @@ onBeforeUnmount(() => {
               </div>
             </el-col>
           </el-row>
-        </div>
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -3728,9 +3671,19 @@ onBeforeUnmount(() => {
  
 <style scoped>
 .dashboard-container {
-  padding: px;
-  min-height: 100vh;
+  box-sizing: border-box;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  max-height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px;
+}
+
+:deep(.el-loading-mask) {
+  transition: opacity 0.3s ease;
 }
 
 :deep(.el-collapse) {
@@ -3766,6 +3719,7 @@ onBeforeUnmount(() => {
 }
 
 .cards-row {
+  flex-shrink: 0;
   margin-top: 1rem;
   position: relative;
   z-index: 1;
@@ -3831,14 +3785,56 @@ onBeforeUnmount(() => {
 }
 
 .main-tabs {
-   border-radius: 8px;
+  border-radius: 8px;
   padding: 10px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Do not set flex-direction on .dashboard-tabs — Element Plus uses column-reverse for tab-position="top". */
+.dashboard-tabs {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 4px 10px 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d41515 #f0f0f0;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar-thumb {
+  background: #d41515;
+  border-radius: 4px;
+}
+
+.dashboard-tabs :deep(.el-tabs__content)::-webkit-scrollbar-thumb:hover {
+  background: #b01010;
 }
 
 .dashboard-tabs :deep(.el-tabs__header) {
   margin-bottom: 10px;
   border-bottom: 1px solid #e4e7ed;
+  flex-shrink: 0;
 }
 
 .dashboard-tabs :deep(.el-tabs__nav-wrap::after) {
@@ -3947,30 +3943,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-
-.tab-content-scrollable {
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
-  padding: 10px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar {
-  width: 8px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar-thumb {
-  border-radius: 4px;
-}
-
-.tab-content-scrollable::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
 .filter-header {
   display: flex;
   align-items: center;
@@ -4032,21 +4004,33 @@ onBeforeUnmount(() => {
   padding: 16px;
 }
 
+.chart-skeleton-loading-text {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  letter-spacing: 0.01em;
+}
+
 .tabs-skeleton-container {
-  margin-top: 16px;
+  padding: 0 4px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .tabs-skeleton-header {
   display: flex;
-  gap: 24px;
-  padding: 0 4px 12px;
-  border-bottom: 1px solid #e4e7ed;
-  margin-bottom: 16px;
+  gap: 8px;
+  border-bottom: 2px solid var(--el-border-color-light);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .tab-label-skeleton {
-  width: 80px !important;
-  height: 16px !important;
+  width: 100px !important;
+  height: 32px !important;
   border-radius: 4px;
 }
 
