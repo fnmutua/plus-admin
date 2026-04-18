@@ -8,7 +8,7 @@ import {
   pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
   lineOptions, stackedbarOptions, simpleBarChart,stackedbarOptionsAbs
 } from './chart-types'
-import { registerMap, getMap } from 'echarts/core'
+import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
@@ -18,9 +18,8 @@ import {  getSummaryGroupByMultipleFields } from '@/api/summary'
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { useRoute } from 'vue-router'
-import VChart, { THEME_KEY } from 'vue-echarts';
+import VChart from 'vue-echarts';
 import { getRoutesList } from '@/api/settlements'
-import { inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { Loading, Download } from '@element-plus/icons-vue'
 import { geoCache as _geoCache } from '@/utils/dashboardCache'
@@ -28,10 +27,6 @@ import { geoCache as _geoCache } from '@/utils/dashboardCache'
 const { push } = useRouter()
 
  
-const theme = inject(THEME_KEY)
-
-console.log('ECharts Theme in use:', theme)
-
  
 
 
@@ -67,9 +62,7 @@ const getDynamicDashboards = async () => {
   formData.associated_multiple_models = []
 
   //-------------------------
-  //console.log(formData)
   const res = await getRoutesList(formData)
-  console.log("getRoutesList",res.data[0].id)
 
   //dashboard_id.value =res.data[0].id  // get the id of the first dashboard
 
@@ -78,7 +71,6 @@ const getDynamicDashboards = async () => {
     if (arrayItem.main_dashboard) {
       dashboard_id.value = arrayItem.id  // get the id of the first dashboard
 
-      console.log( 'dashboard_id.value', dashboard_id.value)
     }
 
    })
@@ -88,7 +80,6 @@ const getDynamicDashboards = async () => {
 
 
 onBeforeMount( async () => {
-    console.log("Before mount");
     try {
       // Load critical data first
       await getDynamicDashboards();
@@ -102,10 +93,7 @@ onBeforeMount( async () => {
         getTabs()
       ]);
       
-      console.log("All dashboard data loaded successfully");
-      console.log(dashboard_id.value);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
       // Set loading states to false even on error to prevent infinite loading
       dashboardLoading.value = false;
       geoLoading.value = false;
@@ -250,7 +238,6 @@ const getCountyGeo = async () => {
       const formData = {}
       formData.model = 'county'
       const res = await getAllGeo(formData)
-      console.log('county geo', res.data[0].json_build_object)
       if (res.data[0].json_build_object.features) {
         countyGeo.value = res.data[0].json_build_object
         _geoCache.set('county', countyGeo.value)
@@ -260,19 +247,9 @@ const getCountyGeo = async () => {
         aspect.value = Math.cos(y_coord * Math.PI / 180);
 
         registerMap('KE', res.data[0].json_build_object);
-        console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
-        if (countyGeo.value.features?.length > 0) {
-          const firstProps = countyGeo.value.features[0]?.properties;
-          console.log('🗺️ GeoJSON property KEYS:', Object.keys(firstProps || {}));
-          console.log('🗺️ First feature properties:', firstProps);
-          const allGeoNames = countyGeo.value.features.map((f: any) => f.properties?.name || f.properties?.NAME || f.properties?.Name || Object.values(f.properties || {})[0] || 'no name');
-          console.log('🗺️ ALL geoJSON feature names:', allGeoNames);
-        }
         fmap.value=true
-        console.log('fmap',fmap.value)
       }
     } catch (error) {
-      console.error('Error loading county geo data:', error);
     } finally {
       geoLoading.value = false;
     }
@@ -281,7 +258,6 @@ const getCountyGeo = async () => {
 
 const getSubsetGeo = async (model, filterFields, filterValues) => {
   try {
-    console.log('Get all parcels for this settlement - START', { model, filterFields, filterValues })
 
     const geoCacheKey = `${model}:${filterFields.join(',')}:${JSON.stringify(filterValues)}`
     if (_geoCache.has(geoCacheKey)) {
@@ -289,7 +265,6 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
       const bbox = turf.bbox(subCountyGeo.value)
       const y_coord = (bbox[1] + bbox[3]) / 2
       aspect.value = Math.cos(y_coord * Math.PI / 180)
-      console.log('getSubsetGeo - served from cache')
       return
     }
 
@@ -299,9 +274,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
     formData.selectedParents = filterValues
     formData.id = filterValues
 
-    console.log('getSubsetGeo - calling API with formData:', formData)
     const res = await getfilteredGeo(formData)
-    console.log('getSubsetGeo - API response received:', res)
 
     // Extract geoJSON from multiple possible shapes
     let geoJSON: any | null = null
@@ -323,24 +296,18 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
     }
 
     if (!geoJSON || !geoJSON.features) {
-      console.error('getSubsetGeo - Invalid geoJSON structure:', res)
       throw new Error('Invalid geo response structure')
     }
 
-    console.log('filtered Geo features:', geoJSON.features)
     var collection = turf.featureCollection(geoJSON.features);
-    console.log('collection Geo:', collection)
     subCountyGeo.value = collection
     _geoCache.set(geoCacheKey, collection)
     var bbox = turf.bbox(subCountyGeo.value);
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
 
-    console.log('collection aspect:', aspect.value)
     // Do NOT register the map here; caller decides which map name to use
-    console.log('getSubsetGeo - COMPLETED successfully')
   } catch (error) {
-    console.error('getSubsetGeo - ERROR:', error)
     throw error // Re-throw so caller knows it failed
   }
 }
@@ -362,12 +329,10 @@ const getSummary = async (card) => {
     var unique = card.unique?card.unique:false 
     var filters = card.filters
 
-  console.log('unique',unique)
   // getSummary(arrayItem.card_model,arrayItem.card_model_field)
 
   //var ids = await getIndicatorConfigurations(indicator)
 
-  console.log('thisCard',card)
 
   // set admin level filtering
   let associated_Models = []
@@ -457,21 +422,16 @@ if (selectModel === 'indicator_category_report' && card.indicator_category_id) {
   formData.indicator_category_id = card.indicator_category_id
 }
 
-  console.log('foxrmData',formData)
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
-    console.log("Cards sumamrye", response01)
-    // console.log('ids', ids)
 
     // const response = await getSumFilter(sumQuery);
     const amount = response01.Total[0][aggregMethod] ? parseInt(response01.Total[0][aggregMethod]) : 0
-    //console.log('Cumulative Data', response.data)
 
     return amount;
   } catch (error) {
     // Handle any errors that occur during the asynchronous operation
-    console.error(error);
     //return null; // or any default value you prefer
     return 0; // or any default value you prefer
   }
@@ -484,14 +444,11 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
   const uniqueNames = [...new Set(data.map(item => item.name))];
   uniqueNames.sort();
 
-  console.log('uniqueNames', uniqueNames)
-  console.log('uniqueCategoryTitlesxdata', data)
 
 
   const uniqueCategoryTitles = [...new Set(data.map(item => item[cfield]))];
   uniqueCategoryTitles.sort();
 
-  console.log('uniqueCategoryTitles', uniqueCategoryTitles)
 
   // Loop through categories and create the resulting object, padding as needed
   const result = uniqueCategoryTitles.map(category => {
@@ -500,16 +457,13 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
     uniqueNames.map(name => {
       const filteredData = data.filter(item => item[cfield] === category && item.name === name);
 
-  //    console.log("Filtred", filteredData)
       let arr = filteredData.length > 0 ? filteredData.map(item => (item[aggregationMethod] ? parseInt(item[aggregationMethod]) : 0)) : [0]
-    //  console.log("arr", arr)
       dataArr.push(arr[0])
 
 
     })
 
 
-    console.log('Pie-chart',chartType )
 
 
 
@@ -573,7 +527,6 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var categorizedField =thisChart.categorized
   var unique = thisChart.unique?thisChart.unique:false 
   var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
-  console.log('unique',unique)
  
 
 
@@ -653,8 +606,6 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 
 
-  console.log('xgroupFields', groupFields)
-  console.log('associated_Models', associated_Models)
 
 
 
@@ -680,13 +631,11 @@ formData.uniqueCounts = unique
 formData.ignoreEmpty = ignoreEmpty
   
 
-  console.log('form-2-Data',formData)
 
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
-    console.log('Data xcounty', amount)
 
 
     let categoryArray = [];
@@ -702,7 +651,6 @@ formData.ignoreEmpty = ignoreEmpty
 
 
     if (chartType == 5) {
-      console.log('Data line chart ', amount)
 
       const keys = amount.reduce((allKeys, obj) => {
         return allKeys.concat(Object.keys(obj));
@@ -721,7 +669,6 @@ formData.ignoreEmpty = ignoreEmpty
 
  
     else if (chartType == 6 ) {
-      console.log('Multi-line chart ', amount)
       //  Step 1: Extract and sort unique dates in ascending order
       const dates = [...new Set(amount.map(item => item.createdAt))].sort();
 
@@ -730,7 +677,6 @@ formData.ignoreEmpty = ignoreEmpty
 
       for (const item of amount) {
         const { createdAt, cAggregation } = item;
-        //     console.log('xxxx',item,item[cfield])
 
         if (!result[item[cfield]]) {
           result[item[cfield]] = {
@@ -749,14 +695,12 @@ formData.ignoreEmpty = ignoreEmpty
 
       seriesData = Object.values(result);
       categoryArray = dates
-      console.log('seriesData>>>>6', seriesData);
 
 
 
     }
 
     else if (chartType == 3 || chartType == 10 ) {
-      console.log('piechart--- ', amount)
   
 
      // seriesData = xtransformData(amount, chartType, cAggregation, cfield);
@@ -768,7 +712,6 @@ formData.ignoreEmpty = ignoreEmpty
         // Extract values for each key into separate arrays
         const extractedData = keys.map(key => amount.map(item => item[key]));
 
-        console.log('extractedData',extractedData)
         categoryArray =extractedData[0]
         seriesData =convertStringsToNumbers(extractedData[1])
 
@@ -776,11 +719,9 @@ formData.ignoreEmpty = ignoreEmpty
     }
 
     else if (chartType == 11) {
-      console.log('treemap chart--- ', amount);
       // For treemaps, series is [{ data: [{ x: label, y: value }, ...] }]
       const keys = Object.keys(amount[0]);
       const extractedData = keys.map((key) => amount.map((item) => item[key]));
-      console.log('extractedData', extractedData);
       // Combine labels and values into treemap format
       seriesData = [
         {
@@ -790,12 +731,10 @@ formData.ignoreEmpty = ignoreEmpty
           })),
         },
       ];
-      console.log('seriesData-tree',seriesData)
       categoryArray = extractedData[0]; // Still return labels for compatibility
     } 
 
     else if (chartType == 7) {
-      console.log('Map chart ', amount)
 
 
       let maxSum = Number.MIN_SAFE_INTEGER;
@@ -816,8 +755,6 @@ formData.ignoreEmpty = ignoreEmpty
         minSum = 0
       }
 
-      console.log("Maximum sum:", maxSum);
-      console.log("Minimum sum:", minSum);
 
 
       // Rename the property to value 
@@ -834,7 +771,6 @@ formData.ignoreEmpty = ignoreEmpty
       categoryArray = [minSum, maxSum]
       seriesData = amount
 
-      console.log('Map chart2 ', amount)
 
 
     }
@@ -847,7 +783,6 @@ formData.ignoreEmpty = ignoreEmpty
       categoryArray.sort();
 
 
-      console.log('xseries', seriesData)
     }
 
 
@@ -858,7 +793,6 @@ formData.ignoreEmpty = ignoreEmpty
     return [categoryArray, seriesData];
   } catch (error) {
     // Handle any errors that occur during the asynchronous operation
-    console.error(error);
     //return null; // or any default value you prefer
     return []; // or any default value you prefer
   }
@@ -895,12 +829,10 @@ const getCardData = async () => {
   formData.filterValues = filterValues
 
   //-------------------------
-  //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
   // Check if this request is still the latest one
   if (requestId !== currentCardRequestId) {
-    console.log('Request outdated, ignoring results')
     return
   }
 
@@ -933,7 +865,6 @@ const getCardData = async () => {
         cards.value.sort((a, b) => a.id - b.id)
       }
     } catch (e) {
-      console.error('Error fetching summary for card', arrayItem.id, e)
     }
   }))
 
@@ -944,7 +875,6 @@ const getCards = async () => {
     cardLoading.value = true;
     await getCardData();
   } catch (error) {
-    console.error('Error loading cards:', error);
   } finally {
     cardLoading.value = false;
   }
@@ -977,12 +907,10 @@ const getCharts = async (section_id) => {
     const charts = reactive([]);
     const response = await getSettlementListByCounty(formData);
     //  const charts = response.data;
-    console.log('Getting the charts ', response.data)
 
 
     const processPromises: Promise<void>[] = []
     response.data.forEach(function(thisChart) {
-      console.log('This Chart:', thisChart)
       
       // Build subtitle with filter label
       const filterLabel = getActiveFilterLabel()
@@ -999,17 +927,14 @@ const getCharts = async (section_id) => {
       // function to process processMultiBarChart charts 
  async function processPieChart() {
   const promises = [async function () {
-    console.log('processPieChart:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
     
     // Set loading state for this chart
     setChartLoading(thisChart.id, 'Loading pie chart data...');
 
     try {
       const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
-      console.log('piechart - cdata', thisChart);
 
       const isDonut = thisChart.type == '10'; // Custom flag you can define
-       console.log('isDonut',isDonut)
 
         const UpdatedPieOptionsMultiple = {
           ...pieOptions,
@@ -1037,8 +962,6 @@ const getCharts = async (section_id) => {
         };
 
 
-      console.log('UpdatedPieOptionsMultiple', UpdatedPieOptionsMultiple);
-      console.log('cdata', cdata[1][0]?.data);
 
       thisChart.chart = UpdatedPieOptionsMultiple;
 
@@ -1057,12 +980,10 @@ const getCharts = async (section_id) => {
         }];
       }
     } catch (error) {
-      console.error('Error in processPieChart:', error);
     }
   }];
 
   await promises[0]();
-  console.log('Loop completed');
 
   charts.push(thisChart);
   setChartLoaded(thisChart.id); // Mark chart as loaded
@@ -1072,14 +993,12 @@ const getCharts = async (section_id) => {
 // Function to process treemap charts
 async function processTreemapChart() {
   const promises = [async function () {
-    console.log('processTreemapRequests:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
     
     // Set loading state for this chart
     setChartLoading(thisChart.id, 'Loading treemap data...');
 
     try {
       const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
-      console.log('treemap - cdata', cdata);
 
       const UpdatedTreemapOptions = {
         ...treemapOptions,
@@ -1116,8 +1035,6 @@ async function processTreemapChart() {
         },
       };
 
-      console.log('UpdatedTreemapOptions', UpdatedTreemapOptions);
-      console.log('cdata', cdata[1]);
 
       thisChart.chart = UpdatedTreemapOptions;
 
@@ -1136,12 +1053,10 @@ async function processTreemapChart() {
         }];
       }
     } catch (error) {
-      console.error('Error in processTreemapChart:', error);
     }
   }];
 
   await promises[0]();
-  console.log('Loop completed');
 
   charts.push(thisChart);
   setChartLoaded(thisChart.id); // Mark chart as loaded
@@ -1151,7 +1066,6 @@ async function processTreemapChart() {
       // function to process processMultiBarChart charts 
       async function processSimpleBarChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
           
           // Set loading state for this chart
           setChartLoading(thisChart.id, 'Loading bar chart data...');
@@ -1159,7 +1073,6 @@ async function processTreemapChart() {
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log(cdata);
 
             const UpdatedBarOptionsMultiple = {
               ...simpleBarChart,
@@ -1204,7 +1117,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
 
 
@@ -1218,12 +1130,10 @@ async function processTreemapChart() {
       // function to process processMultiBarChart charts 
       async function processMultiBarChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('Multi[e]', cdata);
 
             const UpdatedBarOptionsMultiple = {
               ...multipleBarChart,
@@ -1268,7 +1178,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
 
 
@@ -1282,12 +1191,10 @@ async function processTreemapChart() {
       // function to process processStackedBarChart charts 
       async function processStackedBarChart() {
         const promises = [async function () {
-          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
  
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('stacked.Male.female.', cdata);
 
 
 
@@ -1321,7 +1228,6 @@ async function processTreemapChart() {
               series:  cdata[1]   
             };
 
-            console.log('stacked >>>>',  UpdatedBarOptionsMultiple)
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
@@ -1358,7 +1264,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
 
 
@@ -1374,12 +1279,10 @@ async function processTreemapChart() {
        // function to process processStackedBarChart charts 
        async function processStackedBarChartAbs() {
         const promises = [async function () {
-          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
  
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('stacked.Male.female.', cdata);
             for (var i = 0; i < cdata[1].length; i++) {
               cdata[1][i].label = {
                 show: false,
@@ -1408,7 +1311,6 @@ async function processTreemapChart() {
               series:  cdata[1]   
             };
 
-            console.log('stackedbarOptionsAbs >>>>',  UpdatedBarOptionsMultiple)
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
@@ -1441,7 +1343,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
         charts.push(thisChart)
         setChartLoaded(thisChart.id); // Mark chart as loaded
@@ -1453,12 +1354,10 @@ async function processTreemapChart() {
       // function to process processMultiBarChart charts 
       async function processLineChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('Multi[e]', cdata);
 
 
 
@@ -1513,7 +1412,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
 
 
@@ -1526,12 +1424,10 @@ async function processTreemapChart() {
       // function to process processMultiBarChart charts 
       async function processStackLineChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('Multi[e]', cdata);
 
 
             // sort the data such that the graphs start and end proper
@@ -1560,8 +1456,6 @@ async function processTreemapChart() {
             UpdatedBarOptionsMultiple.series = cdata[1]
 
 
-            console.log("old chart", stacklineOptions)
-            console.log("New chart", UpdatedBarOptionsMultiple)
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
@@ -1590,7 +1484,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
 
 
@@ -1605,12 +1498,10 @@ async function processTreemapChart() {
       // function to process processMultiBarChart charts 
       async function processMapChart() {
         const promises = [async function () {
-          console.log('This map chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             const cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('map data raw', cdata)
             const rawRange = Array.isArray(cdata?.[0]) ? cdata[0] : [0, 0]
             const rawData = Array.isArray(cdata?.[1]) ? cdata[1] : []
 
@@ -1635,37 +1526,28 @@ async function processTreemapChart() {
             const currentSelectedCounties = selectedCounties.value;
             const currentSelectedSubCounties = selectedSubCounties.value;
             
-            console.log('filterLevel 0001', currentFilterLevel)
-            console.log('selectedCounties 0001', currentSelectedCounties)
-            console.log('currentSelectedCounties length', currentSelectedCounties.length)
             
             let geoToUse = null;
             let mapName = 'KE_county'; // default: national counties
             
             if (currentSelectedCounties.length > 0 && currentFilterLevel == 'county') {
               // Counties selected -> show subcounties within those counties
-              console.log('About to call getSubsetGeo for subcounty...')
               try {
                 await getSubsetGeo('subcounty', ['county_id'], currentSelectedCounties)
                 geoToUse = subCountyGeo.value;
                 mapName = 'KE_subcounty';
-                console.log('✅ Using subcounty-level geo (filtered by counties)', geoToUse?.features?.length, 'features');
               } catch (error) {
-                console.error('Failed to get subcounty geo, falling back to county geo:', error)
                 await getCountyGeo()
                 geoToUse = countyGeo.value;
                 mapName = 'KE_county';
               }
             } else if (currentSelectedSubCounties.length > 0 && currentFilterLevel === 'subcounty') {
               // Subcounties selected -> show wards within those subcounties
-              console.log('About to call getSubsetGeo for ward...')
               try {
                 await getSubsetGeo('ward', ['subcounty_id'], currentSelectedSubCounties)
                 geoToUse = subCountyGeo.value;
                 mapName = 'KE_ward';
-                console.log('✅ Using ward-level geo (filtered by subcounties)', geoToUse?.features?.length, 'features');
               } catch (error) {
-                console.error('Failed to get ward geo, falling back to county geo:', error)
                 await getCountyGeo()
                 geoToUse = countyGeo.value;
                 mapName = 'KE_county';
@@ -1675,7 +1557,6 @@ async function processTreemapChart() {
               await getCountyGeo()
               geoToUse = countyGeo.value;
               mapName = 'KE_county';
-              console.log('✅ Using county-level geo (national - 47 counties)');
             }
             
             // Detect the GeoJSON name property (ECharts defaults to 'name')
@@ -1690,16 +1571,13 @@ async function processTreemapChart() {
                 const firstStringKey = Object.keys(props).find(k => typeof props[k] === 'string');
                 if (firstStringKey) geoNameProperty = firstStringKey;
               }
-              console.log('🗺️ Detected geoNameProperty:', geoNameProperty, '| First feature props:', props);
             }
 
             // Register the appropriate geo with a specific name
             if (geoToUse && geoToUse.features) {
               registerMap(mapName, geoToUse);
-              console.log(`✅ Map registered: ${mapName}`, geoToUse.features.length, 'features');
             }
 
-            console.log('apsect 0002', aspect.value)
 
             // Build map option like the official USA example, but for KE
             const UpdatedMapOtions = {
@@ -1775,23 +1653,6 @@ async function processTreemapChart() {
               ]
             };
 
-            console.log('UpdatedMapOtions 0003', UpdatedMapOtions)
-            console.log('mapData 0003 (first 5):', mapData.slice(0, 5))
-            // Check name matching using actual geoToUse and detected property
-            if (geoToUse?.features) {
-              const allGeoNames = geoToUse.features.map((f: any) => f.properties?.[geoNameProperty] || 'no name');
-              const allMapDataNames = mapData.map((d: any) => d.name);
-              const matched = allMapDataNames.filter(name => allGeoNames.includes(name));
-              const unmatched = allMapDataNames.filter(name => !allGeoNames.includes(name));
-              console.log(`🗺️ Name matching (prop=${geoNameProperty}):`, matched.length, 'matched,', unmatched.length, 'unmatched');
-              if (unmatched.length > 0) console.log('❌ Unmatched data names:', unmatched);
-              if (matched.length === 0 && allMapDataNames.length > 0) {
-                console.log('⚠️ ZERO matches! Geo names sample:', allGeoNames.slice(0, 5), '| Data names sample:', allMapDataNames.slice(0, 5));
-              }
-            }
-            // Verify map is registered
-            const registeredMaps = getMap ? getMap(mapName) : null;
-            console.log(`Map ${mapName} registered?`, registeredMaps ? 'YES' : 'NO', registeredMaps ? `(${registeredMaps.geoJSON?.features?.length} features)` : '');
             thisChart.chart = UpdatedMapOtions
 
             // show no data 
@@ -1820,7 +1681,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
 
 
@@ -1930,7 +1790,6 @@ async function processTreemapChart() {
                     //mArray.value.push(malePct);
                  //   fArray.value.push(femalePct);
 
-                            console.log(response)
 
                   const UpdatedpyramidOptions = {
                         // copy everything from the original
@@ -1962,7 +1821,6 @@ async function processTreemapChart() {
                         }
                       };
 
-                      console.log('UpdatedpyramidOptions',UpdatedpyramidOptions)
 
                  thisChart.chart = UpdatedpyramidOptions
                 // thisChart.chart = UpdatedBarOptionsMultiple;
@@ -1988,7 +1846,6 @@ async function processTreemapChart() {
         await promises[0]();
 
         // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed pyramd',thisChart);
 
 
 
@@ -2003,7 +1860,6 @@ async function processTreemapChart() {
 
       // Run the approriate funtion 
       if (thisChart.type == 1) {
-        console.log('processSimpleBarChart')
         processPromises.push(processSimpleBarChart())
       }
 
@@ -2040,7 +1896,6 @@ async function processTreemapChart() {
       }
 
       else if (thisChart.type == 8) {
-        console.log('calling processPyramid')
         processPromises.push(processPyramid());
       }
 
@@ -2053,7 +1908,6 @@ async function processTreemapChart() {
 
   } catch (error) {
     // Handle any errors that occur during the asynchronous operation
-    console.error(error);
     //return null; // or any default value you prefer
     return []; // or any default value you prefer
   }
@@ -2081,16 +1935,13 @@ const getSectionsData = async () => {
   formData.filterValues = filterValues
 
   //-------------------------
-  //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
 
 
 
 
-  console.log('sections>>', tabs.value)
   //activeTab.value = tabs.value[0].name;
-  console.log('activeTab', tabs.value[0])
 
 
   async function processSectionsData() {
@@ -2105,16 +1956,13 @@ const getSectionsData = async () => {
 
     tabs.value = await Promise.all(promises);
     tabs.value.sort((a, b) => a.id - b.id);
-    console.log('sections', tabs.value);
     activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
-    console.log('activeTab', activeTab.value);
 
   }
 
     await processSectionsData();
 
   } catch (error) {
-    console.error('Error loading sections data:', error);
   } finally {
     chartsLoading.value = false;
   }
@@ -2184,7 +2032,6 @@ const getCountySubcountySep = async () => {
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received  cascaded response:', response)
     //tableDataList.value = response.data
     const ret = response.data
 
@@ -2227,8 +2074,6 @@ const getCountySubcountySep = async () => {
  
   })
 
-  // console.log('countyOptions', countyList)
-  // console.log('filteredSubCountyList', filteredSubCountyList)
 }
 
  
@@ -2236,7 +2081,6 @@ const getCountySubcountySep = async () => {
 
 
 onMounted(() => {
-  console.log(activeTab)
   // Set main loading to false after all data is loaded
   loading.value = false
 });
@@ -2287,7 +2131,6 @@ const filterSubCounty = async (subcountyId) => {
  
 selectedSubCounties.value = subcountyId;
  
-  console.log('selectedSubCounties',selectedSubCounties.value);  // [1]
 
 
   if (selectedSubCounties.value.length == 0) {
