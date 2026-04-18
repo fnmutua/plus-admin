@@ -14,7 +14,8 @@ import { Icon } from '@iconify/vue';
 
 import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, pyramidOptions,
-  lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
+  lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs,
+  mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1915,49 +1916,14 @@ const getCharts = async (section_id) => {
 
             console.log('apsect 0002', aspect.value)
 
-            // Build map option like the official USA example, but for KE
+            const mapSeriesBase = (mapChartOptions.series?.[0] ?? {}) as Record<string, unknown>
             const UpdatedMapOtions = {
+              ...mapChartOptions,
               title: {
+                ...mapChartOptions.title,
                 text: thisChart.title,
                 subtext: subtitleWithSource,
-                left: 'right'
-              },
-              tooltip: {
-                trigger: 'item',
-                showDelay: 0,
-                transitionDuration: 0.2
-              },
-              visualMap: {
                 left: 'right',
-                min: MaxMin[0],
-                max: MaxMin[1],
-                inRange: {
-                  color: [
-                    '#313695',
-                    '#4575b4',
-                    '#74add1',
-                    '#abd9e9',
-                    '#e0f3f8',
-                    '#ffffbf',
-                    '#fee090',
-                    '#fdae61',
-                    '#f46d43',
-                    '#d73027',
-                    '#a50026'
-                  ]
-                },
-                text: ['High', 'Low'],
-                calculable: true
-              },
-              toolbox: {
-                show: true,
-                left: 'left',
-                top: 'top',
-                feature: {
-                  dataView: { readOnly: false },
-                  restore: {},
-                  saveAsImage: {}
-                }
               },
               graphic: [
                 {
@@ -1966,27 +1932,36 @@ const getCharts = async (section_id) => {
                   bottom: 5,
                   style: {
                     text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
-                    fill: '#666',
-                    font: '12px sans-serif'
-                  }
-                }
+                    fill: mapChartSourceFooterFill(),
+                    font: '12px sans-serif',
+                  },
+                },
               ],
+              visualMap: {
+                ...mapChartOptions.visualMap,
+                min: MaxMin[0],
+                max: MaxMin[1],
+              },
+              toolbox: {
+                ...mapChartOptions.toolbox,
+                left: 'left',
+                top: 'top',
+                feature: {
+                  dataView: { readOnly: false },
+                  restore: {},
+                  saveAsImage: {},
+                },
+              },
               series: [
                 {
+                  ...mapSeriesBase,
                   name: thisChart.title,
-                  type: 'map',
-                  roam: true,
                   map: mapName,
                   nameProperty: geoNameProperty,
                   aspectScale: aspect.value,
-                  emphasis: {
-                    label: {
-                      show: true
-                    }
-                  },
-                  data: mapData
-                }
-              ]
+                  data: mapData,
+                },
+              ],
             };
             // sort the data such that the graphs start and end proper
 
@@ -2017,7 +1992,7 @@ const getCharts = async (section_id) => {
                 top: 'middle',
                 style: {
                   text: 'No data  available',
-                  fill: 'red',
+                  fill: mapChartNoDataFill(),
                   fontSize: 16
                 },
                 z: 100 // Higher z value to place it on top
@@ -2738,49 +2713,14 @@ const getCharts = async (section_id) => {
 
             console.log('apsect 0001',aspect.value)
 
-            // Build map option like the official USA example, but for KE
+            const mapSeriesBase2 = (mapChartOptions.series?.[0] ?? {}) as Record<string, unknown>
             const UpdatedMapOtions = {
+              ...mapChartOptions,
               title: {
+                ...mapChartOptions.title,
                 text: thisChart.title,
                 subtext: subtitleWithSource,
-                left: 'right'
-              },
-              tooltip: {
-                trigger: 'item',
-                showDelay: 0,
-                transitionDuration: 0.2
-              },
-              visualMap: {
                 left: 'right',
-                min: MaxMin[0],
-                max: MaxMin[1],
-                inRange: {
-                  color: [
-                    '#313695',
-                    '#4575b4',
-                    '#74add1',
-                    '#abd9e9',
-                    '#e0f3f8',
-                    '#ffffbf',
-                    '#fee090',
-                    '#fdae61',
-                    '#f46d43',
-                    '#d73027',
-                    '#a50026'
-                  ]
-                },
-                text: ['High', 'Low'],
-                calculable: true
-              },
-              toolbox: {
-                show: true,
-                left: 'left',
-                top: 'top',
-                feature: {
-                  dataView: { readOnly: false },
-                  restore: {},
-                  saveAsImage: {}
-                }
               },
               graphic: [
                 {
@@ -2789,27 +2729,36 @@ const getCharts = async (section_id) => {
                   bottom: 5,
                   style: {
                     text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
-                    fill: '#666',
-                    font: '12px sans-serif'
-                  }
-                }
+                    fill: mapChartSourceFooterFill(),
+                    font: '12px sans-serif',
+                  },
+                },
               ],
+              visualMap: {
+                ...mapChartOptions.visualMap,
+                min: MaxMin[0],
+                max: MaxMin[1],
+              },
+              toolbox: {
+                ...mapChartOptions.toolbox,
+                left: 'left',
+                top: 'top',
+                feature: {
+                  dataView: { readOnly: false },
+                  restore: {},
+                  saveAsImage: {},
+                },
+              },
               series: [
                 {
+                  ...mapSeriesBase2,
                   name: thisChart.title,
-                  type: 'map',
-                  roam: true,
                   map: mapName,
                   nameProperty: geoNameProperty2,
                   aspectScale: aspect.value,
-                  emphasis: {
-                    label: {
-                      show: true
-                    }
-                  },
-                  data: mapData
-                }
-              ]
+                  data: mapData,
+                },
+              ],
             };
             // sort the data such that the graphs start and end proper
             console.log('UpdatedMapOtions [map2]', UpdatedMapOtions)
@@ -2823,7 +2772,7 @@ const getCharts = async (section_id) => {
             top: 'middle',
             style: {
               text: 'No data  available',
-              fill: 'red',
+              fill: mapChartNoDataFill(),
               fontSize: 16
                 },
                 z: 100 // Higher z value to place it on top

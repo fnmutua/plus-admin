@@ -6,7 +6,8 @@ import { ref, reactive, onBeforeMount, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue';
 import {
   pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
-  lineOptions, stackedbarOptions, simpleBarChart,stackedbarOptionsAbs
+  lineOptions, stackedbarOptions, simpleBarChart,stackedbarOptionsAbs,
+  mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -113,7 +114,8 @@ const cardLoading = ref(true)
 const geoLoading = ref(true)
 const chartsLoading = ref(true)
 const dashboardLoading = ref(true)
-const chartLoadingMessages = ref(new Map()) // Track loading messages for individual charts
+/** Plain object (not Map) so Vue tracks updates when messages change. */
+const chartLoadingMessages = ref<Record<string, string>>({})
 const filtersVisible = ref(false)
 const tempCounty = ref([])
 const tempSubCounty = ref([])
@@ -174,20 +176,26 @@ onBeforeUnmount(() => {
 })
 
 // Helper functions for chart loading states
-const setChartLoading = (chartId, message = 'Loading chart...') => {
-  chartLoadingMessages.value.set(chartId, message)
+const chartKey = (chartId: string | number) => String(chartId)
+
+const setChartLoading = (chartId: string | number, message = 'Loading chart...') => {
+  const k = chartKey(chartId)
+  chartLoadingMessages.value = { ...chartLoadingMessages.value, [k]: message }
 }
 
-const setChartLoaded = (chartId) => {
-  chartLoadingMessages.value.delete(chartId)
+const setChartLoaded = (chartId: string | number) => {
+  const k = chartKey(chartId)
+  const next = { ...chartLoadingMessages.value }
+  delete next[k]
+  chartLoadingMessages.value = next
 }
 
-const isChartLoading = (chartId) => {
-  return chartLoadingMessages.value.has(chartId)
+const isChartLoading = (chartId: string | number) => {
+  return chartKey(chartId) in chartLoadingMessages.value
 }
 
-const getChartLoadingMessage = (chartId) => {
-  return chartLoadingMessages.value.get(chartId) || 'Loading chart...'
+const getChartLoadingMessage = (chartId: string | number) => {
+  return chartLoadingMessages.value[chartKey(chartId)] || 'Loading chart...'
 }
 
 const cards = ref([])
@@ -1499,12 +1507,14 @@ async function processTreemapChart() {
             }
 
 
-            // Build map option like the official USA example, but for KE
+            const mapSeriesBase = (mapChartOptions.series?.[0] ?? {}) as Record<string, unknown>
             const UpdatedMapOtions = {
+              ...mapChartOptions,
               title: {
+                ...mapChartOptions.title,
                 text: thisChart.title,
                 subtext: subtitleWithSource,
-                left: 'right'
+                left: 'right',
               },
               graphic: [
                 {
@@ -1513,65 +1523,37 @@ async function processTreemapChart() {
                   bottom: 5,
                   style: {
                     text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
-                    fill: '#666',
-                    font: '12px sans-serif'
-                  }
-                }
+                    fill: mapChartSourceFooterFill(),
+                    font: '12px sans-serif',
+                  },
+                },
               ],
-              tooltip: {
-                trigger: 'item',
-                showDelay: 0,
-                transitionDuration: 0.2
-              },
               visualMap: {
-                left: 'right',
+                ...mapChartOptions.visualMap,
                 min: MaxMin[0],
                 max: MaxMin[1],
-                inRange: {
-                  color: [
-                    '#313695',
-                    '#4575b4',
-                    '#74add1',
-                    '#abd9e9',
-                    '#e0f3f8',
-                    '#ffffbf',
-                    '#fee090',
-                    '#fdae61',
-                    '#f46d43',
-                    '#d73027',
-                    '#a50026'
-                  ]
-                },
-                text: ['High', 'Low'],
-                calculable: true
               },
               toolbox: {
-                show: true,
+                ...mapChartOptions.toolbox,
                 left: 'left',
                 top: 'top',
                 feature: {
                   dataView: { readOnly: false },
                   restore: {},
-                  saveAsImage: {}
-                }
+                  saveAsImage: {},
+                },
               },
               series: [
                 {
+                  ...mapSeriesBase,
                   name: thisChart.title,
-                  type: 'map',
-                  roam: true,
                   map: mapName,
                   nameProperty: geoNameProperty,
                   aspectScale: aspect.value,
-                  emphasis: {
-                    label: {
-                      show: true
-                    }
-                  },
-                  data: mapData
-                }
-              ]
-            };
+                  data: mapData,
+                },
+              ],
+            }
 
             thisChart.chart = UpdatedMapOtions
 
@@ -1583,7 +1565,7 @@ async function processTreemapChart() {
                 top: 'middle',
                 style: {
                   text: 'No data  available',
-                  fill: 'red',
+                  fill: mapChartNoDataFill(),
                   fontSize: 16
                 },
                 z: 100 // Higher z value to place it on top
@@ -2401,7 +2383,7 @@ const downloadSettlementData = async () => {
               <ElSkeleton animated :loading="true">
                 <template #template>
                   <div class="chart-skeleton-placeholder">
-                    <p class="chart-skeleton-loading-text">…</p>
+                    <p class="chart-skeleton-loading-text">Loading chart…</p>
                     <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                     <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                   </div>
@@ -2428,7 +2410,7 @@ const downloadSettlementData = async () => {
                       <ElSkeleton animated :loading="true">
                         <template #template>
                           <div class="chart-skeleton-placeholder">
-                            <p class="chart-skeleton-loading-text">Loading chart…</p>
+                            <p class="chart-skeleton-loading-text">Loading section charts…</p>
                             <ElSkeletonItem variant="h3" style="width:40%;margin-bottom:16px" />
                             <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                           </div>
@@ -2576,6 +2558,10 @@ const downloadSettlementData = async () => {
   font-weight: 500;
   color: var(--el-text-color-secondary);
   letter-spacing: 0.01em;
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .card-fade-in {

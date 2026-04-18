@@ -1517,6 +1517,15 @@ export const xstackedbarOptions: EChartsOption = {
   series: []
 }
 
+/** Source line under maps (matches subtitle tone in light/dark). */
+export function mapChartSourceFooterFill(): string {
+  return echartsSubtextColor()
+}
+
+export function mapChartNoDataFill(): string {
+  return getAppDark() ? '#fca5a5' : '#b91c1c'
+}
+
 export const mapChartOptions: EChartsOption = {
   color: customColorPalette, // Apply 100-color palette
   get backgroundColor() {
@@ -1623,10 +1632,7 @@ export const mapChartOptions: EChartsOption = {
       map: 'KE',
       aspectScale: 0.999,
       label: {
-        show: true,
-        get color() {
-          return echartsSubtextColor()
-        },
+        show: false,
       },
       itemStyle: {
         get borderColor() {
@@ -1636,10 +1642,7 @@ export const mapChartOptions: EChartsOption = {
       },
       emphasis: {
         label: {
-          show: true,
-          get color() {
-            return echartsTitleColor()
-          },
+          show: false,
         },
         itemStyle: {
           get borderColor() {
@@ -1650,9 +1653,7 @@ export const mapChartOptions: EChartsOption = {
       },
       select: {
         label: {
-          get color() {
-            return echartsTitleColor()
-          },
+          show: false,
         },
         itemStyle: {
           get borderColor() {
