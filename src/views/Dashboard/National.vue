@@ -2893,6 +2893,20 @@ const downloadSettlementData = async () => {
   text-overflow: ellipsis;
 }
 
+/* App store dark mode (html.dark) — stat card caption + section tab labels */
+html.dark .value-label {
+  color: #ffffff;
+}
+
+html.dark .dashboard-tabs :deep(.el-tabs__item) {
+  color: #ffffff;
+}
+
+html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
+  color: #79bbff;
+  font-weight: 600;
+}
+
 .charts-container {
   padding: 8px;
 }

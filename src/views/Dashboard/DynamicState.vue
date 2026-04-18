@@ -6,7 +6,7 @@ import {
 import { Loading } from '@element-plus/icons-vue'
 import { geoCache as _geoCache, indicatorConfigCache as _indicatorConfigCache } from '@/utils/dashboardCache'
 
-import { ref,computed, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 
 
@@ -44,10 +44,6 @@ import { useRouter } from 'vue-router'
 const { push } = useRouter()
 
 const appStore = useAppStore()
-
-
-
-const isDark = computed(() => appStore.getIsDark)
 
 
 
@@ -130,9 +126,11 @@ function refreshDashboardChartThemes() {
 
 watch(
   () => appStore.getIsDark,
-  () => {
+  async () => {
+    await nextTick()
     refreshDashboardChartThemes()
   },
+  { flush: 'post' },
 )
 
 const filterLevel = ref('national')
@@ -3628,10 +3626,10 @@ onBeforeUnmount(() => {
                       </template>
                       <template v-if="chart.chart">
                         <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
-                          <v-chart :key="`map-${chart.id}-${isDark}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                          <v-chart :key="`map-${chart.id}-${appStore.getIsDark}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
                         </div> 
-                        <apexchart v-if="chart.type!=7 && chart.type!=8" :key="`apex-${chart.id}-${isDark}`" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
-                        <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${isDark}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
+                        <apexchart v-if="chart.type!=7 && chart.type!=8" :key="`apex-${chart.id}-${appStore.getIsDark}`" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
+                        <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${appStore.getIsDark}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
                       </template>
                       <template v-else>
                         <div class="empty-state-content">
@@ -3932,6 +3930,20 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* App store dark mode (html.dark) — stat card caption + section tab labels */
+html.dark .value-label {
+  color: #ffffff;
+}
+
+html.dark .dashboard-tabs :deep(.el-tabs__item) {
+  color: #ffffff;
+}
+
+html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
+  color: #79bbff;
+  font-weight: 600;
 }
 
 .charts-container {
