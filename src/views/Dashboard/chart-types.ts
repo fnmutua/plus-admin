@@ -1,15 +1,62 @@
 import { EChartsOption } from 'echarts'
 import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
-import { ref } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 
 // Import the 100-color palette (assumed to be in src/charts/colorPalette.ts)
 import customColorPalette from './colors'
 
-const appStore = useAppStore()
-const isDark = ref(appStore.getIsDark)
 const { t } = useI18n()
+
+/** Read dark mode when options are consumed — never snapshot at module load. */
+function getAppDark(): boolean {
+  return useAppStore().getIsDark
+}
+
+function apexTitleColor(): string {
+  return getAppDark() ? '#f1f5f9' : '#111827'
+}
+
+function apexSubtitleColor(): string {
+  return getAppDark() ? '#9ca3af' : '#5c646d'
+}
+
+function apexLegendLabelColor(): string {
+  return getAppDark() ? '#cbd5e1' : '#374151'
+}
+
+/** Grid lines & axis rule/tick strokes for Apex bar charts */
+function apexGridBorderColor(): string {
+  return getAppDark() ? 'rgba(148, 163, 184, 0.35)' : '#e5e7eb'
+}
+
+function echartsTitleColor(): string {
+  return getAppDark() ? '#e2e8f0' : '#303133'
+}
+
+function echartsSubtextColor(): string {
+  return getAppDark() ? '#94a3b8' : '#606266'
+}
+
+function echartsAxisLineColor(): string {
+  return getAppDark() ? 'rgba(148, 163, 184, 0.45)' : '#dcdfe6'
+}
+
+function echartsSplitLineColor(): string {
+  return getAppDark() ? 'rgba(75, 85, 99, 0.35)' : '#ebeef5'
+}
+
+function echartsMapRegionBorder(): string {
+  return getAppDark() ? 'rgba(148, 163, 184, 0.55)' : '#ccc'
+}
+
+function echartsTooltipBg(): string {
+  return getAppDark() ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)'
+}
+
+function echartsTooltipBorder(): string {
+  return getAppDark() ? 'rgba(148, 163, 184, 0.35)' : '#e4e7ed'
+}
 
 const colorPalette = ['#ff007f', '#0000ff']  // Male-Female, retained for barMaleFemaleOptions
 const maleIcon = 'path://m 146.41936,238.8034 c -5.21101,-1.43402 -7.51545,-6.79358 -6.6619,-11.76943 -0.0588,-45.10952 -0.11757,-90.21905 -0.17635,-135.328563 -5.3022,-1.61412 -3.06375,4.34199 -3.52464,7.58816 -0.0576,14.697923 -0.11511,29.395843 -0.17266,44.093773 -1.72718,6.61806 -12.15586,7.45944 -14.19605,0.88682 -1.42909,-4.98857 -0.22146,-10.60033 -0.62062,-15.83232 0.10773,-15.18837 -0.21551,-30.437173 0.16059,-45.587893 1.91842,-11.228608 12.80383,-20.22421 24.26927,-18.689786 10.60777,1.558898 0.0755,-3.65768 -0.79236,-8.596161 -4.23852,-8.688715 0.80002,-20.073014 9.72708,-23.421847 8.82591,-4.162774 20.30103,1.001172 23.52581,10.108188 2.28945,5.67583 1.4368,12.853955 -2.76118,17.571486 -5.15831,4.024926 -3.94241,5.010805 1.85043,4.362909 13.58742,-1.603119 25.03585,11.840701 23.9554,24.967141 -0.0691,18.213333 -0.13818,36.426673 -0.20726,54.640013 -1.5351,4.55905 -7.30638,6.71543 -11.30858,3.96578 -4.81473,-2.8888 -2.73019,-9.20279 -3.19227,-13.88869 -0.0523,-14.05586 -0.10469,-28.11173 -0.15704,-42.167583 -4.85271,-1.54237 -3.37467,3.24601 -3.51022,6.4208 V 231.02616 c -1.3114,6.77368 -9.29063,10.3384 -15.13544,6.61747 -6.62075,-3.7866 -4.17124,-12.04397 -4.62011,-18.29166 v -70.84935 c -4.85175,-1.54283 -3.39102,3.24111 -3.53094,6.42079 -0.0578,25.5528 -0.11553,51.1056 -0.17329,76.65839 -1.7387,5.48439 -7.13811,8.77105 -12.74767,7.2216 z'
@@ -51,12 +98,12 @@ export const stacklineOptions: EChartsOption = {
     text: 'stacked line',
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'left',
-    textStyle: {
-      fontSize: 14
+    get textStyle() {
+      return { fontSize: 14, color: echartsTitleColor() }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: echartsSubtextColor() }
+    },
   },
   legend: {
     orient: 'horizontal',
@@ -64,7 +111,10 @@ export const stacklineOptions: EChartsOption = {
     center: 'center',
     itemWidth: 20,
     itemHeight: 20,
-    bottom: '20'
+    bottom: '20',
+    get textStyle() {
+      return { color: echartsSubtextColor() }
+    },
   },
   toolbox: {
     show: true,
@@ -96,11 +146,26 @@ export const stacklineOptions: EChartsOption = {
   xAxis: {
     type: 'category',
     boundaryGap: false,
-    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   yAxis: {
     type: 'value',
-    name: 'Number'
+    name: 'Number',
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
+    nameTextStyle: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   series: [
     {
@@ -153,34 +218,50 @@ function resizedataURL(datas, wantedWidth, wantedHeight) {
 
 // ApexCharts options (unchanged, as customTheme is for ECharts)
 export const simpleBarChart = {
+  get darkMode() {
+    return getAppDark()
+  },
   title: {
     text: '',
     align: 'left',
-    textStyle: {
-      fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000'
+    get textStyle() {
+      return {
+        fontSize: 14,
+        color: apexTitleColor(),
+      }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: apexSubtitleColor() }
+    },
   },
   colors: romaColors, // Use Roma theme colors
 
-  darkMode: isDark.value,
+  legend: {
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
+  },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   chart: {
     type: 'bar',
     height: 350,
     stacked: false,
     stackType: '100%',
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
     toolbar: {
       show: true,
       export: {
@@ -221,10 +302,41 @@ export const simpleBarChart = {
       }
     }
   }],
+  grid: {
+    show: true,
+    get borderColor() {
+      return apexGridBorderColor()
+    },
+    strokeDashArray: 0,
+    xaxis: {
+      lines: { show: true },
+    },
+    yaxis: {
+      lines: { show: true },
+    },
+  },
+  yaxis: {
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+  },
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement: 'on'
+    tickPlacement: 'on',
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+    get axisBorder() {
+      return { color: apexGridBorderColor() }
+    },
+    get axisTicks() {
+      return { color: apexGridBorderColor() }
+    },
   },
   fill: {
     opacity: 1
@@ -232,34 +344,50 @@ export const simpleBarChart = {
 }
 
 export const stackedbarOptions = {
+  get darkMode() {
+    return getAppDark()
+  },
   title: {
     text: '',
     align: 'left',
-    textStyle: {
-      fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000'
+    get textStyle() {
+      return {
+        fontSize: 14,
+        color: apexTitleColor(),
+      }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: apexSubtitleColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
+  legend: {
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
+  },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   chart: {
     type: 'bar',
     height: 350,
     stacked: true,
     stackType: '100%',
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
     toolbar: {
       show: true,
       export: {
@@ -300,10 +428,41 @@ export const stackedbarOptions = {
       }
     }
   }],
+  grid: {
+    show: true,
+    get borderColor() {
+      return apexGridBorderColor()
+    },
+    strokeDashArray: 0,
+    xaxis: {
+      lines: { show: true },
+    },
+    yaxis: {
+      lines: { show: true },
+    },
+  },
+  yaxis: {
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+  },
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement: 'on'
+    tickPlacement: 'on',
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+    get axisBorder() {
+      return { color: apexGridBorderColor() }
+    },
+    get axisTicks() {
+      return { color: apexGridBorderColor() }
+    },
   },
   fill: {
     opacity: 1
@@ -311,33 +470,49 @@ export const stackedbarOptions = {
 }
 
 export const stackedbarOptionsAbs = {
+  get darkMode() {
+    return getAppDark()
+  },
   title: {
     text: '',
     align: 'left',
-    textStyle: {
-      fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000'
+    get textStyle() {
+      return {
+        fontSize: 14,
+        color: apexTitleColor(),
+      }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: apexSubtitleColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
+  legend: {
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
+  },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   chart: {
     type: 'bar',
     height: 350,
     stacked: true,
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
     toolbar: {
       show: true,
       export: {
@@ -373,10 +548,41 @@ export const stackedbarOptionsAbs = {
       }
     }
   }],
+  grid: {
+    show: true,
+    get borderColor() {
+      return apexGridBorderColor()
+    },
+    strokeDashArray: 0,
+    xaxis: {
+      lines: { show: true },
+    },
+    yaxis: {
+      lines: { show: true },
+    },
+  },
+  yaxis: {
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+  },
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement: 'on'
+    tickPlacement: 'on',
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+    get axisBorder() {
+      return { color: apexGridBorderColor() }
+    },
+    get axisTicks() {
+      return { color: apexGridBorderColor() }
+    },
   },
   fill: {
     opacity: 1
@@ -384,31 +590,48 @@ export const stackedbarOptionsAbs = {
 }
 
 export const multipleBarChart = {
+  get darkMode() {
+    return getAppDark()
+  },
   title: {
     text: '',
     align: 'left',
-    textStyle: {
-      fontSize: 14
+    get textStyle() {
+      return {
+        fontSize: 14,
+        color: apexTitleColor(),
+      }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: apexSubtitleColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
+  legend: {
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
+  },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   chart: {
     type: 'bar',
     height: 350,
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
     toolbar: {
       show: true,
       export: {
@@ -453,10 +676,41 @@ export const multipleBarChart = {
       endingShape: 'rounded'
     }
   },
+  grid: {
+    show: true,
+    get borderColor() {
+      return apexGridBorderColor()
+    },
+    strokeDashArray: 0,
+    xaxis: {
+      lines: { show: true },
+    },
+    yaxis: {
+      lines: { show: true },
+    },
+  },
+  yaxis: {
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+  },
   xaxis: {
     type: 'category',
     categories: [],
-    tickPlacement: 'on'
+    tickPlacement: 'on',
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+    get axisBorder() {
+      return { color: apexGridBorderColor() }
+    },
+    get axisTicks() {
+      return { color: apexGridBorderColor() }
+    },
   },
   fill: {
     opacity: 1
@@ -464,10 +718,16 @@ export const multipleBarChart = {
 }
 
 export const lineOptions = {
+  get darkMode() {
+    return getAppDark()
+  },
   chart: {
     type: 'area',
     stacked: false,
     height: 350,
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
     zoom: {
       type: 'x',
       enabled: true,
@@ -488,20 +748,60 @@ export const lineOptions = {
   markers: {
     size: 0
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
+  grid: {
+    show: true,
+    get borderColor() {
+      return apexGridBorderColor()
+    },
+    strokeDashArray: 0,
+    xaxis: {
+      lines: { show: true },
+    },
+    yaxis: {
+      lines: { show: true },
+    },
+  },
+  yaxis: {
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+  },
+
+  legend: {
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
+  },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   xaxis: {
-    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
+    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+    labels: {
+      get style() {
+        return { colors: apexLegendLabelColor() }
+      },
+    },
+    get axisBorder() {
+      return { color: apexGridBorderColor() }
+    },
+    get axisTicks() {
+      return { color: apexGridBorderColor() }
+    },
   },
   series: [{
     name: "Desktops",
@@ -510,6 +810,9 @@ export const lineOptions = {
 }
 
 export const pieDonutOptions = {
+  get darkMode() {
+    return getAppDark()
+  },
   chart: {
     height: 350,
     type: 'donut',
@@ -524,17 +827,18 @@ export const pieDonutOptions = {
       enabled: true
     }
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   title: {
     text: 'National Slum Database',
     align: 'left',
-    style: {
-      fontSize: '16px',
-      fontWeight: 'bold',
-      color: isDark.value ? '#ffffff' : '#000000'
-    }
+    get style() {
+      return {
+        fontSize: '16px',
+        fontWeight: 'bold',
+        color: apexTitleColor(),
+      }
+    },
   },
   plotOptions: {
     pie: {
@@ -545,15 +849,22 @@ export const pieDonutOptions = {
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   legend: {
     position: 'bottom',
-    horizontalAlign: 'right'
+    horizontalAlign: 'right',
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
   },
   labels: [],
   series: [],
@@ -573,6 +884,9 @@ export const pieDonutOptions = {
 
 
 export const pieOptions = {
+  get darkMode() {
+    return getAppDark()
+  },
   chart: {
     height: 350,
     type: 'donut',
@@ -610,17 +924,18 @@ export const pieOptions = {
       enabled: true
     }
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   title: {
     text: 'National Slum Database',
     align: 'left',
-    style: {
-      fontSize: '16px',
-      fontWeight: 'bold',
-      color: isDark.value ? '#ffffff' : '#000000'
-    }
+    get style() {
+      return {
+        fontSize: '16px',
+        fontWeight: 'bold',
+        color: apexTitleColor(),
+      }
+    },
   },
   plotOptions: {
    pie: {
@@ -632,15 +947,22 @@ export const pieOptions = {
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
   },
   legend: {
     position: 'bottom',
-    horizontalAlign: 'right'
+    horizontalAlign: 'right',
+    labels: {
+      get colors() {
+        return apexLegendLabelColor()
+      },
+    },
   },
   labels: [],
   series: [],
@@ -659,66 +981,84 @@ export const pieOptions = {
 }
 
 
+/** Word Map (Apex treemap): dark/light reads from store when options are merged. */
 export const treemapOptions = {
+  get darkMode() {
+    return getAppDark()
+  },
+  chart: {
+    height: 350,
+    type: 'treemap',
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
+    toolbar: {
+      show: true,
+      export: { scale: 3, width: 1800 },
+    },
+    zoom: { enabled: true },
+  },
+  /** Do not use `theme: { mode }` with a getter — Apex mutates `theme` and Vue proxies reject the set. */
   title: {
     text: '',
     align: 'left',
-    textStyle: {
-      fontSize: 14,
-      color: isDark.value ? '#ffffff' : '#000000'
-    },
-    subtextStyle: {
-      fontSize: 12
-    }
-  },
-  darkMode: isDark.value,
-  colors: romaColors,
-  tooltip: {
-    formatter: function (info) {
-      return [
-        '<div style="font-size:14px;color:#666;font-weight:400;line-height:1;">' + info.name + '</div>',
-        '<div style="margin:3px 0;line-height:1;">' + info.value + '</div>'
-      ].join('');
-    }
-  },
-  series: [{
-    type: 'treemap',
-    data: [],
-    label: {
-      show: true,
-      formatter: '{b}'
-    },
-    upperLabel: {
-      show: true,
-      height: 30
-    },
-    itemStyle: {
-      borderColor: '#fff'
-    },
-    levels: [
-      {
-        itemStyle: {
-          borderColor: '#555',
-          borderWidth: 4,
-          gapWidth: 4
-        }
-      },
-      {
-        itemStyle: {
-          borderColor: '#555',
-          borderWidth: 2,
-          gapWidth: 2
-        }
-      },
-      {
-        itemStyle: {
-          borderColor: '#555',
-          borderWidth: 1,
-          gapWidth: 1
-        }
+    get style() {
+      return {
+        fontSize: '16px',
+        fontWeight: 'bold',
+        color: apexTitleColor(),
       }
-    ]
-  }]
+    },
+    get textStyle() {
+      return {
+        fontSize: 14,
+        color: echartsTitleColor(),
+      }
+    },
+    get subtextStyle() {
+      return {
+        fontSize: 12,
+        color: echartsSubtextColor(),
+      }
+    },
+  },
+  subtitle: {
+    text: '',
+    align: 'left',
+    get style() {
+      return {
+        fontSize: '12px',
+        fontWeight: 'normal',
+        color: apexSubtitleColor(),
+      }
+    },
+  },
+  colors: romaColors,
+  stroke: {
+    width: 2,
+    get colors() {
+      return [getAppDark() ? 'rgba(15, 23, 42, 0.92)' : '#ffffff']
+    },
+  },
+  plotOptions: {
+    treemap: {
+      distributed: true,
+      enableShades: false,
+      dataLabels: {
+        format: 'scale',
+        get style() {
+          return {
+            fontSize: '12px',
+            fontWeight: 600,
+            colors: [getAppDark() ? '#f8fafc' : '#0f172a'],
+          }
+        },
+      },
+    },
+  },
+  legend: { show: false },
+  labels: [],
+  series: [],
 }
 
 // ECharts options with 100-color palette
@@ -726,9 +1066,11 @@ export const barOptions: EChartsOption = {
   //color: customColorPalette, // Apply 100-color palette
   title: {
     text: 'barchart',
-    left: 'left'
+    left: 'left',
+    get textStyle() {
+      return { color: echartsTitleColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   tooltip: {
@@ -746,12 +1088,39 @@ export const barOptions: EChartsOption = {
     type: 'category',
     data: ['Monday', 'Tuesday', 'Wednesday'],
     axisTick: {
-      alignWithLabel: true
-    }
+      alignWithLabel: true,
+    },
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: false, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   yAxis: {
     type: 'value',
-    name: 'Number'
+    name: 'Number',
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: true, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
+    nameTextStyle: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   series: [
     {
@@ -768,14 +1137,13 @@ export const xmultipleBarChart: EChartsOption = {
     text: '',
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
-    textStyle: {
-      fontSize: 14
+    get textStyle() {
+      return { fontSize: 14, color: echartsTitleColor() }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: echartsSubtextColor() }
+    },
   },
-  darkMode: isDark.value,
   toolbox: {
     show: true,
     feature: {
@@ -821,7 +1189,10 @@ export const xmultipleBarChart: EChartsOption = {
   },
   legend: {
     top: 'bottom',
-    type: 'scroll'
+    type: 'scroll',
+    get textStyle() {
+      return { color: echartsSubtextColor() }
+    },
   },
   grid: {
     left: '3%',
@@ -831,12 +1202,39 @@ export const xmultipleBarChart: EChartsOption = {
   },
   yAxis: {
     type: 'value',
-    boundaryGap: [0, 0.01]
+    boundaryGap: [0, 0.01],
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: true, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   xAxis: {
     type: 'category',
     name: 'Number',
-    data: []
+    data: [],
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: false, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
+    nameTextStyle: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   series: []
 }
@@ -844,7 +1242,10 @@ export const xmultipleBarChart: EChartsOption = {
 export const barOptionsMultiple: EChartsOption = {
  // color: customColorPalette, // Apply 100-color palette
   title: {
-    text: 'World Population'
+    text: 'World Population',
+    get textStyle() {
+      return { color: echartsTitleColor() }
+    },
   },
   tooltip: {
     trigger: 'axis',
@@ -852,7 +1253,6 @@ export const barOptionsMultiple: EChartsOption = {
       type: 'shadow'
     }
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   legend: {
@@ -860,7 +1260,10 @@ export const barOptionsMultiple: EChartsOption = {
     orient: 'vertical',
     left: 10,
     top: 20,
-    bottom: 20
+    bottom: 20,
+    get textStyle() {
+      return { color: echartsSubtextColor() }
+    },
   },
   grid: {
     left: '3%',
@@ -871,11 +1274,38 @@ export const barOptionsMultiple: EChartsOption = {
   yAxis: {
     type: 'value',
     name: 'Number',
-    boundaryGap: [0, 0.01]
+    boundaryGap: [0, 0.01],
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: true, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
+    nameTextStyle: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   xAxis: {
     type: 'category',
-    data: []
+    data: [],
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: false, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   series: []
 }
@@ -886,14 +1316,13 @@ export const barMaleFemaleOptions: EChartsOption = {
     text: '',
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
-    textStyle: {
-      fontSize: 14
+    get textStyle() {
+      return { fontSize: 14, color: echartsTitleColor() }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: echartsSubtextColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   toolbox: {
@@ -928,11 +1357,33 @@ export const barMaleFemaleOptions: EChartsOption = {
     type: 'category',
     data: [],
     axisTick: {
-      alignWithLabel: true
-    }
+      alignWithLabel: true,
+    },
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: false, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   yAxis: {
-    type: 'value'
+    type: 'value',
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: true, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   legend: {
     orient: 'horizontal',
@@ -940,6 +1391,9 @@ export const barMaleFemaleOptions: EChartsOption = {
     left: 'left',
     itemWidth: 20,
     itemHeight: 20,
+    get textStyle() {
+      return { color: echartsSubtextColor() }
+    },
     data: [
       {
         name: 'Male',
@@ -987,14 +1441,13 @@ export const xstackedbarOptions: EChartsOption = {
     text: '',
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
-    textStyle: {
-      fontSize: 14
+    get textStyle() {
+      return { fontSize: 14, color: echartsTitleColor() }
     },
-    subtextStyle: {
-      fontSize: 12
-    }
+    get subtextStyle() {
+      return { fontSize: 12, color: echartsSubtextColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   toolbox: {
@@ -1009,18 +1462,40 @@ export const xstackedbarOptions: EChartsOption = {
   grid: {
     left: 30,
     right: 30,
-    bottom: 20
+    bottom: 20,
   },
   xAxis: {
     type: 'category',
     data: [],
     axisTick: {
-      alignWithLabel: true
-    }
+      alignWithLabel: true,
+    },
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: false, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   yAxis: {
     type: 'value',
-    position: 'right'
+    position: 'right',
+    get axisLine() {
+      return { lineStyle: { color: echartsAxisLineColor() } }
+    },
+    get splitLine() {
+      return { show: true, lineStyle: { color: echartsSplitLineColor() } }
+    },
+    axisLabel: {
+      get color() {
+        return echartsSubtextColor()
+      },
+    },
   },
   legend: {
     show: false,
@@ -1028,7 +1503,10 @@ export const xstackedbarOptions: EChartsOption = {
     orient: 'vertical',
     left: 10,
     top: 20,
-    bottom: 20
+    bottom: 20,
+    get textStyle() {
+      return { color: echartsSubtextColor() }
+    },
   },
   tooltip: {
     trigger: 'axis',
@@ -1041,21 +1519,35 @@ export const xstackedbarOptions: EChartsOption = {
 
 export const mapChartOptions: EChartsOption = {
   color: customColorPalette, // Apply 100-color palette
+  get backgroundColor() {
+    return 'transparent'
+  },
   title: {
     text: 'map',
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'left',
-    textStyle: {
-      fontSize: 14
-    }
+    get textStyle() {
+      return { fontSize: 14, color: echartsTitleColor() }
+    },
+    get subtextStyle() {
+      return { fontSize: 12, color: echartsSubtextColor() }
+    },
   },
-  darkMode: isDark.value,
   colors: romaColors, // Use Roma theme colors
 
   tooltip: {
     trigger: 'item',
     showDelay: 0,
-    transitionDuration: 0.2
+    transitionDuration: 0.2,
+    get backgroundColor() {
+      return echartsTooltipBg()
+    },
+    get borderColor() {
+      return echartsTooltipBorder()
+    },
+    get textStyle() {
+      return { color: echartsTitleColor(), fontSize: 13 }
+    },
   },
   visualMap: {
     left: 'right',
@@ -1077,10 +1569,31 @@ export const mapChartOptions: EChartsOption = {
       ]
     },
     text: ['High', 'Low'],
-    calculable: true
+    calculable: true,
+    get textStyle() {
+      return { color: echartsSubtextColor(), fontSize: 12 }
+    },
+    get handleStyle() {
+      return {
+        borderColor: echartsAxisLineColor(),
+        color: getAppDark() ? '#475569' : '#f1f5f9',
+      }
+    },
   },
   toolbox: {
     show: true,
+    get iconStyle() {
+      return {
+        borderColor: echartsAxisLineColor(),
+      }
+    },
+    get emphasis() {
+      return {
+        iconStyle: {
+          borderColor: echartsTitleColor(),
+        },
+      }
+    },
     feature: {
       myFullScreenButton: {
         show: true,
@@ -1109,10 +1622,43 @@ export const mapChartOptions: EChartsOption = {
       roam: true,
       map: 'KE',
       aspectScale: 0.999,
+      label: {
+        show: true,
+        get color() {
+          return echartsSubtextColor()
+        },
+      },
+      itemStyle: {
+        get borderColor() {
+          return echartsMapRegionBorder()
+        },
+        borderWidth: 0.8,
+      },
       emphasis: {
         label: {
-          show: true
-        }
+          show: true,
+          get color() {
+            return echartsTitleColor()
+          },
+        },
+        itemStyle: {
+          get borderColor() {
+            return echartsTitleColor()
+          },
+          borderWidth: 1.2,
+        },
+      },
+      select: {
+        label: {
+          get color() {
+            return echartsTitleColor()
+          },
+        },
+        itemStyle: {
+          get borderColor() {
+            return echartsTitleColor()
+          },
+        },
       },
       data: []
     }
@@ -1143,10 +1689,16 @@ export const pyramidOptions  = {
  
   
   chartOptions: {
+    get darkMode() {
+      return getAppDark()
+    },
     chart: {
       type: 'bar',
       height: 440,
       stacked: true,
+      get foreColor() {
+        return apexLegendLabelColor()
+      },
       zoom: {
         type: 'x',
         enabled: true,
@@ -1167,6 +1719,11 @@ export const pyramidOptions  = {
     legend: {
       show: true,
       position: 'top',
+      labels: {
+        get colors() {
+          return apexLegendLabelColor()
+        },
+      },
       markers: {
         size: 10,
         width: 10,
@@ -1218,18 +1775,40 @@ export const pyramidOptions  = {
     },
     stroke: {
       width: 1,
-      colors: ["#fff"]
+      get colors() {
+        return [getAppDark() ? '#0f172a' : '#ffffff']
+      },
     },
-    
     grid: {
+      show: true,
+      get borderColor() {
+        return apexGridBorderColor()
+      },
+      strokeDashArray: 0,
       xaxis: {
         lines: {
-          show: false
-        }
-      }
+          show: true,
+        },
+      },
+      yaxis: {
+        lines: {
+          show: true,
+        },
+      },
     },
     yaxis: {
-      stepSize: 1
+      stepSize: 1,
+      labels: {
+        get style() {
+          return { colors: apexLegendLabelColor() }
+        },
+      },
+      get axisBorder() {
+        return { color: apexGridBorderColor() }
+      },
+      get axisTicks() {
+        return { color: apexGridBorderColor() }
+      },
     },
     tooltip: {
       shared: false,
@@ -1245,28 +1824,44 @@ export const pyramidOptions  = {
       }
     },
     title: {
-      text: ''
+      text: '',
+      get style() {
+        return { color: apexTitleColor() }
+      },
     },
-     
-  subtitle: {
-    text: `National Slum Database, ${new Date().getFullYear()}`,
-    align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2'
-    }
-  },
+    subtitle: {
+      text: `National Slum Database, ${new Date().getFullYear()}`,
+      align: 'left',
+      get style() {
+        return {
+          fontSize: '12px',
+          fontWeight: 'normal',
+          color: apexSubtitleColor(),
+        }
+      },
+    },
     xaxis: {
-      categories: [ '65+','35-64','18-35','6-17', '0-5'  ],
+      categories: ['65+', '35-64', '18-35', '6-17', '0-5'],
       title: {
-        text: 'Percent'
+        text: 'Percent',
+        get style() {
+          return { color: apexSubtitleColor() }
+        },
       },
       labels: {
         formatter: function (val) {
-          return Math.abs(Math.round(val)) +'%'
-        }
-      }
+          return Math.abs(Math.round(val)) + '%'
+        },
+        get style() {
+          return { colors: apexLegendLabelColor() }
+        },
+      },
+      get axisBorder() {
+        return { color: apexGridBorderColor() }
+      },
+      get axisTicks() {
+        return { color: apexGridBorderColor() }
+      },
     },
   },
 };

@@ -943,7 +943,9 @@ async function processTreemapChart() {
         //series: [{ data: cdata[0].map((label, index) => ({ x: label, y: cdata[1][index] })) }], // Combine labels and series into treemap format
         series:cdata[1],
         plotOptions: {
+          ...treemapOptions.plotOptions,
           treemap: {
+            ...treemapOptions.plotOptions?.treemap,
             distributed: true,
             enableShades: false,
           },
@@ -2094,7 +2096,10 @@ const getChartType =   (typeId) => {
     } 
     else if (typeId==8) {
       return 'pyramid';
-    } 
+    }
+    else if (typeId == 11) {
+      return 'treemap';
+    }
 }
 
 const xhandleCardClick = async (card) => {
