@@ -386,6 +386,8 @@ module.exports = function (app) {
    */
   app.post('/api/v1/summary/byfield/multiple', controller.sumModelAssociatedMultipleModels)
 
+  app.post('/api/v1/summary/byfield/multiple/batch', controller.batchSumModelAssociatedMultipleModels)
+
   /**
    * @swagger
    * /api/v1/summary/group/multiple:

@@ -11,10 +11,13 @@ import {
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import {
+  getSummarybyFieldFromMultipleIncludes,
+  getSummaryBatchByFieldFromMultipleIncludes,
+  getSummaryGroupByMultipleFields,
+} from '@/api/summary'
 import { getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
-import {  getSummaryGroupByMultipleFields } from '@/api/summary'
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { useRoute } from 'vue-router'
@@ -505,299 +508,195 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
   return result;
 }
 
- 
+/** Build POST body for /summary/byfield/multiple (batch + single). */
+function buildChartSummaryFormData(thisChart: any) {
+  const associated_Models: string[] = []
+  const filterFields: string[] = []
+  const filterValues: any[] = []
+  const groupFields: string[] = []
+  const filterOperators: string[] = []
 
-const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
-  
-  //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+  const cmodel = thisChart.card_model
+  const filters = thisChart.filters
+  const cfield = thisChart.card_model_field
+  const cAggregation = thisChart.aggregation
+  const chartType = thisChart.type
+  const categorizedField = thisChart.categorized
+  const unique = thisChart.unique ? thisChart.unique : false
+  const ignoreEmpty = thisChart.ignore_empty ? thisChart.ignore_empty : false
 
-  let associated_Models = []
-  let filterFields = []
-  let filterValues = []
-  let groupFields = []
-  let filterOperators = []
-
-
-  var cmodel = thisChart.card_model
-  var filters = thisChart.filters
-
-  var cfield = thisChart.card_model_field
-  var cAggregation = thisChart.aggregation
-  var chartType = thisChart.type
-  var categorizedField =thisChart.categorized
-  var unique = thisChart.unique?thisChart.unique:false 
-  var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
- 
-
-
-  if(filters) {
-
-    for (const item of filters ) {
-      if(item.field) {
-        filterFields.push(item.field);
-      filterValues.push(item.value);
-      filterOperators.push(item.operation);
+  if (filters) {
+    for (const item of filters) {
+      if (item.field) {
+        filterFields.push(item.field)
+        filterValues.push(item.value)
+        filterOperators.push(item.operation)
       }
-
     }
-    }
-
-
+  }
 
   if (categorizedField) {
     groupFields.push(cmodel + '.' + cfield)
-
   }
 
   if (chartType == 5 || chartType == 6) {
-    // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
     groupFields.push(cmodel + '.createdAt')
-
   }
- 
 
-  
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-   
-
     filterFields.push('county_id')
-     filterValues.push(selectedCounties.value)
+    filterValues.push(selectedCounties.value)
     filterOperators.push('or')
-
-    if(chartType!=3 &&chartType!=10 ) { 
+    if (chartType != 3 && chartType != 10) {
       groupFields.push('subcounty.name')
     }
-
-  }
-
-
-  else if (filterLevel.value === 'subcounty') { 
-    // filter by subcounty 
+  } else if (filterLevel.value === 'subcounty') {
     associated_Models.push('ward')
-    // filterValues.push(selectedSubCounties.value)
-
-    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
-    //   filterFields.push('subcounty_id')
-    // }
-
     filterFields.push('subcounty_id')
-     filterValues.push(selectedSubCounties.value)
+    filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
-
-
-    if(chartType!=3&&chartType!=10 ) { 
+    if (chartType != 3 && chartType != 10) {
       groupFields.push('ward.name')
     }
-  }
-
-
-
-
-  else if (filterLevel.value === 'national' ) {
+  } else if (filterLevel.value === 'national') {
     associated_Models.push('county')
-
-
-     if(chartType!=3&&chartType!=10 ) { 
+    if (chartType != 3 && chartType != 10) {
       groupFields.push('county.name')
     }
-
   }
 
-
-
-
-
-
-  const formData = {}
-formData.model = cmodel
-formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
-formData.summaryFunction = cAggregation
-formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
-formData.groupFields = groupFields //['county.name','indicator_category.category_title']
-// formData.filterField = ['indicator_category_id']
-// formData.filterValue = [indicator_categories]  // Bitumen
-formData.filterField = filterFields
-formData.filterOperator =filterOperators // Bitumen
-formData.filterValue = filterValues
-
-// Add indicator_category_id to request body for automatic filtering if it's an indicator card
-if (cmodel === 'indicator_category_report' && thisChart.indicator_category_id) {
-  formData.indicator_category_id = thisChart.indicator_category_id
+  const formData: Record<string, any> = {}
+  formData.model = cmodel
+  formData.summaryField = cmodel + '.' + cfield
+  formData.summaryFunction = cAggregation
+  formData.assoc_models = associated_Models
+  formData.groupFields = groupFields
+  formData.filterField = filterFields
+  formData.filterOperator = filterOperators
+  formData.filterValue = filterValues
+  if (cmodel === 'indicator_category_report' && thisChart.indicator_category_id) {
+    formData.indicator_category_id = thisChart.indicator_category_id
+  }
+  formData.uniqueCounts = unique
+  formData.ignoreEmpty = ignoreEmpty
+  return formData
 }
 
-// added for unique couts 
-formData.uniqueCounts = unique
-formData.ignoreEmpty = ignoreEmpty
-  
+function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
+  const cfield = thisChart.card_model_field
+  const cAggregation = thisChart.aggregation
+  const chartType = thisChart.type
 
-
-
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-
-
-    let categoryArray = [];
-    let seriesData = [];
-    amount.forEach(obj => {
-      if (!categoryArray.includes(obj.name)) {
-        categoryArray.push(obj.name);
-      }
-    });
-
-
-
-
-
-    if (chartType == 5) {
-
-      const keys = amount.reduce((allKeys, obj) => {
-        return allKeys.concat(Object.keys(obj));
-      }, []);
-
-      const uniqueKeys = [...new Set(keys)];
-      const values = {};
-      uniqueKeys.forEach(key => {
-        values[key] = amount.map(obj => obj[key] || null);
-      });
-      categoryArray = values.createdAt
-      seriesData = values[cAggregation]
-    }
-
-   
-
- 
-    else if (chartType == 6 ) {
-      //  Step 1: Extract and sort unique dates in ascending order
-      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
-
-      // Step 2: Rearrange the data
-      const result = {};
-
-      for (const item of amount) {
-        const { createdAt, cAggregation } = item;
-
-        if (!result[item[cfield]]) {
-          result[item[cfield]] = {
-            name: item[cfield],
-            type: 'line',
-            stack: 'Total',
-            data: []
-          };
-        }
-
-        const dateIndex = dates.indexOf(createdAt);
-        result[item[cfield]].data.push([dateIndex, Number(cAggregation)]);
-
-      }
-
-
-      seriesData = Object.values(result);
-      categoryArray = dates
-
-
-
-    }
-
-    else if (chartType == 3 || chartType == 10 ) {
-  
-
-     // seriesData = xtransformData(amount, chartType, cAggregation, cfield);
-     // categoryArray.sort();
-
-      // Extract keys (property names) from the first object
-        const keys = Object.keys(amount[0]);
-
-        // Extract values for each key into separate arrays
-        const extractedData = keys.map(key => amount.map(item => item[key]));
-
-        categoryArray =extractedData[0]
-        seriesData =convertStringsToNumbers(extractedData[1])
-
-
-    }
-
-    else if (chartType == 11) {
-      // For treemaps, series is [{ data: [{ x: label, y: value }, ...] }]
-      const keys = Object.keys(amount[0]);
-      const extractedData = keys.map((key) => amount.map((item) => item[key]));
-      // Combine labels and values into treemap format
-      seriesData = [
-        {
-          data: extractedData[0].map((label, index) => ({
-            x: label,
-            y: convertStringsToNumbers([extractedData[1][index]])[0],
-          })),
-        },
-      ];
-      categoryArray = extractedData[0]; // Still return labels for compatibility
-    } 
-
-    else if (chartType == 7) {
-
-
-      let maxSum = Number.MIN_SAFE_INTEGER;
-      let minSum = Number.MAX_SAFE_INTEGER;
-
-      for (const item of amount) {
-        const values = Object.values(item);
-        for (const value of values) {
-          if (!isNaN(value)) {
-            const numValue = parseInt(value);
-            maxSum = Math.max(maxSum, numValue);
-            minSum = Math.min(minSum, numValue);
-          }
-        }
-      }
-      // if only one value then use min=0
-      if (minSum === maxSum) {
-        minSum = 0
-      }
-
-
-
-      // Rename the property to value 
-      const newPropertyName = "value";
-
-      for (let i = 0; i < amount.length; i++) {
-        const keys = Object.keys(amount[i]);
-        if (keys.length > 1) {
-          const oldValue = keys[1];
-          amount[i][newPropertyName] = amount[i][oldValue];
-          delete amount[i][oldValue];
-        }
-      }
-      categoryArray = [minSum, maxSum]
-      seriesData = amount
-
-
-
-    }
-
-
-    else {
-
-      //  const valuesArray = amount.map(obj => obj.sum);
-      seriesData = xtransformData(amount, chartType, cAggregation, cfield);
-      categoryArray.sort();
-
-
-    }
-
-
-
-
-
-    //   return amount;
-    return [categoryArray, seriesData];
-  } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
-    //return null; // or any default value you prefer
-    return []; // or any default value you prefer
+  if (!amount || !Array.isArray(amount) || amount.length === 0) {
+    return [[], []]
   }
 
+  const categoryArray: any[] = []
+  amount.forEach((obj) => {
+    if (!categoryArray.includes(obj.name)) {
+      categoryArray.push(obj.name)
+    }
+  })
 
+  if (chartType == 5) {
+    const keys = amount.reduce((allKeys: string[], obj: any) => allKeys.concat(Object.keys(obj)), [])
+    const uniqueKeys = [...new Set(keys)]
+    const values: Record<string, any[]> = {}
+    uniqueKeys.forEach((key) => {
+      values[key] = amount.map((obj) => obj[key] || null)
+    })
+    const aggKey = String(cAggregation)
+    return [values.createdAt, values[aggKey]]
+  }
+
+  if (chartType == 6) {
+    const dates = [...new Set(amount.map((item: any) => item.createdAt))].sort()
+    const result: Record<string, any> = {}
+    for (const item of amount) {
+      const createdAt = item.createdAt
+      const aggVal = item[cAggregation]
+      if (!result[item[cfield]]) {
+        result[item[cfield]] = {
+          name: item[cfield],
+          type: 'line',
+          stack: 'Total',
+          data: [],
+        }
+      }
+      const dateIndex = dates.indexOf(createdAt)
+      result[item[cfield]].data.push([dateIndex, Number(aggVal)])
+    }
+    return [dates, Object.values(result)]
+  }
+
+  if (chartType == 3 || chartType == 10) {
+    const keys = Object.keys(amount[0])
+    const extractedData = keys.map((key) => amount.map((item) => item[key]))
+    return [extractedData[0], convertStringsToNumbers(extractedData[1])]
+  }
+
+  if (chartType == 11) {
+    const keys = Object.keys(amount[0])
+    const extractedData = keys.map((key) => amount.map((item) => item[key]))
+    const seriesData = [
+      {
+        data: extractedData[0].map((label: any, index: number) => ({
+          x: label,
+          y: convertStringsToNumbers([extractedData[1][index]])[0],
+        })),
+      },
+    ]
+    return [extractedData[0], seriesData]
+  }
+
+  if (chartType == 7) {
+    let maxSum = Number.MIN_SAFE_INTEGER
+    let minSum = Number.MAX_SAFE_INTEGER
+    for (const item of amount) {
+      const vals = Object.values(item)
+      for (const value of vals) {
+        if (!isNaN(value as any)) {
+          const numValue = parseInt(String(value), 10)
+          maxSum = Math.max(maxSum, numValue)
+          minSum = Math.min(minSum, numValue)
+        }
+      }
+    }
+    if (minSum === maxSum) {
+      minSum = 0
+    }
+    const newPropertyName = 'value'
+    for (let i = 0; i < amount.length; i++) {
+      const rowKeys = Object.keys(amount[i])
+      if (rowKeys.length > 1) {
+        const oldValue = rowKeys[1]
+        amount[i][newPropertyName] = amount[i][oldValue]
+        delete amount[i][oldValue]
+      }
+    }
+    return [[minSum, maxSum], amount]
+  }
+
+  const seriesData = xtransformData(amount, chartType, cAggregation, cfield)
+  categoryArray.sort()
+  return [categoryArray, seriesData]
+}
+
+const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any) => {
+  try {
+    let amount: any
+    if (preloaded && preloaded.Total !== undefined && preloaded.Total !== null) {
+      amount = preloaded.Total
+    } else {
+      const formData = buildChartSummaryFormData(thisChart)
+      const response = await getSummarybyFieldFromMultipleIncludes(formData)
+      amount = response.Total
+    }
+    return transformMultipleSummaryTotal(thisChart, amount)
+  } catch {
+    return []
+  }
 }
 
 // Request ID to track current request and prevent race conditions
@@ -908,6 +807,25 @@ const getCharts = async (section_id) => {
     const response = await getSettlementListByCounty(formData);
     //  const charts = response.data;
 
+    const summaryByChartId = new Map<string, any>()
+    try {
+      const forBatch = response.data.filter(
+        (c: any) => Number(c.type) !== 8 && c.card_model && c.card_model_field,
+      )
+      if (forBatch.length > 0) {
+        const items = forBatch.map((c: any) => ({
+          id: String(c.id),
+          payload: buildChartSummaryFormData(c),
+        }))
+        const batchRes: any = await getSummaryBatchByFieldFromMultipleIncludes({ items })
+        const list = batchRes?.results ?? []
+        for (const r of list) {
+          if (r.ok && r.data) summaryByChartId.set(r.id, r.data)
+        }
+      }
+    } catch {
+      /* charts fall back to individual /summary/byfield/multiple calls */
+    }
 
     const processPromises: Promise<void>[] = []
     response.data.forEach(function(thisChart) {
@@ -932,7 +850,7 @@ const getCharts = async (section_id) => {
     setChartLoading(thisChart.id, 'Loading pie chart data...');
 
     try {
-      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
 
       const isDonut = thisChart.type == '10'; // Custom flag you can define
 
@@ -998,7 +916,7 @@ async function processTreemapChart() {
     setChartLoading(thisChart.id, 'Loading treemap data...');
 
     try {
-      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart);
+      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
 
       const UpdatedTreemapOptions = {
         ...treemapOptions,
@@ -1072,7 +990,7 @@ async function processTreemapChart() {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
 
             const UpdatedBarOptionsMultiple = {
               ...simpleBarChart,
@@ -1133,7 +1051,7 @@ async function processTreemapChart() {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
 
             const UpdatedBarOptionsMultiple = {
               ...multipleBarChart,
@@ -1194,7 +1112,7 @@ async function processTreemapChart() {
  
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
 
 
 
@@ -1282,7 +1200,7 @@ async function processTreemapChart() {
  
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             for (var i = 0; i < cdata[1].length; i++) {
               cdata[1][i].label = {
                 show: false,
@@ -1357,7 +1275,7 @@ async function processTreemapChart() {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
 
 
 
@@ -1427,7 +1345,7 @@ async function processTreemapChart() {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
 
 
             // sort the data such that the graphs start and end proper
@@ -1501,7 +1419,7 @@ async function processTreemapChart() {
 
           try {
 
-            const cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
             const rawRange = Array.isArray(cdata?.[0]) ? cdata[0] : [0, 0]
             const rawData = Array.isArray(cdata?.[1]) ? cdata[1] : []
 
@@ -2092,7 +2010,10 @@ const selectSubCounty = ref([])
 const handleClear = async () => {
   selectSubCounty.value = []
   selectCounty.value = []
+  selectedSubCounties.value = []
+  selectedCounties.value = []
   filteredSubCountyList.value = [...subCountyList.value]
+  filterLevel.value = 'national'
   getCards()
   getTabs()
 }
@@ -2134,14 +2055,12 @@ selectedSubCounties.value = subcountyId;
 
 
   if (selectedSubCounties.value.length == 0) {
-  filterLevel.value = 'county'
-} else {
-  filterLevel.value = 'subcounty'
-
-
-}  
-getCards()
-  getTabs()    
+    filterLevel.value = selectedCounties.value.length ? 'county' : 'national'
+  } else {
+    filterLevel.value = 'subcounty'
+  }
+  getCards()
+  getTabs()
 }
 
 
@@ -2477,6 +2396,7 @@ const downloadSettlementData = async () => {
               <ElSkeleton animated :loading="true">
                 <template #template>
                   <div class="chart-skeleton-placeholder">
+                    <p class="chart-skeleton-loading-text">Loading charts…</p>
                     <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                     <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                   </div>
@@ -2504,6 +2424,7 @@ const downloadSettlementData = async () => {
                       <ElSkeleton animated :loading="true">
                         <template #template>
                           <div class="chart-skeleton-placeholder">
+                            <p class="chart-skeleton-loading-text">Loading charts…</p>
                             <ElSkeletonItem variant="h3" style="width:40%;margin-bottom:16px" />
                             <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                           </div>
@@ -2520,6 +2441,7 @@ const downloadSettlementData = async () => {
                       <ElSkeleton :loading="chartsLoading || isChartLoading(chart.id)" animated>
                         <template #template>
                           <div class="chart-skeleton-placeholder">
+                            <p class="chart-skeleton-loading-text">{{ getChartLoadingMessage(chart.id) }}</p>
                             <ElSkeletonItem variant="h3" style="width:45%;margin-bottom:16px" />
                             <ElSkeletonItem variant="rect" style="width:100%;height:280px;border-radius:4px" />
                           </div>
@@ -2632,6 +2554,14 @@ const downloadSettlementData = async () => {
 
 .chart-skeleton-placeholder {
   padding: 16px;
+}
+
+.chart-skeleton-loading-text {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  letter-spacing: 0.01em;
 }
 
 .card-fade-in {

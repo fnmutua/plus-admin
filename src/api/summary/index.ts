@@ -56,14 +56,28 @@ export const getSummarybyFieldFromMultipleIncludes = (data: any): Promise<IRespo
   return promise
 }
 
+/** One HTTP round-trip for many dashboard chart summaries (same payload shape as getSummarybyFieldFromMultipleIncludes per item). */
+export const getSummaryBatchByFieldFromMultipleIncludes = (data: {
+  items: { id: string; payload: any }[]
+}): Promise<{ code: string; results: { id: string; ok: boolean; data?: any; error?: string; code?: string }[] }> => {
+  const items = data.items.map((item) => ({
+    id: item.id,
+    payload: {
+      ...item.payload,
+      cache_key: item.payload.cache_key || _hashData(item.payload),
+    },
+  }))
+  return request.post({
+    url: prod + '/api/v1/summary/byfield/multiple/batch',
+    data: { items },
+  }) as Promise<any>
+}
+
 
 export const getSummaryGroupByMultipleFields= (data: any): Promise<IResponse> => {
   // console.log('filters....', data)
    return request.post({ url: prod + '/api/v1/summary/group/multiple', data })
 }
-
-{ responseType: 'blob'}  
-
 
 export const getFile= (data: any) => {
   // console.log('filters....', data)

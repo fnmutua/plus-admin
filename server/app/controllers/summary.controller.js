@@ -2040,3 +2040,93 @@ console.log(adjustedData);
   
 
 }
+
+/**
+ * Run many /summary/byfield/multiple payloads in one request (parallel on server).
+ * Body: { items: [ { id: string, payload: object }, ... ] }
+ * Each payload is identical to POST /api/v1/summary/byfield/multiple body.
+ */
+exports.batchSumModelAssociatedMultipleModels = async (req, res) => {
+  try {
+    const items = req.body.items
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).send({
+        error: 'items must be a non-empty array',
+        message: 'Provide items: [{ id, payload }, ...]',
+        code: '4000',
+      })
+    }
+    const MAX_ITEMS = 50
+    if (items.length > MAX_ITEMS) {
+      return res.status(400).send({
+        error: 'too many items',
+        message: `At most ${MAX_ITEMS} summaries per batch`,
+        code: '4000',
+      })
+    }
+
+    const runOne = (payload) =>
+      new Promise((resolve) => {
+        const mockReq = { body: payload }
+        let settled = false
+        const mockRes = {
+          statusCode: 200,
+          status(code) {
+            this.statusCode = code
+            return this
+          },
+          send(body) {
+            if (settled) return
+            settled = true
+            const code = mockRes.statusCode || 200
+            if (code >= 400) {
+              resolve({ ok: false, statusCode: code, body })
+            } else {
+              resolve({ ok: true, data: body })
+            }
+          },
+        }
+        try {
+          exports.sumModelAssociatedMultipleModels(mockReq, mockRes)
+        } catch (err) {
+          if (!settled) {
+            settled = true
+            resolve({ ok: false, statusCode: 500, body: { message: err.message } })
+          }
+        }
+        setTimeout(() => {
+          if (!settled) {
+            settled = true
+            resolve({ ok: false, statusCode: 504, body: { message: 'Summary sub-request timed out' } })
+          }
+        }, 120000)
+      })
+
+    const results = await Promise.all(
+      items.map(async (item) => {
+        const id = item.id != null ? String(item.id) : ''
+        if (!id) {
+          return { id: 'unknown', ok: false, code: '4004', error: 'each item must have id' }
+        }
+        if (!item.payload || typeof item.payload !== 'object') {
+          return { id, ok: false, code: '4005', error: 'each item must have payload object' }
+        }
+        const out = await runOne(item.payload)
+        if (!out.ok) {
+          return {
+            id,
+            ok: false,
+            code: (out.body && out.body.code) || String(out.statusCode),
+            error: (out.body && (out.body.message || out.body.error)) || 'request failed',
+          }
+        }
+        return { id, ok: true, data: out.data }
+      }),
+    )
+
+    return res.status(200).send({ code: '0000', results })
+  } catch (err) {
+    console.error('batchSumModelAssociatedMultipleModels', err)
+    return res.status(500).send({ error: err.message, code: '5000' })
+  }
+}
