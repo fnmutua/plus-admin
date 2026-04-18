@@ -8,7 +8,9 @@ import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElDivider, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElDivider, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon,
+  ElDatePicker,
+  ElTag,
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -26,6 +28,16 @@ import { useRouter } from 'vue-router'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import {
+  disableRoleExpiryDatesBeforeToday,
+  disableRoleExpiryHours,
+  disableRoleExpiryMinutes,
+  disableRoleExpirySeconds,
+} from '@/utils/roleExpiryPickerConstraints'
+import {
+  isUserAccessFullyExpired,
+  userListRowAccessClassName,
+} from '@/utils/userAccessExpiryDisplay'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
@@ -47,7 +59,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "50%"
+  dialogWidth.value = "60vw"
   actionColumnWidth.value = "160px"
 
 }
@@ -866,7 +878,8 @@ const addRole = () => {
     roleid: null,
     location_level: null,
     county_id: null,
-    settlement_id: null
+    settlement_id: null,
+    expires_at: null,
 
   }
 
@@ -904,7 +917,10 @@ const updateUser = () => {
     form.value.phone = originalUser.phone || '';
   }
 
-  form.value.roles = tmp_roles.value
+  form.value.roles = tmp_roles.value.map((r: any) => ({
+    ...r,
+    expires_at: r.expires_at ? r.expires_at : null,
+  }))
   console.log('form.value', form.value)
 
 
@@ -979,7 +995,12 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
 
-    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px" v-loading="loading">
+    <el-table
+      :data="tableDataList"
+      style="width: 100% ; margin-top: 30px"
+      v-loading="loading"
+      :row-class-name="userListRowAccessClassName"
+    >
 
       <el-table-column prop="id" label="#" width="50" />
 
@@ -998,7 +1019,16 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       </el-table-column>
 
 
-      <el-table-column label="Name" prop="name" width="200" sortable />
+      <el-table-column label="Name" prop="name" width="280" sortable>
+        <template #default="scope">
+          <span class="name-with-access-tag">
+            <span>{{ scope.row.name }}</span>
+            <el-tag v-if="isUserAccessFullyExpired(scope.row)" type="danger" effect="plain" size="small">
+              Access expired
+            </el-tag>
+          </span>
+        </template>
+      </el-table-column>
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="Country" prop="country_name" sortable />
       <el-table-column label="County" prop="county.name" sortable />
@@ -1163,7 +1193,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
         <!-- Table for roles management -->
         <div :style="{ overflowX: 'auto', width: '100%' }">
-          <el-table :data="tmp_roles" style="width: 100%; min-width: 600px" size="small">
+          <el-table :data="tmp_roles" style="width: 100%; min-width: 780px" size="small">
 
           <el-table-column prop="role" label="Role" :width="isMobile ? 120 : 150">
             <template #default="{ row }">
@@ -1229,6 +1259,23 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
             </template>
           </el-table-column>
 
+          <el-table-column prop="expires_at" label="Access expires" :width="isMobile ? 170 : 220">
+            <template #default="{ row }">
+              <el-date-picker
+                v-model="row.expires_at"
+                type="datetime"
+                placeholder="No expiry"
+                clearable
+                style="width: 100%"
+                size="small"
+                :disabled-date="disableRoleExpiryDatesBeforeToday"
+                :disabled-hours="disableRoleExpiryHours"
+                :disabled-minutes="disableRoleExpiryMinutes"
+                :disabled-seconds="disableRoleExpirySeconds"
+              />
+            </template>
+          </el-table-column>
+
           <el-table-column label="Actions" :width="isMobile ? 80 : 120" fixed="right">
             <template #default="{ $index }">
               <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
@@ -1279,5 +1326,16 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
 
 .my-switch {
   margin-right: 10px;
+}
+
+.name-with-access-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+:deep(.el-table__body tr.user-list-row-access-expired > td) {
+  color: var(--el-text-color-secondary);
 }
 </style>

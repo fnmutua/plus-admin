@@ -15,6 +15,7 @@ const Sequelize = require('sequelize')
  const { Op, literal } = require('sequelize');
  const cron = require('node-cron'); // Scheduler
  const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
+ const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 
 
  var bcrypt = require('bcryptjs')
@@ -42,7 +43,7 @@ const userHasRole = async (userInstance, roleName) => {
   if (!userInstance || typeof userInstance.getRoles !== 'function') {
     return false
   }
-  const roles = await userInstance.getRoles()
+  const roles = await userInstance.getRoles(getActiveRolesGetOptions())
   return roles.some(role => role.name === roleName)
 }
 
@@ -748,7 +749,7 @@ exports.logGrievanceAction = async (req, res) => {
 
 exports.getGrievances = async (req, res) => {
   const user = req.thisUser;
-  const currentUserRoles = await user.getRoles();
+  const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
 
   const searchString = req.body.searchString;
   const selectedCounty = req.body.selectedCounty;
@@ -1300,7 +1301,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
           });
         }
     
-        const currentUserRoles = await user.getRoles();
+        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         console.log('Current User Roles:', currentUserRoles);
     
         // Initialize findOptions with common properties
@@ -1652,7 +1653,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
       });
     }
 
-    const currentUserRoles = await user.getRoles();
+    const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
     console.log('Current User Roles:', currentUserRoles);
 
     // Initialize findOptions with common properties
@@ -2215,7 +2216,7 @@ exports.modelImportGrievances = async (req, res) => {
         const user = req.thisUser;
         console.log(user)
     
-        const currentUserRoles = await user.getRoles();
+        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
       //  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
         const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
 
@@ -2565,7 +2566,7 @@ exports.modelImportGrievances = async (req, res) => {
     exports.updateGrievance = async (req, res) => {
       try {
         const user = req.thisUser;
-        const currentUserRoles = await user.getRoles();
+        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
         const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
     
@@ -2653,7 +2654,7 @@ exports.modelImportGrievances = async (req, res) => {
  exports.xbulkUpdateReferredToOfficer = async (req, res) => {
       try {
         const user = req.thisUser;
-        const currentUserRoles = await user.getRoles();
+        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
         const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
     
@@ -2712,7 +2713,7 @@ exports.modelImportGrievances = async (req, res) => {
 exports._bulkUpdateReferredToOfficer = async (req, res) => {
       try {
         const user = req.thisUser;
-        const currentUserRoles = await user.getRoles();
+        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
         const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
     
@@ -2802,7 +2803,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     exports.bulkUpdateReferredToOfficer = async (req, res) => {
       try {
         const user = req.thisUser;
-        const currentUserRoles = await user.getRoles();
+        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(r => r.name === 'super_admin');
         const hasGRMRole = currentUserRoles.some(r =>
           ['grm', 'gbv', 'admin', 'staff'].includes(r.name)
@@ -2936,7 +2937,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       console.log('--------------------------------------------getGrievancesByKeyword');
       const user = req.thisUser;
     
-      const currentUserRoles = await user.getRoles();
+      const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
     
       const searchString = req.body.searchString;
       const userCounty = user.county_id;
@@ -4213,7 +4214,7 @@ exports.xsendReminder = async (req, res) => {
 exports.sendReminder = async (req, res) => {
   try {
     const user = req.thisUser;
-    const currentUserRoles = await user.getRoles();
+    const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
     const hasSuperAdminRole = currentUserRoles.some((role) => role.name === "super_admin");
    // const hasGRMRole = currentUserRoles.some((role) => role.name === "grm" || role.name === "gbv");
     const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
@@ -4297,7 +4298,7 @@ exports.sendReminder = async (req, res) => {
 exports.confirmGrievanceResolution = async (req, res) => {
   try {
     const user = req.thisUser;
-    const currentUserRoles = await user.getRoles();
+    const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
     const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
     const isNationalGRM = currentUserRoles.some(role => 
       (role.name === 'grm' || role.name === 'admin' || role.name === 'staff') && 

@@ -22,6 +22,11 @@ const requestIp = require('request-ip');
 const axios = require('axios');
 const UserRoles = db.models.user_roles
 const { logAudit } = require('../utils/auditTrail')
+const {
+  parseExpiresAtInput,
+  getActiveRolesGetOptions,
+  activeGrantWhere,
+} = require('../utils/userRoleExpiry')
 
  
 
@@ -212,7 +217,8 @@ async function getUserRoleSnapshot(userId) {
     location_level: item.location_level || null,
     location_id: item.location_id || null,
     county_id: item.county_id || null,
-    settlement_id: item.settlement_id || null
+    settlement_id: item.settlement_id || null,
+    expires_at: item.expires_at != null ? item.expires_at : null,
   }))
 }
 
@@ -223,7 +229,8 @@ function diffRoleSnapshots(beforeRoles, afterRoles) {
       role.location_level ?? '',
       role.location_id ?? '',
       role.county_id ?? '',
-      role.settlement_id ?? ''
+      role.settlement_id ?? '',
+      role.expires_at != null ? String(role.expires_at) : '',
     ].join('|')
 
   const beforeMap = new Map((beforeRoles || []).map((role) => [normalizeKey(role), role]))
@@ -245,6 +252,12 @@ function diffRoleSnapshots(beforeRoles, afterRoles) {
     removed,
     changed: added.length > 0 || removed.length > 0
   }
+}
+
+/** Optional `role_expires_at` on signup / self-register bodies — applies to all new role rows. */
+function signupExpiresPatch(body) {
+  if (!Object.prototype.hasOwnProperty.call(body, 'role_expires_at')) return {};
+  return { expires_at: parseExpiresAtInput(body.role_expires_at) };
 }
 
 exports.signup = (req, res) => {
@@ -289,7 +302,7 @@ exports.signup = (req, res) => {
             })
  
 
-            const userRoles = await user.getRoles();
+            const userRoles = await user.getRoles(getActiveRolesGetOptions());
 
             const userRoleWithLocationPromises = roles.map((role, index) => {
               const location_level = req.body.location_level;
@@ -304,6 +317,7 @@ exports.signup = (req, res) => {
                   {
                     location_level: location_level,
                     [location_field]: location_id,
+                    ...signupExpiresPatch(req.body),
                   },
                   { where: { userid: user.id, roleid: role.id } }
                 );
@@ -313,6 +327,7 @@ exports.signup = (req, res) => {
                   {
                     location_level: 'national',
                     [location_field]: null,
+                    ...signupExpiresPatch(req.body),
                   },
                   { where: { userid: user.id, roleid: role.id } }
                 );
@@ -471,6 +486,7 @@ exports.updateUser = async (req, res) => {
             : null,
         county_id: role.county_id || null,
         settlement_id: role.settlement_id || null,
+        expires_at: parseExpiresAtInput(role.expires_at),
       }));
 
       await db.models.user_roles.bulkCreate(rolesToInsert);
@@ -1072,6 +1088,26 @@ exports.signin = async (req, res) => {
         })
       }
 
+      const activeRolesForLogin = await user.getRoles(getActiveRolesGetOptions());
+      if (!activeRolesForLogin || activeRolesForLogin.length === 0) {
+        instlog.userId = 0;
+        instlog.userName = req.body.username;
+        instlog.status = 'Fail. No active role assignments (expired or none)';
+        console.log(instlog);
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 401,
+        });
+        return res.status(401).send({
+          accessToken: null,
+          message:
+            'Your access for this system has expired or no role is assigned. Please contact the administrator.',
+        });
+      }
+
           // Log the user details 
           instlog.userId = user.id
           instlog.userName = req.body.username
@@ -1097,9 +1133,9 @@ exports.signin = async (req, res) => {
         expiresIn: 86400 // 24 hours
       })
 
-      // Fetch all user_roles with location and role name
+      // Active assignments only (respects expires_at on user_roles)
       const userRoles = await db.models.user_roles.findAll({
-        where: { userid: user.id },
+        where: { userid: user.id, ...activeGrantWhere() },
         include: [{ model: db.role, attributes: ['name'] }]
       });
       const formattedUserRoles = userRoles.map(ur => ({
@@ -1107,33 +1143,31 @@ exports.signin = async (req, res) => {
         county_id: ur.county_id,
         subcounty_id: ur.subcounty_id,
         ward_id: ur.ward_id,
-        settlement_id: ur.settlement_id
+        settlement_id: ur.settlement_id,
+        expires_at: ur.expires_at,
       }));
 
-      // Get authorities as before
-      user.getRoles().then((roles) => {
-        let authorities = [];
-        for (let i = 0; i < roles.length; i++) {
-          authorities.push(roles[i]);
-        }
-        res.status(200).send({
-          id: user.id,
-          username: user.username,
-          phone: user.phone,
-          name: user.name,
-          email: user.email,
-          roles: authorities,
-          user_roles: formattedUserRoles,
-          county_id: user.county_id,
-          country_name: user.country_name || '-Not specified',
-          accessToken: token,
-          code: '0000',
-          user: user,
-          photo: user.avatar,
-          avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
-          data: token,
-          message: 'Login Successful'
-        })
+      const authorities = [];
+      for (let i = 0; i < activeRolesForLogin.length; i++) {
+        authorities.push(activeRolesForLogin[i]);
+      }
+      res.status(200).send({
+        id: user.id,
+        username: user.username,
+        phone: user.phone,
+        name: user.name,
+        email: user.email,
+        roles: authorities,
+        user_roles: formattedUserRoles,
+        county_id: user.county_id,
+        country_name: user.country_name || '-Not specified',
+        accessToken: token,
+        code: '0000',
+        user: user,
+        photo: user.avatar,
+        avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
+        data: token,
+        message: 'Login Successful'
       })
     })
     .catch((err) => {
@@ -1781,7 +1815,7 @@ exports.signupViaApp = async (req, res) => {
     await user.setRoles(roles);
 
     // Add location property to user_role
-    const userRoles = await user.getRoles();
+    const userRoles = await user.getRoles(getActiveRolesGetOptions());
     const userRoleWithLocationPromises = userRoles.map((role, index) => {
       const location_level = req.body.location_level;
       const location_id = req.body.location_id;
@@ -1793,6 +1827,7 @@ exports.signupViaApp = async (req, res) => {
           {
             location_level: location_level,
             [location_field]: location_id,
+            ...signupExpiresPatch(req.body),
           },
           { where: { userid: user.id, roleid: role.id } }
         );
@@ -1802,6 +1837,7 @@ exports.signupViaApp = async (req, res) => {
           {
             location_level: null,
             [location_field]: null,
+            ...signupExpiresPatch(req.body),
           },
           { where: { userid: user.id, roleid: role.id } }
         );
@@ -1921,7 +1957,7 @@ exports.signupGRC = async (req, res) => {
     await user.setRoles(roles);
 
     // Add location property to user_role
-    const userRoles = await user.getRoles();
+    const userRoles = await user.getRoles(getActiveRolesGetOptions());
     const userRoleWithLocationPromises = userRoles.map((role, index) => {
       const location_level = req.body.location_level;
       const location_id = req.body.location_id;
@@ -1935,6 +1971,7 @@ exports.signupGRC = async (req, res) => {
             {
               location_level: 'national',
               [location_field]: null, // Explicitly set to null for national level
+              ...signupExpiresPatch(req.body),
             },
             { where: { userid: user.id, roleid: role.id } }
           );
@@ -1943,6 +1980,7 @@ exports.signupGRC = async (req, res) => {
             {
               location_level: location_level,
               [location_field]: location_id,
+              ...signupExpiresPatch(req.body),
             },
             { where: { userid: user.id, roleid: role.id } }
           );
@@ -1952,6 +1990,7 @@ exports.signupGRC = async (req, res) => {
             {
               location_level: null,
               [location_field]: null,
+              ...signupExpiresPatch(req.body),
             },
             { where: { userid: user.id, roleid: role.id } }
           );
@@ -2074,7 +2113,7 @@ exports.signupGRM = async (req, res) => {
     await user.setRoles(roles);
 
     // Add location property to user_role
-    const userRoles = await user.getRoles();
+    const userRoles = await user.getRoles(getActiveRolesGetOptions());
     const userRoleWithLocationPromises = userRoles.map((role, index) => {
       const location_level = req.body.location_level;
       const location_id = req.body.location_id;
@@ -2088,6 +2127,7 @@ exports.signupGRM = async (req, res) => {
             {
               location_level: 'national',
               [location_field]: null, // Explicitly set to null for national level
+              ...signupExpiresPatch(req.body),
             },
             { where: { userid: user.id, roleid: role.id } }
           );
@@ -2096,6 +2136,7 @@ exports.signupGRM = async (req, res) => {
             {
               location_level: location_level,
               [location_field]: location_id,
+              ...signupExpiresPatch(req.body),
             },
             { where: { userid: user.id, roleid: role.id } }
           );
@@ -2105,6 +2146,7 @@ exports.signupGRM = async (req, res) => {
             {
               location_level: null,
               [location_field]: null,
+              ...signupExpiresPatch(req.body),
             },
             { where: { userid: user.id, roleid: role.id } }
           );
@@ -2277,6 +2319,25 @@ exports.signinViaApp = async (req, res) => {
         })
       }
 
+      const activeForOtp = await user.getRoles(getActiveRolesGetOptions());
+      if (!activeForOtp || activeForOtp.length === 0) {
+        instlog.userId = 0;
+        instlog.userName = user_phone;
+        instlog.status = 'Fail. No active role assignments (expired or none)';
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorType: 'anonymous',
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: 401,
+        });
+        return res.status(401).send({
+          accessToken: null,
+          message:
+            'Your access for this system has expired or no role is assigned. Please contact the administrator.',
+        });
+      }
+
       //  if all is good
        // Generate a 4-digit OTP
       const otpCode = Math.floor(1000 + Math.random() * 9000);
@@ -2356,12 +2417,9 @@ exports.verifyCode = async (req, res) => {
       return res.status(401).send({ message: 'Fail. Expired code' });
     }
 
-    // Update the OTP status to invalid
-    await otp.update({ status: 'Invalid' });
-
     console.log("otp.user_id",otp.user_id )
 
-    // Get the associated user using user_id from the OTP
+    // Get the associated user using user_id from the OTP (before consuming OTP)
     const user = await User.findOne({
       where: {
         id: otp.user_id // Assuming user_id is the field representing user's id in the OTP table
@@ -2379,6 +2437,18 @@ exports.verifyCode = async (req, res) => {
     if (!user) {
       return res.status(404).send({ message: 'User not found.' });
     }
+
+    const activeRolesOtp = await user.getRoles(getActiveRolesGetOptions());
+    if (!activeRolesOtp || activeRolesOtp.length === 0) {
+      await otp.update({ status: 'Invalid' });
+      return res.status(401).send({
+        message:
+          'Your access for this system has expired or no role is assigned. Please contact the administrator.',
+      });
+    }
+
+    // Update the OTP status to invalid
+    await otp.update({ status: 'Invalid' });
 
     var token = jwt.sign({ id: user.id }, config.secret, {
       expiresIn: 86400 // 24 hours
@@ -2414,9 +2484,9 @@ exports.verifyCode = async (req, res) => {
     expiryDate.setHours(expiryDate.getHours() + 24);
 
 
-    // Fetch all user_roles with location and role name (same as web signin)
+    // Active user_roles with location and role name (same as web signin)
     const userRoles = await db.models.user_roles.findAll({
-      where: { userid: user.id },
+      where: { userid: user.id, ...activeGrantWhere() },
       include: [{ model: db.role, attributes: ['name'] }]
     });
     const formattedUserRoles = userRoles.map(ur => ({
@@ -2424,40 +2494,34 @@ exports.verifyCode = async (req, res) => {
       county_id: ur.county_id,
       subcounty_id: ur.subcounty_id,
       ward_id: ur.ward_id,
-      settlement_id: ur.settlement_id
+      settlement_id: ur.settlement_id,
+      expires_at: ur.expires_at,
     }));
 
-    // Get authorities as before (same as web signin)
-    user.getRoles().then((roles) => {
-      let authorities = [];
-      for (let i = 0; i < roles.length; i++) {
-        authorities.push(roles[i]);
-      }
+    const authorities = [];
+    for (let i = 0; i < activeRolesOtp.length; i++) {
+      authorities.push(activeRolesOtp[i]);
+    }
 
-      const expiryDate = new Date();
-      // Add 24 hours to the current date
-      expiryDate.setHours(expiryDate.getHours() + 24);
-
-      console.log('Logged User:', user)
-      res.status(200).send({
-        id: user.id,
-        username: user.username,
-        phone: user.phone,
-        name: user.name,
-        email: user.email,
-        roles: authorities,
-        user_roles: formattedUserRoles,
-        county_id: user.county_id,
-        country_name: user.country_name || 'Kenya',
-        accessToken: token,
-        tokenExpiryDate: expiryDate,
-        code: '0000',
-        user: user,
-        photo: user.avatar,
-        avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
-        data: token,
-        message: 'Login Successful'
-      })
+    console.log('Logged User:', user)
+    res.status(200).send({
+      id: user.id,
+      username: user.username,
+      phone: user.phone,
+      name: user.name,
+      email: user.email,
+      roles: authorities,
+      user_roles: formattedUserRoles,
+      county_id: user.county_id,
+      country_name: user.country_name || 'Kenya',
+      accessToken: token,
+      tokenExpiryDate: expiryDate,
+      code: '0000',
+      user: user,
+      photo: user.avatar,
+      avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar,
+      data: token,
+      message: 'Login Successful'
     })
 
 

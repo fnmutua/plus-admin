@@ -13,6 +13,7 @@ const Sequelize = require('sequelize')
  
  
 const { Op } = require('sequelize');
+const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 
 //const User = db.user;
 //const Role = db.role;
@@ -27,7 +28,7 @@ exports.userBoard = (req, res) => {
   const authorities = []
 
   User.findByPk(req.thisUser.id).then((user) => {
-    user.getRoles().then((roles) => {
+    user.getRoles(getActiveRolesGetOptions()).then((roles) => {
       for (let i = 0; i < roles.length; i++) {
         authorities.push(roles[i].name)
       }

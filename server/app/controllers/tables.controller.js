@@ -34,6 +34,7 @@ if (typeof globalThis.fetch === 'undefined') {
 }
 
 const db = require('../models')
+const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 const { computeSettlementVulnerability } = require('../utils/vulnerability')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
@@ -6507,7 +6508,7 @@ exports.getDocumentShares = async (req, res) => {
     const user = req.thisUser || await db.user.findByPk(userId)
     let userRoles = []
     try {
-      userRoles = (await user.getRoles()) || []
+      userRoles = (await user.getRoles(getActiveRolesGetOptions())) || []
     } catch {}
     const isAdmin = userRoles.some((role) => ['admin', 'super_admin', 'root_admin'].includes(role.name))
 
@@ -6576,7 +6577,7 @@ exports.revokeDocumentShare = async (req, res) => {
     const user = req.thisUser || await db.user.findByPk(userId)
     let userRoles = []
     try {
-      userRoles = (await user.getRoles()) || []
+      userRoles = (await user.getRoles(getActiveRolesGetOptions())) || []
     } catch {}
     const isAdmin = userRoles.some((role) => ['admin', 'super_admin', 'root_admin'].includes(role.name))
 
@@ -6609,7 +6610,7 @@ exports.unrevokeDocumentShare = async (req, res) => {
     const user = req.thisUser || await db.user.findByPk(userId)
     let userRoles = []
     try {
-      userRoles = (await user.getRoles()) || []
+      userRoles = (await user.getRoles(getActiveRolesGetOptions())) || []
     } catch {}
     const isAdmin = userRoles.some((role) => ['admin', 'super_admin', 'root_admin'].includes(role.name))
 
@@ -7343,7 +7344,7 @@ async function canUserSeeProtectedDocuments(user) {
   if (!user || typeof user.getRoles !== 'function') return false
   const elevatedRoleNames = ['admin', 'super_admin', 'root_admin']
   try {
-    const roles = await user.getRoles()
+    const roles = await user.getRoles(getActiveRolesGetOptions())
     return roles.some((role) => {
       const name = role && role.name
       if (name === 'super_admin' || name === 'root_admin') return true
@@ -8677,7 +8678,7 @@ exports.getAllListforDownload = async (req, res) => {
   // Apply county filtering for grievance model based on user roles
   if (reg_model === 'grievance' && user) {
     try {
-      const currentUserRoles = await user.getRoles();
+      const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
       const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin', 'admin', 'staff'].includes(role.name));
       const hasNationalRole = currentUserRoles.some(role => role.user_roles && role.user_roles.location_level === 'national');
       const countyAdminRole = currentUserRoles.find(role => role.user_roles && role.user_roles.location_level === 'county');

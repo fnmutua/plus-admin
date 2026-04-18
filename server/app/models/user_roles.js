@@ -42,7 +42,12 @@ module.exports = function(sequelize, DataTypes) {
     settlement_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
-    }
+    },
+    /** When non-null and in the past, this assignment is ignored for auth (see userRoleExpiry util). */
+    expires_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
 
   }, {
     sequelize,

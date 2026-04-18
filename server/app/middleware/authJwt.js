@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const config = require("../config/auth.config.js");
 const db = require("../models");
 const User = db.user;
+const { getActiveRolesGetOptions } = require("../utils/userRoleExpiry");
 
 verifyToken = (req, res, next) => {
  // console.log("headers----->", req.headers)
@@ -28,7 +29,12 @@ verifyToken = (req, res, next) => {
       // Do something with the user
       User.findByPk(decoded.id).then(user => {
 
-       user.getRoles().then(roles => {
+       user.getRoles(getActiveRolesGetOptions()).then(roles => {
+         if (!roles || roles.length === 0) {
+           return res.status(401).send({
+             message: "Unauthorized: no active role assignments (expired or revoked).",
+           });
+         }
          req.userid = decoded.id;
          req.thisUser = user;
          //req.roles = roles;
@@ -71,7 +77,7 @@ verifyToken = (req, res, next) => {
 
  _isAdmin = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
-    user.getRoles().then(roles => {
+    user.getRoles(getActiveRolesGetOptions()).then(roles => {
       const acceptedRoles = ["admin", "super_admin", "staff"];
 
       for (let i = 0; i < roles.length; i++) {
@@ -99,7 +105,7 @@ isAdmin = (req, res, next) => {
       if (!user) {
         return res.status(404).send({ message: "User not found!" });
       }
-      user.getRoles().then(roles => {
+      user.getRoles(getActiveRolesGetOptions()).then(roles => {
         const acceptedRoles = ["admin","root_admin",  "super_admin", "staff", "grm"];
 
         for (let i = 0; i < roles.length; i++) {
@@ -125,7 +131,7 @@ isAdmin = (req, res, next) => {
 
 isSuperAdmin = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
-    user.getRoles().then(roles => {
+    user.getRoles(getActiveRolesGetOptions()).then(roles => {
       for (let i = 0; i < roles.length; i++) {
         if (roles[i].name === "super_admin" || roles[i].name === "root_admin") {
           next();
@@ -143,7 +149,7 @@ isSuperAdmin = (req, res, next) => {
 
 isModerator = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
-    user.getRoles().then(roles => {
+    user.getRoles(getActiveRolesGetOptions()).then(roles => {
       for (let i = 0; i < roles.length; i++) {
         if (roles[i].name === "moderator") {
           next();
@@ -159,7 +165,7 @@ isModerator = (req, res, next) => {
 
 isModeratorOrAdmin = (req, res, next) => {
   User.findByPk(req.userId).then(user => {
-    user.getRoles().then(roles => {
+    user.getRoles(getActiveRolesGetOptions()).then(roles => {
       for (let i = 0; i < roles.length; i++) {
         if (roles[i].name === "moderator") {
           next();
@@ -181,7 +187,7 @@ isStaffOrAdmin = (req, res, next) => {
  // console.log("Requrest,",req.userid)
   User.findByPk(req.userid).then(user => {
   //  console.log(user)
-    user.getRoles({raw:true}).then(roles => {
+    user.getRoles({ ...getActiveRolesGetOptions(), raw: true }).then(roles => {
       for (let i = 0; i < roles.length; i++) {
           console.log(roles[i].name)
         
@@ -224,7 +230,7 @@ isStaffOrAdmin = (req, res, next) => {
   // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
    //  console.log(user)
-     user.getRoles({raw:true}).then(roles => {
+     user.getRoles({ ...getActiveRolesGetOptions(), raw: true }).then(roles => {
        for (let i = 0; i < roles.length; i++) {
            console.log(roles[i].name)
          if (roles[i].name === "staff") {
@@ -269,7 +275,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
   // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
    //  console.log(user)
-     user.getRoles().then(roles => {
+     user.getRoles(getActiveRolesGetOptions()).then(roles => {
        for (let i = 0; i < roles.length; i++) {
            console.log(roles[i].name)
          if (roles[i].name === "county_admin") {
@@ -310,7 +316,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
   // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
    //  console.log(user)
-     user.getRoles().then(roles => {
+     user.getRoles(getActiveRolesGetOptions()).then(roles => {
        for (let i = 0; i < roles.length; i++) {
            console.log(roles[i].name)
          if (roles[i].name === "super_admin") {
@@ -339,7 +345,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
   // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
   console.log('-----------------------isGrmOfficerNational',user)
-     user.getRoles().then(roles => {
+     user.getRoles(getActiveRolesGetOptions()).then(roles => {
        for (let i = 0; i < roles.length; i++) {
            console.log(roles[i].name)
          if (roles[i].name === "super_admin") {
@@ -372,7 +378,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
       return res.status(404).send({ message: "User not found" });
     }
 
-    const roles =  await user.getRoles();
+    const roles =  await user.getRoles(getActiveRolesGetOptions());
 
     for (const role of roles) {
       console.log(role.name, role.user_roles?.location_level); // Debugging output

@@ -9,7 +9,8 @@ import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElRow, ElDropdown, ElDropdownItem,  
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRadio, ElRadioGroup
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRadio, ElRadioGroup,
+  ElTag,
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -31,6 +32,10 @@ import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
+import {
+  isUserAccessFullyExpired,
+  userListRowAccessClassName,
+} from '@/utils/userAccessExpiryDisplay'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -707,7 +712,13 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
 
-    <el-table :data="tableDataList" style="width: 100%" fit v-loading="loading">
+    <el-table
+      :data="tableDataList"
+      style="width: 100%"
+      fit
+      v-loading="loading"
+      :row-class-name="userListRowAccessClassName"
+    >
 
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->
@@ -723,7 +734,16 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
   </el-table-column>
 
  
-      <el-table-column label="Name" prop="name" width="200" sortable />
+      <el-table-column label="Name" prop="name" width="280" sortable>
+        <template #default="scope">
+          <span class="name-with-access-tag">
+            <span>{{ scope.row.name }}</span>
+            <el-tag v-if="isUserAccessFullyExpired(scope.row)" type="danger" effect="plain" size="small">
+              Access expired
+            </el-tag>
+          </span>
+        </template>
+      </el-table-column>
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="Country" prop="country_name" sortable />
       <el-table-column label="Organization" prop="organization_name" sortable />
@@ -955,6 +975,17 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
 .my-switch {
   margin-right: 10px;
+}
+
+.name-with-access-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+:deep(.el-table__body tr.user-list-row-access-expired > td) {
+  color: var(--el-text-color-secondary);
 }
 </style>
 
