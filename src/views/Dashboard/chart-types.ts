@@ -1531,6 +1531,213 @@ export function mapChartNoDataAreaColor(): string {
   return getAppDark() ? '#334155' : '#cbd5e1'
 }
 
+/** Plain Apex fields for the current theme — merge onto existing options after dark toggle (initial `{...pieOptions}` snapshots getters). */
+export function getApexReactiveThemePatch(): Record<string, unknown> {
+  const fc = apexLegendLabelColor()
+  const tc = apexTitleColor()
+  const sc = apexSubtitleColor()
+  const gc = apexGridBorderColor()
+  const dark = getAppDark()
+  return {
+    darkMode: dark,
+    chart: { foreColor: fc },
+    title: {
+      style: { fontSize: '16px', fontWeight: 'bold', color: tc },
+      textStyle: { fontSize: 14, color: tc },
+    },
+    subtitle: {
+      style: { fontSize: '12px', fontWeight: 'normal', color: sc },
+    },
+    legend: { labels: { colors: fc } },
+    grid: { borderColor: gc },
+    stroke: { colors: [dark ? 'rgba(15, 23, 42, 0.92)' : '#ffffff'] },
+    plotOptions: {
+      treemap: {
+        dataLabels: {
+          style: {
+            fontSize: '12px',
+            fontWeight: 600,
+            colors: [dark ? '#f8fafc' : '#0f172a'],
+          },
+        },
+      },
+    },
+    xaxis: {
+      labels: { style: { colors: fc } },
+      axisBorder: { color: gc },
+      axisTicks: { color: gc },
+    },
+    yaxis: {
+      labels: { style: { colors: fc } },
+      axisBorder: { color: gc },
+      axisTicks: { color: gc },
+    },
+  }
+}
+
+function mergeApexXAxisLike(ex: unknown, patch: unknown): Record<string, unknown> {
+  const e = (ex || {}) as Record<string, unknown>
+  const pa = (patch || {}) as Record<string, unknown>
+  return {
+    ...e,
+    ...pa,
+    labels: {
+      ...(e.labels as Record<string, unknown>),
+      ...(pa.labels as Record<string, unknown>),
+      style: {
+        ...((e.labels as any)?.style),
+        ...((pa.labels as any)?.style),
+      },
+    },
+    axisBorder: { ...(e.axisBorder as object), ...(pa.axisBorder as object) },
+    axisTicks: { ...(e.axisTicks as object), ...(pa.axisTicks as object) },
+  }
+}
+
+/** Re-apply theme colors to an Apex options object (already merged once at load time). */
+export function mergeApexChartOptionsWithTheme(existing: Record<string, unknown>): Record<string, unknown> {
+  const p = getApexReactiveThemePatch()
+  const ex = existing
+  const exPo = (ex.plotOptions as Record<string, unknown>) || {}
+  const pPo = (p.plotOptions as Record<string, unknown>) || {}
+  let plotOptions: Record<string, unknown> = { ...exPo, ...pPo }
+  if (exPo.treemap && pPo.treemap) {
+    plotOptions = {
+      ...plotOptions,
+      treemap: {
+        ...(exPo.treemap as object),
+        ...(pPo.treemap as object),
+        dataLabels: {
+          ...((exPo.treemap as any).dataLabels || {}),
+          ...((pPo.treemap as any).dataLabels || {}),
+          style: {
+            ...((exPo.treemap as any).dataLabels?.style),
+            ...((pPo.treemap as any).dataLabels?.style),
+          },
+        },
+      },
+    }
+  }
+  const yRaw = ex.yaxis
+  const yaxis =
+    Array.isArray(yRaw) ? yRaw.map((y) => mergeApexXAxisLike(y, p.yaxis)) : mergeApexXAxisLike(yRaw, p.yaxis)
+
+  const noDataFill = apexSubtitleColor()
+  let graphic: unknown = ex.graphic
+  if (Array.isArray(ex.graphic)) {
+    graphic = (ex.graphic as Array<Record<string, unknown>>).map((item) => {
+      if (item.type !== 'text' || !item.style || typeof item.style !== 'object') return item
+      const st = item.style as Record<string, unknown>
+      const fill = st.fill
+      const text = st.text
+      const isLegacyNoDataFill =
+        fill === '#999' || fill === '#999999' || fill === '#9e9e9e' || fill === '#909399'
+      const isNoDataCopy =
+        typeof text === 'string' &&
+        (text.includes('No data') || text.toLowerCase().includes('no data'))
+      if (isLegacyNoDataFill || isNoDataCopy) {
+        return { ...item, style: { ...st, fill: noDataFill } }
+      }
+      return item
+    })
+  }
+
+  return {
+    ...ex,
+    ...p,
+    chart: { ...(ex.chart as Record<string, unknown>), ...(p.chart as Record<string, unknown>) },
+    title: { ...(ex.title as Record<string, unknown>), ...(p.title as Record<string, unknown>) },
+    subtitle: { ...(ex.subtitle as Record<string, unknown>), ...(p.subtitle as Record<string, unknown>) },
+    legend: {
+      ...(ex.legend as Record<string, unknown>),
+      labels: {
+        ...((ex.legend as any)?.labels),
+        ...((p.legend as any)?.labels),
+      },
+    },
+    grid: { ...(ex.grid as Record<string, unknown>), ...(p.grid as Record<string, unknown>) },
+    stroke: { ...(ex.stroke as Record<string, unknown>), ...(p.stroke as Record<string, unknown>) },
+    plotOptions,
+    xaxis: mergeApexXAxisLike(ex.xaxis, p.xaxis),
+    yaxis,
+    ...(Array.isArray(ex.graphic) ? { graphic } : {}),
+  }
+}
+
+/** Re-apply ECharts map tooltip / visualMap / toolbox / region chrome after dark toggle. */
+export function mergeEchartsMapOptionForTheme(option: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...option }
+  out.title = {
+    ...(option.title as object),
+    textStyle: { fontSize: 14, color: echartsTitleColor() },
+    subtextStyle: { fontSize: 12, color: echartsSubtextColor() },
+  }
+  out.tooltip = {
+    ...(option.tooltip as object),
+    backgroundColor: echartsTooltipBg(),
+    borderColor: echartsTooltipBorder(),
+    textStyle: { color: echartsTitleColor(), fontSize: 13 },
+  }
+  const vm = option.visualMap as Record<string, unknown> | undefined
+  if (vm && vm.show === false) {
+    out.visualMap = { ...vm }
+  } else if (vm) {
+    out.visualMap = {
+      ...vm,
+      textStyle: { color: echartsSubtextColor(), fontSize: 12 },
+      handleStyle: {
+        borderColor: echartsAxisLineColor(),
+        color: getAppDark() ? '#475569' : '#f1f5f9',
+      },
+    }
+  }
+  out.toolbox = {
+    ...(option.toolbox as object),
+    iconStyle: { borderColor: echartsAxisLineColor() },
+    emphasis: { iconStyle: { borderColor: echartsTitleColor() } },
+  }
+  if (Array.isArray(option.series)) {
+    out.series = option.series.map((s: Record<string, unknown>) => {
+      if (!s || s.type !== 'map') return s
+      return {
+        ...s,
+        itemStyle: {
+          ...(s.itemStyle as object),
+          borderColor: echartsMapRegionBorder(),
+        },
+        emphasis: {
+          ...(s.emphasis as object),
+          itemStyle: {
+            ...((s.emphasis as any)?.itemStyle),
+            borderColor: echartsTitleColor(),
+          },
+        },
+        select: {
+          ...(s.select as object),
+          itemStyle: {
+            ...((s.select as any)?.itemStyle),
+            borderColor: echartsTitleColor(),
+          },
+        },
+      }
+    })
+  }
+  if (Array.isArray(option.graphic)) {
+    out.graphic = option.graphic.map((g: { type?: string; style?: { text?: string; fill?: string } }) => {
+      if (g.type !== 'text' || !g.style) return g
+      const t = String(g.style.text || '')
+      if (t.includes('Source:')) {
+        return { ...g, style: { ...g.style, fill: mapChartSourceFooterFill() } }
+      }
+      if (t.includes('No data')) {
+        return { ...g, style: { ...g.style, fill: mapChartNoDataFill() } }
+      }
+      return g
+    })
+  }
+  return out
+}
+
 export const mapChartOptions: EChartsOption = {
   color: customColorPalette, // Apply 100-color palette
   get backgroundColor() {

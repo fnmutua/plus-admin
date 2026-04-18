@@ -2,12 +2,13 @@
 import {
   ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer
 } from 'element-plus'
-import { ref, reactive, onBeforeMount, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Icon } from '@iconify/vue';
 import {
   pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
   lineOptions, stackedbarOptions, simpleBarChart,stackedbarOptionsAbs,
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
+  mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -27,8 +28,10 @@ import { getRoutesList } from '@/api/settlements'
 import { useRouter } from 'vue-router'
 import { Loading, Download } from '@element-plus/icons-vue'
 import { geoCache as _geoCache } from '@/utils/dashboardCache'
+import { useAppStore } from '@/store/modules/app'
 
 const { push } = useRouter()
+const appStore = useAppStore()
 
  
  
@@ -200,6 +203,39 @@ const getChartLoadingMessage = (chartId: string | number) => {
 
 const cards = ref([])
 const tabs = ref([])
+
+/** Apex/ECharts options snapshot getters at build time; re-merge plain colors when dark mode toggles. */
+function refreshDashboardChartThemes() {
+  for (const tab of (tabs.value as any[]) || []) {
+    for (const ch of (tab.charts as any[]) || []) {
+      if (!ch.chart) continue
+      try {
+        if (ch.type === 7) {
+          ch.chart = mergeEchartsMapOptionForTheme(ch.chart as Record<string, unknown>)
+        } else if (ch.type === 8) {
+          const c = ch.chart as Record<string, unknown>
+          if (c.chartOptions) {
+            ch.chart = {
+              ...c,
+              chartOptions: mergeApexChartOptionsWithTheme(c.chartOptions as Record<string, unknown>),
+            }
+          }
+        } else {
+          ch.chart = mergeApexChartOptionsWithTheme(ch.chart as Record<string, unknown>)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+watch(
+  () => appStore.getIsDark,
+  () => {
+    refreshDashboardChartThemes()
+  },
+)
 
 const filterLevel = ref('national')
 const selectedCounties = ref([])
@@ -2450,6 +2486,7 @@ const downloadSettlementData = async () => {
                         <template v-if="chart.chart">
                           <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px; position: relative;">
                             <v-chart 
+                              :key="`map-${chart.id}-${appStore.getIsDark}`"
                               :id="chart.id" 
                               class="chart" 
                               :option="chart.chart" 
@@ -2473,6 +2510,7 @@ const downloadSettlementData = async () => {
                           </div> 
                           <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
                             <apexchart 
+                              :key="`apex-${chart.id}-${appStore.getIsDark}`"
                               :id="chart.id"
                               :options="chart.chart" 
                               :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" 
@@ -2483,6 +2521,7 @@ const downloadSettlementData = async () => {
                           </div>
                           <div v-if="chart.type==8" class="chart-wrapper">
                             <apexchart 
+                              :key="`pyr-${chart.id}-${appStore.getIsDark}`"
                               :id="chart.id"
                               type="bar" 
                               :options="chart.chart.chartOptions" 

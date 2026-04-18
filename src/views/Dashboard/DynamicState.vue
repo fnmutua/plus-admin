@@ -16,6 +16,7 @@ import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, pyramidOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs,
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
+  mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -34,8 +35,7 @@ import { useRoute } from 'vue-router'
 
 
 
-import VChart, { THEME_KEY } from 'vue-echarts';
-import { provide } from 'vue';
+import VChart from 'vue-echarts'
 
 import { useAppStore } from '@/store/modules/app'
 
@@ -54,8 +54,6 @@ const isDark = computed(() => appStore.getIsDark)
 
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
-
-provide(THEME_KEY, 'light');
 
 const { t } = useI18n()
 
@@ -103,6 +101,39 @@ const getChartLoadingMessage = (chartId) => {
 
 const cards = ref([])
 const tabs = ref([])
+
+/** Apex/ECharts options snapshot getters at build time; re-merge plain colors when dark mode toggles. */
+function refreshDashboardChartThemes() {
+  for (const tab of (tabs.value as any[]) || []) {
+    for (const ch of (tab.charts as any[]) || []) {
+      if (!ch.chart) continue
+      try {
+        if (ch.type === 7) {
+          ch.chart = mergeEchartsMapOptionForTheme(ch.chart as Record<string, unknown>)
+        } else if (ch.type === 8) {
+          const c = ch.chart as Record<string, unknown>
+          if (c.chartOptions) {
+            ch.chart = {
+              ...c,
+              chartOptions: mergeApexChartOptionsWithTheme(c.chartOptions as Record<string, unknown>),
+            }
+          }
+        } else {
+          ch.chart = mergeApexChartOptionsWithTheme(ch.chart as Record<string, unknown>)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+watch(
+  () => appStore.getIsDark,
+  () => {
+    refreshDashboardChartThemes()
+  },
+)
 
 const filterLevel = ref('national')
 const selectedCounties = ref([])
@@ -3597,10 +3628,10 @@ onBeforeUnmount(() => {
                       </template>
                       <template v-if="chart.chart">
                         <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
-                          <v-chart :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                          <v-chart :key="`map-${chart.id}-${isDark}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
                         </div> 
-                        <apexchart v-if="chart.type!=7 && chart.type!=8" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
-                        <apexchart v-if="chart.type==8" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
+                        <apexchart v-if="chart.type!=7 && chart.type!=8" :key="`apex-${chart.id}-${isDark}`" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
+                        <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${isDark}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
                       </template>
                       <template v-else>
                         <div class="empty-state-content">
