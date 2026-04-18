@@ -1526,6 +1526,11 @@ export function mapChartNoDataFill(): string {
   return getAppDark() ? '#fca5a5' : '#b91c1c'
 }
 
+/** Uniform region fill when the map has no values (still show geography). */
+export function mapChartNoDataAreaColor(): string {
+  return getAppDark() ? '#334155' : '#cbd5e1'
+}
+
 export const mapChartOptions: EChartsOption = {
   color: customColorPalette, // Apply 100-color palette
   get backgroundColor() {

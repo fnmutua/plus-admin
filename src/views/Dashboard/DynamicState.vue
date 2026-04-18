@@ -15,7 +15,7 @@ import { Icon } from '@iconify/vue';
 import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, pyramidOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs,
-  mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill,
+  mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1917,6 +1917,38 @@ const getCharts = async (section_id) => {
             console.log('apsect 0002', aspect.value)
 
             const mapSeriesBase = (mapChartOptions.series?.[0] ?? {}) as Record<string, unknown>
+            const isMapEmpty = mapData.length === 0
+
+            const sourceFooterGraphic = {
+              type: 'text' as const,
+              left: 'center' as const,
+              bottom: 5,
+              z: 100,
+              zlevel: 2,
+              style: {
+                text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                fill: mapChartSourceFooterFill(),
+                font: '12px sans-serif',
+              },
+            }
+
+            const graphicList: unknown[] = [sourceFooterGraphic]
+            if (isMapEmpty) {
+              graphicList.unshift({
+                type: 'text' as const,
+                left: 'center' as const,
+                top: 'middle' as const,
+                z: 3000,
+                zlevel: 20,
+                style: {
+                  text: 'No data available',
+                  fill: mapChartNoDataFill(),
+                  fontSize: 17,
+                  fontWeight: 600,
+                },
+              })
+            }
+
             const UpdatedMapOtions = {
               ...mapChartOptions,
               title: {
@@ -1925,23 +1957,14 @@ const getCharts = async (section_id) => {
                 subtext: subtitleWithSource,
                 left: 'right',
               },
-              graphic: [
-                {
-                  type: 'text',
-                  left: 'center',
-                  bottom: 5,
-                  style: {
-                    text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
-                    fill: mapChartSourceFooterFill(),
-                    font: '12px sans-serif',
+              graphic: graphicList,
+              visualMap: isMapEmpty
+                ? { show: false }
+                : {
+                    ...mapChartOptions.visualMap,
+                    min: MaxMin[0],
+                    max: MaxMin[1],
                   },
-                },
-              ],
-              visualMap: {
-                ...mapChartOptions.visualMap,
-                min: MaxMin[0],
-                max: MaxMin[1],
-              },
               toolbox: {
                 ...mapChartOptions.toolbox,
                 left: 'left',
@@ -1960,6 +1983,14 @@ const getCharts = async (section_id) => {
                   nameProperty: geoNameProperty,
                   aspectScale: aspect.value,
                   data: mapData,
+                  ...(isMapEmpty
+                    ? {
+                        itemStyle: {
+                          ...(mapSeriesBase.itemStyle as Record<string, unknown>),
+                          areaColor: mapChartNoDataAreaColor(),
+                        },
+                      }
+                    : {}),
                 },
               ],
             };
@@ -1983,22 +2014,6 @@ const getCharts = async (section_id) => {
             const registeredMaps = getMap ? getMap(mapName) : null;
             console.log(`Map ${mapName} registered?`, registeredMaps ? 'YES' : 'NO', registeredMaps ? `(${registeredMaps.geoJSON?.features?.length} features)` : '');
             thisChart.chart = UpdatedMapOtions
-
-            // show no data 
-            if (mapData.length === 0) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data  available',
-                  fill: mapChartNoDataFill(),
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
-              }]
-            }
 
 
           } catch (error) {
@@ -2714,6 +2729,38 @@ const getCharts = async (section_id) => {
             console.log('apsect 0001',aspect.value)
 
             const mapSeriesBase2 = (mapChartOptions.series?.[0] ?? {}) as Record<string, unknown>
+            const isMapEmpty2 = mapData.length === 0
+
+            const sourceFooterGraphic2 = {
+              type: 'text' as const,
+              left: 'center' as const,
+              bottom: 5,
+              z: 100,
+              zlevel: 2,
+              style: {
+                text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                fill: mapChartSourceFooterFill(),
+                font: '12px sans-serif',
+              },
+            }
+
+            const graphicList2: unknown[] = [sourceFooterGraphic2]
+            if (isMapEmpty2) {
+              graphicList2.unshift({
+                type: 'text' as const,
+                left: 'center' as const,
+                top: 'middle' as const,
+                z: 3000,
+                zlevel: 20,
+                style: {
+                  text: 'No data available',
+                  fill: mapChartNoDataFill(),
+                  fontSize: 17,
+                  fontWeight: 600,
+                },
+              })
+            }
+
             const UpdatedMapOtions = {
               ...mapChartOptions,
               title: {
@@ -2722,23 +2769,14 @@ const getCharts = async (section_id) => {
                 subtext: subtitleWithSource,
                 left: 'right',
               },
-              graphic: [
-                {
-                  type: 'text',
-                  left: 'center',
-                  bottom: 5,
-                  style: {
-                    text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
-                    fill: mapChartSourceFooterFill(),
-                    font: '12px sans-serif',
+              graphic: graphicList2,
+              visualMap: isMapEmpty2
+                ? { show: false }
+                : {
+                    ...mapChartOptions.visualMap,
+                    min: MaxMin[0],
+                    max: MaxMin[1],
                   },
-                },
-              ],
-              visualMap: {
-                ...mapChartOptions.visualMap,
-                min: MaxMin[0],
-                max: MaxMin[1],
-              },
               toolbox: {
                 ...mapChartOptions.toolbox,
                 left: 'left',
@@ -2757,28 +2795,20 @@ const getCharts = async (section_id) => {
                   nameProperty: geoNameProperty2,
                   aspectScale: aspect.value,
                   data: mapData,
+                  ...(isMapEmpty2
+                    ? {
+                        itemStyle: {
+                          ...(mapSeriesBase2.itemStyle as Record<string, unknown>),
+                          areaColor: mapChartNoDataAreaColor(),
+                        },
+                      }
+                    : {}),
                 },
               ],
             };
             // sort the data such that the graphs start and end proper
             console.log('UpdatedMapOtions [map2]', UpdatedMapOtions)
             thisChart.chart = UpdatedMapOtions
-            
-            // show no data 
-            if (mapData.length===0) {
-              thisChart.chart.graphic= [{
-            type: 'text',
-            left: 'center',
-            top: 'middle',
-            style: {
-              text: 'No data  available',
-              fill: mapChartNoDataFill(),
-              fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
-          }]
-            }
 
           } catch (error) {
             // Handle any errors that occurred during the process

@@ -7,7 +7,7 @@ import { Icon } from '@iconify/vue';
 import {
   pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
   lineOptions, stackedbarOptions, simpleBarChart,stackedbarOptionsAbs,
-  mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill,
+  mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1508,6 +1508,38 @@ async function processTreemapChart() {
 
 
             const mapSeriesBase = (mapChartOptions.series?.[0] ?? {}) as Record<string, unknown>
+            const isMapEmpty = mapData.length === 0
+
+            const sourceFooterGraphic = {
+              type: 'text' as const,
+              left: 'center' as const,
+              bottom: 5,
+              z: 100,
+              zlevel: 2,
+              style: {
+                text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
+                fill: mapChartSourceFooterFill(),
+                font: '12px sans-serif',
+              },
+            }
+
+            const graphicList: unknown[] = [sourceFooterGraphic]
+            if (isMapEmpty) {
+              graphicList.unshift({
+                type: 'text' as const,
+                left: 'center' as const,
+                top: 'middle' as const,
+                z: 3000,
+                zlevel: 20,
+                style: {
+                  text: 'No data available',
+                  fill: mapChartNoDataFill(),
+                  fontSize: 17,
+                  fontWeight: 600,
+                },
+              })
+            }
+
             const UpdatedMapOtions = {
               ...mapChartOptions,
               title: {
@@ -1516,23 +1548,14 @@ async function processTreemapChart() {
                 subtext: subtitleWithSource,
                 left: 'right',
               },
-              graphic: [
-                {
-                  type: 'text',
-                  left: 'center',
-                  bottom: 5,
-                  style: {
-                    text: `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`,
-                    fill: mapChartSourceFooterFill(),
-                    font: '12px sans-serif',
+              graphic: graphicList,
+              visualMap: isMapEmpty
+                ? { show: false }
+                : {
+                    ...mapChartOptions.visualMap,
+                    min: MaxMin[0],
+                    max: MaxMin[1],
                   },
-                },
-              ],
-              visualMap: {
-                ...mapChartOptions.visualMap,
-                min: MaxMin[0],
-                max: MaxMin[1],
-              },
               toolbox: {
                 ...mapChartOptions.toolbox,
                 left: 'left',
@@ -1551,27 +1574,19 @@ async function processTreemapChart() {
                   nameProperty: geoNameProperty,
                   aspectScale: aspect.value,
                   data: mapData,
+                  ...(isMapEmpty
+                    ? {
+                        itemStyle: {
+                          ...(mapSeriesBase.itemStyle as Record<string, unknown>),
+                          areaColor: mapChartNoDataAreaColor(),
+                        },
+                      }
+                    : {}),
                 },
               ],
             }
 
             thisChart.chart = UpdatedMapOtions
-
-            // show no data 
-            if (mapData.length === 0) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data  available',
-                  fill: mapChartNoDataFill(),
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
-              }]
-            }
 
 
           } catch (error) {
