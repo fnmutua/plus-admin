@@ -1222,29 +1222,6 @@ const drawerSize = computed(() => {
   margin-top: 10px;
 }
 
-.filter-control-button {
-  width: 29px;
-  height: 29px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.filter-control-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.dark .filter-control-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.filter-control-button.active {
-  background-color: #409eff;
-  color: white;
-}
-
 .dark .filter-control-button.active {
   background-color: #409eff;
 }
@@ -1366,5 +1343,34 @@ const drawerSize = computed(() => {
 
 .filter-select-dropdown {
   z-index: 10001 !important;
+}
+
+.filter-control-button {
+  width: 29px;
+  height: 29px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #333333 !important;
+  padding: 0 !important;
+}
+
+.filter-control-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.filter-control-button.active {
+  background-color: #409eff;
+  color: white !important;
+}
+
+.dark .filter-control-button {
+  color: #333333 !important;
+}
+
+.dark .filter-control-button.active {
+  color: white !important;
 }
 </style>

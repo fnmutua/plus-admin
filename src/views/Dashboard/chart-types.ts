@@ -141,7 +141,10 @@ export const stacklineOptions: EChartsOption = {
   },
   tooltip: {
     trigger: 'item',
-    formatter: '{a} <br/>{b} : {c} ({d}%)'
+    formatter: '{a} <br/>{b} : {c} ({d}%)',
+    get backgroundColor() { return echartsTooltipBg() },
+    get borderColor() { return echartsTooltipBorder() },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
   },
   xAxis: {
     type: 'category',
@@ -803,6 +806,9 @@ export const lineOptions = {
       return { color: apexGridBorderColor() }
     },
   },
+  tooltip: {
+    get theme() { return getAppDark() ? 'dark' : 'light' },
+  },
   series: [{
     name: "Desktops",
     data: [10, 41, 35, 51, 49, 62, 69, 91, 148]
@@ -1075,9 +1081,10 @@ export const barOptions: EChartsOption = {
 
   tooltip: {
     trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
+    axisPointer: { type: 'shadow' },
+    get backgroundColor() { return echartsTooltipBg() },
+    get borderColor() { return echartsTooltipBorder() },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
   },
   grid: {
     left: 50,
@@ -1183,9 +1190,10 @@ export const xmultipleBarChart: EChartsOption = {
   },
   tooltip: {
     trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
+    axisPointer: { type: 'shadow' },
+    get backgroundColor() { return echartsTooltipBg() },
+    get borderColor() { return echartsTooltipBorder() },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
   },
   legend: {
     top: 'bottom',
@@ -1249,9 +1257,10 @@ export const barOptionsMultiple: EChartsOption = {
   },
   tooltip: {
     trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
+    axisPointer: { type: 'shadow' },
+    get backgroundColor() { return echartsTooltipBg() },
+    get borderColor() { return echartsTooltipBorder() },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
   },
   colors: romaColors, // Use Roma theme colors
 
@@ -1510,9 +1519,10 @@ export const xstackedbarOptions: EChartsOption = {
   },
   tooltip: {
     trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
+    axisPointer: { type: 'shadow' },
+    get backgroundColor() { return echartsTooltipBg() },
+    get borderColor() { return echartsTooltipBorder() },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
   },
   series: []
 }
@@ -1549,6 +1559,7 @@ export function getApexReactiveThemePatch(): Record<string, unknown> {
       style: { fontSize: '12px', fontWeight: 'normal', color: sc },
     },
     legend: { labels: { colors: fc } },
+    tooltip: { theme: dark ? 'dark' : 'light' },
     grid: { borderColor: gc },
     stroke: { colors: [dark ? 'rgba(15, 23, 42, 0.92)' : '#ffffff'] },
     plotOptions: {
@@ -1657,6 +1668,7 @@ export function mergeApexChartOptionsWithTheme(existing: Record<string, unknown>
     },
     grid: { ...(ex.grid as Record<string, unknown>), ...(p.grid as Record<string, unknown>) },
     stroke: { ...(ex.stroke as Record<string, unknown>), ...(p.stroke as Record<string, unknown>) },
+    tooltip: { ...(ex.tooltip as Record<string, unknown>), ...(p.tooltip as Record<string, unknown>) },
     plotOptions,
     xaxis: mergeApexXAxisLike(ex.xaxis, p.xaxis),
     yaxis,
@@ -2025,6 +2037,7 @@ export const pyramidOptions  = {
     },
     tooltip: {
       shared: false,
+      get theme() { return getAppDark() ? 'dark' : 'light' },
       x: {
         formatter: function (val) {
           return val
@@ -2032,7 +2045,7 @@ export const pyramidOptions  = {
       },
       y: {
         formatter: function (val) {
-          return Math.abs(val)  +'%'
+          return Math.abs(val) + '%'
         }
       }
     },
