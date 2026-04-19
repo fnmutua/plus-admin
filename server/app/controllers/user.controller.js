@@ -1713,8 +1713,8 @@ exports.checkUser = async (req, res) => {
     // Send OTP via external service (Leopard)
     const url = "https://quicksms.advantasms.com/api/services/sendotp/";
     const requestData = {
-      apikey: '***REDACTED***',
-      partnerID: '12108',
+      apikey: process.env.SMS_API_KEY,
+      partnerID: process.env.SMS_PARTNER_ID || '12108',
       shortcode: 'KISIP',
       message: 'Your verification code is: ' + otpCode + '.',
       mobile: req.body.phone,
@@ -2136,8 +2136,8 @@ async function sendNotificationSMS(phone_number, message) {
   }
 
   const requestData = {
-    apikey: "***REDACTED***",
-    partnerID: "12108",
+    apikey: process.env.SMS_API_KEY,
+    partnerID: process.env.SMS_PARTNER_ID || '12108',
     shortcode: "KISIP",
     message: message,
     mobile: formatPhoneNumber(phone_number),

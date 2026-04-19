@@ -89,8 +89,8 @@ async function sendSMS(sms_obj, admins_phones) {
       }
 
       const requestData = {
-        apikey: "***REDACTED***", // Replace with your actual API key
-        partnerID: '12108', // Replace with your actual partner ID
+        apikey: process.env.SMS_API_KEY, // Replace with your actual API key
+        partnerID: process.env.SMS_PARTNER_ID || '12108', // Replace with your actual partner ID
         shortcode: "KISIP",
         message: adminMessage,
         mobile: formattedPhone, // Send the message to the admin's phone number
@@ -141,8 +141,8 @@ async function sendNotification(phone_number, message) {
   }
 
   const requestData = {
-    apikey: "***REDACTED***", // Replace with your actual API key
-    partnerID: "12108", // Replace with your actual partner ID
+    apikey: process.env.SMS_API_KEY, // Replace with your actual API key
+    partnerID: process.env.SMS_PARTNER_ID || '12108', // Replace with your actual partner ID
     shortcode: "KISIP",
     message: message,
     mobile: formattedPhone, // Format the phone number
@@ -1875,8 +1875,8 @@ exports.signupViaApp = async (req, res) => {
         }
 
         const requestData = {
-          apikey: '***REDACTED***',
-          partnerID: '12108',
+          apikey: process.env.SMS_API_KEY,
+          partnerID: process.env.SMS_PARTNER_ID || '12108',
           shortcode: 'KISIP',
           message: 'Your registration code is: ' + otpCode + '.',
           mobile: formattedPhone,
@@ -2028,8 +2028,8 @@ exports.signupGRC = async (req, res) => {
         }
 
         const requestData = {
-          apikey: '***REDACTED***',
-          partnerID: '12108',
+          apikey: process.env.SMS_API_KEY,
+          partnerID: process.env.SMS_PARTNER_ID || '12108',
           shortcode: 'KISIP',
           //message: 'Your registration code is: ' + otpCode + '.',
          // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
@@ -2184,8 +2184,8 @@ exports.signupGRM = async (req, res) => {
         }
 
         const requestData = {
-          apikey: '***REDACTED***',
-          partnerID: '12108',
+          apikey: process.env.SMS_API_KEY,
+          partnerID: process.env.SMS_PARTNER_ID || '12108',
           shortcode: 'KISIP',
           //message: 'Your registration code is: ' + otpCode + '.',
          // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
@@ -2358,8 +2358,8 @@ exports.signinViaApp = async (req, res) => {
       if (smsEnabled) {
         const url = "https://quicksms.advantasms.com/api/services/sendotp/";
         const requestData = {
-          apikey: '***REDACTED***',
-          partnerID: '12108',
+          apikey: process.env.SMS_API_KEY,
+          partnerID: process.env.SMS_PARTNER_ID || '12108',
           shortcode: 'KISIP',
           message: 'Your KeSMIS Login code is: ' + otpCode + '.',
           //message: 'Your UAFSD Login code is: ' + otpCode + '. \n gyQbWWWRcc5',

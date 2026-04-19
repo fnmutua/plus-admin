@@ -17,6 +17,44 @@ const Sequelize = require('sequelize')
  const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
  const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 
+const SMS_ERROR_CODES = {
+  200:  'Successful',
+  1001: 'Invalid sender ID',
+  1002: 'Network not allowed',
+  1003: 'Invalid mobile number',
+  1004: 'Low bulk credits',
+  1005: 'Failed – system error',
+  1006: 'Invalid credentials',
+  1007: 'Failed – system error',
+  1008: 'No delivery report',
+  1009: 'Unsupported data type',
+  1010: 'Unsupported request type',
+  4090: 'Internal error – try again after 5 minutes',
+  4091: 'No Partner ID set',
+  4092: 'No API key provided',
+  4093: 'Details not found',
+}
+
+function parseSmsResponse(response) {
+  const resp = response?.data?.responses?.[0]
+  if (!resp) return { success: false, statusText: 'Fail – no response from SMS gateway' }
+  const code = Number(resp['response-code'])
+  const description = resp['response-description'] || ''
+  if (code === 200 || description === 'Success') return { success: true, statusText: 'Success' }
+  const mapped = SMS_ERROR_CODES[code]
+  const reason = mapped ? `${mapped} (code ${code})` : (description || `Unknown error (code ${code})`)
+  return { success: false, statusText: `Fail – ${reason}` }
+}
+
+function parseSmsAxiosError(error) {
+  const status = error?.response?.status
+  const data = error?.response?.data
+  if (status) return `Fail – HTTP ${status}: ${JSON.stringify(data) || 'SMS gateway error'}`
+  if (error?.code === 'ECONNREFUSED' || error?.code === 'ENOTFOUND') return 'Fail – SMS gateway unreachable'
+  if (error?.code === 'ETIMEDOUT') return 'Fail – SMS gateway timeout'
+  return `Fail – ${error?.message || 'Unknown network error'}`
+}
+
 
  var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
@@ -188,9 +226,9 @@ async function sendNotificationSMS(sms_obj) {
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
   
   const requestData = {
-    apikey: "***REDACTED***",
-     partnerID: '12108',
-    shortcode: "KISIP",
+    apikey: process.env.SMS_API_KEY,
+    partnerID: process.env.SMS_PARTNER_ID || '12108',
+    shortcode: process.env.SMS_SHORTCODE || 'KISIP',
     message: sms_obj.grv_code + ":" +sms_obj.message,
     mobile: sms_obj.phone,
   };
@@ -200,26 +238,15 @@ async function sendNotificationSMS(sms_obj) {
   axios
     .post(url, requestData)
     .then((response) => {
-     /// console.log("Response:", response.data.responses[0]['response-description']);
-     // console.log("Response:", response.data.responses[0] );
-
-      if( response.data.responses[0]['response-description'] == 'Success') {
-        notification.status = 'Success'
-        persistNotification().catch((error) => console.error('Failed to save grievance notification:', error))
-      } else {
-          //console.log("Response all:", response);
-          notification.status = 'Fail. '+response.data.responses[0]['response-description']
-
-          persistNotification().catch((error) => console.error('Failed to save grievance notification:', error))
-
-      }
-    
+      const { success, statusText } = parseSmsResponse(response)
+      console.log('[SMS] sendNotificationSMS response:', response.data?.responses?.[0])
+      notification.status = statusText
+      persistNotification().catch((error) => console.error('Failed to save grievance notification:', error))
     })
     .catch((error) => {
-      notification.status = 'Fail'
+      notification.status = parseSmsAxiosError(error)
+      console.error('[SMS] sendNotificationSMS error:', error?.code || error?.message)
       persistNotification().catch((saveError) => console.error('Failed to save grievance notification:', saveError))
-
-      console.error("Error:", error);
     });
 }
 
@@ -269,9 +296,9 @@ async function sendCreateSMS(sms_obj,serverUrl) {
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
 
   const requestData = {
-    apikey: "***REDACTED***",
-     partnerID: '12108',
-    shortcode: "KISIP",
+    apikey: process.env.SMS_API_KEY,
+    partnerID: process.env.SMS_PARTNER_ID || '12108',
+    shortcode: process.env.SMS_SHORTCODE || 'KISIP',
     message: msg,
     mobile: sms_obj.phone,
   };
@@ -279,15 +306,15 @@ async function sendCreateSMS(sms_obj,serverUrl) {
   axios
     .post(url, requestData)
     .then((response) => {
-      //console.log("Response:", response.data);
-      notification.status = 'Success'
-       db.models.grievance_notification.create(notification);
+      const { success, statusText } = parseSmsResponse(response)
+      console.log('[SMS] sendCreateSMS response:', response.data?.responses?.[0])
+      notification.status = statusText
+      db.models.grievance_notification.create(notification).catch((err) => console.error('Failed to save create notification:', err));
     })
     .catch((error) => {
-      console.error("Error:", error);
-      notification.status = 'Fail'
-      db.models.grievance_notification.create(notification);
-
+      notification.status = parseSmsAxiosError(error)
+      console.error('[SMS] sendCreateSMS error:', error?.code || error?.message)
+      db.models.grievance_notification.create(notification).catch((err) => console.error('Failed to save create notification:', err));
     });
 }
 
