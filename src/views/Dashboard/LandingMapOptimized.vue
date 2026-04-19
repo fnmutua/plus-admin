@@ -576,12 +576,28 @@ const addCountyLayer = (geoData: any) => {
   }
 }
 
+// Fit map to given GeoJSON data bounds
+const fitToGeoData = (geoData: any) => {
+  if (!map.value || !geoData?.features?.length) return
+  try {
+    const bounds = turf.bbox(geoData)
+    if (bounds && bounds.length === 4 &&
+        isFinite(bounds[0]) && isFinite(bounds[1]) &&
+        isFinite(bounds[2]) && isFinite(bounds[3])) {
+      const padding = window.innerWidth <= 768 ? 50 : 20
+      map.value.fitBounds(bounds as [number, number, number, number], { padding })
+    }
+  } catch (error) {
+    console.warn('Error fitting bounds:', error)
+  }
+}
+
 // Debounced county change handler
 const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
   if (!map.value) return
 
   const countyArray = Array.isArray(countyIds) ? countyIds : (countyIds ? [countyIds] : [])
-  
+
   // Clear subcounty selection
   subcounty.value = []
   subCountyOptions.value = []
@@ -600,6 +616,7 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
       await addSettlementLayers()
       if (countyGeos) {
         addCountyLayer(countyGeos)
+        fitToGeoData(countyGeos)
       }
 
       // Subcounties are independent of layer rendering — run in parallel
@@ -609,6 +626,26 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
     } catch (error: any) {
       console.error('Error changing county:', error)
       ElMessage.error('Failed to load county data')
+      mapLoading.value = false
+    }
+  } else {
+    // County cleared — reload all data and zoom to full extent
+    try {
+      mapLoading.value = true
+      mapLoadingText.value = 'Loading all settlements...'
+
+      await loadSettlements()
+      await addSettlementLayers()
+
+      if (countyGeo.value) {
+        addCountyLayer(countyGeo.value)
+        fitToGeoData(countyGeo.value)
+      }
+
+      mapLoading.value = false
+    } catch (error: any) {
+      console.error('Error reloading after county clear:', error)
+      ElMessage.error('Failed to reload data')
       mapLoading.value = false
     }
   }
@@ -651,14 +688,17 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
         addSubcountyLayer(subcountyGeos)
       }
     } else {
+      // Subcounty cleared — restore county layer and zoom to county extent
       await addSettlementLayers()
       if (county.value.length > 0) {
         const countyGeos = await loadCountyGeometries(county.value)
         if (countyGeos) {
           addCountyLayer(countyGeos)
+          fitToGeoData(countyGeos)
         }
       } else if (countyGeo.value) {
         addCountyLayer(countyGeo.value)
+        fitToGeoData(countyGeo.value)
       }
     }
 

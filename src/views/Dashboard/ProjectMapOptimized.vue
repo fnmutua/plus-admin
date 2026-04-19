@@ -652,12 +652,28 @@ const addCountyLayer = (geoData: any) => {
   }
 }
 
+// Fit map to given GeoJSON data bounds
+const fitToGeoData = (geoData: any) => {
+  if (!map.value || !geoData?.features?.length) return
+  try {
+    const bounds = turf.bbox(geoData)
+    if (bounds && bounds.length === 4 &&
+        isFinite(bounds[0]) && isFinite(bounds[1]) &&
+        isFinite(bounds[2]) && isFinite(bounds[3])) {
+      const padding = window.innerWidth <= 768 ? 50 : 20
+      map.value.fitBounds(bounds as [number, number, number, number], { padding })
+    }
+  } catch (error) {
+    console.warn('Error fitting bounds:', error)
+  }
+}
+
 // Debounced county change handler
 const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
   if (!map.value) return
 
   const countyArray = Array.isArray(countyIds) ? countyIds : (countyIds ? [countyIds] : [])
-  
+
   // Clear subcounty selection
   subcounty.value = []
   subCountyOptions.value = []
@@ -669,9 +685,9 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
 
       // Parallelize: load projects and county geometries
       const [, countyGeos] = await Promise.all([
-        loadProjectLocations({ 
+        loadProjectLocations({
           countyIds: countyArray,
-          implementerIds: implementer.value 
+          implementerIds: implementer.value
         }),
         loadCountyGeometries(countyArray)
       ])
@@ -679,6 +695,7 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
       await addProjectLayers()
       if (countyGeos) {
         addCountyLayer(countyGeos)
+        fitToGeoData(countyGeos)
       }
 
       // Load subcounties in parallel with nothing else blocking
@@ -688,6 +705,26 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
     } catch (error: any) {
       console.error('Error changing county:', error)
       ElMessage.error('Failed to load county data')
+      mapLoading.value = false
+    }
+  } else {
+    // County cleared — reload all data and zoom to full extent
+    try {
+      mapLoading.value = true
+      mapLoadingText.value = 'Loading all project locations...'
+
+      await loadProjectLocations({ implementerIds: implementer.value.length > 0 ? implementer.value : undefined })
+      await addProjectLayers()
+
+      if (countyGeo.value) {
+        addCountyLayer(countyGeo.value)
+        fitToGeoData(countyGeo.value)
+      }
+
+      mapLoading.value = false
+    } catch (error: any) {
+      console.error('Error reloading after county clear:', error)
+      ElMessage.error('Failed to reload data')
       mapLoading.value = false
     }
   }
@@ -729,16 +766,17 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
         addSubcountyLayer(subcountyGeos)
       }
     } else {
-      // If no subcounty selected, reload with county/implementer filter and restore county layer
+      // Subcounty cleared — restore county layer and zoom to county extent
       await addProjectLayers()
       if (county.value.length > 0) {
         const countyGeos = await loadCountyGeometries(county.value)
         if (countyGeos) {
           addCountyLayer(countyGeos)
+          fitToGeoData(countyGeos)
         }
       } else if (countyGeo.value) {
-        // Restore full county layer if no county filter
         addCountyLayer(countyGeo.value)
+        fitToGeoData(countyGeo.value)
       }
     }
 
