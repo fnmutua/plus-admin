@@ -11,7 +11,7 @@ import {
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled,  CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
-import { ref, reactive, computed, nextTick, watch } from 'vue'
+import { ref, reactive, computed, nextTick, watch, watchEffect } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument, revertMerge } from '@/api/settlements'
@@ -22,7 +22,6 @@ import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import filterDataByKeys from '@/utils/filterArrays'
-import { getSummarybyField } from '@/api/summary'
 import * as turf from '@turf/turf'
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import { Icon } from '@iconify/vue';
@@ -31,8 +30,6 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 import proj4 from 'proj4';
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
 
 
@@ -1694,10 +1691,11 @@ const deletedPage = ref(1)
 const deletedPageSize = ref(10)
 const deletedPaginationTotal = computed(() => deletedSettlements.value.length)
 
-const deletedPageData = computed(() => {
+const deletedPageData = ref<any[]>([])
+watchEffect(() => {
   const start = (deletedPage.value - 1) * deletedPageSize.value
   const end = start + deletedPageSize.value
-  return deletedSettlements.value.slice(start, end)
+  deletedPageData.value = deletedSettlements.value.slice(start, end)
 })
 
 watch(
@@ -3916,7 +3914,7 @@ const handleUploadGeo = async (uploadFile) => {
 }
 
 const tableRowClassName = (data) => {
-  if (data.row.documents.length > 0) {
+  if (data.row.documents?.length > 0) {
     return 'warning-row'
   }
   return ''
@@ -5359,7 +5357,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
             </div>
           </template>
         </el-table-column>
-        <el-table-column fixed="right" label="Actions" :min-width="actionColumnWidth">
+        <el-table-column fixed="right" label="Actions" :width="isMobile ? '80' : '160'">
           <template #default="{ row }">
             <template v-if="row._deletedTabSource === 'rejected'">
               <TableActions
