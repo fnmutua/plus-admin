@@ -220,9 +220,16 @@ export const getParentIds = (data: SettlementType): Promise<IResponse<Settlement
 }
 
 
-export const DeleteRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+export const DeleteRecord = (
+  data: SettlementType,
+  options?: { silent?: boolean }
+): Promise<IResponse<SettlementType>> => {
   console.log('....', data)
-  return request.post({ url: prod + '/api/v1/data/delete', data })
+  return request.post({
+    url: prod + '/api/v1/data/delete',
+    data,
+    ...(options?.silent ? { silent: true } : {})
+  })
 }
 
 

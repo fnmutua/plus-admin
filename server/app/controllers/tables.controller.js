@@ -3144,6 +3144,28 @@ exports.modelEditOneRecord = (req, res) => {
 
  
 
+// Recursively snapshot full rows then hard-delete a model's children before the model itself.
+// snapshotStore accumulates full association rows for future restoration.
+async function recursiveCascadeDelete(mdl, whereClause, snapshotStore, isNested = false) {
+  const rows = await mdl.findAll({ where: whereClause, raw: true });
+  if (!rows.length) return 0;
+
+  const modelName = mdl.name;
+  if (!snapshotStore[modelName]) snapshotStore[modelName] = { rows: [], isNested };
+  snapshotStore[modelName].rows.push(...rows);
+
+  const pkAttr = (mdl.primaryKeyAttributes && mdl.primaryKeyAttributes[0]) || 'id';
+  const parentIds = rows.map(r => r[pkAttr]).filter(id => id != null);
+
+  // Delete grandchildren first
+  for (const assoc of Object.values(mdl.associations || {})) {
+    if (assoc.associationType !== 'HasMany') continue;
+    await recursiveCascadeDelete(assoc.target, { [assoc.foreignKey]: parentIds }, snapshotStore, true);
+  }
+
+  return mdl.destroy({ where: whereClause });
+}
+
 exports.modelDeleteOneRecord = async (req, res) => {
 
     /// Create Log Events Object 
@@ -3198,6 +3220,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
     // Check for dependencies in associated models
     const associations = Object.keys(model.associations);
     const cascadeDelete = req.body.cascade === true;
+    const previewDependenciesOnly = req.body.previewDependencies === true;
 
 
  
@@ -3206,76 +3229,93 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
     // Track deleted associations for cascade delete
     const deletedAssociations = [];
+    // Track dependency details to show users what force delete will remove
+    const dependencyDetails = [];
+    // Snapshot of full associated rows before cascade delete — used for restore
+    const affectedAssociations = {};
 
+    let hasDependencies = false;
     for (let i = 0; i < associations.length; i++) {
       const associationName = associations[i];
       const association = model.associations[associationName];
 
        // Ignore settlement_history associations
       if (associationName === 'settlement_histories') {
- 
         continue;
       }
 
-
-      
       let dependentRowsCount = 0;
       const associationType = association.associationType;
-    
+
       if (associationType === 'HasMany') {
-        const mdl = association.target; // Get the associated model's class reference
-    
-        dependentRowsCount = await mdl.count({
-          where: {
-            [association.foreignKey]: record.id
-          }
-        });
-    
-        console.log('dependentRowsCount', dependentRowsCount,associationName);
-        
-        // If cascade delete is enabled, delete all dependent records
+        const mdl = association.target;
+        const fk = association.foreignKey;
+
+        dependentRowsCount = await mdl.count({ where: { [fk]: record.id } });
+        if (dependentRowsCount > 0) {
+          dependencyDetails.push({
+            association: associationName,
+            model: association.target.name,
+            count: dependentRowsCount
+          });
+        }
+
+        console.log('dependentRowsCount', dependentRowsCount, associationName);
+
         if (cascadeDelete && dependentRowsCount > 0) {
           try {
-            const deletedCount = await mdl.destroy({
-              where: {
-                [association.foreignKey]: record.id
-              }
-            });
-            deletedAssociations.push({
-              model: association.target.name,
-              count: deletedCount
-            });
+            // Recursively snapshot full rows then delete (handles nested FK constraints)
+            const deletedCount = await recursiveCascadeDelete(
+              mdl, { [fk]: record.id }, affectedAssociations
+            );
+            // Store foreignKey so restore knows which field to set back to settlement_id
+            if (affectedAssociations[association.target.name]) {
+              affectedAssociations[association.target.name].foreignKey = fk;
+            }
+            deletedAssociations.push({ model: association.target.name, count: deletedCount });
             console.log(`Cascade deleted ${deletedCount} ${association.target.name}(s)`);
           } catch (deleteError) {
             console.error(`Error cascade deleting ${association.target.name}:`, deleteError);
-            // Continue with other associations even if one fails
+            const err = new Error(`Cannot cascade delete: failed to remove ${association.target.name} records. ${deleteError.message}`);
+            err.code = 'CASCADE_DELETE_FAILED';
+            throw err;
           }
         }
       } else {
         dependentRowsCount = 0;
       }
-    
-      // Only return error if cascade is not enabled and dependencies exist
-      if (!cascadeDelete && dependentRowsCount > 0) {
-        return res.status(500).send({
-          message: `Cannot delete '${modelName}' record, it has ${dependentRowsCount} dependent ${association.target.name}(s)`,
-          code: 'DEPENDENCY_FOUND'
-        });
+
+      if (!cascadeDelete && !previewDependenciesOnly && dependentRowsCount > 0) {
+        hasDependencies = true;
       }
     }
 
-    
+    if (previewDependenciesOnly) {
+      return res.status(200).send({
+        message: 'Dependency preview retrieved',
+        code: '0000',
+        dependencies: dependencyDetails
+      });
+    }
+    if (!cascadeDelete && hasDependencies) {
+      const dependencySummary = dependencyDetails
+        .map(d => `${d.count} ${d.model}(s)`)
+        .join(', ');
+      return res.status(500).send({
+        message: `Cannot delete '${modelName}' record, it has dependent records: ${dependencySummary}`,
+        code: 'DEPENDENCY_FOUND',
+        dependencies: dependencyDetails
+      });
+    }
 
     // Delete the record
     await model.destroy({ where: { id: record.id } });
     del_event.status='Successful'
     logEvents(del_event)
-  
-    if (modelName == 'settlement') { 
-      updateHistory(record.id, record, req.thisUser.id, 'Delete');
 
-      deleteSettlementDataFromODK(record)
-
+    if (modelName == 'settlement') {
+      updateHistory(record.id, record, req.thisUser.id, 'Delete', affectedAssociations);
+      deleteSettlementDataFromODK(record);
     }
 
  
@@ -3284,7 +3324,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
     let message = 'Delete successful';
     if (cascadeDelete && deletedAssociations.length > 0) {
       const deletedSummary = deletedAssociations.map(a => `${a.count} ${a.model}(s)`).join(', ');
-      message = `Delete successful. Cascade deleted: ${deletedSummary}`;
+      message = `Delete successful. Cascade deleted: ${deletedSummary}. Full snapshots were saved for future restoration.`;
     }
 
     res.status(200).send({
@@ -3297,6 +3337,13 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
     del_event.status='failed'
       logEvents(del_event)
+
+    if (err.code === 'CASCADE_DELETE_FAILED') {
+      return res.status(500).send({
+        message: err.message,
+        code: 'CASCADE_DELETE_FAILED'
+      });
+    }
 
     res.status(500).send({
       message: 'Internal server error',
@@ -9770,11 +9817,10 @@ async function xupdateHistory(settlementId, updatedData, userId,change_type) {
   return await settlement.update(updatedData);
 }
 
-async function updateHistory(settlementId, updatedData, userId, change_type) {
+async function updateHistory(settlementId, updatedData, userId, change_type, affectedAssociations = {}) {
   let originalData;
 
   if (change_type === 'Delete') {
-    // Use updatedData as both "before" and "after" since the settlement won't be found
     originalData = updatedData;
   } else {
     const settlement = await db.models.settlement.findByPk(settlementId);
@@ -9784,18 +9830,25 @@ async function updateHistory(settlementId, updatedData, userId, change_type) {
     originalData = settlement.toJSON();
   }
 
-  // Save changes in history
+  const changes = {
+    before: originalData,
+    after: change_type === 'Delete' ? originalData : updatedData,
+  };
+
+  if (change_type === 'Delete' && Object.keys(affectedAssociations).length > 0) {
+    changes.affected_associations = affectedAssociations;
+  }
+  if (change_type === 'Delete') {
+    changes.deleted_settlement_id = settlementId;
+  }
+
   await db.models.settlement_history.create({
-    settlement_id:  change_type === 'Delete' ? null : settlementId,
+    settlement_id: change_type === 'Delete' ? null : settlementId,
     changed_by: userId,
     change_type: change_type,
-    changes: {
-      before: originalData,
-      after: change_type === 'Delete' ? originalData : updatedData,
-    },
+    changes,
   });
 
-  // Update the settlement record if not a delete operation
   if (change_type !== 'Delete') {
     return await db.models.settlement.update(updatedData, { where: { id: settlementId } });
   }
@@ -9843,24 +9896,56 @@ exports.revertEdits = async (req, res) => {
     }
 
     const { settlement_id, changes } = history;
+    const targetSettlementId = changes?.deleted_settlement_id || changes?.before?.id || settlement_id;
 
     // Check if the settlement exists
-    let settlement = await db.models.settlement.findByPk(settlement_id);
+    let settlement = await db.models.settlement.findByPk(targetSettlementId);
     if (!settlement) {
-      // If the settlement was deleted, recreate it using the "before" data
+      // Recreate the deleted settlement from history
+      const { id: _id, createdAt: _c, updatedAt: _u, ...restBefore } = changes.before || {};
       settlement = await db.models.settlement.create({
-        id: settlement_id, // Preserve the original settlement ID if necessary
-        ...changes.before, // Use the "before" data from the history
+        id: targetSettlementId,
+        ...restBefore,
       });
 
-      await history.update({ status: 'Reverted' }); // Update history status
-      console.log('history.update')
+      // Recreate associated records from the full row snapshots saved at delete time.
+      // Direct children get their FK re-pointed to the restored settlement.
+      // Nested grandchildren are recreated as-is (their parent PKs were preserved).
+      const affectedAssociations = changes.affected_associations || {};
+      const restored = [];
 
-      
-      return res.status(200).send({
-        message: 'Deleted settlement restored successfully.',
-        code: '0000',
+      // Restore direct children first (isNested = false), then nested (isNested = true)
+      const sortedEntries = Object.entries(affectedAssociations).sort(([, a], [, b]) => {
+        return (a.isNested ? 1 : 0) - (b.isNested ? 1 : 0);
       });
+
+      for (const [modelName, assocData] of sortedEntries) {
+        const mdl = db.models[modelName];
+        if (!mdl || !assocData.rows || !assocData.rows.length) continue;
+        let count = 0;
+        for (const row of assocData.rows) {
+          try {
+            const { createdAt: _c, updatedAt: _u, ...rowData } = row;
+            // For direct children, re-point FK to restored settlement
+            if (!assocData.isNested && assocData.foreignKey) {
+              rowData[assocData.foreignKey] = targetSettlementId;
+            }
+            await mdl.create(rowData);
+            count++;
+          } catch (e) {
+            console.error(`Restore failed for ${modelName} row:`, e.message);
+          }
+        }
+        if (count > 0) restored.push(`${count} ${modelName}(s)`);
+      }
+
+      await history.update({ status: 'Reverted' });
+
+      const msg = restored.length
+        ? `Settlement restored. Recreated: ${restored.join(', ')}.`
+        : 'Settlement restored. No associated records to recover.';
+
+      return res.status(200).send({ message: msg, code: '0000', restored });
     }
 
     // If the settlement exists, update it to its previous state

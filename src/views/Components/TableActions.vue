@@ -114,13 +114,21 @@
           </el-dropdown-item>
 
           <!-- Dangerous Actions (with dividers and confirmation) -->
-          <el-dropdown-item 
-            v-if="buttons.includes('decommission')" 
+          <el-dropdown-item
+            v-if="buttons.includes('decommission')"
             @click="onDecommission(item)"
             divided
             class="danger-action">
             <el-icon><TakeawayBox /></el-icon>
             <span style="margin-left: 8px;">Decommission</span>
+          </el-dropdown-item>
+
+          <el-dropdown-item
+            v-if="buttons.includes('undoDecommission')"
+            @click="onUndoDecommission(item)"
+            divided>
+            <el-icon><RefreshLeft /></el-icon>
+            <span style="margin-left: 8px;">Undo Decommission</span>
           </el-dropdown-item>
 
           <el-dropdown-item 
@@ -181,7 +189,7 @@
 <script lang="ts" setup>
 import { ref, PropType, computed } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog, ElAlert } from 'element-plus';
-import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus, Connection } from '@element-plus/icons-vue';
+import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus, Connection, RefreshLeft } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -191,7 +199,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "addGeometry", "share", "merge", "updateLocation", "addFacility", "linkToSettlement"]);
+const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "undoDecommission", "addGeometry", "share", "merge", "updateLocation", "addFacility", "linkToSettlement"]);
 
 // Simple mobile detection for per-row actions (non-reactive to resize, good enough)
 const isMobile = computed(() => window.innerWidth <= 768);
@@ -246,6 +254,10 @@ const onUpdateLocation = (item) => {
 
 const onDecommission = (item) => {
   emit("decommission", item);
+};
+
+const onUndoDecommission = (item) => {
+  emit("undoDecommission", item);
 };
 
 const onLinkToSettlement = (item) => {

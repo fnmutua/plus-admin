@@ -498,6 +498,11 @@ const getSettlementActionButtons = (settlement: any): string[] => {
     buttons.push('decommission');
   }
 
+  // Add undo decommission button for Decommissioned settlements if super admin
+  if (activeSegment.value === 'Decommissioned' && isSuperAdmin.value) {
+    buttons.push('undoDecommission');
+  }
+
   // Add merge button if user can edit (merge requires edit permission)
   if (canUserAccessSettlement(settlement, 'edit')) {
     buttons.push('merge');
@@ -2374,7 +2379,7 @@ const handleDelete = async (data: any) => {
     }
 
     // Delete the settlement record
-    const response = await DeleteRecord(formData);
+    const response = await DeleteRecord(formData, { silent: true });
 
     if (response && response.code === '0000') {
       ElMessage.success('Settlement deleted successfully. It has been moved to the Deleted tab and can be restored later.');
@@ -2427,13 +2432,75 @@ const handleDelete = async (data: any) => {
     console.error('Error deleting settlement:', error);
     const errorMessage = error?.response?.data?.message || error?.message || 'Failed to delete settlement. Please try again.';
     
-    // Check if it's a dependency error
+    // Check if it's a dependency error — offer cascade delete
     if (error?.response?.data?.code === 'DEPENDENCY_FOUND') {
-      ElMessage.error({
-        message: errorMessage,
-        duration: 6000,
-        showClose: true
-      });
+      try {
+        const dependencies = Array.isArray(error?.response?.data?.dependencies)
+          ? error.response.data.dependencies
+          : [];
+        const escapeHtml = (value: any) => String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+        const dependencyRows = dependencies.length
+          ? dependencies.map((dep: any) => `
+              <tr>
+                <td style="padding:6px 10px;border:1px solid #ebeef5;">${escapeHtml(dep.model || dep.association || 'Unknown')}</td>
+                <td style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;">${escapeHtml(dep.count ?? 0)}</td>
+              </tr>
+            `).join('')
+          : `
+              <tr>
+                <td style="padding:6px 10px;border:1px solid #ebeef5;">Associated records</td>
+                <td style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;">Unknown</td>
+              </tr>
+            `;
+        const dependencySection = `
+          <div style="margin: 8px 0 6px 0;">The following associated records will be deleted:</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr>
+                <th style="padding:6px 10px;border:1px solid #ebeef5;text-align:left;background:#f5f7fa;">Association</th>
+                <th style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;background:#f5f7fa;">Affected Records</th>
+              </tr>
+            </thead>
+            <tbody>${dependencyRows}</tbody>
+          </table>
+        `;
+
+        await ElMessageBox.confirm(
+          `${dependencySection}<div style="margin-top:10px;">Do you want to force-delete this settlement along with all its associated records?</div>`,
+          'Force Delete?',
+          {
+            type: 'warning',
+            confirmButtonText: 'Force Delete',
+            cancelButtonText: 'Cancel',
+            distinguishCancelAndClose: true,
+            confirmButtonClass: 'el-button--danger',
+            dangerouslyUseHTMLString: true
+          }
+        );
+        // User confirmed cascade delete
+        const cascadeFormData: any = { id: settlement.id, model, cascade: true };
+        if (settlement.documents?.length > 0) {
+          cascadeFormData.filesToDelete = settlement.documents;
+          try { await deleteDocument(cascadeFormData); } catch {}
+        }
+        const cascadeResponse = await DeleteRecord(cascadeFormData, { silent: true });
+        if (cascadeResponse?.code === '0000') {
+          ElMessage.success(cascadeResponse.message || 'Settlement and all associated records deleted.');
+          await getCounts();
+          await refreshDeletedHistoryEntryCount();
+        } else {
+          ElMessage.error(cascadeResponse?.message || 'Cascade delete failed.');
+        }
+      } catch (cancelErr: any) {
+        if (cancelErr !== 'cancel' && cancelErr !== 'close') {
+          ElMessage.error(cancelErr?.response?.data?.message || cancelErr?.message || 'Cascade delete failed.');
+        }
+      }
     } else {
       ElMessage.error(errorMessage);
     }
@@ -2465,19 +2532,75 @@ const handleDeleteCascade = async () => {
     return
   }
 
+  const dependencySummary: Record<string, number> = {}
+  for (const settlement of deletableSettlements) {
+    try {
+      const previewRes = await DeleteRecord({
+        id: settlement.id,
+        model: model,
+        previewDependencies: true,
+      }, { silent: true })
+      const deps = Array.isArray(previewRes?.dependencies) ? previewRes.dependencies : []
+      deps.forEach((dep: any) => {
+        const key = dep?.model || dep?.association || 'unknown'
+        const count = Number(dep?.count || 0)
+        dependencySummary[key] = (dependencySummary[key] || 0) + count
+      })
+    } catch (previewErr) {
+      console.warn(`Dependency preview failed for settlement ${settlement.id}:`, previewErr)
+    }
+  }
+  const dependencyLines = Object.entries(dependencySummary)
+    .filter(([, count]) => count > 0)
+    .map(([association, count]) => ({ association, count }))
+  const escapeHtml = (value: any) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  const dependencyRows = dependencyLines.length
+    ? dependencyLines.map((dep: any) => `
+        <tr>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;">${escapeHtml(dep.association)}</td>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;">${escapeHtml(dep.count)}</td>
+        </tr>
+      `).join('')
+    : `
+        <tr>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;">Associated records</td>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;">0</td>
+        </tr>
+      `
+  const dependencySection = `
+    <div style="margin: 8px 0 6px 0;">The following associated records will be deleted:</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr>
+          <th style="padding:6px 10px;border:1px solid #ebeef5;text-align:left;background:#f5f7fa;">Association</th>
+          <th style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;background:#f5f7fa;">Affected Records</th>
+        </tr>
+      </thead>
+      <tbody>${dependencyRows}</tbody>
+    </table>
+  `
+  const settlementsList = deletableSettlements
+    .map(s => `- ${escapeHtml(s.name)} (ID: ${escapeHtml(s.id)})`)
+    .join('<br/>')
+
   // Confirm with user
   try {
     await ElMessageBox.confirm(
-      `You are about to permanently delete ${deletableSettlements.length} settlement(s) with all associated data (cascade delete).\n\n` +
-      `Settlements to delete:\n${deletableSettlements.map(s => `- ${s.name} (ID: ${s.id})`).join('\n')}\n\n` +
-      `This action will delete all related data including documents, roads, projects, facilities, and any other associations.\n\n` +
-      `⚠️ WARNING: This action cannot be undone!`,
+      `<div>You are about to permanently delete ${escapeHtml(deletableSettlements.length)} settlement(s) with all associated data (cascade delete).</div>` +
+      `<div style="margin-top:8px;">Settlements to delete:</div>` +
+      `<div style="margin-top:4px;">${settlementsList}</div>` +
+      `${dependencySection}`,
       'Confirm Cascade Delete',
       {
         type: 'warning',
         confirmButtonText: 'Delete Permanently',
         cancelButtonText: 'Cancel',
-        dangerouslyUseHTMLString: false,
+        dangerouslyUseHTMLString: true,
         distinguishCancelAndClose: true
       }
     )
@@ -2508,7 +2631,7 @@ const handleDeleteCascade = async () => {
       }
 
       // Delete the settlement record with cascade
-      return DeleteRecord(formData)
+      return DeleteRecord(formData, { silent: true })
     })
 
     const results = await Promise.allSettled(deletePromises)
@@ -2588,6 +2711,18 @@ const handleDecommission = async (data: TableSlotDefault) => {
   DecommissionDialog.value = true
   ruleForm.id = data.id
   ruleForm.name = data.name
+}
+
+const handleUndoDecommission = async (data: any) => {
+  try {
+    await updateOneRecord({ id: data.id, isApproved: 'Approved', model: 'settlement' })
+    decommSettlements.value = decommSettlements.value.filter((s: any) => s.id !== data.id)
+    await getCounts()
+    ElMessage.success(`${data.name} has been restored to Approved.`)
+  } catch (error) {
+    console.error('Error undoing decommission:', error)
+    ElMessage.error('Failed to undo decommission. Please try again.')
+  }
 }
 
 const handleMerge = async (data: any) => {
@@ -5235,7 +5370,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
               <!-- Example 1: Only Edit and Delete buttons -->
               <TableActions
 :item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
-                @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" />
+                @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" @undo-decommission="handleUndoDecommission" />
 
             </template>
           </el-table-column>
