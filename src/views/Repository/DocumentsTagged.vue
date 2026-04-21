@@ -1594,92 +1594,73 @@ const parentTitle = ref("Parent (selected)")
 const parentLoading = ref(false)
 const currentAssociation = ref<{ typeLabel: string; recordName: string } | null>(null)
 
-const getparentOptions = async (keyword?: string) => {
+const getparentOptions = async (keyword = '') => {
+  if (!theParentModel.value) return
   parentLoading.value = true
-  parentOptions.value = []
-  
   try {
-    if (!theParentModel.value) {
-      return
-    }
-
-    const associatedModels = theParentModel.value === 'settlement' ? ['county', 'subcounty', 'ward'] :
-      ['project', 'contractor', 'road', 'road_asset'].includes(theParentModel.value) ? [] :
+    const model = theParentModel.value
+    const associatedModels = model === 'settlement' ? ['county', 'subcounty', 'ward'] :
+      ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] :
       ['county', 'subcounty', 'ward']
 
-    // Build filters array for server-side filtering
     let filters: string[] = []
     let filterValues: any[] = []
-    
-    // Apply county restriction if user is county-restricted (unless super admin or national admin)
+
     if (isCountyRestricted.value && userCountyId.value) {
-      // For models that have county_id field, apply county restriction
-      if (associatedModels.includes('county') || theParentModel.value === 'settlement') {
+      if (associatedModels.includes('county') || model === 'settlement') {
         filters.push('county_id')
         filterValues.push([userCountyId.value])
-        console.log('Applying county restriction filter for model:', theParentModel.value, 'county_id:', userCountyId.value)
       }
     } else if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value) {
-      // User is restricted to their settlement
-      if (theParentModel.value === 'settlement') {
+      if (model === 'settlement') {
         filters.push('settlement_id')
         filterValues.push([userSettlementId.value])
-        console.log('Applying settlement restriction filter:', userSettlementId.value)
       }
     }
 
     const formData = {
       curUser: 1,
-      model: theParentModel.value,
-      searchField: theParentModel.value === 'project' ? 'title' : 'name',
-      searchKeyword: keyword || '',
+      model,
+      searchField: model === 'project' ? 'title' : 'name',
+      searchKeyword: keyword,
       excludeGeom: false,
       excludeGeomAssoc: true,
       associated_multiple_models: associatedModels,
-      filters: filters,
-      filterValues: filterValues,
-      limit: 100,
+      filters,
+      filterValues,
+      limit: 300,
       page: 1,
     }
 
     const response = await searchByKeyWord(formData as any)
     const data = (response as any).data
-    
-    if (data && data.length > 0) {
-      // Filter results based on user restrictions (client-side additional filtering)
-      let filteredData = data.filter((item: any) => {
-        // Apply county restriction for county-restricted users
-        if (isCountyRestricted.value && userCountyId.value) {
-          // Check if item has county_id and it matches user's county
-          const itemCountyId = item.county_id || item.county?.id
-          if (itemCountyId && itemCountyId !== userCountyId.value) {
-            return false
-          }
-        }
-        
-        // Apply settlement restriction for settlement-restricted users
-        if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value && theParentModel.value === 'settlement') {
-          if (item.id !== userSettlementId.value) {
-            return false
-          }
-        }
-        
-        return true
-      })
-      
-      parentOptions.value = filteredData.map((item: any) => ({
-        value: item.id,
-        label: item.name || item.title || item.contract_number || 'Unknown',
-        county: item.county?.name,
-        subcounty: item.subcounty?.name,
-        ward: item.ward?.name,
-        ward_id: item.ward?.id,
-        subcounty_id: item.subcounty?.id,
-        county_id: item.county?.id,
-      }))
-    } else {
-      ElMessage.warning('No parent options found for the selected entity.')
+
+    if (!data || data.length === 0) {
+      parentOptions.value = []
+      return
     }
+
+    let filteredData = data.filter((item: any) => {
+      if (isCountyRestricted.value && userCountyId.value) {
+        const itemCountyId = item.county_id || item.county?.id
+        if (itemCountyId && itemCountyId !== userCountyId.value) return false
+      }
+      if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value && model === 'settlement') {
+        if (item.id !== userSettlementId.value) return false
+      }
+      return true
+    })
+
+    parentOptions.value = filteredData.map((item: any) => ({
+      value: item.id,
+      label: item.name || item.title || item.contract_number || 'Unknown',
+      county: item.county?.name,
+      subcounty: item.subcounty?.name,
+      ward: item.ward?.name,
+      ward_id: item.ward?.id,
+      subcounty_id: item.subcounty?.id,
+      county_id: item.county_id || item.county?.id,
+    }))
   } catch (error) {
     console.error('Error loading parent options:', error)
     ElMessage.error('Failed to load parent options')
@@ -1690,13 +1671,9 @@ const getparentOptions = async (keyword?: string) => {
 
 let parentSearchTimer: number | null = null
 function remoteFetchParents(kw: string) {
-  if (parentSearchTimer) {
-    clearTimeout(parentSearchTimer)
-    parentSearchTimer = null
-  }
-  parentSearchTimer = window.setTimeout(() => {
-    getparentOptions(kw || '')
-  }, 300)
+  if (parentSearchTimer) { clearTimeout(parentSearchTimer); parentSearchTimer = null }
+  if (kw && kw.trim().length === 1) return
+  parentSearchTimer = window.setTimeout(() => { getparentOptions(kw || '') }, 500)
 }
 
 const handleSelectType = async (type: string) => {

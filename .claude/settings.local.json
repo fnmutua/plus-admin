@@ -10,7 +10,8 @@
       "Bash(python -c \":*)",
       "Bash(pip install:*)",
       "Bash(find c:UsersUSERplus-admin -name *.py -o -name estimate_population*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git checkout *)"
     ]
   }
 }
