@@ -2558,94 +2558,71 @@ const importHandleSelectModel = async (model: string) => {
     parent_ids: [] as number[],
   }));
   if (mappedFieldId) {
-    importLoading.value.fetchParents = true;
-    try {
-      const associatedModels = model === 'settlement' ? ['county', 'subcounty', 'ward'] :
-        ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] :
-        ['county', 'subcounty', 'ward'];
-      
-      // Build filters array for server-side filtering
-      let filters: string[] = []
-      let filterValues: any[] = []
-      
-      // Apply county restriction if user is county-restricted (unless super admin or national admin)
-      if (isCountyRestricted.value && userCountyId.value) {
-        // For models that have county_id field, apply county restriction
-        if (associatedModels.includes('county') || model === 'settlement') {
-          filters.push('county_id')
-          filterValues.push([userCountyId.value])
-          console.log('Applying county restriction filter for import model:', model, 'county_id:', userCountyId.value)
-        }
-      } else if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value) {
-        // User is restricted to their settlement
-        if (model === 'settlement') {
-          filters.push('settlement_id')
-          filterValues.push([userSettlementId.value])
-          console.log('Applying settlement restriction filter for import:', userSettlementId.value)
-        }
-      }
-      
-      const formData = {
-        curUser: 1,
-        model: model,
-        searchField: model === 'project' ? 'title' : 'name',
-        searchKeyword: '',
-        excludeGeom: false,
-        excludeGeomAssoc: true,
-        associated_multiple_models: associatedModels,
-        filters: filters,
-        filterValues: filterValues,
-      };
-      const response = await searchByKeyWord(formData as any);
-      const resp = response as any
-      const data = Array.isArray(resp)
-        ? resp
-        : Array.isArray(resp?.data)
-          ? resp.data
-          : Array.isArray(resp?.results)
-            ? resp.results
-            : []
-      if (data && data.length > 0) {
-        // Filter results based on user restrictions (client-side additional filtering)
-        let filteredData = data.filter((item: any) => {
-          // Apply county restriction for county-restricted users
-          if (isCountyRestricted.value && userCountyId.value) {
-            // Check if item has county_id and it matches user's county
-            const itemCountyId = item.county_id || item.county?.id
-            if (itemCountyId && itemCountyId !== userCountyId.value) {
-              return false
-            }
-          }
-          
-          // Apply settlement restriction for settlement-restricted users
-          if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value && model === 'settlement') {
-            if (item.id !== userSettlementId.value) {
-              return false
-            }
-          }
-          
-          return true
-        })
-        
-        importParentOptions.value = filteredData.map((item: any) => ({
-          value: item.id,
-          label: item.name || item.title || item.contract_number || 'Unknown',
-          county: item.county?.name,
-          subcounty: item.subcounty?.name,
-          ward: item.ward?.name,
-          ward_id: item.ward?.id,
-          subcounty_id: item.subcounty?.id,
-          county_id: item.county_id || item.county?.id,
-        }));
-      } else {
-        ElMessage.warning('No parent options found for the selected entity.');
-      }
-    } catch (err: any) {
-      ElMessage.error(err.message || 'Failed to load parent options');
-    } finally {
-      importLoading.value.fetchParents = false;
-    }
+    await importGetParentOptions()
   }
+}
+
+const importGetParentOptions = async (keyword = '') => {
+  const model = importTargetModel.value
+  if (!model || model === 'other_documents') return
+  importLoading.value.fetchParents = true
+  try {
+    const associatedModels = model === 'settlement' ? ['county', 'subcounty', 'ward'] :
+      ['project', 'contractor', 'road', 'road_asset'].includes(model) ? [] :
+      ['county', 'subcounty', 'ward']
+    let filters: string[] = []
+    let filterValues: any[] = []
+    if (isCountyRestricted.value && userCountyId.value) {
+      if (associatedModels.includes('county') || model === 'settlement') {
+        filters.push('county_id')
+        filterValues.push([userCountyId.value])
+      }
+    } else if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value) {
+      if (model === 'settlement') {
+        filters.push('settlement_id')
+        filterValues.push([userSettlementId.value])
+      }
+    }
+    const response = await searchByKeyWord({
+      curUser: 1, model,
+      searchField: model === 'project' ? 'title' : 'name',
+      searchKeyword: keyword,
+      excludeGeom: false, excludeGeomAssoc: true,
+      associated_multiple_models: associatedModels,
+      filters, filterValues, limit: 300, page: 1,
+    } as any)
+    const data = (response as any)?.data || []
+    if (!data.length) { importParentOptions.value = []; return }
+    importParentOptions.value = data
+      .filter((item: any) => {
+        if (isCountyRestricted.value && userCountyId.value) {
+          const cid = item.county_id || item.county?.id
+          if (cid && cid !== userCountyId.value) return false
+        }
+        if (userSettlementId.value && !isSuperAdmin && !hasNationalAccess.value && model === 'settlement') {
+          if (item.id !== userSettlementId.value) return false
+        }
+        return true
+      })
+      .map((item: any) => ({
+        value: item.id,
+        label: item.name || item.title || item.contract_number || 'Unknown',
+        county: item.county?.name, subcounty: item.subcounty?.name, ward: item.ward?.name,
+        ward_id: item.ward?.id, subcounty_id: item.subcounty?.id,
+        county_id: item.county_id || item.county?.id,
+      }))
+  } catch (err: any) {
+    ElMessage.error(err.message || 'Failed to load parent options')
+  } finally {
+    importLoading.value.fetchParents = false
+  }
+}
+
+let importParentSearchTimer: number | null = null
+function importRemoteFetchParents(kw: string) {
+  if (importParentSearchTimer) { clearTimeout(importParentSearchTimer); importParentSearchTimer = null }
+  if (kw && kw.trim().length === 1) return
+  importParentSearchTimer = window.setTimeout(() => { importGetParentOptions(kw || '') }, 500)
 }
 
 /** Same API as ImportData/Document.vue — nogeo list was empty / wrong shape for document_type here */
@@ -3992,8 +3969,11 @@ const handleTabChange = async (tabName: string) => {
                   collapse-tags
                   collapse-tags-tooltip
                   filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="importRemoteFetchParents"
                   :loading="importLoading.fetchParents"
-                  placeholder="Select one or more…"
+                  placeholder="Search and select one or more…"
                 >
                   <el-option
                     v-for="item in importParentOptions"
