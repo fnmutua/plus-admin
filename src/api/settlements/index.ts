@@ -534,7 +534,8 @@ export const getSettlementImageryLayers = (data: {
   settlementId: string | number
   bbox?: { minLng: number; minLat: number; maxLng: number; maxLat: number }
 }): Promise<IResponse<string[]>> => {
-  return request.post({ url: prod + '/api/v1/data/settlements/imagery', data })
+  // Keep this request silent; map component handles imagery availability gracefully.
+  return request.post({ url: prod + '/api/v1/data/settlements/imagery', data, silent: true })
 }
 
 // Download geospatial data for multiple settlements as zip
