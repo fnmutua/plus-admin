@@ -36,7 +36,7 @@
 
               <el-row :gutter="20">
                 <el-col :xs="24" :sm="24" :md="12">
-                  <el-form-item label="Name">
+                  <el-form-item label="Name" prop="name">
                     <el-input 
                       v-model="contactForm.name" 
                       placeholder="Enter your name"
@@ -46,7 +46,7 @@
                 </el-col>
 
                 <el-col :xs="24" :sm="24" :md="6">
-                  <el-form-item label="Country Code">
+                  <el-form-item label="Country Code" prop="country_code">
                     <el-select 
                       v-model="contactForm.country_code" 
                       placeholder="Select country"
@@ -63,7 +63,7 @@
                   </el-form-item>
                 </el-col>
                 <el-col :xs="24" :sm="24" :md="6">
-                  <el-form-item label="Phone">
+                  <el-form-item label="Phone" prop="phone">
                     <el-input 
                       v-model="contactForm.phone" 
                       placeholder="Enter phone number"
@@ -73,7 +73,7 @@
                 </el-col>
 
                 <el-col :xs="24" :sm="24" :md="24">
-                  <el-form-item label="Email">
+                  <el-form-item label="Email" prop="email">
                     <el-input 
                       v-model="contactForm.email" 
                       placeholder="Enter your email"
@@ -83,7 +83,7 @@
                 </el-col>
 
                 <el-col :xs="24" :sm="24" :md="24">
-                  <el-form-item label="Message">
+                  <el-form-item label="Message" prop="message">
                     <el-input
                       v-model="contactForm.message"
                       type="textarea"
@@ -119,6 +119,7 @@ import BaseLayout from './BaseLayout.vue';
 import countryPhoneCodes from '@/utils/countryPhoneCodes.json';
 import { useHead } from '@unhead/vue';
 import { Icon } from '@iconify/vue';
+import { setUserFeedback } from '@/api/users';
 
 useHead({
   title: 'Contact KeSMIS | Kenya Slum Management Information System',
@@ -213,20 +214,21 @@ const submitForm = async () => {
   
   try {
     await formRef.value.validate();
-    // Combine country code and phone number
-    const fullPhone = contactForm.value.country_code + contactForm.value.phone;
-    
-    const formData = {
-      ...contactForm.value,
-      phone: fullPhone
-    };
-    
-    console.log('Form submitted:', formData);
-    ElMessage.success('Message sent successfully!');
-    resetForm();
   } catch (error) {
     console.error('Validation failed:', error);
     ElMessage.error('Please check your input and try again');
+    return;
+  }
+
+  try {
+    // Combine country code and phone number
+    const fullPhone = contactForm.value.country_code + contactForm.value.phone;
+    const formData = { ...contactForm.value, phone: fullPhone };
+
+    await setUserFeedback(formData as any);
+    resetForm();
+  } catch (error) {
+    console.error('Feedback submit failed:', error);
   }
 };
 
