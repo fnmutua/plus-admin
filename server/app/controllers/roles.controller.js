@@ -97,7 +97,7 @@ exports.editRole = async (req, res) => {
     if (!existingRole) {
       return res.status(404).send({ message: 'Role not found', code: '0001' })
     }
-    if (existingRole.name === 'root_admin' || roleId === 1) {
+    if (existingRole.name === 'root_admin') {
       return res.status(403).send({ message: 'Editing root_admin is not allowed', code: '9999' })
     }
 

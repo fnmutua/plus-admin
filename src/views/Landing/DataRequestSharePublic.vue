@@ -54,6 +54,17 @@
           </div>
         </div>
       </div>
+
+      <!-- No requester-visible documents -->
+      <el-empty
+        v-else-if="!loading && !error"
+        description="No downloadable documents are currently available for this link."
+        :image-size="80"
+      >
+        <template #image>
+          <Icon icon="mdi:file-remove-outline" width="80" style="color: var(--el-text-color-secondary)" />
+        </template>
+      </el-empty>
     </el-card>
   </div>
 </template>

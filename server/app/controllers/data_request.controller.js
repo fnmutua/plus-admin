@@ -77,6 +77,17 @@ const setApprovalRadio = (form, name, status) => {
   } catch (_) {}
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const internalFormNameRegex = /data[\s\-_]?request[\s\-_]?form/i
+
+const isRequesterVisibleDocument = (doc) => {
+  const name = String(doc?.name || '')
+  // Hide internal workflow forms (auto-generated and signed re-uploads) from requester shares.
+  if (doc?.auto_generated) return false
+  if (internalFormNameRegex.test(name)) return false
+  return true
+}
+
 const generateDataRequestFormPdf = async (record) => {
   const formPath = path.join(__dirname, '../../../public/forms/Data-Request-Form-fill.pdf')
   if (!fs.existsSync(formPath)) {
@@ -175,6 +186,13 @@ exports.createPublicDataRequest = async (req, res) => {
     } catch (pdfErr) {
       // Submission should still succeed even if PDF generation fails.
       console.error('[DataRequest] auto PDF generation failed:', pdfErr)
+    }
+
+    try {
+      await notifySupportUsersNewDataRequest(req, record)
+    } catch (notifyErr) {
+      // Submission should still succeed even if support alerts fail.
+      console.error('[DataRequest] support alert failed:', notifyErr)
     }
 
     return res.status(200).json({
@@ -441,6 +459,52 @@ const buildTransporter = () =>
     }
   })
 
+const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
+  const supportUsers = await db.user.findAll({
+    attributes: ['id', 'name', 'email', 'isactive'],
+    include: [{
+      model: db.role,
+      attributes: ['name'],
+      where: { name: 'support' },
+      through: { attributes: [] }
+    }]
+  })
+
+  const recipients = supportUsers
+    .filter((u) => u?.isactive && emailRegex.test(u?.email || ''))
+    .map((u) => ({ name: u.name || 'Support', email: u.email }))
+
+  if (!recipients.length) return
+
+  const frontendUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`.replace(/:\d+$/, '')
+  const adminUrl = `${frontendUrl}/#/admin/data-requests/${requestRecord.id}`
+  const submittedOn = new Date(requestRecord.createdAt).toLocaleString('en-KE')
+  const subject = `New Data Request Submitted: ${requestRecord.code}`
+  const html = `
+    <p>Hello Support Team,</p>
+    <p>A new data request has been submitted and needs attention.</p>
+    <ul>
+      <li><strong>Reference:</strong> ${requestRecord.code}</li>
+      <li><strong>Requester:</strong> ${requestRecord.name}</li>
+      <li><strong>Email:</strong> ${requestRecord.email}</li>
+      <li><strong>Submitted On:</strong> ${submittedOn}</li>
+    </ul>
+    <p>Open request: <a href="${adminUrl}">${adminUrl}</a></p>
+    <p>Kenya Slum Information Management System (KeSMIS)</p>
+  `
+
+  const transporter = buildTransporter()
+  await Promise.all(recipients.map((r) =>
+    transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+      to: r.email,
+      subject,
+      text: `Hello ${r.name},\n\nA new data request (${requestRecord.code}) has been submitted by ${requestRecord.name} (${requestRecord.email}).\nOpen request: ${adminUrl}\n\nKeSMIS`,
+      html
+    })
+  ))
+}
+
 exports.shareDataRequest = async (req, res) => {
   try {
     const { id } = req.params
@@ -449,8 +513,9 @@ exports.shareDataRequest = async (req, res) => {
     if (!request) return res.status(404).json({ code: '4004', message: 'Request not found' })
 
     const docs = await db.models.data_request_document.findAll({ where: { data_request_id: id } })
-    if (!docs.length) {
-      return res.status(400).json({ code: '4000', message: 'No documents to share' })
+    const shareableDocs = docs.filter(isRequesterVisibleDocument)
+    if (!shareableDocs.length) {
+      return res.status(400).json({ code: '4000', message: 'No requester-downloadable documents to share' })
     }
 
     const token = crypto.randomUUID()
@@ -469,7 +534,6 @@ exports.shareDataRequest = async (req, res) => {
     const publicUrl = `${frontendUrl}/#/dr-share/${token}`
 
     // Send email to requester
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (emailRegex.test(request.email)) {
       const html = `
         <p>Dear ${request.name},</p>
@@ -521,11 +585,12 @@ exports.getPublicDataRequestShare = async (req, res) => {
       where: { data_request_id: share.data_request_id },
       order: [['createdAt', 'ASC']]
     })
+    const visibleDocs = docs.filter(isRequesterVisibleDocument)
 
     return res.status(200).json({
       code: '0000',
       results: {
-        documents: docs.map(d => ({
+        documents: visibleDocs.map(d => ({
           id: d.id,
           name: d.name,
           format: d.format,
@@ -554,6 +619,9 @@ exports.downloadPublicDataRequestDocument = async (req, res) => {
       where: { id: docId, data_request_id: share.data_request_id }
     })
     if (!doc) return res.status(403).json({ message: 'Not allowed' })
+    if (!isRequesterVisibleDocument(doc)) {
+      return res.status(403).json({ message: 'Not allowed' })
+    }
     if (!fs.existsSync(doc.location)) return res.status(404).json({ message: 'File not found' })
 
     return res.download(doc.location, doc.name)
