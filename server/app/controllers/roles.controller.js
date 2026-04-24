@@ -83,15 +83,25 @@ exports.createRole = async (req, res) => {
 };
 
 exports.editRole = async (req, res) => {
-  // Prevent editing root_admin
-  if (req.body.name === 'root_admin' || req.body.id === 1) {
-    return res.status(403).send({ message: 'Editing root_admin is not allowed', code: '9999' });
-  }
-  console.log('editing......',req.body);
-  
   try {
-    var roleId = req.body.id; // Assuming the role ID is passed as a URL parameter
-    var updatedData = { ...req.body }; // Assuming the updated data is present in the request body
+    const roleId = Number(req.body.id || req.params.roleId)
+    const updatedData = { ...req.body }
+
+    if (!roleId || Number.isNaN(roleId)) {
+      return res.status(400).send({ message: 'Valid role id is required', code: '0002' })
+    }
+
+    // Prevent editing the protected root_admin role.
+    // Check the role being edited from DB instead of request payload fields.
+    const existingRole = await db.models.roles.findByPk(roleId)
+    if (!existingRole) {
+      return res.status(404).send({ message: 'Role not found', code: '0001' })
+    }
+    if (existingRole.name === 'root_admin' || roleId === 1) {
+      return res.status(403).send({ message: 'Editing root_admin is not allowed', code: '9999' })
+    }
+
+    console.log('editing......', req.body)
 
     // Ensure subordinates is an array
     if (updatedData.subordinates !== undefined) {

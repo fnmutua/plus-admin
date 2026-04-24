@@ -7,6 +7,7 @@ const path = require('path')
 const crypto = require('crypto')
 const shortid = require('shortid')
 const nodemailer = require('nodemailer')
+const { PDFDocument, StandardFonts } = require('pdf-lib')
 
 const generateDRCode = async () => {
   const prefix = 'DR'
@@ -27,6 +28,107 @@ const generateDRCode = async () => {
     return `${prefix}-${year}-${String(lastSeq + 1).padStart(4, '0')}`
   }
   return `${prefix}-${year}-0001`
+}
+
+const normalizeDate = (d) => (d ? new Date(d).toLocaleDateString('en-KE') : '')
+const yesNoText = (v) => (v === true ? 'Yes' : v === false ? 'No' : '')
+
+const setTextFieldIfExists = (form, names = [], value = '') => {
+  const v = value == null ? '' : String(value)
+  names.forEach((name) => {
+    try {
+      const f = form.getTextField(name)
+      f.setText(v)
+    } catch (_) {}
+  })
+}
+
+const setCheckboxIfExists = (form, names = [], checked = false) => {
+  names.forEach((name) => {
+    try {
+      const c = form.getCheckBox(name)
+      if (checked) c.check()
+      else c.uncheck()
+    } catch (_) {}
+  })
+}
+
+const setRadioGroupIfExists = (form, name, value) => {
+  try {
+    const rg = form.getRadioGroup(name)
+    if (value == null || value === '') return
+    rg.select(String(value))
+  } catch (_) {}
+}
+
+const setApprovalRadio = (form, name, status) => {
+  try {
+    const rg = form.getRadioGroup(name)
+    const options = rg.getOptions()
+    if (status === 'Approved') {
+      const approveOpt = options.find((o) => /^app/i.test(String(o)))
+      if (approveOpt) rg.select(String(approveOpt))
+      return
+    }
+    if (status === 'Rejected') {
+      const rejectOpt = options.find((o) => /^rej/i.test(String(o)))
+      if (rejectOpt) rg.select(String(rejectOpt))
+    }
+  } catch (_) {}
+}
+
+const generateDataRequestFormPdf = async (record) => {
+  const formPath = path.join(__dirname, '../../../public/forms/Data-Request-Form-fill.pdf')
+  if (!fs.existsSync(formPath)) {
+    throw new Error(`Template not found: ${formPath}`)
+  }
+
+  const formBytes = fs.readFileSync(formPath)
+  const pdfDoc = await PDFDocument.load(formBytes)
+  const form = pdfDoc.getForm()
+
+  // Exact template field names from Data-Request-Form-fill.pdf
+  setTextFieldIfExists(form, ['name'], record.name)
+  setTextFieldIfExists(form, ['organization'], record.organization)
+  setTextFieldIfExists(form, ['position'], record.position)
+  setTextFieldIfExists(form, ['work_area'], record.work_area)
+  setTextFieldIfExists(form, ['mailing_address'], record.mailing_address)
+  setTextFieldIfExists(form, ['email'], record.email)
+  setTextFieldIfExists(form, ['phone'], record.phone)
+
+  setTextFieldIfExists(form, ['data_description'], record.data_description)
+  setTextFieldIfExists(form, ['intended_use'], record.intended_use)
+  setTextFieldIfExists(form, ['geographic_scope'], record.geographic_scope)
+  setTextFieldIfExists(form, ['how_data_used'], record.how_data_used)
+  setTextFieldIfExists(form, ['sharing_details'], record.sharing_details)
+  setTextFieldIfExists(form, ['dissemination_plan'], record.dissemination_plan)
+  setTextFieldIfExists(form, ['data_made_public'], record.data_made_public)
+  setTextFieldIfExists(form, ['heard_about'], record.heard_about)
+  setRadioGroupIfExists(form, 'data_shared', yesNoText(record.data_shared))
+
+  const cls = new Set(record.data_classification || [])
+  setCheckboxIfExists(form, ['Aggregated'], cls.has('Aggregated'))
+  setCheckboxIfExists(form, ['Anonymized'], cls.has('Anonymized'))
+  setCheckboxIfExists(form, ['Personal Data'], cls.has('Personal Data'))
+  setCheckboxIfExists(form, ['SensitiveHighly Sensitive'], cls.has('Sensitive/Highly Sensitive'))
+
+  setTextFieldIfExists(form, ['declaration_name'], record.declaration_name || record.name)
+  setTextFieldIfExists(form, ['declaration_date'], normalizeDate(record.declaration_date))
+
+  setTextFieldIfExists(form, ['reviewed_by'], record.reviewed_by || '')
+  setTextFieldIfExists(form, ['dpo_reviewed_at'], normalizeDate(record.dpo_reviewed_at))
+  setTextFieldIfExists(form, ['dpo_review_notes'], record.dpo_review_notes || '')
+  setApprovalRadio(form, 'dpo_recommendation', record.dpo_recommendation)
+  setTextFieldIfExists(form, ['coordinator_approved_at'], normalizeDate(record.coordinator_approved_at))
+  setTextFieldIfExists(form, ['coordinator_approval_notes'], record.coordinator_approval_notes || '')
+  setApprovalRadio(form, 'coordinator_approval_status', record.coordinator_approval_status)
+
+  // Match grievance PDF fill content rendering font
+  const contentFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  form.updateFieldAppearances(contentFont)
+
+  form.flatten()
+  return pdfDoc.save()
 }
 
 exports.createPublicDataRequest = async (req, res) => {
@@ -66,6 +168,14 @@ exports.createPublicDataRequest = async (req, res) => {
       declaration_date: declaration_date || null,
       status: 'Pending'
     })
+
+    // Auto-generate request form PDF and attach to this request for DPO workflow.
+    try {
+      await ensureDataRequestFormDocument(record, null)
+    } catch (pdfErr) {
+      // Submission should still succeed even if PDF generation fails.
+      console.error('[DataRequest] auto PDF generation failed:', pdfErr)
+    }
 
     return res.status(200).json({
       code: '0000',
@@ -187,6 +297,35 @@ if (!fs.existsSync(DR_UPLOAD_DIR)) {
   try { fs.mkdirSync(DR_UPLOAD_DIR, { recursive: true }) } catch {}
 }
 
+const ensureDataRequestFormDocument = async (record, createdBy = null, force = false) => {
+  const existing = await db.models.data_request_document.findOne({
+    where: { data_request_id: record.id, auto_generated: true },
+    order: [['createdAt', 'ASC']]
+  })
+  if (existing && !force) return existing
+  if (existing && force) {
+    try { if (existing.location && fs.existsSync(existing.location)) fs.unlinkSync(existing.location) } catch {}
+    await existing.destroy()
+  }
+
+  const pdfBytes = await generateDataRequestFormPdf(record)
+  const fileName = `${record.code}-Data-Request-Form.pdf`
+  const filePath = path.join(DR_UPLOAD_DIR, fileName)
+  fs.writeFileSync(filePath, pdfBytes)
+  const sizeMB = parseFloat((Buffer.byteLength(pdfBytes) / (1024 * 1024)).toFixed(4))
+
+  return db.models.data_request_document.create({
+    data_request_id: record.id,
+    name: fileName,
+    format: 'pdf',
+    size: sizeMB,
+    location: filePath,
+    auto_generated: true,
+    code: shortid.generate(),
+    createdBy
+  })
+}
+
 const drStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, DR_UPLOAD_DIR),
   filename: (_req, file, cb) => {
@@ -272,6 +411,21 @@ exports.downloadDataRequestDocument = async (req, res) => {
     return res.download(doc.location, doc.name)
   } catch (err) {
     console.error('[DataRequest] downloadDataRequestDocument error:', err)
+    return res.status(500).json({ code: '5000', message: err.message })
+  }
+}
+
+exports.generateDataRequestFormDocument = async (req, res) => {
+  try {
+    const { id } = req.params
+    const record = await db.models.data_request.findByPk(id)
+    if (!record) return res.status(404).json({ code: '4004', message: 'Request not found' })
+
+    const force = req.body?.force === true || req.body?.force === 'true'
+    const doc = await ensureDataRequestFormDocument(record, req.thisUser?.id || null, force)
+    return res.status(200).json({ code: '0000', message: 'Form ready', results: doc })
+  } catch (err) {
+    console.error('[DataRequest] generateDataRequestFormDocument error:', err)
     return res.status(500).json({ code: '5000', message: err.message })
   }
 }

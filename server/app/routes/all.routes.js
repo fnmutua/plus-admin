@@ -2516,6 +2516,7 @@ module.exports = function (app) {
   // Data request documents (auth required)
   app.get('/api/v1/data-requests/:id/documents', [authJwt.verifyToken], dataRequestController.getDataRequestDocuments)
   app.post('/api/v1/data-requests/:id/documents', [authJwt.verifyToken], dataRequestController.uploadDataRequestDocument)
+  app.post('/api/v1/data-requests/:id/documents/generate-form', [authJwt.verifyToken], dataRequestController.generateDataRequestFormDocument)
   app.delete('/api/v1/data-requests/:id/documents/:docId', [authJwt.verifyToken], dataRequestController.deleteDataRequestDocument)
   app.get('/api/v1/data-requests/:id/documents/:docId/download', [authJwt.verifyToken], dataRequestController.downloadDataRequestDocument)
 

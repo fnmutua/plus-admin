@@ -79,6 +79,16 @@ export const downloadDataRequestDocument = (
     })
     .then((res) => res.data)
 
+// Ensure the generated request form exists (creates it if missing)
+export const generateDataRequestFormDocument = (requestId: number, token: string, force = false) =>
+  axios
+    .post(
+      `${base}/api/v1/data-requests/${requestId}/documents/generate-form`,
+      { force },
+      { headers: { 'x-access-token': token, 'Content-Type': 'application/json' } }
+    )
+    .then((res) => res.data)
+
 // Share all documents for a request with the requester:
 //   - backend generates a public share token
 //   - sends email to the requester with the link

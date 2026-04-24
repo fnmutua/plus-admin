@@ -154,6 +154,18 @@
             </template>
 
             <template v-if="sectionsOpen.documents">
+            <div class="doc-toolbar">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                :loading="formDocBusy"
+                @click="ensureAndDownloadForm"
+              >
+                <Icon icon="mdi:file-download-outline" width="16" style="margin-right:4px" />
+                Download / Generate Request Form
+              </el-button>
+            </div>
             <el-skeleton v-if="docsLoading" :rows="2" animated />
 
             <el-empty v-else-if="!docs.length" description="No documents yet" :image-size="52" />
@@ -274,6 +286,7 @@ import {
   uploadDataRequestDocument,
   deleteDataRequestDocument,
   downloadDataRequestDocument,
+  generateDataRequestFormDocument,
   shareDataRequest
 } from '@/api/data-request'
 import axios from 'axios'
@@ -368,6 +381,7 @@ const downloadingId = ref<number | null>(null)
 const deletingId = ref<number | null>(null)
 const uploading = ref(false)
 const sharing = ref(false)
+const formDocBusy = ref(false)
 const shareLink = ref('')
 const pendingFile = ref<File | null>(null)
 const uploadRef = ref()
@@ -433,6 +447,27 @@ const downloadDoc = async (doc: any) => {
     ElMessage.error('Download failed')
   } finally {
     downloadingId.value = null
+  }
+}
+
+const getFormDoc = () => docs.value.find((d: any) => d.auto_generated) || null
+
+const ensureAndDownloadForm = async () => {
+  formDocBusy.value = true
+  try {
+    // Force regeneration so latest formatting/logo is always applied.
+    await generateDataRequestFormDocument(requestId, getToken(), true)
+    await loadDocuments()
+    const formDoc = getFormDoc()
+    if (!formDoc) {
+      ElMessage.error('Unable to find generated form')
+      return
+    }
+    await downloadDoc(formDoc)
+  } catch {
+    ElMessage.error('Failed to generate/download form')
+  } finally {
+    formDocBusy.value = false
   }
 }
 
@@ -620,6 +655,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.doc-toolbar {
+  margin-bottom: 8px;
 }
 
 .doc-item {
