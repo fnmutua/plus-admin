@@ -2181,11 +2181,19 @@ exports.sendFeedback = async (req, res) => {
   console.log(obj)
   
   try {
+    const feedbackPayload = {
+      name: obj.name,
+      email: obj.email,
+      message: obj.message,
+      // feedback.code is NOT NULL in DB model, so always provide one.
+      code: obj.code || `FB-${Date.now()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+    }
+
     // Insert feedback into database
-    const feedbackItem = await db.models.feedback.create(obj);
+    const feedbackItem = await db.models.feedback.create(feedbackPayload);
     
     // Prepare SMS message for offices
-    const smsMessage = `New feedback received from ${obj.name} (${obj.email}): ${obj.message.substring(0, 100)}${obj.message.length > 100 ? '...' : ''}`;
+    const smsMessage = `New feedback received from ${feedbackPayload.name} (${feedbackPayload.email}): ${feedbackPayload.message.substring(0, 100)}${feedbackPayload.message.length > 100 ? '...' : ''}`;
     
     // Get users with Support, Admin, and other roles (roleid: 0, 1, 9)
     const grmUsers = await getUsersByRoles();
