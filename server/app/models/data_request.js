@@ -105,6 +105,42 @@ module.exports = function (sequelize, DataTypes) {
     review_notes: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    // Data Protection Officer review stage
+    dpo_recommendation: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'Pending'
+    },
+    dpo_review_notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    dpo_reviewed_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    dpo_reviewed_at: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    // Coordinator approval stage
+    coordinator_approval_status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'Pending'
+    },
+    coordinator_approval_notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    coordinator_approved_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    coordinator_approved_at: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,

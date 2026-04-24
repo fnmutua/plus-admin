@@ -2510,7 +2510,21 @@ module.exports = function (app) {
 
   // Data request management (auth required)
   app.get('/api/v1/data-requests', [authJwt.verifyToken], dataRequestController.getDataRequests)
+  app.get('/api/v1/data-requests/:id', [authJwt.verifyToken], dataRequestController.getDataRequestById)
   app.put('/api/v1/data-requests/:id/status', [authJwt.verifyToken], dataRequestController.updateDataRequestStatus)
+
+  // Data request documents (auth required)
+  app.get('/api/v1/data-requests/:id/documents', [authJwt.verifyToken], dataRequestController.getDataRequestDocuments)
+  app.post('/api/v1/data-requests/:id/documents', [authJwt.verifyToken], dataRequestController.uploadDataRequestDocument)
+  app.delete('/api/v1/data-requests/:id/documents/:docId', [authJwt.verifyToken], dataRequestController.deleteDataRequestDocument)
+  app.get('/api/v1/data-requests/:id/documents/:docId/download', [authJwt.verifyToken], dataRequestController.downloadDataRequestDocument)
+
+  // Share data request documents with requester (auth required)
+  app.post('/api/v1/data-requests/:id/share', [authJwt.verifyToken], dataRequestController.shareDataRequest)
+
+  // Public: requester downloads shared data (no auth)
+  app.get('/api/public/data-request/share/:token', dataRequestController.getPublicDataRequestShare)
+  app.get('/api/public/data-request/share/:token/download/:docId', dataRequestController.downloadPublicDataRequestDocument)
 
   // Public settlement register (no auth) – landing page
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)

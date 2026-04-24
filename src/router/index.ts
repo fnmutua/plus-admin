@@ -130,6 +130,16 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noCache: true
     }
   },
+  {
+    path: '/dr-share/:token',
+    component: () => import('@/views/Landing/DataRequestSharePublic.vue'),
+    name: 'DataRequestShare',
+    meta: {
+      hidden: true,
+      title: 'Data Request Download',
+      noCache: true
+    }
+  },
 
   {
     path: '/privacy',
@@ -1947,6 +1957,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Data Requests',
           hidden: false,
           icon: 'mdi:database-arrow-right',
+          permissions: ['data_request:read']
+        }
+      },
+      {
+        path: 'data-requests/:id',
+        component: () => import('@/views/Admin/DataRequestDetail.vue'),
+        name: 'AdminDataRequestDetail',
+        meta: {
+          title: 'Data Request Detail',
+          hidden: true,
+          noCache: true,
           permissions: ['data_request:read']
         }
       },

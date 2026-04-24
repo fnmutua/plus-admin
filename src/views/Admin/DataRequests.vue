@@ -1,49 +1,76 @@
 <template>
-  <div class="dr-admin-page">
-    <div class="page-header">
-      <h2>Data Requests</h2>
-      <el-tag :type="statusTagType(summary.Pending)" effect="light">
-        {{ summary.Pending || 0 }} Pending
-      </el-tag>
-    </div>
+  <el-card v-loading="loading">
 
-    <!-- Filters -->
-    <div class="filters-bar">
-      <el-select v-model="statusFilter" placeholder="Filter by status" clearable style="width:180px" @change="loadRequests">
-        <el-option label="Pending" value="Pending" />
-        <el-option label="Approved" value="Approved" />
-        <el-option label="Rejected" value="Rejected" />
-      </el-select>
-      <el-button :icon="Refresh" @click="loadRequests" :loading="loading">Refresh</el-button>
-    </div>
+    <!-- Toolbar -->
+    <el-row :gutter="12" style="margin-bottom:12px" align="middle">
+
+      <el-col :xs="24" :sm="6" :md="4" :lg="3">
+        <el-select
+          v-model="statusFilter"
+          placeholder="All statuses"
+          clearable
+          style="width:100%"
+          @change="() => { page = 1; loadRequests() }"
+        >
+          <el-option label="Pending" value="Pending" />
+          <el-option label="Approved" value="Approved" />
+          <el-option label="Rejected" value="Rejected" />
+        </el-select>
+      </el-col>
+
+      <el-col :xs="24" :sm="10" :md="7" :lg="5">
+        <el-input
+          v-model="search"
+          placeholder="Search name, org, ref, email…"
+          clearable
+          @input="onSearch"
+        >
+          <template #append>
+            <el-button :icon="Search" @click="loadRequests" />
+          </template>
+        </el-input>
+      </el-col>
+
+      <el-col :xs="24" :sm="8" :md="13" :lg="16">
+        <div class="toolbar-right">
+          <el-tag v-if="pendingCount" type="warning" effect="plain" size="large">
+            {{ pendingCount }} Pending
+          </el-tag>
+          <el-tag v-if="total" type="info" effect="plain" size="large">
+            {{ total }} Total
+          </el-tag>
+          <el-button :icon="Refresh" @click="loadRequests" :loading="loading" circle plain />
+        </div>
+      </el-col>
+
+    </el-row>
 
     <!-- Table -->
     <el-table
-      v-loading="loading"
-      :data="requests"
+      :data="filtered"
       stripe
       border
       style="width:100%"
       row-key="id"
+      :row-class-name="() => 'clickable-row'"
+      @row-click="openDetail"
     >
-      <el-table-column prop="code" label="Ref" width="140" />
-      <el-table-column prop="name" label="Name" min-width="140" />
-      <el-table-column prop="organization" label="Organization" min-width="140" show-overflow-tooltip />
-      <el-table-column prop="email" label="Email" min-width="160" show-overflow-tooltip />
-      <el-table-column prop="geographic_scope" label="Scope" width="100" />
-      <el-table-column label="Status" width="110">
+      <el-table-column prop="code" label="Reference" width="150" sortable />
+      <el-table-column prop="name" label="Name" min-width="140" sortable />
+      <el-table-column prop="organization" label="Organization" min-width="150" show-overflow-tooltip sortable />
+      <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="geographic_scope" label="Scope" width="120" />
+      <el-table-column label="Status" width="110" sortable :sort-method="(a, b) => a.status.localeCompare(b.status)">
         <template #default="{ row }">
           <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Submitted" width="120">
-        <template #default="{ row }">
-          {{ formatDate(row.createdAt) }}
-        </template>
+      <el-table-column label="Submitted" width="130" sortable :sort-method="(a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)">
+        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="Actions" width="100" fixed="right">
-        <template #default="{ row }">
-          <el-button size="small" text :icon="View" @click="openDetail(row)" />
+      <el-table-column label="" width="48" fixed="right">
+        <template #default>
+          <Icon icon="mdi:chevron-right" width="20" style="color:var(--el-text-color-placeholder); display:block; margin:auto" />
         </template>
       </el-table-column>
     </el-table>
@@ -56,159 +83,81 @@
         :total="total"
         :page-sizes="[20, 50, 100]"
         layout="total, sizes, prev, pager, next"
+        background
         @change="loadRequests"
       />
     </div>
 
-    <!-- Detail drawer -->
-    <el-drawer v-model="drawerVisible" title="Data Request Details" size="520px" direction="rtl">
-      <div v-if="selected" class="dr-detail">
-        <el-descriptions :column="1" border size="small">
-          <el-descriptions-item label="Reference">{{ selected.code }}</el-descriptions-item>
-          <el-descriptions-item label="Name">{{ selected.name }}</el-descriptions-item>
-          <el-descriptions-item label="Organization">{{ selected.organization }}</el-descriptions-item>
-          <el-descriptions-item label="Position">{{ selected.position }}</el-descriptions-item>
-          <el-descriptions-item label="Email">{{ selected.email }}</el-descriptions-item>
-          <el-descriptions-item label="Phone">{{ selected.phone }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.mailing_address" label="Address">{{ selected.mailing_address }}</el-descriptions-item>
-          <el-descriptions-item label="Data Description">{{ selected.data_description }}</el-descriptions-item>
-          <el-descriptions-item label="Intended Use">{{ selected.intended_use }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.data_classification?.length" label="Classification">
-            {{ selected.data_classification.join(', ') }}
-          </el-descriptions-item>
-          <el-descriptions-item v-if="selected.geographic_scope" label="Geographic Scope">{{ selected.geographic_scope }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.how_data_used" label="How Used">{{ selected.how_data_used }}</el-descriptions-item>
-          <el-descriptions-item label="Shared Further">{{ selected.data_shared ? 'Yes' : 'No' }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.sharing_details" label="Sharing Details">{{ selected.sharing_details }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.dissemination_plan" label="Dissemination Plan">{{ selected.dissemination_plan }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.data_made_public" label="Made Public">{{ selected.data_made_public }}</el-descriptions-item>
-          <el-descriptions-item v-if="selected.heard_about" label="Heard About">{{ selected.heard_about }}</el-descriptions-item>
-          <el-descriptions-item label="Declaration Name">{{ selected.declaration_name }}</el-descriptions-item>
-          <el-descriptions-item label="Submitted">{{ formatDate(selected.createdAt) }}</el-descriptions-item>
-        </el-descriptions>
-
-        <!-- Review action -->
-        <el-divider>Review Decision</el-divider>
-        <el-form label-position="top" size="small">
-          <el-form-item label="Status">
-            <el-radio-group v-model="reviewStatus">
-              <el-radio-button value="Approved">Approve</el-radio-button>
-              <el-radio-button value="Rejected">Reject</el-radio-button>
-              <el-radio-button value="Pending">Reset to Pending</el-radio-button>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="Notes">
-            <el-input v-model="reviewNotes" type="textarea" :rows="3" placeholder="Optional review notes" />
-          </el-form-item>
-          <el-button type="primary" :loading="saving" @click="saveReview" style="width:100%">
-            Save Decision
-          </el-button>
-        </el-form>
-      </div>
-    </el-drawer>
-  </div>
+  </el-card>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Refresh, View } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import {
-  ElTable, ElTableColumn, ElTag, ElSelect, ElOption, ElButton,
-  ElPagination, ElDrawer, ElDescriptions, ElDescriptionsItem,
-  ElDivider, ElForm, ElFormItem, ElRadioGroup, ElRadioButton,
-  ElInput, ElMessage
+  ElCard, ElTable, ElTableColumn, ElTag, ElSelect, ElOption,
+  ElButton, ElPagination, ElInput, ElRow, ElCol, ElMessage
 } from 'element-plus'
+import { Icon } from '@iconify/vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import axios from 'axios'
 
+const router = useRouter()
 const appStore = useAppStoreWithOut()
 const { wsCache } = useCache()
 const base = import.meta.env.VITE_APP_HOST || ''
 
-const getToken = () => {
-  const info = wsCache.get(appStore.getUserInfo)
-  return info?.data || ''
-}
+const getToken = () => wsCache.get(appStore.getUserInfo)?.data || ''
+const authHeaders = () => ({ 'x-access-token': getToken(), 'Content-Type': 'application/json' })
 
-const authHeaders = () => ({
-  'x-access-token': getToken(),
-  'Content-Type': 'application/json'
-})
-
-// State
 const loading = ref(false)
-const saving = ref(false)
 const requests = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const statusFilter = ref('')
-const summary = ref<Record<string, number>>({})
+const search = ref('')
 
-const drawerVisible = ref(false)
-const selected = ref<any>(null)
-const reviewStatus = ref('Pending')
-const reviewNotes = ref('')
+const pendingCount = computed(() => requests.value.filter(r => r.status === 'Pending').length)
+
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return requests.value
+  return requests.value.filter(r =>
+    (r.name || '').toLowerCase().includes(q) ||
+    (r.organization || '').toLowerCase().includes(q) ||
+    (r.code || '').toLowerCase().includes(q) ||
+    (r.email || '').toLowerCase().includes(q)
+  )
+})
+
+let searchTimer: ReturnType<typeof setTimeout>
+const onSearch = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; loadRequests() }, 320)
+}
 
 const loadRequests = async () => {
   loading.value = true
   try {
     const params: any = { page: page.value, limit: pageSize.value }
     if (statusFilter.value) params.status = statusFilter.value
-
-    const res = await axios.get(`${base}/api/v1/data-requests`, {
-      headers: authHeaders(),
-      params
-    })
+    const res = await axios.get(`${base}/api/v1/data-requests`, { headers: authHeaders(), params })
     requests.value = res.data.results?.data || []
     total.value = res.data.results?.total || 0
-
-    // Build summary counts from current page (rough indicator)
-    const counts: Record<string, number> = {}
-    requests.value.forEach((r) => {
-      counts[r.status] = (counts[r.status] || 0) + 1
-    })
-    summary.value = counts
-  } catch (e: any) {
+  } catch {
     ElMessage.error('Failed to load data requests')
   } finally {
     loading.value = false
   }
 }
 
-const openDetail = (row: any) => {
-  selected.value = row
-  reviewStatus.value = row.status
-  reviewNotes.value = row.review_notes || ''
-  drawerVisible.value = true
-}
-
-const saveReview = async () => {
-  if (!selected.value) return
-  saving.value = true
-  try {
-    await axios.put(
-      `${base}/api/v1/data-requests/${selected.value.id}/status`,
-      { status: reviewStatus.value, review_notes: reviewNotes.value },
-      { headers: authHeaders() }
-    )
-    ElMessage.success('Decision saved')
-    selected.value.status = reviewStatus.value
-    selected.value.review_notes = reviewNotes.value
-    drawerVisible.value = false
-    loadRequests()
-  } catch (e: any) {
-    ElMessage.error('Failed to save decision')
-  } finally {
-    saving.value = false
-  }
-}
+const openDetail = (row: any) => router.push(`/admin/data-requests/${row.id}`)
 
 const statusTag = (s: string) =>
   s === 'Approved' ? 'success' : s === 'Rejected' ? 'danger' : 'warning'
-
-const statusTagType = (count: number) => (count > 0 ? 'warning' : 'success')
 
 const formatDate = (d: string) =>
   d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
@@ -217,26 +166,11 @@ onMounted(loadRequests)
 </script>
 
 <style scoped>
-.dr-admin-page {
-  padding: 20px;
-}
-
-.page-header {
+.toolbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.filters-bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  justify-content: flex-end;
   flex-wrap: wrap;
 }
 
@@ -246,7 +180,10 @@ onMounted(loadRequests)
   justify-content: flex-end;
 }
 
-.dr-detail {
-  padding: 4px 0;
+:deep(.clickable-row) {
+  cursor: pointer;
+}
+:deep(.clickable-row:hover > td) {
+  background: var(--el-fill-color-light) !important;
 }
 </style>

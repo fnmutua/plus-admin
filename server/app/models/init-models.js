@@ -121,6 +121,8 @@ var _permission= require('./permission')
 var _role_permissions= require('./role_permissions')
 var _role= require('./role')
 var _data_request= require('./data_request')
+var _data_request_document = require('./DataRequestDocument')
+var _data_request_share = require('./DataRequestShare')
 
 
 
@@ -250,12 +252,16 @@ var permissions = _permission(sequelize, DataTypes)
 var role_permissions = _role_permissions(sequelize, DataTypes)
 var role = _role(sequelize, DataTypes)
 var data_request = _data_request(sequelize, DataTypes)
+var data_request_document = _data_request_document(sequelize, DataTypes)
+var data_request_share = _data_request_share(sequelize, DataTypes)
 
 
 
 
   return {
     data_request,
+    data_request_document,
+    data_request_share,
     beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
     powerline,powerline_asset,railway,railway_asset,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,
