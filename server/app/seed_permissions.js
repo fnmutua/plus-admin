@@ -197,6 +197,10 @@ async function seedPermissions() {
       { name: 'feedback:update', description: 'Update feedback' },
       { name: 'feedback:delete', description: 'Delete feedback' },
 
+      // Data Requests
+      { name: 'data_request:read', description: 'View public data requests' },
+      { name: 'data_request:update', description: 'Review and update data request status' },
+
       // Documents
       { name: 'document:upload', description: 'Upload documents' },
       { name: 'document:delete', description: 'Delete documents' },
@@ -911,6 +915,8 @@ async function seedPermissions() {
     "feedback:create",
     "feedback:update",
     "feedback:delete",
+    "data_request:read",
+    "data_request:update",
     "floodlight:create",
     "floodlight:delete",
     "floodlight:read",
@@ -1331,6 +1337,8 @@ async function seedPermissions() {
     "feedback:create",
     "feedback:update",
     "feedback:delete",
+    "data_request:read",
+    "data_request:update",
     "floodlight:create",
     "floodlight:delete",
     "floodlight:read",

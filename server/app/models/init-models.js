@@ -120,6 +120,7 @@ var _railway_asset= require('./railway_asset')
 var _permission= require('./permission')
 var _role_permissions= require('./role_permissions')
 var _role= require('./role')
+var _data_request= require('./data_request')
 
 
 
@@ -248,11 +249,13 @@ var railway_asset = _railway_asset(sequelize, DataTypes)
 var permissions = _permission(sequelize, DataTypes)
 var role_permissions = _role_permissions(sequelize, DataTypes)
 var role = _role(sequelize, DataTypes)
+var data_request = _data_request(sequelize, DataTypes)
 
 
 
-  
+
   return {
+    data_request,
     beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
     powerline,powerline_asset,railway,railway_asset,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,

@@ -98,6 +98,7 @@
                     <li><router-link to="/about">About</router-link></li>
                     <li><router-link to="/faqs">FAQs</router-link></li>
                     <li><router-link to="/contact">Support</router-link></li>
+                    <li><router-link to="/data-request">Data Request</router-link></li>
                   </ul>
                 </div>
                 <div class="footer-links-group">

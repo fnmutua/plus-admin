@@ -398,15 +398,27 @@
           
           <el-row :gutter="24" class="steps-grid">
             <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6" v-for="(step, index) in steps" :key="step.id">
-              <el-card 
-                class="step-card"
-                shadow="hover">
+              <el-card class="step-card" shadow="hover">
                 <div class="step-number">{{ index + 1 }}</div>
                 <h3 class="step-title">{{ step.title }}</h3>
                 <p class="step-description">{{ step.description }}</p>
               </el-card>
-              </el-col>
-            </el-row>
+            </el-col>
+
+            <!-- Data Request card -->
+            <el-col :xs="24" :sm="12" :md="6" :lg="6" :xl="6">
+              <el-card class="step-card step-card--action" shadow="hover" @click="navigateTo('data-request')" style="cursor:pointer;">
+                <div class="step-number step-number--accent">
+                  <Icon icon="mdi:database-arrow-right" width="22" />
+                </div>
+                <h3 class="step-title">Request Data</h3>
+                <p class="step-description">Apply for access to the National Geodatabase of Slums and Informal Settlements data for research or official use.</p>
+                <div style="margin-top:12px;">
+                  <el-tag type="primary" size="small" effect="light">Open to public</el-tag>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
           </div>
       </section>
 
@@ -615,6 +627,9 @@ const navigateTo = (page: string) => {
       break;
     case 'grm':
       router.push('/grm');
+      break;
+    case 'data-request':
+      router.push('/data-request');
       break;
     case 'incident':
       router.push('/incidents');

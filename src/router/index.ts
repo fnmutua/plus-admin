@@ -85,6 +85,16 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noTagsView: true
     }
   },
+  {
+    path: '/data-request',
+    component: () => import('@/views/Landing/DataRequest.vue'),
+    name: 'DataRequest',
+    meta: {
+      hidden: true,
+      title: 'Data Request',
+      noTagsView: true
+    }
+  },
 
  
   {
@@ -1930,6 +1940,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       },
       
       {
+        path: 'data-requests',
+        component: () => import('@/views/Admin/DataRequests.vue'),
+        name: 'AdminDataRequests',
+        meta: {
+          title: 'Data Requests',
+          hidden: false,
+          icon: 'mdi:database-arrow-right',
+          permissions: ['data_request:read']
+        }
+      },
+
+      {
         path: 'feedback',
       //  component: 'views/Users/County',
         component: () => import('@/views/Users/Feedback.vue'),
@@ -1940,7 +1962,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon: 'fluent:person-feedback-48-filled',
           permissions: ['feedback:read']
         }
-      }, 
+      },
 
       {
         path: 'logs',

@@ -2,6 +2,7 @@
 const { authJwt } = require('../middleware')
 const controller = require('../controllers/tables.controller')
 const { hasDynamicPermission, hasPermission } = require('../middleware/permission')
+const dataRequestController = require('../controllers/data_request.controller')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -2503,6 +2504,13 @@ module.exports = function (app) {
 
   // Page visit tracking (no auth) – landing analytics
   app.post('/api/public/track-visit', controller.trackPageVisit)
+
+  // Data request form (no auth) – public landing page
+  app.post('/api/public/data-request', dataRequestController.createPublicDataRequest)
+
+  // Data request management (auth required)
+  app.get('/api/v1/data-requests', [authJwt.verifyToken], dataRequestController.getDataRequests)
+  app.put('/api/v1/data-requests/:id/status', [authJwt.verifyToken], dataRequestController.updateDataRequestStatus)
 
   // Public settlement register (no auth) – landing page
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
