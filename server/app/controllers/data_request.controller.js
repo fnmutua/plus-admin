@@ -288,6 +288,12 @@ exports.createPublicDataRequest = async (req, res) => {
       console.error('[DataRequest] support alert failed:', notifyErr)
     }
 
+    try {
+      await sendRequesterAcknowledgmentEmail(req, record)
+    } catch (ackErr) {
+      console.error('[DataRequest] requester acknowledgment email failed:', ackErr)
+    }
+
     return res.status(200).json({
       code: '0000',
       message: 'Data request submitted successfully.',
@@ -551,6 +557,51 @@ const buildTransporter = () =>
       pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
     }
   })
+
+/** Acknowledgment to the requester after a successful public submission (non-blocking). */
+const sendRequesterAcknowledgmentEmail = async (req, requestRecord) => {
+  const to = String(requestRecord?.email || '').trim()
+  if (!to || !emailRegex.test(to)) return
+
+  const code = requestRecord.code || ''
+  const displayName = requestRecord.name || 'Applicant'
+  const landingBase = publicFrontendBaseUrl(req)
+  const landingLink = landingBase ? `${landingBase}/#/landing` : ''
+
+  const subject = `Data request received — ${code}`
+  const textLines = [
+    `Dear ${displayName},`,
+    '',
+    'Thank you for submitting a data access request to KeSMIS.',
+    '',
+    `Your reference: ${code}`,
+    '',
+    'We have received your application. The programme team will review it under the applicable data-protection and data-sharing procedures.',
+    '',
+    'When your request is approved and materials are ready, you may receive a separate email with a secure link to download your data.',
+    landingLink ? `KeSMIS: ${landingLink}` : '',
+    '',
+    'Kenya Slum Information Management System (KeSMIS)'
+  ]
+  const html = `
+    <p>Dear ${displayName},</p>
+    <p>Thank you for submitting a <strong>data access request</strong> to the Kenya Slum Information Management System (KeSMIS).</p>
+    <p><strong>Your reference:</strong> ${code}</p>
+    <p>We have received your application. The programme team will review it under the applicable data-protection and data-sharing procedures.</p>
+    <p>When your request is approved and materials are ready, you may receive a <strong>separate email</strong> with a secure link to download your data.</p>
+    ${landingLink ? `<p>For general information, visit <a href="${landingLink}">${landingLink}</a>.</p>` : ''}
+    <br/><p>Kenya Slum Information Management System (KeSMIS)</p>
+  `
+
+  const transporter = buildTransporter()
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+    to,
+    subject,
+    text: textLines.join('\n'),
+    html
+  })
+}
 
 const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
   const supportUsers = await db.user.findAll({

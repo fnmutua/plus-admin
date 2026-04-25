@@ -282,6 +282,8 @@ const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Grievances: 'grm-grievances', OpenGrievances: 'grm-grievances', ReferredGrievances: 'grm-grievances',
   GrievanceDetails: 'grm-details', xGBVGrievances: 'grm-gbv', GBVGrievanceDetails: 'grm-gbv',
   Incidents: 'incidents-management', OpenIncidents: 'incidents-management',
+  AdminDataRequests: 'data-requests-management',
+  AdminDataRequestDetail: 'data-requests-management',
   Repository: 'repo-documents', RepositoryTagged: 'repo-documents', ImportDocuments: 'repo-documents',
   DroneImagery: 'repo-imagery', DocumentShares: 'repo-shares',
   Media: 'media-overview', Video: 'media-videos', LiveStreams: 'media-live', Articles: 'media-articles',

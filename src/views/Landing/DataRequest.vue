@@ -36,7 +36,7 @@
               <p class="dr-success-ref-label">Your reference code</p>
               <p class="dr-success-ref-code">{{ referenceCode }}</p>
               <p class="success-note">
-                Please keep your reference code for follow-up. Our team will review your request and contact you via the email provided.
+                Please keep your reference code for follow-up. We have sent an acknowledgment to the email address you provided (check spam or junk if you do not see it). Our team will review your request; when materials are ready, you may receive a separate email with a secure download link.
               </p>
               <div class="dr-success-actions">
                 <el-button type="primary" size="large" @click="router.push('/landing')">Return to Home</el-button>

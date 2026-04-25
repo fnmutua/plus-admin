@@ -172,6 +172,12 @@ import settlementSearchImg from '@/assets/documentation/settleemnt-search.png'
 import settlementFilterImg from '@/assets/documentation/settleemnt-filter.png'
 import settlementRegisterImg from '@/assets/documentation/settlement_register .png'
 import settlementRegisterMapImg from '@/assets/documentation/settlement_register map .png'
+import requestDataCardImg from '@/assets/documentation/request-data-card.png'
+import requestDataRegisterBtnImg from '@/assets/documentation/request-data-button-settlement-register.png'
+import requestDataFormImg from '@/assets/documentation/request-data-form.png'
+import dataRequestAdmin01Img from '@/assets/documentation/data-request-admin-01.png'
+import dataRequestAdmin02TabsImg from '@/assets/documentation/data-request-admin-02-tabs.png'
+import dataRequestAdmin02ApprovalImg from '@/assets/documentation/data-request-admin-02-approval.png'
 import settlementDetailsProfileImg from '@/assets/documentation/settlement-details-profile.png'
 import settlementDetailsLocationImg from '@/assets/documentation/settlement-details-location.png'
 import settlementDetailsDocumentsImg from '@/assets/documentation/settlement-details-documents.png'
@@ -370,6 +376,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>M&amp;E</strong></td><td>Monitoring &amp; Evaluation &mdash; indicators, activities, reports, evaluations and beneficiary tracking.</td></tr>
             <tr><td><strong>Climate Assessment</strong></td><td>Structured questionnaire-based climate risk and vulnerability scoring for settlements.</td></tr>
             <tr><td><strong>Surveys</strong></td><td>Integration with ODK Central for field data collection, with table/map views and attachment downloads.</td></tr>
+            <tr><td><strong>Data requests</strong></td><td>Public application form for formal access to settlement data; internal review (DPO / coordinator), document attachments, and secure share links for approved releases.</td></tr>
             <tr><td><strong>Repository</strong></td><td>Document storage, drone imagery, and secure document sharing via token links.</td></tr>
             <tr><td><strong>Media</strong></td><td>Videos, live streams and articles related to programme activities.</td></tr>
             <tr><td><strong>Users &amp; Roles</strong></td><td>Role-based access control with granular permissions per module.</td></tr>
@@ -377,7 +384,7 @@ const allNavGroups: NavGroup[] = [
           </tbody></table>
           <h2>Who uses KeSMIS?</h2>
           <ul>
-            <li><strong>General public</strong> &mdash; file grievances, report incidents, browse the settlement register (no login required)</li>
+            <li><strong>General public</strong> &mdash; file grievances, report incidents, browse the settlement register, and submit formal <strong>data requests</strong> (no login required)</li>
             <li><strong>National-level staff</strong> &mdash; administrators, M&amp;E officers, and programme managers with full system access</li>
             <li><strong>County-level staff</strong> &mdash; county officers with access scoped to their county's data</li>
             <li><strong>GRM officers</strong> &mdash; grievance handling and resolution teams</li>
@@ -413,6 +420,7 @@ const allNavGroups: NavGroup[] = [
             <li><strong>File a grievance</strong> related to KISIP projects through a guided multi-step form</li>
             <li><strong>Report an incident</strong> (accident, disaster, or safety event) affecting informal settlements or project sites</li>
             <li><strong>Browse the Settlement Register</strong> &mdash; search, filter and view a public database of all informal settlements in Kenya, with map visualisation</li>
+            <li><strong>Request settlement data</strong> &mdash; submit a formal <strong>Data Request</strong> (no login) when you need approved access to datasets beyond the public register</li>
             <li><strong>Check the status</strong> of a previously submitted grievance or incident using its tracking ID</li>
             <li><strong>Read about KISIP</strong> &mdash; learn about the programme, view live statistics (number of settlements, population, projects) and understand how the system works</li>
             <li><strong>Contact the team</strong>, read the Privacy Policy, or browse FAQs</li>
@@ -427,7 +435,7 @@ const allNavGroups: NavGroup[] = [
             <li><strong>System Access</strong> &mdash; four-step overview of how authorised users work with the system</li>
             <li><strong>Grievance Redress (e-GRM)</strong> &mdash; dedicated section with File a Grievance and Check Status buttons, plus the toll-free helpline number</li>
             <li><strong>Access the System</strong> &mdash; final call-to-action strip with the Open Dashboard button</li>
-            <li><strong>Footer</strong> &mdash; links to Documentation, Privacy Policy, FAQs, About, and Contact</li>
+            <li><strong>Footer</strong> &mdash; links to Documentation (including the public Data Request form), Privacy Policy, FAQs, About, and Contact</li>
           </ol>
         `
       },
@@ -562,6 +570,40 @@ const allNavGroups: NavGroup[] = [
             <li>Environmental hazards</li>
           </ul>
           <blockquote>Tip &mdash; Provide as much detail as possible, including the exact location and any witnesses. This helps the team investigate and respond quickly.</blockquote>
+        `
+      },
+      {
+        id: 'data-request-public',
+        label: 'Requesting Data',
+        content: `
+          <p>The public <strong>Data Request</strong> form is for anyone who needs formal access to KeSMIS settlement data (for example research or official use). You do not need to sign in.</p>
+
+          <h2>How to submit a data request</h2>
+          <ol>
+            <li>
+              <p>Open the form using whichever route you prefer:</p>
+              <p>On the landing page, scroll to <strong>System Access</strong> and click the <strong>Request Data</strong> card:</p>
+              <img src="${requestDataCardImg}" alt="System Access — Request Data card on the landing page" class="docs-screenshot" />
+              <p>Or in the <strong>Settlement Register</strong>, click <strong>Request Data</strong> in the toolbar:</p>
+              <img src="${requestDataRegisterBtnImg}" alt="Settlement Register — Request Data button in the toolbar" class="docs-screenshot" />
+            </li>
+            <li>
+              <p>Fill in every required field on the long page &mdash; your details, what data you need, area of interest, and how you will use and share the data.</p>
+              <img src="${requestDataFormImg}" alt="Public data request form" class="docs-screenshot" />
+            </li>
+            <li>Scroll to the bottom and click <strong>Submit</strong></li>
+            <li>Save the <strong>reference code</strong> shown on the success screen</li>
+            <li>Check the email you entered for an acknowledgment message (look in spam or junk if you do not see it)</li>
+            <li>Wait while the team reviews your request. If it is approved, you may get a <strong>second email</strong> with a link to download your files</li>
+          </ol>
+
+          <h2>What the form asks for</h2>
+          <ul>
+            <li><strong>Applicant details</strong> &mdash; name, organisation, role, work area, mailing address, email and phone</li>
+            <li><strong>Data you need</strong> &mdash; description, intended use, type of data, area (national, county, or sub-county where needed), and how you will store, share or publish it</li>
+            <li><strong>Declaration</strong> &mdash; your name and date to confirm the information is correct</li>
+          </ul>
+          <blockquote>Note &mdash; <strong>Sign Up / Get Started</strong> is for a KeSMIS <em>login account</em>. The Data Request form is only for asking for settlement data under the programme rules.</blockquote>
         `
       },
       {
@@ -1975,6 +2017,45 @@ const allNavGroups: NavGroup[] = [
       }
     ],
     children: [
+      {
+        id: 'data-requests-management',
+        label: 'Data requests (admin)',
+        content: `
+          <p><strong>Data Requests</strong> is the admin area for applications from the public (the form people use is described under <strong>Home &rarr; Requesting Data</strong>). You need the <code>data_request:read</code> permission to see the menu and open records.</p>
+
+          <h2>How to work through a request</h2>
+          <ol>
+            <li>Click <strong>Admin &rarr; Data Requests</strong> in the sidebar.</li>
+            <li>Use search and filters on the table to find a reference, name or status if the list is long.</li>
+            <li>Click a row to open the full request.</li>
+          </ol>
+          <p>Example listing view:</p>
+          <img src="${dataRequestAdmin01Img}" alt="Admin Data Requests listing table" class="docs-screenshot" />
+
+          <ol start="4">
+            <li>Open the <strong>Data request</strong> tab and read what the applicant submitted. This side is read-only.</li>
+            <li>Open the <strong>Review &amp; approval</strong> tab. The <strong>DPO</strong> completes the recommendation (approve / reject / pending) and <strong>DPO review notes</strong>. Pause briefly so the page can autosave.</li>
+          </ol>
+          <p>Detail page with <strong>Data request</strong> and <strong>Review &amp; approval</strong> tabs:</p>
+          <img src="${dataRequestAdmin02TabsImg}" alt="Data request detail tabs" class="docs-screenshot" />
+
+          <ol start="6">
+            <li>Scroll to <strong>Documents</strong>. Download the <strong>auto-generated PDF</strong> of the application (use regenerate first if you need the latest fields on the form). <strong>Print</strong> the PDF.</li>
+            <li>Take the printed pack to the <strong>coordinator</strong> so they can review it and approve it on paper, following your office procedure.</li>
+            <li><strong>Scan or photograph</strong> the coordinator-signed pages and <strong>upload</strong> that file back on the same request under Documents. That keeps the signed copy on the ticket.</li>
+            <li>Return to <strong>Review &amp; approval</strong>. Enter the <strong>coordinator approval</strong> (approve / reject / pending) and <strong>coordinator notes</strong> in KeSMIS so the record matches the signed paperwork. Wait for autosave.</li>
+            <li>Still under <strong>Documents</strong>, upload any <strong>data files</strong> you will release to the requester (for example zip, spreadsheets, maps). Remove wrong files with delete if needed (you cannot delete the auto PDF).</li>
+          </ol>
+          <p>Documents area (signed upload, attachments, email button):</p>
+          <img src="${dataRequestAdmin02ApprovalImg}" alt="Data request documents and email download to requester" class="docs-screenshot" />
+
+          <ol start="11">
+            <li>When coordinator approval is <strong>Approved</strong> on the server and at least one requester-ready attachment is present, click <strong>Email Download Link to Requester</strong>. The requester gets an email with a time-limited link; you can copy the same link from the green panel if you need to pass it on manually. They do not need a KeSMIS login to use that link.</li>
+          </ol>
+
+          <blockquote>Tip &mdash; New public submissions trigger an acknowledgment to the requester (with the reference) and an alert to <strong>support</strong> role users with a link into this admin list.</blockquote>
+        `
+      },
       {
         id: 'data-import',
         label: 'Import GIS Data',
