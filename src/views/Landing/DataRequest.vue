@@ -104,6 +104,7 @@
                 </el-form-item>
               </el-col>
 
+
               <el-col :xs="24">
                 <el-form-item label="Intended Use of the Data" prop="intended_use">
                   <el-input
@@ -126,7 +127,7 @@
                 </el-form-item>
               </el-col>
 
-              <el-col :xs="24" :sm="12">
+              <el-col :xs="24" :sm="24">
                 <el-form-item label="Geographic Scope">
                   <el-select v-model="form.geographic_scope" placeholder="Select scope" style="width:100%">
                     <el-option label="National" value="National" />
@@ -136,7 +137,44 @@
                   </el-select>
                 </el-form-item>
               </el-col>
-
+              <el-col v-if="requiresCountyDetails" :xs="24" :sm="24">
+                <el-form-item label="County" prop="requested_county">
+                  <el-select
+                    v-model="form.requested_county"
+                    placeholder="Select county"
+                    style="width:100%"
+                    filterable
+                    :loading="countiesLoading"
+                    @change="onRequestedCountyChange"
+                  >
+                    <el-option
+                      v-for="county in countyOptions"
+                      :key="county.value"
+                      :label="county.label"
+                      :value="county.value"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col v-if="requiresSubcountyDetails" :xs="24" :sm="24">
+                <el-form-item label="Subcounty" prop="requested_subcounty">
+                  <el-select
+                    v-model="form.requested_subcounty"
+                    placeholder="Select subcounty"
+                    style="width:100%"
+                    filterable
+                    :loading="subcountiesLoading"
+                    :disabled="!form.requested_county"
+                  >
+                    <el-option
+                      v-for="subcounty in subcountyOptions"
+                      :key="subcounty.value"
+                      :label="subcounty.label"
+                      :value="subcounty.value"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
               <el-col :xs="24">
                 <el-form-item label="How Will the Data Be Used?">
                   <el-input
@@ -236,10 +274,10 @@
                   <el-date-picker
                     v-model="form.declaration_date"
                     type="date"
-                    placeholder="Select date"
                     style="width:100%"
                     format="DD/MM/YYYY"
                     value-format="YYYY-MM-DD"
+                    disabled
                   />
                 </el-form-item>
               </el-col>
@@ -274,7 +312,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ElMessage,
@@ -295,14 +333,21 @@ import {
   ElAlert,
   ElDatePicker
 } from 'element-plus'
+import type { FormRules } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { submitDataRequest } from '@/api/data-request'
+import { getCountyAuth, getSubCountyAuth } from '@/api/register'
 
 const router = useRouter()
 const formRef = ref()
 const loading = ref(false)
 const submitted = ref(false)
 const referenceCode = ref('')
+const countiesLoading = ref(false)
+const subcountiesLoading = ref(false)
+const countyOptions = ref<Array<{ value: number; label: string }>>([])
+const subcountyOptions = ref<Array<{ value: number; label: string }>>([])
+const lastSubcountyCountyId = ref<number | undefined>(undefined)
 
 const defaultForm = () => ({
   name: '',
@@ -316,6 +361,8 @@ const defaultForm = () => ({
   intended_use: '',
   data_classification: [] as string[],
   geographic_scope: '',
+  requested_county: undefined as number | undefined,
+  requested_subcounty: undefined as number | undefined,
   how_data_used: '',
   data_shared: undefined as boolean | undefined,
   sharing_details: '',
@@ -323,23 +370,54 @@ const defaultForm = () => ({
   data_made_public: '',
   heard_about: '',
   declaration_name: '',
-  declaration_date: '',
+  declaration_date: new Date().toISOString().slice(0, 10),
   agreed: false
 })
 
 const form = reactive(defaultForm())
+const isCountyScope = (scope: string) => scope === 'County'
+const isSubcountyScope = (scope: string) =>
+  scope === 'Sub-county' || scope === 'Subcounty' || scope === 'Sub County'
+const requiresCountyDetails = computed(
+  () => isCountyScope(form.geographic_scope) || isSubcountyScope(form.geographic_scope)
+)
+const requiresSubcountyDetails = computed(() => isSubcountyScope(form.geographic_scope))
 
-const rules = {
+const rules: FormRules = {
   name: [{ required: true, message: 'Full name is required', trigger: 'blur' }],
   organization: [{ required: true, message: 'Organization is required', trigger: 'blur' }],
   position: [{ required: true, message: 'Position / title is required', trigger: 'blur' }],
   email: [
     { required: true, message: 'Email is required', trigger: 'blur' },
-    { type: 'email', message: 'Enter a valid email', trigger: 'blur' }
+    { type: 'email' as const, message: 'Enter a valid email', trigger: 'blur' }
   ],
   phone: [{ required: true, message: 'Phone number is required', trigger: 'blur' }],
   data_description: [{ required: true, message: 'Data description is required', trigger: 'blur' }],
   intended_use: [{ required: true, message: 'Intended use is required', trigger: 'blur' }],
+  requested_county: [
+    {
+      validator: (_: any, value: number | undefined, callback: Function) => {
+        if (requiresCountyDetails.value && !value) {
+          callback(new Error('County is required for this geographic scope'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ],
+  requested_subcounty: [
+    {
+      validator: (_: any, value: number | undefined, callback: Function) => {
+        if (requiresSubcountyDetails.value && !value) {
+          callback(new Error('Subcounty is required for this geographic scope'))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
+  ],
   declaration_name: [{ required: true, message: 'Declaration name is required', trigger: 'blur' }],
   agreed: [
     {
@@ -352,9 +430,90 @@ const rules = {
   ]
 }
 
+const loadCounties = async () => {
+  countiesLoading.value = true
+  try {
+    const response: any = await getCountyAuth({ model: 'county' } as any)
+    const data = response?.data || []
+    countyOptions.value = data
+      .map((county: any) => ({ value: Number(county.id), label: String(county.name) }))
+      .sort((a: { value: number }, b: { value: number }) => a.value - b.value)
+  } catch (error) {
+    ElMessage.error('Failed to load counties.')
+    countyOptions.value = []
+  } finally {
+    countiesLoading.value = false
+  }
+}
+
+const loadSubcounties = async (countyId: number | undefined) => {
+  if (countyId === lastSubcountyCountyId.value) return
+  lastSubcountyCountyId.value = countyId
+
+  subcountyOptions.value = []
+  form.requested_subcounty = undefined
+
+  if (!countyId) return
+
+  subcountiesLoading.value = true
+  try {
+    const response: any = await getSubCountyAuth({ county: countyId } as any)
+    const data = Array.isArray(response) ? response : (response?.data || [])
+    subcountyOptions.value = data
+      .map((subcounty: any) => ({ value: Number(subcounty.id), label: String(subcounty.name) }))
+      .sort((a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label))
+  } catch (error) {
+    ElMessage.error('Failed to load subcounties.')
+    subcountyOptions.value = []
+  } finally {
+    subcountiesLoading.value = false
+  }
+}
+
+const onRequestedCountyChange = (countyId: number | undefined) => {
+  void loadSubcounties(countyId)
+}
+
+watch(
+  () => form.geographic_scope,
+  (scope) => {
+    if (!isCountyScope(scope) && !isSubcountyScope(scope)) {
+      form.requested_county = undefined
+      form.requested_subcounty = undefined
+      subcountyOptions.value = []
+      lastSubcountyCountyId.value = undefined
+      return
+    }
+    if (isCountyScope(scope)) {
+      form.requested_subcounty = undefined
+    }
+  }
+)
+
+onMounted(() => {
+  void loadCounties()
+})
+
+const focusFirstInvalidField = async () => {
+  await nextTick()
+  const firstErrorItem = document.querySelector('.dr-form .el-form-item.is-error')
+  if (!firstErrorItem) return
+
+  firstErrorItem.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+  const focusTarget = firstErrorItem.querySelector(
+    'input, textarea, [tabindex]:not([tabindex="-1"]), .el-select__wrapper, .el-checkbox'
+  ) as HTMLElement | null
+
+  focusTarget?.focus()
+}
+
 const handleSubmit = async () => {
   const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!valid) {
+    await focusFirstInvalidField()
+    return
+  }
 
   loading.value = true
   try {

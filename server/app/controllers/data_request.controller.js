@@ -147,6 +147,7 @@ exports.createPublicDataRequest = async (req, res) => {
     const {
       name, organization, position, work_area, mailing_address, email, phone,
       data_description, intended_use, data_classification, geographic_scope,
+      requested_county, requested_subcounty,
       how_data_used, data_shared, sharing_details, dissemination_plan,
       data_made_public, heard_about, declaration_name, declaration_date
     } = req.body
@@ -174,6 +175,8 @@ exports.createPublicDataRequest = async (req, res) => {
       code,
       name, organization, position, work_area, mailing_address, email, phone,
       data_description, intended_use, data_classification, geographic_scope,
+      requested_county: requested_county || null,
+      requested_subcounty: requested_subcounty || null,
       how_data_used, data_shared, sharing_details, dissemination_plan,
       data_made_public, heard_about, declaration_name,
       declaration_date: declaration_date || null,

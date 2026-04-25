@@ -412,10 +412,9 @@
                   <Icon icon="mdi:database-arrow-right" width="22" />
                 </div>
                 <h3 class="step-title">Request Data</h3>
-                <p class="step-description">Apply for access to the National Geodatabase of Slums and Informal Settlements data for research or official use.</p>
+                <p class="step-description">Request Slums and Informal Settlements data for research or official use.</p>
                 <div style="margin-top:12px;">
-                  <el-tag type="primary" size="small" effect="light">Open to public</el-tag>
-                </div>
+                 </div>
               </el-card>
             </el-col>
           </el-row>

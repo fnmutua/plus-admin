@@ -59,6 +59,14 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
+    requested_county: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    requested_subcounty: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
     how_data_used: {
       type: DataTypes.TEXT,
       allowNull: true

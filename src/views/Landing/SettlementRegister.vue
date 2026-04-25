@@ -88,6 +88,10 @@
             />
           </el-select>
           <el-button @click="resetFilters">Reset</el-button>
+          <el-button type="primary" plain @click="router.push('/data-request')">
+            <Icon icon="mdi:database-arrow-right" style="margin-right:4px" />
+            Request Data
+          </el-button>
           <el-button type="info" plain @click="helpDialogVisible = true">
             <Icon icon="mdi:help-circle-outline" class="help-icon" />
             Help
@@ -293,6 +297,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import {
   ElMessage,
@@ -329,6 +334,7 @@ const toolAUrl = (import.meta.env.VITE_APP_HOST || '') + '/api/public/tool-a'
 
 const mapContainerRef = ref<HTMLElement | null>(null)
 const activeRegisterTab = ref<'table' | 'map'>('table')
+const router = useRouter()
 const appStore = useAppStoreWithOut()
 const isDark = computed(() => appStore.getIsDark)
 
@@ -1275,9 +1281,10 @@ onUnmounted(() => {
   margin-bottom: 1.5rem;
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 12px;
+  overflow-x: auto;
 }
 
 .search-input {
@@ -1288,7 +1295,7 @@ onUnmounted(() => {
 
 .filter-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: center;
   flex: 1;
