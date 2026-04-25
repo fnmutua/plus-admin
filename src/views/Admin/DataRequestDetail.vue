@@ -15,10 +15,15 @@
       </div>
 
       <template v-if="request">
-        <div class="drd-layout">
-
-        <!-- ── LEFT COLUMN ── -->
-        <div class="drd-left">
+        <el-tabs v-model="activeTab" class="drd-tabs" type="border-card">
+          <el-tab-pane name="details">
+            <template #label>
+              <span class="drd-tab-label">
+                <Icon icon="mdi:database-outline" width="18" class="drd-tab-label-icon" />
+                Data request
+              </span>
+            </template>
+            <div class="drd-tab-panel">
 
           <!-- Requester card -->
           <el-card class="drd-card" shadow="never">
@@ -59,6 +64,14 @@
                 <el-tag v-for="c in request.data_classification" :key="c" size="small" style="margin-right:4px">{{ c }}</el-tag>
               </div>
               <div v-if="request.geographic_scope" class="drd-field"><span class="drd-label">Geographic Scope:</span><span class="drd-value">{{ request.geographic_scope }}</span></div>
+              <div v-if="request.requested_county != null" class="drd-field">
+                <span class="drd-label">County:</span>
+                <span class="drd-value">{{ requestedCountyLabel }}</span>
+              </div>
+              <div v-if="request.requested_subcounty != null" class="drd-field">
+                <span class="drd-label">Subcounty:</span>
+                <span class="drd-value">{{ requestedSubcountyLabel }}</span>
+              </div>
               <div class="drd-field"><span class="drd-label">Will Data Be Shared?:</span><span class="drd-value">{{ request.data_shared ? 'Yes' : 'No' }}</span></div>
               <div v-if="request.sharing_details" class="drd-field"><span class="drd-label">Sharing Details:</span><span class="drd-value">{{ request.sharing_details }}</span></div>
               <div v-if="request.dissemination_plan" class="drd-field"><span class="drd-label">Dissemination Plan:</span><span class="drd-value">{{ request.dissemination_plan }}</span></div>
@@ -82,10 +95,17 @@
             </div>
           </el-card>
 
-        </div>
+            </div>
+          </el-tab-pane>
 
-        <!-- ── RIGHT COLUMN ── -->
-        <div class="drd-right">
+          <el-tab-pane name="review">
+            <template #label>
+              <span class="drd-tab-label">
+                <Icon icon="mdi:gavel" width="18" class="drd-tab-label-icon" />
+                Review & approval
+              </span>
+            </template>
+            <div class="drd-tab-panel">
 
           <!-- Review card -->
           <el-card class="drd-card" shadow="never">
@@ -98,47 +118,42 @@
             </template>
 
             <el-form v-show="sectionsOpen.review" label-position="top" size="small">
-              <el-form-item label="Data Protection Officer Recommendation">
-                <el-radio-group v-model="dpoRecommendation">
-                  <el-radio-button value="Approved">Approve</el-radio-button>
-                  <el-radio-button value="Rejected">Reject</el-radio-button>
-                  <el-radio-button value="Pending">Pending</el-radio-button>
-                </el-radio-group>
-              </el-form-item>
-              <el-form-item label="DPO Review Notes">
-                <el-input
-                  v-model="dpoReviewNotes"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="Recommendation notes from Data Protection Officer"
-                />
-              </el-form-item>
-
-              <el-divider style="margin: 8px 0 10px 0;" />
-
-              <el-form-item label="Coordinator Approval">
-                <el-radio-group v-model="coordinatorApprovalStatus">
-                  <el-radio-button value="Approved">Approve</el-radio-button>
-                  <el-radio-button value="Rejected">Reject</el-radio-button>
-                  <el-radio-button value="Pending">Pending</el-radio-button>
-                </el-radio-group>
-              </el-form-item>
-              <el-form-item label="Coordinator Notes">
-                <el-input
-                  v-model="coordinatorApprovalNotes"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="Final approval notes by coordinator"
-                />
-              </el-form-item>
-              <el-button
-                type="primary"
-                :loading="saving"
-                style="width:100%"
-                @click="saveReview"
-              >
-                Save Review Workflow
-              </el-button>
+              <el-row :gutter="16">
+                <el-col :xs="24" :md="12">
+                  <el-form-item label="Data Protection Officer Recommendation">
+                    <el-radio-group v-model="dpoRecommendation">
+                      <el-radio-button value="Approved">Approve</el-radio-button>
+                      <el-radio-button value="Rejected">Reject</el-radio-button>
+                      <el-radio-button value="Pending">Pending</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                  <el-form-item label="DPO Review Notes">
+                    <el-input
+                      v-model="dpoReviewNotes"
+                      type="textarea"
+                      :rows="4"
+                      placeholder="Recommendation notes from Data Protection Officer"
+                    />
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :md="12">
+                  <el-form-item label="Coordinator Approval">
+                    <el-radio-group v-model="coordinatorApprovalStatus">
+                      <el-radio-button value="Approved">Approve</el-radio-button>
+                      <el-radio-button value="Rejected">Reject</el-radio-button>
+                      <el-radio-button value="Pending">Pending</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                  <el-form-item label="Coordinator Notes">
+                    <el-input
+                      v-model="coordinatorApprovalNotes"
+                      type="textarea"
+                      :rows="4"
+                      placeholder="Final approval notes by coordinator"
+                    />
+                  </el-form-item>
+                </el-col>
+              </el-row>
             </el-form>
           </el-card>
 
@@ -233,12 +248,13 @@
               </template>
             </div>
 
-            <!-- Share -->
+            <!-- Share: coordinator must approve; need requester-downloadable docs (matches API) -->
             <el-button
-              v-if="docs.length"
               type="success"
               :loading="sharing"
+              :disabled="!shareableDocuments.length || docsLoading || !coordinatorApprovedForShare"
               style="width:100%; margin-top:12px"
+              :title="emailShareButtonTitle"
               @click="shareWithRequester"
             >
               <Icon icon="mdi:email-fast-outline" width="18" style="margin-right:6px" />
@@ -249,7 +265,12 @@
             <div v-if="shareLink" class="share-result">
               <el-alert type="success" :closable="false" show-icon title="Email sent — copy link:">
                 <template #default>
-                  <el-input :model-value="shareLink" readonly size="small" style="margin-top:6px">
+                  <el-input
+                    :model-value="shareLink"
+                    readonly
+                    size="small"
+                    class="share-result-link-input"
+                  >
                     <template #append>
                       <el-button @click="copyLink">Copy</el-button>
                     </template>
@@ -261,22 +282,23 @@
 
           </el-card>
 
-        </div>
-        </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </template>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import {
   ElCard, ElButton, ElTag,
   ElForm, ElFormItem, ElRadioGroup, ElRadioButton, ElInput,
   ElSkeleton, ElEmpty, ElUpload, ElAlert, ElDivider, ElBadge,
-  ElMessage
+  ElMessage, ElTabs, ElTabPane, ElRow, ElCol
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -290,6 +312,8 @@ import {
   shareDataRequest
 } from '@/api/data-request'
 import axios from 'axios'
+import { getCountyListApi } from '@/api/counties'
+import { getSubCountyAuth } from '@/api/register'
 
 const route = useRoute()
 const router = useRouter()
@@ -301,28 +325,89 @@ const getToken = () => wsCache.get(appStore.getUserInfo)?.data || ''
 const authHeaders = () => ({ 'x-access-token': getToken(), 'Content-Type': 'application/json' })
 
 const requestId = Number(route.params.id)
+const activeTab = ref<'details' | 'review'>('details')
 
 // ── request ───────────────────────────────────────────────────────────────────
 const pageLoading = ref(true)
 const request = ref<any>(null)
+const requestedCountyLabel = ref('—')
+const requestedSubcountyLabel = ref('—')
 const dpoRecommendation = ref('Pending')
 const dpoReviewNotes = ref('')
 const coordinatorApprovalStatus = ref('Pending')
 const coordinatorApprovalNotes = ref('')
 const saving = ref(false)
+/** Skip debounced persist while hydrating the form from the server (avoids duplicate PUTs). */
+const reviewSuppressPersist = ref(true)
+let persistDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
 const sectionsOpen = ref({
   requester: true,
-  requestDetails: true,
+  requestDetails: false,
   declaration: true,
   review: true,
   documents: true
 })
 
+/** Tab 1: Requester ↔ Data request details are exclusive; Declaration toggles on its own. Tab 2: independent. */
 const toggleSection = (section: keyof typeof sectionsOpen.value) => {
+  if (section === 'declaration') {
+    sectionsOpen.value.declaration = !sectionsOpen.value.declaration
+    return
+  }
+  if (section === 'requester' || section === 'requestDetails') {
+    const willOpen = !sectionsOpen.value[section]
+    sectionsOpen.value[section] = willOpen
+    if (willOpen) {
+      if (section === 'requester') sectionsOpen.value.requestDetails = false
+      else sectionsOpen.value.requester = false
+    }
+    return
+  }
   sectionsOpen.value[section] = !sectionsOpen.value[section]
 }
 
+const resolveRequestedLocationLabels = async (rec: any) => {
+  requestedCountyLabel.value = '—'
+  requestedSubcountyLabel.value = '—'
+  const countyId = rec?.requested_county
+  const subId = rec?.requested_subcounty
+  if (countyId == null && subId == null) return
+
+  try {
+    if (countyId != null) {
+      const res: any = await getCountyListApi({
+        params: {
+          pageIndex: 1,
+          limit: 200,
+          curUser: 1,
+          model: 'county',
+          searchField: 'name',
+          searchKeyword: '',
+          sort: 'ASC'
+        }
+      })
+      const counties = res?.data || []
+      const c = counties.find((x: any) => Number(x.id) === Number(countyId))
+      requestedCountyLabel.value = c?.name ? String(c.name) : `ID ${countyId}`
+    }
+
+    if (subId != null && countyId != null) {
+      const scRes: any = await getSubCountyAuth({ county: countyId } as any)
+      const subList = Array.isArray(scRes) ? scRes : (scRes?.data || [])
+      const s = subList.find((x: any) => Number(x.id) === Number(subId))
+      requestedSubcountyLabel.value = s?.name ? String(s.name) : `ID ${subId}`
+    } else if (subId != null) {
+      requestedSubcountyLabel.value = `ID ${subId}`
+    }
+  } catch {
+    if (countyId != null) requestedCountyLabel.value = `ID ${countyId}`
+    if (subId != null) requestedSubcountyLabel.value = `ID ${subId}`
+  }
+}
+
 const loadRequest = async () => {
+  reviewSuppressPersist.value = true
   pageLoading.value = true
   try {
     const res = await axios.get(`${base}/api/v1/data-requests/${requestId}`, {
@@ -339,15 +424,34 @@ const loadRequest = async () => {
     dpoReviewNotes.value = found.dpo_review_notes || ''
     coordinatorApprovalStatus.value = found.coordinator_approval_status || found.status || 'Pending'
     coordinatorApprovalNotes.value = found.coordinator_approval_notes || ''
+    await resolveRequestedLocationLabels(found)
   } catch {
     ElMessage.error('Failed to load request')
     router.push('/admin/data-requests')
   } finally {
     pageLoading.value = false
+    await nextTick()
+    reviewSuppressPersist.value = false
   }
 }
 
-const saveReview = async () => {
+const clearPersistDebounce = () => {
+  if (persistDebounceTimer) {
+    clearTimeout(persistDebounceTimer)
+    persistDebounceTimer = null
+  }
+}
+
+const schedulePersistReview = () => {
+  if (reviewSuppressPersist.value || !request.value) return
+  clearPersistDebounce()
+  persistDebounceTimer = setTimeout(() => {
+    persistDebounceTimer = null
+    void persistReview()
+  }, 650)
+}
+
+const persistReview = async () => {
   saving.value = true
   try {
     await axios.put(
@@ -360,7 +464,6 @@ const saveReview = async () => {
       },
       { headers: authHeaders() }
     )
-    ElMessage.success('Review workflow saved')
     request.value.dpo_recommendation = dpoRecommendation.value
     request.value.dpo_review_notes = dpoReviewNotes.value
     request.value.coordinator_approval_status = coordinatorApprovalStatus.value
@@ -368,11 +471,27 @@ const saveReview = async () => {
     request.value.status = coordinatorApprovalStatus.value
     request.value.review_notes = coordinatorApprovalNotes.value || dpoReviewNotes.value
   } catch {
-    ElMessage.error('Failed to save review workflow')
+    ElMessage.error('Failed to save review')
   } finally {
     saving.value = false
   }
 }
+
+watch(
+  () => [
+    dpoRecommendation.value,
+    dpoReviewNotes.value,
+    coordinatorApprovalStatus.value,
+    coordinatorApprovalNotes.value
+  ],
+  () => {
+    schedulePersistReview()
+  }
+)
+
+onBeforeUnmount(() => {
+  clearPersistDebounce()
+})
 
 // ── documents ─────────────────────────────────────────────────────────────────
 const docs = ref<any[]>([])
@@ -397,6 +516,16 @@ const loadDocuments = async () => {
     docsLoading.value = false
   }
 }
+
+/** Same rules as server `isRequesterVisibleDocument` — auto-generated / internal form are not shared. */
+const internalFormNameRegex = /data[\s\-_]?request[\s\-_]?form/i
+const isRequesterShareableDoc = (doc: any) => {
+  const name = String(doc?.name || '')
+  if (doc?.auto_generated) return false
+  if (internalFormNameRegex.test(name)) return false
+  return true
+}
+const shareableDocuments = computed(() => docs.value.filter(isRequesterShareableDoc))
 
 const onFileChange = (file: any) => { pendingFile.value = file.raw as File }
 const clearPending = () => { pendingFile.value = null; uploadRef.value?.clearFiles() }
@@ -472,6 +601,14 @@ const ensureAndDownloadForm = async () => {
 }
 
 const shareWithRequester = async () => {
+  if (!coordinatorApprovedForShare.value) {
+    ElMessage.warning('Coordinator must approve this request before you can email the download link.')
+    return
+  }
+  if (!shareableDocuments.value.length) {
+    ElMessage.warning('No requester-visible documents to share. Upload an attachment first.')
+    return
+  }
   sharing.value = true
   shareLink.value = ''
   try {
@@ -501,6 +638,21 @@ const copyLink = async () => {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const overallStatus = computed(() => request.value?.coordinator_approval_status || request.value?.status || 'Pending')
+
+/** Persisted coordinator decision only (not draft radios) — share/email must match server. */
+const coordinatorApprovedForShare = computed(
+  () => (request.value?.coordinator_approval_status || '') === 'Approved'
+)
+
+const emailShareButtonTitle = computed(() => {
+  if (!coordinatorApprovedForShare.value) {
+    return 'Set coordinator approval to Approve and wait for changes to save before emailing the link.'
+  }
+  if (!shareableDocuments.value.length) {
+    return 'Add at least one attachment (the internal request form alone cannot be shared).'
+  }
+  return 'Email the public download link to the requester'
+})
 
 const statusTag = (s: string) =>
   s === 'Approved' ? 'success' : s === 'Rejected' ? 'danger' : 'warning'
@@ -561,27 +713,38 @@ onMounted(() => {
   letter-spacing: 0.02em;
 }
 
-/* Two-column layout */
-.drd-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 12px;
-  align-items: start;
+/* Tabs */
+.drd-tabs {
+  width: 100%;
 }
-
-@media (max-width: 900px) {
-  .drd-layout {
-    grid-template-columns: 1fr;
-  }
+.drd-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
 }
-
-/* Cards */
-.drd-left,
-.drd-right {
+.drd-tabs :deep(.el-tabs__content) {
+  padding: 16px 12px 8px;
+}
+.drd-tabs :deep(.el-tab-pane) {
+  outline: none;
+}
+.drd-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.drd-tab-label-icon {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.drd-tab-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
+
+/* Cards */
 
 .drd-card {
   border-radius: 6px;
@@ -724,5 +887,12 @@ onMounted(() => {
 /* Share result */
 .share-result {
   margin-top: 12px;
+}
+
+.share-result-link-input {
+  width: 98%;
+  max-width: 100%;
+  margin-top: 6px;
+  box-sizing: border-box;
 }
 </style>

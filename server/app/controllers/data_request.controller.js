@@ -7,7 +7,8 @@ const path = require('path')
 const crypto = require('crypto')
 const shortid = require('shortid')
 const nodemailer = require('nodemailer')
-const { PDFDocument, StandardFonts } = require('pdf-lib')
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib')
+const QRCode = require('qrcode')
 
 const generateDRCode = async () => {
   const prefix = 'DR'
@@ -88,10 +89,59 @@ const isRequesterVisibleDocument = (doc) => {
   return true
 }
 
-const generateDataRequestFormPdf = async (record) => {
+/** Same base as admin UI / share email: FRONTEND_URL or request host (port stripped). */
+const publicFrontendBaseUrl = (req) => {
+  if (process.env.FRONTEND_URL) return String(process.env.FRONTEND_URL).trim().replace(/\/$/, '')
+  if (req) return `${req.protocol}://${req.get('host')}`.replace(/:\d+$/, '')
+  return ''
+}
+
+/** Public download page — matches `DataRequestDetail.vue`: `origin + '/#/dr-share/' + token` */
+const buildDrSharePublicUrl = (token, req) => {
+  const base = publicFrontendBaseUrl(req)
+  if (!base || !token) return ''
+  return `${base}/#/dr-share/${token}`
+}
+
+/** Latest non-revoked, non-expired share link for this request (if any). */
+const findActiveDrShareUrl = async (record, req) => {
+  if (!record?.id) return ''
+  try {
+    const share = await db.models.data_request_share.findOne({
+      where: { data_request_id: record.id, isRevoked: false },
+      order: [['createdAt', 'DESC']]
+    })
+    if (!share?.token) return ''
+    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) return ''
+    return buildDrSharePublicUrl(share.token, req)
+  } catch (_) {
+    return ''
+  }
+}
+
+const generateDataRequestFormPdf = async (record, req = null) => {
   const formPath = path.join(__dirname, '../../../public/forms/Data-Request-Form-fill.pdf')
   if (!fs.existsSync(formPath)) {
     throw new Error(`Template not found: ${formPath}`)
+  }
+
+  let requestedCountyText = ''
+  let requestedSubcountyText = ''
+  if (record.requested_county != null && record.requested_county !== '') {
+    try {
+      const c = await db.models.county.findByPk(record.requested_county, { attributes: ['name'] })
+      requestedCountyText = c?.name ? String(c.name) : String(record.requested_county)
+    } catch (_) {
+      requestedCountyText = String(record.requested_county)
+    }
+  }
+  if (record.requested_subcounty != null && record.requested_subcounty !== '') {
+    try {
+      const s = await db.models.subcounty.findByPk(record.requested_subcounty, { attributes: ['name'] })
+      requestedSubcountyText = s?.name ? String(s.name) : String(record.requested_subcounty)
+    } catch (_) {
+      requestedSubcountyText = String(record.requested_subcounty)
+    }
   }
 
   const formBytes = fs.readFileSync(formPath)
@@ -110,6 +160,17 @@ const generateDataRequestFormPdf = async (record) => {
   setTextFieldIfExists(form, ['data_description'], record.data_description)
   setTextFieldIfExists(form, ['intended_use'], record.intended_use)
   setTextFieldIfExists(form, ['geographic_scope'], record.geographic_scope)
+  // New PDF fields: resolved admin-unit names (IDs stored on data_request)
+  setTextFieldIfExists(
+    form,
+    ['requested_county', 'requested_county_name', 'County requested'],
+    requestedCountyText
+  )
+  setTextFieldIfExists(
+    form,
+    ['requested_subcounty', 'requested_subcounty_name', 'Subcounty requested'],
+    requestedSubcountyText
+  )
   setTextFieldIfExists(form, ['how_data_used'], record.how_data_used)
   setTextFieldIfExists(form, ['sharing_details'], record.sharing_details)
   setTextFieldIfExists(form, ['dissemination_plan'], record.dissemination_plan)
@@ -139,6 +200,35 @@ const generateDataRequestFormPdf = async (record) => {
   form.updateFieldAppearances(contentFont)
 
   form.flatten()
+
+  // QR at bottom: same public link as admin "Email Download Link" (dr-share), when a share exists.
+  const shareUrl = await findActiveDrShareUrl(record, req)
+  if (shareUrl) {
+    try {
+      const qrCodeDataUri = await QRCode.toDataURL(shareUrl)
+      const qrImage = await pdfDoc.embedPng(qrCodeDataUri)
+      const pages = pdfDoc.getPages()
+      const page = pages[pages.length - 1]
+      const { width: pw } = page.getSize()
+      const qrSize = 72
+      const qrX = (pw - qrSize) / 2
+      const qrY = 52
+      page.drawImage(qrImage, { x: qrX, y: qrY, width: qrSize, height: qrSize })
+      const caption = 'Scan to open requester download link'
+      const captionSize = 8
+      const tw = contentFont.widthOfTextAtSize(caption, captionSize)
+      page.drawText(caption, {
+        x: (pw - tw) / 2,
+        y: qrY + qrSize + 10,
+        size: captionSize,
+        font: contentFont,
+        color: rgb(0.35, 0.35, 0.35)
+      })
+    } catch (e) {
+      console.error('[DataRequest] PDF QR embed failed:', e)
+    }
+  }
+
   return pdfDoc.save()
 }
 
@@ -185,7 +275,7 @@ exports.createPublicDataRequest = async (req, res) => {
 
     // Auto-generate request form PDF and attach to this request for DPO workflow.
     try {
-      await ensureDataRequestFormDocument(record, null)
+      await ensureDataRequestFormDocument(record, null, false, req)
     } catch (pdfErr) {
       // Submission should still succeed even if PDF generation fails.
       console.error('[DataRequest] auto PDF generation failed:', pdfErr)
@@ -318,7 +408,7 @@ if (!fs.existsSync(DR_UPLOAD_DIR)) {
   try { fs.mkdirSync(DR_UPLOAD_DIR, { recursive: true }) } catch {}
 }
 
-const ensureDataRequestFormDocument = async (record, createdBy = null, force = false) => {
+const ensureDataRequestFormDocument = async (record, createdBy = null, force = false, req = null) => {
   const existing = await db.models.data_request_document.findOne({
     where: { data_request_id: record.id, auto_generated: true },
     order: [['createdAt', 'ASC']]
@@ -329,7 +419,7 @@ const ensureDataRequestFormDocument = async (record, createdBy = null, force = f
     await existing.destroy()
   }
 
-  const pdfBytes = await generateDataRequestFormPdf(record)
+  const pdfBytes = await generateDataRequestFormPdf(record, req)
   const fileName = `${record.code}-Data-Request-Form.pdf`
   const filePath = path.join(DR_UPLOAD_DIR, fileName)
   fs.writeFileSync(filePath, pdfBytes)
@@ -443,7 +533,7 @@ exports.generateDataRequestFormDocument = async (req, res) => {
     if (!record) return res.status(404).json({ code: '4004', message: 'Request not found' })
 
     const force = req.body?.force === true || req.body?.force === 'true'
-    const doc = await ensureDataRequestFormDocument(record, req.thisUser?.id || null, force)
+    const doc = await ensureDataRequestFormDocument(record, req.thisUser?.id || null, force, req)
     return res.status(200).json({ code: '0000', message: 'Form ready', results: doc })
   } catch (err) {
     console.error('[DataRequest] generateDataRequestFormDocument error:', err)
@@ -515,6 +605,13 @@ exports.shareDataRequest = async (req, res) => {
     const request = await db.models.data_request.findByPk(id)
     if (!request) return res.status(404).json({ code: '4004', message: 'Request not found' })
 
+    if (request.coordinator_approval_status !== 'Approved') {
+      return res.status(400).json({
+        code: '4000',
+        message: 'Coordinator approval is required before emailing the download link'
+      })
+    }
+
     const docs = await db.models.data_request_document.findAll({ where: { data_request_id: id } })
     const shareableDocs = docs.filter(isRequesterVisibleDocument)
     if (!shareableDocs.length) {
@@ -533,11 +630,17 @@ exports.shareDataRequest = async (req, res) => {
       createdBy: req.thisUser?.id || null
     })
 
-    const frontendUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`.replace(/:\d+$/, '')
-    const publicUrl = `${frontendUrl}/#/dr-share/${token}`
+    const publicUrl = buildDrSharePublicUrl(token, req)
 
-    // Send email to requester
-    if (emailRegex.test(request.email)) {
+    // Refresh auto-generated request form PDF so it includes a QR for this dr-share link (same URL as admin UI).
+    try {
+      await ensureDataRequestFormDocument(request, req.thisUser?.id || null, true, req)
+    } catch (pdfErr) {
+      console.error('[DataRequest] Regenerate form PDF after share failed:', pdfErr)
+    }
+
+    // Send email only when we have a real share URL and requester-visible docs (shareableDocs already enforced above).
+    if (publicUrl && emailRegex.test(request.email)) {
       const html = `
         <p>Dear ${request.name},</p>
         <p>Your data request <strong>${request.code}</strong> has been processed.</p>

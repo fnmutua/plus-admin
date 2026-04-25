@@ -2053,6 +2053,27 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     ]
   },
 
+  {
+    path: '/data-request-form',
+    component: Layout,
+    name: 'DataRequestFormNav',
+    meta: {
+      title: 'Data Request',
+      icon: 'mdi:database-arrow-right',
+    },
+    children: [
+      {
+        path: '',
+        component: { render: () => null },
+        name: 'DataRequestForm',
+        meta: {
+          title: 'Data Request',
+          icon: 'mdi:database-arrow-right',
+        }
+      }
+    ]
+  },
+
 ]
 
  
@@ -2075,6 +2096,8 @@ router.beforeEach((to, from, next) => {
     // Open documentation in a new tab and stay on current page
     window.open('/#/docs', '_blank');
     next(false);
+  } else if (to.path === '/data-request-form') {
+    next({ path: '/data-request', replace: true });
   } else {
     next();
   }

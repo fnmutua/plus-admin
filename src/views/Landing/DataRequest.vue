@@ -2,8 +2,8 @@
   <BaseLayout>
     <div class="dr-page">
       <div class="dr-container">
-        <!-- Header -->
-        <div class="dr-header">
+        <!-- Header (form only; success uses card header below) -->
+        <div v-if="!submitted" class="dr-header">
           <img src="/logo.png" alt="Ministry logo" class="dr-logo" @error="(e: any) => e.target.style.display='none'" />
           <h1 class="dr-title">National Geodatabase of Slums and Informal Settlements</h1>
           <h2 class="dr-subtitle">Data Request Form</h2>
@@ -14,18 +14,37 @@
         </div>
 
         <!-- Success state -->
-        <el-result
-          v-if="submitted"
-          icon="success"
-          title="Request Submitted"
-          :sub-title="`Your reference code is: ${referenceCode}`"
-        >
-          <template #extra>
-            <p class="success-note">Please keep your reference code for follow-up. Our team will review your request and contact you via the email provided.</p>
-            <el-button type="primary" @click="router.push('/landing')">Return to Home</el-button>
-            <el-button @click="resetForm">Submit Another Request</el-button>
-          </template>
-        </el-result>
+        <el-card v-if="submitted" class="dr-card dr-success-card" shadow="hover">
+          <div class="dr-success-card-inner">
+            <div class="dr-header dr-header--in-card">
+              <img src="/logo.png" alt="Ministry logo" class="dr-logo" @error="(e: any) => e.target.style.display='none'" />
+              <h1 class="dr-title">National Geodatabase of Slums and Informal Settlements</h1>
+              <h2 class="dr-subtitle">Data Request Form</h2>
+              <p class="dr-instructions">
+                Complete this form and submit electronically. You will receive a reference code upon submission.
+                For assistance contact the KeSMIS support team.
+              </p>
+            </div>
+
+            <div class="dr-success-divider"></div>
+
+            <div class="dr-success-body">
+              <div class="dr-success-icon-wrap" aria-hidden="true">
+                <Icon icon="mdi:check-decagram" class="dr-success-icon" width="56" height="56" />
+              </div>
+              <h3 class="dr-success-title">Request submitted</h3>
+              <p class="dr-success-ref-label">Your reference code</p>
+              <p class="dr-success-ref-code">{{ referenceCode }}</p>
+              <p class="success-note">
+                Please keep your reference code for follow-up. Our team will review your request and contact you via the email provided.
+              </p>
+              <div class="dr-success-actions">
+                <el-button type="primary" size="large" @click="router.push('/landing')">Return to Home</el-button>
+                <el-button size="large" @click="resetForm">Submit Another Request</el-button>
+              </div>
+            </div>
+          </div>
+        </el-card>
 
         <el-form
           v-else
@@ -316,7 +335,6 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ElMessage,
-  ElResult,
   ElButton,
   ElForm,
   ElFormItem,
@@ -556,6 +574,86 @@ const resetForm = () => {
   margin-bottom: 32px;
 }
 
+.dr-header--in-card {
+  margin-bottom: 0;
+}
+
+.dr-success-card {
+  max-width: 640px;
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
+}
+
+.dr-success-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+.dr-success-card-inner {
+  padding: 28px 24px 32px;
+}
+
+.dr-success-divider {
+  height: 1px;
+  margin: 24px 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--el-border-color, #dcdfe6) 15%,
+    var(--el-border-color, #dcdfe6) 85%,
+    transparent
+  );
+}
+
+.dr-success-body {
+  text-align: center;
+}
+
+.dr-success-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.dr-success-icon {
+  color: var(--el-color-success, #67c23a);
+}
+
+.dr-success-title {
+  margin: 0 0 20px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  letter-spacing: 0.02em;
+}
+
+.dr-success-ref-label {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--el-text-color-secondary);
+}
+
+.dr-success-ref-code {
+  margin: 0 0 20px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+  letter-spacing: 0.04em;
+  color: var(--el-color-primary);
+  word-break: break-all;
+}
+
+.dr-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 .dr-logo {
   height: 80px;
   margin-bottom: 16px;
@@ -624,8 +722,10 @@ const resetForm = () => {
 .success-note {
   color: var(--el-text-color-secondary);
   font-size: 0.875rem;
-  margin-bottom: 16px;
+  margin: 0 auto 20px;
   text-align: center;
+  max-width: 480px;
+  line-height: 1.55;
 }
 
 @media (max-width: 600px) {
@@ -633,6 +733,12 @@ const resetForm = () => {
     flex-direction: column-reverse;
   }
   .dr-actions .el-button {
+    width: 100%;
+  }
+  .dr-success-actions {
+    flex-direction: column-reverse;
+  }
+  .dr-success-actions .el-button {
     width: 100%;
   }
 }
