@@ -463,7 +463,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: false,
               icon:'mdi:house-circle',
               permissions: ['households:read'],
-              title: 'xHouseholds'
+              title: 'Households'
             }
           },  
      
