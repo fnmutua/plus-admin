@@ -454,7 +454,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           
           {
             path: 'hh/all',
-            component: () => import('@/views/Household/All.vue'),
+            component: () => import('@/views/Household/households.vue'),
             name: 'AllHouseholds',
             props: {
               name: String

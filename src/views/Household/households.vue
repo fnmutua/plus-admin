@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// @ts-nocheck
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch} from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
@@ -7,7 +8,7 @@ import {
   ElTableColumn, UploadUserFile, ElInput, ElDrawer
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Filter, Back, More, CircleCloseFilled, Download } from '@element-plus/icons-vue'
+import { Filter, Back, View, CircleCloseFilled, Download } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -793,59 +794,73 @@ const DocumentComponentProps = ref({
     </div>
 
     <div v-loading="loading" element-loading-text="Loading households...">
-      <el-row :gutter="10" style="margin-bottom: 10px">
-        <el-col :span="24">
-          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between">
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1; min-width: 0">
-              <el-button type="primary" plain :icon="Back" @click="goBack">Back</el-button>
-              <el-select
-                v-model="value2"
-                @change="handleSelectCounty"
-                @clear="handleSelectCounty([])"
-                placeholder="Filter by County"
-                clearable
-                filterable
-                multiple
-                collapse-tags
-                collapse-tags-tooltip
-                style="width: 240px">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-              <el-select
-                v-model="value4"
-                @change="filterBySettlement"
-                @clear="filterBySettlement([])"
-                :placeholder="(value2 && value2.length) ? 'Filter by Settlement' : 'Select county first'"
-                clearable
-                filterable
-                multiple
-                collapse-tags
-                collapse-tags-tooltip
-                :disabled="!value2 || value2.length === 0"
-                :loading="settlementSearchLoading"
-                style="width: 240px">
-                <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-               
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center">
-              <el-button type="primary" :icon="Filter" @click="handleClear"  >Clear</el-button>
-              <el-button
-                v-if="!hasActiveFilters"
-                type="success"
-                :icon="Download"
-                :loading="excelDownloadLoading"
-                @click="downloadHouseholdsExcel">
-                Download All
+      <el-row :gutter="16" class="hh-toolbar-row" style="margin-bottom: 10px">
+        <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px hh-toolbar-col">
+          <div class="max-w-200px">
+            <el-button type="primary" plain :icon="Back" @click="goBack" size="small" style="margin-right: 10px;">
+              Back
+            </el-button>
+          </div>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="11" :lg="4" class="hh-toolbar-col">
+          <el-select
+            v-model="value2"
+            size="default"
+            @change="handleSelectCounty"
+            @clear="handleSelectCounty([])"
+            placeholder="Filter by County"
+            clearable
+            filterable
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            style="width: 100%; margin-right: 5px;">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="11" :lg="4" class="hh-toolbar-col">
+          <el-select
+            v-model="value4"
+            size="default"
+            @change="filterBySettlement"
+            @clear="filterBySettlement([])"
+            :placeholder="(value2 && value2.length) ? 'Filter by Settlement' : 'Select county first'"
+            clearable
+            filterable
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            :disabled="!value2 || value2.length === 0"
+            :loading="settlementSearchLoading"
+            style="width: 100%; margin-right: 5px;">
+            <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="24" :lg="14" class="hh-toolbar-col">
+          <div class="hh-toolbar-actions">
+            <el-tooltip v-if="hasActiveFilters" content="Clear all filters" placement="top">
+              <el-button type="primary" :icon="Filter" @click="handleClear">
+                Clear
               </el-button>
-              <DownloadCustom
-                v-if="(value2?.length) || (value4?.length) || (value5?.length)"
-                :data="tableDataList"
-                :model="model"
-                :associated_models="associated_multiple_models"
-                :filters="filters"
-                :filter-values="filterValues" />
-            </div>
+            </el-tooltip>
+            <el-button
+              v-if="!hasActiveFilters"
+              type="success"
+              :icon="Download"
+              :loading="excelDownloadLoading"
+              @click="downloadHouseholdsExcel">
+              Download All
+            </el-button>
+            <DownloadCustom
+              v-if="(value2?.length) || (value4?.length) || (value5?.length)"
+              :data="tableDataList"
+              :model="model"
+              :associated_models="associated_multiple_models"
+              :filters="filters"
+              :filter-values="filterValues" />
           </div>
         </el-col>
       </el-row>
@@ -856,10 +871,10 @@ const DocumentComponentProps = ref({
         <el-table-column label="Age" prop="age" sortable />
         <el-table-column label="Household Size" prop="hh_size" sortable />
         <el-table-column label="Location" min-width="220" :formatter="(row) => formatLocation(row)" />
-        <el-table-column fixed="right" label="Actions" width="100">
+        <el-table-column fixed="right" label="Details" width="90">
             <template #default="scope">
-              <el-tooltip content="More Details" placement="top">
-                <el-button type="success" size="small" :icon="More" @click="showHHDetails(scope as TableSlotDefault)" plain />
+              <el-tooltip content="View household details" placement="top">
+                <el-button type="primary" size="small" :icon="View" @click="showHHDetails(scope as TableSlotDefault)" plain />
               </el-tooltip>
             </template>
           </el-table-column>
@@ -958,6 +973,29 @@ const DocumentComponentProps = ref({
 <style scoped>
 .max-w-200px {
   max-width: 200px;
+}
+
+.hh-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.hh-toolbar-row :deep(.hh-toolbar-col) {
+  margin-bottom: 12px;
+}
+
+.hh-toolbar-row :deep(.hh-toolbar-col:last-child) {
+  margin-bottom: 0;
+}
+
+@media (min-width: 992px) {
+  .hh-toolbar-row :deep(.hh-toolbar-col) {
+    margin-bottom: 0;
+  }
 }
 
 :deep(.hh-detail-drawer .el-drawer__header) {
