@@ -47,6 +47,31 @@ export const postBatchHouseholds = (data: UserType): Promise<IResponse<UserType>
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/hh/batch', data })
 }
+
+export const startHouseholdsExcelExportJob = () => {
+  return request.post({
+    url: prod + '/api/v1/hh/export/excel/job/start',
+    data: {},
+    timeout: 0
+  })
+}
+
+export const getHouseholdsExcelExportJobStatus = (job_id: string) => {
+  return request.post({
+    url: prod + '/api/v1/hh/export/excel/job/status',
+    data: { job_id },
+    timeout: 0
+  })
+}
+
+export const downloadHouseholdsExcelExportJob = (job_id: string) => {
+  return request.post({
+    url: prod + '/api/v1/hh/export/excel/job/download',
+    data: { job_id },
+    responseType: 'blob',
+    timeout: 0
+  })
+}
  
 
 export const getUniqueFieldValues = (data: UserType): Promise<IResponse<UserType>> => {

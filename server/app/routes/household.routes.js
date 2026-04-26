@@ -24,6 +24,9 @@ module.exports = function (app) {
  
   app.post("/api/v1/hh/filter/keyword", [authJwt.verifyToken, hasPermission('households:read')], controller.getHouseholdsfilterBykeyWord);
   app.post("/api/v1/hh/batch", [authJwt.verifyToken, hasPermission('households:import')], controller.batchHouseholdImport);
+  app.post("/api/v1/hh/export/excel/job/start", [authJwt.verifyToken, hasPermission('households:full_export')], controller.createHouseholdExportJob);
+  app.post("/api/v1/hh/export/excel/job/status", [authJwt.verifyToken, hasPermission('households:full_export')], controller.getHouseholdExportJobStatus);
+  app.post("/api/v1/hh/export/excel/job/download", [authJwt.verifyToken, hasPermission('households:full_export')], controller.downloadHouseholdExportJob);
 
   
   

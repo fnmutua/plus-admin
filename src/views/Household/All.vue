@@ -1,28 +1,24 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch} from '@/api/settlements'
+import { getSettlementListByCounty, uploadFilesBatch} from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElDialog, ElForm, ElFormItem, ElCard, ElTable, ElRow, ElCol,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu, ElInput, ElDrawer
+  ElTableColumn, UploadUserFile, ElInput, ElDrawer
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled, Back, More, CircleCloseFilled } from '@element-plus/icons-vue'
+import { Filter, Back, More, CircleCloseFilled, Download } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed, h, onMounted, onBeforeUnmount } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { DeleteRecord, deleteDocument } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
 import { getFile } from '@/api/summary'
-import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
-import { getAllGeo } from '@/api/settlements'
 import {
   searchByKeyWord
 } from '@/api/settlements'
@@ -36,8 +32,6 @@ import 'element-plus/theme-chalk/display.css'
 ////////////*************Map Imports***************////////
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
-import * as turf from '@turf/turf'
-import { Icon } from '@iconify/vue';
 
 
 import mapboxgl from "mapbox-gl";
@@ -45,16 +39,22 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 
 
-import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 
 import * as enums from '@/utils/enums'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
-import { getFilteredHouseholdsByColumn, getFilteredHouseholdsBykeyword, getOneHousehold, updateHousehold } from '@/api/households'
+import {
+  getFilteredHouseholdsByColumn,
+  getFilteredHouseholdsBykeyword,
+  getOneHousehold,
+  updateHousehold,
+  startHouseholdsExcelExportJob,
+  getHouseholdsExcelExportJobStatus,
+  downloadHouseholdsExcelExportJob
+} from '@/api/households'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
-import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 
@@ -76,8 +76,6 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
 
 const router = useRouter()
 const { push } = router
@@ -103,14 +101,12 @@ const settlementOptions = ref([])
 const countiesOptions = ref([])
 const page = ref(1)
 const pSize = ref(5)
-const selCounties = []
 const loading = ref(true)
+const excelDownloadLoading = ref(false)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 const showEditSaveButton = ref(false)
-const showAddSaveButton = ref(true)
 const formheader = ref('Edit Household')
 
 
@@ -118,7 +114,6 @@ let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
-const route = useRoute()
 
 
 
@@ -127,7 +122,6 @@ var filterValues = []
 
 var tblData = []
 
-const associated_Model = ''
 // Keep association payload lean (id + name only from backend include projection).
 const associated_multiple_models: string[] = ['settlement', 'county']
 
@@ -135,6 +129,60 @@ const model = 'households'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
+
+const hasActiveFilters = computed(() => {
+  const hasCountyFilter = Array.isArray(value2.value) && value2.value.length > 0
+  const hasSettlementFilter = Array.isArray(value4.value) && value4.value.length > 0
+  const hasGenderFilter = Array.isArray(value5.value) && value5.value.length > 0
+  const hasSearchFilter = !!searchString.value?.trim()
+  return hasCountyFilter || hasSettlementFilter || hasGenderFilter || hasSearchFilter
+})
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const downloadHouseholdsExcel = async () => {
+  if (excelDownloadLoading.value) return
+  excelDownloadLoading.value = true
+  try {
+    const startRes: any = await startHouseholdsExcelExportJob()
+    const jobId = startRes?.data?.job_id || startRes?.job_id
+    if (!jobId) throw new Error('Missing export job id')
+
+    let status = 'processing'
+    const maxPolls = 60
+    for (let i = 0; i < maxPolls; i++) {
+      await sleep(1000)
+      const statusRes: any = await getHouseholdsExcelExportJobStatus(jobId)
+      status = statusRes?.data?.status || statusRes?.status || 'processing'
+      if (status === 'completed' || status === 'failed') break
+    }
+
+    if (status !== 'completed') {
+      throw new Error(status === 'failed' ? 'Export failed on server' : 'Export timed out, please try again')
+    }
+
+    const fileRes: any = await downloadHouseholdsExcelExportJob(jobId)
+    const blobSource = fileRes?.data ?? fileRes
+    const contentType =
+      fileRes?.headers?.['content-type'] || 'text/csv;charset=utf-8;'
+    const blob = blobSource instanceof Blob ? blobSource : new Blob([blobSource], { type: contentType })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const contentDisposition = fileRes?.headers?.['content-disposition'] || ''
+    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+    link.download = fileNameMatch?.[1] || `households_${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('Download started')
+  } catch (error: any) {
+    ElMessage.error(error?.message || 'Failed to download households export')
+  } finally {
+    excelDownloadLoading.value = false
+  }
+}
 
 
 const handleClear = async () => {
@@ -182,10 +230,6 @@ const filterBySettlement = async (settlementIds: any) => {
   getFilteredData(filters, filterValues)
 }
 
-const filterByGender = async (genders: any) => {
-  updateFilter('gender', genders || [], filters, filterValues)
-  getFilteredData(filters, filterValues)
-}
 
 // Load settlements for selected county/counties
 const settlementSearchLoading = ref(false)
@@ -226,52 +270,9 @@ const loadSettlementsByCounty = async (countyIds: any) => {
 
 const currentRow = ref()
 const addMoreDocuments = ref()
-const addMoreDocs = (data: TableSlotDefault) => {
-
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  console.log('currentRow', currentRow.value)
-
-}
 
  
 
-const submitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('files', fileList.value[i])
-    // formData.file = fileList.value[i]
-
-    formData.append('model', model)
-
-    formData.append('files', morefileList.value[i].raw)
-    formData.append('format', morefileList.value[i].name.split('.').pop())
-    formData.append('category', documentCategory.value)
-    formData.append('field_id', 'hh_id')
-
-    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    formData.append('code', uuid.v4())
-    formData.append('hh_id', currentRow.value.id)
-
-
-  }
-
-
-  console.log(currentRow.value.id)
-  await uploadFilesBatch(formData)
-
-}
 
 const documentCategory = ref()
 
@@ -374,58 +375,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 const getBeneficiaryType = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'benefit_type',
-      searchField: 'type',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.type  
-      //  console.log(countyOpt)
-      benefitTypeOptions.value.push(opt)
-    })
-  })
 }
 const getHouseholds = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'households',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = (arrayItem.code || arrayItem.id) + ' | ' + (arrayItem.gender || '') + ' | ' + arrayItem.id
-      //  console.log(countyOpt)
-      houseHoldOptions.value.push(opt)
-    })
-  })
 }
 
 const getInterventions = async () => {
@@ -449,55 +400,11 @@ const getInterventions = async () => {
   //const rxes = await getSettlementListByCounty(formData)
   //console.log('Inside Intervention Options', rxes)
 
-  const res = await getSettlementListByCounty(formData).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.settlement_id = arrayItem.settlement.id
-
-      opt.label = arrayItem.settlement.name + ' | ' + arrayItem.cluster.contract + ' | ' + arrayItem.id
-      //  console.log(countyOpt)
-      interventionsOptions.value.push(opt)
-    })
-  })
 }
 
 
 
 
-const getSettlementsOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name  
-      //  console.log(countyOpt)
-      settlementOptions.value.push(countyOpt)
-    })
-  })
-}
 
 
 
@@ -537,39 +444,10 @@ const getFilteredBySearchData = async (searchString) => {
 
 }
 
-const searchByName = async (filterString: any) => {
-  searchString.value = filterString
-  getFilteredBySearchData(searchString.value)
-}
 
 
 const programmeOptions = ref([])
 const getProgrammeOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title  
-      //  console.log(countyOpt)
-      programmeOptions.value.push(countyOpt)
-    })
-  })
 }
 
  
@@ -700,23 +578,6 @@ const ruleForm = reactive({
 })
 
 
-const DeleteHH = (data: TableSlotDefault) => {
-  console.log('----->', data.id)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-
-  DeleteRecord(formData)
-
-  console.log(tableDataList.value)
-
-  // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
-
-}
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
@@ -753,12 +614,6 @@ const handleClose = () => {
 
 
 
-const AddHH = () => {
-  push({
-    path: '/settlement/hh/add',
-    name: 'AddHouseholdx'
-  })
-}
 
 const AddDialogVisible = ref(false)
 
@@ -853,70 +708,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportState)
 })
 
-const editHH = (data: TableSlotDefault) => {
-  formheader.value = 'Edit Household'
-  showEditSaveButton.value = true
 
 
-  // transfer observed data to form
-  ruleForm.id = data.row.id
-  for (const key in ruleForm) {
-    ruleForm[key] = data.row[key]
-   // console.log(key, ruleForm[key])
-  }
-
-
-  // push({
-  //   path: '/settlement/hh/add',
-  //   name: 'AddHousehold'
-  // })
-console.log('pasising', data.row.id)
-  push({
-  name: 'AddHouseholdx',
-    query: { id: data.row.id }
-  
-});
-
-
-
-  //AddDialogVisible.value = true
-
-  
-}
-
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
-
-const downloadFile = async (data) => {
-
-console.log(data.name)
-
-const formData = {}
-formData.filename = data.name
-formData.responseType = 'blob'
-await getFile(formData)
-  .then(response => {
-    console.log(response)
-
-    const url = window.URL.createObjectURL(new Blob([response.data]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', data.name)
-    document.body.appendChild(link)
-    link.click()
-
-  })
-  .catch(error => {
-    console.error('Error downloading file:', error);
-  });
-
-}
 
 
 
@@ -938,66 +731,10 @@ if (isMobile.value) {
 
 const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-      
-        acc[group] = [];
-      }
-
-        if (group =='Other') {
-          acc[group].push(cur); 
-        }
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 
 
-const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
-  if (data.row.documents?.length > 0) {
-    return 'warning-row'
-  }
-  return ''
-}
 
 
 
@@ -1006,7 +743,6 @@ const tableRowClassName = (data) => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'hh_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
 const dynamicComponent = ref();
  const componentProps = ref({
       message: 'Hello from parent',
@@ -1018,18 +754,6 @@ const dynamicComponent = ref();
 
  
  
-function toggleComponent(row) {
-  console.log('Compnnent data', row)
-      componentProps.value.data=row
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
-
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
-  }, 100); // 0.1 seconds
-
-
-    }
 
 
 // component for docuemnts 
@@ -1044,14 +768,6 @@ const DocumentComponentProps = ref({
 });
 
 
-function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
-}
 
 
 
@@ -1099,6 +815,14 @@ function handleExpand(row) {
             </div>
             <div style="display: flex; gap: 8px; align-items: center">
               <el-button type="primary" :icon="Filter" @click="handleClear"  >Clear</el-button>
+              <el-button
+                v-if="!hasActiveFilters"
+                type="success"
+                :icon="Download"
+                :loading="excelDownloadLoading"
+                @click="downloadHouseholdsExcel">
+                Download All
+              </el-button>
               <DownloadCustom
                 v-if="(value2?.length) || (value4?.length) || (value5?.length)"
                 :data="tableDataList"

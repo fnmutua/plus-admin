@@ -6,11 +6,73 @@ const Sequelize = require('sequelize')
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
+const path = require('path')
+const os = require('os')
 
  
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
 var fs = require('fs');
+
+const householdExportJobs = new Map()
+const HOUSEHOLD_EXPORT_JOB_TTL_MS = 1000 * 60 * 30
+
+const csvEscape = (value) => {
+  if (value === null || value === undefined) return ''
+  const text = String(value)
+  if (text.includes('"') || text.includes(',') || text.includes('\n') || text.includes('\r')) {
+    return `"${text.replace(/"/g, '""')}"`
+  }
+  return text
+}
+
+const cleanupExpiredHouseholdExportJobs = () => {
+  const now = Date.now()
+  for (const [jobId, job] of householdExportJobs.entries()) {
+    if (now - job.createdAt > HOUSEHOLD_EXPORT_JOB_TTL_MS) {
+      if (job.filePath && fs.existsSync(job.filePath)) {
+        try {
+          fs.unlinkSync(job.filePath)
+        } catch (_err) {}
+      }
+      householdExportJobs.delete(jobId)
+    }
+  }
+}
+
+const buildHouseholdsExportCsv = async () => {
+  const excludedFields = ['name', 'national_id', 'phone', 'telephone', 'respondents_name', 'geom']
+  const allAttributes = Object.keys(db.models.households.rawAttributes)
+  const safeFields = allAttributes.filter((field) => !excludedFields.includes(field))
+  console.log('[HH Export] Preparing CSV columns:', safeFields.length)
+
+  const selectCols = safeFields.map((field) => `h."${field}" AS "${field}"`).join(', ')
+  const sql = `
+    SELECT
+      ${selectCols},
+      CASE WHEN h."geom" IS NOT NULL THEN ST_Y(h."geom"::geometry) ELSE NULL END AS "latitude",
+      CASE WHEN h."geom" IS NOT NULL THEN ST_X(h."geom"::geometry) ELSE NULL END AS "longitude",
+      s."name" AS "settlement_name",
+      c."name" AS "county_name"
+    FROM "households" h
+    LEFT JOIN "settlement" s ON s."id" = h."settlement_id"
+    LEFT JOIN "county" c ON c."id" = COALESCE(h."county_id", s."county_id")
+    ORDER BY h."id" DESC
+  `
+  console.log('[HH Export] Running export query...')
+  console.log('[HH Export] SQL:', sql.replace(/\s+/g, ' ').trim())
+
+  const rows = await db.sequelize.query(sql, { type: Sequelize.QueryTypes.SELECT })
+  console.log('[HH Export] Query rows fetched:', rows.length)
+  const columns = [...safeFields, 'latitude', 'longitude', 'settlement_name', 'county_name']
+  const header = columns.join(',')
+  const body = rows
+    .map((row) => columns.map((col) => csvEscape(row[col])).join(','))
+    .join('\n')
+  console.log('[HH Export] CSV prepared. Columns:', columns.length, 'Body chars:', body.length)
+
+  return `${header}\n${body}`
+}
 
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
@@ -713,4 +775,90 @@ exports.getOneHousehold = (req, res) => {
       });
     }
   };
+
+exports.createHouseholdExportJob = async (_req, res) => {
+  cleanupExpiredHouseholdExportJobs()
+  const jobId = crypto.randomUUID()
+  const filename = `households_${new Date().toISOString().slice(0, 10)}_${jobId.slice(0, 8)}.csv`
+  const filePath = path.join(os.tmpdir(), filename)
+  console.log(`[HH Export] Job created: ${jobId}`)
+  console.log('[HH Export] Target file:', filePath)
+
+  householdExportJobs.set(jobId, {
+    id: jobId,
+    status: 'processing',
+    createdAt: Date.now(),
+    filePath: null,
+    filename
+  })
+
+  setImmediate(async () => {
+    try {
+      console.log(`[HH Export] Job ${jobId} started`)
+      const csv = await buildHouseholdsExportCsv()
+      fs.writeFileSync(filePath, csv, 'utf8')
+      const job = householdExportJobs.get(jobId)
+      if (!job) return
+      job.status = 'completed'
+      job.filePath = filePath
+      job.completedAt = Date.now()
+      console.log(`[HH Export] Job ${jobId} completed. File size bytes:`, Buffer.byteLength(csv, 'utf8'))
+    } catch (err) {
+      const job = householdExportJobs.get(jobId)
+      if (!job) return
+      job.status = 'failed'
+      job.error = err?.message || 'Failed to export households'
+      console.log(`[HH Export] Job ${jobId} failed:`, job.error)
+    }
+  })
+
+  return res.status(200).send({
+    code: '0000',
+    data: {
+      job_id: jobId,
+      status: 'processing'
+    }
+  })
+}
+
+exports.getHouseholdExportJobStatus = async (req, res) => {
+  cleanupExpiredHouseholdExportJobs()
+  const jobId = req.body?.job_id
+  if (!jobId) {
+    return res.status(400).send({ code: '4000', message: 'job_id is required' })
+  }
+  const job = householdExportJobs.get(jobId)
+  if (!job) {
+    return res.status(404).send({ code: '4040', message: 'Export job not found or expired' })
+  }
+  console.log(`[HH Export] Status check for ${jobId}:`, job.status)
+
+  return res.status(200).send({
+    code: '0000',
+    data: {
+      job_id: job.id,
+      status: job.status,
+      error: job.error || null
+    }
+  })
+}
+
+exports.downloadHouseholdExportJob = async (req, res) => {
+  cleanupExpiredHouseholdExportJobs()
+  const jobId = req.body?.job_id
+  if (!jobId) {
+    return res.status(400).send({ code: '4000', message: 'job_id is required' })
+  }
+  const job = householdExportJobs.get(jobId)
+  if (!job) {
+    return res.status(404).send({ code: '4040', message: 'Export job not found or expired' })
+  }
+  if (job.status !== 'completed' || !job.filePath || !fs.existsSync(job.filePath)) {
+    console.log(`[HH Export] Download requested but not ready for ${jobId}. Status:`, job.status)
+    return res.status(409).send({ code: '4090', message: 'Export job not ready for download' })
+  }
+  console.log(`[HH Export] Sending file for ${jobId}:`, job.filePath)
+
+  return res.download(job.filePath, job.filename)
+}
   
