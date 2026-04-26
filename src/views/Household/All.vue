@@ -80,11 +80,11 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const router = useRouter()
 const { push } = router
 const goBack = () => router?.back()
-const value1 = ref([])
-const value2 = ref([])
-var value3 = ref([])
-var value4 = ref([])
-var value5 = ref([])
+const value1 = ref<any>([])
+const value2 = ref<any[]>([])
+var value3 = ref<any>([])
+var value4 = ref<any[]>([])
+var value5 = ref<any[]>([])
 
 const morefileList = ref<UploadUserFile[]>([])
 
@@ -97,8 +97,8 @@ const interventionsOptions = ref([])
 
 
 
-const settlementOptions = ref([])
-const countiesOptions = ref([])
+const settlementOptions = ref<any[]>([])
+const countiesOptions = ref<any[]>([])
 const page = ref(1)
 const pSize = ref(5)
 const loading = ref(true)
@@ -217,11 +217,21 @@ const updateFilter = (filterKey: string, values: any[], filtersArr: string[], fi
   }
 }
 
+const normalizeSelectedIds = (ids: any) => {
+  const values = Array.isArray(ids) ? ids : ids ? [ids] : []
+  return values.map((id: any) => {
+    const numericId = Number(id)
+    return Number.isNaN(numericId) ? id : numericId
+  })
+}
+
 const handleSelectCounty = async (countyIds: any) => {
-  updateFilter('county_id', countyIds || [], filters, filterValues)
+  const selectedCountyIds = normalizeSelectedIds(countyIds)
+  value2.value = selectedCountyIds
+  updateFilter('county_id', selectedCountyIds, filters, filterValues)
   value4.value = [] // clear settlement when county changes
   updateFilter('settlement_id', [], filters, filterValues)
-  await loadSettlementsByCounty(countyIds)
+  await loadSettlementsByCounty(selectedCountyIds)
   getFilteredData(filters, filterValues)
 }
 
@@ -451,7 +461,10 @@ const getProgrammeOptions = async () => {
 }
 
  
-const settOptions = ref([])
+const settOptions = ref<any[]>([])
+
+const getOptionLabel = (item: any) =>
+  String(item?.name ?? item?.county_name ?? item?.label ?? item?.Name ?? item?.NAME ?? item?.id ?? '')
 
 const getCountyNames = async () => {
   try {
@@ -467,7 +480,7 @@ const getCountyNames = async () => {
       }
     })
     const ret = Array.isArray(response?.data) ? response.data : response?.data?.data ?? []
-    countiesOptions.value = ret.map((item: any) => ({ value: item.id, label: item.name }))
+    countiesOptions.value = ret.map((item: any) => ({ value: Number(item.id), label: getOptionLabel(item) }))
   } catch (err) {
     console.error('Error loading counties:', err)
     countiesOptions.value = []
@@ -794,7 +807,8 @@ const DocumentComponentProps = ref({
                 filterable
                 multiple
                 collapse-tags
-                style="width: 180px">
+                collapse-tags-tooltip
+                style="width: 240px">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
               <el-select
@@ -806,9 +820,10 @@ const DocumentComponentProps = ref({
                 filterable
                 multiple
                 collapse-tags
+                collapse-tags-tooltip
                 :disabled="!value2 || value2.length === 0"
                 :loading="settlementSearchLoading"
-                style="width: 180px">
+                style="width: 240px">
                 <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
                
