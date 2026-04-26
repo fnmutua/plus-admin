@@ -26,8 +26,6 @@ const value2 = ref([])
 var value3 = ref([])
 const countiesOptions = ref([])
 const settlementOptions = ref([])
-const page = ref(1)
-const pSize = ref(5)
 const selCounties = []
 const loading = ref(true)
 const pageSize = ref(5)
@@ -40,7 +38,6 @@ let tableDataList = ref<UserType[]>([])
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = []
 var filterValues = [[]]
-var tblData = []
 const associated_Model = 'settlement'
 const model = 'households'
 //// ------------------parameters -----------------------////
@@ -93,9 +90,8 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
-  pSize.value = 5
+  pageSize.value = 5
   currentPage.value = 1
-  tblData = []
   //----run the get data--------
   getInterventionsAll()
 }
@@ -182,12 +178,13 @@ const handleSelectSettlement = async (settlement: any) => {
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected  ', selCounties)
-  page.value = selPage
+  currentPage.value = selPage
   getFilteredData(filters, filterValues)
 }
 
 const onPageSizeChange = async (size: any) => {
-  pSize.value = size
+  pageSize.value = size
+  currentPage.value = 1
   getFilteredData(filters, filterValues)
 }
 
@@ -195,25 +192,11 @@ const getInterventionsAll = async () => {
   getFilteredData(filters, filterValues)
 }
 
-const destructure = (obj) => {
-  // console.log('deconstructing......')
-  const simpleObj = {}
-  for (let key in obj) {
-    const value = obj[key]
-    const type = typeof value
-    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
-      simpleObj[key] = value
-    } else if (type === 'object') {
-      Object.assign(simpleObj, destructure(value))
-    }
-  }
-
-  return simpleObj
-}
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
+  loading.value = true
+  const formData: any = {}
+  formData.limit = pageSize.value
+  formData.page = currentPage.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
@@ -221,30 +204,25 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
-  formData.assocModel = associated_Model
+  formData.associated_multiple_models = [associated_Model]
+  formData.excludeGeom = true
+  formData.fields = ['id', 'gender', 'intervention_phase', 'settlement_id', 'createdAt']
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   //-------------------------
-  console.log('=====>', formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
-    var dd = destructure(arrayItem)
-
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
+  try {
+    const res: any = await getSettlementListByCounty(formData)
+    tableDataList.value = res.data || []
+    total.value = res.total || 0
+  } catch (error) {
+    console.error('Failed to load households:', error)
+    tableDataList.value = []
+    total.value = 0
+    ElMessage.error('Failed to load households. Please try again.')
+  } finally {
+    loading.value = false
+  }
 }
 
 const PhaseOptions = [
@@ -320,10 +298,19 @@ const open = (msg: MessageParamsWithType) => {
 
 const handleDownload = () => {
   downloadLoading.value = true
-  const data = tblData
+  const data = tableDataList.value.map((row: any) => ({
+    id: row.id,
+    name: row.name ?? '',
+    gender: row.gender ?? '',
+    national_id: row.national_id ?? '',
+    settlement: row.settlement?.name ?? '',
+    area: row.settlement?.area ?? '',
+    intervention_phase: row.intervention_phase ?? ''
+  }))
   const fileName = 'data.xlsx'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
+  downloadLoading.value = false
 }
 
 getInterventionTypes()

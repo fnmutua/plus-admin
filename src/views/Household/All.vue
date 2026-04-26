@@ -51,7 +51,7 @@ import "mapbox-layer-switcher/styles.css";
 import * as enums from '@/utils/enums'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
-import { getFilteredHouseholdsByColumn, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
+import { getFilteredHouseholdsByColumn, getFilteredHouseholdsBykeyword, getOneHousehold, updateHousehold } from '@/api/households'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
@@ -128,8 +128,8 @@ var filterValues = []
 var tblData = []
 
 const associated_Model = ''
-//const associated_multiple_models = ['settlement', 'document']
-const associated_multiple_models = ['settlement', 'document']
+// Keep household listing lightweight; no associated model joins.
+const associated_multiple_models: string[] = []
 
 const model = 'households'
 //// ------------------parameters -----------------------////
@@ -345,6 +345,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
+  formData.fields = ['id', 'settlement_id', 'gender', 'age', 'hh_size', 'code', 'createdAt']
 
   //-------------------------
   //console.log(formData)
@@ -519,6 +520,7 @@ const getFilteredBySearchData = async (searchString) => {
   formData.filters = filters
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
+  formData.fields = ['id', 'settlement_id', 'gender', 'age', 'hh_size', 'code', 'createdAt']
 
   //-------------------------
   console.log(formData)
@@ -767,7 +769,7 @@ const excludeFields = ref([
   'documents', 'createdAt', 'updatedAt',
   'respondents_name', 'name', 'telephone', 'national_id', 'phone'
 ])
-const priorityFields = ['gender', 'age', 'hh_size', 'settlement', 'settlement_county']
+const priorityFields = ['gender', 'age', 'hh_size', 'settlement_id']
 
 const humanize = (key) =>
   key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
@@ -814,9 +816,15 @@ const filteredData = computed(() => {
   }))
 })
 
-const showHHDetails = (data: TableSlotDefault) => {
-  raw.value = data.row
+const showHHDetails = async (data: TableSlotDefault) => {
   detailDrawer.value = true
+  raw.value = data.row
+  try {
+    const res: any = await getOneHousehold({ id: data.row.id, model })
+    if (res?.data) raw.value = res.data
+  } catch (error) {
+    console.error('Failed to load full household details:', error)
+  }
 }
 
 const editHH = (data: TableSlotDefault) => {
@@ -959,7 +967,7 @@ getDocumentTypes()
 
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
+  if (data.row.documents?.length > 0) {
     return 'warning-row'
   }
   return ''
@@ -1082,11 +1090,7 @@ function handleExpand(row) {
         <el-table-column label="Gender" prop="gender" sortable />
         <el-table-column label="Age" prop="age" sortable />
         <el-table-column label="Household Size" prop="hh_size" sortable />
-        <el-table-column label="Settlement" sortable>
-          <template #default="{ row }">
-            {{ row.settlement?.name || '-' }}
-          </template>
-        </el-table-column>
+        <el-table-column label="Settlement ID" prop="settlement_id" sortable />
         <el-table-column fixed="right" label="Actions" width="100">
             <template #default="scope">
               <el-tooltip content="More Details" placement="top">

@@ -177,10 +177,15 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
   
     // loop through the include models
     for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
+      const assocName = req.body.associated_multiple_models[i]
       var modelIncl = {}
-      modelIncl.model = db.models[req.body.associated_multiple_models[i]]
+      modelIncl.model = db.models[assocName]
       modelIncl.raw = true
       modelIncl.nested = true
+      // Keep settlement include lightweight and exclude heavy geometry payload.
+      if (assocName === 'settlement') {
+        modelIncl.attributes = ['id', 'name', 'area', 'county_id', 'subcounty_id', 'ward_id']
+      }
       includeModels.push(modelIncl)
   
   
@@ -219,47 +224,78 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
   
     var lstQuerries = []
   
-    if (req.body.filters) {
-      if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-  
-        for (let i = 0; i < req.body.filters.length; i++) {
-          var queryFields = {}
-          //queryFields[req.body.filters[i]] = req.body.filterValues[i][j]
-          lstQuerries.push(queryFields)
-          var lstValues  = []
-          for (let j = 0; j < req.body.filterValues[i].length; j++) {
-            lstValues.push(req.body.filterValues[i][j])
-          }
-          queryFields[req.body.filters[i]] = lstValues
-          lstQuerries.push(queryFields)
-  
-        }
+    if (Array.isArray(req.body.filters) && req.body.filters.length > 0 && Array.isArray(req.body.filterValues) && req.body.filterValues.length > 0) {
+      for (let i = 0; i < req.body.filters.length; i++) {
+        const filterKey = req.body.filters[i]
+        const rawVals = Array.isArray(req.body.filterValues[i]) ? req.body.filterValues[i] : [req.body.filterValues[i]]
+        const lstValues = rawVals.filter((v) => v !== null && v !== undefined && v !== '')
+        if (!filterKey || lstValues.length === 0) continue
+        lstQuerries.push({ [filterKey]: lstValues })
       }
-      console.log('Final-001-object------------>', lstQuerries)
-   
-      qry.where = lstQuerries
+      if (lstQuerries.length > 0) {
+        console.log('Final-001-object------------>', lstQuerries)
+        qry.where = lstQuerries
+      }
     }
     console.log('Final---03--object------------>', qry)
   
     console.log('getting households---33->')
 
-    // Build attributes list excluding sensitive identifiers
-    const attributes = []
-    for (const key in db.models.households.rawAttributes) {
-      if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
-        attributes.push(key)
-      }
-    }
-    // Do NOT add decrypted name/phone/national_id back – keep them server-side only
-    qry.attributes = attributes
+    // Build attributes list excluding sensitive identifiers.
+    const allAttrs = Object.keys(db.models.households.rawAttributes)
+    const blockedAttrs = ['name', 'phone', 'national_id', 'respondents_name', 'telephone', 'geom']
+    const allowedAttrs = allAttrs.filter((k) => !blockedAttrs.includes(k))
+    const defaultListAttrs = [
+      'id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id',
+      'code', 'age', 'gender', 'hh_size', 'createdAt', 'updatedAt'
+    ].filter((k) => allowedAttrs.includes(k))
+
+    const reqFields = Array.isArray(req.body.fields) ? req.body.fields : []
+    const selectedAttrs = reqFields.length
+      ? reqFields.filter((k) => allowedAttrs.includes(k))
+      : defaultListAttrs
+
+    qry.attributes = selectedAttrs.length ? selectedAttrs : allowedAttrs
   qry.order = [['id', 'DESC']]
 
-  db.models.households.findAndCountAll(qry).then((list) => {
-    console.log(list.rows)
+  const hasNoFilters = !req.body.filters || req.body.filters.length === 0
+
+  const rowsQuery = {
+    ...qry,
+    distinct: undefined // not needed for row fetch
+  }
+
+  const countQuery = {
+    where: qry.where || {},
+    include: qry.include || [],
+    distinct: true,
+    col: 'id'
+  }
+
+  // For unfiltered listing on large tables, use PostgreSQL planner estimate for fast pagination metadata.
+  const estimatedCountPromise = db.sequelize
+    .query("SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid = 'public.households'::regclass", {
+      type: Sequelize.QueryTypes.SELECT
+    })
+    .then((rows) => Number(rows?.[0]?.estimate || 0))
+    .catch(() => 0)
+
+  Promise.all([
+    db.models.households.findAll(rowsQuery),
+    hasNoFilters ? estimatedCountPromise : db.models.households.count(countQuery)
+  ])
+    .then(([rows, total]) => {
       res.status(200).send({
-        data: list.rows,
-        total: list.count,
+        data: rows,
+        total,
         code: '0000'
+      })
+    })
+    .catch((err) => {
+      console.log('Households filter/column error:', err)
+      res.status(500).send({
+        code: '5000',
+        message: err?.message || 'Failed to fetch households'
       })
     })
   }
@@ -322,14 +358,19 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
     }
   
     console.log('getting households---->')
-    // Build attributes list excluding sensitive identifiers – never return name, respondents_name, phone, national_id
-    const attributes = []
-    for (const key in db.models.households.rawAttributes) {
-      if (!['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(key)) {
-        attributes.push(key)
-      }
-    }
-    qry.attributes = attributes
+    // Keep search payload small too; allow optional field projection from client.
+    const allAttrs = Object.keys(db.models.households.rawAttributes)
+    const blockedAttrs = ['name', 'phone', 'national_id', 'respondents_name', 'telephone', 'geom']
+    const allowedAttrs = allAttrs.filter((k) => !blockedAttrs.includes(k))
+    const defaultListAttrs = [
+      'id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id',
+      'code', 'age', 'gender', 'hh_size', 'createdAt', 'updatedAt'
+    ].filter((k) => allowedAttrs.includes(k))
+    const reqFields = Array.isArray(req.body.fields) ? req.body.fields : []
+    const selectedAttrs = reqFields.length
+      ? reqFields.filter((k) => allowedAttrs.includes(k))
+      : defaultListAttrs
+    qry.attributes = selectedAttrs.length ? selectedAttrs : allowedAttrs
       
     qry.order = [['id', 'DESC']]
 

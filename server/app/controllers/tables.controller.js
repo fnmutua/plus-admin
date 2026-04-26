@@ -4011,6 +4011,10 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         model: RelatedModel,
         attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined
       };
+      // Household listing only needs lightweight settlement metadata.
+      if (isHouseholdsModel && assocModel === 'settlement') {
+        modelIncl.attributes = ['id', 'name', 'area'];
+      }
       if (assocModel === 'users') {
         modelIncl.attributes = ['name', 'email', 'phone'];
       }
