@@ -128,8 +128,8 @@ var filterValues = []
 var tblData = []
 
 const associated_Model = ''
-// Keep household listing lightweight; no associated model joins.
-const associated_multiple_models: string[] = []
+// Keep association payload lean (id + name only from backend include projection).
+const associated_multiple_models: string[] = ['settlement', 'county']
 
 const model = 'households'
 //// ------------------parameters -----------------------////
@@ -277,8 +277,7 @@ const documentCategory = ref()
 
 
 const onPageChange = async (selPage: any) => {
- 
-
+  currentPage.value = selPage
   page.value = selPage
   if (searchString.value) {
  
@@ -297,6 +296,9 @@ const onPageChange = async (selPage: any) => {
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
+  pageSize.value = size
+  currentPage.value = 1
+  page.value = 1
   if (searchString.value) {
  
  getFilteredBySearchData(searchString.value)
@@ -330,8 +332,8 @@ const destructure = (obj) => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
+  formData.limit = pageSize.value
+  formData.page = currentPage.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
@@ -504,8 +506,8 @@ const getSettlementsOptions = async () => {
 const getFilteredBySearchData = async (searchString) => {
    
   const formData = {}
-  formData.limit = pSize.value // 
-  formData.page = page.value
+  formData.limit = pageSize.value // 
+  formData.page = currentPage.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
 

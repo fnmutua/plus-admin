@@ -154,7 +154,9 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
   
   
     // Associated Models
-    var associated_multiple_models = req.body.associated_multiple_models
+    var associated_multiple_models = Array.isArray(req.body.associated_multiple_models)
+      ? req.body.associated_multiple_models
+      : []
     console.log('associated_multiple_models', associated_multiple_models.length)
   
     // nested Models
@@ -175,17 +177,18 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
     var qry = {}
     var includeModels = []
   
+    const includeSettlementAssoc = associated_multiple_models.includes('settlement')
+    const includeCountyAssoc = associated_multiple_models.includes('county')
+
     // loop through the include models
-    for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
-      const assocName = req.body.associated_multiple_models[i]
+    for (let i = 0; i < associated_multiple_models.length; i++) {
+      const assocName = associated_multiple_models[i]
+      // Skip settlement/county SQL joins; enrich after row fetch for speed.
+      if (assocName === 'settlement' || assocName === 'county') continue
       var modelIncl = {}
       modelIncl.model = db.models[assocName]
       modelIncl.raw = true
       modelIncl.nested = true
-      // Keep settlement include lightweight and exclude heavy geometry payload.
-      if (assocName === 'settlement') {
-        modelIncl.attributes = ['id', 'name', 'area', 'county_id', 'subcounty_id', 'ward_id']
-      }
       includeModels.push(modelIncl)
   
   
@@ -284,9 +287,38 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
     db.models.households.findAll(rowsQuery),
     hasNoFilters ? estimatedCountPromise : db.models.households.count(countQuery)
   ])
-    .then(([rows, total]) => {
+    .then(async ([rows, total]) => {
+      const dataRows = rows.map((r) => (r.toJSON ? r.toJSON() : r))
+      if (includeSettlementAssoc) {
+        const settlementIds = [...new Set(dataRows.map((r) => r.settlement_id).filter(Boolean))]
+        if (settlementIds.length) {
+          const settlements = await db.models.settlement.findAll({
+            where: { id: settlementIds },
+            attributes: ['id', 'name'],
+            raw: true
+          })
+          const sm = new Map(settlements.map((s) => [Number(s.id), { id: s.id, name: s.name }]))
+          dataRows.forEach((r) => { r.settlement = sm.get(Number(r.settlement_id)) || null })
+        } else {
+          dataRows.forEach((r) => { r.settlement = null })
+        }
+      }
+      if (includeCountyAssoc) {
+        const countyIds = [...new Set(dataRows.map((r) => r.county_id).filter(Boolean))]
+        if (countyIds.length) {
+          const counties = await db.models.county.findAll({
+            where: { id: countyIds },
+            attributes: ['id', 'name'],
+            raw: true
+          })
+          const cm = new Map(counties.map((c) => [Number(c.id), { id: c.id, name: c.name }]))
+          dataRows.forEach((r) => { r.county = cm.get(Number(r.county_id)) || null })
+        } else {
+          dataRows.forEach((r) => { r.county = null })
+        }
+      }
       res.status(200).send({
-        data: rows,
+        data: dataRows,
         total,
         code: '0000'
       })
@@ -305,7 +337,9 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
     var reg_model = 'households'
     var searchKeyword = req.body.searchKeyword
     // Associated Models
-    var associated_multiple_models = req.body.associated_multiple_models
+    var associated_multiple_models = Array.isArray(req.body.associated_multiple_models)
+      ? req.body.associated_multiple_models
+      : []
     console.log('associated_multiple_models', associated_multiple_models.length)
   
     // nested Models
@@ -318,10 +352,15 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
   
     var qry = {}
     var includeModels = []
+    const includeSettlementAssoc = associated_multiple_models.includes('settlement')
+    const includeCountyAssoc = associated_multiple_models.includes('county')
+
     // loop through the include models
-    for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
+    for (let i = 0; i < associated_multiple_models.length; i++) {
+      const assocName = associated_multiple_models[i]
+      if (assocName === 'settlement' || assocName === 'county') continue
       var modelIncl = {}
-      modelIncl.model = db.models[req.body.associated_multiple_models[i]]
+      modelIncl.model = db.models[assocName]
       modelIncl.raw = true
       modelIncl.nested = true
       includeModels.push(modelIncl)
@@ -393,9 +432,38 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
   //  console.log(fqry)
     console.log('--------------search Condition-----------', qry)
  
-    db.models[reg_model].findAndCountAll(qry).then((list) => {
+    db.models[reg_model].findAndCountAll(qry).then(async (list) => {
+      const dataRows = list.rows.map((r) => (r.toJSON ? r.toJSON() : r))
+      if (includeSettlementAssoc) {
+        const settlementIds = [...new Set(dataRows.map((r) => r.settlement_id).filter(Boolean))]
+        if (settlementIds.length) {
+          const settlements = await db.models.settlement.findAll({
+            where: { id: settlementIds },
+            attributes: ['id', 'name'],
+            raw: true
+          })
+          const sm = new Map(settlements.map((s) => [Number(s.id), { id: s.id, name: s.name }]))
+          dataRows.forEach((r) => { r.settlement = sm.get(Number(r.settlement_id)) || null })
+        } else {
+          dataRows.forEach((r) => { r.settlement = null })
+        }
+      }
+      if (includeCountyAssoc) {
+        const countyIds = [...new Set(dataRows.map((r) => r.county_id).filter(Boolean))]
+        if (countyIds.length) {
+          const counties = await db.models.county.findAll({
+            where: { id: countyIds },
+            attributes: ['id', 'name'],
+            raw: true
+          })
+          const cm = new Map(counties.map((c) => [Number(c.id), { id: c.id, name: c.name }]))
+          dataRows.forEach((r) => { r.county = cm.get(Number(r.county_id)) || null })
+        } else {
+          dataRows.forEach((r) => { r.county = null })
+        }
+      }
       res.status(200).send({
-        data: list.rows,
+        data: dataRows,
         total: list.count,
         code: '0000'
       })
