@@ -2639,9 +2639,10 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
       </div>
 
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        :small="isMobile" :pager-count="isMobile ? 3 : 7"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 facility-pagination" />
 
     </div>
 
@@ -2717,9 +2718,10 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       </div>
 
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalNew" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        :small="isMobile" :pager-count="isMobile ? 3 : 7"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 facility-pagination" />
     </div>
 
     <div v-if="activeSegment === 'Rejected'">
@@ -2791,9 +2793,10 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       </el-table>
 
       <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalRejected" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        :small="isMobile" :pager-count="isMobile ? 3 : 7"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 facility-pagination" />
 
     </div>
 

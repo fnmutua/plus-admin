@@ -5,9 +5,10 @@
  
 import { Plus, Back, Download, Edit, Delete} from '@element-plus/icons-vue'
 
-import { ref,computed,reactive } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import {
-  ElPagination, ElInput,ElSelect,ElOption,ElTable,ElTableColumn, ElTabPane,ElTabs,ElOptionGroup, ElForm,ElFormItem,
+  
+ElPagination, ElInput,ElSelect,ElOption,ElTable,ElTableColumn, ElTabPane,ElTabs,ElOptionGroup, ElForm,ElFormItem,
   ElRow, ElTableV2, ElCard, ElDialog,ElIcon,ElButton,ElMessage, ElMessageBox, ElDivider, ElAlert} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -21,6 +22,8 @@ import { watch,onMounted } from 'vue';
 
 import { useRouter } from 'vue-router'
 import { getCountyByIdApi } from '@/api/adminunits'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
  
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -2698,9 +2701,11 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
   </el-table>
 
   <el-pagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,200]" :total="totalItems" :background="true"
-        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
 
   </el-card>
  

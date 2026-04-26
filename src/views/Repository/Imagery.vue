@@ -3,7 +3,8 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  ElButton,
+  
+ElButton,
   ElSelect,
   ElPagination,
   ElTooltip,
@@ -45,6 +46,8 @@ import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 // Interfaces for type safety
 interface Layer {
@@ -1266,7 +1269,7 @@ const xdownloadImagery = (layerName) => {
     </el-table>
 
     <el-pagination
-      layout="sizes, prev, pager, next, total"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[2, 5, 10, 15, 20, 50, 100]"
@@ -1275,6 +1278,8 @@ const xdownloadImagery = (layerName) => {
       @size-change="handlePageSizeChange"
       @current-change="handlePageChange"
       class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
     />
     <div v-if="selectedCounty" style="margin-top: 10px; font-size: 12px; color: #909399; text-align: center;">
       Showing {{ filteredLayers.length }} of {{ allLayers.length }} imagery layers

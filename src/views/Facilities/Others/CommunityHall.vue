@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol,ElInput,   ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer, ElDialog, ElForm, ElFormItem, ElInputNumber, ElDivider, type FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -525,13 +525,15 @@ getFilteredData()
       v-if="tableDataList.length"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
-      layout="sizes, prev, pager, next, total"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
       :page-sizes="[10, 25, 50, 100]"
       :total="total"
       :background="true"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
       @size-change="onPageSizeChange"
       @current-change="onPageChange"
-      class="mt-4"
+      class="mt-4 facility-pagination"
     />
 
     <el-drawer

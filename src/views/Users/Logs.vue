@@ -4,7 +4,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import {
-  ElCard,
+  
+ElCard,
   ElButton,
   ElInput,
   ElSelect,
@@ -14,6 +15,8 @@ import {
   ElPagination
 } from 'element-plus'
 import { getAuditLogs } from '@/api/audit'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 const router = useRouter()
 const loading = ref(false)
@@ -293,7 +296,7 @@ watch([entityType, action, outcome, fromDate, toDate], () => triggerLiveFilterFe
 
     <el-pagination
       class="mt-4"
-      layout="sizes, prev, pager, next, total"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[10, 25, 50, 100, 200]"
@@ -301,6 +304,8 @@ watch([entityType, action, outcome, fromDate, toDate], () => triggerLiveFilterFe
       :background="true"
       @size-change="onPageSizeChange"
       @current-change="onPageChange"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
     />
   </el-card>
 </template>

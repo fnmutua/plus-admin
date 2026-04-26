@@ -1467,7 +1467,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </el-table>
 
         <ElPagination
-          layout="sizes, prev, pager, next, total" 
+          :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" 
           v-model:currentPage="getCurrentPage"
           v-model:page-size="pageSize" 
           :page-sizes="[5, 10, 20, 50, 100]" 
@@ -1475,7 +1475,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           :background="true"
           @size-change="onPageSizeChange" 
           @current-change="onPageChange" 
-          class="mt-4" />
+          class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
       </el-tab-pane>
 
       <el-tab-pane label="County Level" name="county">
@@ -1617,7 +1619,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </el-table>
 
         <ElPagination
-          layout="sizes, prev, pager, next, total" 
+          :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" 
           v-model:currentPage="getCurrentPage"
           v-model:page-size="pageSize" 
           :page-sizes="[5, 10, 20, 50, 100]" 
@@ -1625,7 +1627,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           :background="true"
           @size-change="onPageSizeChange" 
           @current-change="onPageChange" 
-          class="mt-4" />
+          class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
       </el-tab-pane>
 
       <el-tab-pane label="Settlement Level" name="settlement">
@@ -1769,7 +1773,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </el-table>
 
         <ElPagination
-          layout="sizes, prev, pager, next, total" 
+          :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" 
           v-model:currentPage="getCurrentPage"
           v-model:page-size="pageSize" 
           :page-sizes="[5, 10, 20, 50, 100]" 
@@ -1777,7 +1781,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           :background="true"
           @size-change="onPageSizeChange" 
           @current-change="onPageChange" 
-          class="mt-4" />
+          class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
       </el-tab-pane>
     </el-tabs>
 

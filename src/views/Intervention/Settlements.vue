@@ -5,7 +5,8 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, MessageParamsWithType, ElDialog, ElInputNumber, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
+  
+ElButton, ElSelect, FormInstance, MessageParamsWithType, ElDialog, ElInputNumber, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
@@ -20,6 +21,8 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
 import xlsx from "json-as-xlsx"
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -653,9 +656,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       </template>
     </Table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
   </ContentWrap>
 
 

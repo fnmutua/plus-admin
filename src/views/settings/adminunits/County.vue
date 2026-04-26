@@ -11,6 +11,8 @@ import { getCountiesApi, getCountyByIdApi, updateCountyApi, createCountyApi, typ
 import * as turf from '@turf/turf'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 const loading = ref(false)
 const tableData = ref<County[]>([])
 const filteredData = ref<County[]>([])
@@ -425,7 +427,7 @@ onMounted(() => {
     </Table>
 
     <ElPagination
-      layout="sizes, prev, pager, next, total"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 100, 5000, 10000]"
@@ -434,6 +436,8 @@ onMounted(() => {
       class="mt-4"
       @current-change="handlePageChange"
       @size-change="handlePageSizeChange"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
     />
 
     <ElDialog

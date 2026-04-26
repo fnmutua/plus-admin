@@ -5,7 +5,8 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton,
+  
+ElButton,
   ElSelect,
   MessageParamsWithType,
   ElLink,
@@ -31,6 +32,8 @@ import { ElPagination, ElTooltip, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { CreateRecord, DeleteRecord, updateOneRecord, uploadFiles, deleteDocument, uploadDocuments } from '@/api/settlements'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 interface Params {
   pageIndex?: number
@@ -471,9 +474,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       </template>
     </Table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
 
     <el-dialog v-model="uploadDialog" :show-close="false">
       <template #header="{ close, titleId, titleClass }">

@@ -8,7 +8,8 @@ import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Position,
+  
+Position,
   TopRight,
   User,
   Plus,
@@ -31,6 +32,8 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 
 const { wsCache } = useCache()
@@ -430,9 +433,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       </template>
     </Table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+      @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
   </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>

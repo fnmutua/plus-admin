@@ -7,7 +7,8 @@ import { Back, Plus } from '@element-plus/icons-vue'
 
 import { ref, computed, reactive } from 'vue'
 import {
-  ElPagination, ElInput, ElSelect, ElOption, ElCol,ElTable,ElTableColumn,
+  
+ElPagination, ElInput, ElSelect, ElOption, ElCol,ElTable,ElTableColumn,
   ElRow, ElCard, ElNotification, ElAlert, ElForm, ElFormItem, ElDrawer, ElSteps, ElStep, ElDescriptions
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -23,6 +24,8 @@ import { watch, onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -1230,9 +1233,11 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
       <!-- Pagination component -->
 
       <el-pagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10,  20, 50, 100,1000,10000]" :total="totalItems" :background="true"
-        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
 
     </div>
     </div>

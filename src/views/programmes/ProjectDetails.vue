@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, computed, watch, reactive } from 'vue'
+import { onMounted, computed, watch, reactive, ref } from 'vue'
 import {
-  ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
+  
+ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
   ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination,
 } from 'element-plus'
@@ -62,6 +63,8 @@ import { getModelSpecs } from '@/api/fields'
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
  
 
 
@@ -4238,7 +4241,7 @@ v-for="item in projectDescription" :key="item.property"
 
         <ElPagination
           v-if="projectLocations && projectLocations.length"
-          layout="sizes, prev, pager, next, total"
+          :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
           v-model:currentPage="locationCurrentPage"
           v-model:page-size="locationPageSize"
           :page-sizes="[5, 10, 20, 50, 100]"
@@ -4247,6 +4250,8 @@ v-for="item in projectDescription" :key="item.property"
           class="mt-3"
           @size-change="handleLocationSizeChange"
           @current-change="handleLocationPageChange"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
         />
 
    
@@ -4459,7 +4464,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
 
           <ElPagination
             v-if="projectDocuments && projectDocuments.length"
-            layout="sizes, prev, pager, next, total"
+            :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
             v-model:currentPage="docsCurrentPage"
             v-model:page-size="docsPageSize"
             :page-sizes="[5, 10, 20, 50, 100]"
@@ -4468,6 +4473,8 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
             class="mt-3"
             @size-change="handleDocsSizeChange"
             @current-change="handleDocsPageChange"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
           />
           <el-button v-if="canUploadProjectDocument" plain @click="toggleComponent(Project)" style=" margin-top:10px">
             <Icon icon="fa-solid:upload" style=" margin-right:10px" />

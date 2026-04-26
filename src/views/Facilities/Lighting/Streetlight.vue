@@ -521,13 +521,15 @@ getFilteredData()
       v-if="tableDataList.length"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
-      layout="sizes, prev, pager, next, total"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
       :page-sizes="[10, 25, 50, 100]"
       :total="total"
       :background="true"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
       @size-change="onPageSizeChange"
       @current-change="onPageChange"
-      class="mt-4"
+      class="mt-4 facility-pagination"
     />
     <el-drawer
       v-model="mapDrawerVisible"

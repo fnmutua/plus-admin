@@ -1432,9 +1432,11 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
 
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pSize"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage" v-model:page-size="pSize"
       :page-sizes="[3, 5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+      @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
   </el-card>
 
   <el-drawer

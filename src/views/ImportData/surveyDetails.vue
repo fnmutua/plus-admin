@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch ,computed, h} from 'vue'
+import { onMounted, onUnmounted, ref, watch, computed, h } from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElCol,ElTableV2,ElMessage,ElEmpty,
+  
+ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElCol,ElTableV2,ElMessage,ElEmpty,
 } from 'element-plus'
 
 import { useRoute } from 'vue-router'
@@ -52,6 +53,8 @@ import VChart from 'vue-echarts';
 
 
 import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline,Circle   } from 'vue3-google-map'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 
 
@@ -2574,9 +2577,11 @@ v-for="(option, index) in uploadOptions"
           <div style="margin-top: 20px;" v-if="paginatedData.length > 0">
             <!-- Pagination component -->
             <el-pagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
               v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100, 500]" :total="totalItems" :background="true"
-              @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+              @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
           </div>
         </el-card>
       </el-tab-pane>

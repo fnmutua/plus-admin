@@ -867,6 +867,9 @@ const model = 'settlement'
 const fileUploadList = ref<UploadUserFile[]>([])
 const { t } = useI18n()
 const isMobile = computed(() => appStore.getMobile)
+const settlementPaginationLayout = computed(() =>
+  isMobile.value ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'
+)
 const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
@@ -5029,9 +5032,10 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </div>
 
       <ElPagination
-      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      :layout="settlementPaginationLayout" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="getPageSizes(totalApproved)" :total="totalApproved" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      :small="isMobile" :pager-count="isMobile ? 3 : 7"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination" />
 
       <!-- Merge button for selected settlements (bottom) -->
       <!-- <div v-if="selectedSettlements.length === 2" style="margin-top: 10px;">
@@ -5188,15 +5192,17 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </div>
 
       <ElPagination
-        layout="sizes, prev, pager, next, total"
+        :layout="settlementPaginationLayout"
         v-model:currentPage="page"
         v-model:page-size="pageSize"
         :page-sizes="getPageSizes(totalUnprofiled)"
         :total="totalUnprofiled"
         :background="true"
+        :small="isMobile"
+        :pager-count="isMobile ? 3 : 7"
         @size-change="onPageSizeChange"
         @current-change="onPageChange"
-        class="mt-4" />
+        class="mt-4 settlement-pagination" />
     </div>
 
 
@@ -5275,9 +5281,10 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
       </el-table>
       <ElPagination
-      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      :layout="settlementPaginationLayout" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="getPageSizes(totalPending)" :total="totalPending" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      :small="isMobile" :pager-count="isMobile ? 3 : 7"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination" />
 
       <!-- Delete Cascade button for super admins -->
       <div v-if="isSuperAdmin && selectedSettlementsNew.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
@@ -5379,9 +5386,10 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
       <ElPagination
-      layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      :layout="settlementPaginationLayout" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="getPageSizes(decommSettlementsCount)" :total="decommSettlementsCount" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      :small="isMobile" :pager-count="isMobile ? 3 : 7"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination" />
 
       <!-- Delete Cascade button for super admins -->
       <div v-if="isSuperAdmin && selectedSettlementsDecommissioned.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
@@ -5520,15 +5528,17 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
       </el-table>
 
       <ElPagination
-        layout="sizes, prev, pager, next, total"
+        :layout="settlementPaginationLayout"
         v-model:current-page="deletedPage"
         v-model:page-size="deletedPageSize"
         :page-sizes="[5, 10, 15, 20, 50, 100, 1000, 2000]"
         :total="deletedPaginationTotal"
         :background="true"
+        :small="isMobile"
+        :pager-count="isMobile ? 3 : 7"
         @size-change="handleDeletedSizeChange"
         @current-change="handleDeletedPageChange"
-        class="mt-4"
+        class="mt-4 settlement-pagination"
       />
 
       <div v-if="isSuperAdmin && selectedSettlementsRejected.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
@@ -5623,11 +5633,13 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
   </el-collapse>
   <el-pagination
   background 
-  class="mt-4" 
-  layout="sizes, prev, pager, next, jumper" 
+  class="mt-4 settlement-pagination" 
+  :layout="settlementPaginationLayout" 
   :total="duplicateTotal"
   :page-size="pageSize" 
   :page-sizes="getPageSizes(duplicateTotal)" 
+  :small="isMobile"
+  :pager-count="isMobile ? 3 : 7"
   @current-change="handlePageChange" 
   @size-change="onPageSizeChange" />
 </div>
@@ -6210,6 +6222,15 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 @media (min-width: 992px) {
   .sett-toolbar-row :deep(.sett-toolbar-col) {
     margin-bottom: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  :deep(.settlement-pagination) {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 }
 </style>

@@ -2538,9 +2538,11 @@ function handleIndicatorsChange(selectedIds) {
       </el-table-column>
     </el-table>
     <ElPagination
-      layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
   </el-card>
 
 

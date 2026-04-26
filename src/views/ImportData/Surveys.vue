@@ -6,7 +6,8 @@ import { Back } from '@element-plus/icons-vue'
 
 import { ref, computed } from 'vue'
 import {
-    ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,ElCol,ElStatistic,ElIcon,ElMessage,
+    
+ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,ElCol,ElStatistic,ElIcon,ElMessage,
   ElRow, ElCard,ElDivider, ElEmpty
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -32,6 +33,8 @@ import { watch, onMounted } from 'vue';
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { useRouter } from 'vue-router'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 
 
@@ -952,9 +955,11 @@ clearable v-model="search" placeholder="Search by project name"
   <div style="margin-top: 20px;" v-if="paginatedData.length > 0">
  
  <el-pagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
    v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
-   @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+   @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
 
 </div>
  

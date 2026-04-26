@@ -1694,9 +1694,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
 
       <ElPagination
-v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+v-if="showPagination" :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="page"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
     </el-tabs>
 
 

@@ -3,7 +3,8 @@ import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
-  ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,ElDivider,
+  
+ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,ElDivider,
   ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog, ElForm, ElFormItem, ElOption, ElOptionGroup, ElTag, ElDescriptions, ElDescriptionsItem
 } from 'element-plus'
 import { useRoute } from 'vue-router'
@@ -57,6 +58,8 @@ import {
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { revertHistory, getLinkedDocuments, unlinkDocument, deleteDocument } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
 
 const { push } = useRouter()
@@ -3093,13 +3096,15 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
             <el-pagination
                 class="mt-4"
                 background
-                layout="sizes, prev, pager, next, total"
+                :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
                 :total="total_hh"
                 :page-size="pSize"
                 :current-page="page"
                 @size-change="handleSizeChange"
                 @current-change="handleCurrentChange"
                 :page-sizes="[5,10, 20, 50, 100]"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
     />
         </el-card>
 

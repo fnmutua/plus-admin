@@ -1450,9 +1450,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
         </el-table>
 
         <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          :small="isMobile" :pager-count="isMobile ? 3 : 7"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 facility-pagination" />
 
 
       </el-tab-pane>
@@ -1538,9 +1539,10 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
         </el-table>
 
         <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalNew" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          :small="isMobile" :pager-count="isMobile ? 3 : 7"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 facility-pagination" />
       </el-tab-pane>
 
       <el-tab-pane name="rejected" v-if=showAdminButtons :badge="5">
@@ -1631,9 +1633,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
         </el-table>
 
         <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalRejected" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          :small="isMobile" :pager-count="isMobile ? 3 : 7"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 facility-pagination" />
 
 
       </el-tab-pane>

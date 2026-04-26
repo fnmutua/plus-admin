@@ -5,7 +5,8 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-    ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
+    
+ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
@@ -37,6 +38,8 @@ import { onMounted } from 'vue'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 const MapBoxToken =
     'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -1631,9 +1634,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </el-table>
 
                 <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
                     v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
-                    @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+                    @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
             </el-tab-pane>
 
             <el-tab-pane label="Map" name="Map" :disabled="tabDisabled">

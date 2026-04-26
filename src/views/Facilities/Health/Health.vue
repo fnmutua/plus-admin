@@ -1,4 +1,4 @@
-﻿<!-- eslint-disable prettier/prettier -->
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
 declare global {
@@ -1638,15 +1638,17 @@ const filteredSegments = computed(() => [])
 
     <ElPagination
       v-if="tableDataList && tableDataList.length > 0"
-      layout="sizes, prev, pager, next, total"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[10, 25, 50, 100]"
       :total="total"
       :background="true"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7"
       @size-change="onPageSizeChange"
       @current-change="onPageChange"
-      class="mt-4"
+      class="mt-4 facility-pagination"
     />
         </el-card>
 

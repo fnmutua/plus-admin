@@ -15,6 +15,8 @@ import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 
+
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 interface Params {
   pageIndex?: number
   xpageSize?: number
@@ -417,8 +419,10 @@ v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multi
       </template>
     </Table>
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+      @current-change="onPageChange" class="mt-4"
+      :small="isMobile"
+      :pager-count="isMobile ? 3 : 7" />
   </ContentWrap>
 </template>
