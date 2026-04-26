@@ -40,7 +40,6 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 
-import { ref } from 'vue'
 
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useRoute } from 'vue-router'
