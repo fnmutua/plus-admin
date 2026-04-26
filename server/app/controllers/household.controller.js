@@ -289,22 +289,34 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
   ])
     .then(async ([rows, total]) => {
       const dataRows = rows.map((r) => (r.toJSON ? r.toJSON() : r))
-      if (includeSettlementAssoc) {
-        const settlementIds = [...new Set(dataRows.map((r) => r.settlement_id).filter(Boolean))]
-        if (settlementIds.length) {
-          const settlements = await db.models.settlement.findAll({
+      const shouldResolveSettlement = includeSettlementAssoc || includeCountyAssoc
+      const settlementIds = shouldResolveSettlement
+        ? [...new Set(dataRows.map((r) => r.settlement_id).filter(Boolean))]
+        : []
+      const settlements = settlementIds.length
+        ? await db.models.settlement.findAll({
             where: { id: settlementIds },
-            attributes: ['id', 'name'],
+            attributes: ['id', 'name', 'county_id'],
             raw: true
           })
-          const sm = new Map(settlements.map((s) => [Number(s.id), { id: s.id, name: s.name }]))
-          dataRows.forEach((r) => { r.settlement = sm.get(Number(r.settlement_id)) || null })
-        } else {
-          dataRows.forEach((r) => { r.settlement = null })
-        }
+        : []
+      const sm = new Map(settlements.map((s) => [Number(s.id), s]))
+
+      if (includeSettlementAssoc) {
+        dataRows.forEach((r) => {
+          const settlement = sm.get(Number(r.settlement_id))
+          r.settlement = settlement ? { id: settlement.id, name: settlement.name } : null
+        })
       }
+
       if (includeCountyAssoc) {
-        const countyIds = [...new Set(dataRows.map((r) => r.county_id).filter(Boolean))]
+        const countyIds = [
+          ...new Set(
+            dataRows
+              .map((r) => r.county_id || sm.get(Number(r.settlement_id))?.county_id)
+              .filter(Boolean)
+          )
+        ]
         if (countyIds.length) {
           const counties = await db.models.county.findAll({
             where: { id: countyIds },
@@ -312,7 +324,10 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
             raw: true
           })
           const cm = new Map(counties.map((c) => [Number(c.id), { id: c.id, name: c.name }]))
-          dataRows.forEach((r) => { r.county = cm.get(Number(r.county_id)) || null })
+          dataRows.forEach((r) => {
+            const resolvedCountyId = r.county_id || sm.get(Number(r.settlement_id))?.county_id
+            r.county = resolvedCountyId ? (cm.get(Number(resolvedCountyId)) || null) : null
+          })
         } else {
           dataRows.forEach((r) => { r.county = null })
         }
@@ -434,22 +449,33 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
  
     db.models[reg_model].findAndCountAll(qry).then(async (list) => {
       const dataRows = list.rows.map((r) => (r.toJSON ? r.toJSON() : r))
-      if (includeSettlementAssoc) {
-        const settlementIds = [...new Set(dataRows.map((r) => r.settlement_id).filter(Boolean))]
-        if (settlementIds.length) {
-          const settlements = await db.models.settlement.findAll({
+      const shouldResolveSettlement = includeSettlementAssoc || includeCountyAssoc
+      const settlementIds = shouldResolveSettlement
+        ? [...new Set(dataRows.map((r) => r.settlement_id).filter(Boolean))]
+        : []
+      const settlements = settlementIds.length
+        ? await db.models.settlement.findAll({
             where: { id: settlementIds },
-            attributes: ['id', 'name'],
+            attributes: ['id', 'name', 'county_id'],
             raw: true
           })
-          const sm = new Map(settlements.map((s) => [Number(s.id), { id: s.id, name: s.name }]))
-          dataRows.forEach((r) => { r.settlement = sm.get(Number(r.settlement_id)) || null })
-        } else {
-          dataRows.forEach((r) => { r.settlement = null })
-        }
+        : []
+      const sm = new Map(settlements.map((s) => [Number(s.id), s]))
+
+      if (includeSettlementAssoc) {
+        dataRows.forEach((r) => {
+          const settlement = sm.get(Number(r.settlement_id))
+          r.settlement = settlement ? { id: settlement.id, name: settlement.name } : null
+        })
       }
       if (includeCountyAssoc) {
-        const countyIds = [...new Set(dataRows.map((r) => r.county_id).filter(Boolean))]
+        const countyIds = [
+          ...new Set(
+            dataRows
+              .map((r) => r.county_id || sm.get(Number(r.settlement_id))?.county_id)
+              .filter(Boolean)
+          )
+        ]
         if (countyIds.length) {
           const counties = await db.models.county.findAll({
             where: { id: countyIds },
@@ -457,7 +483,10 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
             raw: true
           })
           const cm = new Map(counties.map((c) => [Number(c.id), { id: c.id, name: c.name }]))
-          dataRows.forEach((r) => { r.county = cm.get(Number(r.county_id)) || null })
+          dataRows.forEach((r) => {
+            const resolvedCountyId = r.county_id || sm.get(Number(r.settlement_id))?.county_id
+            r.county = resolvedCountyId ? (cm.get(Number(resolvedCountyId)) || null) : null
+          })
         } else {
           dataRows.forEach((r) => { r.county = null })
         }

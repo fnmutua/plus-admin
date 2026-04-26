@@ -10,7 +10,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled, Back, More, CircleCloseFilled } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed, h } from 'vue'
+import { ref, reactive, computed, h, onMounted, onBeforeUnmount } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -829,6 +829,30 @@ const showHHDetails = async (data: TableSlotDefault) => {
   }
 }
 
+const formatLocation = (row: any) => {
+  const settlementName = row?.settlement?.name || row?.settlement_name || 'Unknown Settlement'
+  const countyName = row?.county?.name || row?.settlement?.county?.name || row?.county_name || 'Unknown County'
+  return `${settlementName}, ${countyName}`
+}
+
+const isMobileView = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
+const updateViewportState = () => {
+  if (typeof window === 'undefined') return
+  isMobileView.value = window.innerWidth <= 768
+}
+const paginationLayout = computed(() =>
+  isMobileView.value ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'
+)
+
+onMounted(() => {
+  updateViewportState()
+  window.addEventListener('resize', updateViewportState)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportState)
+})
+
 const editHH = (data: TableSlotDefault) => {
   formheader.value = 'Edit Household'
   showEditSaveButton.value = true
@@ -1092,7 +1116,7 @@ function handleExpand(row) {
         <el-table-column label="Gender" prop="gender" sortable />
         <el-table-column label="Age" prop="age" sortable />
         <el-table-column label="Household Size" prop="hh_size" sortable />
-        <el-table-column label="Settlement ID" prop="settlement_id" sortable />
+        <el-table-column label="Location" min-width="220" :formatter="(row) => formatLocation(row)" />
         <el-table-column fixed="right" label="Actions" width="100">
             <template #default="scope">
               <el-tooltip content="More Details" placement="top">
@@ -1104,15 +1128,17 @@ function handleExpand(row) {
 
       <div style="margin-top: 20px;">
         <el-pagination
-          layout="sizes, prev, pager, next, total"
+          :layout="paginationLayout"
           v-model:currentPage="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[5, 10, 20, 50, 100]"
           :total="total"
+          :small="isMobileView"
+          :pager-count="isMobileView ? 3 : 7"
           :background="true"
           @size-change="onPageSizeChange"
           @current-change="onPageChange"
-          class="mt-4" />
+          class="mt-4 household-pagination" />
       </div>
     </div>
 
@@ -1159,15 +1185,27 @@ function handleExpand(row) {
       </template>
     </el-dialog>
 
-    <el-drawer v-model="detailDrawer" :show-close="false">
+    <el-drawer
+      v-model="detailDrawer"
+      :show-close="false"
+      :size="isMobileView ? '100%' : '38%'"
+      custom-class="hh-detail-drawer">
       <template #header="{ close, titleId, titleClass }">
-        <h4 :id="titleId" :class="titleClass">Household Record</h4>
-        <el-button type="danger" @click="close">
-          <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
-          Close
-        </el-button>
+        <div class="hh-drawer-header">
+          <h4 :id="titleId" :class="titleClass">Household Record</h4>
+          <el-button type="danger" @click="close">
+            <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
+            Close
+          </el-button>
+        </div>
       </template>
-      <el-table :data="filteredData" stripe style="width: 100%">
+      <div v-if="isMobileView" class="hh-detail-list">
+        <div v-for="item in filteredData" :key="item.field" class="hh-detail-item">
+          <div class="hh-detail-label">{{ item.field }}</div>
+          <div class="hh-detail-value">{{ item.value ?? '-' }}</div>
+        </div>
+      </div>
+      <el-table v-else :data="filteredData" stripe style="width: 100%">
         <el-table-column prop="field" label="" width="200" />
         <el-table-column prop="value" label="" />
       </el-table>
@@ -1181,6 +1219,58 @@ function handleExpand(row) {
 <style scoped>
 .max-w-200px {
   max-width: 200px;
+}
+
+:deep(.hh-detail-drawer .el-drawer__header) {
+  margin-bottom: 8px;
+}
+
+.hh-drawer-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hh-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hh-detail-item {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--el-fill-color-blank);
+}
+
+.hh-detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 4px;
+}
+
+.hh-detail-value {
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .hh-drawer-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  :deep(.household-pagination) {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
 }
 </style>
 
