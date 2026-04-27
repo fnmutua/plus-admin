@@ -19,6 +19,7 @@ import {
   createSubmission,
   getSettlements
 } from '@/api/collector'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyByIdApi } from '@/api/adminunits'
 import { watch, onMounted } from 'vue';
 
@@ -66,22 +67,27 @@ const countyListFromSettlements = computed<{ label: string; value: string | numb
 
 const settlementOptionsByCounty = computed<{ label: string; value: string; code: string }[]>(() => {
   if (!createForm.group_location.county) return []
+  const seen = new Set<string>()
   return settlementsList.value
-    .filter((s: SettlementItem) =>
-      s.county_id
-        ? String(s.county_id) === String(createForm.group_location.county)
-        : s.county_name === createForm.group_location.county
-    )
+    .filter((s: SettlementItem) => s.county_name === createForm.group_location.county)
+    .filter((s: SettlementItem) => {
+      const key = String(s.code || s.sett_name || '')
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
     .map((s: SettlementItem) => ({ label: s.sett_name, value: s.code, code: s.code }))
 })
 
 // Entity-settlements-based lookups for the Add SEC form and list filters
 const entitySettlementsList = ref<SettlementItem[]>([])
+const backendCountyFilterOptions = ref<{ label: string; value: string }[]>([])
+const backendSettlementsByCounty = ref<Record<string, { label: string; value: string; code?: string }[]>>({})
 
 const entityCountyOptions = computed<{ label: string; value: string }[]>(() => {
   const seen = new Map<string, string>()
   entitySettlementsList.value.forEach((s: SettlementItem) => {
-    const key = s.county_id ? String(s.county_id) : String(s.county_name || '')
+    const key = String(s.county_name || '')
     const label = s.county_name || key
     if (key && !seen.has(key)) seen.set(key, label)
   })
@@ -90,17 +96,21 @@ const entityCountyOptions = computed<{ label: string; value: string }[]>(() => {
 
 const entitySettlementOptionsByCounty = computed<{ label: string; value: string; code: string }[]>(() => {
   if (!createForm.group_location.county) return []
+  const seen = new Set<string>()
   return entitySettlementsList.value
-    .filter((s: SettlementItem) =>
-      s.county_id
-        ? String(s.county_id) === String(createForm.group_location.county)
-        : s.county_name === createForm.group_location.county
-    )
+    .filter((s: SettlementItem) => s.county_name === createForm.group_location.county)
+    .filter((s: SettlementItem) => {
+      const key = String(s.code || s.sett_name || '')
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
     .map((s: SettlementItem) => ({ label: s.sett_name, value: s.code, code: s.code }))
 })
 
 // Filter-bar options: values are names (matching the string names stored in collector submissions)
 const entityCountyFilterOptions = computed<{ label: string; value: string }[]>(() => {
+  if (backendCountyFilterOptions.value.length) return backendCountyFilterOptions.value
   const seen = new Set<string>()
   return entitySettlementsList.value
     .filter((s: SettlementItem) => s.county_name && !seen.has(s.county_name) && seen.add(s.county_name))
@@ -108,26 +118,13 @@ const entityCountyFilterOptions = computed<{ label: string; value: string }[]>((
 })
 
 const entitySettlementFilterOptions = computed<{ label: string; value: string }[]>(() => {
-  const seen = new Set<string>()
-
-  // Resolve county_id(s) for the selected county name so we can match even
-  // when some settlement rows have a null county_name (association not loaded)
-  let matchingCountyIds: Set<string> | null = null
-  if (county_value.value) {
-    matchingCountyIds = new Set(
-      entitySettlementsList.value
-        .filter((s: SettlementItem) => s.county_name === county_value.value && s.county_id != null)
-        .map((s: SettlementItem) => String(s.county_id))
-    )
+  if (county_value.value && backendSettlementsByCounty.value[county_value.value]) {
+    return backendSettlementsByCounty.value[county_value.value]
   }
-
+  const seen = new Set<string>()
   return entitySettlementsList.value
     .filter((s: SettlementItem) => {
-      if (matchingCountyIds) {
-        const byId = s.county_id != null && matchingCountyIds.has(String(s.county_id))
-        const byName = s.county_name === county_value.value
-        if (!byId && !byName) return false
-      }
+      if (county_value.value && s.county_name !== county_value.value) return false
       return s.sett_name && !seen.has(s.sett_name) && seen.add(s.sett_name)
     })
     .map((s: SettlementItem) => ({ label: s.sett_name, value: s.sett_name }))
@@ -664,6 +661,11 @@ const fetchEntitySettlements = async () => {
     }
     const res = await getSettlements(payload)
     const data: any[] = (res as any).data || []
+    backendCountyFilterOptions.value = ((res as any).counties || []).map((c: any) => ({
+      label: String(c.label),
+      value: String(c.label || c.value)
+    }))
+    backendSettlementsByCounty.value = (res as any).settlements_by_county || {}
     console.log('entitySettlements total from collector:', data.length)
     entitySettlementsList.value = data.map((s: any) => ({
       id: s.id || s.__id,

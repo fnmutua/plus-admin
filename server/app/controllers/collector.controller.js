@@ -347,37 +347,47 @@ function flattenPlain(obj, parentKey = '') {
 
 async function getEntities(token, project, countyFilter = null) {
   console.log('getEntities', project, 'countyFilter:', countyFilter)
-  return new Promise((resolve, reject) => {
-    //const url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/datasets/settlements.svc/Entities';
-    let url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/Entities?$top=10000'; // get entites from Project 1
+  const doRequest = (url) =>
+    new Promise((resolve, reject) => {
+      request({
+        method: 'GET',
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      }, (error, response, body) => {
+        if (error) return reject(error)
+        if (response.statusCode !== 200) return reject(new Error(`Error: Status Code ${response.statusCode}`))
+        try {
+          resolve(JSON.parse(body))
+        } catch (e) {
+          reject(e)
+        }
+      })
+    })
 
-    // Add county filtering to the OData query if specified
-    if (countyFilter) {
-      const countyODataFilter = `county_name eq '${countyFilter}'`;
-      url += `&$filter=${encodeURIComponent(countyODataFilter)}`;
-    }
+  // Use requested project; fetch ALL pages, not just first 10k.
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/datasets/settlements.svc/Entities?$top=10000`
+  if (countyFilter) {
+    const countyODataFilter = `county_name eq '${countyFilter}'`
+    url += `&$filter=${encodeURIComponent(countyODataFilter)}`
+  }
 
-    request({
-      method: 'GET',
-      url: url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    }, (error, response, body) => {
-      if (error) {
-        reject(error);
-      } else if (response.statusCode === 200) {
-        const dataset = JSON.parse(body);
-        console.log(`[getEntities] total returned: ${dataset.value?.length}`)
-          resolve(dataset);
+  const all = []
+  let page = await doRequest(url)
+  all.push(...(page.value || []))
 
+  // Collector OData pagination key can be @odata.nextLink
+  let next = page['@odata.nextLink'] || page['odata.nextLink'] || null
+  while (next) {
+    page = await doRequest(next)
+    all.push(...(page.value || []))
+    next = page['@odata.nextLink'] || page['odata.nextLink'] || null
+  }
 
-      } else {
-        reject(`Error: Status Code ${response.statusCode}`);
-      }
-    });
-  });
+  console.log(`[getEntities] total returned across pages: ${all.length}`)
+  return { value: all }
 }
 
 
@@ -1260,7 +1270,7 @@ exports.modelCreateSubmission = (req, res) => {
 };
 
 exports.modelGetSettlements = async (req, res) => {
-  const { project, token } = req.body;
+  const { project, token, county_name } = req.body;
 
   if (!project || !token) {
     return res.status(400).send({
@@ -1273,14 +1283,54 @@ exports.modelGetSettlements = async (req, res) => {
     if (!settlements || !settlements.value) {
       return res.status(500).send({ error: 'Failed to fetch settlements' });
     }
-    const mapped = settlements.value.map(s => ({
-      id: s.__id,
-      code: s.code,
-      sett_name: s.sett_name,
-      county_name: s.county_name
-    }));
+
+    let raw = settlements.value
+      .map(s => ({
+        id: s.__id,
+        code: s.code || s.__id, // fallback so entries without pcode are not dropped
+        sett_name: s.sett_name,
+        county_name: s.county_name || ''
+      }))
+      .filter(s => s.sett_name)
+
+    // Optional backend county filter by county_name only.
+    if (county_name) {
+      raw = raw.filter(s => String(s.county_name || '').toLowerCase() === String(county_name).toLowerCase())
+    }
+
+    // Keep full entity list; frontend handles UI-level de-duplication.
+    const mapped = raw
+
+    // Precomputed county options from backend.
+    const counties = []
+    const seenCounty = new Set()
+    mapped.forEach((s) => {
+      const key = String(s.county_name || '')
+      if (!key || seenCounty.has(key)) return
+      seenCounty.add(key)
+      counties.push({
+        label: key,
+        value: key
+      })
+    })
+
+    // Backend-provided settlement options grouped by county label (for filter bar).
+    const settlements_by_county = {}
+    const seenSettlementByCounty = new Set()
+    mapped.forEach((s) => {
+      const key = s.county_name || ''
+      if (!key) return
+      if (!settlements_by_county[key]) settlements_by_county[key] = []
+      const uniq = `${key}::${String(s.code || s.sett_name)}`
+      if (seenSettlementByCounty.has(uniq)) return
+      seenSettlementByCounty.add(uniq)
+      settlements_by_county[key].push({ label: s.sett_name, value: s.sett_name, code: s.code })
+    })
+
     return res.status(200).send({
       data: mapped,
+      counties,
+      settlements_by_county,
       code: '0000'
     });
   } catch (error) {
