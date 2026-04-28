@@ -782,9 +782,12 @@ onMounted(async () => {
     value4.value = selectedCounty.value
   }
 
-  await getCounts()
-  await refreshDeletedHistoryEntryCount()
+  // Prioritize loading the filtered table data first for a faster return experience.
   await loadDataWithCurrentFilters()
+  await Promise.all([
+    getCounts(),
+    refreshDeletedHistoryEntryCount()
+  ])
 })
 
 onUnmounted(() => {
@@ -808,10 +811,13 @@ onActivated(async () => {
   if (isCountyStaff.value && selectedCounty.value.length > 0) {
     value4.value = selectedCounty.value
   }
- 
-  await getCounts()
-  await refreshDeletedHistoryEntryCount()
+
+  // Load filtered rows immediately, then refresh counters/badges in parallel.
   await loadDataWithCurrentFilters()
+  await Promise.all([
+    getCounts(),
+    refreshDeletedHistoryEntryCount()
+  ])
 })
 
  
