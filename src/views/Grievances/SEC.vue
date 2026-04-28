@@ -21,7 +21,7 @@ import {
 } from '@/api/collector'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyByIdApi } from '@/api/adminunits'
-import { watch, onMounted } from 'vue';
+import { watch, onMounted, onUnmounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
@@ -44,6 +44,7 @@ const width = ref(1080);
 const updatePageSize = () => {
 
   console.log('window.innerWidth', window.innerWidth)
+  isMobile.value = window.innerWidth <= mobileBreakpoint
   width.value = window.innerWidth - 400
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
@@ -218,6 +219,10 @@ onMounted(async () => {
 
 })
 
+onUnmounted(() => {
+  window.removeEventListener('resize', updatePageSize)
+})
+
 
 
 console.log("userInfo--->", userInfo)
@@ -270,6 +275,11 @@ const fetchingData = ref(false)
 const dataFetchStatus = ref('')
 const settlementsList = ref<SettlementItem[]>([])
 const createDrawerVisible = ref(false)
+const drawerSize = computed(() => {
+  if (typeof window !== 'undefined' && window.innerWidth <= 768) return '100%'
+  if (typeof window !== 'undefined' && window.innerWidth <= 1200) return '80%'
+  return '45%'
+})
 const creating = ref(false)
 const creatingStatus = ref('')
 const activeStep = ref(0)
@@ -1246,7 +1256,15 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
 
   </el-card>
 
-  <el-drawer v-model="createDrawerVisible" title="Create SEC Record" size="45%">
+  <el-drawer
+    v-model="createDrawerVisible"
+    title="Create SEC Record"
+    :size="drawerSize"
+    :with-header="true"
+    :destroy-on-close="false"
+    :close-on-click-modal="false"
+    class="sec-create-drawer"
+  >
     <el-steps :active="activeStep" finish-status="success" align-center style="margin-bottom: 16px;">
       <el-step title="Location" description="County & settlement" />
       <el-step title="Officials" description="Officials list" />
@@ -1439,7 +1457,7 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
     </div>
 
     <template #footer>
-      <div style="display: flex; justify-content: space-between; width: 100%;">
+      <div class="sec-drawer-footer">
         <div>
           <el-button @click="createDrawerVisible = false">Cancel</el-button>
         </div>
@@ -1453,3 +1471,44 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
   </el-drawer>
 
 </template>
+
+<style scoped>
+.sec-drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  :deep(.sec-create-drawer .el-drawer__body) {
+    padding: 12px;
+    overflow-x: hidden;
+  }
+
+  :deep(.sec-create-drawer .el-step__title) {
+    font-size: 12px;
+  }
+
+  :deep(.sec-create-drawer .el-step__description) {
+    font-size: 11px;
+  }
+
+  .sec-drawer-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sec-drawer-footer > div {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .sec-drawer-footer > div:first-child {
+    justify-content: flex-start;
+  }
+}
+</style>

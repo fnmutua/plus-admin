@@ -4057,13 +4057,6 @@ const handleUploadGeo = async (uploadFile) => {
   }
 }
 
-const tableRowClassName = (data) => {
-  if (data.row.documents?.length > 0) {
-    return 'warning-row'
-  }
-  return ''
-}
-
 const activeStep = ref(0)
 const next = () => {
   if (activeStep.value++ > 2) activeStep.value = 0
@@ -4923,7 +4916,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
       <el-table
         table-layout="fixed"
         :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" fit 
-        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" row-key="id"
+        style="width: 100%; margin-top: 10px;" border row-key="id"
         @selection-change="handleSelectionChange" :lazy="false" :default-sort="{ prop: 'id', order: 'descending' }">
 
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
@@ -5080,7 +5073,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         :show-overflow-tooltip="true"
         style="width: 100% ; margin-top: 10px;"
         border
-        :row-class-name="tableRowClassName"
         row-key="id"
         @row-dblclick="handleRowDblClick"
         @selection-change="handleSelectionChange">
@@ -5216,7 +5208,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       <el-table
         table-layout="fixed"
         :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
-        :row-class-name="tableRowClassName" row-key="id"
+        row-key="id"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />
         <!-- NEW: Geometry Icon Column with Infrastructure Badge -->
@@ -5334,7 +5326,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         <el-table
           table-layout="fixed"
           :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-          border :row-class-name="tableRowClassName" row-key="id"
+          border row-key="id"
           @row-dblclick="handleRowDblClick"
           @selection-change="handleSelectionChange"
         >
@@ -5436,7 +5428,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
         :show-overflow-tooltip="true"
         style="width: 100%; margin-top: 10px;"
         border
-        :row-class-name="tableRowClassName"
         :row-key="(row) => row._deletedTabSource === 'rejected' ? 'r-' + row.id : 'h-' + row.history_id"
         @selection-change="handleSelectionChange"
       >
@@ -6240,20 +6231,6 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   }
 }
 </style>
-
-<style>
-.el-table .warning-row {
-  --el-table-tr-bg-color: var(--el-color-warning-light-9);
-}
-
-.el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
-}
-</style>
-
-
-
-
 
 <style>
 .el-row {
