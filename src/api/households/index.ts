@@ -48,10 +48,10 @@ export const postBatchHouseholds = (data: UserType): Promise<IResponse<UserType>
   return request.post({ url: prod + '/api/v1/hh/batch', data })
 }
 
-export const startHouseholdsExcelExportJob = () => {
+export const startHouseholdsExcelExportJob = (data: { anonymize_location?: boolean } = {}) => {
   return request.post({
     url: prod + '/api/v1/hh/export/excel/job/start',
-    data: {},
+    data,
     timeout: 0
   })
 }

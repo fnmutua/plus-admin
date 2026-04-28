@@ -5,7 +5,7 @@ import { getSettlementListByCounty, uploadFilesBatch} from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElDialog, ElForm, ElFormItem, ElCard, ElTable, ElRow, ElCol,
-  ElTableColumn, UploadUserFile, ElInput, ElDrawer
+  ElTableColumn, UploadUserFile, ElInput, ElDrawer, ElSwitch
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Filter, Back, View, CircleCloseFilled, Download } from '@element-plus/icons-vue'
@@ -104,6 +104,8 @@ const page = ref(1)
 const pSize = ref(5)
 const loading = ref(true)
 const excelDownloadLoading = ref(false)
+const downloadOptionsDialogVisible = ref(false)
+const anonymizeLocationForDownload = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
@@ -141,11 +143,11 @@ const hasActiveFilters = computed(() => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const downloadHouseholdsExcel = async () => {
+const downloadHouseholdsExcel = async (options: { anonymize_location?: boolean } = {}) => {
   if (excelDownloadLoading.value) return
   excelDownloadLoading.value = true
   try {
-    const startRes: any = await startHouseholdsExcelExportJob()
+    const startRes: any = await startHouseholdsExcelExportJob(options)
     const jobId = startRes?.data?.job_id || startRes?.job_id
     if (!jobId) throw new Error('Missing export job id')
 
@@ -183,6 +185,16 @@ const downloadHouseholdsExcel = async () => {
   } finally {
     excelDownloadLoading.value = false
   }
+}
+
+const openDownloadOptionsDialog = () => {
+  if (excelDownloadLoading.value) return
+  downloadOptionsDialogVisible.value = true
+}
+
+const confirmDownloadWithOptions = async () => {
+  downloadOptionsDialogVisible.value = false
+  await downloadHouseholdsExcel({ anonymize_location: anonymizeLocationForDownload.value })
 }
 
 
@@ -851,7 +863,7 @@ const DocumentComponentProps = ref({
               type="success"
               :icon="Download"
               :loading="excelDownloadLoading"
-              @click="downloadHouseholdsExcel">
+              @click="openDownloadOptionsDialog">
               Download All
             </el-button>
             <DownloadCustom
@@ -935,6 +947,26 @@ const DocumentComponentProps = ref({
           <el-button @click="AddDialogVisible = false">Cancel</el-button>
           <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="downloadOptionsDialogVisible"
+      title="Download Options"
+      width="420px"
+      draggable>
+      <el-form label-position="top">
+        <el-form-item label="Anonymize household locations in export">
+          <el-switch v-model="anonymizeLocationForDownload" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="downloadOptionsDialogVisible = false">Cancel</el-button>
+          <el-button type="primary" :loading="excelDownloadLoading" @click="confirmDownloadWithOptions">
+            Download
+          </el-button>
         </span>
       </template>
     </el-dialog>

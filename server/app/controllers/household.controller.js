@@ -40,29 +40,61 @@ const cleanupExpiredHouseholdExportJobs = () => {
   }
 }
 
-const buildHouseholdsExportCsv = async () => {
+const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
   const excludedFields = ['name', 'national_id', 'phone', 'telephone', 'respondents_name', 'geom']
   const allAttributes = Object.keys(db.models.households.rawAttributes)
   const safeFields = allAttributes.filter((field) => !excludedFields.includes(field))
   console.log('[HH Export] Preparing CSV columns:', safeFields.length)
+  console.log('[HH Export] Anonymize location:', anonymizeLocation)
 
   const selectCols = safeFields.map((field) => `h."${field}" AS "${field}"`).join(', ')
+  const anonymizeEnabledSql = anonymizeLocation ? 'TRUE' : 'FALSE'
+  const anonSeedSalt = process.env.EXPORT_ANON_SALT || process.env.AES_KEY || 'plus-admin-export-salt'
   const sql = `
+    WITH base AS (
+      SELECT
+        ${selectCols},
+        CASE
+          WHEN ${anonymizeEnabledSql} AND s."geom" IS NOT NULL THEN
+            ST_ClosestPoint(
+              s."geom"::geometry,
+              ST_SetSRID(
+                ST_MakePoint(
+                  ST_XMin(s."geom"::geometry)
+                    + (((abs(hashtextextended(h."id"::text || :anonSeedSalt || '_x', 0))::bigint % 1000000)::double precision / 1000000.0)
+                    * (ST_XMax(s."geom"::geometry) - ST_XMin(s."geom"::geometry))),
+                  ST_YMin(s."geom"::geometry)
+                    + (((abs(hashtextextended(h."id"::text || :anonSeedSalt || '_y', 0))::bigint % 1000000)::double precision / 1000000.0)
+                    * (ST_YMax(s."geom"::geometry) - ST_YMin(s."geom"::geometry)))
+                ),
+                ST_SRID(s."geom"::geometry)
+              )
+            )
+          ELSE
+            CASE WHEN h."geom" IS NOT NULL THEN h."geom"::geometry ELSE NULL END
+        END AS "export_geom",
+        s."name" AS "settlement_name",
+        c."name" AS "county_name"
+      FROM "households" h
+      LEFT JOIN "settlement" s ON s."id" = h."settlement_id"
+      LEFT JOIN "county" c ON c."id" = COALESCE(h."county_id", s."county_id")
+    )
     SELECT
-      ${selectCols},
-      CASE WHEN h."geom" IS NOT NULL THEN ST_Y(h."geom"::geometry) ELSE NULL END AS "latitude",
-      CASE WHEN h."geom" IS NOT NULL THEN ST_X(h."geom"::geometry) ELSE NULL END AS "longitude",
-      s."name" AS "settlement_name",
-      c."name" AS "county_name"
-    FROM "households" h
-    LEFT JOIN "settlement" s ON s."id" = h."settlement_id"
-    LEFT JOIN "county" c ON c."id" = COALESCE(h."county_id", s."county_id")
-    ORDER BY h."id" DESC
+      ${safeFields.map((field) => `"${field}"`).join(', ')},
+      CASE WHEN "export_geom" IS NOT NULL THEN ST_Y("export_geom") ELSE NULL END AS "latitude",
+      CASE WHEN "export_geom" IS NOT NULL THEN ST_X("export_geom") ELSE NULL END AS "longitude",
+      "settlement_name",
+      "county_name"
+    FROM base
+    ORDER BY "id" DESC
   `
   console.log('[HH Export] Running export query...')
   console.log('[HH Export] SQL:', sql.replace(/\s+/g, ' ').trim())
 
-  const rows = await db.sequelize.query(sql, { type: Sequelize.QueryTypes.SELECT })
+  const rows = await db.sequelize.query(sql, {
+    type: Sequelize.QueryTypes.SELECT,
+    replacements: { anonSeedSalt }
+  })
   console.log('[HH Export] Query rows fetched:', rows.length)
   const columns = [...safeFields, 'latitude', 'longitude', 'settlement_name', 'county_name']
   const header = columns.join(',')
@@ -778,6 +810,7 @@ exports.getOneHousehold = (req, res) => {
 
 exports.createHouseholdExportJob = async (_req, res) => {
   cleanupExpiredHouseholdExportJobs()
+  const anonymizeLocation = _req?.body?.anonymize_location !== false
   const jobId = crypto.randomUUID()
   const filename = `households_${new Date().toISOString().slice(0, 10)}_${jobId.slice(0, 8)}.csv`
   const filePath = path.join(os.tmpdir(), filename)
@@ -789,13 +822,14 @@ exports.createHouseholdExportJob = async (_req, res) => {
     status: 'processing',
     createdAt: Date.now(),
     filePath: null,
-    filename
+    filename,
+    anonymizeLocation
   })
 
   setImmediate(async () => {
     try {
       console.log(`[HH Export] Job ${jobId} started`)
-      const csv = await buildHouseholdsExportCsv()
+      const csv = await buildHouseholdsExportCsv({ anonymizeLocation })
       fs.writeFileSync(filePath, csv, 'utf8')
       const job = householdExportJobs.get(jobId)
       if (!job) return
