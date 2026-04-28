@@ -1355,7 +1355,7 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
         show-icon
         style="margin-bottom: 8px;"
       />
-      <el-table :data="createForm.sec_officials" border size="small" style="width: 100%;">
+      <el-table :data="createForm.sec_officials" border size="small" style="width: 100%;" class="sec-officials-table">
         <el-table-column type="index" width="50" label="#" />
         <el-table-column label="Category">
           <template #default="{ row }">
@@ -1427,17 +1427,17 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
         <el-descriptions-item label="Comments">{{ createForm.comments }}</el-descriptions-item>
       </el-descriptions>
       <el-row :gutter="10" style="margin-top: 12px;">
-        <el-col :xs="24" :sm="12" :md="8">
+        <el-col :xs="24" :sm="24" :md="24">
           <el-form-item label="Returning Officer">
             <el-input v-model="createForm.grp_certification.returning_officer" />
           </el-form-item>
         </el-col>
-        <el-col :xs="24" :sm="12" :md="8">
+        <el-col :xs="24" :sm="24" :md="24">
           <el-form-item label="County KISIP Coordinator">
             <el-input v-model="createForm.grp_certification.county_kisip_coordinator" />
           </el-form-item>
         </el-col>
-        <el-col :xs="24" :sm="12" :md="8">
+        <el-col :xs="24" :sm="24" :md="24">
           <el-form-item label="KISIP NPCT Representative">
             <el-input v-model="createForm.grp_certification.npct_representative" />
           </el-form-item>
@@ -1510,5 +1510,12 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
   .sec-drawer-footer > div:first-child {
     justify-content: flex-start;
   }
+}
+
+:deep(.sec-officials-table .el-input__inner),
+:deep(.sec-officials-table .el-select__placeholder),
+:deep(.sec-officials-table .el-select__selected-item),
+:deep(.sec-officials-table .el-select__tags-text) {
+  font-size: 12px;
 }
 </style>

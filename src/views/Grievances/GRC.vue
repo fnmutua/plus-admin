@@ -25,7 +25,7 @@ import {
 import { checkUser, checkUserNames } from '@/api/users'
 
 
-import { watch, onMounted } from 'vue';
+import { watch, onMounted, onUnmounted } from 'vue';
 import type { TableInstance } from 'element-plus'
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
@@ -70,6 +70,7 @@ const width = ref(1080);
 const updatePageSize = () => {
 
   console.log('window.innerWidth', window.innerWidth)
+  isMobile.value = window.innerWidth <= mobileBreakpoint
   width.value = window.innerWidth - 400
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
@@ -88,6 +89,10 @@ onMounted(async () => {
   updatePageSize(); // Initial check
 
 
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updatePageSize)
 })
 
 
@@ -529,6 +534,11 @@ const role = ref()
 
 const secRoster = ref<any[]>([])
 const createDrawerVisible = ref(false)
+const drawerSize = computed(() => {
+  if (typeof window !== 'undefined' && window.innerWidth <= 768) return '100%'
+  if (typeof window !== 'undefined' && window.innerWidth <= 1200) return '80%'
+  return '50%'
+})
 const creating = ref(false)
 const grcCreateForm = reactive({
   group_location: {
@@ -1247,7 +1257,15 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
 
   </el-card>
 
-  <el-drawer v-model="createDrawerVisible" title="Create GRC" size="50%">
+  <el-drawer
+    v-model="createDrawerVisible"
+    title="Create GRC"
+    :size="drawerSize"
+    :with-header="true"
+    :destroy-on-close="false"
+    :close-on-click-modal="false"
+    class="grc-create-drawer"
+  >
     <el-form label-position="top">
       <el-row :gutter="10">
         <el-col :xs="24" :sm="12" :md="12">
@@ -1305,7 +1323,7 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
       </el-table>
 
       <el-divider content-position="left">Add 3 new members</el-divider>
-      <el-row v-for="(member, idx) in newMembers" :key="idx" :gutter="10" style="margin-bottom: 8px;">
+      <el-row v-for="(member, idx) in newMembers" :key="idx" :gutter="10" style="margin-bottom: 8px;" class="grc-members-row">
         <el-col :xs="24" :sm="12" :md="6">
           <el-input v-model="member.name" size="small" :placeholder="`Name #${idx + 1}`" />
         </el-col>
@@ -1337,7 +1355,7 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
         </el-col>
       </el-row>
 
-      <div style="text-align: right; margin-top: 12px;">
+      <div class="grc-drawer-footer">
         <el-button @click="createDrawerVisible = false">Cancel</el-button>
         <el-button type="primary" :loading="creating" @click="submitCreateGrc">Submit</el-button>
       </div>
@@ -1360,3 +1378,31 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
   </el-dialog>
 
 </template>
+
+<style scoped>
+.grc-drawer-footer {
+  text-align: right;
+  margin-top: 12px;
+}
+
+:deep(.grc-members-row .el-input__inner),
+:deep(.grc-members-row .el-select__placeholder),
+:deep(.grc-members-row .el-select__selected-item),
+:deep(.grc-members-row .el-select__tags-text) {
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  :deep(.grc-create-drawer .el-drawer__body) {
+    padding: 12px;
+    overflow-x: hidden;
+  }
+
+  .grc-drawer-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}
+</style>
