@@ -2315,9 +2315,31 @@ const downloadSettlementXlsx = async (row) => {
 
 
 
-const documents =ref([])
- async function handleExpand(row) {
-  documents.value=[]
+const expandedDocumentsByRow = ref<Record<string, any[]>>({})
+const expandedLoadingByRow = ref<Record<string, boolean>>({})
+
+const getExpandedRowKey = (row: any) => {
+  return String(row?.overallInstanceId || row?.instanceID || row?.settlement_code || row?.settlement || '')
+}
+
+const getRowDocuments = (row: any) => {
+  return expandedDocumentsByRow.value[getExpandedRowKey(row)] || []
+}
+
+const isRowExpandedLoading = (row: any) => {
+  return !!expandedLoadingByRow.value[getExpandedRowKey(row)]
+}
+
+async function handleExpand(row, expandedRows) {
+  const rowKey = getExpandedRowKey(row)
+  const isExpanded = Array.isArray(expandedRows)
+    ? expandedRows.some((r: any) => getExpandedRowKey(r) === rowKey)
+    : true
+
+  if (!isExpanded) return
+
+  expandedLoadingByRow.value[rowKey] = true
+  expandedDocumentsByRow.value[rowKey] = []
   console.log('Expanding row:', row)
   
   // Check if GRC data is available
@@ -2329,13 +2351,20 @@ const documents =ref([])
   }
  
    // Define the formData object with necessary fields
-   const secForm = {
-    project: "1",
-    form: "sec_officials",
-    submissionID: row.sec_officials[0].instanceID,
-    token: localStorage.getItem('collectorToken')
-  };
- 
+  try {
+    const secInstanceId = row?.sec_officials?.[0]?.instanceID
+    if (!secInstanceId) {
+      expandedDocumentsByRow.value[rowKey] = []
+      return
+    }
+
+    const secForm = {
+      project: "1",
+      form: "sec_officials",
+      submissionID: secInstanceId,
+      token: localStorage.getItem('collectorToken')
+    };
+  
     const response = await getSubmissionAttachments(secForm);
 
 
@@ -2381,15 +2410,20 @@ if (row.grc_officials && row.grc_officials.length > 0 && row.grc_officials[0].in
 
 
 // Merging arrays and removing duplicates based on 'submissionID'
-const mergedArray = finalResponse.attachments.concat(grcResponse.attachments).filter((item, index, self) =>
-  index === self.findIndex((t) => t.submissionID === item.submissionID)
-);
+    const mergedArray = finalResponse.attachments.concat(grcResponse.attachments).filter((item, index, self) =>
+      index === self.findIndex((t) => t.submissionID === item.submissionID)
+    );
 
 
-documents.value=mergedArray
+    expandedDocumentsByRow.value[rowKey] = mergedArray
 
-console.log('mergedDocumentstsArray',documents.value)
-
+    console.log('mergedDocumentstsArray', expandedDocumentsByRow.value[rowKey])
+  } catch (error) {
+    console.error('Error loading expanded row data:', error)
+    expandedDocumentsByRow.value[rowKey] = []
+  } finally {
+    expandedLoadingByRow.value[rowKey] = false
+  }
 }
 
 const viewLoading =ref(false)
@@ -2582,7 +2616,7 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
                           Add SEC Official
                         </el-button>
                       </div>
-                      <el-table :data="props.row.sec_officials" style=" margin-bottom:10px"  >
+                      <el-table :data="props.row.sec_officials" style=" margin-bottom:10px" class="expanded-officials-table"  >
                         <el-table-column label="#" type="index" />
                         <el-table-column label="Name" prop="name" />
                       <el-table-column label="National ID" prop="national_id" />
@@ -2627,7 +2661,7 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
                           Add GRC Official
                         </el-button>
                       </div>
-                      <el-table :data="props.row.grc_officials" class="styled-table">
+                      <el-table :data="props.row.grc_officials" class="styled-table expanded-officials-table">
                         <el-table-column label="#" type="index" />
                         <el-table-column label="Name" prop="name" />
                         <el-table-column label="National ID" prop="national_id" />
@@ -2661,8 +2695,15 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
                   </el-tab-pane>
                   <el-tab-pane >
                     <template #label> Documents  </template>
+                    <div v-if="isRowExpandedLoading(props.row)" style="margin-left: 25px; color: #909399;">
+                      Loading documents...
+                    </div>
+                    <div v-else-if="getRowDocuments(props.row).length === 0" style="margin-left: 25px; color: #909399;">
+                      No documents available.
+                    </div>
                     <div
-                      v-for="(doc, index) in documents"
+                      v-else
+                      v-for="(doc, index) in getRowDocuments(props.row)"
                       :key="index"
                       style="margin-left: 25px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"
                     >
@@ -2675,7 +2716,6 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
                       >
                         {{ doc.name }}  -  {{ doc.category }}
                       </el-button>
-                     
                     </div>
                   </el-tab-pane>
                 </el-tabs>  
@@ -3071,6 +3111,16 @@ const handleUploadForDoc = async (event: Event, doc: any) => {
   </el-dialog>
 
 </template>
+
+<style scoped>
+:deep(.expanded-officials-table .el-table__cell) {
+  font-style: italic;
+}
+
+:deep(.expanded-officials-table th.el-table__cell) {
+  font-style: normal;
+}
+</style>
 
 
 <style scoped>
