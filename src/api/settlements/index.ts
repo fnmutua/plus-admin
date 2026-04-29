@@ -529,6 +529,15 @@ export const getNeighboringSettlements = (data: {
   return request.post({ url: prod + '/api/v1/data/settlements/neighbors', data })
 }
 
+// Get settlements that intersect a given bbox. Used by the Locate-on-Map drawer
+// to load whatever is in the current map view (and refresh on pan).
+export const getSettlementsInBbox = (data: {
+  bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number }
+  limit?: number
+}): Promise<IResponse<Array<{ id: number; name: string; county_id?: number; subcounty_id?: number; ward_id?: number; geom: any }>>> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/in-bbox', data, silent: true })
+}
+
 // Get imagery layers for a settlement - returns layer names that intersect with settlement bbox
 export const getSettlementImageryLayers = (data: {
   settlementId: string | number

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSettlementListByCounty, getDuplicates, mergeDuplicates, downloadSettlementsGeoData, shareDocuments } from '@/api/settlements'
+import { getSettlementListByCounty, getDuplicates, mergeDuplicates, downloadSettlementsGeoData, shareDocuments, getSettlementsInBbox } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
@@ -31,6 +31,7 @@ import { UserType } from '@/api/register/types'
 import proj4 from 'proj4';
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
 
@@ -4266,6 +4267,337 @@ const resetDialogData = () => {
   duplicateDialogShow.value = false
 }
 
+// =============================
+// Locate-on-Map drawer (Google Maps)
+// Lets the user fly to a coordinate and live-load nearby settlements as the
+// map is panned/zoomed. Independent from the duplicate `map` ref above.
+// =============================
+const locateMapDrawerVisible = ref(false)
+const locateCoordsInput = ref('')
+const locateMapContainer = ref<HTMLDivElement | null>(null)
+const locateMap = ref<any>(null)
+const locateMarker = ref<any>(null)
+const locateInfoWindow = ref<any>(null)
+const locateNearbyOverlays = ref<any[]>([])
+const locateNearbyLabels = ref<any[]>([])
+const locateNearbyCount = ref(0)
+const locateLoadingNearby = ref(false)
+const locateLastFetchKey = ref('')
+const locateMapLoading = ref(false)
+let locateMoveDebounce: any = null
+
+const LOCATE_MIN_ZOOM_FOR_FETCH = 9
+const LOCATE_LABEL_MIN_ZOOM = 12
+
+// Drawer width: full width on mobile, narrower on tablet, compact on desktop.
+// Reacts live to window resizes via the shared `windowWidth` ref.
+const locateDrawerSize = computed(() => {
+  if (isMobile.value) return '100%'
+  const w = windowWidth.value
+  if (w <= 768) return '100%'
+  if (w <= 1024) return '70%'
+  if (w <= 1440) return '50%'
+  return '42%'
+})
+
+const openLocateOnMap = async () => {
+  locateMapDrawerVisible.value = true
+  await nextTick()
+  // Drawer animates in; give it a tick before initialising the map.
+  setTimeout(() => initLocateMap(), 250)
+}
+
+const initLocateMap = async () => {
+  if (!locateMapContainer.value) return
+  if (locateMap.value) {
+    // Already initialised (drawer reopened). Trigger a resize so tiles redraw
+    // correctly after the drawer finishes animating in.
+    try {
+      window.google?.maps?.event?.trigger?.(locateMap.value, 'resize')
+    } catch (e) { /* noop */ }
+    return
+  }
+
+  try {
+    locateMapLoading.value = true
+    const { Loader } = await import('@googlemaps/js-api-loader')
+    const googleMapsApiKey =
+      (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
+      'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+
+    const loader = new Loader({
+      apiKey: googleMapsApiKey,
+      version: 'weekly',
+      libraries: ['geometry', 'places'],
+      region: 'KE',
+      language: 'en',
+    })
+    await loader.load()
+
+    if (!window.google || !window.google.maps) {
+      throw new Error('Google Maps API not loaded properly')
+    }
+
+    locateMap.value = new window.google.maps.Map(locateMapContainer.value, {
+      center: { lat: -0.0236, lng: 37.9062 },
+      zoom: 6,
+      mapTypeId: window.google.maps.MapTypeId.HYBRID,
+      mapTypeControl: true,
+      streetViewControl: false,
+      fullscreenControl: true,
+    })
+
+    locateInfoWindow.value = new window.google.maps.InfoWindow()
+
+    // 'idle' fires once after every pan/zoom settles — ideal for our debounce.
+    window.google.maps.event.addListener(locateMap.value, 'idle', onLocateMapIdle)
+
+    // Show labels only when zoomed in enough to avoid clutter.
+    window.google.maps.event.addListener(locateMap.value, 'zoom_changed', () => {
+      const z = locateMap.value?.getZoom?.() ?? 0
+      const showLabels = z >= LOCATE_LABEL_MIN_ZOOM
+      locateNearbyLabels.value.forEach((m: any) => {
+        if (m && m.setMap) m.setMap(showLabels ? locateMap.value : null)
+      })
+    })
+
+    // Initial fetch once map is ready.
+    fetchNearbyForCurrentBounds()
+  } catch (e) {
+    console.error('Failed to initialise Google Map for Locate drawer', e)
+    ElMessage.error('Failed to load Google Maps. Please try again.')
+  } finally {
+    locateMapLoading.value = false
+  }
+}
+
+const onLocateMapIdle = () => {
+  if (locateMoveDebounce) clearTimeout(locateMoveDebounce)
+  locateMoveDebounce = setTimeout(() => {
+    fetchNearbyForCurrentBounds()
+  }, 350)
+}
+
+const clearLocateNearbyOverlays = () => {
+  locateNearbyOverlays.value.forEach((o: any) => {
+    try { o.setMap(null) } catch (e) { /* noop */ }
+  })
+  locateNearbyOverlays.value = []
+  locateNearbyLabels.value.forEach((m: any) => {
+    try { m.setMap(null) } catch (e) { /* noop */ }
+  })
+  locateNearbyLabels.value = []
+}
+
+const drawLocateNearbySettlements = (settlements: any[]) => {
+  if (!locateMap.value || !window.google?.maps) return
+  clearLocateNearbyOverlays()
+
+  const showLabels = (locateMap.value.getZoom?.() ?? 0) >= LOCATE_LABEL_MIN_ZOOM
+
+  for (const s of settlements) {
+    if (!s?.geom) continue
+    const geomType = s.geom.type
+    if (geomType !== 'Polygon' && geomType !== 'MultiPolygon') continue
+
+    let polys: number[][][] = s.geom.coordinates
+    if (geomType === 'MultiPolygon') {
+      polys = (s.geom.coordinates as number[][][][]).flat()
+    }
+
+    polys.forEach((ring: number[][]) => {
+      const paths = ring
+        .map(([lng, lat]: number[]) => ({ lat, lng }))
+        .filter((p) => isFinite(p.lat) && isFinite(p.lng))
+      if (paths.length === 0) return
+
+      const fillPolygon = new window.google.maps.Polygon({
+        paths,
+        fillColor: '#FF69B4',
+        fillOpacity: 0.18,
+        strokeColor: '#FF69B4',
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        map: locateMap.value,
+        zIndex: 400,
+        clickable: true,
+      })
+
+      fillPolygon.addListener('click', (e: any) => {
+        if (!locateInfoWindow.value) return
+        locateInfoWindow.value.setContent(
+          `<div class="locate-iw">
+             <strong class="locate-iw__title">${s.name || 'Unnamed settlement'}</strong>
+             <div class="locate-iw__meta">ID: ${s.id ?? '-'}</div>
+           </div>`,
+        )
+        locateInfoWindow.value.setPosition(e.latLng)
+        locateInfoWindow.value.open(locateMap.value)
+      })
+
+      locateNearbyOverlays.value.push(fillPolygon)
+    })
+
+    // Add a single name label per settlement (centroid-based)
+    try {
+      const centroid = turf.centroid({ type: 'Feature', geometry: s.geom, properties: {} } as any)
+      const [lng, lat] = centroid.geometry.coordinates
+      const nameMarker = new window.google.maps.Marker({
+        position: { lat, lng },
+        map: showLabels ? locateMap.value : null,
+        icon: {
+          url:
+            'data:image/svg+xml;charset=UTF-8,' +
+            encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'),
+          scaledSize: new window.google.maps.Size(1, 1),
+          anchor: new window.google.maps.Point(0.5, 0.5),
+        },
+        label: {
+          text: s.name || 'Unnamed',
+          color: '#C2185B',
+          fontSize: '12px',
+          fontWeight: '600',
+        },
+        zIndex: 1000,
+        clickable: false,
+      })
+      locateNearbyLabels.value.push(nameMarker)
+    } catch (e) { /* centroid failure: skip label */ }
+  }
+}
+
+const fetchNearbyForCurrentBounds = async () => {
+  if (!locateMap.value) return
+  const zoom = locateMap.value.getZoom?.() ?? 0
+  if (zoom < LOCATE_MIN_ZOOM_FOR_FETCH) {
+    clearLocateNearbyOverlays()
+    locateNearbyCount.value = 0
+    return
+  }
+
+  const b = locateMap.value.getBounds?.()
+  if (!b) return
+  const ne = b.getNorthEast()
+  const sw = b.getSouthWest()
+  const bbox = {
+    minLng: sw.lng(),
+    minLat: sw.lat(),
+    maxLng: ne.lng(),
+    maxLat: ne.lat(),
+  }
+  const key = `${bbox.minLng.toFixed(4)},${bbox.minLat.toFixed(4)},${bbox.maxLng.toFixed(4)},${bbox.maxLat.toFixed(4)}`
+  if (key === locateLastFetchKey.value) return
+  locateLastFetchKey.value = key
+
+  try {
+    locateLoadingNearby.value = true
+    const res: any = await getSettlementsInBbox({ bbox, limit: 300 })
+    const list: any[] = Array.isArray(res?.data) ? res.data : []
+    drawLocateNearbySettlements(list)
+    locateNearbyCount.value = locateNearbyOverlays.value.length > 0 ? list.length : 0
+  } catch (e) {
+    console.error('Failed to load nearby settlements', e)
+  } finally {
+    locateLoadingNearby.value = false
+  }
+}
+
+const locateFlyTo = () => {
+  if (!locateMap.value || !window.google?.maps) {
+    ElMessage.warning('Map is not ready yet')
+    return
+  }
+  const raw = (locateCoordsInput.value || '').trim()
+  if (!raw) {
+    ElMessage.error('Enter coordinates as "lat, lon"')
+    return
+  }
+  const parts = raw.replace(/[\s;]+/g, ',').split(',').map((p) => p.trim()).filter(Boolean)
+  if (parts.length < 2) {
+    ElMessage.error('Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    ElMessage.error('Invalid numbers. Use "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    ElMessage.error('Coordinates out of range')
+    return
+  }
+
+  const target = new window.google.maps.LatLng(lat, lng)
+  locateMap.value.panTo(target)
+  const targetZoom = 15
+  const currentZoom = locateMap.value.getZoom?.() ?? targetZoom
+  locateMap.value.setZoom(Math.max(currentZoom, targetZoom))
+
+  if (locateMarker.value) {
+    try { locateMarker.value.setMap(null) } catch (e) { /* noop */ }
+  }
+  locateMarker.value = new window.google.maps.Marker({
+    position: target,
+    map: locateMap.value,
+    icon: {
+      url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+      scaledSize: new window.google.maps.Size(40, 40),
+    },
+    title: `Lat: ${lat}, Lng: ${lng}`,
+    zIndex: 2000,
+  })
+
+  if (locateInfoWindow.value) {
+    locateInfoWindow.value.setContent(
+      `<div class="locate-iw">
+         <strong class="locate-iw__title">Target location</strong>
+         <div class="locate-iw__meta">Lat: ${lat}</div>
+         <div class="locate-iw__meta">Lng: ${lng}</div>
+       </div>`,
+    )
+    locateInfoWindow.value.open(locateMap.value, locateMarker.value)
+  }
+}
+
+const closeLocateDrawer = () => {
+  locateMapDrawerVisible.value = false
+}
+
+const teardownLocateMap = () => {
+  if (locateMoveDebounce) {
+    clearTimeout(locateMoveDebounce)
+    locateMoveDebounce = null
+  }
+  clearLocateNearbyOverlays()
+  if (locateMarker.value) {
+    try { locateMarker.value.setMap(null) } catch (e) { /* noop */ }
+    locateMarker.value = null
+  }
+  if (locateInfoWindow.value && typeof locateInfoWindow.value.close === 'function') {
+    try { locateInfoWindow.value.close() } catch (e) { /* noop */ }
+    locateInfoWindow.value = null
+  }
+  if (locateMap.value && window.google?.maps?.event) {
+    try { window.google.maps.event.clearInstanceListeners(locateMap.value) } catch (e) { /* noop */ }
+  }
+  locateMap.value = null
+  locateLastFetchKey.value = ''
+  locateNearbyCount.value = 0
+}
+
+watch(locateMapDrawerVisible, (visible) => {
+  if (!visible) {
+    // Drawer uses destroy-on-close so the map container DOM is gone — fully
+    // tear down so the next open starts fresh.
+    teardownLocateMap()
+  }
+})
+
+onUnmounted(() => {
+  teardownLocateMap()
+})
+
 const primaryRecord = ref()
 const selectedRecords = ref([])
 const toMergeRecords = ref([])
@@ -4864,6 +5196,11 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
               </el-button>
             </el-tooltip>
           </PermissionWrapper>
+          <el-tooltip content="Locate on Map (fly to coordinates &amp; load nearby)" placement="top">
+            <el-button @click="openLocateOnMap" type="primary">
+              <Icon icon="mdi:map-search-outline" width="20" height="20" />
+            </el-button>
+          </el-tooltip>
         </div>
 
       </el-col>
@@ -6056,6 +6393,65 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     </el-button>
   </el-dialog>
 
+  <!-- Locate on Map Drawer: fly to a coordinate and live-load nearby settlements as you pan -->
+  <el-drawer
+    v-model="locateMapDrawerVisible"
+    direction="rtl"
+    :size="locateDrawerSize"
+    :with-header="false"
+    :close-on-click-modal="false"
+    destroy-on-close
+  >
+    <div class="locate-drawer">
+      <div class="locate-drawer__header">
+        <div class="locate-drawer__title">
+          <Icon icon="mdi:map-search-outline" width="22" height="22" />
+          <span>Locate Settlements on Map</span>
+        </div>
+        <el-button text @click="closeLocateDrawer">
+          <Icon icon="mdi:close" width="20" height="20" />
+        </el-button>
+      </div>
+
+      <div class="locate-drawer__controls">
+        <el-input
+          v-model="locateCoordsInput"
+          placeholder='Enter "lat, lon" e.g. -1.2921, 36.8219'
+          clearable
+          class="locate-drawer__input"
+          @keyup.enter="locateFlyTo"
+        >
+          <template #prefix>
+            <Icon icon="mdi:crosshairs-gps" />
+          </template>
+        </el-input>
+        <el-button type="primary" @click="locateFlyTo">
+          <Icon icon="mdi:airplane-takeoff" style="margin-right: 4px;" /> Fly
+        </el-button>
+        <div class="locate-drawer__status">
+          <template v-if="locateMapLoading">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>Loading map…</span>
+          </template>
+          <template v-else-if="locateLoadingNearby">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>Loading nearby…</span>
+          </template>
+          <template v-else>
+            <Icon icon="mdi:map-marker-multiple-outline" />
+            <span>{{ locateNearbyCount }} nearby</span>
+          </template>
+        </div>
+      </div>
+
+      <div class="locate-drawer__hint">
+        Pan or zoom the map to load settlements in view. Minimum zoom for fetching is {{ LOCATE_MIN_ZOOM_FOR_FETCH }}.
+      </div>
+
+      <div ref="locateMapContainer" class="locate-drawer__map" v-loading="locateMapLoading"></div>
+    </div>
+  </el-drawer>
+
   <el-dialog
         title="Filter by Create Date"
         v-model="DateDialogVisible"
@@ -6293,6 +6689,152 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   width: 100%;
   height: 650px;
   /* Set the height of the map container */
+}
+
+/* Locate-on-Map drawer
+   Uses Element Plus CSS variables so light/dark mode follow the active theme. */
+.locate-drawer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+.locate-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-light);
+}
+
+.locate-drawer__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+
+.locate-drawer__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.locate-drawer__input {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.locate-drawer__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--el-fill-color);
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.locate-drawer__hint {
+  padding: 6px 16px 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.locate-drawer__map {
+  flex: 1;
+  min-height: 320px;
+  width: 100%;
+  background: var(--el-bg-color-page);
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .locate-drawer__input { max-width: 100%; }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .locate-drawer__header,
+  .locate-drawer__controls,
+  .locate-drawer__hint { padding-left: 12px; padding-right: 12px; }
+  .locate-drawer__title { font-size: 14px; }
+  .locate-drawer__controls { gap: 8px; }
+  .locate-drawer__input { min-width: 0; }
+}
+
+/* Explicit dark-mode polish where Element Plus variables aren't enough */
+html.dark .locate-drawer__header,
+.dark .locate-drawer__header { background: var(--el-fill-color-darker); }
+html.dark .locate-drawer__status,
+.dark .locate-drawer__status { background: var(--el-fill-color-darker); }
+
+/* Google Maps InfoWindow content (shared by polygon click + fly-to marker) */
+.locate-iw {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--el-text-color-primary);
+  min-width: 140px;
+}
+
+.locate-iw__title {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.locate-iw__meta {
+  color: var(--el-text-color-secondary);
+}
+
+/* Dark-mode overrides for the Google InfoWindow itself.
+   Google Maps renders these classes in the document root, so the rules MUST
+   be in an unscoped <style> block (they are). */
+html.dark .gm-style .gm-style-iw-c,
+.dark .gm-style .gm-style-iw-c {
+  background: var(--el-bg-color-overlay) !important;
+  color: var(--el-text-color-primary);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid var(--el-border-color-darker);
+}
+
+html.dark .gm-style .gm-style-iw-d,
+.dark .gm-style .gm-style-iw-d {
+  background: transparent !important;
+  color: var(--el-text-color-primary);
+  overflow: auto !important;
+}
+
+/* The little tail/pointer below the InfoWindow */
+html.dark .gm-style .gm-style-iw-tc::after,
+.dark .gm-style .gm-style-iw-tc::after {
+  background: var(--el-bg-color-overlay) !important;
+}
+
+/* Close (X) button: invert so it's visible on the dark bubble */
+html.dark .gm-style .gm-ui-hover-effect,
+.dark .gm-style .gm-ui-hover-effect {
+  filter: invert(1) brightness(1.4);
+  opacity: 0.8;
+}
+html.dark .gm-style .gm-ui-hover-effect:hover,
+.dark .gm-style .gm-ui-hover-effect:hover {
+  opacity: 1;
 }
 </style>
 

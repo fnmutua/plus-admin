@@ -2445,6 +2445,82 @@ exports.getNeighboringSettlements = async (req, res) => {
   }
 }
 
+// Get settlements that intersect an arbitrary bbox (no settlementId required).
+// Used by the "Locate on Map" drawer for live, pan-based loading.
+exports.getSettlementsInBbox = async (req, res) => {
+  try {
+    const { bbox, limit } = req.body || {}
+
+    if (!bbox || typeof bbox !== 'object') {
+      return res.status(400).json({
+        message: 'bbox is required: { minLng, minLat, maxLng, maxLat }',
+        code: 'MISSING_PARAMETER',
+      })
+    }
+
+    const minLng = parseFloat(bbox.minLng)
+    const minLat = parseFloat(bbox.minLat)
+    const maxLng = parseFloat(bbox.maxLng)
+    const maxLat = parseFloat(bbox.maxLat)
+
+    if ([minLng, minLat, maxLng, maxLat].some((n) => Number.isNaN(n))) {
+      return res.status(400).json({
+        message: 'bbox values must be numeric',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    // Cap how big the queried bbox can be so we don't return the whole country
+    // when the user is zoomed out. ~3 degrees ≈ ~330km, plenty for a city view.
+    const MAX_SPAN = 3
+    if (maxLng - minLng > MAX_SPAN || maxLat - minLat > MAX_SPAN) {
+      return res.status(200).json({
+        message: 'bbox too large; zoom in to load settlements',
+        code: 'BBOX_TOO_LARGE',
+        data: [],
+      })
+    }
+
+    const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 200, 500))
+
+    const query = `
+      SELECT
+        s.id,
+        s.name,
+        s.county_id,
+        s.subcounty_id,
+        s.ward_id,
+        ST_AsGeoJSON(s.geom)::json as geom
+      FROM settlement s
+      WHERE s.geom IS NOT NULL
+        AND (ST_GeometryType(s.geom) = 'ST_Polygon' OR ST_GeometryType(s.geom) = 'ST_MultiPolygon')
+        AND ST_Intersects(
+          s.geom,
+          ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326)
+        )
+      LIMIT :safeLimit
+    `
+
+    const settlements = await db.sequelize.query(query, {
+      replacements: { minLng, minLat, maxLng, maxLat, safeLimit },
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    return res.status(200).json({
+      message: 'Settlements in bbox retrieved successfully',
+      code: '0000',
+      data: settlements || [],
+    })
+  } catch (error) {
+    console.error('❌ Error in getSettlementsInBbox:', error)
+    return res.status(500).json({
+      message: 'Failed to fetch settlements in bbox',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
 
  
 
