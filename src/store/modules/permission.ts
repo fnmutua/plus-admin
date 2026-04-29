@@ -4,7 +4,7 @@ import { flatMultiLevelRoutes } from '@/utils/routerHelper'
 import { store } from '../index'
 import { cloneDeep } from 'lodash-es'
 import { Layout } from '@/utils/routerHelper'
-import { ref ,watch} from 'vue'
+import { ref } from 'vue'
 import { getRoutesList } from '@/api/settlements'
 // import { useAppStore} from '@/store/modules/app' // Removed unused import
 import { useCache } from '@/hooks/web/useCache'
@@ -205,7 +205,7 @@ const getProgrameComponents = async (): Promise<RouteItem[]> => {
         return {
           ...item,
           path: fullPath.split('/').pop() || '',
-          name: toTitleCase(item.title),
+          name: `programme_${item.id}`,
           meta: {
             title: item.title,
             hidden: false,
@@ -268,6 +268,7 @@ const getComponents = async (): Promise<void> => {
   };
 
   try {
+    components.value = []; // Clear before re-populating to prevent duplicates on reload
     const res = await getRoutesList(formData as any) as any;
     console.log('Components routes ', res.data);
 
@@ -359,7 +360,7 @@ const getComponents = async (): Promise<void> => {
                // Create a new component object with a plain structure
                     const newComponent = {
                       path: component.path,
-                      name:  component.title,
+                      name: `component_${component.id}`,
                       component : () => import('@/views/programmes/interventions.vue') ,// This is a template to hold info on interventions
                       meta: {
                         title: component.title,
@@ -540,6 +541,18 @@ const initializeRoutes = async () => {
 
     await Promise.all([loadProgrammeComponents(), getComponents()]);
 
+    // Update adminRoutes synchronously here — avoids the race where cloneDeep(adminRoutes)
+    // was snapshotted before the watcher had a chance to fire.
+    if (programmeComponentOptions.value.length > 0) {
+      subprograms.value[0].children = programmeComponentOptions.value as any;
+      const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes');
+      if (existingIndex >= 0) {
+        adminRoutes[existingIndex] = subprograms.value[0];
+      } else {
+        adminRoutes.splice(2, 0, ...subprograms.value);
+      }
+    }
+
     console.log('All routes loaded successfully');
   } catch (error) {
     console.error('Error initializing routes:', error);
@@ -568,31 +581,7 @@ const subprograms = ref([
   }
 ]);
 
-// 2. Create a watcher to update when programmeComponentOptions changes
-watch(programmeComponentOptions, (newVal) => {
-  if (newVal && newVal.length > 0) {
-    console.log('Updating subprograms with new data:', newVal);
-    
-    // Update the children array
-    subprograms.value[0].children = newVal as any;
-    
-    // Find index if it already exists
-    const existingIndex = adminRoutes.findIndex(
-      route => route.path === '/subprogrammes'
-    );
-    
-    // Update or add the route
-    if (existingIndex >= 0) {
-      adminRoutes[existingIndex] = subprograms.value[0];
-    } else {
-      adminRoutes.splice(2, 0, ...subprograms.value);
-    }
-    
-    console.log('Subprograms updated in adminRoutes');
-  }
-}, { immediate: true, deep: true });
-
-// 3. Load data function - removed as it's now handled by initializeRoutes
+// adminRoutes is updated synchronously inside initializeRoutes() after data loads.
 
 // Remove old calls - now handled by initializeRoutes()
 
@@ -669,16 +658,9 @@ export const usePermissionStore = defineStore('permission', {
         const filteredRoutes = filterRoutes(cloneDeep(adminRoutes));
         // Clone the filtered routes to avoid modifying the original routes
         const newRouterMap = cloneDeep(filteredRoutes);
-        // Check if this.addRouters is empty (first call) or if it contains already added routes
-        if (this.addRouters && this.addRouters.length > 0) {
-          // If addRouters already contains routes, merge the new filtered routes with the existing ones
-          this.addRouters = [...this.addRouters, ...newRouterMap].filter(
-            (value, index, self) => index === self.findIndex((t) => t.path === value.path)
-          );
-        } else {
-          // If no routes have been added yet, initialize addRouters with new filtered routes
-          this.addRouters = newRouterMap;
-        }
+        // Always replace — adminRoutes is the source of truth and was freshly cloned above.
+        // Merging kept the first (stale) entry when called more than once, hiding updated children.
+        this.addRouters = newRouterMap;
         // Combine constantRouterMap with the updated set of added routes
         this.routers = cloneDeep(constantRouterMap).concat(this.addRouters);
         resolve();
