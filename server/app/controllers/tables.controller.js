@@ -2655,6 +2655,268 @@ exports.computeSettlementDensityTypology = async (req, res) => {
   }
 }
 
+// Compute AND persist density typology for many settlements in a single
+// transaction. Heavy lifting (PostGIS aggregate + bulk UPDATE + bulk history
+// insert) all happens server-side so the client only makes one round-trip.
+//
+// Behaviour:
+//   - One PostGIS query computes the built-up ratio and proposed typology
+//     per settlement (CTE + CASE).
+//   - A single UPDATE ... FROM applies the new typology only where it actually
+//     changes; rows without structures are left alone.
+//   - One bulk INSERT into settlement_history records each change so the
+//     normal per-settlement history view continues to work.
+//   - Returns summary stats and the list of changed rows for UI feedback.
+//
+// Request body: same as computeSettlementDensityTypology
+//   { settlement_ids?: number[]; county_id?: number; scope?: 'missing'|'all';
+//     low_threshold?: number; medium_threshold?: number; dry_run?: boolean }
+//
+// `dry_run: true` runs the compute step only and returns what would change
+// without writing anything (useful for the preview button).
+exports.applyDensityTypology = async (req, res) => {
+  const t = await db.sequelize.transaction()
+  try {
+    const body = req.body || {}
+    const settlementIds = Array.isArray(body.settlement_ids)
+      ? body.settlement_ids
+          .map((n) => parseInt(n, 10))
+          .filter((n) => Number.isFinite(n))
+      : []
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const scope = body.scope === 'missing' ? 'missing' : 'all'
+    const dryRun = body.dry_run === true
+
+    const lowMax = Number.isFinite(parseFloat(body.low_threshold))
+      ? parseFloat(body.low_threshold)
+      : 60
+    const mediumMax = Number.isFinite(parseFloat(body.medium_threshold))
+      ? parseFloat(body.medium_threshold)
+      : 80
+
+    if (lowMax >= mediumMax) {
+      await t.rollback()
+      return res.status(400).json({
+        message: 'low_threshold must be strictly less than medium_threshold',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    const filters = []
+    const replacements = { lowMax, mediumMax }
+
+    if (settlementIds.length > 0) {
+      filters.push('s.id = ANY(:settlementIds)')
+      replacements.settlementIds = settlementIds
+    }
+    if (countyId !== null && Number.isFinite(countyId)) {
+      filters.push('s.county_id = :countyId')
+      replacements.countyId = countyId
+    }
+    if (scope === 'missing') {
+      filters.push('s.density_typology IS NULL')
+    }
+
+    const where = filters.length ? `AND ${filters.join(' AND ')}` : ''
+
+    // Single CTE pipeline:
+    //   1. ratios   – aggregate structure footprints per settlement
+    //   2. typed    – derive built-up ratio + proposed typology
+    //   3. preview  – everything we know about each settlement post-compute
+    const previewQuery = `
+      WITH ratios AS (
+        SELECT
+          s.id,
+          s.name,
+          s.county_id,
+          s.density_typology AS current_typology,
+          (ST_Area(ST_Transform(s.geom, 3857)) / 10000.0) AS settlement_area_ha,
+          COALESCE(SUM(ST_Area(ST_Transform(st.geom, 3857)) / 10000.0), 0) AS built_up_area_ha,
+          COUNT(st.structure_id) FILTER (WHERE st.geom IS NOT NULL) AS structure_count
+        FROM settlement s
+        LEFT JOIN structure st
+          ON st.settlement_id = s.id
+         AND st.geom IS NOT NULL
+        WHERE s.geom IS NOT NULL
+          AND (ST_GeometryType(s.geom) = 'ST_Polygon' OR ST_GeometryType(s.geom) = 'ST_MultiPolygon')
+          ${where}
+        GROUP BY s.id, s.name, s.county_id, s.density_typology
+      ),
+      typed AS (
+        SELECT
+          r.*,
+          CASE
+            WHEN r.structure_count = 0 OR r.settlement_area_ha = 0 THEN NULL
+            WHEN (r.built_up_area_ha / r.settlement_area_ha * 100) < :lowMax THEN 'LOW DENSITY'
+            WHEN (r.built_up_area_ha / r.settlement_area_ha * 100) <= :mediumMax THEN 'MEDIUM DENSITY'
+            ELSE 'HIGH DENSITY'
+          END AS new_typology
+        FROM ratios r
+      )
+      SELECT
+        id,
+        name,
+        county_id,
+        current_typology,
+        ROUND(settlement_area_ha::numeric, 4) AS settlement_area_ha,
+        ROUND(built_up_area_ha::numeric, 4) AS built_up_area_ha,
+        ROUND(
+          CASE
+            WHEN settlement_area_ha = 0 OR structure_count = 0 THEN NULL
+            ELSE (built_up_area_ha / settlement_area_ha * 100)
+          END::numeric,
+          2
+        ) AS built_up_ratio,
+        structure_count,
+        new_typology
+      FROM typed
+      ORDER BY id
+    `
+
+    const preview = await db.sequelize.query(previewQuery, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+      transaction: t,
+    })
+
+    // Normalise numeric fields (pg `numeric` comes back as strings).
+    const previewNorm = preview.map((r) => ({
+      id: r.id,
+      name: r.name,
+      county_id: r.county_id,
+      current_typology: r.current_typology,
+      settlement_area_ha: parseFloat(r.settlement_area_ha) || 0,
+      built_up_area_ha: parseFloat(r.built_up_area_ha) || 0,
+      built_up_ratio: r.built_up_ratio === null ? null : parseFloat(r.built_up_ratio),
+      structure_count: parseInt(r.structure_count, 10) || 0,
+      new_typology: r.new_typology,
+    }))
+
+    // Anything that should actually be written.
+    const willChange = previewNorm.filter(
+      (r) => r.new_typology !== null && r.current_typology !== r.new_typology
+    )
+
+    if (dryRun) {
+      await t.rollback()
+      return res.status(200).json({
+        message: 'Density typology computed (dry run, nothing persisted)',
+        code: '0000',
+        data: previewNorm,
+        summary: buildDensitySummary(previewNorm, willChange),
+        thresholds: { low_max: lowMax, medium_max: mediumMax },
+        dry_run: true,
+      })
+    }
+
+    let updatedRows = []
+
+    if (willChange.length > 0) {
+      const ids = willChange.map((r) => r.id)
+      const newValues = willChange.map((r) => r.new_typology)
+
+      // Single UPDATE driven by parallel arrays. We use `bind` (not
+      // `replacements`) so node-postgres sends each array as ONE parameter;
+      // `replacements` would inline them as comma-separated lists which
+      // breaks the `::int[]` / `::text[]` casts.
+      const updateQuery = `
+        UPDATE settlement s
+        SET density_typology = v.new_typology,
+            "updatedAt" = NOW()
+        FROM (
+          SELECT UNNEST($1::int[]) AS id,
+                 UNNEST($2::text[]) AS new_typology
+        ) v
+        WHERE s.id = v.id
+          AND s.density_typology IS DISTINCT FROM v.new_typology
+        RETURNING s.id, s.density_typology AS new_typology
+      `
+
+      updatedRows = await db.sequelize.query(updateQuery, {
+        bind: [ids, newValues],
+        type: db.sequelize.QueryTypes.SELECT,
+        transaction: t,
+      })
+
+      // Bulk-insert one history row per actual change so the per-settlement
+      // History tab keeps showing density_typology updates.
+      const userId = (req.thisUser && req.thisUser.id) || null
+      const updatedById = new Set(updatedRows.map((r) => r.id))
+      const historyRecords = willChange
+        .filter((r) => updatedById.has(r.id))
+        .map((r) => ({
+          settlement_id: r.id,
+          changed_by: userId,
+          change_type: 'Edit',
+          changes: {
+            before: { density_typology: r.current_typology },
+            after: { density_typology: r.new_typology },
+            bulk_operation: 'density_typology_recompute',
+            metrics: {
+              built_up_ratio: r.built_up_ratio,
+              built_up_area_ha: r.built_up_area_ha,
+              settlement_area_ha: r.settlement_area_ha,
+              structure_count: r.structure_count,
+            },
+          },
+        }))
+
+      if (historyRecords.length > 0) {
+        await db.models.settlement_history.bulkCreate(historyRecords, { transaction: t })
+      }
+    }
+
+    await t.commit()
+
+    return res.status(200).json({
+      message:
+        updatedRows.length > 0
+          ? `Density typology updated for ${updatedRows.length} settlement(s)`
+          : 'No changes applied',
+      code: '0000',
+      data: previewNorm,
+      summary: buildDensitySummary(previewNorm, willChange, updatedRows.length),
+      thresholds: { low_max: lowMax, medium_max: mediumMax },
+      dry_run: false,
+    })
+  } catch (error) {
+    try {
+      await t.rollback()
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('❌ Error in applyDensityTypology:', error)
+    return res.status(500).json({
+      message: 'Failed to apply density typology',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+// Build summary stats for compute / apply responses.
+function buildDensitySummary(preview, willChange, updatedCount) {
+  const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, NONE: 0 }
+  for (const row of preview) {
+    if (row.new_typology === 'LOW DENSITY') counts.LOW++
+    else if (row.new_typology === 'MEDIUM DENSITY') counts.MEDIUM++
+    else if (row.new_typology === 'HIGH DENSITY') counts.HIGH++
+    else counts.NONE++
+  }
+  return {
+    total_evaluated: preview.length,
+    will_change: willChange.length,
+    unchanged: preview.length - willChange.length - counts.NONE,
+    no_structures: counts.NONE,
+    by_new_typology: counts,
+    updated:
+      typeof updatedCount === 'number' ? updatedCount : null,
+  }
+}
+
 
  
 

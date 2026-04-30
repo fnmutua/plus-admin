@@ -550,6 +550,24 @@ export interface DensityTypologyComputeRow {
   new_typology: 'LOW DENSITY' | 'MEDIUM DENSITY' | 'HIGH DENSITY' | null
 }
 
+export interface DensityTypologySummary {
+  total_evaluated: number
+  will_change: number
+  unchanged: number
+  no_structures: number
+  by_new_typology: { LOW: number; MEDIUM: number; HIGH: number; NONE: number }
+  updated: number | null
+}
+
+export interface DensityTypologyResponse {
+  code: string
+  message: string
+  data: DensityTypologyComputeRow[]
+  summary: DensityTypologySummary
+  thresholds: { low_max: number; medium_max: number }
+  dry_run: boolean
+}
+
 // Compute the density-based slum typology for one or more settlements based
 // on the structures (built-up) inside each settlement boundary. Computes only;
 // the caller persists results via updateOneRecord.
@@ -561,6 +579,20 @@ export const computeSettlementDensityTypology = (data: {
   medium_threshold?: number
 }): Promise<{ code: string; message: string; data: DensityTypologyComputeRow[]; thresholds: { low_max: number; medium_max: number } }> => {
   return request.post({ url: prod + '/api/v1/data/settlements/density-typology/compute', data })
+}
+
+// One-shot bulk: backend computes ratios, derives typology, runs a single
+// UPDATE for all affected settlements and bulk-inserts history rows — all
+// in one transaction. With `dry_run: true` it only previews (no writes).
+export const applySettlementDensityTypology = (data: {
+  settlement_ids?: number[]
+  county_id?: number | null
+  scope?: 'missing' | 'all'
+  low_threshold?: number
+  medium_threshold?: number
+  dry_run?: boolean
+}): Promise<DensityTypologyResponse> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/density-typology/apply', data })
 }
 
 // Get imagery layers for a settlement - returns layer names that intersect with settlement bbox

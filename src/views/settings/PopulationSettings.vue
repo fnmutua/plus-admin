@@ -174,42 +174,53 @@
                   <ElButton
                     type="primary"
                     :loading="densityRunning"
-                    :disabled="densityRunning || densityComputing || densityPreview.length === 0"
+                    :disabled="densityRunning || densityComputing || (densitySummary?.will_change ?? 0) === 0"
                     style="flex: 1"
                     @click="applyDensityTypology"
                   >
                     {{ densityRunning ? 'Applying...' : 'Apply to Settlements' }}
                   </ElButton>
-                  <ElButton
-                    type="danger"
-                    plain
-                    :disabled="!densityRunning"
-                    style="flex: 1"
-                    @click="densityCancelled = true"
-                  >
-                    Cancel
-                  </ElButton>
                 </div>
               </div>
 
-              <!-- Preview table -->
-              <div v-if="densityPreview.length > 0" class="density-preview">
-                <div class="preview-header">
-                  <span class="preview-summary">
-                    {{ densityPreview.length }} settlement{{ densityPreview.length === 1 ? '' : 's' }} —
+              <!-- Summary banner -->
+              <div v-if="densitySummary" class="density-summary">
+                <div class="density-summary__row">
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ densitySummary.total_evaluated }}</span>
+                    <span class="stat-label">evaluated</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num stat-num--primary">{{ densitySummary.will_change }}</span>
+                    <span class="stat-label">{{ densitySummary.updated != null ? 'updated' : 'will update' }}</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ densitySummary.unchanged }}</span>
+                    <span class="stat-label">already correct</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ densitySummary.no_structures }}</span>
+                    <span class="stat-label">no structures</span>
+                  </div>
+                  <div class="density-summary__breakdown">
                     <ElTag size="small" type="success">{{ densityCounts.LOW }} Low</ElTag>
-                    <ElTag size="small" type="warning" style="margin-left:4px">{{ densityCounts.MEDIUM }} Medium</ElTag>
-                    <ElTag size="small" type="danger" style="margin-left:4px">{{ densityCounts.HIGH }} High</ElTag>
-                    <ElTag size="small" type="info" style="margin-left:4px">{{ densityCounts.NONE }} no structures</ElTag>
-                  </span>
+                    <ElTag size="small" type="warning">{{ densityCounts.MEDIUM }} Medium</ElTag>
+                    <ElTag size="small" type="danger">{{ densityCounts.HIGH }} High</ElTag>
+                  </div>
                 </div>
+                <div v-if="densityLastApplyAt" class="density-summary__footer">
+                  Last applied {{ densityLastApplyAt.toLocaleString() }}
+                </div>
+              </div>
 
+              <!-- Preview / result table -->
+              <div v-if="densityPreview.length > 0" class="density-preview">
                 <ElTable
                   :data="densityPreview"
                   size="small"
                   border
                   stripe
-                  height="320"
+                  height="360"
                   class="density-table"
                 >
                   <ElTableColumn prop="name" label="Settlement" min-width="160" show-overflow-tooltip />
@@ -246,43 +257,14 @@
                       </ElTag>
                     </template>
                   </ElTableColumn>
-                  <ElTableColumn label="Status" width="100">
+                  <ElTableColumn label="Status" width="110">
                     <template #default="{ row }">
                       <ElTag v-if="row.new_typology === null" size="small" type="info">skip</ElTag>
                       <ElTag v-else-if="row.current_typology === row.new_typology" size="small" type="info" effect="plain">unchanged</ElTag>
-                      <ElTag v-else size="small" type="primary" effect="plain">will update</ElTag>
+                      <ElTag v-else size="small" type="primary" effect="plain">{{ densityLastApplyAt ? 'updated' : 'will update' }}</ElTag>
                     </template>
                   </ElTableColumn>
                 </ElTable>
-              </div>
-
-              <!-- Progress + log (apply phase) -->
-              <div v-if="densityTotal > 0" class="bulk-progress">
-                <div class="progress-header">
-                  <span class="progress-label">
-                    {{ densityDone }} / {{ densityTotal }} settlements — {{ densityPercent }}%
-                    <ElTag v-if="densitySkipped > 0" type="info" size="small" style="margin-left:8px">{{ densitySkipped }} skipped</ElTag>
-                    <ElTag v-if="densityErrors > 0" type="danger" size="small" style="margin-left:4px">{{ densityErrors }} errors</ElTag>
-                  </span>
-                  <span v-if="!densityRunning && densityDone > 0" class="progress-done-label">Done</span>
-                </div>
-                <ElProgress :percentage="densityPercent" :status="densityProgressStatus" striped :striped-flow="densityRunning" :duration="6" />
-                <div class="log-toolbar">
-                  <ElButton size="small" plain @click="copyDensityLog" :disabled="densityLog.length === 0">
-                    {{ densityCopied ? '✓ Copied' : 'Copy to clipboard' }}
-                  </ElButton>
-                </div>
-                <div class="bulk-log" ref="densityLogRef">
-                  <div
-                    v-for="(entry, i) in densityLog"
-                    :key="i"
-                    :class="['log-entry', `log-${entry.status}`]"
-                  >
-                    <span class="log-icon">{{ entry.status === 'ok' ? '✓' : entry.status === 'skip' ? '–' : '✗' }}</span>
-                    <span class="log-name">{{ entry.name }}</span>
-                    <span class="log-msg">{{ entry.msg }}</span>
-                  </div>
-                </div>
               </div>
             </div>
           </ElTabPane>
@@ -315,8 +297,9 @@ import {
 import {
   getSettlementListByCounty,
   updateOneRecord,
-  computeSettlementDensityTypology,
-  type DensityTypologyComputeRow
+  applySettlementDensityTypology,
+  type DensityTypologyComputeRow,
+  type DensityTypologySummary
 } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
@@ -527,10 +510,14 @@ const copyLog = async () => {
 }
 
 // ── Density Typology auto-populate ───────────────────────────────────────────
-// Aggregates each settlement's child structures (built-up area) and divides
-// by the settlement polygon area to derive a built-up ratio. The ratio is
-// mapped to LOW / MEDIUM / HIGH DENSITY per the National Slum Upgrading and
-// Prevention Strategy 2024 - 2034 (default thresholds 60% and 80%).
+// All heavy lifting (PostGIS aggregate, ratio derivation, bulk UPDATE, bulk
+// history insert) happens server-side in one transaction. The browser only
+// makes a single round-trip per action.
+//
+// Categories per the National Slum Upgrading and Prevention Strategy 2024-2034:
+//   built-up ratio < 60%      -> LOW DENSITY   (defaults editable)
+//   built-up ratio 60% - 80%  -> MEDIUM DENSITY
+//   built-up ratio > 80%      -> HIGH DENSITY
 
 const densityCountyId = ref<any>(null)
 const densityScope = ref<'missing' | 'all'>('missing')
@@ -539,37 +526,13 @@ const densityMediumMax = ref<number>(80)
 
 const densityComputing = ref(false)
 const densityRunning = ref(false)
-const densityCancelled = ref(false)
 const densityPreview = ref<DensityTypologyComputeRow[]>([])
+const densitySummary = ref<DensityTypologySummary | null>(null)
+const densityLastApplyAt = ref<Date | null>(null)
 
-const densityTotal = ref(0)
-const densityDone = ref(0)
-const densitySkipped = ref(0)
-const densityErrors = ref(0)
-const densityLog = ref<{ name: string; status: 'ok' | 'skip' | 'error'; msg: string }[]>([])
-const densityLogRef = ref<HTMLElement | null>(null)
-const densityCopied = ref(false)
-
-const densityPercent = computed(() =>
-  densityTotal.value > 0 ? Math.round((densityDone.value / densityTotal.value) * 100) : 0
+const densityCounts = computed(
+  () => densitySummary.value?.by_new_typology ?? { LOW: 0, MEDIUM: 0, HIGH: 0, NONE: 0 }
 )
-const densityProgressStatus = computed(() => {
-  if (densityRunning.value) return ''
-  if (densityErrors.value > 0) return 'warning'
-  if (densityDone.value === densityTotal.value && densityTotal.value > 0) return 'success'
-  return ''
-})
-
-const densityCounts = computed(() => {
-  const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, NONE: 0 }
-  for (const row of densityPreview.value) {
-    if (row.new_typology === 'LOW DENSITY') counts.LOW++
-    else if (row.new_typology === 'MEDIUM DENSITY') counts.MEDIUM++
-    else if (row.new_typology === 'HIGH DENSITY') counts.HIGH++
-    else counts.NONE++
-  }
-  return counts
-})
 
 const typologyTagType = (typology: string | null | undefined): 'success' | 'warning' | 'danger' | 'info' => {
   if (typology === 'LOW DENSITY') return 'success'
@@ -585,34 +548,38 @@ const typologyShortLabel = (typology: string | null | undefined): string => {
   return typology || '—'
 }
 
+// One round-trip: backend does the full pipeline (compute → bulk UPDATE →
+// bulk history insert) in a single transaction. `dry_run` toggles preview
+// vs. persist.
+const callDensityTypologyApi = async (dryRun: boolean) => {
+  const res = await applySettlementDensityTypology({
+    county_id: densityCountyId.value || null,
+    scope: densityScope.value,
+    low_threshold: densityLowMax.value,
+    medium_threshold: densityMediumMax.value,
+    dry_run: dryRun
+  })
+
+  if (res.code !== '0000') {
+    throw new Error(res.message || 'Density typology operation failed')
+  }
+
+  densityPreview.value = res.data || []
+  densitySummary.value = res.summary || null
+  return res
+}
+
 const computeDensityPreview = async () => {
   densityComputing.value = true
   densityPreview.value = []
-  densityTotal.value = 0
-  densityDone.value = 0
-  densitySkipped.value = 0
-  densityErrors.value = 0
-  densityLog.value = []
+  densitySummary.value = null
 
   try {
-    const res = await computeSettlementDensityTypology({
-      county_id: densityCountyId.value || null,
-      scope: densityScope.value,
-      low_threshold: densityLowMax.value,
-      medium_threshold: densityMediumMax.value
-    })
-
-    if (res.code !== '0000') {
-      ElMessage.error(res.message || 'Failed to compute density typology')
-      return
-    }
-
-    densityPreview.value = res.data || []
-
-    if (densityPreview.value.length === 0) {
+    const res = await callDensityTypologyApi(true)
+    if (res.data.length === 0) {
       ElMessage.info('No settlements match the selected scope.')
     } else {
-      ElMessage.success(`Computed typology for ${densityPreview.value.length} settlement(s).`)
+      ElMessage.success(`Computed typology for ${res.data.length} settlement(s).`)
     }
   } catch (e: any) {
     ElMessage.error(e?.message || 'Failed to compute density typology')
@@ -622,83 +589,30 @@ const computeDensityPreview = async () => {
 }
 
 const applyDensityTypology = async () => {
-  // Only persist rows that meaningfully change the field.
-  const changes = densityPreview.value.filter(
-    (row) => row.new_typology !== null && row.current_typology !== row.new_typology
-  )
-  const noopCount = densityPreview.value.length - changes.length
-
-  if (changes.length === 0) {
+  if (densityPreview.value.length === 0) {
+    ElMessage.info('Run “Compute Preview” first.')
+    return
+  }
+  if ((densitySummary.value?.will_change ?? 0) === 0) {
     ElMessage.info('Nothing to apply — every settlement already matches its computed typology.')
     return
   }
 
   densityRunning.value = true
-  densityCancelled.value = false
-  densityTotal.value = changes.length
-  densityDone.value = 0
-  densitySkipped.value = noopCount
-  densityErrors.value = 0
-  densityLog.value = []
-
   try {
-    for (const row of changes) {
-      if (densityCancelled.value) break
-
-      try {
-        await updateOneRecord(
-          { id: row.id, model: 'settlement', density_typology: row.new_typology } as any,
-          { silent: true }
-        )
-
-        densityLog.value.push({
-          name: row.name || `ID ${row.id}`,
-          status: 'ok',
-          msg:
-            `${row.current_typology ? typologyShortLabel(row.current_typology) : '—'}` +
-            ` → ${typologyShortLabel(row.new_typology)}` +
-            ` (${row.built_up_ratio?.toFixed(2)}% from ${row.structure_count} structures)`
-        })
-
-        // Reflect the saved value in the preview without re-running compute.
-        row.current_typology = row.new_typology
-      } catch (e: any) {
-        densityLog.value.push({
-          name: row.name || `ID ${row.id}`,
-          status: 'error',
-          msg: e?.message || 'Failed to update'
-        })
-        densityErrors.value++
-      }
-
-      densityDone.value++
-      await scrollDensityLog()
-    }
-
-    if (!densityCancelled.value) {
-      ElMessage.success(
-        `Density typology applied: ${densityDone.value - densityErrors.value} updated, ${densityErrors.value} errors.`
-      )
+    const res = await callDensityTypologyApi(false)
+    densityLastApplyAt.value = new Date()
+    const updated = res.summary?.updated ?? 0
+    if (updated > 0) {
+      ElMessage.success(`Density typology updated for ${updated} settlement(s).`)
     } else {
-      ElMessage.warning('Apply cancelled.')
+      ElMessage.info('No settlements needed updating.')
     }
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Failed to apply density typology')
   } finally {
     densityRunning.value = false
   }
-}
-
-const scrollDensityLog = async () => {
-  await nextTick()
-  if (densityLogRef.value) densityLogRef.value.scrollTop = densityLogRef.value.scrollHeight
-}
-
-const copyDensityLog = async () => {
-  const text = densityLog.value
-    .map((e) => `${e.status === 'ok' ? '✓' : e.status === 'skip' ? '–' : '✗'} ${e.name}  ${e.msg}`)
-    .join('\n')
-  await navigator.clipboard.writeText(text)
-  densityCopied.value = true
-  setTimeout(() => { densityCopied.value = false }, 2000)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -850,21 +764,61 @@ onMounted(() => {
   }
 }
 
+.density-summary {
+  margin-top: 8px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    .stat-num {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--el-text-color-primary, #303133);
+      line-height: 1;
+
+      &--primary { color: var(--el-color-primary, #409eff); }
+    }
+
+    .stat-label {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--el-text-color-secondary, #909399);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+  }
+
+  &__breakdown {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+
+  &__footer {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary, #909399);
+  }
+}
+
 .density-preview {
   margin-top: 8px;
   margin-bottom: 20px;
-
-  .preview-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-
-    .preview-summary {
-      font-size: 13px;
-      color: #606266;
-    }
-  }
 
   .density-table {
     width: 100%;
