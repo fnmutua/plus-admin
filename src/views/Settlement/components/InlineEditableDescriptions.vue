@@ -46,7 +46,6 @@ const textareaSet = computed(() => new Set(props.textareaFields || []))
 const numberSet = computed(() => new Set(props.numberFields || []))
 const booleanSet = computed(() => new Set(props.booleanFields || []))
 
-const hoverField = ref<string | null>(null)
 const editingField = ref<string | null>(null)
 const draft = ref<unknown>(null)
 const snapshot = ref<unknown>(null)
@@ -200,8 +199,6 @@ function itemBind(item: Record<string, any>) {
             'inline-cell--editing': editingField === item.field,
             'inline-cell--readonly': !editable || isReadonly(item.field)
           }"
-          @mouseenter="hoverField = item.field"
-          @mouseleave="hoverField = null"
         >
           <template v-if="editingField === item.field">
             <ElSwitch
@@ -239,19 +236,32 @@ function itemBind(item: Record<string, any>) {
           </template>
           <template v-else>
             <span class="inline-cell__text">{{ cellDisplay(item.field) }}</span>
-            <ElTooltip v-if="editable && !isReadonly(item.field)" content="Edit" placement="top">
+            <div
+              v-if="editable && !isReadonly(item.field)"
+              class="inline-cell__actions"
+              aria-hidden="true"
+            >
               <ElIcon
-                v-show="hoverField === item.field && savingField !== item.field"
-                class="inline-cell__edit"
-                @mousedown.prevent
-                @click.stop="startEdit(item.field)"
+                v-if="savingField === item.field"
+                class="inline-cell__saving is-loading"
               >
-                <Edit />
+                <Loading />
               </ElIcon>
-            </ElTooltip>
-            <ElIcon v-if="savingField === item.field" class="inline-cell__saving is-loading">
-              <Loading />
-            </ElIcon>
+              <ElTooltip v-else content="Edit" placement="top">
+                <span
+                  class="inline-cell__edit-wrap"
+                  role="button"
+                  tabindex="0"
+                  @mousedown.prevent
+                  @click.stop="startEdit(item.field)"
+                  @keydown.enter.prevent="startEdit(item.field)"
+                >
+                  <ElIcon class="inline-cell__edit-icon">
+                    <Edit />
+                  </ElIcon>
+                </span>
+              </ElTooltip>
+            </div>
           </template>
         </div>
       </template>
@@ -270,26 +280,49 @@ function itemBind(item: Record<string, any>) {
 
 .inline-cell__text {
   flex: 1;
+  min-width: 0;
   word-break: break-word;
 }
 
-.inline-cell__edit {
+/* Fixed slot so hover reveal does not shift table column widths */
+.inline-cell__actions {
+  width: 28px;
+  min-width: 28px;
   flex-shrink: 0;
-  cursor: pointer;
-  color: var(--el-color-primary);
-  font-size: 14px;
-  margin-top: 2px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
 }
 
-.inline-cell__edit:hover {
+.inline-cell__edit-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  cursor: pointer;
+  outline: none;
+}
+
+.inline-cell__edit-icon {
+  color: var(--el-color-primary);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.inline-cell:not(.inline-cell--readonly):hover .inline-cell__edit-icon,
+.inline-cell__edit-wrap:focus-visible .inline-cell__edit-icon {
+  opacity: 1;
+}
+
+.inline-cell__edit-wrap:hover .inline-cell__edit-icon {
   color: var(--el-color-primary-light-3);
 }
 
 .inline-cell__saving {
-  flex-shrink: 0;
   font-size: 14px;
   color: var(--el-text-color-secondary);
-  margin-top: 2px;
 }
 
 .inline-cell__input,
