@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Descriptions } from '@/components/Descriptions'
+import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
@@ -1054,6 +1054,140 @@ const collapsedSections = reactive({
   vulnerabilityRecord: false,
   status: false
 })
+
+/** Inline edit: field types for settlement profile / utilities / vulnerability */
+const inlineTextareaFields = [
+  'description',
+  'development',
+  'structure_types',
+  'typical_building_materials',
+  'main_env_hazards',
+  'comments',
+  'general_location'
+]
+const inlineNumberFields = [
+  'population',
+  'area',
+  'pop_density',
+  'num_households',
+  'avg_household_size',
+  'avg_dist_between',
+  'avg_rent',
+  'plot_ownership_ratio',
+  'plot_tenant_ratio',
+  'dist_town',
+  'dist_trunk',
+  'median_household_income'
+]
+const inlineProfileBooleanFields = ['is_qualified', 'duplicate', 'has_facilities']
+const inlineUtilitiesBooleanFields = [
+  'electricity_availability',
+  'piped_water_availability',
+  'on_wayleave',
+  'on_road_reserve',
+  'near_river'
+]
+
+const readonlyInlineLocation = ['county', 'subcounty', 'ward']
+const readonlyInlineSummary = ['id', 'geom_label']
+const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
+const readonlyInlineStatus = ['createdBy', 'createdAt', 'updatedAt']
+
+const SETTLEMENT_NUMBER_FIELDS = new Set(inlineNumberFields)
+const SETTLEMENT_BOOLEAN_FIELDS = new Set([
+  ...inlineProfileBooleanFields,
+  ...inlineUtilitiesBooleanFields
+])
+
+const inlineSavingField = ref<string | null>(null)
+
+const canEditSettlementInline = computed(() =>
+  canUserAccessSettlement({ id: Number(route.params.id), county_id: profile.county_id }, 'edit')
+)
+
+function coerceSettlementValueForApi(field: string, value: unknown): unknown {
+  if (SETTLEMENT_BOOLEAN_FIELDS.has(field)) {
+    if (value === true || value === false) return value
+    if (value === 'Yes' || value === 'true' || value === 1 || value === '1') return true
+    if (value === 'No' || value === 'false' || value === 0 || value === '0') return false
+    return Boolean(value)
+  }
+  if (SETTLEMENT_NUMBER_FIELDS.has(field)) {
+    if (value === '' || value === undefined) return null
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null
+    }
+    const s = String(value).replace(/,/g, '').trim()
+    if (s === '' || s === '\u2014') return null
+    const n = Number(s)
+    return Number.isFinite(n) ? n : null
+  }
+  if (value === '\u2014') return null
+  if (value === '') return null
+  return value
+}
+
+async function saveSettlementInline(payload: { field: string; value: unknown }) {
+  const { field, value } = payload
+  if (!canUserAccessSettlement({ id: Number(route.params.id), county_id: profile.county_id }, 'edit')) {
+    ElMessage.warning('You do not have permission to edit this settlement.')
+    return
+  }
+  try {
+    inlineSavingField.value = field
+    const apiValue = coerceSettlementValueForApi(field, value)
+    const res: any = await updateOneRecord(
+      {
+        model: 'settlement',
+        id: Number(route.params.id),
+        [field]: apiValue
+      } as any,
+      { silent: true }
+    )
+
+    const responseCode = res?.code ?? res?.data?.code
+    if (responseCode && String(responseCode) !== '0000') {
+      throw new Error(res?.message || res?.data?.message || 'Update failed')
+    }
+
+    // Keep edited value immediately on screen (prevents full-section redraw/dancing).
+    if (SETTLEMENT_BOOLEAN_FIELDS.has(field)) {
+      const boolVal =
+        apiValue === true ||
+        apiValue === 'true' ||
+        apiValue === 1 ||
+        apiValue === '1'
+      const labelVal = formatBoolLabel(boolVal)
+      if (field in profile) {
+        ;(profile as any)[field] = labelVal
+      }
+      if (field in utilities) {
+        ;(utilities as any)[field] = labelVal
+      }
+    } else {
+      const displayVal = apiValue === null || apiValue === undefined || apiValue === '' ? '—' : apiValue
+      if (field in profile) {
+        ;(profile as any)[field] = displayVal
+      }
+      if (field in utilities) {
+        ;(utilities as any)[field] = displayVal
+      }
+      if (field in vulnerabilityProfileDisplay) {
+        ;(vulnerabilityProfileDisplay as any)[field] = displayVal
+      }
+      if (field in vulnerability) {
+        ;(vulnerability as any)[field] = apiValue
+      }
+    }
+
+    ElMessage.success('Saved')
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || 'Save failed'
+    ElMessage.error(msg)
+  } finally {
+    inlineSavingField.value = null
+  }
+}
 
 const collapsedDocumentSections = reactive({})
 
@@ -2829,7 +2963,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.location" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaLocation" />
+              <InlineEditableDescriptions
+                :data="profile"
+                :schema="schemaLocation"
+                :editable="canEditSettlementInline"
+                :readonly-fields="readonlyInlineLocation"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineProfileBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2848,7 +2992,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.description" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaSummaryDescription" />
+              <InlineEditableDescriptions
+                :data="profile"
+                :schema="schemaSummaryDescription"
+                :editable="canEditSettlementInline"
+                :readonly-fields="readonlyInlineSummary"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineProfileBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2867,7 +3021,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.landParcel" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaLandParcel" />
+              <InlineEditableDescriptions
+                :data="profile"
+                :schema="schemaLandParcel"
+                :editable="canEditSettlementInline"
+                :readonly-fields="[]"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineProfileBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2886,7 +3050,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.builtEnvironment" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaBuiltEnvironment" />
+              <InlineEditableDescriptions
+                :data="profile"
+                :schema="schemaBuiltEnvironment"
+                :editable="canEditSettlementInline"
+                :readonly-fields="[]"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineProfileBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2905,7 +3079,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.utilities" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="utilities" :schema="schemaUtilities" />
+              <InlineEditableDescriptions
+                :data="utilities"
+                :schema="schemaUtilities"
+                :editable="canEditSettlementInline"
+                :readonly-fields="[]"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineUtilitiesBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2924,7 +3108,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.vulnerabilityRecord" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="vulnerabilityProfileDisplay" :schema="schemaVulnerabilityRecord" />
+              <InlineEditableDescriptions
+                :data="vulnerabilityProfileDisplay"
+                :schema="schemaVulnerabilityRecord"
+                :editable="canEditSettlementInline"
+                :readonly-fields="readonlyInlineVulnerability"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineProfileBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2943,7 +3137,17 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.status" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaStatus" />
+              <InlineEditableDescriptions
+                :data="profile"
+                :schema="schemaStatus"
+                :editable="canEditSettlementInline"
+                :readonly-fields="readonlyInlineStatus"
+                :textarea-fields="inlineTextareaFields"
+                :number-fields="inlineNumberFields"
+                :boolean-fields="inlineProfileBooleanFields"
+                :saving-field="inlineSavingField"
+                @save="saveSettlementInline"
+              />
             </div>
           </ElCollapseTransition>
         </div>
