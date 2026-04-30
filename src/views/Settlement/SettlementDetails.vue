@@ -31,6 +31,7 @@ import {
   searchByKeyWord
 } from '@/api/settlements'
 import { listAssessments } from '@/api/climate-assessment'
+import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 
 
 import { ElCollapseTransition, ElTooltip } from 'element-plus'
@@ -587,7 +588,8 @@ onMounted(async () => {
     getSettlmentHistory(route.params.id),
     getProjectLocations(route.params.id),
     fetchDocumentTypes(),
-    climatePromise
+    climatePromise,
+    loadVulnerabilityInlineSelectOptions()
   ])
   console.log(settlement)
 })
@@ -1058,16 +1060,12 @@ const collapsedSections = reactive({
 /** Inline edit: field types for settlement profile / utilities / vulnerability */
 const inlineTextareaFields = [
   'description',
-  'development',
-  'structure_types',
-  'typical_building_materials',
   'main_env_hazards',
   'comments',
   'general_location'
 ]
 const inlineNumberFields = [
   'population',
-  'area',
   'pop_density',
   'num_households',
   'avg_household_size',
@@ -1087,19 +1085,181 @@ const inlineUtilitiesBooleanFields = [
   'on_road_reserve',
   'near_river'
 ]
+const inlineMultiselectFields = [
+  'land_status',
+  'structure_types',
+  'development',
+  'typical_building_materials'
+]
 
-const readonlyInlineLocation = ['county', 'subcounty', 'ward']
-const readonlyInlineSummary = ['id', 'geom_label', 'pop_density']
-const readonlyInlineVulnerability = [
+/** KISIP Tool A fallbacks; merged with API vulnerability_matrix in loadVulnerabilityInlineSelectOptions */
+const VULNERABILITY_FALLBACK: Record<string, string[]> = {
+  climate_region: [
+    'Af>Tropical',
+    'Am> Tropical',
+    'Aw> Tropical',
+    'BSh> Arid',
+    'BSk> Arid',
+    'BWh> Arid',
+    'Cfa> Temperate',
+    'Cfb> Temperate',
+    'Csb> Temperate',
+    'Cwa> Temperate',
+    'Cwb> Temperate'
+  ],
+  soil_type: ['Clay', 'Sand', 'Loam', 'Rock'],
+  land_cover: ['Bare Land', 'Natural Terrestrial Vegetation', 'Agricultural Land', 'Water-bodies'],
+  altitude_range: ['<750', 'Between 751-1800', '>1800'],
+  proximity_to_river: ['<2000', 'Between 2001-5999', '>6000'],
+  proximity_to_flood_plain: ['<4500', 'Between 4501-6000', '>6000']
+}
+
+const CLIMATE_VULN_ATTR_FIELDS = [
   'climate_region',
   'soil_type',
   'land_cover',
   'altitude_range',
   'proximity_to_river',
-  'proximity_to_flood_plain',
-  'vulnerability_total_score_display',
-  'vulnerability_rating'
-]
+  'proximity_to_flood_plain'
+] as const
+
+function buildVulnerabilitySelectFallback(): Record<
+  string,
+  Array<{ label: string; value: string }>
+> {
+  return Object.fromEntries(
+    Object.entries(VULNERABILITY_FALLBACK).map(([k, vals]) => [
+      k,
+      vals.map((v) => ({ label: v, value: v }))
+    ])
+  )
+}
+
+const vulnerabilityInlineSelectOptions = ref(buildVulnerabilitySelectFallback())
+
+async function loadVulnerabilityInlineSelectOptions() {
+  const fallback = buildVulnerabilitySelectFallback()
+  try {
+    const res = await getVulnerabilityMatrix()
+    if (res.code === '0000' && res.data?.length) {
+      const grouped: Record<string, { label: string; value: string }[]> = {}
+      for (const row of res.data) {
+        const t = row.attribute_type
+        if (!grouped[t]) grouped[t] = []
+        grouped[t].push({ label: row.attribute_value, value: row.attribute_value })
+      }
+      vulnerabilityInlineSelectOptions.value = { ...fallback, ...grouped }
+    } else {
+      vulnerabilityInlineSelectOptions.value = fallback
+    }
+  } catch {
+    vulnerabilityInlineSelectOptions.value = fallback
+  }
+}
+
+const inlineSelectOptionsBase: Record<string, Array<{ label: string; value: string | number | boolean }>> = {
+  settlement_type: [
+    { label: 'Slum', value: 'slum' },
+    { label: 'Informal Settlement', value: 'Informal Settlement' }
+  ],
+  parcel_owner_type: [
+    { label: 'Private', value: 'Private' },
+    { label: 'Public', value: 'Public' },
+    { label: 'Community', value: 'Community' },
+    { label: 'Unknown', value: 'Unknown' }
+  ],
+  surveyed: [
+    { label: 'Yes', value: 'yes' },
+    { label: 'No', value: 'no' }
+  ],
+  /** Planning + survey components (same values as AddSettlementNew land_status_planning / _survey) */
+  land_status: [
+    { label: 'Planned', value: 'Planned' },
+    { label: 'Unplanned', value: 'Unplanned' },
+    { label: 'Surveyed', value: 'Surveyed' },
+    { label: 'Unsurveyed', value: 'Unsurveyed' }
+  ],
+  landuse: [
+    { label: 'Mixed', value: 'Mixed' },
+    { label: 'Residential', value: 'Residential' },
+    { label: 'Commercial', value: 'Commercial' },
+    { label: 'Industrial', value: 'Industrial' },
+    { label: 'Educational', value: 'Educational' },
+    { label: 'Public Purpose', value: 'Public Purpose' },
+    { label: 'Public Utility', value: 'Public Utility' },
+    { label: 'Transportation', value: 'Transportation' },
+    { label: 'Agricultural', value: 'Agricultural' },
+    { label: 'Undeveloped', value: 'Undeveloped' },
+    { label: 'Conservation', value: 'Conservation' },
+    { label: 'Other', value: 'Other' }
+  ],
+  structure_types: [
+    { label: 'Permanent', value: 'Permanent' },
+    { label: 'Semi-permanent', value: 'Semi-permanent' },
+    { label: 'Temporary', value: 'Temporary' }
+  ],
+  development: [
+    { label: 'Single Storey', value: 'singleStorey' },
+    { label: 'Multi Storey', value: 'multiStorey' }
+  ],
+  typical_building_materials: [
+    { label: 'Stone/Blocks', value: 'Stone/Blocks' },
+    { label: 'Mud', value: 'Mud' },
+    { label: 'Timber/Wood', value: 'Timber/Wood' },
+    { label: 'Iron sheets', value: 'Iron sheets' },
+    { label: 'Earth', value: 'Earth' },
+    { label: 'Cement', value: 'Cement' },
+    { label: 'Tiles', value: 'Tiles' },
+    { label: 'Grass', value: 'Grass' },
+    { label: 'Plastic/Polythene', value: 'Plastic/Polythene' },
+    { label: 'Concrete/Slab', value: 'Concrete/Slab' },
+    { label: 'Terrazzo', value: 'Terrazzo' },
+    { label: 'Other', value: 'Other' }
+  ],
+  encumbrance: [
+    { label: 'Yes', value: 'yes' },
+    { label: 'No', value: 'no' },
+    { label: 'Unknown', value: 'Unknown' }
+  ],
+  electricity_availability: [
+    { label: 'Yes', value: true },
+    { label: 'No', value: false }
+  ],
+  piped_water_availability: [
+    { label: 'Yes', value: true },
+    { label: 'No', value: false }
+  ],
+  near_river: [
+    { label: 'Yes', value: true },
+    { label: 'No', value: false }
+  ],
+  on_wayleave: [
+    { label: 'Yes', value: true },
+    { label: 'No', value: false }
+  ],
+  on_road_reserve: [
+    { label: 'Yes', value: true },
+    { label: 'No', value: false }
+  ],
+  profiling_status: [
+    { label: 'Not Profiled', value: 'NOT_PROFILED' },
+    { label: 'Partially Profiled', value: 'PARTIALLY_PROFILED' },
+    { label: 'Profiled', value: 'PROFILED' }
+  ],
+  is_qualified: [
+    { label: 'Yes', value: true },
+    { label: 'No', value: false }
+  ]
+}
+
+const mergedInlineSelectOptions = computed(() => ({
+  ...inlineSelectOptionsBase,
+  ...vulnerabilityInlineSelectOptions.value
+}))
+
+const readonlyInlineLocation = ['county', 'subcounty', 'ward']
+const readonlyInlineSummary = ['id', 'geom_label', 'pop_density', 'area']
+const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
 const readonlyInlineStatus = ['createdBy', 'createdAt', 'updatedAt']
 
 const SETTLEMENT_NUMBER_FIELDS = new Set(inlineNumberFields)
@@ -1153,6 +1313,44 @@ function computePopulationDensity(population: unknown, areaHa: unknown): number 
   const areaSqKm = area / 100
   const density = pop / areaSqKm
   return Number.isFinite(density) ? Math.round(density) : null
+}
+
+/** After all six GIS attributes are set, recompute score/rating and persist (matches AddSettlementNew). */
+async function persistVulnerabilityScoreIfComplete() {
+  const vals = CLIMATE_VULN_ATTR_FIELDS.map((k) => vulnerability[k as keyof typeof vulnerability])
+  const hasAll = vals.every((v) => v != null && String(v).trim())
+  if (!hasAll) return
+  try {
+    const res = await computeVulnerabilityScore({
+      climate_region: vulnerability.climate_region,
+      soil_type: vulnerability.soil_type,
+      land_cover: vulnerability.land_cover,
+      altitude_range: vulnerability.altitude_range,
+      proximity_to_river: vulnerability.proximity_to_river,
+      proximity_to_flood_plain: vulnerability.proximity_to_flood_plain
+    })
+    if (String(res?.code) !== '0000') return
+    const total = res.data?.total_score ?? null
+    const rating = res.data?.rating ?? null
+    const scoreRes: any = await updateOneRecord(
+      {
+        model: 'settlement',
+        id: Number(route.params.id),
+        vulnerability_total_score: total,
+        vulnerability_rating: rating
+      } as any,
+      { silent: true }
+    )
+    const scoreCode = scoreRes?.code ?? scoreRes?.data?.code
+    if (scoreCode && String(scoreCode) !== '0000') return
+    vulnerability.vulnerability_total_score = total
+    vulnerability.vulnerability_rating = rating || ''
+    vulnerabilityProfileDisplay.vulnerability_total_score_display =
+      total != null ? String(total) : '—'
+    vulnerabilityProfileDisplay.vulnerability_rating = rating || '—'
+  } catch {
+    // non-fatal: attributes still saved
+  }
 }
 
 async function saveSettlementInline(payload: { field: string; value: unknown }) {
@@ -1221,6 +1419,10 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
 
     if (field === 'population' || field === 'area') {
       profile.pop_density = computedDensity === null ? '—' : String(computedDensity)
+    }
+
+    if ((CLIMATE_VULN_ATTR_FIELDS as readonly string[]).includes(field)) {
+      await persistVulnerabilityScoreIfComplete()
     }
 
     ElMessage.success('Saved')
@@ -2105,6 +2307,17 @@ const getVulnerabilityRatingType = (rating: string | null | undefined): 'danger'
 // Display rating in consistent uppercase (HIGH, MEDIUM, LOW)
 const formatVulnerabilityRating = (rating: string | null | undefined): string =>
   rating ? String(rating).toUpperCase() : ''
+
+/** Tone for Profile tab climate block: score + rating follow GIS-derived rating (same as Vulnerability tab tags). */
+function climateVulnInlineCellTextClass(field: string): string {
+  if (field !== 'vulnerability_rating' && field !== 'vulnerability_total_score_display') return ''
+  const r = vulnerabilityProfileDisplay.vulnerability_rating
+  if (r == null || r === '' || r === '\u2014') return 'inline-cell__text--climate-neutral'
+  const tone = getVulnerabilityRatingType(String(r))
+  if (tone === 'danger') return 'inline-cell__text--climate-high'
+  if (tone === 'warning') return 'inline-cell__text--climate-medium'
+  return 'inline-cell__text--climate-low'
+}
 
 // Score-level class for Tool B cards (1-3 scale). AC polarity is inverted.
 const toolbScoreLevel = (dim: string, score: any): string => {
@@ -3014,6 +3227,8 @@ const updateDocumentCategory = async () => {
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />
@@ -3043,6 +3258,8 @@ const updateDocumentCategory = async () => {
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />
@@ -3072,6 +3289,8 @@ const updateDocumentCategory = async () => {
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />
@@ -3101,6 +3320,8 @@ const updateDocumentCategory = async () => {
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />
@@ -3130,6 +3351,8 @@ const updateDocumentCategory = async () => {
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineUtilitiesBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />
@@ -3154,12 +3377,15 @@ const updateDocumentCategory = async () => {
               <InlineEditableDescriptions
                 :data="vulnerabilityProfileDisplay"
                 :schema="schemaVulnerabilityRecord"
-                :editable="false"
+                :editable="canEditSettlementInline"
                 :readonly-fields="readonlyInlineVulnerability"
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
+                :cell-text-class="climateVulnInlineCellTextClass"
                 @save="saveSettlementInline"
               />
             </div>
@@ -3188,6 +3414,8 @@ const updateDocumentCategory = async () => {
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
+                :select-options="mergedInlineSelectOptions"
+                :multiselect-fields="inlineMultiselectFields"
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />

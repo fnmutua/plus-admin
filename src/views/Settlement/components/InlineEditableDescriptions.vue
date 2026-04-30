@@ -7,6 +7,8 @@ import {
   ElInput,
   ElInputNumber,
   ElSwitch,
+  ElSelect,
+  ElOption,
   ElIcon,
   ElTooltip
 } from 'element-plus'
@@ -22,7 +24,11 @@ const props = withDefaults(
     textareaFields?: string[]
     numberFields?: string[]
     booleanFields?: string[]
+    selectOptions?: Record<string, Array<{ label: string; value: string | number | boolean }>>
+    multiselectFields?: string[]
     savingField?: string | null
+    /** Optional per-field class for the read-only value text (e.g. climate risk tone). */
+    cellTextClass?: (field: string) => string
   }>(),
   {
     editable: false,
@@ -30,7 +36,10 @@ const props = withDefaults(
     textareaFields: () => [],
     numberFields: () => [],
     booleanFields: () => [],
-    savingField: null
+    selectOptions: () => ({}),
+    multiselectFields: () => [],
+    savingField: null,
+    cellTextClass: undefined
   }
 )
 
@@ -45,6 +54,7 @@ const readonlySet = computed(() => new Set(props.readonlyFields || []))
 const textareaSet = computed(() => new Set(props.textareaFields || []))
 const numberSet = computed(() => new Set(props.numberFields || []))
 const booleanSet = computed(() => new Set(props.booleanFields || []))
+const multiselectSet = computed(() => new Set(props.multiselectFields || []))
 
 const editingField = ref<string | null>(null)
 const draft = ref<unknown>(null)
@@ -59,6 +69,14 @@ function cellDisplay(field: string) {
   const v = props.data[field]
   if (v === null || v === undefined || v === '') return '\u2014'
   return String(v)
+}
+
+function hasSelect(field: string): boolean {
+  return Array.isArray(props.selectOptions?.[field]) && props.selectOptions[field].length > 0
+}
+
+function selectItems(field: string) {
+  return props.selectOptions?.[field] || []
 }
 
 function toBool(v: unknown): boolean {
@@ -77,6 +95,21 @@ function startEdit(field: string) {
 
   if (booleanSet.value.has(field)) {
     draft.value = toBool(raw)
+  } else if (hasSelect(field)) {
+    if (multiselectSet.value.has(field)) {
+      if (Array.isArray(raw)) {
+        draft.value = raw
+      } else if (typeof raw === 'string') {
+        draft.value = raw
+          .split(',')
+          .map((x) => x.trim())
+          .filter((x) => x.length > 0)
+      } else {
+        draft.value = []
+      }
+    } else {
+      draft.value = raw === '\u2014' || raw === null || raw === undefined ? undefined : raw
+    }
   } else if (numberSet.value.has(field)) {
     if (raw === '\u2014' || raw === '' || raw === null || raw === undefined) {
       draft.value = undefined
@@ -108,6 +141,16 @@ function coerceNum(v: unknown): number | null {
 function isUnchanged(): boolean {
   const f = editingField.value
   if (!f) return true
+  if (hasSelect(f) && multiselectSet.value.has(f)) {
+    const normalize = (v: unknown) =>
+      (Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : [])
+        .map((x) => String(x).trim())
+        .filter((x) => x.length > 0)
+        .sort()
+    const a = normalize(snapshot.value)
+    const b = normalize(draft.value)
+    return JSON.stringify(a) === JSON.stringify(b)
+  }
   if (booleanSet.value.has(f)) {
     return toBool(snapshot.value) === toBool(draft.value)
   }
@@ -131,7 +174,13 @@ function commit() {
     editingField.value = null
     return
   }
-  const next = draft.value
+  let next = draft.value
+  if (hasSelect(f) && multiselectSet.value.has(f)) {
+    const arr = Array.isArray(next)
+      ? next.map((x) => String(x).trim()).filter((x) => x.length > 0)
+      : []
+    next = arr.length ? arr.join(', ') : null
+  }
   editingField.value = null
   emit('save', { field: f, value: next })
 }
@@ -175,6 +224,10 @@ function itemBind(item: Record<string, any>) {
   const { field, label, ...rest } = item
   return rest
 }
+
+function displayTextClass(field: string) {
+  return props.cellTextClass?.(field) || ''
+}
 </script>
 
 <template>
@@ -206,6 +259,24 @@ function itemBind(item: Record<string, any>) {
               v-model="draft"
               @change="commit"
             />
+            <ElSelect
+              v-else-if="hasSelect(item.field)"
+              ref="inputRef"
+              v-model="draft"
+              :multiple="multiselectSet.has(item.field)"
+              filterable
+              clearable
+              class="inline-cell__input"
+              @change="!multiselectSet.has(item.field) ? commit() : undefined"
+              @blur="multiselectSet.has(item.field) ? commit() : undefined"
+            >
+              <ElOption
+                v-for="opt in selectItems(item.field)"
+                :key="`${item.field}-${String(opt.value)}`"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </ElSelect>
             <ElInputNumber
               v-else-if="numberSet.has(item.field)"
               ref="inputRef"
@@ -235,7 +306,9 @@ function itemBind(item: Record<string, any>) {
             />
           </template>
           <template v-else>
-            <span class="inline-cell__text">{{ cellDisplay(item.field) }}</span>
+            <span class="inline-cell__text" :class="displayTextClass(item.field)">{{
+              cellDisplay(item.field)
+            }}</span>
             <div
               v-if="editable && !isReadonly(item.field)"
               class="inline-cell__actions"
@@ -282,6 +355,24 @@ function itemBind(item: Record<string, any>) {
   flex: 1;
   min-width: 0;
   word-break: break-word;
+}
+
+/* Climate / vulnerability tier (LOW / MEDIUM / HIGH) — uses Element Plus semantic colors */
+.inline-cell__text--climate-low {
+  color: var(--el-color-success);
+  font-weight: 600;
+}
+.inline-cell__text--climate-medium {
+  color: var(--el-color-warning);
+  font-weight: 600;
+}
+.inline-cell__text--climate-high {
+  color: var(--el-color-danger);
+  font-weight: 600;
+}
+.inline-cell__text--climate-neutral {
+  color: var(--el-text-color-secondary);
+  font-weight: 500;
 }
 
 /* Fixed slot so hover reveal does not shift table column widths */
