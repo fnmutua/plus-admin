@@ -2521,6 +2521,140 @@ exports.getSettlementsInBbox = async (req, res) => {
   }
 }
 
+// Compute density-based slum typology for one or more settlements using the
+// `structure` entity. For each settlement, the area of every child structure
+// footprint is summed and divided by the settlement's polygon area to produce
+// a built-up ratio (%). The ratio is then mapped to one of three categories
+// per the National Slum Upgrading and Prevention Strategy 2024-2034:
+//   built-up ratio < 60%      -> LOW DENSITY
+//   built-up ratio 60% - 80%  -> MEDIUM DENSITY
+//   built-up ratio > 80%      -> HIGH DENSITY
+//
+// The thresholds (60, 80) can be overridden via `low_threshold`/`medium_threshold`.
+//
+// This endpoint computes only — it does NOT persist the new typology.
+// The caller (UI) decides whether to write the result back via the generic
+// `/api/v1/data/edit` route.
+//
+// Request body:
+//   { settlement_ids?: number[]; county_id?: number; scope?: 'missing'|'all';
+//     low_threshold?: number; medium_threshold?: number }
+exports.computeSettlementDensityTypology = async (req, res) => {
+  try {
+    const body = req.body || {}
+    const settlementIds = Array.isArray(body.settlement_ids)
+      ? body.settlement_ids
+          .map((n) => parseInt(n, 10))
+          .filter((n) => Number.isFinite(n))
+      : []
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const scope = body.scope === 'missing' ? 'missing' : 'all'
+
+    const lowMax = Number.isFinite(parseFloat(body.low_threshold))
+      ? parseFloat(body.low_threshold)
+      : 60
+    const mediumMax = Number.isFinite(parseFloat(body.medium_threshold))
+      ? parseFloat(body.medium_threshold)
+      : 80
+
+    const filters = []
+    const replacements = {}
+
+    if (settlementIds.length > 0) {
+      filters.push('s.id = ANY(:settlementIds)')
+      replacements.settlementIds = settlementIds
+    }
+    if (countyId !== null && Number.isFinite(countyId)) {
+      filters.push('s.county_id = :countyId')
+      replacements.countyId = countyId
+    }
+    if (scope === 'missing') {
+      filters.push('s.density_typology IS NULL')
+    }
+
+    const where = filters.length ? `AND ${filters.join(' AND ')}` : ''
+
+    // ST_Area(ST_Transform(geom, 3857)) returns square meters; divide by 10,000
+    // to get hectares. We trust the FK `structure.settlement_id`: each structure
+    // already belongs to its parent settlement, even if its geom strays slightly
+    // beyond the boundary, so a full ST_Intersection clip is intentionally avoided
+    // (it is materially more expensive on large datasets).
+    const query = `
+      SELECT
+        s.id,
+        s.name,
+        s.county_id,
+        s.density_typology AS current_typology,
+        ROUND((ST_Area(ST_Transform(s.geom, 3857)) / 10000.0)::numeric, 4) AS settlement_area_ha,
+        ROUND((COALESCE(SUM(ST_Area(ST_Transform(st.geom, 3857)) / 10000.0), 0))::numeric, 4) AS built_up_area_ha,
+        COUNT(st.structure_id) FILTER (WHERE st.geom IS NOT NULL) AS structure_count
+      FROM settlement s
+      LEFT JOIN structure st
+        ON st.settlement_id = s.id
+       AND st.geom IS NOT NULL
+      WHERE s.geom IS NOT NULL
+        AND (ST_GeometryType(s.geom) = 'ST_Polygon' OR ST_GeometryType(s.geom) = 'ST_MultiPolygon')
+        ${where}
+      GROUP BY s.id, s.name, s.county_id, s.density_typology
+      ORDER BY s.id
+    `
+
+    const rows = await db.sequelize.query(query, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    const data = rows.map((r) => {
+      const settlementArea = parseFloat(r.settlement_area_ha) || 0
+      const builtUpArea = parseFloat(r.built_up_area_ha) || 0
+      const structureCount = parseInt(r.structure_count, 10) || 0
+
+      let builtUpRatio = null
+      let newTypology = null
+
+      if (settlementArea > 0 && structureCount > 0) {
+        builtUpRatio = Math.round((builtUpArea / settlementArea) * 10000) / 100
+        if (builtUpRatio < lowMax) {
+          newTypology = 'LOW DENSITY'
+        } else if (builtUpRatio <= mediumMax) {
+          newTypology = 'MEDIUM DENSITY'
+        } else {
+          newTypology = 'HIGH DENSITY'
+        }
+      }
+
+      return {
+        id: r.id,
+        name: r.name,
+        county_id: r.county_id,
+        current_typology: r.current_typology,
+        settlement_area_ha: settlementArea,
+        built_up_area_ha: builtUpArea,
+        built_up_ratio: builtUpRatio,
+        structure_count: structureCount,
+        new_typology: newTypology,
+      }
+    })
+
+    return res.status(200).json({
+      message: 'Density typology computed',
+      code: '0000',
+      data,
+      thresholds: { low_max: lowMax, medium_max: mediumMax },
+    })
+  } catch (error) {
+    console.error('❌ Error in computeSettlementDensityTypology:', error)
+    return res.status(500).json({
+      message: 'Failed to compute density typology',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
 
  
 

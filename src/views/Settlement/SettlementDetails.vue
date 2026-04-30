@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, defineAsyncComponent, ref, reactive, computed, watch } from 'vue'
 import {
   
-ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElImage,  ElSelect,ElDivider,
+ElInput, ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElMessage, ElDrawer, ElSelect,ElDivider,
   ElIcon, ElPopconfirm, ElPagination,ElRow,ElCol,ElDialog, ElForm, ElFormItem, ElOption, ElOptionGroup, ElTag, ElDescriptions, ElDescriptionsItem
 } from 'element-plus'
 import { useRoute } from 'vue-router'
@@ -58,7 +58,6 @@ import {
 } from '@/utils/roleScope'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { revertHistory, getLinkedDocuments, unlinkDocument, deleteDocument } from '@/api/settlements'
-import { useAppStore } from '@/store/modules/app'
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
@@ -209,6 +208,7 @@ const profile = reactive({
   isActive: '',
   profiling_status: '',
   is_qualified: '',
+  density_typology: '',
   createdBy: '',
   createdAt: '',
   updatedAt: ''
@@ -275,6 +275,7 @@ const schemaSummaryDescription = reactive<DescriptionsSchema[]>([
   { field: 'code', label: t('Code') },
   { field: 'name', label: t('Name') },
   { field: 'settlement_type', label: t('Type') },
+  { field: 'density_typology', label: t('Density typology') },
   { field: 'population', label: t('Population') },
   { field: 'area', label: t('Area (Ha.)') },
   { field: 'pop_density', label: t('Population density') },
@@ -480,6 +481,7 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.isActive = settlementData.isActive ?? '';
     profile.profiling_status = settlementData.profiling_status ?? '';
     profile.is_qualified = formatBoolLabel(settlementData.is_qualified);
+    profile.density_typology = settlementData.density_typology ?? '';
     const creatorUser = (settlementData as any).users ?? (settlementData as any).user
     let createdByDisplay = '—'
     if (creatorUser && typeof creatorUser === 'object') {
@@ -1035,6 +1037,11 @@ const clickTab = async (tab) => {
       }
     }
   }
+  if (tab.props.name === 'History') {
+    // Always pull a fresh history when the tab is opened so the user sees
+    // edits made elsewhere in this session without needing a page reload.
+    getSettlmentHistory(route.params.id)
+  }
 };
 
 
@@ -1245,6 +1252,11 @@ const inlineSelectOptionsBase: Record<string, Array<{ label: string; value: stri
   is_qualified: [
     { label: 'Yes', value: true },
     { label: 'No', value: false }
+  ],
+  density_typology: [
+    { label: 'Low Density', value: 'LOW DENSITY' },
+    { label: 'Medium Density', value: 'MEDIUM DENSITY' },
+    { label: 'High Density', value: 'HIGH DENSITY' }
   ]
 }
 
@@ -1254,7 +1266,7 @@ const mergedInlineSelectOptions = computed(() => ({
 }))
 
 const readonlyInlineLocation = ['county', 'subcounty', 'ward']
-const readonlyInlineSummary = ['id', 'geom_label', 'pop_density', 'area']
+const readonlyInlineSummary = ['id', 'code', 'geom_label', 'pop_density', 'area', 'avg_household_size']
 const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
 const readonlyInlineStatus = ['isApproved', 'isActive', 'createdBy', 'createdAt', 'updatedAt']
 
@@ -1309,6 +1321,15 @@ function computePopulationDensity(population: unknown, areaHa: unknown): number 
   const areaSqKm = area / 100
   const density = pop / areaSqKm
   return Number.isFinite(density) ? Math.round(density) : null
+}
+
+/** Derive avg household size = population / number of households (rounded to 1 dp). */
+function computeAvgHouseholdSize(population: unknown, numHouseholds: unknown): number | null {
+  const pop = parseNumberish(population)
+  const hh = parseNumberish(numHouseholds)
+  if (pop === null || hh === null || hh <= 0) return null
+  const size = pop / hh
+  return Number.isFinite(size) ? Math.round(size * 10) / 10 : null
 }
 
 /** After all six GIS attributes are set, recompute score/rating and persist (matches AddSettlementNew). */
@@ -1373,6 +1394,18 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
       updatePayload.pop_density = computedDensity
     }
 
+    // Keep avg_household_size computed from population and num_households.
+    let computedAvgHhSize: number | null = null
+    let recomputeAvgHhSize = false
+    if (field === 'population' || field === 'num_households') {
+      recomputeAvgHhSize = true
+      const nextPopulation = field === 'population' ? apiValue : profile.population
+      const nextNumHouseholds =
+        field === 'num_households' ? apiValue : profile.num_households
+      computedAvgHhSize = computeAvgHouseholdSize(nextPopulation, nextNumHouseholds)
+      updatePayload.avg_household_size = computedAvgHhSize
+    }
+
     const res: any = await updateOneRecord(
       updatePayload as any,
       { silent: true }
@@ -1415,6 +1448,11 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
 
     if (field === 'population' || field === 'area') {
       profile.pop_density = computedDensity === null ? '—' : String(computedDensity)
+    }
+
+    if (recomputeAvgHhSize) {
+      profile.avg_household_size =
+        computedAvgHhSize === null ? '—' : String(computedAvgHhSize)
     }
 
     if ((CLIMATE_VULN_ATTR_FIELDS as readonly string[]).includes(field)) {
@@ -1760,33 +1798,86 @@ const getIndicatorCategoryReports = async (projectId) => {
 }
 
 
+/** Fields that always differ between snapshots but aren't user-meaningful. */
+const HISTORY_DIFF_IGNORED_FIELDS = new Set([
+  'id',
+  'updatedAt',
+  'createdAt',
+  'updated_at',
+  'created_at',
+  'version',
+  'deletedAt',
+  'deleted_at'
+])
+
+/** Loose equality: null/undefined/'' all treated as the same "empty"; numbers
+ *  compared after string-trim/cast so 5 and "5" don't look like a change. */
+function isHistoryValueEqual(a: any, b: any): boolean {
+  const norm = (v: any) => {
+    if (v === null || v === undefined) return ''
+    if (typeof v === 'string') return v.trim()
+    return v
+  }
+  const na = norm(a)
+  const nb = norm(b)
+  if (na === nb) return true
+  // Same numeric value rendered as string vs number
+  if (na !== '' && nb !== '' && !Number.isNaN(Number(na)) && !Number.isNaN(Number(nb))) {
+    return Number(na) === Number(nb)
+  }
+  return false
+}
+
+/**
+ * Build the human-readable diff between a history record's `before` and `after`.
+ *
+ * IMPORTANT: server-side, `changes.before` is the full original settlement, but
+ * `changes.after` is only the patch payload of fields actually sent in the
+ * update (see `updateHistory` in tables.controller.js). So we MUST iterate over
+ * `after`'s keys — iterating `before` would treat every untouched field as a
+ * change-to-empty.
+ *
+ * Special cases:
+ *  - Create:  before is null/undefined → all keys in `after` count as new.
+ *  - Delete:  after equals before     → nothing to show.
+ */
 function getDifferences(before, after, parentKey = '') {
   const differences = [];
+  const safeBefore = before ?? {};
+  const safeAfter = after ?? {};
 
-  for (const key in before) {
+  for (const key in safeAfter) {
+    if (HISTORY_DIFF_IGNORED_FIELDS.has(key)) continue;
     const currentKey = parentKey ? `${parentKey}.${key}` : key;
+    const beforeVal = safeBefore[key];
+    const afterVal = safeAfter[key];
 
-    if (typeof before[key] === 'object' && before[key] !== null) {
-      if (Array.isArray(before[key])) {
+    if (typeof afterVal === 'object' && afterVal !== null) {
+      if (Array.isArray(afterVal)) {
         // Compare arrays deeply
-        if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+        const beforeArr = Array.isArray(beforeVal) ? beforeVal : [];
+        if (JSON.stringify(beforeArr) !== JSON.stringify(afterVal)) {
           differences.push({
             field: currentKey,
-            before: before[key].join(', '),
-            after: (after[key] || []).join(', '),
+            before: beforeArr.join(', '),
+            after: afterVal.join(', '),
           });
         }
       } else {
-        // Recursively compare nested objects
-        differences.push(...getDifferences(before[key], after[key] || {}, currentKey));
+        // Recursively compare nested objects (only into the patch's shape)
+        const beforeObj =
+          beforeVal && typeof beforeVal === 'object' && !Array.isArray(beforeVal)
+            ? beforeVal
+            : {};
+        differences.push(...getDifferences(beforeObj, afterVal, currentKey));
       }
     } else {
-      // Compare primitive values
-      if (before[key] !== after[key]) {
+      // Compare primitives, treating null/undefined/'' as equal
+      if (!isHistoryValueEqual(beforeVal, afterVal)) {
         differences.push({
           field: currentKey,
-          before: before[key] || '',
-          after: after[key] || '',
+          before: beforeVal === null || beforeVal === undefined ? '' : beforeVal,
+          after: afterVal === null || afterVal === undefined ? '' : afterVal,
         });
       }
     }
@@ -1827,15 +1918,16 @@ const getSettlmentHistory = async (sett_id) => {
   console.log('History collected........', res.data)
   const rawHistory = res.data;
 
-  // Process the differences for nested properties
-  editHistory.value = rawHistory.map((record) => {
-    const changes = record.changes;
-    const differences = getDifferences(changes.before, changes.after);
-    return {
-      ...record,
-      differences,
-    };
-  });
+  // Process the differences for nested properties.
+  // Drop records that didn't actually mutate any user-meaningful field
+  // (e.g. saves that only touched updatedAt) so the table stays useful.
+  editHistory.value = rawHistory
+    .map((record) => {
+      const changes = record.changes || {};
+      const differences = getDifferences(changes.before, changes.after);
+      return { ...record, differences };
+    })
+    .filter((record) => Array.isArray(record.differences) && record.differences.length > 0);
 
 
 

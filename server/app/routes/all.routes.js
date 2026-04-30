@@ -1382,6 +1382,7 @@ module.exports = function (app) {
   app.post('/api/v1/data/settlements/neighbors', [authJwt.verifyToken], controller.getNeighboringSettlements)
   app.post('/api/v1/data/settlements/in-bbox', [authJwt.verifyToken], controller.getSettlementsInBbox)
   app.post('/api/v1/data/settlements/imagery', [authJwt.verifyToken], controller.getSettlementImageryLayers)
+  app.post('/api/v1/data/settlements/density-typology/compute', [authJwt.verifyToken], controller.computeSettlementDensityTypology)
   app.post('/api/v1/data/admin-units-from-coords', [authJwt.verifyToken], controller.getAdminUnitsFromCoordinates)
 
   /**

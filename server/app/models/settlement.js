@@ -277,8 +277,20 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue: true,
         comment: 'Whether settlement meets slum/informal threshold when profiled',
       },
-  
-    
+
+      // Density-based slum typology per the National Slum Upgrading and Prevention
+      // Strategy 2024-2034. Single categorical value, informed by the built-up ratio
+      // (built-up area / total settlement area):
+      //   LOW DENSITY    : built-up ratio < 60% (mostly small urban areas / market centres)
+      //   MEDIUM DENSITY : built-up ratio 60% - 80% (medium-sized urban areas / municipalities)
+      //   HIGH DENSITY   : built-up ratio > 80% (major urban areas, e.g. Nairobi, Mombasa, Nakuru, Kisumu)
+      density_typology: {
+        type: DataTypes.STRING(32),
+        allowNull: true,
+        comment: 'Density-based slum typology: LOW DENSITY, MEDIUM DENSITY, HIGH DENSITY',
+      },
+
+
     },
     {
       sequelize,
@@ -295,7 +307,11 @@ module.exports = function (sequelize, DataTypes) {
           unique: true,
           fields: ['name', 'subcounty_id', 'county_id']
         },
-  
+        {
+          name: 'settlement_density_typology_idx',
+          fields: ['density_typology']
+        },
+
       ]
     }
   )

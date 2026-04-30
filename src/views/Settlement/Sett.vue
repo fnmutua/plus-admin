@@ -563,6 +563,24 @@ const getPageSizes = (totalCount: number) => {
   return sizes;
 };
 
+// Custom labeled options for the page-size selector. The option whose value
+// matches the current filtered total is labeled "All ({total})" so the user
+// can pull the entire filtered list in a single page when they want to.
+const getPageSizeOptions = (totalCount: number): { value: number; label: string }[] => {
+  const opts = basePageSizes.map((s) => ({ value: s, label: `${s}/page` }));
+  if (typeof totalCount !== 'number' || totalCount <= 0) return opts;
+
+  const allLabel = `All (${totalCount})`;
+  const existingIdx = opts.findIndex((o) => o.value === totalCount);
+  if (existingIdx >= 0) {
+    // Total exactly equals a base size — relabel that option in place.
+    opts[existingIdx] = { value: totalCount, label: allLabel };
+  } else {
+    opts.push({ value: totalCount, label: allLabel });
+  }
+  return opts;
+};
+
 const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
@@ -875,7 +893,7 @@ const fileUploadList = ref<UploadUserFile[]>([])
 const { t } = useI18n()
 const isMobile = computed(() => appStore.getMobile)
 const settlementPaginationLayout = computed(() =>
-  isMobile.value ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'
+  isMobile.value ? 'prev, pager, next, total' : 'slot, prev, pager, next, total'
 )
 const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
@@ -5368,10 +5386,20 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
       </div>
 
       <ElPagination
-      :layout="settlementPaginationLayout" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="getPageSizes(totalApproved)" :total="totalApproved" :background="true"
-      :small="isMobile" :pager-count="isMobile ? 3 : 7"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination" />
+        :layout="settlementPaginationLayout" v-model:currentPage="page"
+        v-model:page-size="pageSize" :total="totalApproved" :background="true"
+        :small="isMobile" :pager-count="isMobile ? 3 : 7"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination">
+        <el-select
+          v-model="pageSize" size="small" class="settlement-page-size-select"
+          @change="onPageSizeChange">
+          <el-option
+            v-for="opt in getPageSizeOptions(totalApproved)"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value" />
+        </el-select>
+      </ElPagination>
 
       <!-- Merge button for selected settlements (bottom) -->
       <!-- <div v-if="selectedSettlements.length === 2" style="margin-top: 10px;">
@@ -5530,14 +5558,23 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         :layout="settlementPaginationLayout"
         v-model:currentPage="page"
         v-model:page-size="pageSize"
-        :page-sizes="getPageSizes(totalUnprofiled)"
         :total="totalUnprofiled"
         :background="true"
         :small="isMobile"
         :pager-count="isMobile ? 3 : 7"
         @size-change="onPageSizeChange"
         @current-change="onPageChange"
-        class="mt-4 settlement-pagination" />
+        class="mt-4 settlement-pagination">
+        <el-select
+          v-model="pageSize" size="small" class="settlement-page-size-select"
+          @change="onPageSizeChange">
+          <el-option
+            v-for="opt in getPageSizeOptions(totalUnprofiled)"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value" />
+        </el-select>
+      </ElPagination>
     </div>
 
 
@@ -5616,10 +5653,20 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
 
       </el-table>
       <ElPagination
-      :layout="settlementPaginationLayout" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="getPageSizes(totalPending)" :total="totalPending" :background="true"
-      :small="isMobile" :pager-count="isMobile ? 3 : 7"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination" />
+        :layout="settlementPaginationLayout" v-model:currentPage="page"
+        v-model:page-size="pageSize" :total="totalPending" :background="true"
+        :small="isMobile" :pager-count="isMobile ? 3 : 7"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination">
+        <el-select
+          v-model="pageSize" size="small" class="settlement-page-size-select"
+          @change="onPageSizeChange">
+          <el-option
+            v-for="opt in getPageSizeOptions(totalPending)"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value" />
+        </el-select>
+      </ElPagination>
 
       <!-- Delete Cascade button for super admins -->
       <div v-if="isSuperAdmin && selectedSettlementsNew.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
@@ -5721,10 +5768,20 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
       <ElPagination
-      :layout="settlementPaginationLayout" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="getPageSizes(decommSettlementsCount)" :total="decommSettlementsCount" :background="true"
-      :small="isMobile" :pager-count="isMobile ? 3 : 7"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination" />
+        :layout="settlementPaginationLayout" v-model:currentPage="page"
+        v-model:page-size="pageSize" :total="decommSettlementsCount" :background="true"
+        :small="isMobile" :pager-count="isMobile ? 3 : 7"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4 settlement-pagination">
+        <el-select
+          v-model="pageSize" size="small" class="settlement-page-size-select"
+          @change="onPageSizeChange">
+          <el-option
+            v-for="opt in getPageSizeOptions(decommSettlementsCount)"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value" />
+        </el-select>
+      </ElPagination>
 
       <!-- Delete Cascade button for super admins -->
       <div v-if="isSuperAdmin && selectedSettlementsDecommissioned.length >= 1" style="margin-top: 10px; margin-bottom: 10px;">
@@ -5966,16 +6023,25 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
     </el-collapse-item>
   </el-collapse>
   <el-pagination
-  background 
-  class="mt-4 settlement-pagination" 
-  :layout="settlementPaginationLayout" 
-  :total="duplicateTotal"
-  :page-size="pageSize" 
-  :page-sizes="getPageSizes(duplicateTotal)" 
-  :small="isMobile"
-  :pager-count="isMobile ? 3 : 7"
-  @current-change="handlePageChange" 
-  @size-change="onPageSizeChange" />
+    background
+    class="mt-4 settlement-pagination"
+    :layout="settlementPaginationLayout"
+    :total="duplicateTotal"
+    :page-size="pageSize"
+    :small="isMobile"
+    :pager-count="isMobile ? 3 : 7"
+    @current-change="handlePageChange"
+    @size-change="onPageSizeChange">
+    <el-select
+      v-model="pageSize" size="small" class="settlement-page-size-select"
+      @change="onPageSizeChange">
+      <el-option
+        v-for="opt in getPageSizeOptions(duplicateTotal)"
+        :key="opt.value"
+        :label="opt.label"
+        :value="opt.value" />
+    </el-select>
+  </el-pagination>
 </div>
 
 
@@ -6624,6 +6690,21 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     justify-content: center;
     flex-wrap: wrap;
     row-gap: 8px;
+  }
+}
+
+/* Custom page-size selector that lives in the el-pagination "slot" position
+   (replaces the built-in 'sizes' so we can label the total-count option as
+   "All ({n})"). Sizing tuned to match the surrounding pagination controls. */
+.settlement-page-size-select {
+  width: 130px;
+  margin-right: 8px;
+}
+
+@media (max-width: 768px) {
+  .settlement-page-size-select {
+    width: 110px;
+    margin-right: 4px;
   }
 }
 </style>

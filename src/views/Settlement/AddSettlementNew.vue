@@ -173,6 +173,7 @@ const settlementForm = reactive({
   avg_rent: null,
   main_env_hazards: null,
   general_location: null,
+  density_typology: null,
   profiling_status: 'NOT_PROFILED',
   is_qualified: true,
   comments: null,
@@ -196,8 +197,8 @@ const sectionFields: Record<SectionKey, (keyof typeof settlementForm)[]> = {
   location: ['county_id', 'ward_id'],
   parcel: ['parcel_no', 'parcel_owner', 'parcel_owner_type', 'rim_no', 'surveyed', 'land_status'],
   physical: [
-    'pop_density',
     'landuse',
+    'density_typology',
     'near_river',
     'on_wayleave',
     'on_road_reserve',
@@ -337,6 +338,14 @@ const parcelOwnerTypeOptions = [
   { label: 'Public', value: 'Public' },
   { label: 'Community', value: 'Community' },
   { label: 'Unknown', value: 'Unknown' }
+]
+
+// Density-based slum typology (National Slum Upgrading and Prevention Strategy 2024-2034).
+// Categorisation is informed by the built-up ratio (built-up area / total settlement area).
+const densityTypologyOptions = [
+  { label: 'Low Density', value: 'LOW DENSITY' },
+  { label: 'Medium Density', value: 'MEDIUM DENSITY' },
+  { label: 'High Density', value: 'HIGH DENSITY' }
 ]
 
 // Vulnerability assessment options (from vulnerability_matrix, fallback from KISIP Tool A)
@@ -1912,6 +1921,7 @@ const clearFormAndGeometry = () => {
     avg_rent: null,
     main_env_hazards: null,
     general_location: null,
+    density_typology: null,
     comments: null,
     climate_region: null,
     soil_type: null,
@@ -2737,10 +2747,6 @@ onMounted(async () => {
               </div>
             </template>
 
-        <el-form-item label="Population Density">
-          <el-input-number v-model="settlementForm.pop_density" :min="0" style="width: 100%" />
-        </el-form-item>
-
         <el-form-item label="Pre-Dominant Landuse">
           <el-select 
             v-model="settlementForm.landuse" 
@@ -2751,6 +2757,48 @@ onMounted(async () => {
           >
             <el-option
               v-for="item in landuseOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <template #label>
+            <span class="inline-flex items-center gap-1">
+              Density Typology
+              <el-popover placement="right" :width="420" trigger="hover">
+                <template #default>
+                  <div class="vulnerability-help-popover">
+                    <p class="text-sm font-medium mb-2">
+                      Density-based slum typology per the
+                      <em>National Slum Upgrading and Prevention Strategy 2024 - 2034</em>.
+                      Categorisation is informed by the built-up ratio
+                      (built-up area / total settlement area):
+                    </p>
+                    <ul class="text-xs space-y-2">
+                      <li><strong>Low Density</strong> — built-up ratio &lt; 60%. Densely configured structures mostly found in small urban areas and market centres. Ample potential for in-situ upgrading.</li>
+                      <li><strong>Medium Density</strong> — built-up ratio 60% - 80%. Densely configured structures mostly found in medium-sized urban areas and municipalities. Some potential for in-situ upgrading.</li>
+                      <li><strong>High Density</strong> — built-up ratio &gt; 80%. Found in major urban areas (e.g. Nairobi, Mombasa, Nakuru, Kisumu), mainly in old inner-city areas. In-situ upgrading is challenged by limited servicing space (drainage, water, sewerage) and contested tenure between structure owners and the predominant tenant population.</li>
+                    </ul>
+                  </div>
+                </template>
+                <template #reference>
+                  <el-icon class="cursor-help text-gray-500" :size="14"><QuestionFilled /></el-icon>
+                </template>
+              </el-popover>
+            </span>
+          </template>
+          <el-select
+            v-model="settlementForm.density_typology"
+            placeholder="Select density typology"
+            clearable
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in densityTypologyOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"

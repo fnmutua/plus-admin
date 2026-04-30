@@ -538,6 +538,31 @@ export const getSettlementsInBbox = (data: {
   return request.post({ url: prod + '/api/v1/data/settlements/in-bbox', data, silent: true })
 }
 
+export interface DensityTypologyComputeRow {
+  id: number
+  name: string
+  county_id: number | null
+  current_typology: string | null
+  settlement_area_ha: number
+  built_up_area_ha: number
+  built_up_ratio: number | null
+  structure_count: number
+  new_typology: 'LOW DENSITY' | 'MEDIUM DENSITY' | 'HIGH DENSITY' | null
+}
+
+// Compute the density-based slum typology for one or more settlements based
+// on the structures (built-up) inside each settlement boundary. Computes only;
+// the caller persists results via updateOneRecord.
+export const computeSettlementDensityTypology = (data: {
+  settlement_ids?: number[]
+  county_id?: number | null
+  scope?: 'missing' | 'all'
+  low_threshold?: number
+  medium_threshold?: number
+}): Promise<{ code: string; message: string; data: DensityTypologyComputeRow[]; thresholds: { low_max: number; medium_max: number } }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/density-typology/compute', data })
+}
+
 // Get imagery layers for a settlement - returns layer names that intersect with settlement bbox
 export const getSettlementImageryLayers = (data: {
   settlementId: string | number
