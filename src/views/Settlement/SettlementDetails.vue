@@ -1089,8 +1089,17 @@ const inlineUtilitiesBooleanFields = [
 ]
 
 const readonlyInlineLocation = ['county', 'subcounty', 'ward']
-const readonlyInlineSummary = ['id', 'geom_label']
-const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
+const readonlyInlineSummary = ['id', 'geom_label', 'pop_density']
+const readonlyInlineVulnerability = [
+  'climate_region',
+  'soil_type',
+  'land_cover',
+  'altitude_range',
+  'proximity_to_river',
+  'proximity_to_flood_plain',
+  'vulnerability_total_score_display',
+  'vulnerability_rating'
+]
 const readonlyInlineStatus = ['createdBy', 'createdAt', 'updatedAt']
 
 const SETTLEMENT_NUMBER_FIELDS = new Set(inlineNumberFields)
@@ -1127,6 +1136,25 @@ function coerceSettlementValueForApi(field: string, value: unknown): unknown {
   return value
 }
 
+function parseNumberish(value: unknown): number | null {
+  if (value === null || value === undefined || value === '' || value === '—') return null
+  const n =
+    typeof value === 'number'
+      ? value
+      : Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(n) ? n : null
+}
+
+// area is stored in hectares; convert to sq.km for population density.
+function computePopulationDensity(population: unknown, areaHa: unknown): number | null {
+  const pop = parseNumberish(population)
+  const area = parseNumberish(areaHa)
+  if (pop === null || area === null || area <= 0) return null
+  const areaSqKm = area / 100
+  const density = pop / areaSqKm
+  return Number.isFinite(density) ? Math.round(density) : null
+}
+
 async function saveSettlementInline(payload: { field: string; value: unknown }) {
   const { field, value } = payload
   if (!canUserAccessSettlement({ id: Number(route.params.id), county_id: profile.county_id }, 'edit')) {
@@ -1136,12 +1164,23 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
   try {
     inlineSavingField.value = field
     const apiValue = coerceSettlementValueForApi(field, value)
+    const updatePayload: Record<string, unknown> = {
+      model: 'settlement',
+      id: Number(route.params.id),
+      [field]: apiValue
+    }
+
+    // Keep pop_density computed from population and area(ha -> sq.km).
+    let computedDensity: number | null = null
+    if (field === 'population' || field === 'area') {
+      const nextPopulation = field === 'population' ? apiValue : profile.population
+      const nextArea = field === 'area' ? apiValue : profile.area
+      computedDensity = computePopulationDensity(nextPopulation, nextArea)
+      updatePayload.pop_density = computedDensity
+    }
+
     const res: any = await updateOneRecord(
-      {
-        model: 'settlement',
-        id: Number(route.params.id),
-        [field]: apiValue
-      } as any,
+      updatePayload as any,
       { silent: true }
     )
 
@@ -1178,6 +1217,10 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
       if (field in vulnerability) {
         ;(vulnerability as any)[field] = apiValue
       }
+    }
+
+    if (field === 'population' || field === 'area') {
+      profile.pop_density = computedDensity === null ? '—' : String(computedDensity)
     }
 
     ElMessage.success('Saved')
@@ -3111,7 +3154,7 @@ const updateDocumentCategory = async () => {
               <InlineEditableDescriptions
                 :data="vulnerabilityProfileDisplay"
                 :schema="schemaVulnerabilityRecord"
-                :editable="canEditSettlementInline"
+                :editable="false"
                 :readonly-fields="readonlyInlineVulnerability"
                 :textarea-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
