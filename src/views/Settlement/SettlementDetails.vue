@@ -209,9 +209,6 @@ const profile = reactive({
   isActive: '',
   profiling_status: '',
   is_qualified: '',
-  duplicate: '',
-  has_facilities: '',
-  comments: '',
   createdBy: '',
   createdAt: '',
   updatedAt: ''
@@ -330,12 +327,9 @@ const schemaStatus = reactive<DescriptionsSchema[]>([
   { field: 'isActive', label: t('Active') },
   { field: 'profiling_status', label: t('Profiling status') },
   { field: 'is_qualified', label: t('Qualified (slum/informal threshold)') },
-  { field: 'duplicate', label: t('Marked duplicate') },
-  { field: 'has_facilities', label: t('Has facilities') },
-  { field: 'createdBy', label: t('Created by (user id)') },
+  { field: 'createdBy', label: t('Created by') },
   { field: 'createdAt', label: t('Created at') },
-  { field: 'updatedAt', label: t('Updated at') },
-  { field: 'comments', label: t('Comments'), span: 24 }
+  { field: 'updatedAt', label: t('Updated at') }
 ])
 
 const schemaUtilities = reactive<DescriptionsSchema[]>([
@@ -382,7 +376,7 @@ var intervenComponent = [id] // the Id of the settleemnt to filter with
 var filterValues = [intervenComponent]
 
 //const associated_Model = ''
-const associated_multiple_models = ['settlement_status', 'county', 'subcounty', 'ward', 'document']
+const associated_multiple_models = ['settlement_status', 'county', 'subcounty', 'ward', 'document', 'users']
 const model = 'settlement'
 
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
@@ -486,13 +480,16 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.isActive = settlementData.isActive ?? '';
     profile.profiling_status = settlementData.profiling_status ?? '';
     profile.is_qualified = formatBoolLabel(settlementData.is_qualified);
-    profile.duplicate = formatBoolLabel(settlementData.duplicate);
-    profile.has_facilities = formatBoolLabel(settlementData.has_facilities);
-    profile.comments = settlementData.comments ?? '';
-    profile.createdBy =
-      settlementData.createdBy !== null && settlementData.createdBy !== undefined
-        ? String(settlementData.createdBy)
-        : '—'
+    const creatorUser = (settlementData as any).users ?? (settlementData as any).user
+    let createdByDisplay = '—'
+    if (creatorUser && typeof creatorUser === 'object') {
+      const nm = creatorUser.name != null ? String(creatorUser.name).trim() : ''
+      const em = creatorUser.email != null ? String(creatorUser.email).trim() : ''
+      createdByDisplay = nm || em || '—'
+    } else if (settlementData.createdBy !== null && settlementData.createdBy !== undefined) {
+      createdByDisplay = String(settlementData.createdBy)
+    }
+    profile.createdBy = createdByDisplay
     profile.createdAt = formatDateDisplay(settlementData.createdAt)
     profile.updatedAt = formatDateDisplay(settlementData.updatedAt)
 
@@ -1061,7 +1058,6 @@ const collapsedSections = reactive({
 const inlineTextareaFields = [
   'description',
   'main_env_hazards',
-  'comments',
   'general_location'
 ]
 const inlineNumberFields = [
@@ -1077,7 +1073,7 @@ const inlineNumberFields = [
   'dist_trunk',
   'median_household_income'
 ]
-const inlineProfileBooleanFields = ['is_qualified', 'duplicate', 'has_facilities']
+const inlineProfileBooleanFields = ['is_qualified']
 const inlineUtilitiesBooleanFields = [
   'electricity_availability',
   'piped_water_availability',
@@ -1260,7 +1256,7 @@ const mergedInlineSelectOptions = computed(() => ({
 const readonlyInlineLocation = ['county', 'subcounty', 'ward']
 const readonlyInlineSummary = ['id', 'geom_label', 'pop_density', 'area']
 const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
-const readonlyInlineStatus = ['createdBy', 'createdAt', 'updatedAt']
+const readonlyInlineStatus = ['isApproved', 'isActive', 'createdBy', 'createdAt', 'updatedAt']
 
 const SETTLEMENT_NUMBER_FIELDS = new Set(inlineNumberFields)
 const SETTLEMENT_BOOLEAN_FIELDS = new Set([
