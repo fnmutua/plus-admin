@@ -153,28 +153,67 @@ const route = useRoute()
 
 const { t } = useI18n()
 
+const dashDisplay = (v: any) =>
+  v === null || v === undefined || v === '' ? '—' : v
+
+const formatDateDisplay = (v: any) => {
+  if (v === null || v === undefined || v === '') return '—'
+  const d = v instanceof Date ? v : new Date(v)
+  if (Number.isNaN(d.getTime())) return String(v)
+  return d.toLocaleString()
+}
+
+const formatBoolLabel = (v: any) => {
+  if (v === true || v === 'true' || v === 1 || v === '1') return 'Yes'
+  if (v === false || v === 'false' || v === 0 || v === '0') return 'No'
+  if (v === null || v === undefined || v === '') return '—'
+  return String(v)
+}
+
 const profile = reactive({
+  id: '' as string | number,
+  code: '',
   name: '',
   settlement_type: '',
   county: '',
-  county_id: null,
+  county_id: null as number | null,
   subcounty: '',
   ward: '',
   population: '',
   area: '',
+  pop_density: '',
+  description: '',
+  general_location: '',
   num_households: '',
   avg_household_size: '',
   land_status: '',
+  parcel_no: '',
   parcel_owner: '',
   parcel_owner_type: '',
   landuse: '',
+  surveyed: '',
+  avg_dist_between: '',
+  rim_no: '',
   development: '',
   structure_types: '',
   typical_building_materials: '',
   dist_town: '',
   dist_trunk: '',
   main_env_hazards: '',
-  general_location: ''
+  avg_rent: '',
+  plot_ownership_ratio: '',
+  plot_tenant_ratio: '',
+  geom_label: '',
+  isApproved: '',
+  isActive: '',
+  profiling_status: '',
+  is_qualified: '',
+  duplicate: '',
+  has_facilities: '',
+  comments: '',
+  createdBy: '',
+  createdAt: '',
+  updatedAt: ''
 })
 
 const housing = reactive({
@@ -189,12 +228,12 @@ const housing = reactive({
 })
 
 const utilities = reactive({
-  electricity_availability: false,
-  piped_water_availability: false,
+  electricity_availability: '' as string,
+  piped_water_availability: '' as string,
   median_household_income: '',
-  on_wayleave: false,
-  on_road_reserve: false,
-  near_river: false,
+  on_wayleave: '' as string,
+  on_road_reserve: '' as string,
+  near_river: '' as string,
   encumbrance: ''
 })
 
@@ -209,126 +248,93 @@ const vulnerability = reactive({
   vulnerability_rating: ''
 })
 
+/** Same vulnerability fields, formatted for Profile tab Descriptions (does not affect Vulnerability tab logic) */
+const vulnerabilityProfileDisplay = reactive({
+  climate_region: '—',
+  soil_type: '—',
+  land_cover: '—',
+  altitude_range: '—',
+  proximity_to_river: '—',
+  proximity_to_flood_plain: '—',
+  vulnerability_total_score_display: '—',
+  vulnerability_rating: '—'
+})
+
 const climateAssessment = ref<any>(null)
 const vulnerabilityScoresDrawerOpen = ref(false)
 
-const schemaProfile = reactive<DescriptionsSchema[]>([
-  {
-    field: 'county',
-    label: t('County')
-  },
-  {
-    field: 'subcounty',
-    label: t('SubCounty')
-  },
-  {
-    field: 'ward',
-    label: t('Ward')
-  },
-  {
-    field: 'general_location',
-    label: t('General Location'),
-    span: 24
-  },
-  {
-    field: 'name',
-    label: t('Name')
-  },
-  {
-    field: 'settlement_type',
-    label: t('Type')
-  },
-  {
-    field: 'population',
-    label: t('Population')
-  },
-  {
-    field: 'area',
-    label: t('Area(Ha.)')
-  },
-  {
-    field: 'num_households',
-    label: t('Number of Households')
-  },
-  {
-    field: 'avg_household_size',
-    label: t('Average Household Size')
-  },
-  {
-    field: 'land_status',
-    label: t('Land Status')
-  },
-  {
-    field: 'parcel_owner',
-    label: t('Parcel Owner')
-  },
-  {
-    field: 'parcel_owner_type',
-    label: t('Parcel Owner Type')
-  },
-  {
-    field: 'landuse',
-    label: t('Land Use')
-  },
-  {
-    field: 'development',
-    label: t('Development Type')
-  },
-  {
-    field: 'structure_types',
-    label: t('Structure Types')
-  },
-  {
-    field: 'typical_building_materials',
-    label: t('Building Materials')
-  },
-  {
-    field: 'dist_town',
-    label: t('Distance to Town (km)')
-  },
-  {
-    field: 'dist_trunk',
-    label: t('Distance to Trunk Road (km)')
-  },
-  {
-    field: 'main_env_hazards',
-    label: t('Environmental Hazards')
-  }
+/** Administrative / location (resolved names + general_location) */
+const schemaLocation = reactive<DescriptionsSchema[]>([
+  { field: 'county', label: t('County') },
+  { field: 'subcounty', label: t('SubCounty') },
+  { field: 'ward', label: t('Ward') },
+  { field: 'general_location', label: t('General Location'), span: 24 }
 ])
 
-const schemaHousing = reactive<DescriptionsSchema[]>([
-  {
-    field: 'num_households',
-    label: t('Number of Households')
-  },
-  {
-    field: 'avg_household_size',
-    label: t('Average Household Size')
-  },
-  {
-    field: 'structure_types',
-    label: t('Structure Types')
-  },
-  {
-    field: 'development',
-    label: t('Development Type')
-  },
-  {
-    field: 'typical_building_materials',
-    label: t('Building Materials')
-  },
-  {
-    field: 'avg_rent',
-    label: t('Average Rent')
-  },
-  {
-    field: 'plot_ownership_ratio',
-    label: t('Plot Ownership Ratio')
-  },
-  {
-    field: 'plot_tenant_ratio',
-    label: t('Plot Tenant Ratio')
-  }
+/** Core settlement + households + long description (single Profile section) */
+const schemaSummaryDescription = reactive<DescriptionsSchema[]>([
+  { field: 'id', label: t('Settlement ID') },
+  { field: 'code', label: t('Code') },
+  { field: 'name', label: t('Name') },
+  { field: 'settlement_type', label: t('Type') },
+  { field: 'population', label: t('Population') },
+  { field: 'area', label: t('Area (Ha.)') },
+  { field: 'pop_density', label: t('Population density') },
+  { field: 'geom_label', label: t('Boundary geometry') },
+  { field: 'num_households', label: t('Number of Households') },
+  { field: 'avg_household_size', label: t('Average Household Size') },
+  { field: 'description', label: t('Description'), span: 24 }
+])
+
+/** Land status (parcel / tenure / use) */
+const schemaLandParcel = reactive<DescriptionsSchema[]>([
+  { field: 'parcel_no', label: t('Parcel No.') },
+  { field: 'parcel_owner', label: t('Parcel Owner') },
+  { field: 'parcel_owner_type', label: t('Parcel Owner Type') },
+  { field: 'land_status', label: t('Land Status') },
+  { field: 'landuse', label: t('Land Use') },
+  { field: 'surveyed', label: t('Surveyed') },
+  { field: 'rim_no', label: t('RIM No.') }
+])
+
+/** Built form, housing economics, access, hazards */
+const schemaBuiltEnvironment = reactive<DescriptionsSchema[]>([
+  { field: 'development', label: t('Development'), span: 24 },
+  { field: 'structure_types', label: t('Structure Types'), span: 24 },
+  { field: 'typical_building_materials', label: t('Typical building materials'), span: 24 },
+  { field: 'avg_dist_between', label: t('Avg. distance between structures') },
+  { field: 'avg_rent', label: t('Average Rent') },
+  { field: 'plot_ownership_ratio', label: t('Plot Ownership Ratio') },
+  { field: 'plot_tenant_ratio', label: t('Plot Tenant Ratio') },
+  { field: 'dist_town', label: t('Distance to town (km)') },
+  { field: 'dist_trunk', label: t('Distance to trunk road (km)') },
+  { field: 'main_env_hazards', label: t('Main environmental hazards'), span: 24 }
+])
+
+/** Climate / GIS vulnerability fields stored on settlement (Profile tab) */
+const schemaVulnerabilityRecord = reactive<DescriptionsSchema[]>([
+  { field: 'climate_region', label: t('Climate region') },
+  { field: 'soil_type', label: t('Soil type') },
+  { field: 'land_cover', label: t('Land cover') },
+  { field: 'altitude_range', label: t('Altitude range') },
+  { field: 'proximity_to_river', label: t('Proximity to river') },
+  { field: 'proximity_to_flood_plain', label: t('Proximity to flood plain') },
+  { field: 'vulnerability_total_score_display', label: t('Vulnerability total score') },
+  { field: 'vulnerability_rating', label: t('Vulnerability rating') }
+])
+
+/** Workflow / system flags */
+const schemaStatus = reactive<DescriptionsSchema[]>([
+  { field: 'isApproved', label: t('Approval status') },
+  { field: 'isActive', label: t('Active') },
+  { field: 'profiling_status', label: t('Profiling status') },
+  { field: 'is_qualified', label: t('Qualified (slum/informal threshold)') },
+  { field: 'duplicate', label: t('Marked duplicate') },
+  { field: 'has_facilities', label: t('Has facilities') },
+  { field: 'createdBy', label: t('Created by (user id)') },
+  { field: 'createdAt', label: t('Created at') },
+  { field: 'updatedAt', label: t('Updated at') },
+  { field: 'comments', label: t('Comments'), span: 24 }
 ])
 
 const schemaUtilities = reactive<DescriptionsSchema[]>([
@@ -441,30 +447,55 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
   if (res?.data?.[0]) {
     const settlementData = res.data[0];
     
-    // Set profile data
+    // Set profile data (aligned with server/app/models/settlement.js)
+    profile.id = settlementData.id ?? '';
+    profile.code = settlementData.code ?? '';
     profile.name = settlementData.name || '';
     profile.settlement_type = settlementData.settlement_type || '';
     profile.county = settlementData.county?.name || '';
     profile.county_id = settlementData.county_id || settlementData.county?.id || null;
     profile.subcounty = settlementData.subcounty?.name || '';
     profile.ward = settlementData.ward?.name || '';
-    profile.population = settlementData.population || '';
-    profile.area = settlementData.area || '';
-    profile.num_households = settlementData.num_households || '';
-    profile.avg_household_size = settlementData.avg_household_size || '';
-    profile.land_status = settlementData.land_status || '';
-    profile.parcel_owner = settlementData.parcel_owner || '';
-    profile.parcel_owner_type = settlementData.parcel_owner_type || '';
-    profile.landuse = settlementData.landuse || '';
-    profile.development = settlementData.development || '';
-    profile.structure_types = settlementData.structure_types || '';
-    profile.typical_building_materials = settlementData.typical_building_materials || '';
-    profile.dist_town = settlementData.dist_town || '';
-    profile.dist_trunk = settlementData.dist_trunk || '';
-    profile.main_env_hazards = settlementData.main_env_hazards || '';
+    profile.population = dashDisplay(settlementData.population);
+    profile.area = dashDisplay(settlementData.area);
+    profile.pop_density = dashDisplay(settlementData.pop_density);
+    profile.description = settlementData.description ?? '';
     profile.general_location = settlementData.general_location || '';
+    profile.num_households = dashDisplay(settlementData.num_households);
+    profile.avg_household_size = dashDisplay(settlementData.avg_household_size);
+    profile.land_status = settlementData.land_status ?? '';
+    profile.parcel_no = settlementData.parcel_no ?? '';
+    profile.parcel_owner = settlementData.parcel_owner ?? '';
+    profile.parcel_owner_type = settlementData.parcel_owner_type ?? '';
+    profile.landuse = settlementData.landuse ?? '';
+    profile.surveyed = settlementData.surveyed ?? '';
+    profile.avg_dist_between = dashDisplay(settlementData.avg_dist_between);
+    profile.rim_no = settlementData.rim_no ?? '';
+    profile.development = settlementData.development ?? '';
+    profile.structure_types = settlementData.structure_types ?? '';
+    profile.typical_building_materials = settlementData.typical_building_materials ?? '';
+    profile.dist_town = dashDisplay(settlementData.dist_town);
+    profile.dist_trunk = dashDisplay(settlementData.dist_trunk);
+    profile.main_env_hazards = settlementData.main_env_hazards ?? '';
+    profile.avg_rent = dashDisplay(settlementData.avg_rent);
+    profile.plot_ownership_ratio = dashDisplay(settlementData.plot_ownership_ratio);
+    profile.plot_tenant_ratio = dashDisplay(settlementData.plot_tenant_ratio);
+    profile.geom_label = settlementData.geom ? 'Present' : '—'
+    profile.isApproved = settlementData.isApproved ?? '';
+    profile.isActive = settlementData.isActive ?? '';
+    profile.profiling_status = settlementData.profiling_status ?? '';
+    profile.is_qualified = formatBoolLabel(settlementData.is_qualified);
+    profile.duplicate = formatBoolLabel(settlementData.duplicate);
+    profile.has_facilities = formatBoolLabel(settlementData.has_facilities);
+    profile.comments = settlementData.comments ?? '';
+    profile.createdBy =
+      settlementData.createdBy !== null && settlementData.createdBy !== undefined
+        ? String(settlementData.createdBy)
+        : '—'
+    profile.createdAt = formatDateDisplay(settlementData.createdAt)
+    profile.updatedAt = formatDateDisplay(settlementData.updatedAt)
 
-    // Set vulnerability assessment data
+    // Set vulnerability assessment data (raw values for Vulnerability tab conditions)
     vulnerability.climate_region = settlementData.climate_region || '';
     vulnerability.soil_type = settlementData.soil_type || '';
     vulnerability.land_cover = settlementData.land_cover || '';
@@ -473,25 +504,39 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     vulnerability.proximity_to_flood_plain = settlementData.proximity_to_flood_plain || '';
     vulnerability.vulnerability_total_score = settlementData.vulnerability_total_score ?? null;
     vulnerability.vulnerability_rating = settlementData.vulnerability_rating || '';
+    vulnerabilityProfileDisplay.climate_region = dashDisplay(settlementData.climate_region);
+    vulnerabilityProfileDisplay.soil_type = dashDisplay(settlementData.soil_type);
+    vulnerabilityProfileDisplay.land_cover = dashDisplay(settlementData.land_cover);
+    vulnerabilityProfileDisplay.altitude_range = dashDisplay(settlementData.altitude_range);
+    vulnerabilityProfileDisplay.proximity_to_river = dashDisplay(settlementData.proximity_to_river);
+    vulnerabilityProfileDisplay.proximity_to_flood_plain = dashDisplay(settlementData.proximity_to_flood_plain);
+    vulnerabilityProfileDisplay.vulnerability_total_score_display =
+      settlementData.vulnerability_total_score != null && settlementData.vulnerability_total_score !== ''
+        ? String(settlementData.vulnerability_total_score)
+        : '—'
+    vulnerabilityProfileDisplay.vulnerability_rating = dashDisplay(settlementData.vulnerability_rating)
 
     // Set housing data
-    housing.num_households = settlementData.num_households || '';
-    housing.avg_household_size = settlementData.avg_household_size || '';
-    housing.structure_types = settlementData.structure_types || '';
-    housing.development = settlementData.development || '';
-    housing.typical_building_materials = settlementData.typical_building_materials || '';
-    housing.avg_rent = settlementData.avg_rent || '';
-    housing.plot_ownership_ratio = settlementData.plot_ownership_ratio || '';
-    housing.plot_tenant_ratio = settlementData.plot_tenant_ratio || '';
+    housing.num_households = dashDisplay(settlementData.num_households);
+    housing.avg_household_size = dashDisplay(settlementData.avg_household_size);
+    housing.structure_types = settlementData.structure_types ?? '';
+    housing.development = settlementData.development ?? '';
+    housing.typical_building_materials = settlementData.typical_building_materials ?? '';
+    housing.avg_rent = dashDisplay(settlementData.avg_rent);
+    housing.plot_ownership_ratio = dashDisplay(settlementData.plot_ownership_ratio);
+    housing.plot_tenant_ratio = dashDisplay(settlementData.plot_tenant_ratio);
 
-    // Set utilities data
-    utilities.electricity_availability = settlementData.electricity_availability || false;
-    utilities.piped_water_availability = settlementData.piped_water_availability || false;
-    utilities.median_household_income = settlementData.median_household_income || '';
-    utilities.on_wayleave = settlementData.on_wayleave || false;
-    utilities.on_road_reserve = settlementData.on_road_reserve || false;
-    utilities.near_river = settlementData.near_river || false;
-    utilities.encumbrance = settlementData.encumbrance || '';
+    // Set utilities data (booleans as Yes/No for display)
+    utilities.electricity_availability = formatBoolLabel(settlementData.electricity_availability);
+    utilities.piped_water_availability = formatBoolLabel(settlementData.piped_water_availability);
+    utilities.median_household_income = dashDisplay(settlementData.median_household_income);
+    utilities.on_wayleave = formatBoolLabel(settlementData.on_wayleave);
+    utilities.on_road_reserve = formatBoolLabel(settlementData.on_road_reserve);
+    utilities.near_river = formatBoolLabel(settlementData.near_river);
+    utilities.encumbrance =
+      settlementData.encumbrance === null || settlementData.encumbrance === undefined || settlementData.encumbrance === ''
+        ? '—'
+        : String(settlementData.encumbrance);
 
     // Set documents (direct settlement_id association)
     if (settlementData.documents) {
@@ -1002,9 +1047,12 @@ const prefixCls = getPrefixCls('descriptions')
 
 const collapsedSections = reactive({
   location: false,
-  profile: false,
-  housing: false,
-  utilities: false
+  description: false,
+  landParcel: false,
+  builtEnvironment: false,
+  utilities: false,
+  vulnerabilityRecord: false,
+  status: false
 })
 
 const collapsedDocumentSections = reactive({})
@@ -2781,45 +2829,64 @@ const updateDocumentCategory = async () => {
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.location" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaProfile.slice(0, 4)" />
+              <Descriptions :data="profile" :schema="schemaLocation" />
             </div>
           </ElCollapseTransition>
         </div>
 
-        <!-- Profile Section -->
+        <!-- Summary: core fields, household counts, narrative description -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
           <div
 :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
-               @click="collapsedSections.profile = !collapsedSections.profile">
+               @click="collapsedSections.description = !collapsedSections.description">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
-                {{ t('Profile') }}  
+                {{ t('Description') }}
               </div>
             </div>
-            <Icon :icon="collapsedSections.profile ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            <Icon :icon="collapsedSections.description ? 'ep:arrow-down' : 'ep:arrow-up'" />
           </div>
           <ElCollapseTransition>
-            <div v-show="!collapsedSections.profile" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="profile" :schema="schemaProfile.slice(4)" />
+            <div v-show="!collapsedSections.description" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="profile" :schema="schemaSummaryDescription" />
             </div>
           </ElCollapseTransition>
         </div>
 
-        <!-- Housing Section -->
+        <!-- Land status -->
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
           <div
 :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
-               @click="collapsedSections.housing = !collapsedSections.housing">
+               @click="collapsedSections.landParcel = !collapsedSections.landParcel">
             <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
               <div class="flex items-center">
-                {{ t('Housing') }}  
+                {{ t('Land status') }}
               </div>
             </div>
-            <Icon :icon="collapsedSections.housing ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            <Icon :icon="collapsedSections.landParcel ? 'ep:arrow-down' : 'ep:arrow-up'" />
           </div>
           <ElCollapseTransition>
-            <div v-show="!collapsedSections.housing" :class="[`${prefixCls}-content`, 'p-10px']">
-              <Descriptions :data="housing" :schema="schemaHousing" />
+            <div v-show="!collapsedSections.landParcel" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="profile" :schema="schemaLandParcel" />
+            </div>
+          </ElCollapseTransition>
+        </div>
+
+        <!-- Built environment, access & housing (single section) -->
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.builtEnvironment = !collapsedSections.builtEnvironment">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Built environment, access & housing') }}
+              </div>
+            </div>
+            <Icon :icon="collapsedSections.builtEnvironment ? 'ep:arrow-down' : 'ep:arrow-up'" />
+          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.builtEnvironment" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="profile" :schema="schemaBuiltEnvironment" />
             </div>
           </ElCollapseTransition>
         </div>
@@ -2839,6 +2906,44 @@ const updateDocumentCategory = async () => {
           <ElCollapseTransition>
             <div v-show="!collapsedSections.utilities" :class="[`${prefixCls}-content`, 'p-10px']">
               <Descriptions :data="utilities" :schema="schemaUtilities" />
+            </div>
+          </ElCollapseTransition>
+        </div>
+
+        <!-- Climate vulnerability (settlement GIS attributes) -->
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.vulnerabilityRecord = !collapsedSections.vulnerabilityRecord">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Climate vulnerability') }}
+              </div>
+            </div>
+            <Icon :icon="collapsedSections.vulnerabilityRecord ? 'ep:arrow-down' : 'ep:arrow-up'" />
+          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.vulnerabilityRecord" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="vulnerabilityProfileDisplay" :schema="schemaVulnerabilityRecord" />
+            </div>
+          </ElCollapseTransition>
+        </div>
+
+        <!-- Status & workflow -->
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.status = !collapsedSections.status">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center">
+                {{ t('Status & workflow') }}
+              </div>
+            </div>
+            <Icon :icon="collapsedSections.status ? 'ep:arrow-down' : 'ep:arrow-up'" />
+          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.status" :class="[`${prefixCls}-content`, 'p-10px']">
+              <Descriptions :data="profile" :schema="schemaStatus" />
             </div>
           </ElCollapseTransition>
         </div>
