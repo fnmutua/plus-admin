@@ -999,7 +999,7 @@ const allNavGroups: NavGroup[] = [
               </ul>
               <img src="${settlementListingActionsImg}" alt="Settlement listing row actions" class="docs-screenshot" />
               <p>All columns are sortable. Click a column header to sort ascending or descending.</p>
-              <p>Selecting <strong>View on Map</strong> opens the settlement's boundary and linked layers on an interactive map:</p>
+              <p>Selecting <strong>Locate on Map</strong> (shown as <strong>View on Map</strong> in some builds) opens the interactive map, flies to the settlement coordinates, draws the settlement geometry, and loads nearby settlements/layers for quick spatial context:</p>
               <img src="${settlementListingViewMapImg}" alt="Settlement View on Map" class="docs-screenshot" />
 
               <h2>Search</h2>
@@ -1094,14 +1094,20 @@ const allNavGroups: NavGroup[] = [
 
               <h2>Profile tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsProfileImg}" alt="Settlement Details — Profile tab" />
-              <p>The default tab displays the settlement's full attribute data in collapsible sections:</p>
+              <p>The default tab displays the settlement's full attribute data in collapsible sections. Inline editing is now enabled across profile fields for users with settlement edit permission.</p>
               <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
                 <tr><td><strong>Administrative Location</strong></td><td>County, Sub-county, Ward, General Location</td></tr>
-                <tr><td><strong>Profile</strong></td><td>Name, Type, Population, Area (Ha), Number of Households, Average Household Size, Land Status, Parcel Owner, Owner Type, Land Use, Development Type, Structure Types, Building Materials, Distance to Town, Distance to Trunk Road, Environmental Hazards</td></tr>
-                <tr><td><strong>Housing</strong></td><td>Number of Households, Average Household Size, Structure Types, Development Type, Building Materials, Average Rent, Plot Ownership Ratio, Plot Tenant Ratio</td></tr>
-                <tr><td><strong>Utilities</strong></td><td>Electricity Available, Piped Water Available, Median Household Income, On Wayleave, On Road Reserve</td></tr>
+                <tr><td><strong>Description</strong></td><td>Name, Type, Population, Area (Ha), Population Density, Number of Households, Average Household Size, Description, General Location</td></tr>
+                <tr><td><strong>Land Status</strong></td><td>Land Status (multi-select), Parcel Number, Parcel Owner, Owner Type, RIM Number, Surveyed, Land Use</td></tr>
+                <tr><td><strong>Built Environment</strong></td><td>Average Distance Between Structures, Development Type, Structure Types, Typical Building Materials, Distances to Town and Trunk Road, Average Rent, Plot Ownership Ratio, Plot Tenant Ratio, Main Environmental Hazards</td></tr>
+                <tr><td><strong>Utilities</strong></td><td>Electricity Available, Piped Water Available, Median Household Income, On Wayleave, On Road Reserve, Near River, Encumbrance</td></tr>
+                <tr><td><strong>Climate Vulnerability</strong></td><td>Climate Region, Soil Type, Land Cover, Altitude Range, Proximity to River, Proximity to Flood Plain, Computed Vulnerability Score, Computed Vulnerability Rating</td></tr>
+                <tr><td><strong>Status &amp; Workflow</strong></td><td>Approval Status, Active, Profiling Status, Qualified Flag, Created By, Created At, Updated At</td></tr>
               </tbody></table>
-              <p>Each section can be collapsed or expanded by clicking its header. A <strong>Download Facts</strong> button generates a PDF report of the settlement profile.</p>
+              <p>Each section can be collapsed or expanded by clicking its header. Hover any editable field to reveal the edit icon, then save in place. Dropdown and multi-select lookups are used where configured.</p>
+              <p>Protected fields remain read-only (for example IDs, geometry presence, population density, approval status, active status, and timestamps). The <strong>Created by</strong> value displays the user name where available.</p>
+              <p>Two quick actions are available for editors at the top of the Profile tab: <strong>Estimate population (buildings)</strong> and <strong>Auto-fill climate / vulnerability</strong>. These use the same services as Add Settlement and save values directly to the record.</p>
+              <p>A <strong>Download Facts</strong> button generates a PDF report of the settlement profile.</p>
 
               <h2>Location tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsLocationImg}" alt="Settlement Details — Location tab" />

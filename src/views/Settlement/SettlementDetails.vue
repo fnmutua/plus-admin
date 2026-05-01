@@ -303,8 +303,6 @@ const schemaBuiltEnvironment = reactive<DescriptionsSchema[]>([
   { field: 'typical_building_materials', label: t('Typical building materials'), span: 24 },
   { field: 'avg_dist_between', label: t('Avg. distance between structures') },
   { field: 'avg_rent', label: t('Average Rent') },
-  { field: 'plot_ownership_ratio', label: t('Plot Ownership Ratio') },
-  { field: 'plot_tenant_ratio', label: t('Plot Tenant Ratio') },
   { field: 'dist_town', label: t('Distance to town (km)') },
   { field: 'dist_trunk', label: t('Distance to trunk road (km)') },
   { field: 'main_env_hazards', label: t('Main environmental hazards'), span: 24 }
@@ -3890,6 +3888,19 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
           <div class="vuln-scores-info">
             <div class="vuln-scores-section">
               <h4 class="vuln-scores-heading">
+                <el-icon><Edit /></el-icon>
+                Profile Inline Editing
+              </h4>
+              <p>Settlement profile fields are exposed for inline editing in the <strong>Profile</strong> tab so updates can be made directly in place without opening a separate form.</p>
+              <ul class="vuln-scores-list">
+                <li>Hover a field row to show the edit icon, then save on blur/selection</li>
+                <li>Lookup-backed fields use dropdowns (including climate/vulnerability attributes)</li>
+                <li><strong>Population density</strong> is computed automatically from population and area</li>
+                <li>System-managed/protected fields remain read-only (for example IDs, timestamps, and approval/active status)</li>
+              </ul>
+            </div>
+            <div class="vuln-scores-section">
+              <h4 class="vuln-scores-heading">
                 <el-icon><Location /></el-icon>
                 KISIP Tool A – GIS-based Assessment
               </h4>
@@ -3902,7 +3913,8 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
                 <li><strong>Proximity to river</strong> – flooding exposure</li>
                 <li><strong>Proximity to flood plain</strong> – flood risk</li>
               </ul>
-              <p>Each attribute is scored against a vulnerability matrix. The total score is mapped to a rating (LOW, MEDIUM, HIGH) using configurable thresholds. Edit the settlement to add or change these attributes.</p>
+              <p>Each attribute is scored against a vulnerability matrix. The total score is mapped to a rating (LOW, MEDIUM, HIGH) using configurable thresholds.</p>
+              <p class="m-0">In the <strong>Profile</strong> tab you can either edit these six fields directly or click <strong>Auto-fill climate / vulnerability</strong> to fetch them from the settlement centroid. The score and rating update automatically after save when all six fields are present.</p>
             </div>
             <div class="vuln-scores-section">
               <h4 class="vuln-scores-heading">
@@ -3916,7 +3928,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
                 <li><strong>Sensitivity</strong> – susceptibility to climate impacts</li>
                 <li><strong>Adaptive Capacity</strong> – ability to cope and adapt (higher score = lower capacity)</li>
               </ul>
-              <p>The overall rating is the average of the four dimension scores: <strong>Low</strong> (0–33), <strong>Medium</strong> (34–66), <strong>High</strong> (67–100). Click &quot;Open Questionnaire&quot; to complete or view the assessment.</p>
+              <p class="m-0">The overall rating is the average of the four dimension scores: <strong>Low</strong> (0–33), <strong>Medium</strong> (34–66), <strong>High</strong> (67–100). Click &quot;Open Questionnaire&quot; to complete or view the assessment.</p>
             </div>
           </div>
         </el-drawer>
