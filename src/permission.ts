@@ -31,6 +31,33 @@ router.beforeEach(async (to, from, next) => {
       next({ path: '/' });
     } else {
       if (permissionStore.getIsAddRouters) {
+        // If a deep link to /subprogrammes/* arrives but the dynamic programme/component
+        // routes never finished loading on a previous pass (e.g. API was empty/slow on
+        // production), refresh the dynamic routes once and re-register them before
+        // letting Vue Router resolve the path. Without this, the parent route is
+        // registered but the child path doesn't match → blank page on refresh.
+        if (
+          to.path.startsWith('/subprogrammes/') &&
+          (!Array.isArray(permissionStore.getAddRouters) ||
+            !permissionStore.getAddRouters.some(r => r.path === '/subprogrammes' && (r as any).children?.length))
+        ) {
+          try {
+            await permissionStore.refreshRoutes();
+            const userInfoForGen = wsCache.get(appStore.getUserInfo);
+            const refreshPermissions: string[] = Array.isArray(userInfoForGen?.permissions)
+              ? userInfoForGen.permissions as string[]
+              : [];
+            const refreshRoles = Array.isArray(userInfoForGen?.roles) ? userInfoForGen.roles : [];
+            for (const role of refreshRoles) {
+              await permissionStore.generateRoutes(role.name, role.user_roles?.location_level, refreshPermissions);
+            }
+            permissionStore.getAddRouters.forEach((route) => {
+              router.addRoute(route as unknown as RouteRecordRaw);
+            });
+          } catch (e) {
+            console.warn('Subprogrammes deep-link route refresh failed:', e);
+          }
+        }
         next();
         return;
       }

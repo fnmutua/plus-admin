@@ -169,8 +169,13 @@ const getProgrameComponents = async (): Promise<RouteItem[]> => {
     const res = await getRoutesList(formData as any) as any;
 
     if (!res?.data || !Array.isArray(res.data)) {
-      console.error('Invalid data structure received:', res?.data);
-      return [];
+      // Throw so retryWithBackoff actually retries — empty/invalid data must not be
+      // treated as success or /subprogrammes ends up unregistered on production.
+      throw new Error('Programme routes API returned invalid data structure');
+    }
+
+    if (res.data.length === 0) {
+      throw new Error('Programme routes API returned empty list');
     }
 
     console.log('programme routes ', res.data);
@@ -256,7 +261,7 @@ const loadProgrammeComponents = async () => {
   }
 };
 
-const getComponents = async (): Promise<void> => {
+const fetchComponentsList = async () => {
   const formData: RouteRequestData = {
     limit: 100,
     page: 1,
@@ -266,10 +271,17 @@ const getComponents = async (): Promise<void> => {
     searchKeyword: '',
     associated_multiple_models: []
   };
+  const res = await getRoutesList(formData as any) as any;
+  if (!res?.data || !Array.isArray(res.data)) {
+    throw new Error('Components routes API returned invalid data structure');
+  }
+  return res;
+};
 
+const getComponents = async (): Promise<void> => {
   try {
     components.value = []; // Clear before re-populating to prevent duplicates on reload
-    const res = await getRoutesList(formData as any) as any;
+    const res = await retryWithBackoff(() => fetchComponentsList());
     console.log('Components routes ', res.data);
 
 
@@ -541,16 +553,15 @@ const initializeRoutes = async () => {
 
     await Promise.all([loadProgrammeComponents(), getComponents()]);
 
-    // Update adminRoutes synchronously here — avoids the race where cloneDeep(adminRoutes)
-    // was snapshotted before the watcher had a chance to fire.
-    if (programmeComponentOptions.value.length > 0) {
-      subprograms.value[0].children = programmeComponentOptions.value as any;
-      const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes');
-      if (existingIndex >= 0) {
-        adminRoutes[existingIndex] = subprograms.value[0];
-      } else {
-        adminRoutes.splice(2, 0, ...subprograms.value);
-      }
+    // Always sync /subprogrammes into adminRoutes — even if children failed to load.
+    // This guarantees deep links like /subprogrammes/xx/xxx match the parent route on
+    // refresh, instead of rendering a blank page when the API returned empty/slow.
+    subprograms.value[0].children = (programmeComponentOptions.value || []) as any;
+    const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes');
+    if (existingIndex >= 0) {
+      adminRoutes[existingIndex] = subprograms.value[0];
+    } else {
+      adminRoutes.splice(2, 0, ...subprograms.value);
     }
 
     console.log('All routes loaded successfully');
