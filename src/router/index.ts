@@ -242,18 +242,8 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
 
-  // Wildcard fallback — keep last. Without this, deep links to dynamic routes that
-  // failed to register (e.g. /subprogrammes/xx/xxx when API was slow/empty) render
-  // a blank page instead of falling back to /404.
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/404',
-    name: 'CatchAll',
-    meta: {
-      hidden: true,
-      noTagsView: true
-    }
-  }
+ 
+ 
 ]
  
  
