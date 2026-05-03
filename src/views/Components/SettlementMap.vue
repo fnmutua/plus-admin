@@ -90,7 +90,9 @@ const emit = defineEmits<{
 }>()
 
 const appStore = useAppStore()
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
+const googleMapsApiKey =
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
+  'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 const mapRef = ref<any>(null)
 const title = ref('')

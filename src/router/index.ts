@@ -242,8 +242,21 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
 
- 
- 
+  // Catch-all fallback for unmatched paths (e.g. /subprogrammes/<id>/<id> when the
+  // dynamic programme/component API hasn't registered the route yet, or any typo'd URL).
+  // Renders the existing 404 view directly rather than redirecting, so the original
+  // URL is preserved through the dynamic-registration phase in src/permission.ts —
+  // the more-specific dynamic route, when added via router.addRoute(), takes priority.
+  {
+    path: '/:pathMatch(.*)*',
+    component: () => import('@/views/Error/404.vue'),
+    name: 'CatchAll',
+    meta: {
+      hidden: true,
+      title: '404',
+      noTagsView: true
+    }
+  }
 ]
  
  

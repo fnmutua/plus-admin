@@ -251,10 +251,34 @@ const loadProgrammeComponents = async () => {
     programmeComponentOptions.value = result;
     console.log("Final programmeComponentOptions", programmeComponentOptions.value);
   } catch (error) {
-    console.error("Failed to load components after retries:", error);
+    console.error("Failed to load programme components after retries:", error);
     programmeComponentOptions.value = [];
   }
 };
+
+// Isolated wrapper so a transient failure of the component API doesn't reject
+// Promise.all and leave the /subprogrammes branch unregistered (see initializeRoutes).
+const loadComponents = async () => {
+  try {
+    await retryWithBackoff(() => getComponents());
+  } catch (error) {
+    console.error("Failed to load components after retries:", error);
+  }
+};
+
+// Idempotently insert the /subprogrammes parent route into adminRoutes.
+// Done unconditionally so deep links like /subprogrammes/<programme>/<component>
+// at least resolve to the parent layout (or fall through to the wildcard 404)
+// rather than producing a blank <router-view/> when the dynamic API fails.
+const ensureSubprogrammesRoute = () => {
+  subprograms.value[0].children = (programmeComponentOptions.value as any) || []
+  const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes')
+  if (existingIndex >= 0) {
+    adminRoutes[existingIndex] = subprograms.value[0]
+  } else {
+    adminRoutes.splice(2, 0, ...subprograms.value)
+  }
+}
 
 const getComponents = async (): Promise<void> => {
   const formData: RouteRequestData = {
@@ -527,31 +551,27 @@ const getComponents = async (): Promise<void> => {
 // Initialize loading with proper sequencing
 const initializeRoutes = async () => {
   try {
-    // Check if user is logged in before loading routes
     const currentUserInfo = wsCache.get(appStore.getUserInfo)
     if (!currentUserInfo) {
       console.log('User not logged in, skipping route initialization');
       return;
     }
-    
-    // Load dashboards first, then programmes + components in parallel
+
+    // Always register the /subprogrammes parent first, regardless of API outcome.
+    // This guarantees deep links route into a known layout instead of producing
+    // a blank <router-view/> when the programme/component API is flaky.
+    ensureSubprogrammesRoute();
+
     if (!dashboardsLoaded.value) {
       await loadDashboardsImmediately();
     }
 
-    await Promise.all([loadProgrammeComponents(), getComponents()]);
+    // allSettled so a transient failure of one loader doesn't poison the other.
+    // Both loaders catch their own errors internally and never reject.
+    await Promise.allSettled([loadProgrammeComponents(), loadComponents()]);
 
-    // Update adminRoutes synchronously here — avoids the race where cloneDeep(adminRoutes)
-    // was snapshotted before the watcher had a chance to fire.
-    if (programmeComponentOptions.value.length > 0) {
-      subprograms.value[0].children = programmeComponentOptions.value as any;
-      const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes');
-      if (existingIndex >= 0) {
-        adminRoutes[existingIndex] = subprograms.value[0];
-      } else {
-        adminRoutes.splice(2, 0, ...subprograms.value);
-      }
-    }
+    // Re-attach children now that programmes/components have loaded (or stayed empty).
+    ensureSubprogrammesRoute();
 
     console.log('All routes loaded successfully');
   } catch (error) {

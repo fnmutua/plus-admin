@@ -6,18 +6,17 @@ import {
   ElUpload, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Plus, Back, Download, ArrowRight, DArrowRight, Loading } from '@element-plus/icons-vue'
+import { Plus, Back, Download, DArrowRight, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord, BatchImportUpsert } from '@/api/settlements'
+import { updateOneRecord, BatchImportUpsert } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { Icon } from '@iconify/vue';
 
-// import xlsx from "json-as-xlsx" // Removed unused import
 import writeXlsxFile from 'write-excel-file'
 import {
   searchByKeyWord
@@ -37,7 +36,6 @@ import Papa from 'papaparse';
 import { onMounted } from 'vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
-// import DownloadCustom from '@/views/Components/DownloadCustom.vue'; // Removed unused import
 
 
 ////////////*************Map Imports***************////////
@@ -52,8 +50,6 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-import { defineAsyncComponent } from 'vue';
-
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 
@@ -72,16 +68,6 @@ const searchString = ref()
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-// const tabDisabled = ref(true) // Removed unused variable
-
-// Removed showAdminButtons and showEditButtons since Actions column was removed
-
-
-
-// Removed action_buttons since Actions column was removed
-
-
-
 
 const router = useRouter()
 
@@ -127,15 +113,10 @@ onMounted(async () => {
 
 
 
-// Show Edit buttons 
-if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
-  showEditButtons.value = true;
-}
-
 // User and role setup for county filtering
 const isSuperAdmin = ref(
-  userInfo.roles?.some((role: any) => role.name === "super_admin" || role.name === "root_admin")
+  Array.isArray(userInfo?.roles)
+    && userInfo.roles.some((role: any) => role?.name === "super_admin" || role?.name === "root_admin")
 );
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
@@ -148,7 +129,7 @@ const getUserRoles = async () => {
   // Clear existing role filters
   roles_filters = [];
 
-  processedRoles = (userInfo.roles || []).map((role: any) => {
+  processedRoles = (userInfo?.roles || []).map((role: any) => {
     let field: string | null = null;
     let fieldvalue: any = null;
     const level = role.user_roles?.location_level;
@@ -214,51 +195,7 @@ const getUserRoles = async () => {
       filterValues.splice(index, 0, Array.isArray(rf.value) ? rf.value : [rf.value]);
     }
   });
-
-  console.log('isSuperAdmin.value', isSuperAdmin.value);
-  console.log('isNationalStaff.value', isNationalStaff.value);
-  console.log('isCountyStaff.value', isCountyStaff.value);
-  console.log('roles_filters --', roles_filters);
-  console.log('filters', filters);
-  console.log('filterValues', filterValues);
 };
-
-// Permission checking function for projects
-const canUserDeleteProject = (project: any): boolean => {
-  // Super admins and root admins can delete any project
-  if (isSuperAdmin.value) {
-    return true;
-  }
-
-  // National staff can delete any project
-  if (isNationalStaff.value) {
-    return true;
-  }
-
-  // Check if user has global project:delete permission
-  const userPermissions = userInfo.permissions || [];
-  if (userPermissions.includes('*.*.*') || userPermissions.includes('project:delete')) {
-    // If the project has a createdBy field, check if the current user created it
-    const projectCreatedBy = project.createdBy || project.created_by;
-    if (projectCreatedBy === userInfo.id) {
-      return true;
-    }
-
-    // For county staff, check if they are a county admin and the project is in their county
-    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
-    if (countyRole && countyRole.user_roles?.county_id) {
-      // Check if project has locations in the user's county
-      if (project.project_locations && Array.isArray(project.project_locations)) {
-        return project.project_locations.some((loc: any) => loc.county_id === countyRole.user_roles.county_id);
-      }
-      // Fallback: check if project has county_id directly
-      if (project.county_id === countyRole.user_roles.county_id) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 const pushRoleFilters = () => {
   // Re-apply role-based filters after other filters are set
@@ -303,9 +240,6 @@ watch(
 )
 
 
-//const domain_id = 5
-
-
 const page = ref(1)
 
 const selCounties: any[] = []
@@ -313,12 +247,7 @@ const loading = ref(true)
 
 const currentPage = ref(1)
 
-// const pageBen = ref(1) // Removed unused variables
-// const pSizeBen = ref(5)
-// const totalBen = ref(0)
-
 const total = ref(0)
-
 
 const uploadDialog = ref(false)
 const settlementMapDrawer = ref(false)
@@ -327,24 +256,17 @@ const mapLoading = ref(true)
 let tableDataList = ref<UserType[]>([])
 let tableDataList_orig = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-
 
 // - -----Model configs ------------
 const model = 'project'
 let filters: any[] = ['component_id']
-let filterValues: any[] = [[component_id.value]]   // make sure the inner array is array
+let filterValues: any[] = [[component_id.value]]
 let tblData = ref<any[]>([])
 const associated_Model = ''
-//const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['programme', 'project_location', 'programme_implementation'] // Include programme, project_location, and programme_implementation
-// Note: project_location should include settlement data through its own associations
-// Removed nested_models completely for better performance
-
+const associated_multiple_models = ['programme', 'project_location', 'programme_implementation']
 
 //// ------------------parameters -----------------------////
 
-// const facilityGeo = ref([]) // Removed unused variable
 const facilityGeoPoints = ref()
 const facilityGeoLines = ref([])
 const facilityGeoPolygons = ref([])
@@ -419,7 +341,7 @@ const onPageChange = async (selPage: any) => {
     if (searchString.value) {
       await getFilteredBySearchData(searchString.value)
     } else {
-      await getFilteredData(filters, filterValues)
+      await getFilteredData()
     }
   } finally {
     loading.value = false
@@ -436,7 +358,7 @@ const onPageSizeChange = async (size: any) => {
     if (searchString.value) {
       await getFilteredBySearchData(searchString.value)
     } else {
-      await getFilteredData(filters, filterValues)
+      await getFilteredData()
     }
   } finally {
     loading.value = false
@@ -449,7 +371,7 @@ const onPageSizeChange = async (size: any) => {
 
 
 const getAllProjects = async () => {
-  await getFilteredData(filters, filterValues)
+  await getFilteredData()
 }
 
 const destructure = (obj) => {
@@ -468,31 +390,25 @@ const destructure = (obj) => {
   return simpleObj
 }
 
-const getFilteredData = async (selFilters, selfilterValues) => {
+const getFilteredData = async () => {
   try {
-    // Apply role-based filters
     pushRoleFilters();
-    
+
     const formData: any = {
       limit: pageSize.value,
       page: page.value,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: model,
       searchField: 'name',
       searchKeyword: '',
       assocModel: associated_Model,
-      filters: filters, // Use filters after pushRoleFilters()
-      filterValues: filterValues, // Use filterValues after pushRoleFilters()
+      filters: filters,
+      filterValues: filterValues,
       associated_multiple_models: associated_multiple_models
-      // Removed nested_models completely for better performance
     }
 
-    //------------------------- 
-    console.log('Fetching project data with minimal associations...')
-    console.log('Project filters (should filter through project_location):', filters)
-    console.log('Project filterValues:', filterValues)
-    // NOTE: Backend must handle county_id/settlement_id filters for 'project' model by filtering through project_location
-    // Backend should use: EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.county_id = ?)
+    // NOTE: Backend handles county_id/settlement_id filters for 'project' by joining project_location
+    // EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.county_id = ?)
     const res = await getSettlementListByCounty(formData as any)
 
     console.log('After Query - minimal associations loaded', res)
@@ -843,11 +759,6 @@ const beneficiaryTabDisabled = ref(true)
 
 
 
-const beneficiaryList = ref<any[]>([])
-
-const loadingBeneficiaries = ref(true)
-
-
 
 
 //// ------------------------------------ -------------------------------------//
@@ -946,63 +857,12 @@ const AddProject = () => {
 
 
 
-const editProject = async (data: TableSlotDefault) => {
-
-
-  // push({
-  //   path: `/interventions/add/${component_id.value}`,
-  //   query: { id: data.id, domain: component_id.value }
-  // })
-
-  push({
-  name: 'AddProject',
-  params: { domain: component_id.value, id: data.id }
-})
-
-
-}
 
 
 
 
-
-
-
-
-
-
-const DeleteProject = (data: any) => {
-  if (!canUserDeleteProject(data)) {
-    ElMessage({
-      message: 'You do not have permission to delete this project. Only Super Admins, National Staff, or the County Admin who created this project can delete it.',
-      type: 'warning',
-      duration: 5000,
-      showClose: true
-    });
-    return;
-  }
-
-  console.log('----->', data)
-  let formData: any = {
-    id: data.id,
-    model: model
-  }
-
-  DeleteRecord(formData as any)
-
-  console.log(tableDataList.value)
-
-  // Skip document deletion since documents are not loaded
-  
-  // remove the deleted object from array list 
-  let index = tableDataList.value.findIndex((item: any) => item.id === data.id);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
-}
 
 const tableRowClassName = () => {
-  // Removed document-based styling since documents are not loaded
   return ''
 }
 
@@ -1300,21 +1160,12 @@ const DownloadXlsx = async () => {
 
 
 
-const search = ref('')
-
-
-
-
-
 
 
 
 const isMobile = computed(() => appStore.getMobile)
 
-console.log('IsMobile', isMobile)
-
 const dialogWidth = ref()
-// Removed actionColumnWidth since Actions column was removed
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
@@ -1547,11 +1398,11 @@ const filterByProgramme = async (prog_id: any) => {
     if (prog_id.length > 0) {
       filters.push('implementation_id')
       filterValues.push(prog_id)
-      await getFilteredData(filters, filterValues)
+      await getFilteredData()
     } else {
       filters.splice(filters.indexOf('implementation_id'), 1);
       filterValues.splice(filterValues.indexOf(prog_id), 1);
-      await getFilteredData(filters, filterValues)
+      await getFilteredData()
     }
   } finally {
     loading.value = false
@@ -1569,9 +1420,8 @@ const filterByProgramme = async (prog_id: any) => {
 
 
 
-/// Uplaod docuemnts from a central component 
+/// Upload documents from a central component
 const mfield = 'project_id'
-const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicComponent = ref();
 const componentProps = ref({
   message: 'Hello from parent',
@@ -1581,20 +1431,6 @@ const componentProps = ref({
   field: mfield
 });
 
-
-
-
-
-// component for docuemnts 
-const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
-const dynamicDocumentComponent = ref();
-const DocumentComponentProps = ref({
-  message: 'documents',
-  data: rowData.value,
-  docmodel: model,
-
-});
 
 const locations_loading = ref(false)
 const project_locations = ref<any[]>([])
@@ -1668,7 +1504,6 @@ const getProjectLocations = async (project_id: any) => {
 
 
 const project_id = ref()
-const expandedRow = ref(null);
 const project_activities = ref(null);
 
 
@@ -1901,18 +1736,6 @@ const handleCloseAdd = () => {
 
 const tableRef = ref(null);
 
-const searchKey = ref('')
-
-// Define the computed property
-
-const searchKeyActivity = ref('')
-
-
-// Define the computed property
-
-
-
-
 
 
 
@@ -2036,19 +1859,6 @@ const viewProject = (row) => {
 })
 }
 
-// function xviewProject(row: any) {
-//   console.log('View project details:', row)
-//   // Use router.push with the same navigation logic as handleRowDblClick
-//  push({
-//     name: 'ProjectDetails',
-//     params: { id: row.id }
-//   })
-  
-// }
-
-
-
-
 function goToSettlementMap(location: any) {
   console.log('Open settlement map drawer:', location)
   // Set the selected settlement data and open the drawer
@@ -2084,10 +1894,6 @@ function onLayersLoaded() {
     }
   }, 100)
 }
-
-// Remove expand column and add hover logic
-const hoveredRow = ref(null);
-
 
 </script>
 
@@ -2413,8 +2219,6 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 </style>
 
 <style>
-/* Removed document-based row styling since documents are not loaded */
-
 /* Compact table styling */
 .el-table .el-table__cell {
   padding: 8px 0 !important;

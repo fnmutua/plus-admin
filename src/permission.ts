@@ -92,7 +92,14 @@ router.beforeEach(async (to, from, next) => {
 
       const redirectPath = from.query.redirect || to.path;
       const redirect = decodeURIComponent(redirectPath as string);
-      const nextData = to.path === redirect ? { ...to, replace: true } : { path: redirect };
+      // Re-navigate by path (not by spreading `to`, which carries `name`) so the
+      // updated matcher resolves to the most specific dynamic route just registered
+      // above. Spreading `to` would carry e.g. `name: 'CatchAll'` from the wildcard
+      // fallback that matched on cold load, sending us back to the 404 view even
+      // when the real route now exists.
+      const nextData = to.path === redirect
+        ? { path: redirect, query: to.query, hash: to.hash, replace: true }
+        : { path: redirect };
       permissionStore.setIsAddRouters(true);
       next(nextData);
     }
