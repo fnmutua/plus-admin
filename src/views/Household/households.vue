@@ -52,7 +52,8 @@ import {
   updateHousehold,
   startHouseholdsExcelExportJob,
   getHouseholdsExcelExportJobStatus,
-  downloadHouseholdsExcelExportJob
+  downloadHouseholdsExcelExportJob,
+  type HouseholdsExcelExportJobPayload
 } from '@/api/households'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
@@ -106,6 +107,14 @@ const loading = ref(true)
 const excelDownloadLoading = ref(false)
 const downloadOptionsDialogVisible = ref(false)
 const anonymizeLocationForDownload = ref(true)
+
+/** Download dialog: optional filters (sent to export job API) */
+const exportCountyIds = ref<number[]>([])
+const exportSettlementIds = ref<number[]>([])
+const exportPhaseIds = ref<number[]>([])
+const exportSettOptions = ref<{ value: number; label: string }[]>([])
+const exportSettlementLoading = ref(false)
+const programmeImplementationOptions = ref<{ value: number; label: string }[]>([])
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
@@ -143,7 +152,7 @@ const hasActiveFilters = computed(() => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const downloadHouseholdsExcel = async (options: { anonymize_location?: boolean } = {}) => {
+const downloadHouseholdsExcel = async (options: HouseholdsExcelExportJobPayload = {}) => {
   if (excelDownloadLoading.value) return
   excelDownloadLoading.value = true
   try {
@@ -187,14 +196,96 @@ const downloadHouseholdsExcel = async (options: { anonymize_location?: boolean }
   }
 }
 
-const openDownloadOptionsDialog = () => {
+const loadExportSettlementsByCounty = async (countyIds: number[]) => {
+  if (!countyIds?.length) {
+    exportSettOptions.value = []
+    return
+  }
+  exportSettlementLoading.value = true
+  try {
+    const formData = {
+      curUser: 1,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      excludeGeom: true,
+      excludeGeomAssoc: true,
+      associated_multiple_models: ['county'],
+      filters: ['county_id'],
+      filterValues: [countyIds],
+      currentUser: userInfo,
+      returnAll: true
+    }
+    const res = await searchByKeyWord(formData)
+    exportSettOptions.value = (res.data || []).map((item: any) => ({
+      value: Number(item.id),
+      label: String(item?.name ?? item?.id ?? '')
+    }))
+  } catch (error) {
+    console.error('Error loading settlements for export:', error)
+    exportSettOptions.value = []
+  } finally {
+    exportSettlementLoading.value = false
+  }
+}
+
+const loadProgrammeImplementationsForExport = async () => {
+  try {
+    const response = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 500,
+        curUser: 1,
+        model: 'programme_implementation',
+        searchField: '',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    })
+    const ret = Array.isArray(response?.data) ? response.data : response?.data?.data ?? []
+    programmeImplementationOptions.value = ret.map((item: any) => {
+      const title = String(item?.title ?? '')
+      const ac = item?.acronym != null && String(item.acronym).trim() !== '' ? ` (${item.acronym})` : ''
+      return {
+        value: Number(item.id),
+        label: `${title}${ac}` || String(item.id)
+      }
+    })
+  } catch (err) {
+    console.error('Error loading project phases:', err)
+    programmeImplementationOptions.value = []
+  }
+}
+
+const handleExportCountyChange = async (countyIds: any) => {
+  const selected = normalizeSelectedIds(countyIds) as number[]
+  exportCountyIds.value = selected
+  exportSettlementIds.value = []
+  await loadExportSettlementsByCounty(selected)
+}
+
+const openDownloadOptionsDialog = async () => {
   if (excelDownloadLoading.value) return
+  exportCountyIds.value = [...normalizeSelectedIds(value2.value)] as number[]
+  exportSettlementIds.value = exportCountyIds.value.length
+    ? ([...normalizeSelectedIds(value4.value)] as number[])
+    : []
+  exportPhaseIds.value = []
+  await Promise.all([
+    loadProgrammeImplementationsForExport(),
+    loadExportSettlementsByCounty(exportCountyIds.value)
+  ])
   downloadOptionsDialogVisible.value = true
 }
 
 const confirmDownloadWithOptions = async () => {
   downloadOptionsDialogVisible.value = false
-  await downloadHouseholdsExcel({ anonymize_location: anonymizeLocationForDownload.value })
+  await downloadHouseholdsExcel({
+    anonymize_location: anonymizeLocationForDownload.value,
+    ...(exportCountyIds.value.length ? { county_ids: exportCountyIds.value } : {}),
+    ...(exportSettlementIds.value.length ? { settlement_ids: exportSettlementIds.value } : {}),
+    ...(exportPhaseIds.value.length ? { implementation_ids: exportPhaseIds.value } : {})
+  })
 }
 
 
@@ -274,7 +365,8 @@ const loadSettlementsByCounty = async (countyIds: any) => {
       associated_multiple_models: ['county'],
       filters: ['county_id'],
       filterValues: [ids],
-      currentUser: userInfo
+      currentUser: userInfo,
+      returnAll: true
     }
     const res = await searchByKeyWord(formData)
     settOptions.value = (res.data || []).map((item: any) => ({
@@ -954,9 +1046,56 @@ const DocumentComponentProps = ref({
     <el-dialog
       v-model="downloadOptionsDialogVisible"
       title="Download Options"
-      width="420px"
+      width="520px"
       draggable>
       <el-form label-position="top">
+        <el-form-item label="County (optional)">
+          <el-select
+            v-model="exportCountyIds"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            clearable
+            filterable
+            placeholder="All counties"
+            style="width: 100%"
+            @change="handleExportCountyChange"
+            @clear="handleExportCountyChange([])">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Settlement (optional)">
+          <el-select
+            v-model="exportSettlementIds"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            clearable
+            filterable
+            :disabled="!exportCountyIds.length"
+            :loading="exportSettlementLoading"
+            :placeholder="exportCountyIds.length ? 'All settlements in selected counties' : 'Select county first'"
+            style="width: 100%">
+            <el-option v-for="item in exportSettOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Project phase (optional)">
+          <el-select
+            v-model="exportPhaseIds"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            clearable
+            filterable
+            placeholder="All phases"
+            style="width: 100%">
+            <el-option
+              v-for="item in programmeImplementationOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="Anonymize household locations in export">
           <el-switch v-model="anonymizeLocationForDownload" />
         </el-form-item>

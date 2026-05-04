@@ -26,6 +26,47 @@ const csvEscape = (value) => {
   return text
 }
 
+const sqlIntListForInClause = (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) return null
+  const nums = [
+    ...new Set(
+      ids
+        .map((x) => parseInt(String(x), 10))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    )
+  ]
+  return nums.length ? nums.join(',') : null
+}
+
+const buildHouseholdExportWhereSql = ({ countyIds, settlementIds, implementationIds } = {}) => {
+  let sql = ''
+  const countyIn = sqlIntListForInClause(countyIds)
+  const settlementIn = sqlIntListForInClause(settlementIds)
+  const implIn = sqlIntListForInClause(implementationIds)
+  if (countyIn) {
+    sql += ` AND h."county_id" IN (${countyIn})`
+  }
+  if (settlementIn) {
+    sql += ` AND h."settlement_id" IN (${settlementIn})`
+  }
+  if (implIn) {
+    sql += ` AND (
+      EXISTS (
+        SELECT 1 FROM "beneficiary" b_f
+        INNER JOIN "project" p_f ON p_f."id" = b_f."project_id"
+        WHERE b_f."hh_id" = h."id" AND p_f."implementation_id" IN (${implIn})
+      )
+      OR EXISTS (
+        SELECT 1 FROM "project_location" pl_f
+        INNER JOIN "project" p_f2 ON p_f2."id" = pl_f."project_id"
+        WHERE pl_f."settlement_id" IS NOT NULL AND pl_f."settlement_id" = h."settlement_id"
+          AND p_f2."implementation_id" IN (${implIn})
+      )
+    )`
+  }
+  return sql
+}
+
 const cleanupExpiredHouseholdExportJobs = () => {
   const now = Date.now()
   for (const [jobId, job] of householdExportJobs.entries()) {
@@ -40,12 +81,19 @@ const cleanupExpiredHouseholdExportJobs = () => {
   }
 }
 
-const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
+const buildHouseholdsExportCsv = async ({
+  anonymizeLocation = true,
+  countyIds = null,
+  settlementIds = null,
+  implementationIds = null
+} = {}) => {
   const excludedFields = ['name', 'national_id', 'phone', 'telephone', 'respondents_name', 'geom']
   const allAttributes = Object.keys(db.models.households.rawAttributes)
   const safeFields = allAttributes.filter((field) => !excludedFields.includes(field))
   console.log('[HH Export] Preparing CSV columns:', safeFields.length)
   console.log('[HH Export] Anonymize location:', anonymizeLocation)
+  const householdExportWhere = buildHouseholdExportWhereSql({ countyIds, settlementIds, implementationIds })
+  console.log('[HH Export] Extra household WHERE (truncated):', householdExportWhere.slice(0, 200))
 
   const selectCols = safeFields.map((field) => `h."${field}" AS "${field}"`).join(', ')
   const anonymizeEnabledSql = anonymizeLocation ? 'TRUE' : 'FALSE'
@@ -78,6 +126,8 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
       FROM "households" h
       LEFT JOIN "settlement" s ON s."id" = h."settlement_id"
       LEFT JOIN "county" c ON c."id" = COALESCE(h."county_id", s."county_id")
+      WHERE 1 = 1
+      ${householdExportWhere}
     ),
     ben_by_hh AS (
       SELECT
@@ -943,6 +993,9 @@ exports.getOneHousehold = (req, res) => {
 exports.createHouseholdExportJob = async (_req, res) => {
   cleanupExpiredHouseholdExportJobs()
   const anonymizeLocation = _req?.body?.anonymize_location !== false
+  const countyIds = Array.isArray(_req?.body?.county_ids) ? _req.body.county_ids : null
+  const settlementIds = Array.isArray(_req?.body?.settlement_ids) ? _req.body.settlement_ids : null
+  const implementationIds = Array.isArray(_req?.body?.implementation_ids) ? _req.body.implementation_ids : null
   const jobId = crypto.randomUUID()
   const filename = `households_${new Date().toISOString().slice(0, 10)}_${jobId.slice(0, 8)}.csv`
   const filePath = path.join(os.tmpdir(), filename)
@@ -961,7 +1014,12 @@ exports.createHouseholdExportJob = async (_req, res) => {
   setImmediate(async () => {
     try {
       console.log(`[HH Export] Job ${jobId} started`)
-      const csv = await buildHouseholdsExportCsv({ anonymizeLocation })
+      const csv = await buildHouseholdsExportCsv({
+        anonymizeLocation,
+        countyIds,
+        settlementIds,
+        implementationIds
+      })
       fs.writeFileSync(filePath, csv, 'utf8')
       const job = householdExportJobs.get(jobId)
       if (!job) return

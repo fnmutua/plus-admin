@@ -48,7 +48,15 @@ export const postBatchHouseholds = (data: UserType): Promise<IResponse<UserType>
   return request.post({ url: prod + '/api/v1/hh/batch', data })
 }
 
-export const startHouseholdsExcelExportJob = (data: { anonymize_location?: boolean } = {}) => {
+export type HouseholdsExcelExportJobPayload = {
+  anonymize_location?: boolean
+  county_ids?: number[]
+  settlement_ids?: number[]
+  /** programme_implementation ids (project phase) */
+  implementation_ids?: number[]
+}
+
+export const startHouseholdsExcelExportJob = (data: HouseholdsExcelExportJobPayload = {}) => {
   return request.post({
     url: prod + '/api/v1/hh/export/excel/job/start',
     data,
