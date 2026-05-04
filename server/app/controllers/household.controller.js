@@ -78,15 +78,91 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
       FROM "households" h
       LEFT JOIN "settlement" s ON s."id" = h."settlement_id"
       LEFT JOIN "county" c ON c."id" = COALESCE(h."county_id", s."county_id")
+    ),
+    ben_by_hh AS (
+      SELECT
+        b."hh_id" AS "hh_id",
+        array_to_string(array_remove(array_agg(DISTINCT p."id"::text), NULL), ' | ') AS "ben_project_ids",
+        array_to_string(array_remove(array_agg(DISTINCT p."title"), NULL), ' | ') AS "ben_project_titles",
+        array_to_string(array_remove(array_agg(DISTINCT p."code"), NULL), ' | ') AS "ben_project_internal_codes",
+        array_to_string(array_remove(array_agg(DISTINCT p."project_code"), NULL), ' | ') AS "ben_project_codes",
+        array_to_string(array_remove(array_agg(DISTINCT p."status"), NULL), ' | ') AS "ben_project_statuses",
+        array_to_string(array_remove(array_agg(DISTINCT p."implementation_scope"), NULL), ' | ') AS "ben_project_implementation_scopes",
+        array_to_string(array_remove(array_agg(DISTINCT p."start_date"::text), NULL), ' | ') AS "ben_project_start_dates",
+        array_to_string(array_remove(array_agg(DISTINCT p."end_date"::text), NULL), ' | ') AS "ben_project_end_dates",
+        array_to_string(array_remove(array_agg(DISTINCT comp."id"::text), NULL), ' | ') AS "ben_component_ids",
+        array_to_string(array_remove(array_agg(DISTINCT comp."title"), NULL), ' | ') AS "ben_component_titles",
+        array_to_string(array_remove(array_agg(DISTINCT comp."code"), NULL), ' | ') AS "ben_component_codes",
+        array_to_string(array_remove(array_agg(DISTINCT comp."acronym"), NULL), ' | ') AS "ben_component_acronyms"
+      FROM "beneficiary" b
+      INNER JOIN "project" p ON p."id" = b."project_id"
+      LEFT JOIN "component" comp ON comp."id" = COALESCE(b."component_id", p."component_id")
+      WHERE b."hh_id" IS NOT NULL
+      GROUP BY b."hh_id"
+    ),
+    loc_by_hh AS (
+      SELECT
+        h."id" AS "hh_id",
+        array_to_string(array_remove(array_agg(DISTINCT pl."id"::text), NULL), ' | ') AS "pl_ids",
+        array_to_string(array_remove(array_agg(DISTINCT pl."settlement_id"::text), NULL), ' | ') AS "pl_settlement_ids",
+        array_to_string(array_remove(array_agg(DISTINCT pl."location_name"), NULL), ' | ') AS "pl_location_names",
+        array_to_string(array_remove(array_agg(DISTINCT pl."location_type"), NULL), ' | ') AS "pl_location_types",
+        array_to_string(array_remove(array_agg(DISTINCT pr."id"::text), NULL), ' | ') AS "pl_project_ids",
+        array_to_string(array_remove(array_agg(DISTINCT pr."title"), NULL), ' | ') AS "pl_project_titles",
+        array_to_string(array_remove(array_agg(DISTINCT pr."code"), NULL), ' | ') AS "pl_project_internal_codes",
+        array_to_string(array_remove(array_agg(DISTINCT pr."project_code"), NULL), ' | ') AS "pl_project_codes",
+        array_to_string(array_remove(array_agg(DISTINCT pr."status"), NULL), ' | ') AS "pl_project_statuses",
+        array_to_string(array_remove(array_agg(DISTINCT pr."implementation_scope"), NULL), ' | ') AS "pl_project_implementation_scopes",
+        array_to_string(array_remove(array_agg(DISTINCT pr."start_date"::text), NULL), ' | ') AS "pl_project_start_dates",
+        array_to_string(array_remove(array_agg(DISTINCT pr."end_date"::text), NULL), ' | ') AS "pl_project_end_dates",
+        array_to_string(array_remove(array_agg(DISTINCT comp_pl."id"::text), NULL), ' | ') AS "pl_component_ids",
+        array_to_string(array_remove(array_agg(DISTINCT comp_pl."title"), NULL), ' | ') AS "pl_component_titles",
+        array_to_string(array_remove(array_agg(DISTINCT comp_pl."code"), NULL), ' | ') AS "pl_component_codes",
+        array_to_string(array_remove(array_agg(DISTINCT comp_pl."acronym"), NULL), ' | ') AS "pl_component_acronyms"
+      FROM "households" h
+      LEFT JOIN "project_location" pl ON pl."settlement_id" IS NOT NULL AND pl."settlement_id" = h."settlement_id"
+      LEFT JOIN "project" pr ON pr."id" = pl."project_id"
+      LEFT JOIN "component" comp_pl ON comp_pl."id" = pr."component_id"
+      GROUP BY h."id"
     )
     SELECT
-      ${safeFields.map((field) => `"${field}"`).join(', ')},
-      CASE WHEN "export_geom" IS NOT NULL THEN ST_Y("export_geom") ELSE NULL END AS "latitude",
-      CASE WHEN "export_geom" IS NOT NULL THEN ST_X("export_geom") ELSE NULL END AS "longitude",
-      "settlement_name",
-      "county_name"
-    FROM base
-    ORDER BY "id" DESC
+      ${safeFields.map((field) => `bx."${field}"`).join(', ')},
+      CASE WHEN bx."export_geom" IS NOT NULL THEN ST_Y(bx."export_geom"::geometry) ELSE NULL END AS "latitude",
+      CASE WHEN bx."export_geom" IS NOT NULL THEN ST_X(bx."export_geom"::geometry) ELSE NULL END AS "longitude",
+      bx."settlement_name",
+      bx."county_name",
+      ben."ben_project_ids",
+      ben."ben_project_titles",
+      ben."ben_project_internal_codes",
+      ben."ben_project_codes",
+      ben."ben_project_statuses",
+      ben."ben_project_implementation_scopes",
+      ben."ben_project_start_dates",
+      ben."ben_project_end_dates",
+      ben."ben_component_ids",
+      ben."ben_component_titles",
+      ben."ben_component_codes",
+      ben."ben_component_acronyms",
+      loc."pl_ids",
+      loc."pl_settlement_ids",
+      loc."pl_location_names",
+      loc."pl_location_types",
+      loc."pl_project_ids",
+      loc."pl_project_titles",
+      loc."pl_project_internal_codes",
+      loc."pl_project_codes",
+      loc."pl_project_statuses",
+      loc."pl_project_implementation_scopes",
+      loc."pl_project_start_dates",
+      loc."pl_project_end_dates",
+      loc."pl_component_ids",
+      loc."pl_component_titles",
+      loc."pl_component_codes",
+      loc."pl_component_acronyms"
+    FROM base bx
+    LEFT JOIN ben_by_hh ben ON ben."hh_id" = bx."id"
+    LEFT JOIN loc_by_hh loc ON loc."hh_id" = bx."id"
+    ORDER BY bx."id" DESC
   `
   console.log('[HH Export] Running export query...')
   console.log('[HH Export] SQL:', sql.replace(/\s+/g, ' ').trim())
@@ -96,7 +172,37 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
     replacements: { anonSeedSalt }
   })
   console.log('[HH Export] Query rows fetched:', rows.length)
-  const columns = [...safeFields, 'latitude', 'longitude', 'settlement_name', 'county_name']
+  const projectComponentExportColumns = [
+    'ben_project_ids',
+    'ben_project_titles',
+    'ben_project_internal_codes',
+    'ben_project_codes',
+    'ben_project_statuses',
+    'ben_project_implementation_scopes',
+    'ben_project_start_dates',
+    'ben_project_end_dates',
+    'ben_component_ids',
+    'ben_component_titles',
+    'ben_component_codes',
+    'ben_component_acronyms',
+    'pl_ids',
+    'pl_settlement_ids',
+    'pl_location_names',
+    'pl_location_types',
+    'pl_project_ids',
+    'pl_project_titles',
+    'pl_project_internal_codes',
+    'pl_project_codes',
+    'pl_project_statuses',
+    'pl_project_implementation_scopes',
+    'pl_project_start_dates',
+    'pl_project_end_dates',
+    'pl_component_ids',
+    'pl_component_titles',
+    'pl_component_codes',
+    'pl_component_acronyms'
+  ]
+  const columns = [...safeFields, 'latitude', 'longitude', 'settlement_name', 'county_name', ...projectComponentExportColumns]
   const header = columns.join(',')
   const body = rows
     .map((row) => columns.map((col) => csvEscape(row[col])).join(','))
