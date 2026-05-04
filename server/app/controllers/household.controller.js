@@ -90,12 +90,17 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
         array_to_string(array_remove(array_agg(DISTINCT p."implementation_scope"), NULL), ' | ') AS "ben_project_implementation_scopes",
         array_to_string(array_remove(array_agg(DISTINCT p."start_date"::text), NULL), ' | ') AS "ben_project_start_dates",
         array_to_string(array_remove(array_agg(DISTINCT p."end_date"::text), NULL), ' | ') AS "ben_project_end_dates",
+        array_to_string(array_remove(array_agg(DISTINCT impl_ben."id"::text), NULL), ' | ') AS "ben_project_phase_ids",
+        array_to_string(array_remove(array_agg(DISTINCT impl_ben."title"), NULL), ' | ') AS "ben_project_phase_titles",
+        array_to_string(array_remove(array_agg(DISTINCT impl_ben."acronym"), NULL), ' | ') AS "ben_project_phase_acronyms",
+        array_to_string(array_remove(array_agg(DISTINCT impl_ben."code"), NULL), ' | ') AS "ben_project_phase_codes",
         array_to_string(array_remove(array_agg(DISTINCT comp."id"::text), NULL), ' | ') AS "ben_component_ids",
         array_to_string(array_remove(array_agg(DISTINCT comp."title"), NULL), ' | ') AS "ben_component_titles",
         array_to_string(array_remove(array_agg(DISTINCT comp."code"), NULL), ' | ') AS "ben_component_codes",
         array_to_string(array_remove(array_agg(DISTINCT comp."acronym"), NULL), ' | ') AS "ben_component_acronyms"
       FROM "beneficiary" b
       INNER JOIN "project" p ON p."id" = b."project_id"
+      LEFT JOIN "programme_implementation" impl_ben ON impl_ben."id" = p."implementation_id"
       LEFT JOIN "component" comp ON comp."id" = COALESCE(b."component_id", p."component_id")
       WHERE b."hh_id" IS NOT NULL
       GROUP BY b."hh_id"
@@ -115,6 +120,10 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
         array_to_string(array_remove(array_agg(DISTINCT pr."implementation_scope"), NULL), ' | ') AS "pl_project_implementation_scopes",
         array_to_string(array_remove(array_agg(DISTINCT pr."start_date"::text), NULL), ' | ') AS "pl_project_start_dates",
         array_to_string(array_remove(array_agg(DISTINCT pr."end_date"::text), NULL), ' | ') AS "pl_project_end_dates",
+        array_to_string(array_remove(array_agg(DISTINCT impl_pl."id"::text), NULL), ' | ') AS "pl_project_phase_ids",
+        array_to_string(array_remove(array_agg(DISTINCT impl_pl."title"), NULL), ' | ') AS "pl_project_phase_titles",
+        array_to_string(array_remove(array_agg(DISTINCT impl_pl."acronym"), NULL), ' | ') AS "pl_project_phase_acronyms",
+        array_to_string(array_remove(array_agg(DISTINCT impl_pl."code"), NULL), ' | ') AS "pl_project_phase_codes",
         array_to_string(array_remove(array_agg(DISTINCT comp_pl."id"::text), NULL), ' | ') AS "pl_component_ids",
         array_to_string(array_remove(array_agg(DISTINCT comp_pl."title"), NULL), ' | ') AS "pl_component_titles",
         array_to_string(array_remove(array_agg(DISTINCT comp_pl."code"), NULL), ' | ') AS "pl_component_codes",
@@ -122,6 +131,7 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
       FROM "households" h
       LEFT JOIN "project_location" pl ON pl."settlement_id" IS NOT NULL AND pl."settlement_id" = h."settlement_id"
       LEFT JOIN "project" pr ON pr."id" = pl."project_id"
+      LEFT JOIN "programme_implementation" impl_pl ON impl_pl."id" = pr."implementation_id"
       LEFT JOIN "component" comp_pl ON comp_pl."id" = pr."component_id"
       GROUP BY h."id"
     )
@@ -139,6 +149,10 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
       ben."ben_project_implementation_scopes",
       ben."ben_project_start_dates",
       ben."ben_project_end_dates",
+      ben."ben_project_phase_ids",
+      ben."ben_project_phase_titles",
+      ben."ben_project_phase_acronyms",
+      ben."ben_project_phase_codes",
       ben."ben_component_ids",
       ben."ben_component_titles",
       ben."ben_component_codes",
@@ -155,6 +169,10 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
       loc."pl_project_implementation_scopes",
       loc."pl_project_start_dates",
       loc."pl_project_end_dates",
+      loc."pl_project_phase_ids",
+      loc."pl_project_phase_titles",
+      loc."pl_project_phase_acronyms",
+      loc."pl_project_phase_codes",
       loc."pl_component_ids",
       loc."pl_component_titles",
       loc."pl_component_codes",
@@ -181,6 +199,10 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
     'ben_project_implementation_scopes',
     'ben_project_start_dates',
     'ben_project_end_dates',
+    'ben_project_phase_ids',
+    'ben_project_phase_titles',
+    'ben_project_phase_acronyms',
+    'ben_project_phase_codes',
     'ben_component_ids',
     'ben_component_titles',
     'ben_component_codes',
@@ -197,6 +219,10 @@ const buildHouseholdsExportCsv = async ({ anonymizeLocation = true } = {}) => {
     'pl_project_implementation_scopes',
     'pl_project_start_dates',
     'pl_project_end_dates',
+    'pl_project_phase_ids',
+    'pl_project_phase_titles',
+    'pl_project_phase_acronyms',
+    'pl_project_phase_codes',
     'pl_component_ids',
     'pl_component_titles',
     'pl_component_codes',
