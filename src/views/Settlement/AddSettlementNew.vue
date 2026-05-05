@@ -36,6 +36,7 @@ import {
 } from 'element-plus'
 import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit,ArrowRight, QuestionFilled } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
@@ -602,7 +603,6 @@ const initializeMap = async () => {
   try {
     // Load Google Maps API
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
     
     const loader = new Loader({
       apiKey: googleMapsApiKey,

@@ -23,6 +23,7 @@ import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import filterDataByKeys from '@/utils/filterArrays'
 import * as turf from '@turf/turf'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import { Icon } from '@iconify/vue';
 import mapboxgl from "mapbox-gl";
@@ -2816,10 +2817,9 @@ const initializeLocationUpdateMap = async () => {
   try {
     // Load Google Maps API
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
     
     const loader = new Loader({
-      apiKey: googleMapsApiKey,
+      apiKey: GOOGLE_MAPS_API_KEY,
       version: 'weekly',
       libraries: ['drawing', 'geometry', 'places'],
       region: 'KE',
@@ -4339,12 +4339,9 @@ const initLocateMap = async () => {
   try {
     locateMapLoading.value = true
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey =
-      (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-      'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
     const loader = new Loader({
-      apiKey: googleMapsApiKey,
+      apiKey: GOOGLE_MAPS_API_KEY,
       version: 'weekly',
       libraries: ['geometry', 'places'],
       region: 'KE',

@@ -28,6 +28,7 @@ import {
 } from 'element-plus'
 import { ArrowLeft, Plus, Delete, Check, Edit ,Minus, AddLocation } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import { getOneGeo, CreateRecord, getSettlementMapData, updateOneRecord, getSettlementsWithBoundaryGeometry } from '@/api/settlements'
 import { 
   countyOptions, 
@@ -766,7 +767,6 @@ const initializeMap = async () => {
 
   try {
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
     
     const loader = new Loader({
       apiKey: googleMapsApiKey,

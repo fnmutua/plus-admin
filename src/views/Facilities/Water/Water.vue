@@ -27,6 +27,7 @@ import { useRouter, useRoute } from 'vue-router'
 
 import { Loader } from '@googlemaps/js-api-loader'
 import * as turf from '@turf/turf'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 
 import { subcountyOptions, settlementOptionsV2 } from './../common/index'
 
@@ -48,9 +49,6 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 // Actions for each row
 const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete'])
-
-// Google Maps API Key
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // User location-based filtering
 const isSuperAdmin = computed(() => {

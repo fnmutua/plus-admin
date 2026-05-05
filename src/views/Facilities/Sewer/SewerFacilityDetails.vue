@@ -13,12 +13,12 @@ import { GoogleMap, Polygon, Polyline } from 'vue3-google-map'
 import { useDesign } from '@/hooks/web/useDesign'
 import { getSettlementListByCounty, getOneGeo, getSettlementMapData, getLinkedDocuments, unlinkDocument, DeleteRecord, deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 const { getPrefixCls } = useDesign()
 const prefixCls = getPrefixCls('descriptions')
 const collapsed = reactive({ general: false, pipe: false })

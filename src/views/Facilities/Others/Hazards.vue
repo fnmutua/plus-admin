@@ -11,6 +11,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { Plus, Filter, Search, Back, Check } from '@element-plus/icons-vue'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 
 const pageTitle = 'Hazards'
 const facilityModel = 'hazard_zone'
@@ -30,7 +31,6 @@ const selectedCounty = ref<any[]>([])
 const selectedSettlement = ref<any[]>([])
 const countyOptions = ref<any[]>([])
 const settlementOptions = ref<any[]>([])
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 const mapDrawerVisible = ref(false)
 const mapDrawerContainer = ref<HTMLElement | null>(null)
 const mapDrawerFacility = ref<any>(null)

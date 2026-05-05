@@ -30,6 +30,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import {
   searchByKeyWord
 } from '@/api/settlements'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import { listAssessments } from '@/api/climate-assessment'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 
@@ -2480,9 +2481,6 @@ const loadImageAsBase64 = (url: string): Promise<string> => {
   })
 }
 
-// Google Maps API Key
-const GoogleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
-
 // Fetch neighboring settlements for PDF map
 const fetchNeighboringSettlementsForPDF = async (settlementId: string | number | string[], settlementGeom: any): Promise<any[]> => {
   try {
@@ -2620,21 +2618,21 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400, neighbor
       pathCoords = ring.map((coord: number[]) => `${coord[1]},${coord[0]}`);
     } else if (simplifiedGeom.type === 'Point') {
       // For points, just show the location with a marker
-      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&markers=color:red|${centerLat},${centerLng}&key=${GoogleMapsApiKey}`;
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&markers=color:red|${centerLat},${centerLng}&key=${GOOGLE_MAPS_API_KEY}`;
       return url;
     } else if (simplifiedGeom.type === 'LineString') {
       // For lines, draw the path
       const coords = simplifiedGeom.coordinates;
       pathCoords = coords.map((coord: number[]) => `${coord[1]},${coord[0]}`);
       const pathString = pathCoords.join('|');
-      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:0xFF0000FF|weight:3|${pathString}&key=${GoogleMapsApiKey}`;
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:0xFF0000FF|weight:3|${pathString}&key=${GOOGLE_MAPS_API_KEY}`;
       return url;
     }
     
     // Check if we have valid path coordinates
     if (pathCoords.length === 0) {
       // Fallback: just show the location without polygon
-      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&key=${GoogleMapsApiKey}`;
+      const url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&key=${GOOGLE_MAPS_API_KEY}`;
       return url;
     }
     
@@ -2666,14 +2664,14 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400, neighbor
     url += `&path=color:${strokeColor}|fillcolor:${fillColor}|weight:3|${pathString}`;
     
     // Add API key
-    url += `&key=${GoogleMapsApiKey}`;
+    url += `&key=${GOOGLE_MAPS_API_KEY}`;
     
     // Check URL length - Google has ~8KB limit
     if (url.length > 8000) {
       console.warn('URL too long, removing neighbors and simplifying...');
       
       // Try without neighbors first
-      url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
+      url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GOOGLE_MAPS_API_KEY}`;
       
       // If still too long, simplify main settlement
       if (url.length > 8000) {
@@ -2693,7 +2691,7 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400, neighbor
           
           if (simplerPathCoords.length > 0) {
             pathString = simplerPathCoords.join('|');
-            url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GoogleMapsApiKey}`;
+            url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&path=color:${strokeColor}|fillcolor:${fillColor}|weight:2|${pathString}&key=${GOOGLE_MAPS_API_KEY}`;
           }
         } catch (e) {
           console.warn('Aggressive simplification failed:', e);
@@ -2702,7 +2700,7 @@ const generateStaticMapUrl = (geometry: any, width = 600, height = 400, neighbor
       
       // If still too long, fall back to no polygon
       if (url.length > 8000) {
-        url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&markers=color:red|${centerLat},${centerLng}&key=${GoogleMapsApiKey}`;
+        url = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLng}&zoom=${zoom}&size=${width}x${height}&scale=2&maptype=roadmap&markers=color:red|${centerLat},${centerLng}&key=${GOOGLE_MAPS_API_KEY}`;
       }
     }
     

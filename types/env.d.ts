@@ -16,6 +16,8 @@ interface ImportMetaEnv {
   readonly VITE_SOURCEMAP: string
   readonly VITE_OUT_DIR: string
   readonly VITE_APP_HOST: string
+  /** Google Maps / Geocoding / Static Maps API key (optional locally). */
+  readonly VITE_GOOGLE_MAPS_API_KEY?: string
 }
 
 declare global {

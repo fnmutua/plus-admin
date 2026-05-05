@@ -10,6 +10,7 @@ import axios from 'axios'
 import { useAppStore } from '@/store/modules/app'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 
 // Performance optimizations
 const apiCache = ref(new Map())
@@ -90,9 +91,6 @@ const emit = defineEmits<{
 }>()
 
 const appStore = useAppStore()
-const googleMapsApiKey =
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-  'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 const mapRef = ref<any>(null)
 const title = ref('')

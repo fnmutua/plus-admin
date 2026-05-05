@@ -21,6 +21,7 @@ import { Icon } from '@iconify/vue'
 import { GoogleMap, Polygon, Marker, Polyline, InfoWindow } from 'vue3-google-map'
 import { getSettlementListByCounty, getOneGeo, getLinkedDocuments, unlinkDocument, DeleteRecord, deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { canUnlinkDocumentFromFacility, canPermanentlyDeleteFacilityLinkedDocument } from '@/utils/documentPermissions'
@@ -42,8 +43,6 @@ const loading = ref(true)
 const error = ref('')
 const activeTab = ref('profile')
 const record = ref<any>({})
-
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 const mapRef = ref()
 const mapLoading = ref(false)

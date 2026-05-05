@@ -10,6 +10,7 @@ declare global {
 import { getSettlementListByCounty, DeleteRecord, updateOneRecord, getOneGeo, deleteDocument, getAllGeo, getfilteredGeo, CreateRecord, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import {
   ElButton, ElSelect, MessageParamsWithType, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
   ElOption, FormInstance, ElMessage, ElInput, ElBadge, ElSegmented,
@@ -58,9 +59,6 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 // For settlements and schools, show core actions (no inline "Add Facility" here)
 const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete']);
-
-// Google Maps API Key
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // User location-based filtering
 const isSuperAdmin = computed(() => {

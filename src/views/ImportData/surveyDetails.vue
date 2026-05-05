@@ -53,6 +53,7 @@ import VChart from 'vue-echarts';
 
 
 import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline,Circle   } from 'vue3-google-map'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
@@ -2595,7 +2596,7 @@ v-for="(option, index) in uploadOptions"
  
  
           <GoogleMap
-              api-key="AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk"
+              :api-key="GOOGLE_MAPS_API_KEY"
               style="width: 100%; height: 100%"
               :center="gmapCenter"
               :zoom="10"

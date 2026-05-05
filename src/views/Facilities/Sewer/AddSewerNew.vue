@@ -27,6 +27,7 @@ import {
 } from 'element-plus'
 import { ArrowLeft, Check } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import { getOneGeo } from '@/api/settlements'
 import { CreateRecord } from '@/api/settlements'
 import { countyOptions, settlementOptionsV2 } from './common/index'
@@ -320,7 +321,6 @@ const initializeMap = async () => {
 
   try {
     const { Loader } = await import('@googlemaps/js-api-loader')
-    const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
     
     const loader = new Loader({
       apiKey: googleMapsApiKey,

@@ -4,6 +4,7 @@
 import { getSettlementListByCounty, getOneGeo, DeleteRecord, updateOneRecord, deleteDocument, searchByKeyWord, getAllGeo, getfilteredGeo } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFile, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
@@ -827,9 +828,6 @@ const viewProfile = (data: TableSlotDefault) => {
 }
 
 const activeTab = ref('list')
-
-// Google Maps API Key
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // Drawer state for map
 const mapDrawerVisible = ref(false)

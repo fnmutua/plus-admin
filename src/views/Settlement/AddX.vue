@@ -265,6 +265,7 @@ import { Loader } from '@googlemaps/js-api-loader'
 import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck, getAdminUnitsFromCoordinates } from '@/api/settlements'
 
 import * as turf from '@turf/turf'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import {
   ElButton,
   ElDivider,
@@ -547,8 +548,6 @@ watch(() => appStore.getIsDark, (isDark) => {
   }
 });
 
-
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // Initialize Google Maps loader
 const loader = new Loader({

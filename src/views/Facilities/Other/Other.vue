@@ -17,6 +17,7 @@ import {
 } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 
 
 
@@ -1105,9 +1106,6 @@ const viewProfile = (data: TableSlotDefault) => {
 }
 
 const activeTab = ref('list')
-
-// Google Maps API Key
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // Drawer state for map
 const mapDrawerVisible = ref(false)

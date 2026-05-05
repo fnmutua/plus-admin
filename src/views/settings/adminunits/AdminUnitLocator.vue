@@ -6,10 +6,9 @@ import { GoogleMap, Marker, InfoWindow } from 'vue3-google-map'
 import { Back, Location, Search, DocumentCopy } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { locateAdminUnitsByPointApi } from '@/api/adminunits'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 
 const router = useRouter()
-
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 const mapCenter = ref({ lat: -0.0236, lng: 37.9062 }) // Approx centre of Kenya
 const mapZoom = ref(7)

@@ -19,6 +19,7 @@ import {
 import { getListWithoutGeo } from '@/api/counties'
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 
 
 import {
@@ -150,9 +151,6 @@ const userSettlementId = computed(() => {
 const isCountyRestricted = computed(() => {
   return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value
 })
-
-// Google Maps API Key
-const googleMapsApiKey = 'AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk'
 
 // Row actions for roads
 const action_buttons = ref<string[]>(['viewProfile', 'viewOnMap', 'delete']);
