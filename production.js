@@ -100,10 +100,10 @@ app.use('/api/app/signin', loginLimiter)
 app.use('/api/app/verify', otpLimiter)
 
 // simple route
-app.use(express.static(path.join(__dirname, '/dist-pro')));
+app.use(express.static(path.join(__dirname, '/dist')));
 
 app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, '/dist-pro/index.html')
+  const indexPath = path.join(__dirname, '/dist/index.html')
   
   // Check if index.html exists
   if (fs.existsSync(indexPath)) {
@@ -458,7 +458,7 @@ app.get('*', (req, res) => {
     return res.status(404).json({ message: 'API endpoint not found' })
   }
   
-  const indexPath = path.join(__dirname, '/dist-pro/index.html')
+  const indexPath = path.join(__dirname, '/dist/index.html')
   
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath)
