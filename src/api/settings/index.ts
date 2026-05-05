@@ -1,6 +1,5 @@
 import request from '@/config/axios'
-
-const prod = import.meta.env.VITE_APP_HOST
+import { apiOrigin as prod } from '@/config/apiBase'
 
 export interface ModuleSetting {
   id?: number

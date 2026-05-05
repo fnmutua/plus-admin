@@ -35,8 +35,7 @@ console.log("DEV: Switching on dotenv")
 const dotenv = require('dotenv')
 //dotenv.config() 
 
-   // Replace 'path-to-your-specific-env-file' with the actual path to your .env file
-const envFilePath = path.resolve(__dirname, '.env.kisip');
+const envFilePath = path.resolve(__dirname, '.env');
 dotenv.config({ path: envFilePath });
 
 // Log environment variables on load
@@ -137,11 +136,11 @@ require('./server/app/routes/audit.routes')(app)
 require('./server/app/routes/monitoring.routes')(app)
 
 // Static middleware should come AFTER API routes
-app.use(express.static(path.join(__dirname, '/dist-pro')))
+app.use(express.static(path.join(__dirname, '/dist')))
 app.use(express.static('public'))
 
 app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, '/dist-pro/index.html')
+  const indexPath = path.join(__dirname, '/dist/index.html')
   
   // Check if index.html exists
   if (fs.existsSync(indexPath)) {

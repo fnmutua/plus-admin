@@ -17,9 +17,10 @@ import type {
   AIDatabaseStatus,
   AILog
 } from './types'
+import { apiOrigin } from '@/config/apiBase'
 
-const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
+const dev = apiOrigin + ':4000' // Add the port for local Dev
+const prod = apiOrigin // remove the port for production
 
 // AI Configuration and Provider Management
 export const getAIHealth = (): Promise<IResponse<any>> => {

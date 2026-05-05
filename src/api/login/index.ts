@@ -1,9 +1,10 @@
 import request from '@/config/axios'
 import type { UserType } from './../register/types'
+import { apiOrigin as prod } from '@/config/apiBase'
+
 interface RoleParams {
   roleName: string
 }
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
 export const guestLoginApi = (): Promise<any> => {
   return request.post({ url: prod + '/api/auth/guest' })
@@ -11,8 +12,6 @@ export const guestLoginApi = (): Promise<any> => {
 
 export const loginApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('Login....', data)
-
-  const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
   console.log('Port-Host.:', prod) // 123
   return request.post({ url: prod + '/api/auth/signin', data })

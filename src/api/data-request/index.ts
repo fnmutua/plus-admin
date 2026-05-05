@@ -1,6 +1,5 @@
 import axios from 'axios'
-
-const base = import.meta.env.VITE_APP_HOST || ''
+import { apiOrigin as base } from '@/config/apiBase'
 
 export interface DataRequestPayload {
   // Requester

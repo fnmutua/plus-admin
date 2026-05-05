@@ -1,12 +1,13 @@
 import request from '@/config/axios'
 import type { UserType } from '../register/types'
+import { apiOrigin } from '@/config/apiBase'
 
 interface RoleParams {
   roleName: string
 }
 
-const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
+const dev = apiOrigin + ':4000' // Add the port for local Dev
+const prod = apiOrigin // remove the port for production
 
 /* export const xgetUserListApi = ({ params }: AxiosConfig) => {
   return request.get<{

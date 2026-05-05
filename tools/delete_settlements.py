@@ -24,11 +24,10 @@ except ImportError:
     print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
     print("Continuing without .env file support...")
 
-# Load environment variables from .env file
-# Try multiple common .env file names in the same directory as this script
-ENV_FILES = ['.env', '.env.kisip', '.env.local', '.env.production']
-script_dir = Path(__file__).parent  # directory of this script
-project_root = script_dir  # same directory for .env lookup
+# Load environment variables from project root `.env` (see repo README / .env.example).
+ENV_FILES = ['.env', '.env.local']
+script_dir = Path(__file__).parent.resolve()
+project_root = script_dir.parent
 
 if DOTENV_AVAILABLE:
     env_loaded = False

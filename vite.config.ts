@@ -22,15 +22,10 @@ function pathResolve(dir: string) {
 }
 
 export default ({ command, mode }: ConfigEnv): UserConfig => {
-  let env = {} as any
   const isBuild = command === 'build'
-  if (!isBuild) {
-    
-    env = loadEnv((process.argv[3] === '--mode' ? process.argv[4] : process.argv[3]), root)
-  } else {
-    env = loadEnv(mode, root)
-  }
-  
+  // Loads `.env`, `.env.local`, then `.env.[mode]` / `.env.[mode].local` (mode is
+  // `development` for dev, `production` for build). Keep shared vars in `.env` only.
+  const env = loadEnv(mode, root) as Record<string, string>
 
   return {
     base: env.VITE_BASE_PATH,

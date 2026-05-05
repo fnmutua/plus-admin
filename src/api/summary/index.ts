@@ -1,6 +1,5 @@
 import request from '@/config/axios'
-
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
+import { apiOrigin as prod } from '@/config/apiBase'
 
 // Simple hash for cache keys — deterministic string from any object
 function _hashData(obj: any): string {

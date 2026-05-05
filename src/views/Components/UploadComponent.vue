@@ -14,9 +14,8 @@ import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/a
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import axios from 'axios';
+import { apiOrigin as prod } from '@/config/apiBase'
 import state from '@/config/axios'
-
-const prod = import.meta.env.VITE_APP_HOST
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()

@@ -1,10 +1,8 @@
 import request from '@/config/axios'
+import { apiOrigin as prod } from '@/config/apiBase'
   
 
 
- const prod = import.meta.env.VITE_APP_HOST // remove the port for production
-
-  
 
 export const generateGRMCode= (): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/code' })

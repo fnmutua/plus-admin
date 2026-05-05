@@ -1,8 +1,9 @@
 import request from '@/config/axios'
 import type { SettlementType } from '../settlements/types'
+import { apiOrigin } from '@/config/apiBase'
 
-const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
+const dev = apiOrigin + ':4000' // Add the port for local Dev
+const prod = apiOrigin // remove the port for production
 
 export const getAll = ({ params }: AxiosConfig) => {
   return request.get<{

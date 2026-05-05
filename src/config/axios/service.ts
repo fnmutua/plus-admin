@@ -9,8 +9,9 @@ import { ElMessage } from 'element-plus'
 import router from '@/router'
 
 const { result_code, base_url } = config
- 
-export const PATH_URL = base_url[import.meta.env.VITE_API_BASEPATH]
+
+const apiBasePath = (import.meta.env.VITE_API_BASEPATH || 'base') as keyof typeof base_url
+export const PATH_URL = base_url[apiBasePath] ?? ''
 
 
 // 创建axios实例

@@ -11,8 +11,7 @@
  *   GET /api/public/register/wards
  */
 import axios, { type AxiosRequestConfig } from 'axios'
-
-const prod = import.meta.env.VITE_APP_HOST || ''
+import { apiOrigin as prod } from '@/config/apiBase'
 
 function publicGet<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
   return axios

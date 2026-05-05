@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import { apiOrigin as prod } from '@/config/apiBase'
 
 interface StreamType {
   id?: string
@@ -19,8 +20,6 @@ interface StreamType {
   createdAt?: string
   updatedAt?: string
 }
-
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
 // Get all active streams
 export const getActiveStreams = (): Promise<IResponse<StreamType[]>> => {

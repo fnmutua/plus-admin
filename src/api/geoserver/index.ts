@@ -1,14 +1,5 @@
 import request from '@/config/axios'
- 
-interface RoleParams {
-  roleName: string
-}
-
-const prod = import.meta.env.VITE_APP_HOST // remove the port for production
- 
- 
- 
-
+import { apiOrigin as prod } from '@/config/apiBase'
 
 export const getGeoServerLayers = (): Promise<IResponse> => {
   return request.get({ url: prod + '/api/v1/geoserver/layers' })
