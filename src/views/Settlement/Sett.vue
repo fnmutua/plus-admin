@@ -4685,6 +4685,18 @@ const handleRowDblClick = (row) => {
   })
 }
 
+// Deleted segment mixes two row types:
+//  - _deletedTabSource === 'rejected'  → settlement record still exists, route to details
+//  - _deletedTabSource === 'history'   → settlement was deleted/merged, only the history
+//                                         entry remains, so open the review dialog instead
+const handleDeletedRowDblClick = (row: any) => {
+  if (row && row._deletedTabSource === 'history') {
+    DeleteReview(row)
+    return
+  }
+  handleRowDblClick(row)
+}
+
 const activeSegment = ref('Approved')
 
 const deletedSegmentBadgeCount = computed(() => totalRejected.value + deletedHistoryEntryCount.value)
@@ -5813,6 +5825,15 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
 
 
     <div v-if="activeSegment === 'Deleted'">
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-top: 10px; margin-bottom: 5px;">
+        <template #default>
+          <span style="font-size: 13px;">💡 Double-click a row to open settlement details (Rejected) or review the deletion entry (Deleted/Merged)</span>
+        </template>
+      </el-alert>
       <el-table
         table-layout="fixed"
         :data="deletedPageData"
@@ -5820,6 +5841,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
         style="width: 100%; margin-top: 10px;"
         border
         :row-key="(row) => row._deletedTabSource === 'rejected' ? 'r-' + row.id : 'h-' + row.history_id"
+        @row-dblclick="handleDeletedRowDblClick"
         @selection-change="handleSelectionChange"
       >
         <el-table-column
