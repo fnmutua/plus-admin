@@ -123,6 +123,8 @@ var _role= require('./role')
 var _data_request= require('./data_request')
 var _data_request_document = require('./DataRequestDocument')
 var _data_request_share = require('./DataRequestShare')
+var _communication = require('./communication')
+var _communication_recipient = require('./communication_recipient')
 
 
 
@@ -254,6 +256,19 @@ var role = _role(sequelize, DataTypes)
 var data_request = _data_request(sequelize, DataTypes)
 var data_request_document = _data_request_document(sequelize, DataTypes)
 var data_request_share = _data_request_share(sequelize, DataTypes)
+var communication = _communication(sequelize, DataTypes)
+var communication_recipient = _communication_recipient(sequelize, DataTypes)
+
+// Communications associations: a broadcast has many per-channel recipient rows.
+communication.hasMany(communication_recipient, {
+  foreignKey: 'communication_id',
+  as: 'recipients',
+  onDelete: 'CASCADE'
+})
+communication_recipient.belongsTo(communication, {
+  foreignKey: 'communication_id',
+  as: 'communication'
+})
 
 
 
@@ -262,6 +277,8 @@ var data_request_share = _data_request_share(sequelize, DataTypes)
     data_request,
     data_request_document,
     data_request_share,
+    communication,
+    communication_recipient,
     beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
     powerline,powerline_asset,railway,railway_asset,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,

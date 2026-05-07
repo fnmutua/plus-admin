@@ -2009,7 +2009,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon: 'arcticons:auditor',
           permissions: ['logs:read']
         }
-      }, 
+      },
+
+      {
+        path: 'communications',
+        component: () => import('@/views/Admin/Communications.vue'),
+        name: 'AdminCommunications',
+        meta: {
+          title: 'Communications',
+          hidden: false,
+          icon: 'mdi:message-fast',
+          permissions: ['communication:read']
+        }
+      }
     ]
   },
  
