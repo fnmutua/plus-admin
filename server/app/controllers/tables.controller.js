@@ -2966,10 +2966,16 @@ exports.applySurveyHouseholdSize = async (req, res) => {
 
       if (sampleRecords === 0) {
         status = 'skip'
-        detail = 'No household survey records'
+        detail =
+          before === null
+            ? 'No household survey records'
+            : 'No household survey records; existing avg_household_size unchanged'
       } else if (after == null || !Number.isFinite(after) || usableRecords === 0) {
         status = 'skip'
-        detail = 'No usable hh_size values'
+        detail =
+          before === null
+            ? 'No usable hh_size values'
+            : 'No usable hh_size values; existing avg_household_size unchanged'
       } else if (before !== null && Math.round(before * 100) / 100 === after) {
         detail = 'Already matched survey sample (num_households unchanged)'
       }
