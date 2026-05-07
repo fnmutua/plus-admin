@@ -21,7 +21,7 @@
             <div v-show="expandedGroups.has(group.id)" class="nav-group-children">
               <template v-for="item in group.children" :key="item.id">
                 <button
-                  v-if="canSee(item.roles)"
+                  v-if="canSeeNavItem(item.roles, item.permissions)"
                   :class="['nav-item', { active: activeSection === item.id }]"
                   @click="selectSection(item.id)"
                 >
@@ -30,7 +30,12 @@
               </template>
               <template v-if="group.subgroups">
                 <template v-for="sub in group.subgroups" :key="sub.id">
-                  <template v-if="canSee(sub.roles)">
+                  <template
+                    v-if="
+                      canSeeNavItem(sub.roles, sub.permissions) &&
+                      sub.children.some((c) => canSeeNavItem(c.roles, c.permissions))
+                    "
+                  >
                     <button
                       class="nav-subgroup-toggle"
                       :class="{ expanded: expandedGroups.has(sub.id), 'has-active': subgroupHasActive(sub) }"
@@ -44,7 +49,7 @@
                       <div v-show="expandedGroups.has(sub.id)" class="nav-subgroup-children">
                         <template v-for="item in sub.children" :key="item.id">
                           <button
-                            v-if="canSee(item.roles)"
+                            v-if="canSeeNavItem(item.roles, item.permissions)"
                             :class="['nav-item', 'nav-item-nested', { active: activeSection === item.id }]"
                             @click="selectSection(item.id)"
                           >
@@ -178,6 +183,7 @@ import requestDataFormImg from '@/assets/documentation/request-data-form.png'
 import dataRequestAdmin01Img from '@/assets/documentation/data-request-admin-01.png'
 import dataRequestAdmin02TabsImg from '@/assets/documentation/data-request-admin-02-tabs.png'
 import dataRequestAdmin02ApprovalImg from '@/assets/documentation/data-request-admin-02-approval.png'
+import communications01Img from '@/assets/documentation/communciations-01.png'
 import settlementDetailsProfileImg from '@/assets/documentation/settlement-details-profile.png'
 import settlementDetailsLocationImg from '@/assets/documentation/settlement-details-location.png'
 import settlementDetailsDocumentsImg from '@/assets/documentation/settlement-details-documents.png'
@@ -299,6 +305,8 @@ interface NavPage {
   label: string
   content: string
   roles?: string[]
+  /** If set, user must hold at least one of these permissions (from cached login). */
+  permissions?: string[]
 }
 
 interface NavSubGroup {
@@ -307,6 +315,7 @@ interface NavSubGroup {
   icon?: string
   children: NavPage[]
   roles?: string[]
+  permissions?: string[]
 }
 
 interface NavGroup {
@@ -314,6 +323,7 @@ interface NavGroup {
   label: string
   icon: string
   roles?: string[]
+  permissions?: string[]
   children: NavPage[]
   subgroups?: NavSubGroup[]
 }
@@ -325,21 +335,35 @@ const { wsCache } = useCache()
 // wsCache reads from sessionStorage which is not reactive — populate via onMounted so
 // navGroups re-computes after the user info is read.
 const userRoleNames = ref<string[]>([])
+const userPermissionNames = ref<string[]>([])
 
 function loadUserRoles() {
   try {
     const userInfo = wsCache.get(appStore.getUserInfo)
     userRoleNames.value = userInfo?.roles?.map((r: any) => r.name) ?? []
+    const raw = userInfo?.permissions
+    userPermissionNames.value = Array.isArray(raw) ? raw.map((p: unknown) => String(p)) : []
   } catch {
     userRoleNames.value = []
+    userPermissionNames.value = []
   }
 }
 
-// Returns true when the item has no role restriction, or the user holds at least one required role.
-// An empty userRoleNames means the user is not logged in — only unrestricted items are shown.
-function canSee(roles?: string[]): boolean {
-  if (!roles || roles.length === 0) return true
-  return roles.some(r => userRoleNames.value.includes(r))
+/** True if the user may see a nav page or subgroup, given optional role and permission gates (AND). */
+function canSeeNavItem(roles?: string[], permissions?: string[]): boolean {
+  const roleOk = !roles?.length || roles.some((r) => userRoleNames.value.includes(r))
+  const permOk =
+    !permissions?.length ||
+    permissions.some((p) => userPermissionNames.value.includes(p)) ||
+    userPermissionNames.value.some((x) => x === '*.*.*')
+  return roleOk && permOk
+}
+
+function canSeeGroup(g: NavGroup): boolean {
+  if ((g.roles?.length || g.permissions?.length) && !canSeeNavItem(g.roles, g.permissions)) {
+    return false
+  }
+  return getAllGroupPages(g).length > 0
 }
 
 const sidebarOpen = ref(false)
@@ -377,6 +401,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Climate Assessment</strong></td><td>Structured questionnaire-based climate risk and vulnerability scoring for settlements.</td></tr>
             <tr><td><strong>Surveys</strong></td><td>Integration with ODK Central for field data collection, with table/map views and attachment downloads.</td></tr>
             <tr><td><strong>Data requests</strong></td><td>Public application form for formal access to settlement data; internal review (DPO / coordinator), document attachments, and secure share links for approved releases.</td></tr>
+            <tr><td><strong>Communications</strong></td><td>Admin tool for one-off <strong>SMS and email broadcasts</strong> to role groups, named users, or custom address lists &mdash; with delivery history, per-recipient status, and retry. Distinct from automated workflow SMS configured under Settings.</td></tr>
             <tr><td><strong>Repository</strong></td><td>Document storage, drone imagery, and secure document sharing via token links.</td></tr>
             <tr><td><strong>Media</strong></td><td>Videos, live streams and articles related to programme activities.</td></tr>
             <tr><td><strong>Users &amp; Roles</strong></td><td>Role-based access control with granular permissions per module.</td></tr>
@@ -2024,45 +2049,6 @@ const allNavGroups: NavGroup[] = [
     ],
     children: [
       {
-        id: 'data-requests-management',
-        label: 'Data requests (admin)',
-        content: `
-          <p><strong>Data Requests</strong> is the admin area for applications from the public (the form people use is described under <strong>Home &rarr; Requesting Data</strong>). You need the <code>data_request:read</code> permission to see the menu and open records.</p>
-
-          <h2>How to work through a request</h2>
-          <ol>
-            <li>Click <strong>Admin &rarr; Data Requests</strong> in the sidebar.</li>
-            <li>Use search and filters on the table to find a reference, name or status if the list is long.</li>
-            <li>Click a row to open the full request.</li>
-          </ol>
-          <p>Example listing view:</p>
-          <img src="${dataRequestAdmin01Img}" alt="Admin Data Requests listing table" class="docs-screenshot" />
-
-          <ol start="4">
-            <li>Open the <strong>Data request</strong> tab and read what the applicant submitted. This side is read-only.</li>
-            <li>Open the <strong>Review &amp; approval</strong> tab. The <strong>DPO</strong> completes the recommendation (approve / reject / pending) and <strong>DPO review notes</strong>. Pause briefly so the page can autosave.</li>
-          </ol>
-          <p>Detail page with <strong>Data request</strong> and <strong>Review &amp; approval</strong> tabs:</p>
-          <img src="${dataRequestAdmin02TabsImg}" alt="Data request detail tabs" class="docs-screenshot" />
-
-          <ol start="6">
-            <li>Scroll to <strong>Documents</strong>. Download the <strong>auto-generated PDF</strong> of the application (use regenerate first if you need the latest fields on the form). <strong>Print</strong> the PDF.</li>
-            <li>Take the printed pack to the <strong>coordinator</strong> so they can review it and approve it on paper, following your office procedure.</li>
-            <li><strong>Scan or photograph</strong> the coordinator-signed pages and <strong>upload</strong> that file back on the same request under Documents. That keeps the signed copy on the ticket.</li>
-            <li>Return to <strong>Review &amp; approval</strong>. Enter the <strong>coordinator approval</strong> (approve / reject / pending) and <strong>coordinator notes</strong> in KeSMIS so the record matches the signed paperwork. Wait for autosave.</li>
-            <li>Still under <strong>Documents</strong>, upload any <strong>data files</strong> you will release to the requester (for example zip, spreadsheets, maps). Remove wrong files with delete if needed (you cannot delete the auto PDF).</li>
-          </ol>
-          <p>Documents area (signed upload, attachments, email button):</p>
-          <img src="${dataRequestAdmin02ApprovalImg}" alt="Data request documents and email download to requester" class="docs-screenshot" />
-
-          <ol start="11">
-            <li>When coordinator approval is <strong>Approved</strong> on the server and at least one requester-ready attachment is present, click <strong>Email Download Link to Requester</strong>. The requester gets an email with a time-limited link; you can copy the same link from the green panel if you need to pass it on manually. They do not need a KeSMIS login to use that link.</li>
-          </ol>
-
-          <blockquote>Tip &mdash; New public submissions trigger an acknowledgment to the requester (with the reference) and an alert to <strong>support</strong> role users with a link into this admin list.</blockquote>
-        `
-      },
-      {
         id: 'data-import',
         label: 'Import GIS Data',
         content: `
@@ -3126,7 +3112,7 @@ const allNavGroups: NavGroup[] = [
         id: 'users-roles',
         label: 'Rights & Role Allocation',
         content: `
-          <p>KeSMIS uses <strong>role-based access control (RBAC)</strong>. Each role carries a set of permissions that determine what a user can see and do across all modules. Roles are managed from the <strong>Roles</strong> page, accessible via the Users section sidebar.</p>
+          <p>KeSMIS uses <strong>role-based access control (RBAC)</strong>. Each role carries a set of permissions that determine what a user can see and do across all modules. The <strong>permission catalogue</strong> for each role is maintained under <strong>Admin &rarr; Roles</strong> in the app (see <strong>Admin &rarr; Roles</strong> in this documentation). The following explains how to <strong>assign</strong> a role and geographic scope to a user from <strong>Users &amp; Access</strong>.</p>
           <img src="${userRolesImg}" alt="Roles and permissions" class="docs-screenshot" />
 
           <h2>Allocating a role and location to a user</h2>
@@ -3201,6 +3187,167 @@ const allNavGroups: NavGroup[] = [
 
           <h2>On mobile</h2>
           <p>On small screens the reset option is listed inside the row's dropdown menu (chevron icon) alongside Edit and Activate actions.</p>
+        `
+      }
+    ]
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    icon: 'mdi:shield-crown-outline',
+    children: [
+      {
+        id: 'admin-roles',
+        label: 'Roles',
+        permissions: ['roles:read'],
+        content: `
+          <p>The <strong>Roles</strong> page under <strong>Admin &rarr; Roles</strong> is where you maintain the system&apos;s role definitions and the <strong>permission set</strong> attached to each role. It is distinct from <strong>Users &amp; Access &rarr; Rights &amp; Role Allocation</strong>, which is where you assign a role and geographic scope to an individual user.</p>
+          <img src="${userRolesImg}" alt="Roles and permissions configuration" class="docs-screenshot" />
+
+          <h2>Who can open it</h2>
+          <p>The sidebar entry is shown when your account includes the <code>roles:read</code> permission (and the Admin menu is available in your build).</p>
+
+          <h2>Typical tasks</h2>
+          <ul>
+            <li><strong>List roles</strong> &mdash; browse existing roles with search and pagination</li>
+            <li><strong>Create / edit a role</strong> &mdash; define the role name and metadata; use the permission picker (e.g. transfer or grouped checklists) to attach fine-grained module permissions</li>
+            <li><strong>Subordinate roles</strong> &mdash; where configured, link roles in a hierarchy so restricted broadcast or delegation rules can resolve &ldquo;lower&rdquo; roles</li>
+            <li><strong>Export</strong> &mdash; download role data where the toolbar provides a download action</li>
+          </ul>
+
+          <blockquote>Changes to a role&apos;s permissions affect every user holding that role after their next login or permission refresh. Test changes on a non-production account where possible.</blockquote>
+        `
+      },
+      {
+        id: 'data-requests-management',
+        label: 'Data requests',
+        permissions: ['data_request:read'],
+        content: `
+          <p><strong>Data Requests</strong> is the admin area for applications from the public (the form people use is described under <strong>Home &rarr; Requesting Data</strong>). You need the <code>data_request:read</code> permission to see the menu and open records.</p>
+
+          <h2>How to work through a request</h2>
+          <ol>
+            <li>Click <strong>Admin &rarr; Data Requests</strong> in the sidebar.</li>
+            <li>Use search and filters on the table to find a reference, name or status if the list is long.</li>
+            <li>Click a row to open the full request.</li>
+          </ol>
+          <p>Example listing view:</p>
+          <img src="${dataRequestAdmin01Img}" alt="Admin Data Requests listing table" class="docs-screenshot" />
+
+          <ol start="4">
+            <li>Open the <strong>Data request</strong> tab and read what the applicant submitted. This side is read-only.</li>
+            <li>Open the <strong>Review &amp; approval</strong> tab. The <strong>DPO</strong> completes the recommendation (approve / reject / pending) and <strong>DPO review notes</strong>. Pause briefly so the page can autosave.</li>
+          </ol>
+          <p>Detail page with <strong>Data request</strong> and <strong>Review &amp; approval</strong> tabs:</p>
+          <img src="${dataRequestAdmin02TabsImg}" alt="Data request detail tabs" class="docs-screenshot" />
+
+          <ol start="6">
+            <li>Scroll to <strong>Documents</strong>. Download the <strong>auto-generated PDF</strong> of the application (use regenerate first if you need the latest fields on the form). <strong>Print</strong> the PDF.</li>
+            <li>Take the printed pack to the <strong>coordinator</strong> so they can review it and approve it on paper, following your office procedure.</li>
+            <li><strong>Scan or photograph</strong> the coordinator-signed pages and <strong>upload</strong> that file back on the same request under Documents. That keeps the signed copy on the ticket.</li>
+            <li>Return to <strong>Review &amp; approval</strong>. Enter the <strong>coordinator approval</strong> (approve / reject / pending) and <strong>coordinator notes</strong> in KeSMIS so the record matches the signed paperwork. Wait for autosave.</li>
+            <li>Still under <strong>Documents</strong>, upload any <strong>data files</strong> you will release to the requester (for example zip, spreadsheets, maps). Remove wrong files with delete if needed (you cannot delete the auto PDF).</li>
+          </ol>
+          <p>Documents area (signed upload, attachments, email button):</p>
+          <img src="${dataRequestAdmin02ApprovalImg}" alt="Data request documents and email download to requester" class="docs-screenshot" />
+
+          <ol start="11">
+            <li>When coordinator approval is <strong>Approved</strong> on the server and at least one requester-ready attachment is present, click <strong>Email Download Link to Requester</strong>. The requester gets an email with a time-limited link; you can copy the same link from the green panel if you need to pass it on manually. They do not need a KeSMIS login to use that link.</li>
+          </ol>
+
+          <blockquote>Tip &mdash; New public submissions trigger an acknowledgment to the requester (with the reference) and an alert to <strong>support</strong> role users with a link into this admin list.</blockquote>
+        `
+      },
+      {
+        id: 'admin-communications',
+        label: 'Communications',
+        permissions: ['communication:read'],
+        content: `
+          <p><strong>Communications</strong> is the admin module for sending one-off <strong>SMS and/or email broadcasts</strong> and reviewing delivery outcomes. Open it from <strong>Admin &rarr; Communications</strong>. You need the <code>communication:read</code> permission to open the page and view history; <code>communication:send</code> is required to dispatch a broadcast (additional permissions such as <code>communication:send_subordinates</code> or <code>communication:send_county</code> may narrow whom you can target).</p>
+          <p>This is separate from <strong>automatic</strong> SMS tied to grievances, incidents, OTPs, and other workflow events &mdash; those are controlled under <strong>Settings &rarr; SMS Settings</strong>.</p>
+
+          <h2>Compose tab</h2>
+          <p>Build a single broadcast and send it in one operation. The form mirrors how each run is stored in the database (<code>communication</code> row plus one row per delivery attempt in <code>communication_recipient</code>).</p>
+          <img src="${communications01Img}" alt="Admin Communications — Compose (channel, recipients, message, preview)" class="docs-screenshot" />
+
+          <h3>Channel</h3>
+          <ul>
+            <li><strong>SMS</strong> &mdash; text message only</li>
+            <li><strong>Email</strong> &mdash; email only (subject required)</li>
+            <li><strong>SMS + Email</strong> &mdash; both where the recipient has a phone and/or email on file (or for custom lists, each parsed address is routed to the appropriate channel)</li>
+          </ul>
+
+          <h3>Recipient mode</h3>
+          <ul>
+            <li><strong>By role group</strong> &mdash; pick one or more system roles; optionally narrow with a <strong>County</strong> filter so only users linked to that county receive the message</li>
+            <li><strong>Specific users</strong> &mdash; search by name, username, email or phone (remote search; results are capped per query)</li>
+            <li><strong>Phone / email list</strong> &mdash; free-form lines or comma/semicolon-separated values; invalid tokens are dropped at preview. Local numbers in <code>07…</code> form are normalised to Kenya <code>254…</code> format</li>
+          </ul>
+
+          <h3>Message</h3>
+          <ul>
+            <li><strong>Email subject</strong> &mdash; required when the channel includes email; ignored for SMS-only</li>
+            <li><strong>Message body</strong> &mdash; required. For SMS, a character/segment counter warns if the text is unusually long</li>
+          </ul>
+
+          <h3>Preview and send</h3>
+          <p>Click <strong>Preview recipients</strong> to resolve the audience without sending. The panel shows how many addresses are deliverable by SMS vs email and lists a sample of recipients. When satisfied, click <strong>Send broadcast</strong> and confirm. Sending runs to completion in the request; partial failures are recorded rather than failing the whole job.</p>
+
+          <h2>History tab</h2>
+          <p>Past broadcasts appear in a paginated table. Filter by free-text (subject/body snippet), <strong>channel</strong>, or <strong>status</strong>. Click a row to open a detail drawer with full body text and a <strong>Recipients</strong> table: per-address channel, delivery status, send time, and provider response where available.</p>
+          <ul>
+            <li><strong>Retry</strong> on a failed row (requires send permission) attempts that delivery again</li>
+            <li><strong>Retry all failed</strong> runs the retry action for every failed recipient in that broadcast</li>
+          </ul>
+
+          <h2>Status values (broadcast)</h2>
+          <table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><code>queued</code></td><td>Created; delivery not yet finished (may appear briefly)</td></tr>
+            <tr><td><code>sending</code></td><td>In progress</td></tr>
+            <tr><td><code>completed</code></td><td>All recipients succeeded</td></tr>
+            <tr><td><code>partial</code></td><td>Some succeeded, some failed</td></tr>
+            <tr><td><code>failed</code></td><td>All deliveries failed</td></tr>
+          </tbody></table>
+
+          <h2>What is stored for each broadcast</h2>
+          <p>Each send creates one <strong>communication</strong> record with channel, optional subject, body, recipient mode, JSON recipient filter (roles/county/user ids or equivalent), recipient and delivery counts, overall status, sender user id, and timestamps. Individual outcomes sit on linked <strong>communication_recipient</strong> rows.</p>
+        `
+      },
+      {
+        id: 'admin-feedback',
+        label: 'Feedback',
+        permissions: ['feedback:read'],
+        content: `
+          <p><strong>Feedback</strong> under <strong>Admin &rarr; Feedback</strong> lists messages submitted by visitors through the public feedback channel. Use it to track status and follow up.</p>
+
+          <h2>Access</h2>
+          <p>The page requires the <code>feedback:read</code> permission. Additional permissions may allow creating, updating, deleting or acting on tickets depending on your role.</p>
+
+          <h2>Working with the list</h2>
+          <ul>
+            <li>Filter by <strong>status</strong> (e.g. Pending / Resolved) where available</li>
+            <li>Search or browse the table; open a row to view the submission and linked user metadata where the grid supports it</li>
+            <li>Use export or download actions in the toolbar if your role includes export rights</li>
+          </ul>
+
+          <p>New feedback may trigger internal notifications (for example to support staff) according to server configuration and SMS settings.</p>
+        `
+      },
+      {
+        id: 'admin-logs',
+        label: 'Logs',
+        permissions: ['logs:read'],
+        content: `
+          <p><strong>Logs</strong> under <strong>Admin &rarr; Logs</strong> shows the <strong>audit trail</strong> of significant actions in KeSMIS: who did what, on which entity, when, and whether the operation succeeded.</p>
+
+          <h2>Access</h2>
+          <p>You need the <code>logs:read</code> permission to open this page. Other <code>logs:*</code> permissions may control export, archive, or purge in environments where those actions exist.</p>
+
+          <h2>Filters</h2>
+          <p>Narrow results by <strong>actor</strong> (user identifier or name), <strong>entity type</strong> (e.g. settlements, grievances, users, projects), <strong>action</strong> (create, update, delete, login, logout, status_change), <strong>outcome</strong> (success / failure), and <strong>date range</strong>. The view loads a bounded batch of rows and paginates on the client.</p>
+
+          <h2>Reading an entry</h2>
+          <p>Each row typically includes the actor, entity, action, outcome, HTTP or audit status, timestamp, and optional detail such as JSON <strong>changes</strong> or metadata. Use this view for security reviews, troubleshooting, and demonstrating accountability.</p>
         `
       }
     ]
@@ -3666,19 +3813,17 @@ const allNavGroups: NavGroup[] = [
   }
 ]
 
-const navGroups = computed(() =>
-  allNavGroups.filter(g => canSee(g.roles))
-)
+const navGroups = computed(() => allNavGroups.filter((g) => canSeeGroup(g)))
 
 function getAllGroupPages(g: NavGroup): NavPage[] {
   const pages: NavPage[] = []
   if (g.subgroups) {
     for (const sub of g.subgroups) {
-      if (!canSee(sub.roles)) continue
-      pages.push(...sub.children.filter(p => canSee(p.roles)))
+      if (!canSeeNavItem(sub.roles, sub.permissions)) continue
+      pages.push(...sub.children.filter((p) => canSeeNavItem(p.roles, p.permissions)))
     }
   }
-  if (g.children) pages.push(...g.children.filter(p => canSee(p.roles)))
+  if (g.children) pages.push(...g.children.filter((p) => canSeeNavItem(p.roles, p.permissions)))
   return pages
 }
 
@@ -3742,7 +3887,7 @@ const closeSidebarOnResize = () => {
 onMounted(async () => {
   loadUserRoles()
   window.addEventListener('resize', closeSidebarOnResize)
-  // Deep-link support: /#/docs?section=grm-grievances
+  // Deep-link support: /#/docs?section=grm-grievances | admin-communications | data-requests-management | …
   const target = route.query.section as string | undefined
   if (target) {
     // Wait one tick so navGroups (which depends on userRoleNames) has filtered correctly
