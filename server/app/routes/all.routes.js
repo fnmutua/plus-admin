@@ -1384,6 +1384,10 @@ module.exports = function (app) {
   app.post('/api/v1/data/settlements/imagery', [authJwt.verifyToken], controller.getSettlementImageryLayers)
   app.post('/api/v1/data/settlements/density-typology/compute', [authJwt.verifyToken], controller.computeSettlementDensityTypology)
   app.post('/api/v1/data/settlements/density-typology/apply', [authJwt.verifyToken], controller.applyDensityTypology)
+  app.post('/api/v1/data/settlements/survey-household-size/apply', [authJwt.verifyToken], controller.applySurveyHouseholdSize)
+  app.post('/api/v1/data/settlements/population-estimate/apply', [authJwt.verifyToken], controller.applyPopulationEstimate)
+  app.post('/api/v1/data/settlements/population-estimate/job/start', [authJwt.verifyToken], controller.createPopulationEstimateJob)
+  app.post('/api/v1/data/settlements/population-estimate/job/status', [authJwt.verifyToken], controller.getPopulationEstimateJobStatus)
   app.post('/api/v1/data/admin-units-from-coords', [authJwt.verifyToken], controller.getAdminUnitsFromCoordinates)
 
   /**

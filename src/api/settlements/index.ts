@@ -569,6 +569,78 @@ export interface DensityTypologyResponse {
   dry_run: boolean
 }
 
+export interface SettlementSurveyHhAvgRow {
+  settlement_id: number
+  settlement_name: string
+  county: string | null
+  county_id: number | null
+  status: 'ok' | 'skip'
+  sample_records: number
+  usable_records: number
+  avg_before: number | null
+  avg_after: number | null
+  detail: string
+}
+
+export interface SettlementSurveyHhAvgSummary {
+  total_evaluated: number
+  updated: number
+  skipped: number
+  unchanged: number
+}
+
+export interface SettlementSurveyHhAvgResponse {
+  code: string
+  message: string
+  data: SettlementSurveyHhAvgRow[]
+  summary: SettlementSurveyHhAvgSummary
+}
+
+export interface SettlementPopulationEstimateRow {
+  settlement_id: number
+  settlement_name: string
+  county: string | null
+  county_id: number | null
+  status: 'ok' | 'skip' | 'error'
+  population_before: number | null
+  population_after: number | null
+  buildings: number | null
+  persons_per_building: number | null
+  detail: string
+}
+
+export interface SettlementPopulationEstimateSummary {
+  total_evaluated: number
+  updated: number
+  skipped: number
+  errors: number
+  unchanged: number
+}
+
+export interface SettlementPopulationEstimateResponse {
+  code: string
+  message: string
+  data: SettlementPopulationEstimateRow[]
+  summary: SettlementPopulationEstimateSummary
+}
+
+export interface SettlementPopulationEstimateJobStatus {
+  job_id: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  total: number
+  done: number
+  percent: number
+  updated: number
+  skipped: number
+  errors: number
+  unchanged: number
+  message?: string
+  error?: string | null
+  data: SettlementPopulationEstimateRow[]
+  log: Array<{ name: string; status: 'ok' | 'skip' | 'error'; msg: string }>
+  summary: SettlementPopulationEstimateSummary
+}
+
 // Compute the density-based slum typology for one or more settlements based
 // on the structures (built-up) inside each settlement boundary. Computes only;
 // the caller persists results via updateOneRecord.
@@ -594,6 +666,37 @@ export const applySettlementDensityTypology = (data: {
   dry_run?: boolean
 }): Promise<DensityTypologyResponse> => {
   return request.post({ url: prod + '/api/v1/data/settlements/density-typology/apply', data })
+}
+
+// One-shot bulk: backend aggregates surveyed household hh_size per settlement
+// and updates settlement.avg_household_size only. num_households is untouched.
+export const applySettlementSurveyHhAvg = (data: {
+  county_id?: number | null
+  scope?: 'missing' | 'all'
+}): Promise<SettlementSurveyHhAvgResponse> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/survey-household-size/apply', data })
+}
+
+// One-shot bulk: backend loads settlement geometries, calls the population
+// estimator, and bulk-updates settlement.population for successful estimates.
+export const applySettlementPopulationEstimate = (data: {
+  county_id?: number | null
+  scope?: 'missing' | 'all'
+}): Promise<SettlementPopulationEstimateResponse> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-estimate/apply', data, timeout: 0 })
+}
+
+export const startSettlementPopulationEstimateJob = (data: {
+  county_id?: number | null
+  scope?: 'missing' | 'all'
+}): Promise<{ code: string; message: string; data: { job_id: string; status: string } }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-estimate/job/start', data })
+}
+
+export const getSettlementPopulationEstimateJobStatus = (
+  job_id: string
+): Promise<{ code: string; data: SettlementPopulationEstimateJobStatus }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-estimate/job/status', data: { job_id } })
 }
 
 // Get imagery layers for a settlement - returns layer names that intersect with settlement bbox

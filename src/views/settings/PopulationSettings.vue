@@ -42,19 +42,10 @@
                     type="primary"
                     :loading="bulkRunning"
                     :disabled="bulkRunning"
-                    style="width: 50%"
+                    style="width: 100%"
                     @click="startBulkUpdate"
                   >
                     {{ bulkRunning ? 'Updating...' : 'Start Bulk Update' }}
-                  </ElButton>
-                  <ElButton
-                    type="danger"
-                    plain
-                    :disabled="!bulkRunning"
-                    style="width: 50%"
-                    @click="bulkCancelled = true"
-                  >
-                    Cancel
                   </ElButton>
                 </div>
               </div>
@@ -70,11 +61,11 @@
                 </div>
                 <ElProgress :percentage="bulkPercent" :status="bulkProgressStatus" striped :striped-flow="bulkRunning" :duration="6" />
                 <div class="log-toolbar">
-                  <ElButton size="small" plain @click="copyLog" :disabled="bulkLog.length === 0">
-                    {{ copied ? '✓ Copied' : 'Copy to clipboard' }}
+                  <ElButton size="small" plain @click="downloadPopulationBulkLogCsv" :disabled="bulkLog.length === 0">
+                    Download CSV
                   </ElButton>
                 </div>
-                <div class="bulk-log" ref="bulkLogRef">
+                <div class="bulk-log">
                   <div
                     v-for="(entry, i) in bulkLog"
                     :key="i"
@@ -199,19 +190,10 @@
                         type="primary"
                         :loading="hhBulkRunning"
                         :disabled="hhBulkRunning"
-                        style="width: 50%"
+                        style="width: 100%"
                         @click="startHhBulkAvgUpdate"
                       >
                         {{ hhBulkRunning ? 'Updating…' : 'Start bulk update' }}
-                      </ElButton>
-                      <ElButton
-                        type="danger"
-                        plain
-                        :disabled="!hhBulkRunning"
-                        style="width: 50%"
-                        @click="hhBulkCancelled = true"
-                      >
-                        Cancel
                       </ElButton>
                     </div>
                   </div>
@@ -480,7 +462,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   ElCard,
   ElTabs,
@@ -499,9 +481,11 @@ import {
   ElTableColumn
 } from 'element-plus'
 import {
-  getSettlementListByCounty,
   updateOneRecord,
   applySettlementDensityTypology,
+  startSettlementPopulationEstimateJob,
+  getSettlementPopulationEstimateJobStatus,
+  applySettlementSurveyHhAvg,
   searchByKeyWord,
   getOneSettlement,
   type DensityTypologyComputeRow,
@@ -541,13 +525,11 @@ const loadCounties = async () => {
 
 const bulkScope = ref<'missing' | 'all'>('missing')
 const bulkRunning = ref(false)
-const bulkCancelled = ref(false)
 const bulkTotal = ref(0)
 const bulkDone = ref(0)
 const bulkSkipped = ref(0)
 const bulkErrors = ref(0)
 const bulkLog = ref<{ name: string; status: 'ok' | 'skip' | 'error'; msg: string }[]>([])
-const bulkLogRef = ref<HTMLElement | null>(null)
 
 const bulkPercent = computed(() =>
   bulkTotal.value > 0 ? Math.round((bulkDone.value / bulkTotal.value) * 100) : 0
@@ -559,9 +541,10 @@ const bulkProgressStatus = computed(() => {
   return ''
 })
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 const startBulkUpdate = async () => {
   bulkRunning.value = true
-  bulkCancelled.value = false
   bulkTotal.value = 0
   bulkDone.value = 0
   bulkSkipped.value = 0
@@ -569,152 +552,71 @@ const startBulkUpdate = async () => {
   bulkLog.value = []
 
   try {
-    const formData: any = {
-      model: 'settlement',
-      curUser: 1,
-      searchField: 'name',
-      searchKeyword: '',
-      returnAll: true,
-      excludeGeom: false,
-      filters: bulkCountyId.value ? ['county_id'] : [],
-      filterValues: bulkCountyId.value ? [[bulkCountyId.value]] : []
-    }
+    const start: any = await startSettlementPopulationEstimateJob({
+      county_id: bulkCountyId.value || null,
+      scope: bulkScope.value
+    })
 
-    const res = await getSettlementListByCounty(formData)
-    const all: any[] = res?.data || []
+    const jobId = start?.data?.job_id
+    if (!jobId) throw new Error('Population update job did not return an id')
 
-    const settlements = bulkScope.value === 'missing'
-      ? all.filter((s: any) => !s.population || s.population === 0)
-      : all
+    ElMessage.info('Population update started in the background.')
 
-    bulkTotal.value = settlements.length
+    while (true) {
+      await wait(3000)
+      const statusRes: any = await getSettlementPopulationEstimateJobStatus(jobId)
+      const job = statusRes?.data
+      if (!job) throw new Error('Could not read population update job status')
 
-    if (settlements.length === 0) {
-      ElMessage.info('No settlements match the selected scope.')
-      bulkRunning.value = false
-      return
-    }
+      bulkTotal.value = job.total || 0
+      bulkDone.value = job.done || 0
+      bulkSkipped.value = job.skipped || 0
+      bulkErrors.value = job.errors || 0
+      bulkLog.value = Array.isArray(job.log) ? job.log : []
 
-    // Build a cached per-ward avg household size using the same summary pattern as National.vue
-    const wardHhSizeMap = new Map<number, number | null>()
-    const getWardAvgHhSize = async (wardId: number): Promise<number | null> => {
-      if (wardHhSizeMap.has(wardId)) return wardHhSizeMap.get(wardId)!
-      try {
-        const res = await getSummarybyFieldFromMultipleIncludes({
-          model: 'households',
-          summaryField: 'households.hh_size',
-          summaryFunction: 'AVG',
-          assoc_models: [],
-          groupFields: [],
-          filterField: ['ward_id'],
-          filterValue: [[wardId]],
-          filterOperator: ['or']
-        })
-        const avg = res?.Total?.[0]?.AVG
-        const val = avg != null ? parseFloat(avg) : null
-        wardHhSizeMap.set(wardId, val)
-        return val
-      } catch {
-        wardHhSizeMap.set(wardId, null)
-        return null
-      }
-    }
-
-    for (const settlement of settlements) {
-      if (bulkCancelled.value) break
-
-      let geom = settlement.geom
-      if (!geom) {
-        bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'skip', msg: 'No geometry' })
-        bulkSkipped.value++
-        bulkDone.value++
-        await scrollLog()
-        continue
+      if (job.status === 'failed') {
+        throw new Error(job.error || job.message || 'Population update job failed')
       }
 
-      // geom may come back from the API as a JSON string — parse it
-      if (typeof geom === 'string') {
-        try { geom = JSON.parse(geom) } catch {
-          bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'skip', msg: 'Invalid geometry' })
-          bulkSkipped.value++
-          bulkDone.value++
-          await scrollLog()
-          continue
+      if (job.status === 'completed') {
+        const updated = job.updated || 0
+        if (bulkTotal.value === 0) {
+          ElMessage.info('No settlements match the selected scope.')
+        } else {
+          ElMessage.success(`Bulk update complete: ${updated} updated, ${bulkSkipped.value} skipped, ${bulkErrors.value} errors.`)
         }
+        break
       }
-
-      try {
-        // Service accepts plain geometry, Feature, or FeatureCollection
-        const body = (geom.type === 'Feature' || geom.type === 'FeatureCollection')
-          ? geom
-          : { type: 'Feature', geometry: geom }
-        const wardHhSize = settlement.ward_id ? await getWardAvgHhSize(settlement.ward_id) : null
-        const url = new URL('https://kesmis.go.ke/estimate_population')
-        if (wardHhSize != null) {
-          url.searchParams.set('persons_per_building', String(wardHhSize))
-        }
-        const popRes = await fetch(url.toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        })
-
-        if (!popRes.ok) throw new Error(`HTTP ${popRes.status}`)
-
-        const data = await popRes.json()
-        if (data?.estimated_population == null) throw new Error('No estimate returned')
-
-        if (!data.buildings || data.buildings === 0) {
-          bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'skip', msg: '0 buildings detected — skipped' })
-          bulkSkipped.value++
-          bulkDone.value++
-          await scrollLog()
-          continue
-        }
-
-        const before = settlement.population || 0
-        const population = Math.round(data.estimated_population / 100) * 100
-        await updateOneRecord({ id: settlement.id, model: 'settlement', population } as any, { silent: true })
-
-        bulkLog.value.push({
-          name: settlement.name || `ID ${settlement.id}`,
-          status: 'ok',
-          msg: `${before.toLocaleString()} → ${population.toLocaleString()} (${data.buildings} buildings × ${Number(data.persons_per_building).toFixed(2)} avg HH size)`
-        })
-      } catch (e: any) {
-        bulkLog.value.push({ name: settlement.name || `ID ${settlement.id}`, status: 'error', msg: e?.message || 'Failed' })
-        bulkErrors.value++
-      }
-
-      bulkDone.value++
-      await scrollLog()
-    }
-
-    if (!bulkCancelled.value) {
-      ElMessage.success(`Bulk update complete: ${bulkDone.value - bulkErrors.value - bulkSkipped.value} updated, ${bulkSkipped.value} skipped, ${bulkErrors.value} errors.`)
-    } else {
-      ElMessage.warning('Bulk update cancelled.')
     }
   } catch (e: any) {
-    ElMessage.error(e?.message || 'Failed to load settlements')
+    bulkErrors.value = 1
+    ElMessage.error(e?.message || 'Failed to update settlement populations')
   } finally {
     bulkRunning.value = false
   }
 }
 
-const scrollLog = async () => {
-  await nextTick()
-  if (bulkLogRef.value) bulkLogRef.value.scrollTop = bulkLogRef.value.scrollHeight
-}
-
-const copied = ref(false)
-const copyLog = async () => {
-  const text = bulkLog.value
-    .map(e => `${e.status === 'ok' ? '✓' : e.status === 'skip' ? '–' : '✗'} ${e.name}  ${e.msg}`)
-    .join('\n')
-  await navigator.clipboard.writeText(text)
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
+const downloadPopulationBulkLogCsv = () => {
+  const header = ['settlement_name', 'status', 'notes']
+  const lines = [
+    header.join(','),
+    ...bulkLog.value.map(r =>
+      [
+        escapeCsvCell(r.name),
+        escapeCsvCell(r.status),
+        escapeCsvCell(r.msg)
+      ].join(',')
+    )
+  ]
+  const text = `\uFEFF${lines.join('\r\n')}`
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  a.download = `population-bulk-update-${stamp}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ── Household size from survey (per settlement) ─────────────────────────────
@@ -731,7 +633,6 @@ const hhSaving = ref(false)
 const hhBulkCountyId = ref<any>(null)
 const hhBulkScope = ref<'missing' | 'all'>('missing')
 const hhBulkRunning = ref(false)
-const hhBulkCancelled = ref(false)
 const hhBulkTotal = ref(0)
 const hhBulkDone = ref(0)
 const hhBulkSkipped = ref(0)
@@ -749,19 +650,6 @@ type HhBulkLogRow = {
 
 const hhBulkLog = ref<HhBulkLogRow[]>([])
 
-function hhSettlementCountyLabel(s: any): string {
-  const name = s?.county?.name
-  if (name) return String(name)
-  if (s?.county_id != null && s?.county_id !== '') return String(s.county_id)
-  return ''
-}
-
-function formatStoredAvgForRow(v: any): string {
-  if (v == null || v === '') return ''
-  const n = Number(v)
-  return Number.isFinite(n) ? n.toFixed(2) : ''
-}
-
 function escapeCsvCell(val: string | number | null | undefined): string {
   if (val == null || val === '') return ''
   const s = String(val)
@@ -778,13 +666,6 @@ const hhBulkProgressStatus = computed(() => {
   if (hhBulkDone.value === hhBulkTotal.value && hhBulkTotal.value > 0) return 'success'
   return ''
 })
-
-function settlementMissingAvgHhSize(s: any): boolean {
-  const v = s.avg_household_size
-  if (v == null || v === '') return true
-  const n = Number(v)
-  return !Number.isFinite(n) || n === 0
-}
 
 async function fetchSurveyHhAvgForSettlement(settlementId: number): Promise<{ total: number; avg: number | null }> {
   const countRes: any = await getFilteredHouseholdsByColumn({
@@ -960,7 +841,6 @@ const downloadHhBulkLogCsv = () => {
 
 const startHhBulkAvgUpdate = async () => {
   hhBulkRunning.value = true
-  hhBulkCancelled.value = false
   hhBulkTotal.value = 0
   hhBulkDone.value = 0
   hhBulkSkipped.value = 0
@@ -968,110 +848,43 @@ const startHhBulkAvgUpdate = async () => {
   hhBulkLog.value = []
 
   try {
-    const formData: any = {
-      model: 'settlement',
-      curUser: 1,
-      searchField: 'name',
-      searchKeyword: '',
-      returnAll: true,
-      excludeGeom: true,
-      filters: hhBulkCountyId.value ? ['county_id'] : [],
-      filterValues: hhBulkCountyId.value ? [[hhBulkCountyId.value]] : []
-    }
+    const res: any = await applySettlementSurveyHhAvg({
+      county_id: hhBulkCountyId.value || null,
+      scope: hhBulkScope.value
+    })
 
-    const res = await getSettlementListByCounty(formData)
-    const all: any[] = res?.data || []
+    const rows = Array.isArray(res?.data) ? res.data : []
+    hhBulkLog.value = rows.map((r: any) => ({
+      settlement_id: r.settlement_id,
+      settlement_name: r.settlement_name || `ID ${r.settlement_id}`,
+      county: r.county || (r.county_id != null ? String(r.county_id) : ''),
+      status: r.status === 'skip' ? 'skip' : 'ok',
+      sample_records: r.sample_records ?? null,
+      avg_before: r.avg_before == null ? '' : Number(r.avg_before).toFixed(2),
+      avg_after: r.avg_after == null ? '' : Number(r.avg_after).toFixed(2),
+      detail: r.detail || ''
+    }))
 
-    const settlements =
-      hhBulkScope.value === 'missing'
-        ? all.filter((s: any) => settlementMissingAvgHhSize(s))
-        : all
+    hhBulkTotal.value = rows.length
+    hhBulkDone.value = rows.length
+    hhBulkSkipped.value = typeof res?.summary?.skipped === 'number'
+      ? res.summary.skipped
+      : hhBulkLog.value.filter(r => r.status === 'skip').length
 
-    hhBulkTotal.value = settlements.length
-
-    if (settlements.length === 0) {
+    if (rows.length === 0) {
       ElMessage.info('No settlements match the selected scope.')
-      hhBulkRunning.value = false
       return
     }
 
-    for (const settlement of settlements) {
-      if (hhBulkCancelled.value) break
-
-      const sid = settlement.id
-      const label = settlement.name || `ID ${sid}`
-      const county = hhSettlementCountyLabel(settlement)
-      const beforeStored = formatStoredAvgForRow(settlement.avg_household_size)
-
-      try {
-        const { total, avg } = await fetchSurveyHhAvgForSettlement(sid)
-
-        if (total === 0) {
-          hhBulkLog.value.push({
-            settlement_id: sid,
-            settlement_name: label,
-            county,
-            status: 'skip',
-            sample_records: 0,
-            avg_before: beforeStored,
-            avg_after: '',
-            detail: 'No household survey records'
-          })
-          hhBulkSkipped.value++
-        } else if (avg == null) {
-          hhBulkLog.value.push({
-            settlement_id: sid,
-            settlement_name: label,
-            county,
-            status: 'skip',
-            sample_records: total,
-            avg_before: beforeStored,
-            avg_after: '',
-            detail: 'No usable hh_size values'
-          })
-          hhBulkSkipped.value++
-        } else {
-          await updateOneRecord(
-            { id: sid, model: 'settlement', avg_household_size: avg } as any,
-            { silent: true }
-          )
-          hhBulkLog.value.push({
-            settlement_id: sid,
-            settlement_name: label,
-            county,
-            status: 'ok',
-            sample_records: total,
-            avg_before: beforeStored,
-            avg_after: avg.toFixed(2),
-            detail: 'avg_household_size updated from survey sample (num_households unchanged)'
-          })
-        }
-      } catch (e: any) {
-        hhBulkLog.value.push({
-          settlement_id: sid,
-          settlement_name: label,
-          county,
-          status: 'error',
-          sample_records: null,
-          avg_before: beforeStored,
-          avg_after: '',
-          detail: e?.message || 'Failed'
-        })
-        hhBulkErrors.value++
-      }
-
-      hhBulkDone.value++
-    }
-
-    if (!hhBulkCancelled.value) {
-      ElMessage.success(
-        `Bulk complete: ${hhBulkDone.value - hhBulkErrors.value - hhBulkSkipped.value} updated, ${hhBulkSkipped.value} skipped, ${hhBulkErrors.value} errors.`
-      )
-    } else {
-      ElMessage.warning('Bulk update cancelled.')
-    }
+    const updated = typeof res?.summary?.updated === 'number'
+      ? res.summary.updated
+      : hhBulkDone.value - hhBulkSkipped.value
+    ElMessage.success(
+      `Bulk complete: ${updated} updated, ${hhBulkSkipped.value} skipped, ${hhBulkErrors.value} errors.`
+    )
   } catch (e: any) {
-    ElMessage.error(e?.message || 'Failed to load settlements')
+    hhBulkErrors.value = 1
+    ElMessage.error(e?.message || 'Failed to update settlement household size averages')
   } finally {
     hhBulkRunning.value = false
   }

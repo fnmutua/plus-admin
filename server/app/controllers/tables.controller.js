@@ -2897,6 +2897,855 @@ exports.applyDensityTypology = async (req, res) => {
   }
 }
 
+// Compute and persist settlement.avg_household_size from surveyed household
+// records in one backend operation. This intentionally does NOT update
+// settlement.num_households because the survey household table is a sample.
+//
+// Request body:
+//   { county_id?: number; scope?: 'missing'|'all' }
+//
+// Returns one row per evaluated settlement so the UI can show/download a
+// troubleshooting table without making per-settlement API calls.
+exports.applySurveyHouseholdSize = async (req, res) => {
+  const t = await db.sequelize.transaction()
+  try {
+    const body = req.body || {}
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const scope = body.scope === 'all' ? 'all' : 'missing'
+
+    const filters = []
+    const replacements = {}
+
+    if (countyId !== null && Number.isFinite(countyId)) {
+      filters.push('s.county_id = :countyId')
+      replacements.countyId = countyId
+    }
+    if (scope === 'missing') {
+      filters.push('(s.avg_household_size IS NULL OR s.avg_household_size = 0)')
+    }
+
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+
+    const previewQuery = `
+      SELECT
+        s.id AS settlement_id,
+        s.name AS settlement_name,
+        s.county_id,
+        c.name AS county,
+        s.avg_household_size AS avg_before,
+        COUNT(h.id)::int AS sample_records,
+        COUNT(h.hh_size)::int AS usable_records,
+        ROUND(AVG(h.hh_size)::numeric, 2) AS avg_after
+      FROM settlement s
+      LEFT JOIN county c
+        ON c.id = s.county_id
+      LEFT JOIN households h
+        ON h.settlement_id = s.id
+      ${where}
+      GROUP BY s.id, s.name, s.county_id, c.name, s.avg_household_size
+      ORDER BY s.id
+    `
+
+    const preview = await db.sequelize.query(previewQuery, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+      transaction: t,
+    })
+
+    const data = preview.map((r) => {
+      const sampleRecords = parseInt(r.sample_records, 10) || 0
+      const usableRecords = parseInt(r.usable_records, 10) || 0
+      const before = r.avg_before == null ? null : parseFloat(r.avg_before)
+      const after = r.avg_after == null ? null : Math.round(parseFloat(r.avg_after) * 100) / 100
+
+      let status = 'ok'
+      let detail = 'avg_household_size updated from survey sample (num_households unchanged)'
+
+      if (sampleRecords === 0) {
+        status = 'skip'
+        detail = 'No household survey records'
+      } else if (after == null || !Number.isFinite(after) || usableRecords === 0) {
+        status = 'skip'
+        detail = 'No usable hh_size values'
+      } else if (before !== null && Math.round(before * 100) / 100 === after) {
+        detail = 'Already matched survey sample (num_households unchanged)'
+      }
+
+      return {
+        settlement_id: r.settlement_id,
+        settlement_name: r.settlement_name,
+        county: r.county || null,
+        county_id: r.county_id,
+        status,
+        sample_records: sampleRecords,
+        usable_records: usableRecords,
+        avg_before: before,
+        avg_after: status === 'ok' ? after : null,
+        detail,
+      }
+    })
+
+    const willApply = data.filter(
+      (r) =>
+        r.status === 'ok' &&
+        r.avg_after !== null &&
+        (r.avg_before === null || Math.round(r.avg_before * 100) / 100 !== r.avg_after)
+    )
+
+    let updatedRows = []
+
+    if (willApply.length > 0) {
+      const ids = willApply.map((r) => r.settlement_id)
+      const avgValues = willApply.map((r) => r.avg_after)
+
+      const updateQuery = `
+        UPDATE settlement s
+        SET avg_household_size = v.avg_household_size,
+            "updatedAt" = NOW()
+        FROM (
+          SELECT UNNEST($1::int[]) AS id,
+                 UNNEST($2::double precision[]) AS avg_household_size
+        ) v
+        WHERE s.id = v.id
+          AND s.avg_household_size IS DISTINCT FROM v.avg_household_size
+        RETURNING s.id, s.avg_household_size AS avg_household_size
+      `
+
+      updatedRows = await db.sequelize.query(updateQuery, {
+        bind: [ids, avgValues],
+        type: db.sequelize.QueryTypes.SELECT,
+        transaction: t,
+      })
+
+      const userId = req.thisUser && req.thisUser.id
+      const updatedById = new Set(updatedRows.map((r) => r.id))
+      const historyRecords = userId
+        ? willApply
+            .filter((r) => updatedById.has(r.settlement_id))
+            .map((r) => ({
+              settlement_id: r.settlement_id,
+              changed_by: userId,
+              change_type: 'Edit',
+              changes: {
+                before: { avg_household_size: r.avg_before },
+                after: { avg_household_size: r.avg_after },
+                bulk_operation: 'survey_household_size_average',
+                metrics: {
+                  sample_records: r.sample_records,
+                  usable_records: r.usable_records,
+                },
+              },
+            }))
+        : []
+
+      if (historyRecords.length > 0) {
+        await db.models.settlement_history.bulkCreate(historyRecords, { transaction: t })
+      }
+    }
+
+    await t.commit()
+
+    const skipped = data.filter((r) => r.status === 'skip').length
+    const unchanged = data.filter(
+      (r) =>
+        r.status === 'ok' &&
+        r.avg_before !== null &&
+        r.avg_after !== null &&
+        Math.round(r.avg_before * 100) / 100 === r.avg_after
+    ).length
+
+    return res.status(200).json({
+      message:
+        updatedRows.length > 0
+          ? `Average household size updated for ${updatedRows.length} settlement(s)`
+          : 'No changes applied',
+      code: '0000',
+      data,
+      summary: {
+        total_evaluated: data.length,
+        updated: updatedRows.length,
+        skipped,
+        unchanged,
+      },
+    })
+  } catch (error) {
+    try {
+      await t.rollback()
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('❌ Error in applySurveyHouseholdSize:', error)
+    return res.status(500).json({
+      message: 'Failed to apply survey household size averages',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+const populationEstimateJobs = new Map()
+const POPULATION_ESTIMATE_JOB_TTL_MS = 1000 * 60 * 60 * 6
+
+function cleanupExpiredPopulationEstimateJobs() {
+  const now = Date.now()
+  for (const [id, job] of populationEstimateJobs.entries()) {
+    if (now - job.created_at > POPULATION_ESTIMATE_JOB_TTL_MS) {
+      populationEstimateJobs.delete(id)
+    }
+  }
+}
+
+function formatPopulationEstimateLogRow(row) {
+  const before = row.population_before == null ? 0 : Number(row.population_before)
+  const after = row.population_after == null ? null : Number(row.population_after)
+  const buildings = row.buildings == null ? null : Number(row.buildings)
+  const ppb = row.persons_per_building == null ? null : Number(row.persons_per_building)
+
+  let detail = row.detail || ''
+  if (row.status === 'ok' && after != null) {
+    const bits = []
+    if (buildings != null) bits.push(`${buildings.toLocaleString()} buildings`)
+    if (ppb != null && Number.isFinite(ppb)) bits.push(`${ppb.toFixed(2)} avg HH size`)
+    detail = `${before.toLocaleString()} -> ${after.toLocaleString()}${bits.length ? ` (${bits.join(' x ')})` : ''}`
+  }
+
+  return {
+    name: row.settlement_name || `ID ${row.settlement_id}`,
+    status: row.status,
+    msg: detail,
+  }
+}
+
+function populationEstimatorErrorMessage(error) {
+  const parts = []
+  if (error && error.message) parts.push(error.message)
+  if (error && error.cause && error.cause.code) parts.push(error.cause.code)
+  if (error && error.cause && error.cause.message && error.cause.message !== error.message) {
+    parts.push(error.cause.message)
+  }
+  return Array.from(new Set(parts.filter(Boolean))).join(' - ') || 'Estimator request failed'
+}
+
+function waitMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchPopulationEstimateFromEstimator(url, featureBody, attempts = 3) {
+  const body = JSON.stringify(featureBody)
+  let lastError = null
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const options = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }
+
+      if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+        options.signal = AbortSignal.timeout(90000)
+      }
+
+      const popRes = await fetch(url, options)
+
+      if (!popRes.ok) {
+        const error = new Error(`HTTP ${popRes.status}`)
+        error.retryable = popRes.status >= 500 || popRes.status === 429
+        throw error
+      }
+
+      return await popRes.json()
+    } catch (error) {
+      lastError = error
+      const retryable = error.retryable !== false
+      if (!retryable || attempt === attempts) break
+      await waitMs(1000 * attempt)
+    }
+  }
+
+  throw new Error(`Estimator request failed after ${attempts} attempts: ${populationEstimatorErrorMessage(lastError)}`)
+}
+
+async function runPopulationEstimateJob(job) {
+  let t = null
+  try {
+    job.status = 'processing'
+    job.started_at = Date.now()
+    job.message = 'Loading settlements'
+
+    const body = job.payload || {}
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const scope = body.scope === 'all' ? 'all' : 'missing'
+
+    const filters = ['s.geom IS NOT NULL']
+    const replacements = {}
+
+    if (countyId !== null && Number.isFinite(countyId)) {
+      filters.push('s.county_id = :countyId')
+      replacements.countyId = countyId
+    }
+    if (scope === 'missing') {
+      filters.push('(s.population IS NULL OR s.population = 0)')
+    }
+
+    const query = `
+      SELECT
+        s.id AS settlement_id,
+        s.name AS settlement_name,
+        s.county_id,
+        c.name AS county,
+        s.ward_id,
+        s.population AS population_before,
+        ST_AsGeoJSON(s.geom)::json AS geom,
+        wh.avg_hh_size
+      FROM settlement s
+      LEFT JOIN county c
+        ON c.id = s.county_id
+      LEFT JOIN (
+        SELECT ward_id, AVG(hh_size)::double precision AS avg_hh_size
+        FROM households
+        WHERE hh_size IS NOT NULL
+        GROUP BY ward_id
+      ) wh
+        ON wh.ward_id = s.ward_id
+      WHERE ${filters.join(' AND ')}
+      ORDER BY s.id
+    `
+
+    const settlements = await db.sequelize.query(query, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    job.total = settlements.length
+    job.done = 0
+    job.skipped = 0
+    job.errors = 0
+    job.updated = 0
+    job.unchanged = 0
+    job.data = []
+    job.log = []
+
+    for (const settlement of settlements) {
+      job.message = `Estimating ${settlement.settlement_name || settlement.settlement_id}`
+      const rowBase = {
+        settlement_id: settlement.settlement_id,
+        settlement_name: settlement.settlement_name,
+        county: settlement.county || null,
+        county_id: settlement.county_id,
+        population_before:
+          settlement.population_before == null ? null : parseInt(settlement.population_before, 10),
+        population_after: null,
+        buildings: null,
+        persons_per_building:
+          settlement.avg_hh_size == null ? null : Math.round(parseFloat(settlement.avg_hh_size) * 100) / 100,
+      }
+
+      let row
+      let geom = settlement.geom
+      if (!geom) {
+        row = { ...rowBase, status: 'skip', detail: 'No geometry' }
+      } else {
+        if (typeof geom === 'string') {
+          try {
+            geom = JSON.parse(geom)
+          } catch (_) {
+            row = { ...rowBase, status: 'skip', detail: 'Invalid geometry' }
+          }
+        }
+
+        if (!row) {
+          try {
+            const estimatorUrl = new URL('https://kesmis.go.ke/estimate_population')
+            if (rowBase.persons_per_building != null) {
+              estimatorUrl.searchParams.set('persons_per_building', String(rowBase.persons_per_building))
+            }
+
+            const featureBody =
+              geom.type === 'Feature' || geom.type === 'FeatureCollection'
+                ? geom
+                : { type: 'Feature', geometry: geom }
+
+            const estimate = await fetchPopulationEstimateFromEstimator(estimatorUrl.toString(), featureBody)
+            if (estimate?.estimated_population == null) {
+              throw new Error('No estimate returned')
+            }
+
+            const buildings = estimate.buildings == null ? 0 : Number(estimate.buildings)
+            const ppb =
+              estimate.persons_per_building == null
+                ? rowBase.persons_per_building
+                : Number(estimate.persons_per_building)
+
+            if (!buildings || buildings === 0) {
+              row = {
+                ...rowBase,
+                status: 'skip',
+                buildings: 0,
+                persons_per_building: Number.isFinite(ppb) ? ppb : rowBase.persons_per_building,
+                detail: '0 buildings detected - skipped',
+              }
+            } else {
+              const population = Math.round(Number(estimate.estimated_population) / 100) * 100
+              if (!Number.isFinite(population)) {
+                throw new Error('Invalid estimate returned')
+              }
+
+              const samePopulation =
+                rowBase.population_before !== null && Number(rowBase.population_before) === population
+
+              row = {
+                ...rowBase,
+                status: 'ok',
+                population_after: population,
+                buildings,
+                persons_per_building: Number.isFinite(ppb) ? Math.round(ppb * 100) / 100 : null,
+                detail: samePopulation
+                  ? 'Already matched estimate'
+                  : 'Population updated from building-based estimate',
+              }
+            }
+          } catch (error) {
+            row = {
+              ...rowBase,
+              status: 'error',
+              detail: populationEstimatorErrorMessage(error),
+            }
+          }
+        }
+      }
+
+      job.data.push(row)
+      job.log.push(formatPopulationEstimateLogRow(row))
+      if (row.status === 'skip') job.skipped++
+      if (row.status === 'error') job.errors++
+      if (
+        row.status === 'ok' &&
+        row.population_before !== null &&
+        row.population_after !== null &&
+        Number(row.population_before) === Number(row.population_after)
+      ) {
+        job.unchanged++
+      }
+      job.done++
+    }
+
+    const willApply = job.data.filter(
+      (r) =>
+        r.status === 'ok' &&
+        r.population_after !== null &&
+        (r.population_before === null || Number(r.population_before) !== Number(r.population_after))
+    )
+
+    if (willApply.length > 0) {
+      job.message = 'Saving population estimates'
+      t = await db.sequelize.transaction()
+      const ids = willApply.map((r) => r.settlement_id)
+      const populations = willApply.map((r) => r.population_after)
+
+      const updateQuery = `
+        UPDATE settlement s
+        SET population = v.population,
+            "updatedAt" = NOW()
+        FROM (
+          SELECT UNNEST($1::int[]) AS id,
+                 UNNEST($2::int[]) AS population
+        ) v
+        WHERE s.id = v.id
+          AND s.population IS DISTINCT FROM v.population
+        RETURNING s.id, s.population
+      `
+
+      const updatedRows = await db.sequelize.query(updateQuery, {
+        bind: [ids, populations],
+        type: db.sequelize.QueryTypes.SELECT,
+        transaction: t,
+      })
+
+      job.updated = updatedRows.length
+
+      const updatedById = new Set(updatedRows.map((r) => r.id))
+      const historyRecords = job.user_id
+        ? willApply
+            .filter((r) => updatedById.has(r.settlement_id))
+            .map((r) => ({
+              settlement_id: r.settlement_id,
+              changed_by: job.user_id,
+              change_type: 'Edit',
+              changes: {
+                before: { population: r.population_before },
+                after: { population: r.population_after },
+                bulk_operation: 'building_population_estimate',
+                metrics: {
+                  buildings: r.buildings,
+                  persons_per_building: r.persons_per_building,
+                },
+              },
+            }))
+        : []
+
+      if (historyRecords.length > 0) {
+        await db.models.settlement_history.bulkCreate(historyRecords, { transaction: t })
+      }
+
+      await t.commit()
+      t = null
+    }
+
+    job.status = 'completed'
+    job.finished_at = Date.now()
+    job.message = `Bulk update complete: ${job.updated} updated, ${job.skipped} skipped, ${job.errors} errors.`
+  } catch (error) {
+    if (t) {
+      try {
+        await t.rollback()
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    job.status = 'failed'
+    job.finished_at = Date.now()
+    job.error = error && error.message ? error.message : 'Failed'
+    job.message = job.error
+    console.error('❌ Error in population estimate job:', error)
+  }
+}
+
+exports.createPopulationEstimateJob = async (req, res) => {
+  cleanupExpiredPopulationEstimateJobs()
+  const jobId = uuidv4()
+  const job = {
+    id: jobId,
+    status: 'queued',
+    payload: req.body || {},
+    user_id: req.thisUser && req.thisUser.id,
+    created_at: Date.now(),
+    started_at: null,
+    finished_at: null,
+    total: 0,
+    done: 0,
+    updated: 0,
+    skipped: 0,
+    errors: 0,
+    unchanged: 0,
+    data: [],
+    log: [],
+    message: 'Queued',
+    error: null,
+  }
+
+  populationEstimateJobs.set(jobId, job)
+
+  setTimeout(() => {
+    runPopulationEstimateJob(job)
+  }, 0)
+
+  return res.status(200).send({
+    code: '0000',
+    message: 'Population update started',
+    data: {
+      job_id: jobId,
+      status: job.status,
+    },
+  })
+}
+
+exports.getPopulationEstimateJobStatus = async (req, res) => {
+  cleanupExpiredPopulationEstimateJobs()
+  const jobId = req.body && req.body.job_id
+  if (!jobId) {
+    return res.status(400).send({ code: '4000', message: 'job_id is required' })
+  }
+
+  const job = populationEstimateJobs.get(jobId)
+  if (!job) {
+    return res.status(404).send({ code: '4040', message: 'Population update job not found or expired' })
+  }
+
+  return res.status(200).send({
+    code: '0000',
+    data: {
+      job_id: job.id,
+      status: job.status,
+      total: job.total,
+      done: job.done,
+      percent: job.total > 0 ? Math.round((job.done / job.total) * 100) : 0,
+      updated: job.updated,
+      skipped: job.skipped,
+      errors: job.errors,
+      unchanged: job.unchanged,
+      message: job.message,
+      error: job.error,
+      data: job.status === 'completed' || job.status === 'failed' ? job.data : [],
+      log: job.log,
+      summary: {
+        total_evaluated: job.total,
+        updated: job.updated,
+        skipped: job.skipped,
+        errors: job.errors,
+        unchanged: job.unchanged,
+      },
+    },
+  })
+}
+
+// Backend bulk population update. The estimator still runs once per settlement
+// because it needs each settlement boundary, but the browser makes one request
+// and the successful DB writes happen as one bulk UPDATE.
+//
+// Request body:
+//   { county_id?: number; scope?: 'missing'|'all' }
+exports.applyPopulationEstimate = async (req, res) => {
+  let t = null
+  try {
+    const body = req.body || {}
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const scope = body.scope === 'all' ? 'all' : 'missing'
+
+    const filters = ['s.geom IS NOT NULL']
+    const replacements = {}
+
+    if (countyId !== null && Number.isFinite(countyId)) {
+      filters.push('s.county_id = :countyId')
+      replacements.countyId = countyId
+    }
+    if (scope === 'missing') {
+      filters.push('(s.population IS NULL OR s.population = 0)')
+    }
+
+    const query = `
+      SELECT
+        s.id AS settlement_id,
+        s.name AS settlement_name,
+        s.county_id,
+        c.name AS county,
+        s.ward_id,
+        s.population AS population_before,
+        ST_AsGeoJSON(s.geom)::json AS geom,
+        wh.avg_hh_size
+      FROM settlement s
+      LEFT JOIN county c
+        ON c.id = s.county_id
+      LEFT JOIN (
+        SELECT ward_id, AVG(hh_size)::double precision AS avg_hh_size
+        FROM households
+        WHERE hh_size IS NOT NULL
+        GROUP BY ward_id
+      ) wh
+        ON wh.ward_id = s.ward_id
+      WHERE ${filters.join(' AND ')}
+      ORDER BY s.id
+    `
+
+    const settlements = await db.sequelize.query(query, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+    })
+
+    const data = []
+
+    for (const settlement of settlements) {
+      const rowBase = {
+        settlement_id: settlement.settlement_id,
+        settlement_name: settlement.settlement_name,
+        county: settlement.county || null,
+        county_id: settlement.county_id,
+        population_before:
+          settlement.population_before == null ? null : parseInt(settlement.population_before, 10),
+        population_after: null,
+        buildings: null,
+        persons_per_building:
+          settlement.avg_hh_size == null ? null : Math.round(parseFloat(settlement.avg_hh_size) * 100) / 100,
+      }
+
+      let geom = settlement.geom
+      if (!geom) {
+        data.push({ ...rowBase, status: 'skip', detail: 'No geometry' })
+        continue
+      }
+
+      if (typeof geom === 'string') {
+        try {
+          geom = JSON.parse(geom)
+        } catch (_) {
+          data.push({ ...rowBase, status: 'skip', detail: 'Invalid geometry' })
+          continue
+        }
+      }
+
+      try {
+        const estimatorUrl = new URL('https://kesmis.go.ke/estimate_population')
+        if (rowBase.persons_per_building != null) {
+          estimatorUrl.searchParams.set('persons_per_building', String(rowBase.persons_per_building))
+        }
+
+        const featureBody =
+          geom.type === 'Feature' || geom.type === 'FeatureCollection'
+            ? geom
+            : { type: 'Feature', geometry: geom }
+
+        const estimate = await fetchPopulationEstimateFromEstimator(estimatorUrl.toString(), featureBody)
+        if (estimate?.estimated_population == null) {
+          throw new Error('No estimate returned')
+        }
+
+        const buildings = estimate.buildings == null ? 0 : Number(estimate.buildings)
+        const ppb =
+          estimate.persons_per_building == null
+            ? rowBase.persons_per_building
+            : Number(estimate.persons_per_building)
+
+        if (!buildings || buildings === 0) {
+          data.push({
+            ...rowBase,
+            status: 'skip',
+            buildings: 0,
+            persons_per_building: Number.isFinite(ppb) ? ppb : rowBase.persons_per_building,
+            detail: '0 buildings detected - skipped',
+          })
+          continue
+        }
+
+        const population = Math.round(Number(estimate.estimated_population) / 100) * 100
+        if (!Number.isFinite(population)) {
+          throw new Error('Invalid estimate returned')
+        }
+
+        const samePopulation =
+          rowBase.population_before !== null && Number(rowBase.population_before) === population
+
+        data.push({
+          ...rowBase,
+          status: 'ok',
+          population_after: population,
+          buildings,
+          persons_per_building: Number.isFinite(ppb) ? Math.round(ppb * 100) / 100 : null,
+          detail: samePopulation
+            ? 'Already matched estimate'
+            : 'Population updated from building-based estimate',
+        })
+      } catch (error) {
+        data.push({
+          ...rowBase,
+          status: 'error',
+          detail: populationEstimatorErrorMessage(error),
+        })
+      }
+    }
+
+    const willApply = data.filter(
+      (r) =>
+        r.status === 'ok' &&
+        r.population_after !== null &&
+        (r.population_before === null || Number(r.population_before) !== Number(r.population_after))
+    )
+
+    let updatedRows = []
+
+    if (willApply.length > 0) {
+      t = await db.sequelize.transaction()
+      const ids = willApply.map((r) => r.settlement_id)
+      const populations = willApply.map((r) => r.population_after)
+
+      const updateQuery = `
+        UPDATE settlement s
+        SET population = v.population,
+            "updatedAt" = NOW()
+        FROM (
+          SELECT UNNEST($1::int[]) AS id,
+                 UNNEST($2::int[]) AS population
+        ) v
+        WHERE s.id = v.id
+          AND s.population IS DISTINCT FROM v.population
+        RETURNING s.id, s.population
+      `
+
+      updatedRows = await db.sequelize.query(updateQuery, {
+        bind: [ids, populations],
+        type: db.sequelize.QueryTypes.SELECT,
+        transaction: t,
+      })
+
+      const userId = req.thisUser && req.thisUser.id
+      const updatedById = new Set(updatedRows.map((r) => r.id))
+      const historyRecords = userId
+        ? willApply
+            .filter((r) => updatedById.has(r.settlement_id))
+            .map((r) => ({
+              settlement_id: r.settlement_id,
+              changed_by: userId,
+              change_type: 'Edit',
+              changes: {
+                before: { population: r.population_before },
+                after: { population: r.population_after },
+                bulk_operation: 'building_population_estimate',
+                metrics: {
+                  buildings: r.buildings,
+                  persons_per_building: r.persons_per_building,
+                },
+              },
+            }))
+        : []
+
+      if (historyRecords.length > 0) {
+        await db.models.settlement_history.bulkCreate(historyRecords, { transaction: t })
+      }
+
+      await t.commit()
+      t = null
+    }
+
+    const skipped = data.filter((r) => r.status === 'skip').length
+    const errors = data.filter((r) => r.status === 'error').length
+    const unchanged = data.filter(
+      (r) =>
+        r.status === 'ok' &&
+        r.population_before !== null &&
+        r.population_after !== null &&
+        Number(r.population_before) === Number(r.population_after)
+    ).length
+
+    return res.status(200).json({
+      message:
+        updatedRows.length > 0
+          ? `Population updated for ${updatedRows.length} settlement(s)`
+          : 'No changes applied',
+      code: '0000',
+      data,
+      summary: {
+        total_evaluated: data.length,
+        updated: updatedRows.length,
+        skipped,
+        errors,
+        unchanged,
+      },
+    })
+  } catch (error) {
+    if (t) {
+      try {
+        await t.rollback()
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    console.error('❌ Error in applyPopulationEstimate:', error)
+    return res.status(500).json({
+      message: 'Failed to apply population estimates',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
 // Build summary stats for compute / apply responses.
 function buildDensitySummary(preview, willChange, updatedCount) {
   const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, NONE: 0 }
