@@ -29,6 +29,12 @@ const props = withDefaults(
     savingField?: string | null
     /** Optional per-field class for the read-only value text (e.g. climate risk tone). */
     cellTextClass?: (field: string) => string
+    /**
+     * Fields whose read-only display should be line-clamped (3 lines + ellipsis)
+     * and wrapped in a tooltip exposing the full value on hover. Useful for
+     * long-form text such as descriptions, hazards, general location notes.
+     */
+    clampFields?: string[]
   }>(),
   {
     editable: false,
@@ -39,7 +45,8 @@ const props = withDefaults(
     selectOptions: () => ({}),
     multiselectFields: () => [],
     savingField: null,
-    cellTextClass: undefined
+    cellTextClass: undefined,
+    clampFields: () => []
   }
 )
 
@@ -55,6 +62,23 @@ const textareaSet = computed(() => new Set(props.textareaFields || []))
 const numberSet = computed(() => new Set(props.numberFields || []))
 const booleanSet = computed(() => new Set(props.booleanFields || []))
 const multiselectSet = computed(() => new Set(props.multiselectFields || []))
+const clampSet = computed(() => new Set(props.clampFields || []))
+
+function isClamped(field: string) {
+  return clampSet.value.has(field)
+}
+
+function rawFullValue(field: string): string {
+  const v = props.data[field]
+  if (v === null || v === undefined || v === '') return ''
+  return String(v)
+}
+
+function showTooltipFor(field: string) {
+  if (!isClamped(field)) return false
+  const txt = rawFullValue(field)
+  return txt.length > 0
+}
 
 const editingField = ref<string | null>(null)
 const draft = ref<unknown>(null)
@@ -306,9 +330,29 @@ function displayTextClass(field: string) {
             />
           </template>
           <template v-else>
-            <span class="inline-cell__text" :class="displayTextClass(item.field)">{{
-              cellDisplay(item.field)
-            }}</span>
+            <ElTooltip
+              v-if="showTooltipFor(item.field)"
+              effect="dark"
+              placement="top-start"
+              :show-after="250"
+              popper-class="inline-cell__tooltip-popper"
+            >
+              <template #content>
+                <div class="inline-cell__tooltip-content">{{ rawFullValue(item.field) }}</div>
+              </template>
+              <span
+                class="inline-cell__text inline-cell__text--clamped"
+                :class="displayTextClass(item.field)"
+              >{{ cellDisplay(item.field) }}</span>
+            </ElTooltip>
+            <span
+              v-else
+              class="inline-cell__text"
+              :class="[
+                displayTextClass(item.field),
+                isClamped(item.field) ? 'inline-cell__text--clamped' : ''
+              ]"
+            >{{ cellDisplay(item.field) }}</span>
             <div
               v-if="editable && !isReadonly(item.field)"
               class="inline-cell__actions"
@@ -355,6 +399,19 @@ function displayTextClass(field: string) {
   flex: 1;
   min-width: 0;
   word-break: break-word;
+}
+
+/* Compact display for long-form fields (description, hazards, general location).
+   Clamps to 3 lines with ellipsis; full text is exposed via the tooltip wrapper. */
+.inline-cell__text--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  cursor: help;
 }
 
 /* Climate / vulnerability tier (LOW / MEDIUM / HIGH) — uses Element Plus semantic colors */
@@ -424,5 +481,20 @@ function displayTextClass(field: string) {
 
 .inline-cell--editing {
   align-items: stretch;
+}
+</style>
+
+<!-- Unscoped: Element Plus tooltip popper is portal-rendered outside this component. -->
+<style>
+.inline-cell__tooltip-popper {
+  max-width: min(560px, 80vw) !important;
+}
+.inline-cell__tooltip-popper .inline-cell__tooltip-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  font-size: 13px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 </style>

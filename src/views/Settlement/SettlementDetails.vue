@@ -1265,7 +1265,7 @@ const mergedInlineSelectOptions = computed(() => ({
 }))
 
 const readonlyInlineLocation = ['county', 'subcounty', 'ward']
-const readonlyInlineSummary = ['id', 'code', 'geom_label', 'pop_density', 'area', 'avg_household_size']
+const readonlyInlineSummary = ['id', 'code', 'geom_label', 'pop_density', 'area']
 const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
 const readonlyInlineStatus = ['isApproved', 'isActive', 'createdBy', 'createdAt', 'updatedAt']
 
@@ -3309,6 +3309,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="readonlyInlineLocation"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
                 :select-options="mergedInlineSelectOptions"
@@ -3340,6 +3341,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="readonlyInlineSummary"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
                 :select-options="mergedInlineSelectOptions"
@@ -3371,6 +3373,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="[]"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
                 :select-options="mergedInlineSelectOptions"
@@ -3402,6 +3405,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="[]"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
                 :select-options="mergedInlineSelectOptions"
@@ -3433,6 +3437,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="[]"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineUtilitiesBooleanFields"
                 :select-options="mergedInlineSelectOptions"
@@ -3464,6 +3469,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="readonlyInlineVulnerability"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
                 :select-options="mergedInlineSelectOptions"
@@ -3496,6 +3502,7 @@ const updateDocumentCategory = async () => {
                 :editable="canEditSettlementInline"
                 :readonly-fields="readonlyInlineStatus"
                 :textarea-fields="inlineTextareaFields"
+                :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"
                 :boolean-fields="inlineProfileBooleanFields"
                 :select-options="mergedInlineSelectOptions"
