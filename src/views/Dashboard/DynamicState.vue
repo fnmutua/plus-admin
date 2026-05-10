@@ -1573,12 +1573,29 @@ const getCharts = async (section_id) => {
             const allCats: any[] = Array.isArray(cdata[0]) ? cdata[0] : []
             const allSeries: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
 
-            thisChart.chartDataFull = { categories: allCats, series: allSeries }
+            // Descending by total stack height (sum across series) — largest at top for horizontal bars
+            const indexed = allCats.map((cat: any, i: number) => ({
+              cat,
+              total: allSeries.reduce((sum: number, s: any) =>
+                sum + (Array.isArray(s.data) ? (Number(s.data[i]) || 0) : 0), 0),
+              idx: i,
+            }))
+            indexed.sort((a: any, b: any) => b.total - a.total)
+
+            const sortedCats = indexed.map((x: any) => x.cat)
+            const sortedSeries = allSeries.map((s: any) => ({
+              ...s,
+              data: Array.isArray(s.data) ? indexed.map((x: any) => s.data[x.idx]) : s.data,
+            }))
+
+            thisChart.chartDataFull = { categories: sortedCats, series: sortedSeries }
             thisChart.chartExpanded = false
             const PAGE = 10
-            const displayCats = allCats.slice(0, PAGE)
-            const displaySeries = allSeries.map((s: any) => ({ ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data }))
-            thisChart.chartHeight = Math.max(320, Math.min(PAGE, allCats.length) * 22 + 160)
+            const displayCats = sortedCats.slice(0, PAGE)
+            const displaySeries = sortedSeries.map((s: any) => ({
+              ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data,
+            }))
+            thisChart.chartHeight = Math.max(320, Math.min(PAGE, sortedCats.length) * 22 + 160)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptionsAbs,
