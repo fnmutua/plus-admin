@@ -213,122 +213,79 @@ export const simpleBarChart = {
   title: {
     text: '',
     align: 'left',
-    get textStyle() {
-      return {
-        fontSize: 14,
-        color: apexTitleColor(),
-      }
-    },
-    get subtextStyle() {
-      return { fontSize: 12, color: apexSubtitleColor() }
+    get style() {
+      return { fontSize: '14px', fontWeight: '600', color: apexTitleColor() }
     },
   },
-  colors: romaColors, // Use Roma theme colors
-
+  colors: romaColors,
   legend: {
+    position: 'bottom' as const,
+    horizontalAlign: 'center' as const,
     labels: {
-      get colors() {
-        return apexLegendLabelColor()
-      },
+      get colors() { return apexLegendLabelColor() },
     },
   },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     get style() {
-      return {
-        fontSize: '12px',
-        fontWeight: 'normal',
-        color: apexSubtitleColor(),
-      }
+      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   chart: {
     type: 'bar',
     height: 350,
     stacked: false,
-    get foreColor() {
-      return apexLegendLabelColor()
-    },
+    get foreColor() { return apexLegendLabelColor() },
     toolbar: {
       show: true,
-      export: {
-        scale: 3,
-        width: 1800
-      },
-      tools: {
-        download: true,
-        selection: true,
-        zoom: true,
-        zoomin: true,
-        zoomout: true,
-        pan: true
-      }
+      export: { scale: 3, width: 1800 },
+      tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false }
+    },
+    zoom: { enabled: false },
+  },
+  plotOptions: {
+    bar: {
+      horizontal: true,
+      barHeight: '65%',
     }
   },
+  dataLabels: { enabled: false },
   responsive: [{
     breakpoint: 600,
     options: {
-      legend: {
-        show: false
-      },
-      xaxis: {
-        labels: {
-          show: false,
-          rotateAlways: true,
-          rotate: 0,
-          trim: true,
-          hideOverlappingLabels: true,
-          style: {
-            //colors: [],
-            fontSize: '8px',
-            fontFamily: 'Helvetica, Arial, sans-serif',
-            fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label'
-          }
-        }
-      }
+      legend: { show: false },
+      yaxis: { labels: { maxWidth: 100 } }
     }
   }],
   grid: {
     show: true,
-    get borderColor() {
-      return apexGridBorderColor()
-    },
+    get borderColor() { return apexGridBorderColor() },
     strokeDashArray: 0,
-    xaxis: {
-      lines: { show: true },
-    },
-    yaxis: {
-      lines: { show: true },
-    },
+    xaxis: { lines: { show: true } },
+    yaxis: { lines: { show: false } },
   },
+  // In horizontal mode xaxis = value axis
+  xaxis: {
+    type: 'category' as const,
+    categories: [],
+    labels: {
+      get style() { return { colors: apexLegendLabelColor() } },
+      get formatter() {
+        return (val: number) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : String(val)
+      }
+    },
+    get axisBorder() { return { color: apexGridBorderColor() } },
+    get axisTicks() { return { color: apexGridBorderColor() } },
+  },
+  // In horizontal mode yaxis = category axis (area/county names)
   yaxis: {
     labels: {
-      get style() {
-        return { colors: apexLegendLabelColor() }
-      },
+      maxWidth: 180,
+      get style() { return { colors: apexLegendLabelColor(), fontSize: '12px' } },
     },
   },
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement: 'on',
-    labels: {
-      get style() {
-        return { colors: apexLegendLabelColor() }
-      },
-    },
-    get axisBorder() {
-      return { color: apexGridBorderColor() }
-    },
-    get axisTicks() {
-      return { color: apexGridBorderColor() }
-    },
-  },
-  fill: {
-    opacity: 1
-  }
+  fill: { opacity: 1 }
 }
 
 export const stackedbarOptions = {

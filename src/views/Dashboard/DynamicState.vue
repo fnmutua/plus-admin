@@ -1385,47 +1385,54 @@ const getCharts = async (section_id) => {
       // function to process processMultiBarChart charts 
       async function processSimpleBarChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
-          
-          // Set loading state for this chart
           setChartLoading(thisChart.id, 'Loading bar chart data...');
-
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-            console.log('cdata[0]',cdata[0]);
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
+
+            const allCats: any[] = Array.isArray(cdata[0]) ? cdata[0] : []
+            const allSeries: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
+
+            // Descending: Apex horizontal bar lists first category at the top
+            const indexed = allCats.map((cat: any, i: number) => ({
+              cat,
+              total: allSeries.reduce((sum: number, s: any) =>
+                sum + (Array.isArray(s.data) ? (Number(s.data[i]) || 0) : 0), 0),
+              idx: i,
+            }))
+            indexed.sort((a: any, b: any) => b.total - a.total)
+
+            const sortedCats = indexed.map((x: any) => x.cat)
+            const sortedSeries = allSeries.map((s: any) => ({
+              ...s,
+              data: Array.isArray(s.data) ? indexed.map((x: any) => s.data[x.idx]) : s.data,
+            }))
+
+            thisChart.chartDataFull = { categories: sortedCats, series: sortedSeries }
+            thisChart.chartExpanded = false
+            const PAGE = 10
+            const displayCats = sortedCats.slice(0, PAGE)
+            const displaySeries = sortedSeries.map((s: any) => ({
+              ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data,
+            }))
+            thisChart.chartHeight = Math.max(320, Math.min(PAGE, sortedCats.length) * 22 + 160)
 
             const UpdatedBarOptionsMultiple = {
               ...simpleBarChart,
-              title: {
-                ...simpleBarChart.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...simpleBarChart.subtitle,
-                text: subtitleWithSource
-              },
-              xaxis: {
-                ...simpleBarChart.xaxis,
-                categories: cdata[0] // categories as received 
-              },
+              title: { ...simpleBarChart.title, text: thisChart.title },
+              subtitle: { ...simpleBarChart.subtitle, text: subtitleWithSource },
+              chart: { ...simpleBarChart.chart, height: thisChart.chartHeight },
+              xaxis: { ...simpleBarChart.xaxis, categories: displayCats },
+              series: displaySeries,
             };
 
             thisChart.chart = UpdatedBarOptionsMultiple;
-            thisChart.chart.series = cdata[1];
 
-            // show no data 
-            if (cdata[1].length === 0) {
+            if (allCats.length === 0) {
               thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
+                type: 'text', left: 'center', top: 'middle',
+                style: { text: 'No data available', fill: '#999', fontSize: 16 },
+                z: 100
               }];
             }
 
@@ -1434,21 +1441,11 @@ const getCharts = async (section_id) => {
           }
         }];
 
-        //     await Promise.all(promises);
         await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
-
-
-
-
 
         charts.push(thisChart)
         setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
       }
-
       // function to process processMultiBarChart charts 
       async function processMultiBarChart() {
         const promises = [async function () {
@@ -1517,170 +1514,100 @@ const getCharts = async (section_id) => {
       // function to process processStackedBarChart charts 
       async function processStackedBarChart() {
         const promises = [async function () {
-          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
- 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-            console.log('stacked.Male.female.', cdata);
 
+            const allCats: any[] = Array.isArray(cdata[0]) ? cdata[0] : []
+            const allSeries: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
 
-
-            for (var i = 0; i < cdata[1].length; i++) {
-              cdata[1][i].label = {
-                show: false,
-                position: 'inside'
-              };
-              // cdata[1][i].stack = 'total'
-              // cdata[1][i].type = 'bar'
-            }
-
-
+            thisChart.chartDataFull = { categories: allCats, series: allSeries }
+            thisChart.chartExpanded = false
+            const PAGE = 10
+            const displayCats = allCats.slice(0, PAGE)
+            const displaySeries = allSeries.map((s: any) => ({ ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data }))
+            thisChart.chartHeight = Math.max(320, Math.min(PAGE, allCats.length) * 22 + 160)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptions,
-              title: {
-                ...stackedbarOptions.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...stackedbarOptions.subtitle,
-                text: subtitleWithSource
-              },
-              xaxis: {
-                ...stackedbarOptions.xaxis,
-                categories: cdata[0],  // categories as recieved 
-             //   type:'category'
-              },
-
-              series:  cdata[1]   
+              title: { ...stackedbarOptions.title, text: thisChart.title },
+              subtitle: { ...stackedbarOptions.subtitle, text: subtitleWithSource },
+              chart: { ...stackedbarOptions.chart, height: thisChart.chartHeight },
+              xaxis: { ...stackedbarOptions.xaxis, categories: displayCats },
+              series: displaySeries
             };
-
-            console.log('stacked >>>>',  UpdatedBarOptionsMultiple)
-
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
-
-
-           //thisChart.chart.series = cdata[1]
-
-
-
-            // show no data 
-            if (cdata[0].length === 0) {
+            if (allCats.length === 0) {
               thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data  available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
+                type: 'text', left: 'center', top: 'middle',
+                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                z: 100
               }]
             }
-
 
           } catch (error) {
             // Handle any errors that occurred during the process
           }
         }];
 
-        //     await Promise.all(promises);
         await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
-
-
-
-
 
         charts.push(thisChart)
         setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
       }
+
+
+
 
 
 
        // function to process processStackedBarChart charts 
        async function processStackedBarChartAbs() {
         const promises = [async function () {
-          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
- 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-            console.log('stacked.Male.female.', cdata);
-            for (var i = 0; i < cdata[1].length; i++) {
-              cdata[1][i].label = {
-                show: false,
-                position: 'inside'
-              };
-              // cdata[1][i].stack = 'total'
-              // cdata[1][i].type = 'bar'
-            }
+
+            const allCats: any[] = Array.isArray(cdata[0]) ? cdata[0] : []
+            const allSeries: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
+
+            thisChart.chartDataFull = { categories: allCats, series: allSeries }
+            thisChart.chartExpanded = false
+            const PAGE = 10
+            const displayCats = allCats.slice(0, PAGE)
+            const displaySeries = allSeries.map((s: any) => ({ ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data }))
+            thisChart.chartHeight = Math.max(320, Math.min(PAGE, allCats.length) * 22 + 160)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptionsAbs,
-              title: {
-                ...stackedbarOptionsAbs.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...stackedbarOptionsAbs.subtitle,
-                text: subtitleWithSource
-              },
-              xaxis: {
-                ...stackedbarOptionsAbs.xaxis,
-                categories: cdata[0],  // categories as recieved 
-             //   type:'category'
-              },
-
-              series:  cdata[1]   
+              title: { ...stackedbarOptionsAbs.title, text: thisChart.title },
+              subtitle: { ...stackedbarOptionsAbs.subtitle, text: subtitleWithSource },
+              chart: { ...stackedbarOptionsAbs.chart, height: thisChart.chartHeight },
+              xaxis: { ...stackedbarOptionsAbs.xaxis, categories: displayCats },
+              series: displaySeries
             };
-
-            console.log('stackedbarOptionsAbs >>>>',  UpdatedBarOptionsMultiple)
-
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
-           //thisChart.chart.series = cdata[1]
-
-            // show no data 
-            if (cdata[0].length === 0) {
+            if (allCats.length === 0) {
               thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data  available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
+                type: 'text', left: 'center', top: 'middle',
+                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                z: 100
               }]
             }
-
 
           } catch (error) {
             // Handle any errors that occurred during the process
           }
         }];
 
-        //     await Promise.all(promises);
         await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
 
         charts.push(thisChart)
         setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
       }
 
 
@@ -3306,6 +3233,54 @@ const formatNumber =   (value) => {
     }
     return value.toLocaleString('en-US');
 }
+  const STACKED_PAGE = 10
+
+  function toggleSimpleBarExpand(chart: any) {
+    if (!chart.chartDataFull) return
+    chart.chartExpanded = !chart.chartExpanded
+    const { categories, series } = chart.chartDataFull
+    const displayCats = chart.chartExpanded ? categories : categories.slice(0, STACKED_PAGE)
+    const displaySeries = series.map((s: any) => ({
+      ...s,
+      data: Array.isArray(s.data)
+        ? (chart.chartExpanded ? s.data : s.data.slice(0, STACKED_PAGE))
+        : s.data,
+    }))
+    const height = chart.chartExpanded
+      ? Math.max(320, categories.length * 22 + 160)
+      : Math.max(320, Math.min(STACKED_PAGE, categories.length) * 22 + 160)
+    chart.chartHeight = height
+    chart.chart = {
+      ...chart.chart,
+      chart: { ...chart.chart.chart, height },
+      xaxis: { ...chart.chart.xaxis, categories: displayCats },
+      series: displaySeries,
+    }
+  }
+
+  function toggleChartExpand(chart: any) {
+    if (!chart.chartDataFull) return
+    chart.chartExpanded = !chart.chartExpanded
+    const { categories, series } = chart.chartDataFull
+    const displayCats = chart.chartExpanded ? categories : categories.slice(0, STACKED_PAGE)
+    const displaySeries = series.map((s: any) => ({
+      ...s,
+      data: Array.isArray(s.data)
+        ? (chart.chartExpanded ? s.data : s.data.slice(0, STACKED_PAGE))
+        : s.data,
+    }))
+    const height = chart.chartExpanded
+      ? Math.max(320, categories.length * 22 + 160)
+      : Math.max(320, Math.min(STACKED_PAGE, categories.length) * 22 + 160)
+    chart.chartHeight = height
+    chart.chart = {
+      ...chart.chart,
+      chart: { ...chart.chart.chart, height },
+      xaxis: { ...chart.chart.xaxis, categories: displayCats },
+      series: displaySeries,
+    }
+  }
+
   const getChartType =   (typeId) => {
      if (typeId ==1 || typeId ==2 ||typeId == 4) {
       return  'bar'
@@ -3628,7 +3603,24 @@ onBeforeUnmount(() => {
                         <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
                           <v-chart :key="`map-${chart.id}-${appStore.getIsDark}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
                         </div> 
-                        <apexchart v-if="chart.type!=7 && chart.type!=8" :key="`apex-${chart.id}-${appStore.getIsDark}`" :options="chart.chart" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" :type="getChartType(chart.type)" height="350" autoresize/>
+                        <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
+                          <apexchart
+                            :key="`apex-${chart.id}-${appStore.getIsDark}`"
+                            :options="chart.chart"
+                            :series="Array.isArray(chart.chart.series) ? chart.chart.series : []"
+                            :type="getChartType(chart.type)"
+                            :height="chart.chartHeight || 350"
+                            autoresize
+                          />
+                          <div
+                            v-if="(chart.type == 1 || chart.type == 4 || chart.type == 9) && chart.chartDataFull && chart.chartDataFull.categories.length > 10"
+                            class="chart-expand-row"
+                          >
+                            <el-button text size="small" @click="chart.type == 1 ? toggleSimpleBarExpand(chart) : toggleChartExpand(chart)">
+                              {{ chart.chartExpanded ? '↑ Show top 10' : `↓ Show all ${chart.chartDataFull.categories.length}` }}
+                            </el-button>
+                          </div>
+                        </div>
                         <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${appStore.getIsDark}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
                       </template>
                       <template v-else>
@@ -4080,6 +4072,18 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   .filter-label {
     color: var(--el-text-color-regular);
   }
+}
+
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.chart-expand-row {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 
