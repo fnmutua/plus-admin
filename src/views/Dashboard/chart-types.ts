@@ -119,22 +119,8 @@ export const stacklineOptions: EChartsOption = {
   toolbox: {
     show: true,
     feature: {
-      myFullScreenButton: {
-        show: true,
-        title: 'Full Screen',
-        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
-        onclick: function () {
-          const chart = this.api;
-          const chartName = chart.getOption().title[0].text;
-          console.log('Chart Name:', chartName);
-          const containerDiv = chart.getDom();
-          const containerId = containerDiv.id;
-          console.log('Container ID:', containerId);
-          toggleFullScreen(containerId);
-        }
-      },
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 8 }
     }
@@ -261,7 +247,6 @@ export const simpleBarChart = {
     type: 'bar',
     height: 350,
     stacked: false,
-    stackType: '100%',
     get foreColor() {
       return apexLegendLabelColor()
     },
@@ -353,34 +338,23 @@ export const stackedbarOptions = {
   title: {
     text: '',
     align: 'left',
-    get textStyle() {
-      return {
-        fontSize: 14,
-        color: apexTitleColor(),
-      }
-    },
-    get subtextStyle() {
-      return { fontSize: 12, color: apexSubtitleColor() }
+    get style() {
+      return { fontSize: '14px', fontWeight: '600', color: apexTitleColor() }
     },
   },
-  colors: romaColors, // Use Roma theme colors
-
+  colors: romaColors,
   legend: {
+    position: 'bottom' as const,
+    horizontalAlign: 'center' as const,
     labels: {
-      get colors() {
-        return apexLegendLabelColor()
-      },
+      get colors() { return apexLegendLabelColor() },
     },
   },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     get style() {
-      return {
-        fontSize: '12px',
-        fontWeight: 'normal',
-        color: apexSubtitleColor(),
-      }
+      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   chart: {
@@ -388,88 +362,59 @@ export const stackedbarOptions = {
     height: 350,
     stacked: true,
     stackType: '100%',
-    get foreColor() {
-      return apexLegendLabelColor()
-    },
+    get foreColor() { return apexLegendLabelColor() },
     toolbar: {
       show: true,
-      export: {
-        scale: 3,
-        width: 1800
-      },
-      tools: {
-        download: true,
-        selection: true,
-        zoom: true,
-        zoomin: true,
-        zoomout: true,
-        pan: true
-      }
+      export: { scale: 3, width: 1800 },
+      tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false }
+    },
+    zoom: { enabled: false },
+  },
+  plotOptions: {
+    bar: {
+      horizontal: true,
+      barHeight: '65%',
+    }
+  },
+  dataLabels: { enabled: false },
+  tooltip: {
+    y: {
+      formatter: (val: number) => `${val.toFixed(1)}%`
     }
   },
   responsive: [{
     breakpoint: 600,
     options: {
-      legend: {
-        show: false
-      },
-      xaxis: {
-        labels: {
-          show: false,
-          rotateAlways: true,
-          rotate: 0,
-          trim: true,
-          hideOverlappingLabels: true,
-          style: {
-           // colors: [],
-            fontSize: '8px',
-            fontFamily: 'Helvetica, Arial, sans-serif',
-            fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label'
-          }
-        }
-      }
+      legend: { show: false },
+      yaxis: { labels: { maxWidth: 100 } }
     }
   }],
   grid: {
     show: true,
-    get borderColor() {
-      return apexGridBorderColor()
-    },
+    get borderColor() { return apexGridBorderColor() },
     strokeDashArray: 0,
-    xaxis: {
-      lines: { show: true },
-    },
-    yaxis: {
-      lines: { show: true },
-    },
+    xaxis: { lines: { show: true } },
+    yaxis: { lines: { show: false } },
   },
+  // In horizontal mode xaxis = value axis (shows %)
+  xaxis: {
+    type: 'category' as const,
+    categories: [],
+    labels: {
+      formatter: (val: string) => `${val}%`,
+      get style() { return { colors: apexLegendLabelColor() } },
+    },
+    get axisBorder() { return { color: apexGridBorderColor() } },
+    get axisTicks() { return { color: apexGridBorderColor() } },
+  },
+  // In horizontal mode yaxis = category axis (county/area names)
   yaxis: {
     labels: {
-      get style() {
-        return { colors: apexLegendLabelColor() }
-      },
+      maxWidth: 180,
+      get style() { return { colors: apexLegendLabelColor(), fontSize: '12px' } },
     },
   },
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement: 'on',
-    labels: {
-      get style() {
-        return { colors: apexLegendLabelColor() }
-      },
-    },
-    get axisBorder() {
-      return { color: apexGridBorderColor() }
-    },
-    get axisTicks() {
-      return { color: apexGridBorderColor() }
-    },
-  },
-  fill: {
-    opacity: 1
-  }
+  fill: { opacity: 1 }
 }
 
 export const stackedbarOptionsAbs = {
@@ -479,117 +424,77 @@ export const stackedbarOptionsAbs = {
   title: {
     text: '',
     align: 'left',
-    get textStyle() {
-      return {
-        fontSize: 14,
-        color: apexTitleColor(),
-      }
-    },
-    get subtextStyle() {
-      return { fontSize: 12, color: apexSubtitleColor() }
+    get style() {
+      return { fontSize: '14px', fontWeight: '600', color: apexTitleColor() }
     },
   },
-  colors: romaColors, // Use Roma theme colors
-
+  colors: romaColors,
   legend: {
+    position: 'bottom' as const,
+    horizontalAlign: 'center' as const,
     labels: {
-      get colors() {
-        return apexLegendLabelColor()
-      },
+      get colors() { return apexLegendLabelColor() },
     },
   },
   subtitle: {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     get style() {
-      return {
-        fontSize: '12px',
-        fontWeight: 'normal',
-        color: apexSubtitleColor(),
-      }
+      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   chart: {
     type: 'bar',
     height: 350,
     stacked: true,
-    get foreColor() {
-      return apexLegendLabelColor()
-    },
+    get foreColor() { return apexLegendLabelColor() },
     toolbar: {
       show: true,
-      export: {
-        scale: 3,
-        width: 1800
-      }
+      export: { scale: 3, width: 1800 },
+      tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false }
     },
-    zoom: {
-      enabled: true
+    zoom: { enabled: false },
+  },
+  plotOptions: {
+    bar: {
+      horizontal: true,
+      barHeight: '65%',
     }
   },
+  dataLabels: { enabled: false },
   responsive: [{
     breakpoint: 600,
     options: {
-      legend: {
-        show: false
-      },
-      xaxis: {
-        labels: {
-          show: false,
-          rotateAlways: true,
-          rotate: 0,
-          trim: true,
-          hideOverlappingLabels: true,
-          style: {
-           // colors: [],
-            fontSize: '8px',
-            fontFamily: 'Helvetica, Arial, sans-serif',
-            fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label'
-          }
-        }
-      }
+      legend: { show: false },
+      yaxis: { labels: { maxWidth: 100 } }
     }
   }],
   grid: {
     show: true,
-    get borderColor() {
-      return apexGridBorderColor()
-    },
+    get borderColor() { return apexGridBorderColor() },
     strokeDashArray: 0,
-    xaxis: {
-      lines: { show: true },
+    xaxis: { lines: { show: true } },
+    yaxis: { lines: { show: false } },
+  },
+  xaxis: {
+    type: 'category' as const,
+    categories: [],
+    labels: {
+      get style() { return { colors: apexLegendLabelColor() } },
+      get formatter() {
+        return (val: number) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : String(val)
+      }
     },
-    yaxis: {
-      lines: { show: true },
-    },
+    get axisBorder() { return { color: apexGridBorderColor() } },
+    get axisTicks() { return { color: apexGridBorderColor() } },
   },
   yaxis: {
     labels: {
-      get style() {
-        return { colors: apexLegendLabelColor() }
-      },
+      maxWidth: 180,
+      get style() { return { colors: apexLegendLabelColor(), fontSize: '12px' } },
     },
   },
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement: 'on',
-    labels: {
-      get style() {
-        return { colors: apexLegendLabelColor() }
-      },
-    },
-    get axisBorder() {
-      return { color: apexGridBorderColor() }
-    },
-    get axisTicks() {
-      return { color: apexGridBorderColor() }
-    },
-  },
-  fill: {
-    opacity: 1
-  }
+  fill: { opacity: 1 }
 }
 
 export const multipleBarChart = {
@@ -904,30 +809,15 @@ export const pieOptions = {
       },
       tools: {
         download: true,
-        selection: true,
-        zoom: true,
-        zoomin: true,
-        zoomout: true,
-        pan: true,
-        customFullscreen: {
-          icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 3H5C4.46957 3 3.96086 3.21071 3.58579 3.58579C3.21071 3.96086 3 4.46957 3 5V8M21 8V5C21 4.46957 20.7893 3.96086 20.4142 3.58579C20.0391 3.21071 19.5304 3 19 3H16M16 21H19C19.5304 21 20.0391 20.7893 20.4142 20.4142C20.7893 20.0391 21 19.5304 21 19V16M3 16V19C3 19.5304 3.21071 20.0391 3.58579 20.4142C3.96086 20.7893 4.46957 21 5 21H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-          title: 'Fullscreen',
-          class: 'custom-fullscreen',
-          click: function(chart, options, e) {
-            const chartContainer = chart.el;
-            if (chartContainer) {
-              if (document.fullscreenElement) {
-                document.exitFullscreen();
-              } else {
-                chartContainer.requestFullscreen();
-              }
-            }
-          }
-        }
+        selection: false,
+        zoom: false,
+        zoomin: false,
+        zoomout: false,
+        pan: false
       }
     },
     zoom: {
-      enabled: true
+      enabled: false
     }
   },
   colors: romaColors, // Use Roma theme colors
@@ -1002,7 +892,7 @@ export const treemapOptions = {
       show: true,
       export: { scale: 3, width: 1800 },
     },
-    zoom: { enabled: true },
+    zoom: { enabled: false },
   },
   /** Do not use `theme: { mode }` with a getter — Apex mutates `theme` and Vue proxies reject the set. */
   title: {
@@ -1154,36 +1044,8 @@ export const xmultipleBarChart: EChartsOption = {
   toolbox: {
     show: true,
     feature: {
-      myFullScreenButton: {
-        show: true,
-        title: 'Fullx Screen',
-        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
-        onclick: function () {
-          const chart = this.api;
-          const chartName = chart.getOption().title[0].text;
-          console.log('Chart Name:', chartName);
-          const containerDiv = chart.getDom();
-          const containerId = containerDiv.id;
-          console.log('Container ID:', containerId);
-          toggleFullScreen(containerId);
-        }
-      },
-      myFullScreenButton2: {
-        show: true,
-        title: 'Toggle Legend',
-        icon: 'image://https://cdn.svgapi.com/vector/22674/switch.svg',
-        onclick: function () {
-          let chartInstance
-          chartInstance = this.api;
-          const option = chartInstance.getOption();
-          console.log(chartInstance)
-          option.legend[0].show = !option.legend[0].show;
-          chartInstance = option;
-          chartInstance.resize();
-        }
-      },
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 8 }
     }
@@ -1337,22 +1199,8 @@ export const barMaleFemaleOptions: EChartsOption = {
   toolbox: {
     show: true,
     feature: {
-      myFullScreenButton: {
-        show: true,
-        title: 'Full Screen',
-        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
-        onclick: function () {
-          const chart = this.api;
-          const chartName = chart.getOption().title[0].text;
-          console.log('Chart Name:', chartName);
-          const containerDiv = chart.getDom();
-          const containerId = containerDiv.id;
-          console.log('Container ID:', containerId);
-          toggleFullScreen(containerId);
-        }
-      },
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 8 }
     }
@@ -1463,7 +1311,7 @@ export const xstackedbarOptions: EChartsOption = {
     show: true,
     feature: {
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 8 }
     }
@@ -1828,22 +1676,8 @@ export const mapChartOptions: EChartsOption = {
       }
     },
     feature: {
-      myFullScreenButton: {
-        show: true,
-        title: 'Full Screen',
-        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
-        onclick: function () {
-          const chart = this.api;
-          const chartName = chart.getOption().title[0].text;
-          console.log('Chart Name:', chartName);
-          const containerDiv = chart.getDom();
-          const containerId = containerDiv.id;
-          console.log('Container ID:', containerId);
-          toggleFullScreen(containerId);
-        }
-      },
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 8 }
     }

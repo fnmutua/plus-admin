@@ -1160,18 +1160,9 @@ async function processTreemapChart() {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
 
-
-
-            for (var i = 0; i < cdata[1].length; i++) {
-              cdata[1][i].label = {
-                show: false,
-                position: 'inside'
-              };
-              // cdata[1][i].stack = 'total'
-              // cdata[1][i].type = 'bar'
-            }
-
-
+            const catCount = Array.isArray(cdata[0]) ? cdata[0].length : 0
+            // 22px per bar row + 160px headroom for title, legend, axes
+            thisChart.chartHeight = Math.max(320, catCount * 22 + 160)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptions,
@@ -1183,24 +1174,18 @@ async function processTreemapChart() {
                 ...stackedbarOptions.subtitle,
                 text: subtitleWithSource
               },
+              chart: {
+                ...stackedbarOptions.chart,
+                height: thisChart.chartHeight,
+              },
               xaxis: {
                 ...stackedbarOptions.xaxis,
-                categories: cdata[0],  // categories as recieved 
-             //   type:'category'
+                categories: cdata[0],
               },
-
-              series:  cdata[1]   
+              series: cdata[1]
             };
 
-
-
             thisChart.chart = UpdatedBarOptionsMultiple
-
-
-
-           //thisChart.chart.series = cdata[1]
-
-
 
             // show no data 
             if (cdata[0].length === 0) {
@@ -1213,8 +1198,7 @@ async function processTreemapChart() {
                   fill: '#999',
                   fontSize: 16
                 },
-                z: 100 // Higher z value to place it on top
-
+                z: 100
               }]
             }
 
@@ -1247,14 +1231,9 @@ async function processTreemapChart() {
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-            for (var i = 0; i < cdata[1].length; i++) {
-              cdata[1][i].label = {
-                show: false,
-                position: 'inside'
-              };
-              // cdata[1][i].stack = 'total'
-              // cdata[1][i].type = 'bar'
-            }
+
+            const catCount = Array.isArray(cdata[0]) ? cdata[0].length : 0
+            thisChart.chartHeight = Math.max(320, catCount * 22 + 160)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptionsAbs,
@@ -1266,20 +1245,18 @@ async function processTreemapChart() {
                 ...stackedbarOptionsAbs.subtitle,
                 text: subtitleWithSource
               },
+              chart: {
+                ...stackedbarOptionsAbs.chart,
+                height: thisChart.chartHeight,
+              },
               xaxis: {
                 ...stackedbarOptionsAbs.xaxis,
-                categories: cdata[0],  // categories as recieved 
-             //   type:'category'
+                categories: cdata[0],
               },
-
-              series:  cdata[1]   
+              series: cdata[1]
             };
 
-
-
             thisChart.chart = UpdatedBarOptionsMultiple
-
-           //thisChart.chart.series = cdata[1]
 
             // show no data 
             if (cdata[0].length === 0) {
@@ -1292,8 +1269,7 @@ async function processTreemapChart() {
                   fill: '#999',
                   fontSize: 16
                 },
-                z: 100 // Higher z value to place it on top
-
+                z: 100
               }]
             }
 
@@ -2515,7 +2491,7 @@ const downloadSettlementData = async () => {
                               :options="chart.chart" 
                               :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" 
                               :type="getChartType(chart.type)" 
-                              height="300" 
+                              :height="chart.chartHeight || 300" 
                               autoresize
                             />
                           </div>
