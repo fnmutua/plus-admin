@@ -215,6 +215,54 @@ const profile = reactive({
   updatedAt: ''
 })
 
+/** Matches server/app/models/settlement.js — isActive stored as STRING, default 'true' */
+function settlementIsLiveActive(raw: unknown): boolean {
+  if (raw === true || raw === 1) return true
+  if (raw === false || raw === 0) return false
+  const s = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+  if (s === '' || s === 'true') return true
+  if (s === 'false') return false
+  return Boolean(raw)
+}
+
+/** Primary workflow label — isApproved (default Pending per model). */
+const settlementApprovalLabel = computed(() => {
+  const a = profile.isApproved
+  if (a === null || a === undefined || String(a).trim() === '') return 'Pending'
+  return String(a).trim()
+})
+
+const settlementApprovalTagType = computed((): 'success' | 'warning' | 'info' | 'danger' => {
+  const v = settlementApprovalLabel.value
+  if (v === 'Approved') return 'success'
+  if (v === 'Rejected') return 'danger'
+  if (v === 'Decommissioned') return 'info'
+  if (v === 'Pending') return 'warning'
+  return 'info'
+})
+
+/**
+ * profiling_status enum (settlement.js + inlineSelectOptionsBase).
+ * Extra badge only for incomplete profiling ("unfilled" cases).
+ */
+const settlementProfilingBadge = computed((): null | { label: string; type: 'warning' | 'info' } => {
+  const raw = String(profile.profiling_status ?? '')
+    .trim()
+    .toUpperCase()
+  if (raw === 'NOT_PROFILED') return { label: 'Not profiled', type: 'warning' }
+  if (raw === 'PARTIALLY_PROFILED') return { label: 'Partially profiled', type: 'warning' }
+  return null
+})
+
+const settlementOperationalTag = computed((): null | { label: string; type: 'danger' } => {
+  if (!settlementIsLiveActive(profile.isActive)) {
+    return { label: 'Inactive', type: 'danger' }
+  }
+  return null
+})
+
 const housing = reactive({
   num_households: '',
   avg_household_size: '',
@@ -3249,8 +3297,29 @@ const updateDocumentCategory = async () => {
           <el-button type="primary" plain :icon="Back" @click="goBack" class="back-button">
             Back
           </el-button>
-          <div class="settlement-title">
-            {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
+          <div class="settlement-title-wrap">
+            <div class="settlement-title">
+              {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
+            </div>
+            <div class="settlement-header-tags settlement-header-tags--prominent" role="group" aria-label="Settlement status">
+              <el-tag :type="settlementApprovalTagType" effect="plain">
+                {{ settlementApprovalLabel }}
+              </el-tag>
+              <el-tag
+                v-if="settlementProfilingBadge"
+                :type="settlementProfilingBadge.type"
+                effect="plain"
+              >
+                {{ settlementProfilingBadge.label }}
+              </el-tag>
+              <el-tag
+                v-if="settlementOperationalTag"
+                :type="settlementOperationalTag.type"
+                effect="plain"
+              >
+                {{ settlementOperationalTag.label }}
+              </el-tag>
+            </div>
           </div>
         </div>
         <div class="header-actions">
@@ -4249,8 +4318,16 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
 .back-button {
   flex-shrink: 0;
-  padding: 2px 8px;
-  height: auto;
+}
+
+.settlement-title-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .settlement-title {
@@ -4259,6 +4336,23 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   word-wrap: break-word;
   line-height: 1.2;
   margin: 0;
+}
+
+.settlement-header-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/**
+ * Tags ignore card-header`s 1.2rem inheritance and stick to `--el-tag-font-size` (~12px).
+ * Match body text (`--el-font-size-base`), slightly boosted so they read next to buttons.
+ */
+.settlement-header-tags.settlement-header-tags--prominent :deep(.el-tag) {
+  --el-tag-font-size: clamp(13px, var(--el-font-size-base), 15px);
+  font-size: var(--el-tag-font-size);
 }
 
 .header-actions {
@@ -4270,14 +4364,10 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
 .edit-button {
   flex-shrink: 0;
-  padding: 2px 8px;
-  height: auto;
 }
 
 .add-facility-button {
   flex-shrink: 0;
-  padding: 2px 8px;
-  height: auto;
 }
 
 .toolb-score-card {
@@ -4904,25 +4994,26 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
     gap: 4px;
   }
 
+  .settlement-title-wrap {
+    width: 100%;
+  }
+
   .settlement-title {
     line-height: 1.2;
-    width: 100%;
+    min-width: 0;
     margin: 0;
+  }
+
+  .settlement-header-tags {
+    max-width: 100%;
   }
 
   .header-actions {
     width: 100%;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .back-button,
-  .edit-button,
-  .add-facility-button {
-    width: 100%;
-    justify-content: center;
-    padding: 3px 8px;
-    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
 
   .photo-grid {

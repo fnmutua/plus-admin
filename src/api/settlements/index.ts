@@ -144,9 +144,14 @@ export const getOneGeo = (data: SettlementType): Promise<IResponse<SettlementTyp
 }
 
 export const getAdminUnitsFromCoordinates = (
-  data: { lat: number; lon: number }
+  data: { lat: number; lon: number },
+  options?: { silent?: boolean }
 ): Promise<IResponse<any>> => {
-  return request.post({ url: prod + '/api/v1/data/admin-units-from-coords', data })
+  return request.post({
+    url: prod + '/api/v1/data/admin-units-from-coords',
+    data,
+    silent: options?.silent === true,
+  })
 }
 
 export const getCountFilter = (data: SettlementType): Promise<IResponse<SettlementType>> => {
@@ -535,7 +540,21 @@ export const getNeighboringSettlements = (data: {
 export const getSettlementsInBbox = (data: {
   bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number }
   limit?: number
-}): Promise<IResponse<Array<{ id: number; name: string; county_id?: number; subcounty_id?: number; ward_id?: number; geom: any }>>> => {
+}): Promise<
+  IResponse<
+    Array<{
+      id: number
+      name: string
+      county_id?: number
+      subcounty_id?: number
+      ward_id?: number
+      county_name?: string | null
+      subcounty_name?: string | null
+      ward_name?: string | null
+      geom: any
+    }>
+  >
+> => {
   return request.post({ url: prod + '/api/v1/data/settlements/in-bbox', data, silent: true })
 }
 

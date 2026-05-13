@@ -2490,8 +2490,14 @@ exports.getSettlementsInBbox = async (req, res) => {
         s.county_id,
         s.subcounty_id,
         s.ward_id,
+        c.name AS county_name,
+        sc.name AS subcounty_name,
+        w.name AS ward_name,
         ST_AsGeoJSON(s.geom)::json as geom
       FROM settlement s
+      LEFT JOIN county c ON c.id = s.county_id
+      LEFT JOIN subcounty sc ON sc.id = s.subcounty_id
+      LEFT JOIN ward w ON w.id = s.ward_id
       WHERE s.geom IS NOT NULL
         AND (ST_GeometryType(s.geom) = 'ST_Polygon' OR ST_GeometryType(s.geom) = 'ST_MultiPolygon')
         AND ST_Intersects(

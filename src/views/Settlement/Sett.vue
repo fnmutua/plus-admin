@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getSettlementListByCounty, getDuplicates, mergeDuplicates, downloadSettlementsGeoData, shareDocuments, getSettlementsInBbox } from '@/api/settlements'
+import {
+  getSettlementListByCounty,
+  getDuplicates,
+  mergeDuplicates,
+  downloadSettlementsGeoData,
+  shareDocuments,
+  getSettlementsInBbox,
+  getAdminUnitsFromCoordinates,
+} from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCollapse,ElCollapseItem,
@@ -4404,6 +4412,154 @@ const clearLocateNearbyOverlays = () => {
   locateNearbyLabels.value = []
 }
 
+function locateIwEscape(raw: unknown): string {
+  if (raw === null || raw === undefined) return ''
+  return String(raw)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Safe display for optional location labels (shows em dash when empty). */
+function locateIwDisplayLoc(raw: unknown): string {
+  const s = raw != null && String(raw).trim() !== '' ? String(raw).trim() : '—'
+  return locateIwEscape(s)
+}
+
+/** Resolved or fallback admin unit row data for locate map popups. */
+interface LocateIwAdminUnits {
+  county_id?: number | string | null
+  county_name?: string | null
+  subcounty_id?: number | string | null
+  subcounty_name?: string | null
+  ward_id?: number | string | null
+  ward_name?: string | null
+}
+
+function locateIwFormatId(id: unknown): string {
+  if (id === null || id === undefined || String(id).trim() === '') return '—'
+  return locateIwEscape(String(id).trim())
+}
+
+function buildLocateAdminUnitsSectionHtml(loc: LocateIwAdminUnits): string {
+  const row = (label: string, idKey: keyof LocateIwAdminUnits, nameKey: keyof LocateIwAdminUnits) => {
+    const rowId = loc[idKey]
+    const rowName = loc[nameKey]
+    return `
+      <div class="locate-iw__admin-row">
+        <span class="locate-iw__admin-label">${locateIwEscape(label)}</span>
+        <div class="locate-iw__admin-value">
+          <span class="locate-iw__id-tag">ID ${locateIwFormatId(rowId)}</span>
+          <span class="locate-iw__admin-name">${locateIwDisplayLoc(rowName)}</span>
+        </div>
+      </div>`
+  }
+  return `
+    <div class="locate-iw__divider"></div>
+    <div class="locate-iw__section-title">Administrative units</div>
+    <div class="locate-iw__admin">
+      ${row('County', 'county_id', 'county_name')}
+      ${row('Sub-county', 'subcounty_id', 'subcounty_name')}
+      ${row('Ward', 'ward_id', 'ward_name')}
+    </div>`
+}
+
+/** County / sub-county / ward from settlement record (bbox JOIN or nested includes). Used when coordinate lookup misses. */
+function settlementRecordLocFields(s: any): LocateIwAdminUnits {
+  const county =
+    (s.county_name != null && String(s.county_name).trim()) ||
+    (typeof s.county === 'object' && s.county?.name != null ? String(s.county.name) : '') ||
+    ''
+  const subcounty =
+    (s.subcounty_name != null && String(s.subcounty_name).trim()) ||
+    (typeof s.subcounty === 'object' && s.subcounty?.name != null ? String(s.subcounty.name) : '') ||
+    ''
+  const ward =
+    (s.ward_name != null && String(s.ward_name).trim()) ||
+    (typeof s.ward === 'object' && s.ward?.name != null ? String(s.ward.name) : '') ||
+    ''
+
+  const county_id = s.county_id ?? (typeof s.county === 'object' && s.county != null ? s.county.id : null)
+  const subcounty_id = s.subcounty_id ?? (typeof s.subcounty === 'object' && s.subcounty != null ? s.subcounty.id : null)
+  const ward_id = s.ward_id ?? (typeof s.ward === 'object' && s.ward != null ? s.ward.id : null)
+
+  return {
+    county_id,
+    county_name: county,
+    subcounty_id,
+    subcounty_name: subcounty,
+    ward_id,
+    ward_name: ward,
+  }
+}
+
+/** InfoWindow markup: location from `/api/v1/data/admin-units-from-coords` (`getAdminUnitsFromCoordinates`) when available. */
+function buildLocateSettlementInfoHtml(
+  s: any,
+  loc: LocateIwAdminUnits | null,
+  loading: boolean,
+  footnote?: string,
+) {
+  const footHtml = footnote
+    ? `<div class="locate-iw__note">${locateIwEscape(footnote)}</div>`
+    : ''
+  if (loading) {
+    return `<div class="locate-iw">
+             <strong class="locate-iw__title">${locateIwEscape(s.name || 'Unnamed settlement')}</strong>
+             <div class="locate-iw__subtitle">
+               <span class="locate-iw__muted">Record ID</span>
+               <span class="locate-iw__pill-id">${locateIwFormatId(s.id ?? null)}</span>
+             </div>
+             <div class="locate-iw__meta locate-iw__loading">Looking up ward at click coordinates…</div>
+             ${footHtml}
+           </div>`
+  }
+  const adminHtml = buildLocateAdminUnitsSectionHtml(loc || {})
+  return `<div class="locate-iw">
+             <strong class="locate-iw__title">${locateIwEscape(s.name || 'Unnamed settlement')}</strong>
+             <div class="locate-iw__subtitle">
+               <span class="locate-iw__muted">Record ID</span>
+               <span class="locate-iw__pill-id">${locateIwFormatId(s.id ?? null)}</span>
+             </div>
+             ${adminHtml}
+             ${footHtml}
+           </div>`
+}
+
+/** Fly-to marker popup: same admin lookup, no settlement context. */
+function buildLocateFlyTargetInfoHtml(
+  lat: number,
+  lng: number,
+  loc: LocateIwAdminUnits | null,
+  loading: boolean,
+  footnote?: string,
+) {
+  const footHtml = footnote
+    ? `<div class="locate-iw__note">${locateIwEscape(footnote)}</div>`
+    : ''
+  const coords = `<div class="locate-iw__coords">
+             <div class="locate-iw__coords-label">Coordinates (WGS84)</div>
+             <div class="locate-iw__meta">Lat ${locateIwEscape(lat)}</div>
+             <div class="locate-iw__meta">Lng ${locateIwEscape(lng)}</div>
+           </div>`
+  if (loading) {
+    return `<div class="locate-iw">
+             <strong class="locate-iw__title">Target location</strong>
+             ${coords}
+             <div class="locate-iw__meta locate-iw__loading">Looking up county, sub-county, and ward…</div>
+             ${footHtml}
+           </div>`
+  }
+  const adminHtml = buildLocateAdminUnitsSectionHtml(loc || {})
+  return `<div class="locate-iw">
+             <strong class="locate-iw__title">Target location</strong>
+             ${coords}
+             ${adminHtml}
+             ${footHtml}
+           </div>`
+}
+
 const drawLocateNearbySettlements = (settlements: any[]) => {
   if (!locateMap.value || !window.google?.maps) return
   clearLocateNearbyOverlays()
@@ -4440,14 +4596,52 @@ const drawLocateNearbySettlements = (settlements: any[]) => {
 
       fillPolygon.addListener('click', (e: any) => {
         if (!locateInfoWindow.value) return
-        locateInfoWindow.value.setContent(
-          `<div class="locate-iw">
-             <strong class="locate-iw__title">${s.name || 'Unnamed settlement'}</strong>
-             <div class="locate-iw__meta">ID: ${s.id ?? '-'}</div>
-           </div>`,
-        )
-        locateInfoWindow.value.setPosition(e.latLng)
+        const latLng = e.latLng
+        const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat
+        const lon = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng
+        const fallback = settlementRecordLocFields(s)
+
+        locateInfoWindow.value.setPosition(latLng)
+        locateInfoWindow.value.setContent(buildLocateSettlementInfoHtml(s, null, true))
         locateInfoWindow.value.open(locateMap.value)
+
+        ;(async () => {
+          try {
+            const res: any = await getAdminUnitsFromCoordinates({ lat, lon }, { silent: true })
+            if (res?.code === '0000' && res?.data) {
+              const d = res.data
+              locateInfoWindow.value?.setContent(
+                buildLocateSettlementInfoHtml(
+                  s,
+                  {
+                    county_id: d.county_id,
+                    county_name: d.county_name,
+                    subcounty_id: d.subcounty_id,
+                    subcounty_name: d.subcounty_name,
+                    ward_id: d.ward_id,
+                    ward_name: d.ward_name,
+                  },
+                  false,
+                ),
+              )
+              return
+            }
+          } catch {
+            /* 404 or network — use settlement record */
+          }
+          const usedFallback =
+            !fallback.county_name && !fallback.subcounty_name && !fallback.ward_name
+          locateInfoWindow.value?.setContent(
+            buildLocateSettlementInfoHtml(
+              s,
+              fallback,
+              false,
+              usedFallback
+                ? 'No ward polygon contains this point; admin names unavailable.'
+                : 'Ward lookup did not match; showing names from the settlement record.',
+            ),
+          )
+        })()
       })
 
       locateNearbyOverlays.value.push(fillPolygon)
@@ -4517,7 +4711,7 @@ const fetchNearbyForCurrentBounds = async () => {
   }
 }
 
-const locateFlyTo = () => {
+const locateFlyTo = async () => {
   if (!locateMap.value || !window.google?.maps) {
     ElMessage.warning('Map is not ready yet')
     return
@@ -4550,7 +4744,11 @@ const locateFlyTo = () => {
   locateMap.value.setZoom(Math.max(currentZoom, targetZoom))
 
   if (locateMarker.value) {
-    try { locateMarker.value.setMap(null) } catch (e) { /* noop */ }
+    try {
+      locateMarker.value.setMap(null)
+    } catch (e) {
+      /* noop */
+    }
   }
   locateMarker.value = new window.google.maps.Marker({
     position: target,
@@ -4564,15 +4762,50 @@ const locateFlyTo = () => {
   })
 
   if (locateInfoWindow.value) {
-    locateInfoWindow.value.setContent(
-      `<div class="locate-iw">
-         <strong class="locate-iw__title">Target location</strong>
-         <div class="locate-iw__meta">Lat: ${lat}</div>
-         <div class="locate-iw__meta">Lng: ${lng}</div>
-       </div>`,
-    )
+    locateInfoWindow.value.setContent(buildLocateFlyTargetInfoHtml(lat, lng, null, true))
     locateInfoWindow.value.open(locateMap.value, locateMarker.value)
   }
+
+  try {
+    const res: any = await getAdminUnitsFromCoordinates({ lat, lon: lng }, { silent: true })
+    if (res?.code === '0000' && res?.data) {
+      const d = res.data
+      locateInfoWindow.value?.setContent(
+        buildLocateFlyTargetInfoHtml(
+          lat,
+          lng,
+          {
+            county_id: d.county_id,
+            county_name: d.county_name,
+            subcounty_id: d.subcounty_id,
+            subcounty_name: d.subcounty_name,
+            ward_id: d.ward_id,
+            ward_name: d.ward_name,
+          },
+          false,
+        ),
+      )
+      return
+    }
+  } catch {
+    /* 404: no ward contains point */
+  }
+  locateInfoWindow.value?.setContent(
+    buildLocateFlyTargetInfoHtml(
+      lat,
+      lng,
+      {
+        county_id: null,
+        county_name: null,
+        subcounty_id: null,
+        subcounty_name: null,
+        ward_id: null,
+        ward_name: null,
+      },
+      false,
+      'No ward boundary contains this point in the database.',
+    ),
+  )
 }
 
 const closeLocateDrawer = () => {
@@ -6888,18 +7121,151 @@ html.dark .locate-drawer__status,
   font-size: 12px;
   line-height: 1.45;
   color: var(--el-text-color-primary);
-  min-width: 140px;
+  min-width: 268px;
+  max-width: 300px;
+  padding-bottom: 2px;
+  box-sizing: border-box;
 }
 
 .locate-iw__title {
   display: block;
-  margin-bottom: 4px;
-  font-size: 13px;
+  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--el-text-color-primary);
+  line-height: 1.25;
+}
+
+.locate-iw__subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.locate-iw__muted {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+}
+
+.locate-iw__pill-id {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-primary);
+}
+
+.locate-iw__coords {
+  padding: 8px 10px;
+  margin-bottom: 2px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.locate-iw__coords-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 6px;
+}
+
+.locate-iw__coords .locate-iw__meta {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  font-size: 12px;
 }
 
 .locate-iw__meta {
   color: var(--el-text-color-secondary);
+}
+
+.locate-iw__divider {
+  height: 1px;
+  background: var(--el-border-color-lighter);
+  margin: 4px 0 10px;
+}
+
+.locate-iw__section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 8px;
+}
+
+.locate-iw__admin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.locate-iw__admin-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: start;
+}
+
+.locate-iw__admin-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+  padding-top: 3px;
+  line-height: 1.25;
+}
+
+.locate-iw__admin-value {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.locate-iw__id-tag {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-color-primary);
+  letter-spacing: 0.02em;
+}
+
+.locate-iw__admin-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.locate-iw__row {
+  color: var(--el-text-color-secondary);
+  margin-top: 2px;
+}
+
+.locate-iw__loading {
+  margin-top: 10px;
+  font-style: italic;
+  padding: 2px 0;
+}
+
+.locate-iw__note {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--el-border-color-lighter);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
+  font-style: italic;
 }
 
 /* Dark-mode overrides for the Google InfoWindow itself.
