@@ -4310,6 +4310,8 @@ const locateNearbyCount = ref(0)
 const locateLoadingNearby = ref(false)
 const locateLastFetchKey = ref('')
 const locateMapLoading = ref(false)
+/** Briefly suppress map-level click lookup so settlement polygon clicks are not overwritten. */
+const locateSuppressMapClickUntil = ref(0)
 let locateMoveDebounce: any = null
 
 const LOCATE_MIN_ZOOM_FOR_FETCH = 9
@@ -4382,6 +4384,17 @@ const initLocateMap = async () => {
       locateNearbyLabels.value.forEach((m: any) => {
         if (m && m.setMap) m.setMap(showLabels ? locateMap.value : null)
       })
+    })
+
+    // Click empty map → same admin lookup as Fly (updates marker + coordinates field).
+    window.google.maps.event.addListener(locateMap.value, 'click', (e: any) => {
+      if (Date.now() < locateSuppressMapClickUntil.value) return
+      const ll = e?.latLng
+      if (!ll) return
+      const lat = typeof ll.lat === 'function' ? ll.lat() : ll.lat
+      const lng = typeof ll.lng === 'function' ? ll.lng() : ll.lng
+      if (!isFinite(lat) || !isFinite(lng)) return
+      void locatePointAdminLookup(lat, lng, { syncCoordsInput: true })
     })
 
     // Initial fetch once map is ready.
@@ -4596,6 +4609,7 @@ const drawLocateNearbySettlements = (settlements: any[]) => {
 
       fillPolygon.addListener('click', (e: any) => {
         if (!locateInfoWindow.value) return
+        locateSuppressMapClickUntil.value = Date.now() + 550
         const latLng = e.latLng
         const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat
         const lon = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng
@@ -4711,37 +4725,22 @@ const fetchNearbyForCurrentBounds = async () => {
   }
 }
 
-const locateFlyTo = async () => {
-  if (!locateMap.value || !window.google?.maps) {
-    ElMessage.warning('Map is not ready yet')
-    return
+/** Marker + InfoWindow + `getAdminUnitsFromCoordinates`; used by Fly and map clicks. */
+async function locatePointAdminLookup(
+  lat: number,
+  lng: number,
+  options?: { syncCoordsInput?: boolean },
+) {
+  if (!locateMap.value || !window.google?.maps) return
+  if (!locateInfoWindow.value) {
+    locateInfoWindow.value = new window.google.maps.InfoWindow()
   }
-  const raw = (locateCoordsInput.value || '').trim()
-  if (!raw) {
-    ElMessage.error('Enter coordinates as "lat, lon"')
-    return
-  }
-  const parts = raw.replace(/[\s;]+/g, ',').split(',').map((p) => p.trim()).filter(Boolean)
-  if (parts.length < 2) {
-    ElMessage.error('Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)')
-    return
-  }
-  const lat = parseFloat(parts[0])
-  const lng = parseFloat(parts[1])
-  if (Number.isNaN(lat) || Number.isNaN(lng)) {
-    ElMessage.error('Invalid numbers. Use "lat, lon" (e.g., -1.2921, 36.8219)')
-    return
-  }
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    ElMessage.error('Coordinates out of range')
-    return
+
+  if (options?.syncCoordsInput) {
+    locateCoordsInput.value = `${Number(lat.toFixed(6))}, ${Number(lng.toFixed(6))}`
   }
 
   const target = new window.google.maps.LatLng(lat, lng)
-  locateMap.value.panTo(target)
-  const targetZoom = 15
-  const currentZoom = locateMap.value.getZoom?.() ?? targetZoom
-  locateMap.value.setZoom(Math.max(currentZoom, targetZoom))
 
   if (locateMarker.value) {
     try {
@@ -4761,10 +4760,8 @@ const locateFlyTo = async () => {
     zIndex: 2000,
   })
 
-  if (locateInfoWindow.value) {
-    locateInfoWindow.value.setContent(buildLocateFlyTargetInfoHtml(lat, lng, null, true))
-    locateInfoWindow.value.open(locateMap.value, locateMarker.value)
-  }
+  locateInfoWindow.value.setContent(buildLocateFlyTargetInfoHtml(lat, lng, null, true))
+  locateInfoWindow.value.open(locateMap.value, locateMarker.value)
 
   try {
     const res: any = await getAdminUnitsFromCoordinates({ lat, lon: lng }, { silent: true })
@@ -4806,6 +4803,41 @@ const locateFlyTo = async () => {
       'No ward boundary contains this point in the database.',
     ),
   )
+}
+
+const locateFlyTo = async () => {
+  if (!locateMap.value || !window.google?.maps) {
+    ElMessage.warning('Map is not ready yet')
+    return
+  }
+  const raw = (locateCoordsInput.value || '').trim()
+  if (!raw) {
+    ElMessage.error('Enter coordinates as "lat, lon"')
+    return
+  }
+  const parts = raw.replace(/[\s;]+/g, ',').split(',').map((p) => p.trim()).filter(Boolean)
+  if (parts.length < 2) {
+    ElMessage.error('Enter coordinates as "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    ElMessage.error('Invalid numbers. Use "lat, lon" (e.g., -1.2921, 36.8219)')
+    return
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    ElMessage.error('Coordinates out of range')
+    return
+  }
+
+  const target = new window.google.maps.LatLng(lat, lng)
+  locateMap.value.panTo(target)
+  const targetZoom = 15
+  const currentZoom = locateMap.value.getZoom?.() ?? targetZoom
+  locateMap.value.setZoom(Math.max(currentZoom, targetZoom))
+
+  await locatePointAdminLookup(lat, lng)
 }
 
 const closeLocateDrawer = () => {
@@ -6763,7 +6795,8 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </div>
 
       <div class="locate-drawer__hint">
-        Pan or zoom the map to load settlements in view. Minimum zoom for fetching is {{ LOCATE_MIN_ZOOM_FOR_FETCH }}.
+        Pan or zoom to load settlements (min. zoom {{ LOCATE_MIN_ZOOM_FOR_FETCH }}).
+        Click the map to drop a pin and look up county, sub-county, and ward — or use Fly with coordinates.
       </div>
 
       <div ref="locateMapContainer" class="locate-drawer__map" v-loading="locateMapLoading"></div>
