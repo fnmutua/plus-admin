@@ -3312,7 +3312,7 @@ const getWardNames = async () => {
   })
 }
 
-const filterByCounty = async (county_id: any) => {
+const filterByCounty = async (county_id: any, skipFetch = false) => {
   const countyIds = normalizeCountySelection(county_id)
 
   if (countyIds.length > 0) {
@@ -3350,6 +3350,7 @@ const filterByCounty = async (county_id: any) => {
     }
   }
 
+  if (skipFetch) return
   if (search_string.value) {
     getFilteredBySearchData(search_string.value);
   } else {
@@ -3358,8 +3359,37 @@ const filterByCounty = async (county_id: any) => {
   }
 }
 
+/** Drawer only: load subcounty/ward options when location changes — no API list filter until Apply. */
+function onDrawerCountyChange(county_id: any) {
+  const countyIds = normalizeCountySelection(county_id)
+  if (countyIds.length > 0) {
+    selectedCounty.value = countyIds
+    enableSubcounty.value = true
+    getSubCountyNames()
+  } else {
+    selectedCounty.value = []
+    enableSubcounty.value = false
+    subcountiesOptions.value = []
+  }
+  selectedSubCounty.value = null
+  selectedWard.value = null
+  wardOptions.value = []
+  value5.value = null
+  value6.value = null
+}
 
-const filterBySubCounty = async (subcounty_id: any) => {
+function onDrawerSubCountyChange() {
+  if (selectedSubCounty.value) {
+    getWardNames()
+  } else {
+    wardOptions.value = []
+    selectedWard.value = null
+  }
+  value6.value = null
+}
+
+
+const filterBySubCounty = async (subcounty_id: any, skipFetch = false) => {
   if (subcounty_id) {
     selectedSubCounty.value = subcounty_id;
     getWardNames();
@@ -3389,6 +3419,7 @@ const filterBySubCounty = async (subcounty_id: any) => {
     }
   }
 
+  if (skipFetch) return
   if (search_string.value) {
     getFilteredBySearchData(search_string.value);
   } else {
@@ -3407,7 +3438,7 @@ const filterBySubCounty = async (subcounty_id: any) => {
 
 
 
-const filterByWard = async (ward_id: any) => {
+const filterByWard = async (ward_id: any, skipFetch = false) => {
   if (ward_id) {
     selectedWard.value = ward_id;
   }
@@ -3434,6 +3465,7 @@ const filterByWard = async (ward_id: any) => {
     }
   }
 
+  if (skipFetch) return
   if (search_string.value) {
     getFilteredBySearchData(search_string.value);
   } else {
@@ -4139,7 +4171,7 @@ const grievanceOptions = [
 
 
 
-const filterByCategory = async (categories: any) => {
+const filterByCategory = async (categories: any, skipFetch = false) => {
   // Clear the ward selection when category changes
   // value6.value = null;
 
@@ -4169,6 +4201,7 @@ const filterByCategory = async (categories: any) => {
     }
   }
 
+  if (skipFetch) return
   if (search_string.value) {
     getFilteredBySearchData(search_string.value);
   } else {
@@ -4178,9 +4211,9 @@ const filterByCategory = async (categories: any) => {
 }
 
 // Filter by confirmation status
-const filterByConfirmationStatus = async (status: string | null) => {
-  if (status !== null && status !== undefined) {
-    selectedConfirmationStatus.value = status;
+const filterByConfirmationStatus = async (status: string | null, skipFetch = false) => {
+  if (status !== undefined) {
+    selectedConfirmationStatus.value = status
   }
 
   const selectOption = 'confirmed_by_national_grm';
@@ -4209,6 +4242,7 @@ const filterByConfirmationStatus = async (status: string | null) => {
     }
   }
 
+  if (skipFetch) return
   if (search_string.value) {
     getFilteredBySearchData(search_string.value);
   } else {
@@ -4218,9 +4252,9 @@ const filterByConfirmationStatus = async (status: string | null) => {
 }
 
 // Filter by project phase
-const filterByProjectPhase = async (phase: string | null) => {
-  if (phase !== null && phase !== undefined) {
-    selectedProjectPhase.value = phase;
+const filterByProjectPhase = async (phase: string | null, skipFetch = false) => {
+  if (phase !== undefined) {
+    selectedProjectPhase.value = phase
   }
 
   const selectOption = 'project_phase';
@@ -4245,6 +4279,7 @@ const filterByProjectPhase = async (phase: string | null) => {
     }
   }
 
+  if (skipFetch) return
   if (search_string.value) {
     getFilteredBySearchData(search_string.value);
   } else {
@@ -4363,18 +4398,6 @@ function syncGrievanceTimeFilterToFilters() {
   filterFunction.value.push('between')
 }
 
-/** Push time range into filter arrays and refresh list (so Time tab works without only relying on Apply). */
-function applyGrievanceTimeFilterFromUi() {
-  syncGrievanceTimeFilterToFilters()
-  if (search_string.value) {
-    getFilteredBySearchData(search_string.value)
-  } else {
-    getFilteredData(filters.value, filterValues.value)
-    getCounts()
-  }
-  saveFiltersToLocalStorage()
-}
-
 function clearGrievanceTimeFilterUi() {
   grievanceTimeSelectedPreset.value = ''
   grievanceTimeDateRange.value = null
@@ -4400,7 +4423,6 @@ const onGrievanceTimePresetChange = (value: string | null | undefined) => {
     grievanceTimeSelectedPreset.value = ''
     grievanceTimeDateRange.value = null
     grievanceTimeCustomRange.value = undefined
-    applyGrievanceTimeFilterFromUi()
     return
   }
   grievanceTimeSelectedPreset.value = value
@@ -4445,7 +4467,6 @@ const onGrievanceTimePresetChange = (value: string | null | undefined) => {
     default:
       grievanceTimeDateRange.value = null
   }
-  applyGrievanceTimeFilterFromUi()
 }
 
 const onGrievanceTimeCustomChange = (dates: [Date | string, Date | string] | null) => {
@@ -4453,7 +4474,6 @@ const onGrievanceTimeCustomChange = (dates: [Date | string, Date | string] | nul
   if (grievanceTimeSelectedPreset.value === 'custom') {
     grievanceTimeDateRange.value = dates
   }
-  applyGrievanceTimeFilterFromUi()
 }
 
 function restoreGrievanceTimeFilterUiFromArrays() {
@@ -4482,6 +4502,11 @@ async function clearGrievanceTimeFilterFromBar() {
     await getCounts()
   }
   saveFiltersToLocalStorage()
+}
+
+/** Drawer only: clear date UI without API — click Apply Filters to update the list. */
+function clearGrievanceTimeFilterFromDrawer() {
+  clearGrievanceTimeFilterUi()
 }
 
 // Computed properties for modal filters
@@ -4556,17 +4581,6 @@ watch(searchQuery, (newValue) => {
   search_string.value = newValue
   debouncedSearch()
 })
-
-// Debounced referred officer search function
-let referredOfficerSearchTimeout: NodeJS.Timeout | null = null
-const debouncedReferredOfficerSearch = () => {
-  if (referredOfficerSearchTimeout) {
-    clearTimeout(referredOfficerSearchTimeout)
-  }
-  referredOfficerSearchTimeout = setTimeout(() => {
-    filterByReferredOfficer()
-  }, 300)
-}
 
 const performSearch = async (query: string) => {
   if (!query.trim()) {
@@ -4865,43 +4879,27 @@ const clearAllFilters = async () => {
 // Apply filters and close modal
 const applyFiltersAndClose = async () => {
   syncGrievanceTimeFilterToFilters()
-  // Apply all filters in sequence
-  await filterByCategory(selectedCategories.value)
-  
-  // Apply location filters if they have values
-  if (hasCountySelection.value) {
-    await filterByCounty(selectedCounty.value)
-  }
-  if (selectedSubCounty.value) {
-    await filterBySubCounty(selectedSubCounty.value)
-  }
-  if (selectedWard.value) {
-    await filterByWard(selectedWard.value)
-  }
-  
-  // Apply confirmation status filter if it has a value
-  if (selectedConfirmationStatus.value) {
-    await filterByConfirmationStatus(selectedConfirmationStatus.value)
-  }
-  
-  // Apply project phase filter if it has a value
-  if (selectedProjectPhase.value) {
-    await filterByProjectPhase(selectedProjectPhase.value)
-  }
-  
-  // Apply officer search if it has a value
-  if (referredOfficerSearch.value) {
-    await filterByReferredOfficer()
-  }
-  
-  // Final data fetch and count update
+
+  originalTableData.value = []
+
+  await filterByCategory(selectedCategories.value, true)
+  await filterByCounty(selectedCounty.value, true)
+  await filterBySubCounty(selectedSubCounty.value ?? null, true)
+  await filterByWard(selectedWard.value ?? null, true)
+  await filterByConfirmationStatus(selectedConfirmationStatus.value ?? null, true)
+  await filterByProjectPhase(selectedProjectPhase.value ?? null, true)
+
   if (search_string.value) {
     await getFilteredBySearchData(search_string.value)
   } else {
     await getFilteredData(filters.value, filterValues.value)
     await getCounts()
   }
-  
+
+  if (referredOfficerSearch.value?.trim()) {
+    await filterByReferredOfficer()
+  }
+
   filterModalVisible.value = false
   saveFiltersToLocalStorage()
 }
@@ -6464,7 +6462,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select county"
                 size="small"
                 style="width: 100%"
-                @change="filterByCounty"
+                @change="onDrawerCountyChange"
               >
                 <el-option
                   v-for="item in countySelectOptionsWithSelected"
@@ -6485,7 +6483,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select subcounty"
                 size="small"
                 style="width: 100%"
-                @change="filterBySubCounty"
+                @change="onDrawerSubCountyChange"
               >
                 <el-option
                   v-for="item in subcountiesOptions"
@@ -6506,7 +6504,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select ward"
                 size="small"
                 style="width: 100%"
-                @change="filterByWard"
               >
                 <el-option
                   v-for="item in wardOptions"
@@ -6525,7 +6522,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 :prefix-icon="Search"
                 clearable
                 size="small"
-                @input="debouncedReferredOfficerSearch"
                 v-loading="isSearching"
               />
             </div>
@@ -6553,7 +6549,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select confirmation status"
                 size="small"
                 style="width: 100%"
-                @change="filterByConfirmationStatus"
               >
                 <el-option
                   v-for="item in confirmationStatusOptions"
@@ -6578,7 +6573,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select categories"
                 size="small"
                 style="width: 100%"
-                @change="filterByCategory"
               >
                 <el-option
                   v-for="item in grievanceOptions"
@@ -6597,7 +6591,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select project phase"
                 size="small"
                 style="width: 100%"
-                @change="filterByProjectPhase"
               >
                 <el-option
                   v-for="item in projectPhaseOptions"
@@ -6619,7 +6612,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Which date to filter on"
                 size="small"
                 style="width: 100%"
-                @change="applyGrievanceTimeFilterFromUi"
               >
                 <el-option
                   v-for="opt in grievanceDateFilterFieldOptions"
@@ -6667,13 +6659,13 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
             <div v-if="grievanceTimeDateRange" class="filter-item" style="margin-top: 8px;">
               <span style="color: var(--el-text-color-regular); font-size: 13px;">{{ grievanceTimeFilterSummary }}</span>
               <div style="margin-top: 8px;">
-                <el-button type="danger" plain size="small" @click="clearGrievanceTimeFilterFromBar">
+                <el-button type="danger" plain size="small" @click="clearGrievanceTimeFilterFromDrawer">
                   Clear date range
                 </el-button>
               </div>
             </div>
             <div v-else class="filter-item" style="color: var(--el-text-color-secondary); font-size: 13px;">
-              Choose a preset or custom range; the list updates automatically.
+              Choose a preset or custom range, then click Apply Filters to update the list.
             </div>
           </div>
         </el-tab-pane>
