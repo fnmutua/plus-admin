@@ -4263,6 +4263,14 @@ const referredOfficerSearch = ref('')
 const filterModalVisible = ref(false)
 const activeGrievanceFilterTab = ref('admin')
 
+/** Element Plus tabs sometimes miss v-model updates inside drawers; sync explicitly. */
+function onFilterDrawerTabClick(pane: any) {
+  const name = pane?.paneName ?? pane?.props?.name ?? pane?.name
+  if (name != null && name !== '') {
+    activeGrievanceFilterTab.value = String(name)
+  }
+}
+
 const grievanceDateFilterFieldOptions = [
   { value: 'date_reported', label: 'Date reported' },
   { value: 'date_logged', label: 'Date logged' },
@@ -6436,7 +6444,11 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   >
     <div class="filter-drawer-content">
       <div class="filter-drawer-scroll">
-      <el-tabs v-model="activeGrievanceFilterTab" class="grievance-filter-drawer-tabs">
+      <el-tabs
+        v-model="activeGrievanceFilterTab"
+        class="grievance-filter-drawer-tabs"
+        @tab-click="onFilterDrawerTabClick"
+      >
         <el-tab-pane label="Admin" name="admin">
           <div class="filter-list">
             <div class="filter-item" v-if="canShowCountyFilter">
@@ -7640,7 +7652,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   }
 }
 
-/* Filter Drawer */
+/* Filter Drawer — keep default el-tabs layout; flex on .el-tabs breaks nav clicks in EP 2.x */
 .filter-drawer :deep(.el-drawer__body) {
   padding: 0;
   display: flex;
@@ -7663,31 +7675,43 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 .filter-drawer-scroll {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .grievance-filter-drawer-tabs {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
 .grievance-filter-drawer-tabs :deep(.el-tabs__header) {
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   margin: 0 0 12px;
+  background: var(--el-bg-color, #fff);
+  padding-bottom: 2px;
+}
+
+.grievance-filter-drawer-tabs :deep(.el-tabs__nav-wrap) {
+  position: relative;
+  z-index: 21;
+}
+
+.grievance-filter-drawer-tabs :deep(.el-tabs__item) {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .grievance-filter-drawer-tabs :deep(.el-tabs__content) {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .grievance-filter-drawer-tabs :deep(.el-tab-pane) {
-  height: 100%;
+  max-height: min(52vh, 480px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
 }
 
 .filter-list {
