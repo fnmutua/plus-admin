@@ -25,7 +25,7 @@ import {   getGRMStaffByLocation } from '@/api/users'
 import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import {
   ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
-  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElMessageBox, ElSwitch,
+  ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElMessageBox, 
   ElTag, ElTooltip, ElDatePicker, ElTabs, ElTabPane
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -4355,6 +4355,18 @@ function syncGrievanceTimeFilterToFilters() {
   filterFunction.value.push('between')
 }
 
+/** Push time range into filter arrays and refresh list (so Time tab works without only relying on Apply). */
+function applyGrievanceTimeFilterFromUi() {
+  syncGrievanceTimeFilterToFilters()
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value)
+  } else {
+    getFilteredData(filters.value, filterValues.value)
+    getCounts()
+  }
+  saveFiltersToLocalStorage()
+}
+
 function clearGrievanceTimeFilterUi() {
   grievanceTimeSelectedPreset.value = ''
   grievanceTimeDateRange.value = null
@@ -4380,6 +4392,7 @@ const onGrievanceTimePresetChange = (value: string | null | undefined) => {
     grievanceTimeSelectedPreset.value = ''
     grievanceTimeDateRange.value = null
     grievanceTimeCustomRange.value = undefined
+    applyGrievanceTimeFilterFromUi()
     return
   }
   grievanceTimeSelectedPreset.value = value
@@ -4424,6 +4437,7 @@ const onGrievanceTimePresetChange = (value: string | null | undefined) => {
     default:
       grievanceTimeDateRange.value = null
   }
+  applyGrievanceTimeFilterFromUi()
 }
 
 const onGrievanceTimeCustomChange = (dates: [Date | string, Date | string] | null) => {
@@ -4431,6 +4445,7 @@ const onGrievanceTimeCustomChange = (dates: [Date | string, Date | string] | nul
   if (grievanceTimeSelectedPreset.value === 'custom') {
     grievanceTimeDateRange.value = dates
   }
+  applyGrievanceTimeFilterFromUi()
 }
 
 function restoreGrievanceTimeFilterUiFromArrays() {
@@ -5145,17 +5160,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                       </el-button>
                     </el-tooltip>
                   </PermissionWrapper>
-                  <template>
-                    <el-tooltip content="Upload data / Download template" placement="top">
-                      <el-button
-                        type="primary"
-                        plain
-                        @click="uploadData"
-                      >
-                        <el-icon><Upload /></el-icon>
-                      </el-button>
-                    </el-tooltip>
-                  </template>
                 </div>
               </el-col>
             </el-row>
@@ -6431,6 +6435,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     class="filter-drawer"
   >
     <div class="filter-drawer-content">
+      <div class="filter-drawer-scroll">
       <el-tabs v-model="activeGrievanceFilterTab" class="grievance-filter-drawer-tabs">
         <el-tab-pane label="Admin" name="admin">
           <div class="filter-list">
@@ -6561,6 +6566,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Select categories"
                 size="small"
                 style="width: 100%"
+                @change="filterByCategory"
               >
                 <el-option
                   v-for="item in grievanceOptions"
@@ -6601,6 +6607,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 placeholder="Which date to filter on"
                 size="small"
                 style="width: 100%"
+                @change="applyGrievanceTimeFilterFromUi"
               >
                 <el-option
                   v-for="opt in grievanceDateFilterFieldOptions"
@@ -6648,17 +6655,18 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
             <div v-if="grievanceTimeDateRange" class="filter-item" style="margin-top: 8px;">
               <span style="color: var(--el-text-color-regular); font-size: 13px;">{{ grievanceTimeFilterSummary }}</span>
               <div style="margin-top: 8px;">
-                <el-button type="danger" plain size="small" @click="clearGrievanceTimeFilterUi">
+                <el-button type="danger" plain size="small" @click="clearGrievanceTimeFilterFromBar">
                   Clear date range
                 </el-button>
               </div>
             </div>
             <div v-else class="filter-item" style="color: var(--el-text-color-secondary); font-size: 13px;">
-              Choose a preset or custom range, then Apply Filters.
+              Choose a preset or custom range; the list updates automatically.
             </div>
           </div>
         </el-tab-pane>
       </el-tabs>
+      </div>
 
       <!-- Action Buttons -->
       <div class="filter-drawer-footer">
@@ -7635,18 +7643,55 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 /* Filter Drawer */
 .filter-drawer :deep(.el-drawer__body) {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .filter-drawer-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   padding: 20px;
+  box-sizing: border-box;
+}
+
+.filter-drawer-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.grievance-filter-drawer-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.grievance-filter-drawer-tabs :deep(.el-tabs__header) {
+  flex-shrink: 0;
+  margin: 0 0 12px;
+}
+
+.grievance-filter-drawer-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.grievance-filter-drawer-tabs :deep(.el-tab-pane) {
+  height: 100%;
 }
 
 .filter-list {
-  flex: 1;
-  overflow-y: auto;
+  overflow: visible;
   margin-bottom: 20px;
 }
 
@@ -7672,9 +7717,11 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   display: flex;
   gap: 12px;
   justify-content: space-between;
+  flex-shrink: 0;
   border-top: 1px solid #e4e7ed;
   padding-top: 16px;
-  margin-top: auto;
+  margin-top: 12px;
+  background: var(--el-bg-color);
 }
 
 /* Drawer Responsive Design */
