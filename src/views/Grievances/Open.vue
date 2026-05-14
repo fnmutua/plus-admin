@@ -26,7 +26,7 @@ import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import {
   ElPagination, ElOption, ElDialog, ElForm, ElTour, ElUpload,
   ElFormItem, ElRow, ElInput, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElMessageBox, ElSwitch,
-  ElTag, ElTooltip, ElDatePicker
+  ElTag, ElTooltip, ElDatePicker, ElTabs, ElTabPane
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -44,6 +44,7 @@ import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction,revertG
 import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
+import moment from 'moment'
 
 import { getSummarybyFieldFromMultipleIncludes, getSummaryGroupByMultipleFields } from '@/api/summary'
 import { getUserListApi, getUsersByIds } from '@/api/users'
@@ -68,6 +69,7 @@ interface GrievanceType {
   nature: string
   status: string
   date_reported: string
+  date_logged?: string
   status_expiry_date: string
   settlement?: { name: string }
   county?: { name: string }
@@ -694,7 +696,7 @@ const getCounts = async () => {
         
         filterField.push(field);
         filterValue.push(arrayValue);
-        filterOperator.push('in');
+        filterOperator.push(filterFunction.value[i] || 'in');
       }
     }
 
@@ -896,6 +898,8 @@ const loadFiltersFromLocalStorage = async () => {
                 filterByProjectPhase(selectedProjectPhase.value)
             }
 
+      restoreGrievanceTimeFilterUiFromArrays()
+
 
             
 
@@ -928,6 +932,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedConfirmationStatus.value = null;
       selectedProjectPhase.value = null;
       activeSegment.value = 'Sorting';
+      clearGrievanceTimeFilterUi()
     }
   }
 };
@@ -967,7 +972,7 @@ watch(
      selectedSubCounty,
     selectedWard,
     selectedCategories,
-      activeSegment,
+    activeSegment,
   ],
   () => {
     saveFiltersToLocalStorage();
@@ -1081,6 +1086,7 @@ const handleClear = async () => {
   selectedConfirmationStatus.value = null
   selectedProjectPhase.value = null
   search_string.value = ''
+  clearGrievanceTimeFilterUi()
 
   // Restore role-based location filters
   roleBasedLocationFilters.forEach(locFilter => {
@@ -2834,8 +2840,52 @@ const getFilteredBySearchData = async (searchKey) => {
   formData.searchField = 'name'
   formData.searchString = searchKey
   formData.filters = filters.value
-  formData.filterValues = filterValues.value
-  formData.filterFunctions = filterFunction.value
+  formData.filterValues = filterValues.value.map((v) =>
+    Array.isArray(v) ? [...v] : v
+  )
+  const srcFns = [...filterFunction.value]
+  const alignedFilters: string[] = []
+  const alignedValues: any[][] = []
+  const alignedFns: string[] = []
+
+  for (let i = 0; i < formData.filters.length; i++) {
+    const field = String(formData.filters[i] || '').trim()
+    if (!field) continue
+    let val: any = formData.filterValues[i]
+    const fn = srcFns[i] || 'in'
+    if (val === undefined || val === null) continue
+    if (!Array.isArray(val)) val = [val]
+    if (val.length === 0) continue
+
+    if (fn === 'between') {
+      if (val.length !== 2) continue
+      alignedFilters.push(field)
+      alignedValues.push(val)
+      alignedFns.push('between')
+      continue
+    }
+
+    if (fn === 'notIn') {
+      alignedFilters.push(field)
+      alignedValues.push(val)
+      alignedFns.push('notIn')
+      continue
+    }
+
+    let useFn = fn
+    if (useFn === 'eq' && val.length > 1) useFn = 'in'
+    else if (!['eq', 'in', 'ne', 'notIn', 'gte', 'lte', 'gt', 'lt'].includes(useFn)) {
+      useFn = val.length > 1 ? 'in' : 'eq'
+    }
+
+    alignedFilters.push(field)
+    alignedValues.push(val)
+    alignedFns.push(useFn)
+  }
+
+  formData.filters = alignedFilters
+  formData.filterValues = alignedValues
+  formData.filterFunctions = alignedFns
 
   const associatedModels = [...associated_multiple_models]
   if (activeSegment.value === 'Deleted') {
@@ -2843,30 +2893,6 @@ const getFilteredBySearchData = async (searchKey) => {
   }
   formData.associated_multiple_models = associatedModels
   formData.nested_models = []
-
-  formData.filterFunctions = [];
-  for (let i = 0; i < formData.filterValues.length; i++) {
-    const val = formData.filterValues[i];
-    
-    if (!Array.isArray(val)) {
-      formData.filterValues[i] = [val];
-    } else if (val.length === 0) {
-      continue;
-    }
-    
-    formData.filterFunctions.push('in');
-  }
-  
-  const validIndices = [];
-  for (let i = 0; i < formData.filterValues.length; i++) {
-    if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
-      validIndices.push(i);
-    }
-  }
-  
-  formData.filters = validIndices.map(i => formData.filters[i]);
-  formData.filterValues = validIndices.map(i => formData.filterValues[i]);
-  formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
 
   if (!canViewDeletedGrievances.value) {
     const statusIndex = formData.filters.indexOf('status');
@@ -4163,6 +4189,205 @@ const referredOfficerSearch = ref('')
 
 // Modal filter variables
 const filterModalVisible = ref(false)
+const activeGrievanceFilterTab = ref('admin')
+
+const grievanceDateFilterFieldOptions = [
+  { value: 'date_reported', label: 'Date reported' },
+  { value: 'date_logged', label: 'Date logged' },
+  { value: 'date_resolved', label: 'Date resolved' },
+  { value: 'date_closed', label: 'Date closed' },
+  { value: 'current_status_date', label: 'Current status date' },
+  { value: 'status_expiry_date', label: 'Status deadline' },
+  { value: 'createdAt', label: 'Record created (system)' }
+]
+
+const grievanceTimeDateField = ref('date_reported')
+const grievanceTimeDateRange = ref<[Date | string, Date | string] | null>(null)
+const grievanceTimeSelectedPreset = ref('')
+const grievanceTimeCustomRange = ref<[Date | string, Date | string] | undefined>(undefined)
+
+const grievanceDateRangePresetOptions = [
+  { label: 'Today', value: 'today' },
+  { label: 'Yesterday', value: 'yesterday' },
+  { label: 'Last 7 days', value: 'last7days' },
+  { label: 'Last 30 days', value: 'last30days' },
+  { label: 'Last month (calendar)', value: 'lastMonthCalendar' },
+  { label: 'Last 3 months', value: 'last3months' },
+  { label: 'Last 6 months', value: 'last6months' },
+  { label: 'This year', value: 'thisyear' },
+  { label: 'Custom range', value: 'custom' }
+]
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function buildGrievanceDateFilterBounds():
+  | { start: string; end: string }
+  | undefined {
+  const range = grievanceTimeDateRange.value
+  if (!range?.[0] || !range?.[1]) return undefined
+  const startVal = range[0]
+  const endVal = range[1]
+
+  /** Interpret YYYY-MM-DD as the user's local calendar day (not UTC midnight). */
+  const toStartIso = (v: Date | string) => {
+    if (typeof v === 'string') {
+      const d = v.trim()
+      if (DATE_ONLY_RE.test(d)) {
+        const parts = d.split('-').map(Number)
+        if (parts.length !== 3 || parts.some((x) => Number.isNaN(x))) return null
+        const [year, month, day] = parts
+        return new Date(year, month - 1, day, 0, 0, 0, 0).toISOString()
+      }
+      const parsed = new Date(d)
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+    }
+    return v.toISOString()
+  }
+  const toEndIso = (v: Date | string) => {
+    if (typeof v === 'string') {
+      const d = v.trim()
+      if (DATE_ONLY_RE.test(d)) {
+        const parts = d.split('-').map(Number)
+        if (parts.length !== 3 || parts.some((x) => Number.isNaN(x))) return null
+        const [year, month, day] = parts
+        return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString()
+      }
+      const parsed = new Date(d)
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+    }
+    return v.toISOString()
+  }
+
+  const start = toStartIso(startVal)
+  const end = toEndIso(endVal)
+  if (!start || !end) return undefined
+  return { start, end }
+}
+
+function removeGrievanceBetweenFiltersFromArrays() {
+  for (let i = filters.value.length - 1; i >= 0; i--) {
+    if (filterFunction.value[i] === 'between') {
+      filters.value.splice(i, 1)
+      filterValues.value.splice(i, 1)
+      filterFunction.value.splice(i, 1)
+    }
+  }
+}
+
+function syncGrievanceTimeFilterToFilters() {
+  removeGrievanceBetweenFiltersFromArrays()
+  const bounds = buildGrievanceDateFilterBounds()
+  if (!bounds || !grievanceTimeDateField.value) return
+  filters.value.push(grievanceTimeDateField.value)
+  filterValues.value.push([bounds.start, bounds.end])
+  filterFunction.value.push('between')
+}
+
+function clearGrievanceTimeFilterUi() {
+  grievanceTimeSelectedPreset.value = ''
+  grievanceTimeDateRange.value = null
+  grievanceTimeCustomRange.value = undefined
+}
+
+const hasGrievanceTimeRangeFilter = computed(
+  () => filterFunction.value.some((fn) => fn === 'between')
+)
+
+const grievanceTimeFilterSummary = computed(() => {
+  const fieldLabel =
+    grievanceDateFilterFieldOptions.find((o) => o.value === grievanceTimeDateField.value)
+      ?.label || grievanceTimeDateField.value
+  if (!grievanceTimeDateRange.value?.[0] || !grievanceTimeDateRange.value?.[1]) return fieldLabel
+  const a = moment(grievanceTimeDateRange.value[0])
+  const b = moment(grievanceTimeDateRange.value[1])
+  return `${fieldLabel}: ${a.format('MMM D, YYYY')} – ${b.format('MMM D, YYYY')}`
+})
+
+const onGrievanceTimePresetChange = (value: string | null | undefined) => {
+  if (value == null || value === '') {
+    grievanceTimeSelectedPreset.value = ''
+    grievanceTimeDateRange.value = null
+    grievanceTimeCustomRange.value = undefined
+    return
+  }
+  grievanceTimeSelectedPreset.value = value
+  const now = moment()
+  const todayStart = moment().startOf('day')
+
+  switch (value) {
+    case 'today':
+      grievanceTimeDateRange.value = [todayStart.toDate(), todayStart.clone().endOf('day').toDate()]
+      break
+    case 'yesterday': {
+      const y = todayStart.clone().subtract(1, 'day')
+      grievanceTimeDateRange.value = [y.startOf('day').toDate(), y.endOf('day').toDate()]
+      break
+    }
+    case 'last7days':
+      grievanceTimeDateRange.value = [todayStart.clone().subtract(6, 'days').toDate(), now.toDate()]
+      break
+    case 'last30days':
+      grievanceTimeDateRange.value = [todayStart.clone().subtract(29, 'days').toDate(), now.toDate()]
+      break
+    case 'lastMonthCalendar': {
+      const inLastMonth = moment().subtract(1, 'month')
+      grievanceTimeDateRange.value = [
+        inLastMonth.clone().startOf('month').toDate(),
+        inLastMonth.clone().endOf('month').toDate()
+      ]
+      break
+    }
+    case 'last3months':
+      grievanceTimeDateRange.value = [now.clone().subtract(3, 'months').startOf('day').toDate(), now.toDate()]
+      break
+    case 'last6months':
+      grievanceTimeDateRange.value = [now.clone().subtract(6, 'months').startOf('day').toDate(), now.toDate()]
+      break
+    case 'thisyear':
+      grievanceTimeDateRange.value = [moment().startOf('year').toDate(), now.toDate()]
+      break
+    case 'custom':
+      grievanceTimeDateRange.value = grievanceTimeCustomRange.value ?? null
+      break
+    default:
+      grievanceTimeDateRange.value = null
+  }
+}
+
+const onGrievanceTimeCustomChange = (dates: [Date | string, Date | string] | null) => {
+  grievanceTimeCustomRange.value = dates ?? undefined
+  if (grievanceTimeSelectedPreset.value === 'custom') {
+    grievanceTimeDateRange.value = dates
+  }
+}
+
+function restoreGrievanceTimeFilterUiFromArrays() {
+  const idx = filterFunction.value.findIndex((f) => f === 'between')
+  if (idx === -1) {
+    clearGrievanceTimeFilterUi()
+    return
+  }
+  const field = filters.value[idx]
+  const pair = filterValues.value[idx]
+  if (field && Array.isArray(pair) && pair.length === 2) {
+    grievanceTimeDateField.value = field
+    grievanceTimeDateRange.value = [new Date(pair[0]), new Date(pair[1])]
+    grievanceTimeSelectedPreset.value = ''
+    grievanceTimeCustomRange.value = undefined
+  }
+}
+
+async function clearGrievanceTimeFilterFromBar() {
+  removeGrievanceBetweenFiltersFromArrays()
+  clearGrievanceTimeFilterUi()
+  if (search_string.value && search_string.value.trim()) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+    await getCounts()
+  }
+  saveFiltersToLocalStorage()
+}
 
 // Computed properties for modal filters
 const hasActiveFilters = computed(() => {
@@ -4172,7 +4397,8 @@ const hasActiveFilters = computed(() => {
          selectedWard.value || 
          referredOfficerSearch.value ||
          selectedConfirmationStatus.value ||
-         selectedProjectPhase.value
+         selectedProjectPhase.value ||
+         hasGrievanceTimeRangeFilter.value
 })
 
 const activeFilterCount = computed(() => {
@@ -4184,6 +4410,7 @@ const activeFilterCount = computed(() => {
   if (referredOfficerSearch.value) count++
   if (selectedConfirmationStatus.value) count++
   if (selectedProjectPhase.value) count++
+  if (hasGrievanceTimeRangeFilter.value) count++
   return count
 })
 
@@ -4305,7 +4532,7 @@ const getReferredOfficerSummary = async () => {
         
         filterField.push(field);
         filterValue.push(arrayValue);
-        filterOperator.push('in');
+        filterOperator.push(filterFunction.value[i] || 'in');
       }
     }
 
@@ -4510,6 +4737,7 @@ const clearAllFilters = async () => {
   selectedConfirmationStatus.value = null
   selectedProjectPhase.value = null
   search_string.value = ''
+  clearGrievanceTimeFilterUi()
   
   // Clear the underlying filter arrays, but preserve role-based location filters
   filterValues.value = []
@@ -4535,6 +4763,7 @@ const clearAllFilters = async () => {
 
 // Apply filters and close modal
 const applyFiltersAndClose = async () => {
+  syncGrievanceTimeFilterToFilters()
   // Apply all filters in sequence
   await filterByCategory(selectedCategories.value)
   
@@ -4573,6 +4802,7 @@ const applyFiltersAndClose = async () => {
   }
   
   filterModalVisible.value = false
+  saveFiltersToLocalStorage()
 }
 
 // Apply filters method (can be customized if needed)
@@ -5073,6 +5303,15 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             >
               Project Phase: {{ getProjectPhaseLabel(selectedProjectPhase) }}
             </el-tag>
+            <el-tag
+              v-if="hasGrievanceTimeRangeFilter"
+              size="small"
+              type="info"
+              closable
+              @close="clearGrievanceTimeFilterFromBar"
+            >
+              {{ grievanceTimeFilterSummary }}
+            </el-tag>
           </div>
         </div>
 
@@ -5257,6 +5496,12 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
           </template>
         </el-table-column>
 
+        <el-table-column prop="date_logged" label="Date Logged" width="150" sortable>
+          <template #default="{ row }">
+            <span>{{ formatDate(row.date_logged) }}</span>
+          </template>
+        </el-table-column>
+
         
         <el-table-column  v-if="['Resolved'].includes(activeSegment)" prop="date_resolved" label="Date Resolved" width="150">
           <template #default="{ row }">
@@ -5319,6 +5564,10 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             <div class="card-row">
               <span class="card-label">Reported</span>
               <span class="card-value">{{ formatDate(row.date_reported) }}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Logged</span>
+              <span class="card-value">{{ formatDate(row.date_logged) }}</span>
             </div>
             <div class="card-row">
               <span class="card-label">Deadline</span>
@@ -6067,170 +6316,232 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     class="filter-drawer"
   >
     <div class="filter-drawer-content">
-      <!-- Filter List -->
-      <div class="filter-list">
-        <!-- Category Filter -->
-        <div class="filter-item">
-          <label class="filter-label">Grievance Categories</label>
-          <el-select
-            v-model="selectedCategories"
-            multiple
-            clearable
-            filterable
-            placeholder="Select categories"
-            size="small"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in grievanceOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+      <el-tabs v-model="activeGrievanceFilterTab" class="grievance-filter-drawer-tabs">
+        <el-tab-pane label="Admin" name="admin">
+          <div class="filter-list">
+            <div class="filter-item" v-if="canShowCountyFilter">
+              <label class="filter-label">County</label>
+              <el-select
+                v-model="selectedCounty"
+                multiple
+                collapse-tags
+                clearable
+                filterable
+                placeholder="Select county"
+                size="small"
+                style="width: 100%"
+                @change="filterByCounty"
+              >
+                <el-option
+                  v-for="item in countySelectOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
 
-        <!-- County Filter -->
-        <div class="filter-item" v-if="canShowCountyFilter">
-          <label class="filter-label">County</label>
-          <el-select
-            v-model="selectedCounty"
-            multiple
-            collapse-tags
-            clearable
-            filterable
-            placeholder="Select county"
-            size="small"
-            style="width: 100%"
-            @change="filterByCounty"
-          >
-            <el-option
-              v-for="item in countySelectOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+            <div class="filter-item">
+              <label class="filter-label">Subcounty</label>
+              <el-select
+                v-model="selectedSubCounty"
+                :disabled="!hasCountySelection"
+                clearable
+                filterable
+                placeholder="Select subcounty"
+                size="small"
+                style="width: 100%"
+                @change="filterBySubCounty"
+              >
+                <el-option
+                  v-for="item in subcountiesOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
 
-        <!-- Subcounty Filter -->
-        <div class="filter-item">
-          <label class="filter-label">Subcounty</label>
-          <el-select
-            v-model="selectedSubCounty"
-            :disabled="!hasCountySelection"
-            clearable
-            filterable
-            placeholder="Select subcounty"
-            size="small"
-            style="width: 100%"
-            @change="filterBySubCounty"
-          >
-            <el-option
-              v-for="item in subcountiesOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+            <div class="filter-item">
+              <label class="filter-label">Ward</label>
+              <el-select
+                v-model="selectedWard"
+                :disabled="!selectedSubCounty"
+                clearable
+                filterable
+                placeholder="Select ward"
+                size="small"
+                style="width: 100%"
+                @change="filterByWard"
+              >
+                <el-option
+                  v-for="item in wardOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
 
-        <!-- Ward Filter -->
-        <div class="filter-item">
-          <label class="filter-label">Ward</label>
-          <el-select
-            v-model="selectedWard"
-            :disabled="!selectedSubCounty"
-            clearable
-            filterable
-            placeholder="Select ward"
-            size="small"
-            style="width: 100%"
-            @change="filterByWard"
-          >
-            <el-option
-              v-for="item in wardOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+            <div class="filter-item" v-if="activeSegment === 'Referred'">
+              <label class="filter-label">Officer Search</label>
+              <el-input
+                v-model="referredOfficerSearch"
+                placeholder="Search by officer..."
+                :prefix-icon="Search"
+                clearable
+                size="small"
+                @input="debouncedReferredOfficerSearch"
+                v-loading="isSearching"
+              />
+            </div>
 
-        <!-- Officer Search - Only show in Referred tab -->
-        <div class="filter-item" v-if="activeSegment === 'Referred'">
-          <label class="filter-label">Officer Search</label>
-          <el-input
-            v-model="referredOfficerSearch"
-            placeholder="Search by officer..."
-            :prefix-icon="Search"
-            clearable
-            size="small"
-            @input="debouncedReferredOfficerSearch"
-            v-loading="isSearching"
-          />
-        </div>
+            <div class="filter-item" v-if="activeSegment === 'Referred'">
+              <label class="filter-label">Officer Summary</label>
+              <el-button 
+                type="info" 
+                :icon="View"
+                size="small"
+                @click="getReferredOfficerSummary"
+                :loading="summaryLoading"
+                :disabled="isFilteredByOfficer"
+                style="width: 100%"
+              >
+                Get Summary
+              </el-button>
+            </div>
 
-        <!-- Officer Summary - Only show in Referred tab -->
-        <div class="filter-item" v-if="activeSegment === 'Referred'">
-          <label class="filter-label">Officer Summary</label>
-          <el-button 
-            type="info" 
-            :icon="View"
-            size="small"
-            @click="getReferredOfficerSummary"
-            :loading="summaryLoading"
-            :disabled="isFilteredByOfficer"
-            style="width: 100%"
-          >
-            Get Summary
-          </el-button>
-        </div>
+            <div class="filter-item" v-if="activeSegment === 'Resolved'">
+              <label class="filter-label">Confirmation Status</label>
+              <el-select
+                v-model="selectedConfirmationStatus"
+                clearable
+                placeholder="Select confirmation status"
+                size="small"
+                style="width: 100%"
+                @change="filterByConfirmationStatus"
+              >
+                <el-option
+                  v-for="item in confirmationStatusOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </div>
+        </el-tab-pane>
 
-        <!-- Confirmation Status Filter - Only show when Resolved segment is active -->
-        <div class="filter-item" v-if="activeSegment === 'Resolved'">
-          <label class="filter-label">Confirmation Status</label>
-          <el-select
-            v-model="selectedConfirmationStatus"
-            clearable
-            placeholder="Select confirmation status"
-            size="small"
-            style="width: 100%"
-            @change="filterByConfirmationStatus"
-          >
-            <el-option
-              v-for="item in confirmationStatusOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-          <!-- <el-text type="info" size="small" style="display: block; margin-top: 4px;">
-            Filter resolved grievances by confirmation status
-          </el-text> -->
-        </div>
+        <el-tab-pane label="Category" name="category">
+          <div class="filter-list">
+            <div class="filter-item">
+              <label class="filter-label">Grievance Categories</label>
+              <el-select
+                v-model="selectedCategories"
+                multiple
+                clearable
+                filterable
+                placeholder="Select categories"
+                size="small"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in grievanceOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
 
-        <!-- Project Phase Filter -->
-        <div class="filter-item">
-          <label class="filter-label">Project Phase</label>
-          <el-select
-            v-model="selectedProjectPhase"
-            clearable
-            placeholder="Select project phase"
-            size="small"
-            style="width: 100%"
-            @change="filterByProjectPhase"
-          >
-            <el-option
-              v-for="item in projectPhaseOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+            <div class="filter-item">
+              <label class="filter-label">Project Phase</label>
+              <el-select
+                v-model="selectedProjectPhase"
+                clearable
+                placeholder="Select project phase"
+                size="small"
+                style="width: 100%"
+                @change="filterByProjectPhase"
+              >
+                <el-option
+                  v-for="item in projectPhaseOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </div>
+        </el-tab-pane>
 
-      </div>
+        <el-tab-pane label="Time" name="time">
+          <div class="filter-list">
+            <div class="filter-item">
+              <label class="filter-label">Date field</label>
+              <el-select
+                v-model="grievanceTimeDateField"
+                placeholder="Which date to filter on"
+                size="small"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="opt in grievanceDateFilterFieldOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+            </div>
+
+            <div class="filter-item">
+              <label class="filter-label">Range</label>
+              <el-select
+                v-model="grievanceTimeSelectedPreset"
+                placeholder="Select a date range"
+                clearable
+                size="small"
+                style="width: 100%; margin-bottom: 10px;"
+                @change="onGrievanceTimePresetChange"
+              >
+                <el-option
+                  v-for="opt in grievanceDateRangePresetOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+
+              <div v-if="grievanceTimeSelectedPreset === 'custom'">
+                <el-date-picker
+                  v-model="grievanceTimeCustomRange"
+                  type="daterange"
+                  range-separator="to"
+                  start-placeholder="Start date"
+                  end-placeholder="End date"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%"
+                  :disabled-date="disableFutureDates"
+                  @change="onGrievanceTimeCustomChange"
+                />
+              </div>
+            </div>
+
+            <div v-if="grievanceTimeDateRange" class="filter-item" style="margin-top: 8px;">
+              <span style="color: var(--el-text-color-regular); font-size: 13px;">{{ grievanceTimeFilterSummary }}</span>
+              <div style="margin-top: 8px;">
+                <el-button type="danger" plain size="small" @click="clearGrievanceTimeFilterUi">
+                  Clear date range
+                </el-button>
+              </div>
+            </div>
+            <div v-else class="filter-item" style="color: var(--el-text-color-secondary); font-size: 13px;">
+              Choose a preset or custom range, then Apply Filters.
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
 
       <!-- Action Buttons -->
       <div class="filter-drawer-footer">

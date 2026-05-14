@@ -912,14 +912,25 @@ exports.getGrievances = async (req, res) => {
       gt: op.gt,
       lt: op.lt,
       gte: op.gte,
-      lte: op.lte
+      lte: op.lte,
+      between: op.between,
     };
 
     // Normalize array values to avoid "varchar = text[]" errors.
     // - If function is 'eq' and value is a single-element array, unwrap it.
     // - If function is 'eq' or 'ne' and value is a multi-element array,
     //   switch to 'in' / 'notIn' accordingly so Sequelize generates an IN clause.
-    if (Array.isArray(value)) {
+    if (functionType === 'between') {
+      if (!Array.isArray(value) || value.length !== 2) {
+        return;
+      }
+      const a = value[0] instanceof Date ? value[0] : new Date(value[0])
+      const b = value[1] instanceof Date ? value[1] : new Date(value[1])
+      if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) {
+        return
+      }
+      value = [a, b]
+    } else if (Array.isArray(value)) {
       if (functionType === 'eq') {
         if (value.length === 1) {
           value = value[0];
@@ -2989,10 +3000,9 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
 
 
        filters.forEach((filter, index) => {
-    const value = filterValues[index];
-    const functionType = filterFunctions[index] || 'eq'; // Default to 'eq' if no function provided
+    let value = filterValues[index];
+    let functionType = filterFunctions[index] || 'eq';
 
-    // Map functionType to Sequelize operators
     const operatorMap = {
       eq: op.eq,
       ne: op.ne,
@@ -3003,19 +3013,49 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       gt: op.gt,
       lt: op.lt,
       gte: op.gte,
-      lte: op.lte
+      lte: op.lte,
+      between: op.between,
     };
 
-    const operator = operatorMap[functionType] || op.eq; // Default to 'eq' if unrecognized functionType
+    if (functionType === 'between') {
+      if (!Array.isArray(value) || value.length !== 2) {
+        return;
+      }
+      const a = value[0] instanceof Date ? value[0] : new Date(value[0])
+      const b = value[1] instanceof Date ? value[1] : new Date(value[1])
+      if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) {
+        return
+      }
+      findAndCountOptions.where[filter] = { [op.between]: [a, b] };
+      return;
+    }
 
     if (Array.isArray(value)) {
-      findAndCountOptions.where[filter] = {
-        [operator]: value,
-      };
+      if (functionType === 'eq') {
+        if (value.length === 1) {
+          value = value[0];
+        } else {
+          functionType = 'in';
+        }
+      } else if (functionType === 'ne') {
+        if (value.length === 1) {
+          value = value[0];
+        } else {
+          functionType = 'notIn';
+        }
+      }
+    }
+
+    const operator = operatorMap[functionType] || op.eq;
+
+    if (functionType === 'in' && Array.isArray(value)) {
+      findAndCountOptions.where[filter] = { [op.in]: value };
+    } else if (functionType === 'notIn' && Array.isArray(value)) {
+      findAndCountOptions.where[filter] = { [op.notIn]: value };
+    } else if (Array.isArray(value)) {
+      findAndCountOptions.where[filter] = { [operator]: value };
     } else {
-      findAndCountOptions.where[filter] = {
-        [operator]: value,
-      };
+      findAndCountOptions.where[filter] = { [operator]: value };
     }
   });
 
@@ -3077,15 +3117,6 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     
         findAndCountOptions.where[Op.or] = searchConditions;
       }
-    
-      filters.forEach((filter, index) => {
-        const value = filterValues[index];
-        if (Array.isArray(value)) {
-          findAndCountOptions.where[filter] = { [Op.in]: value };
-        } else {
-          findAndCountOptions.where[filter] = value;
-        }
-      });
     
       if (hasSuperAdminRole) {
         delete findAndCountOptions.where.county_id;

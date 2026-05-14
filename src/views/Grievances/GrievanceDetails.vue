@@ -103,7 +103,8 @@ const Grievance = ref(
     'description': null,
     'status': null,
     'plea': null,
-    'date_reported': null
+    'date_reported': null,
+    'date_logged': null
   }
 )
 
@@ -385,6 +386,7 @@ const processGrievance = async() => {
   Grievance.value.description = res.data.description
   Grievance.value.status = res.data.status
   Grievance.value.date_reported = res.data.date_reported
+  Grievance.value.date_logged = res.data.date_logged
   Grievance.value.plea = res.data.plea
   Grievance.value.current_level = res.data.current_level
   Grievance.value.resolution = res.data.resolution || null
@@ -949,13 +951,22 @@ onMounted(async () => {
 // Computed property to transform grievance object into an array for el-table
 const grievanceData = computed(() => {
   const data = Object.keys(Grievance.value).map(key => {
-    // Don't format resolution value - it's already readable text
-    const value = key === 'resolution' 
-      ? (Grievance.value[key] || 'N/A')
-      : (Grievance.value[key] !== null && Grievance.value[key] !== undefined 
-          ? formatSentence(Grievance.value[key]) 
-          : 'N/A');
-    
+    let value: string
+    if (key === 'resolution') {
+      value = Grievance.value[key] || 'N/A'
+    } else if (key === 'date_reported' || key === 'date_logged') {
+      const raw = Grievance.value[key]
+      value =
+        raw !== null && raw !== undefined && raw !== ''
+          ? formatDate(raw)
+          : 'N/A'
+    } else {
+      value =
+        Grievance.value[key] !== null && Grievance.value[key] !== undefined
+          ? formatSentence(Grievance.value[key])
+          : 'N/A'
+    }
+
     return {
     label: formatSentence(key),
       value: value

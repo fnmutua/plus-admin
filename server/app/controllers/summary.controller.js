@@ -1151,6 +1151,12 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     } else if (operator === "or") {
       const orConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings['eq']]: nestedVal } }));
       filterConditions.push({ [op.or]: orConditions });
+    } else if (operator === 'between' && Array.isArray(filterVal) && filterVal.length === 2) {
+      const a = filterVal[0] instanceof Date ? filterVal[0] : new Date(filterVal[0])
+      const b = filterVal[1] instanceof Date ? filterVal[1] : new Date(filterVal[1])
+      if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
+        filterConditions.push({ [filterCol]: { [op.between]: [a, b] } });
+      }
     } else if (operatorMappings[operator] && filterVal) {
       if (Array.isArray(filterVal)) {
         if (operator === 'in') {
@@ -1465,6 +1471,12 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     } else if (operator === "or") {
       const orConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings['eq']]: nestedVal } }));
       filterConditions.push({ [op.or]: orConditions });
+    } else if (operator === 'between' && Array.isArray(filterVal) && filterVal.length === 2) {
+      const a = filterVal[0] instanceof Date ? filterVal[0] : new Date(filterVal[0])
+      const b = filterVal[1] instanceof Date ? filterVal[1] : new Date(filterVal[1])
+      if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
+        filterConditions.push({ [filterCol]: { [op.between]: [a, b] } });
+      }
     } else if (operatorMappings[operator] && filterVal) {
 
       
