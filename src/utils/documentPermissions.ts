@@ -6,7 +6,12 @@ export function hasPermission(userInfo: any, perm: string): boolean {
 }
 
 export function isSuperAdminUser(userInfo: any): boolean {
-  return userInfo?.roles?.some((r: any) => r.name === 'super_admin' || r.name === 'root_admin')
+  const roles = userInfo?.roles
+  if (!Array.isArray(roles)) return false
+  return roles.some((r: any) => {
+    const n = String(r?.name ?? '').toLowerCase().trim()
+    return n === 'super_admin' || n === 'root_admin'
+  })
 }
 
 /** Unlink document from a facility-linked entity (does not delete the file). */

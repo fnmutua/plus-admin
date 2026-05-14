@@ -50,6 +50,11 @@ import { getSummarybyFieldFromMultipleIncludes, getSummaryGroupByMultipleFields 
 import { getUserListApi, getUsersByIds } from '@/api/users'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import { validateInternationalPhone } from '@/utils/phoneValidation'
+import {
+  canShowGrievanceCountyFilter,
+  isGrievanceFilterEligibleRole,
+  normGrievanceRoleName,
+} from '@/utils/grievanceFilterAccess'
 
 // Type definitions
 interface UserType {
@@ -94,17 +99,61 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-const countiesOptions = ref<Array<{value: string, label: string}>>([])
-const assignedCountyRoleIds = ref<Array<string | number>>([])
+/** County IDs may be number|string across API, roles, and localStorage; el-select matches labels with strict equality. */
+function normalizeCountySelection(raw: any): string[] {
+  if (raw === null || raw === undefined || raw === '') return []
+  const arr = Array.isArray(raw) ? raw : [raw]
+  const out: string[] = []
+  for (const id of arr) {
+    if (id === null || id === undefined || id === '') continue
+    out.push(String(id))
+  }
+  return out
+}
+
+function countyIdAllowedForStaff(optionValue: any, allowedIds: Array<string | number>): boolean {
+  const v = String(optionValue)
+  return allowedIds.some((id) => String(id) === v)
+}
+
+const countiesOptions = ref<Array<{ value: string; label: string }>>([])
+const assignedCountyRoleIds = ref<string[]>([])
 const countySelectOptions = computed(() => {
   if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
-    return countiesOptions.value.filter(option => assignedCountyRoleIds.value.includes(option.value))
+    return countiesOptions.value.filter((option) =>
+      countyIdAllowedForStaff(option.value, assignedCountyRoleIds.value)
+    )
   }
   return countiesOptions.value
 })
-const canShowCountyFilter = computed(() => {
-  return isNationalStaff.value || (isCountyStaff.value && assignedCountyRoleIds.value.length > 1)
+
+/** Drawer + form: guarantee an el-option for every selected id so tags/collapse-tags never render blank. */
+const countySelectOptionsWithSelected = computed(() => {
+  const map = new Map<string, { value: string; label: string }>()
+  for (const o of countySelectOptions.value) {
+    map.set(String(o.value), { value: String(o.value), label: String(o.label ?? '') })
+  }
+  const selected = normalizeCountySelection(selectedCounty.value)
+  for (const id of selected) {
+    if (map.has(id)) continue
+    const found = countiesOptions.value.find((c) => String(c.value) === id)
+    if (found) {
+      map.set(id, { value: String(found.value), label: String(found.label ?? '') })
+    } else {
+      map.set(id, { value: id, label: `County (${id})` })
+    }
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
+  )
 })
+const canShowCountyFilter = computed(() =>
+  canShowGrievanceCountyFilter(userInfo, {
+    isNationalStaff: isNationalStaff.value,
+    isCountyStaff: isCountyStaff.value,
+    assignedCountyRoleIds: assignedCountyRoleIds.value,
+  })
+)
 const hasCountySelection = computed(() => {
   if (Array.isArray(selectedCounty.value)) return selectedCounty.value.length > 0
   return !!selectedCounty.value
@@ -112,8 +161,12 @@ const hasCountySelection = computed(() => {
 const settlementOptions = ref<Array<{value: string, label: string, county_id?: string, subcounty_id?: string, ward_id?: string}>>([])
 const isFilteringSettlements = ref(false)
 
-const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
-const isRootAdmin = ref(userInfo.roles.some(role => role.name === "root_admin"));
+const isSuperAdmin = ref(
+  userInfo?.roles?.some((role: any) => normGrievanceRoleName(role) === 'super_admin') ?? false
+)
+const isRootAdmin = ref(
+  userInfo?.roles?.some((role: any) => normGrievanceRoleName(role) === 'root_admin') ?? false
+)
  
 
 console.log("userInfo--->", userInfo)
@@ -375,7 +428,7 @@ const userCountyId = ref<string | number | null>(null)
 
 // Check if user is national GRM (can confirm resolutions)
 const isNationalGRM = computed(() => {
-  return isNationalStaff.value || isSuperAdmin.value
+  return isNationalStaff.value || isSuperAdmin.value || isRootAdmin.value
 })
 
 const canSeeDeletedStatus = computed(() => {
@@ -470,7 +523,7 @@ const getUserRoles = async () => {
   assignedCountyRoleIds.value = [];
 
   const grmRole = userInfo.roles.map(role => {
-    if (role.name === "grm" || role.name === "admin" || role.name === "root_admin"|| role.name === "super_admin" || role.name === "staff") {
+    if (isGrievanceFilterEligibleRole(role)) {
       let field = null;
       let fieldvalue = null;
 
@@ -507,8 +560,10 @@ const getUserRoles = async () => {
     return null;
   }).filter(role => role !== null);
 
-  // Check for super_admin role
-  isSuperAdmin.value = userInfo.roles.some(role => role.name === "super_admin");
+  isSuperAdmin.value =
+    userInfo?.roles?.some((role: any) => normGrievanceRoleName(role) === 'super_admin') ?? false
+  isRootAdmin.value =
+    userInfo?.roles?.some((role: any) => normGrievanceRoleName(role) === 'root_admin') ?? false
 
   // Determine filter values based on user roles
   if (isSuperAdmin.value || (grmRole.length > 0 && grmRole[0].model === "national")) {
@@ -527,16 +582,17 @@ const getUserRoles = async () => {
 
   const countyRoleFilter = roles_filters.find(rf => rf.field === 'county_id');
   if (countyRoleFilter) {
-    assignedCountyRoleIds.value = Array.isArray(countyRoleFilter.value)
-      ? [...new Set(countyRoleFilter.value)]
-      : [countyRoleFilter.value];
+    const rawIds = Array.isArray(countyRoleFilter.value)
+      ? countyRoleFilter.value
+      : [countyRoleFilter.value]
+    assignedCountyRoleIds.value = [...new Set(normalizeCountySelection(rawIds))]
     if (assignedCountyRoleIds.value.length > 0) {
       userCountyId.value = assignedCountyRoleIds.value[0];
       // For add-grievance flow, preselect first allowed county unless current selection is valid.
-      const normalizedSelected = Array.isArray(selectedCounty.value)
-        ? selectedCounty.value
-        : (selectedCounty.value ? [selectedCounty.value] : [])
-      const hasValidSelection = normalizedSelected.some((countyId) => assignedCountyRoleIds.value.includes(countyId))
+      const normalizedSelected = normalizeCountySelection(selectedCounty.value)
+      const hasValidSelection = normalizedSelected.some((countyId) =>
+        countyIdAllowedForStaff(countyId, assignedCountyRoleIds.value)
+      )
       if (!hasValidSelection) {
         selectedCounty.value = [...assignedCountyRoleIds.value];
       }
@@ -685,10 +741,10 @@ const getCounts = async () => {
 
         // Keep totals consistent with list behavior for county-scoped multi-county users.
         if (field === 'county_id' && isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
-          const selectedCountyValues = Array.isArray(selectedCounty.value)
-            ? selectedCounty.value
-            : (selectedCounty.value ? [selectedCounty.value] : [])
-          const allowedSelectedCounties = selectedCountyValues.filter((countyId) => assignedCountyRoleIds.value.includes(countyId))
+          const selectedCountyValues = normalizeCountySelection(selectedCounty.value)
+          const allowedSelectedCounties = selectedCountyValues.filter((countyId) =>
+            countyIdAllowedForStaff(countyId, assignedCountyRoleIds.value)
+          )
           arrayValue = allowedSelectedCounties.length > 0
             ? allowedSelectedCounties
             : [...assignedCountyRoleIds.value]
@@ -836,13 +892,14 @@ const loadFiltersFromLocalStorage = async () => {
       filters.value = parsed.filters || [];
       filterValues.value = parsed.filterValues || [[]];
       filterFunction.value = parsed.filterFunction || ['in'];
-      if (Array.isArray(parsed.selectedCounty)) {
-        selectedCounty.value = parsed.selectedCounty
-      } else if (parsed.selectedCounty !== null && parsed.selectedCounty !== undefined && parsed.selectedCounty !== '') {
-        selectedCounty.value = [parsed.selectedCounty]
-      } else {
-        selectedCounty.value = []
-      }
+      const fromSavedCounty = normalizeCountySelection(parsed.selectedCounty)
+      const countyFidx = (parsed.filters || []).indexOf('county_id')
+      const fv = parsed.filterValues || [[]]
+      const fromFilterCounty =
+        countyFidx !== -1 && fv[countyFidx] !== undefined
+          ? normalizeCountySelection(fv[countyFidx])
+          : []
+      selectedCounty.value = fromFilterCounty.length > 0 ? fromFilterCounty : fromSavedCounty
       selectedSubCounty.value = parsed.selectedSubCounty || null;
       selectedWard.value = parsed.selectedWard || null;
       selectedCategories.value = parsed.selectedCategories || [];
@@ -882,7 +939,7 @@ const loadFiltersFromLocalStorage = async () => {
        
           }
 
-        if(selectedCounty.value)  {
+        if (hasCountySelection.value) {
             filterByCounty(selectedCounty.value)
         }
 
@@ -1432,10 +1489,10 @@ const buildGrievanceRequestFormData = (
   // but respect a selected subset when provided.
   if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
     const countyIndex = formData.filters.indexOf('county_id')
-    const selectedCountyValues = Array.isArray(selectedCounty.value)
-      ? selectedCounty.value
-      : (selectedCounty.value ? [selectedCounty.value] : [])
-    const allowedSelectedCounties = selectedCountyValues.filter((countyId) => assignedCountyRoleIds.value.includes(countyId))
+    const selectedCountyValues = normalizeCountySelection(selectedCounty.value)
+    const allowedSelectedCounties = selectedCountyValues.filter((countyId) =>
+      countyIdAllowedForStaff(countyId, assignedCountyRoleIds.value)
+    )
     const effectiveCountyValues = allowedSelectedCounties.length > 0
       ? allowedSelectedCounties
       : [...assignedCountyRoleIds.value]
@@ -2477,31 +2534,49 @@ const getCounties = async () => {
 
   const formData = {}
   formData.model = 'county'
-  await getCountyAuth({}).then((response) => {
+  await getCountyAuth({}).then((response: any) => {
     console.log('List of counties:', response)
-    //tableDataList.value = response.data
-    var cnty = response.data
-
+    let cnty = response?.data
+    if (!Array.isArray(cnty)) {
+      cnty = cnty?.rows || cnty?.data || []
+    }
+    if (!Array.isArray(cnty)) {
+      cnty = []
+    }
 
 
     cnty.forEach(function (arrayItem) {
+      if (arrayItem.id === null || arrayItem.id === undefined) return
       var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name
+      countyOpt.value = String(arrayItem.id)
+      countyOpt.label = arrayItem.county_name || arrayItem.name || `County ${arrayItem.id}`
       //  console.log(countyOpt)
       countiesOptions.value.push(countyOpt)
     })
 
 
-    // sort by value
+    // sort by value (numeric when ids are numeric strings)
     countiesOptions.value.sort(function (a, b) {
-      return a.value - b.value;
+      return Number(a.value) - Number(b.value);
     });
 
   })
 }
 
 getCounties()
+
+watch(
+  () => countiesOptions.value.length,
+  (len) => {
+    if (!len) return
+    const cur = selectedCounty.value
+    if (cur == null) return
+    const arr = Array.isArray(cur) ? cur : [cur]
+    if (arr.length === 0) return
+    if (!arr.some((id) => typeof id !== 'string')) return
+    selectedCounty.value = normalizeCountySelection(cur)
+  }
+)
 
 
 
@@ -2546,13 +2621,12 @@ const getSettlementByCounty = async (selectCounty) => {
 watch(
   () => [isCountyStaff.value, selectedCounty.value],
   ([isCounty, county]) => {
-    if (isCounty && county) {
-      const countyValue = Array.isArray(county) ? county[0] : county
-      if (countyValue) {
-        grmForm.value.county_id = countyValue
-        getSettlementByCounty(countyValue)
-      }
-    }
+    if (!isCounty) return
+    const ids = normalizeCountySelection(county)
+    if (!ids.length) return
+    const first = ids[0]
+    grmForm.value.county_id = first
+    getSettlementByCounty(first)
   },
   { immediate: true }
 )
@@ -3239,9 +3313,7 @@ const getWardNames = async () => {
 }
 
 const filterByCounty = async (county_id: any) => {
-  const countyIds = Array.isArray(county_id)
-    ? county_id.filter((countyValue) => countyValue !== null && countyValue !== undefined)
-    : (county_id ? [county_id] : [])
+  const countyIds = normalizeCountySelection(county_id)
 
   if (countyIds.length > 0) {
     selectedCounty.value = countyIds;
@@ -4419,7 +4491,9 @@ const getCountyLabel = (countyValue: any) => {
   const countyValues = Array.isArray(countyValue) ? countyValue : [countyValue]
   const labels = countyValues
     .map((value) => {
-      const county = countiesOptions.value.find(c => c.value === value)
+      if (value === null || value === undefined || value === '') return ''
+      const key = String(value)
+      const county = countiesOptions.value.find(c => String(c.value) === key)
       return county ? county.label : value
     })
     .filter(Boolean)
@@ -4747,12 +4821,16 @@ const clearAllFilters = async () => {
   // Restore role-based location filter if it exists
   if (roleBasedLocationFilter) {
     filters.value.push(roleBasedLocationFilter.field)
-    filterValues.value.push([roleBasedLocationFilter.value])
+    filterValues.value.push(
+      roleBasedLocationFilter.field === 'county_id'
+        ? normalizeCountySelection(roleBasedLocationFilter.value)
+        : [roleBasedLocationFilter.value]
+    )
     filterFunction.value.push('in')
-    
+
     // Also update selectedCounty if it's a county filter
     if (roleBasedLocationFilter.field === 'county_id' && isCountyStaff.value) {
-      selectedCounty.value = roleBasedLocationFilter.value
+      selectedCounty.value = normalizeCountySelection(roleBasedLocationFilter.value)
     }
   }
   
@@ -4768,7 +4846,7 @@ const applyFiltersAndClose = async () => {
   await filterByCategory(selectedCategories.value)
   
   // Apply location filters if they have values
-  if (selectedCounty.value) {
+  if (hasCountySelection.value) {
     await filterByCounty(selectedCounty.value)
   }
   if (selectedSubCounty.value) {
@@ -4975,19 +5053,28 @@ const handleConfirmResolution = async () => {
   }
 }
 
+function grievanceAtConfirmableLevel(grievance: GrievanceType): boolean {
+  const l = String(grievance.current_level ?? '').toLowerCase().trim()
+  return l === 'settlement' || l === 'county'
+}
+
 // Check if grievance can be confirmed
 const canConfirmGrievance = (grievance: GrievanceType): boolean => {
-  return isNationalGRM.value && 
-         grievance.status === 'Resolved' && 
-         ['settlement', 'county'].includes(grievance.current_level) &&
-         !grievance.confirmed_by_national_grm
+  return (
+    isNationalGRM.value &&
+    grievance.status === 'Resolved' &&
+    grievanceAtConfirmableLevel(grievance) &&
+    !grievance.confirmed_by_national_grm
+  )
 }
 
 // Check if grievance is awaiting confirmation
 const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
-  return grievance.status === 'Resolved' && 
-         ['settlement', 'county'].includes(grievance.current_level) &&
-         !grievance.confirmed_by_national_grm
+  return (
+    grievance.status === 'Resolved' &&
+    grievanceAtConfirmableLevel(grievance) &&
+    !grievance.confirmed_by_national_grm
+  )
 }
 
 </script>
@@ -5540,6 +5627,25 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             </div>
           </template>
         </el-table-column>
+
+        <el-table-column label="Actions" width="200" fixed="right" align="center">
+          <template #default="{ row }">
+            <div class="grievance-row-actions" @click.stop>
+              <el-button type="primary" link size="small" @click="handleRowClick(row)">
+                View
+              </el-button>
+              <el-button
+                v-if="canConfirmGrievance(row)"
+                type="success"
+                link
+                size="small"
+                @click="openConfirmationDialog(row)"
+              >
+                Confirm
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
 
       <div v-else class="mobile-grievance-list">
@@ -5595,6 +5701,15 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             </el-checkbox>
             <el-button type="primary" text size="small" @click.stop="handleRowClick(row)">
               View Details
+            </el-button>
+            <el-button
+              v-if="canConfirmGrievance(row)"
+              type="success"
+              text
+              size="small"
+              @click.stop="openConfirmationDialog(row)"
+            >
+              Confirm
             </el-button>
           </div>
         </div>
@@ -5756,12 +5871,12 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   filterable
                   @change="getSettlementByCounty(grmForm.county_id)"
                 >
-                  <el-option
-                    v-for="item in countySelectOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
+                <el-option
+                  v-for="item in countySelectOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -6325,6 +6440,8 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 v-model="selectedCounty"
                 multiple
                 collapse-tags
+                collapse-tags-tooltip
+                :max-collapse-tags="2"
                 clearable
                 filterable
                 placeholder="Select county"
@@ -6333,7 +6450,7 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 @change="filterByCounty"
               >
                 <el-option
-                  v-for="item in countySelectOptions"
+                  v-for="item in countySelectOptionsWithSelected"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
@@ -6551,11 +6668,54 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     </div>
   </el-drawer>
 
+  <!-- National GRM: confirm resolved grievances at settlement/county level -->
+  <el-dialog
+    v-model="showConfirmationDialog"
+    title="Confirm resolution"
+    :width="isMobile ? '92%' : '480px'"
+    destroy-on-close
+    class="grv-confirm-dialog"
+  >
+    <template v-if="selectedGrievanceForConfirmation">
+      <div style="margin-bottom: 12px">
+        <div style="font-weight: 600">{{ selectedGrievanceForConfirmation.code }}</div>
+        <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-top: 4px">
+          {{ selectedGrievanceForConfirmation.description }}
+        </div>
+      </div>
+      <el-form label-position="top">
+        <el-form-item label="Level">
+          <el-input v-model="confirmationForm.confirmation_level" disabled />
+        </el-form-item>
+        <el-form-item label="Notes (optional)">
+          <el-input
+            v-model="confirmationForm.confirmation_notes"
+            type="textarea"
+            :rows="3"
+            placeholder="Optional notes for the confirmation record"
+          />
+        </el-form-item>
+      </el-form>
+    </template>
+    <template #footer>
+      <el-button @click="showConfirmationDialog = false">Cancel</el-button>
+      <el-button type="primary" @click="handleConfirmResolution">Confirm resolution</el-button>
+    </template>
+  </el-dialog>
+
   <!-- Tour -->
   <el-tour v-model="isTourVisible" :steps="filteredTourSteps" />
 </template>
 
 <style scoped>
+.grievance-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
 /* Dashboard Layout */
 .grievance-dashboard {
   padding: 4px;
