@@ -249,8 +249,7 @@ import formDetail3ChartImg from '@/assets/documentation/forn-detail-3-chart.png'
 import formDetail4DownloadImg from '@/assets/documentation/forn-detail-4-downlaod-atatchment.png'
 import grievanceListingImg from '@/assets/documentation/grievance-listing.png'
 import grievanceSearchImg from '@/assets/documentation/grievance-search.png'
-import grievanceFilter1Img from '@/assets/documentation/grievance-filter1.png'
-import grievanceFilter2Img from '@/assets/documentation/grievance-filter12.png'
+import grmFiltersEnhancedImg from '@/assets/documentation/grmFiltersenahnced.png'
 import grievanceAdd1Img from '@/assets/documentation/grievance-add1.png'
 import grievanceAdd2Img from '@/assets/documentation/grievance-add2.png'
 import grievanceDetail1Img from '@/assets/documentation/grievance-detail1.png'
@@ -2442,8 +2441,7 @@ const allNavGroups: NavGroup[] = [
           <h2>Searching &amp; filtering</h2>
           <img src="${grievanceSearchImg}" alt="Grievance search bar" class="docs-screenshot" />
           <p>Use the <strong>search bar</strong> at the top to find grievances by tracking code, description, or complainant name. <strong>Filter</strong> opens a <strong>drawer</strong> on the right, organised into three tabs:</p>
-          <img src="${grievanceFilter1Img}" alt="Grievance filter drawer" class="docs-screenshot" />
-          <img src="${grievanceFilter2Img}" alt="Grievance filter results" class="docs-screenshot" />
+          <img src="${grmFiltersEnhancedImg}" alt="Grievance filters: drawer, chips, and tabs" class="docs-screenshot" />
 
           <h3>Admin tab</h3>
           <ul>
