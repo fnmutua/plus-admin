@@ -903,6 +903,7 @@ const loadFiltersFromLocalStorage = async () => {
       selectedSubCounty.value = parsed.selectedSubCounty || null;
       selectedWard.value = parsed.selectedWard || null;
       selectedCategories.value = parsed.selectedCategories || [];
+      normalizeSelectedCategoriesToOptionValues();
       selectedConfirmationStatus.value = parsed.selectedConfirmationStatus || null;
       selectedProjectPhase.value = parsed.selectedProjectPhase || null;
       activeSegment.value = parsed.activeSegment || 'All';
@@ -3063,13 +3064,6 @@ const filteredSegments = computed(() => {
   return Statuses.value.filter(option => !option.hidden);
 });
 
-// Computed property for total count (unfiltered)
-const totalGrievanceCount = computed(() => {
-  // Get the "All" count which represents the total unfiltered count
-  const allStatus = Statuses.value.find(status => status.value === 'All');
-  return allStatus ? allStatus.count : 0;
-});
-
 const deletedGrievances =ref([])
 const deletedGrievancesCount =ref()
 
@@ -4167,9 +4161,57 @@ const grievanceOptions = [
   { label: 'Other', value: 'other' }
 ];
 
+/** Resolve category chip / tag label; matches option value with string coercion. */
+function getGrievanceNatureLabel(value: unknown): string {
+  if (value === null || value === undefined || value === '') return ''
+  const key = String(value).trim()
+  const found = grievanceOptions.find((o) => String(o.value) === key || o.value === value)
+  if (found) return found.label
+  if (/^\d+$/.test(key)) return `Category (${key})`
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
+/** Options for category multi-select: static list plus any selected value missing from list (so tags never show raw IDs). */
+const grievanceCategorySelectOptions = computed(() => {
+  const map = new Map<string, { value: string; label: string }>()
+  for (const o of grievanceOptions) {
+    const k = String(o.value)
+    map.set(k, { value: k, label: o.label })
+  }
+  const sel = selectedCategories.value as unknown[]
+  if (Array.isArray(sel)) {
+    for (const raw of sel) {
+      const k = raw === null || raw === undefined ? '' : String(raw).trim()
+      if (!k || map.has(k)) continue
+      map.set(k, { value: k, label: getGrievanceNatureLabel(raw) })
+    }
+  }
+  return Array.from(map.values())
+})
 
+const categoryFilterChipSummary = computed(() => {
+  const sel = selectedCategories.value as unknown[]
+  if (!Array.isArray(sel) || sel.length === 0) return ''
+  const labels = sel.map((v) => getGrievanceNatureLabel(v))
+  if (labels.length <= 2) return `Categories: ${labels.join(', ')}`
+  return `Categories: ${labels.slice(0, 2).join(', ')} +${labels.length - 2} more`
+})
 
+const categoryFilterChipTooltip = computed(() => {
+  const sel = selectedCategories.value as unknown[]
+  if (!Array.isArray(sel) || sel.length === 0) return ''
+  return sel.map((v) => getGrievanceNatureLabel(v)).join('\n')
+})
+
+function normalizeSelectedCategoriesToOptionValues() {
+  const sel = selectedCategories.value as unknown[]
+  if (!Array.isArray(sel) || sel.length === 0) return
+  selectedCategories.value = sel.map((raw) => {
+    const key = raw === null || raw === undefined ? '' : String(raw).trim()
+    const found = grievanceOptions.find((o) => String(o.value) === key || o.value === raw)
+    return found ? String(found.value) : key
+  }) as any
+}
 
 const filterByCategory = async (categories: any, skipFetch = false) => {
   // Clear the ward selection when category changes
@@ -4178,6 +4220,7 @@ const filterByCategory = async (categories: any, skipFetch = false) => {
   if (categories) {
     selectedCategories.value = categories;
   }
+  normalizeSelectedCategoriesToOptionValues();
 
   const selectOption = 'nature';
   const index = filters.value.indexOf(selectOption);
@@ -4313,7 +4356,7 @@ const grievanceDateFilterFieldOptions = [
   { value: 'date_closed', label: 'Date closed' },
   { value: 'current_status_date', label: 'Current status date' },
   { value: 'status_expiry_date', label: 'Status deadline' },
-  { value: 'createdAt', label: 'Record created (system)' }
+  { value: 'createdAt', label: 'Record created (system)' },
 ]
 
 const grievanceTimeDateField = ref('date_reported')
@@ -5121,7 +5164,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   <span v-if="!isMobile">Back</span>
                 </el-button>
               </el-col>
-              <el-col :xs="isMobile ? 20 : 24" :sm="24" :md="18"  :lg="18">
+              <el-col :xs="isMobile ? 20 : 24" :sm="24" :md="18" :lg="18">
                 <div class="header-search" :class="{ 'header-search--mobile': isMobile }">
                   <el-input
                     v-model="searchQuery"
@@ -5138,13 +5181,9 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   </el-input>
                 </div>
               </el-col>
-              <el-col :xs="24" :sm="24" :md="4"  :lg="4" >
+              <el-col :xs="24" :sm="24" :md="4" :lg="4">
                 <div class="header-actions">
                   <div class="total-download-group">
-                    <div class="total-count-badge">
-                      <div class="count-number">{{ totalGrievanceCount }}</div>
-                      <div class="count-label">Total Grievances</div>
-                    </div>
                     <DownloadCustom
                       :data="tableDataList"
                       :model="model"
@@ -5337,15 +5376,20 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
 
           <!-- Applied Filters Tags -->
           <div class="applied-filters" v-if="hasActiveFilters">
-            <el-tag 
-              v-if="selectedCategories.length" 
-              size="small" 
-              type="info" 
-              closable 
-              @close="clearCategoryFilter"
+            <el-tooltip
+              v-if="selectedCategories.length"
+              :content="categoryFilterChipTooltip"
+              placement="top"
             >
-              Categories ({{ selectedCategories.length }})
-            </el-tag>
+              <el-tag 
+                size="small" 
+                type="info" 
+                closable 
+                @close="clearCategoryFilter"
+              >
+                {{ categoryFilterChipSummary }}
+              </el-tag>
+            </el-tooltip>
             <el-tag 
               v-if="hasCountySelection && canShowCountyFilter" 
               size="small" 
@@ -6570,12 +6614,14 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
                 multiple
                 clearable
                 filterable
+                collapse-tags
+                collapse-tags-tooltip
                 placeholder="Select categories"
                 size="small"
                 style="width: 100%"
               >
                 <el-option
-                  v-for="item in grievanceOptions"
+                  v-for="item in grievanceCategorySelectOptions"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
@@ -6948,44 +6994,10 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   margin-top: 8px;
 }
 
-/* Total Count Badge - Optimized for older screens */
-.total-count-badge {
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  padding: 6px 10px;
-  color: #303133;
-  text-align: center;
-  box-shadow: none;
-  transition: none;
-  min-width: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-}
-
-.total-count-badge:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-.count-number {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1;
-  margin-bottom: 2px;
-}
-
-.count-label {
-  font-size: 10px;
-  font-weight: 500;
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-}
-
 .header-search {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .header-search-input {
@@ -7795,18 +7807,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 
 /* Additional responsive styles */
 @media (max-width: 1024px) {
-  .count-number {
-    font-size: 16px;
-  }
-  
-  .count-label {
-    font-size: 8px;
-  }
-  
-  .header-search {
-    min-width: 250px;
-  }
-  
   .filters-bar {
     padding: 6px 0;
   }
@@ -7879,19 +7879,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
     justify-content: space-between;
   }
 
-  .total-count-badge {
-    min-width: 80px;
-    padding: 6px 12px;
-  }
-  
-  .count-number {
-    font-size: 18px;
-  }
-  
-  .count-label {
-    font-size: 9px;
-  }
-  
   .status-cards {
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 4px;
@@ -7907,10 +7894,6 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   
   .status-count {
     font-size: 12px;
-  }
-  
-  .header-search {
-    min-width: 180px;
   }
   
   .drawer-header {

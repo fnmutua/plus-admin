@@ -2441,17 +2441,48 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Searching &amp; filtering</h2>
           <img src="${grievanceSearchImg}" alt="Grievance search bar" class="docs-screenshot" />
-          <p>Use the <strong>search bar</strong> at the top to find grievances by tracking code, description, or complainant name. The advanced <strong>Filter</strong> modal adds the following filters:</p>
-          <img src="${grievanceFilter1Img}" alt="Grievance filter modal" class="docs-screenshot" />
+          <p>Use the <strong>search bar</strong> at the top to find grievances by tracking code, description, or complainant name. <strong>Filter</strong> opens a <strong>drawer</strong> on the right, organised into three tabs:</p>
+          <img src="${grievanceFilter1Img}" alt="Grievance filter drawer" class="docs-screenshot" />
           <img src="${grievanceFilter2Img}" alt="Grievance filter results" class="docs-screenshot" />
+
+          <h3>Admin tab</h3>
           <ul>
-            <li><strong>Category</strong> &mdash; nature/type of complaint (e.g., land, infrastructure, financial)</li>
             <li><strong>County</strong> &mdash; one or multiple counties (national staff); pre-scoped for county staff</li>
             <li><strong>Sub-county</strong> &mdash; cascades from the selected county</li>
             <li><strong>Ward</strong> &mdash; cascades from the selected sub-county</li>
-            <li><strong>Project Phase</strong> &mdash; KISIP 1 or KISIP 2</li>
           </ul>
-          <p>Active filters appear as removable chips above the table. Use <strong>Clear All</strong> to reset everything, or click individual chip &times; buttons to remove one filter at a time.</p>
+
+          <p><strong>Segment-specific filters</strong> &mdash; When the <strong>Referred</strong> or <strong>Resolved</strong> status segment is selected at the top of the grievances page, the filter drawer exposes additional controls for that workflow (separate from the location fields above):</p>
+          <ul>
+            <li><strong>Referred</strong>: <strong>Officer search</strong> (filter by referred officer) and <strong>Officer summary</strong> (aggregate view)</li>
+            <li><strong>Resolved</strong>: <strong>Confirmation status</strong> (complainant confirmation of resolution)</li>
+          </ul>
+
+          <h3>Category tab</h3>
+          <ul>
+            <li><strong>Grievance categories</strong> &mdash; nature/type of complaint (e.g., land, infrastructure, financial); multi-select</li>
+            <li><strong>Project phase</strong> &mdash; KISIP 1 or KISIP 2</li>
+          </ul>
+
+          <h3>Time tab</h3>
+          <p>Filter grievances by a <strong>date range</strong> on a date field you choose. The range is applied as an inclusive <strong>between</strong> filter on the server.</p>
+          <p><strong>Date field</strong> &mdash; the dropdown names the database column the range applies to:</p>
+          <table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>Date reported</strong></td><td>Date supplied at intake (when the complainant says the issue happened or was raised).</td></tr>
+            <tr><td><strong>Date logged</strong></td><td>When the grievance was first saved in KeSMIS (can differ from date reported for phone-ins or late data entry).</td></tr>
+            <tr><td><strong>Date resolved</strong></td><td>When the case was set to <em>Resolved</em>.</td></tr>
+            <tr><td><strong>Date closed</strong></td><td>When the case was formally closed.</td></tr>
+            <tr><td><strong>Current status date</strong></td><td>Date of the latest status change (when it entered its current status).</td></tr>
+            <tr><td><strong>Status deadline</strong></td><td>SLA expiry for the current status stage; use to list cases whose deadline falls in the date range you set.</td></tr>
+            <tr><td><strong>Record created (system)</strong></td><td>When the row was created in the database (audit timestamp).</td></tr>
+          </tbody></table>
+          <ul>
+            <li><strong>Range (relative presets)</strong> &mdash; quick windows such as <em>Today</em>, <em>Yesterday</em>, <em>Last 7 days</em>, <em>Last 30 days</em>, <em>Last month (calendar)</em>, <em>Last 3 months</em>, <em>Last 6 months</em>, and <em>This year</em>. These are computed from the current date/time when you apply the filter.</li>
+            <li><strong>Custom range (absolute calendar dates)</strong> &mdash; choose <em>Custom range</em>, then pick a start and end date (<code>YYYY-MM-DD</code>). The system treats each day as the full local calendar day (start of the first day through end of the last day), so results match wall-clock intent rather than UTC midnight alone. Future end dates are not selectable on the custom picker.</li>
+          </ul>
+          <p>When a time filter is active, a summary chip appears above the table (and in the drawer); use <strong>Clear date range</strong> in the Time tab or remove the chip to reset it.</p>
+
+          <p>Other location and category filters appear as removable chips above the table. Use <strong>Clear All</strong> to reset everything, or click individual chip &times; buttons to remove one filter at a time.</p>
 
           <h2>Adding a grievance (staff)</h2>
           <p>Click <strong>+ Add</strong> to file a grievance on behalf of a walk-in or phone-in complainant. The three-step internal form collects:</p>
