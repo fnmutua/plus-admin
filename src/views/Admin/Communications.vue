@@ -69,6 +69,28 @@
                 </el-form-item>
               </el-col>
               <el-col :xs="24" :md="10">
+                <el-form-item label="Level">
+                  <el-select
+                    v-model="composeForm.recipient_filter.location_level"
+                    clearable
+                    placeholder="All levels"
+                    style="width: 100%"
+                    @change="onLevelChange"
+                  >
+                    <el-option label="National" value="national" />
+                    <el-option label="County" value="county" />
+                    <el-option label="Settlement" value="settlement" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <!-- County + Settlement pickers (shown when a level requiring geo is selected) -->
+            <el-row
+              v-if="composeForm.recipient_filter.location_level === 'county' || composeForm.recipient_filter.location_level === 'settlement'"
+              :gutter="16"
+            >
+              <el-col :xs="24" :md="composeForm.recipient_filter.location_level === 'settlement' ? 12 : 24">
                 <el-form-item label="County (optional)">
                   <el-select
                     v-model="composeForm.recipient_filter.county_id"
@@ -76,13 +98,33 @@
                     filterable
                     placeholder="All counties"
                     style="width: 100%"
-                    @change="resetPreview"
+                    @change="onCountyChange"
                   >
                     <el-option
                       v-for="c in countyOptions"
                       :key="c.id"
                       :label="c.name"
                       :value="c.id"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col v-if="composeForm.recipient_filter.location_level === 'settlement'" :xs="24" :md="12">
+                <el-form-item label="Settlement (optional)">
+                  <el-select
+                    v-model="composeForm.recipient_filter.settlement_id"
+                    clearable
+                    filterable
+                    :loading="settlementLoading"
+                    placeholder="All settlements"
+                    style="width: 100%"
+                    @change="resetPreview"
+                  >
+                    <el-option
+                      v-for="s in settlementOptions"
+                      :key="s.id"
+                      :label="s.name"
+                      :value="s.id"
                     />
                   </el-select>
                 </el-form-item>
@@ -499,6 +541,7 @@ import {
   createCommunication,
   getCommunication,
   getCommunicationRoles,
+  getSettlementsForRecipients,
   listCommunications,
   previewRecipients,
   retryRecipient,
@@ -506,8 +549,10 @@ import {
   type CommunicationCreatePayload,
   type CommunicationRow,
   type CommunicationRecipientRow,
+  type LocationLevel,
   type PreviewResponseResult,
-  type RecipientUser
+  type RecipientUser,
+  type SettlementOption
 } from '@/api/communications'
 import { getCountiesApi, type County } from '@/api/adminunits'
 
@@ -524,7 +569,9 @@ interface ComposeFormShape {
   recipient_mode: 'roles' | 'users' | 'custom'
   recipient_filter: {
     roles: string[]
+    location_level?: LocationLevel | null
     county_id?: number
+    settlement_id?: number
     user_ids: number[]
   }
   customAddressesText: string
@@ -538,7 +585,9 @@ const composeForm = reactive<ComposeFormShape>({
   recipient_mode: 'roles',
   recipient_filter: {
     roles: [],
+    location_level: null,
     county_id: undefined,
+    settlement_id: undefined,
     user_ids: []
   },
   customAddressesText: '',
@@ -618,10 +667,12 @@ const canSendBroadcast = computed(() => {
   return true
 })
 
-// ----- Lookups (roles, counties, user search) -------------------------------
+// ----- Lookups (roles, counties, settlements, user search) ------------------
 
 const roleOptions = ref<Array<{ id: number; name: string; description: string | null }>>([])
 const countyOptions = ref<Array<{ id: number; name: string }>>([])
+const settlementOptions = ref<SettlementOption[]>([])
+const settlementLoading = ref(false)
 
 const userSearchLoading = ref(false)
 const userSearchResults = ref<RecipientUser[]>([])
@@ -667,6 +718,38 @@ async function loadCounties() {
   }
 }
 
+async function loadSettlements() {
+  try {
+    settlementLoading.value = true
+    const countyId = composeForm.recipient_filter.county_id
+    const res = await getSettlementsForRecipients(countyId ? { county_id: countyId } : {})
+    settlementOptions.value = res?.results || []
+  } catch (err) {
+    console.error('[Communications] failed to load settlements', err)
+  } finally {
+    settlementLoading.value = false
+  }
+}
+
+function onLevelChange() {
+  composeForm.recipient_filter.county_id = undefined
+  composeForm.recipient_filter.settlement_id = undefined
+  settlementOptions.value = []
+  resetPreview()
+  if (composeForm.recipient_filter.location_level === 'settlement') {
+    void loadSettlements()
+  }
+}
+
+function onCountyChange() {
+  composeForm.recipient_filter.settlement_id = undefined
+  settlementOptions.value = []
+  resetPreview()
+  if (composeForm.recipient_filter.location_level === 'settlement') {
+    void loadSettlements()
+  }
+}
+
 function formatRoleLabel(role: { name: string; description: string | null }) {
   const pretty = role.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   return role.description ? `${pretty} — ${role.description}` : pretty
@@ -686,10 +769,17 @@ const preview = ref<PreviewResponseResult | null>(null)
 
 function buildRecipientFilter() {
   if (composeForm.recipient_mode === 'roles') {
-    return {
-      roles: composeForm.recipient_filter.roles,
-      county_id: composeForm.recipient_filter.county_id
+    const filter: Record<string, any> = { roles: composeForm.recipient_filter.roles }
+    if (composeForm.recipient_filter.location_level) {
+      filter.location_level = composeForm.recipient_filter.location_level
     }
+    if (composeForm.recipient_filter.county_id) {
+      filter.county_id = composeForm.recipient_filter.county_id
+    }
+    if (composeForm.recipient_filter.settlement_id) {
+      filter.settlement_id = composeForm.recipient_filter.settlement_id
+    }
+    return filter
   }
   if (composeForm.recipient_mode === 'users') {
     return { user_ids: composeForm.recipient_filter.user_ids }
@@ -716,7 +806,11 @@ function onRecipientModeChange() {
 async function onChannelChange() {
   resetPreview()
   composeForm.recipient_filter.roles = []
+  composeForm.recipient_filter.location_level = null
+  composeForm.recipient_filter.county_id = undefined
+  composeForm.recipient_filter.settlement_id = undefined
   composeForm.recipient_filter.user_ids = []
+  settlementOptions.value = []
   userSearchResults.value = []
   await loadRoles()
 }
@@ -795,11 +889,14 @@ async function confirmAndSend() {
 
 function resetForm() {
   composeForm.recipient_filter.roles = []
+  composeForm.recipient_filter.location_level = null
   composeForm.recipient_filter.county_id = undefined
+  composeForm.recipient_filter.settlement_id = undefined
   composeForm.recipient_filter.user_ids = []
   composeForm.customAddressesText = ''
   composeForm.subject = ''
   composeForm.body = ''
+  settlementOptions.value = []
   preview.value = null
   composeFormRef.value?.clearValidate?.()
 }

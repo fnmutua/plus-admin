@@ -11,15 +11,27 @@ export type RecipientMode = 'roles' | 'users' | 'custom'
 export type CommunicationStatus = 'queued' | 'sending' | 'completed' | 'partial' | 'failed'
 export type RecipientStatus = 'pending' | 'sent' | 'failed'
 
+export type LocationLevel = 'national' | 'county' | 'settlement'
+
 export interface RecipientFilter {
   /** Role names (used when recipient_mode === 'roles'). */
   roles?: string[]
-  /** Optional county filter — narrows role-based selection to county staff. */
+  /** Administrative level of assignment: national, county, or settlement. */
+  location_level?: LocationLevel | null
+  /** Optional county filter — narrows role-based selection by county assignment. */
   county_id?: number | null
+  /** Optional settlement filter — narrows role-based selection to a specific settlement. */
+  settlement_id?: number | null
   /** User IDs (used when recipient_mode === 'users'). */
   user_ids?: number[]
   /** Free-form mix of phone numbers and emails (recipient_mode === 'custom'). */
   addresses?: string[]
+}
+
+export interface SettlementOption {
+  id: number
+  name: string
+  county_id: number
 }
 
 export interface CommunicationCreatePayload {
@@ -94,6 +106,13 @@ export interface ApiResult<T> {
 // ---------------------------------------------------------------------------
 // API calls
 // ---------------------------------------------------------------------------
+
+/** Settlements available for the settlement-level recipient picker. */
+export const getSettlementsForRecipients = (
+  params: { county_id?: number; q?: string } = {}
+): Promise<ApiResult<SettlementOption[]>> => {
+  return request.get({ url: prod + '/api/v1/communications/meta/settlements', params })
+}
 
 /** Roles available for the recipient picker. */
 export const getCommunicationRoles = (

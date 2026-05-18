@@ -9,12 +9,17 @@ module.exports = function (app) {
     next()
   })
 
-  // Helpers for the Compose UI: roles, user search, and recipient preview.
+  // Helpers for the Compose UI: roles, settlements, user search, and recipient preview.
   // All read-only — no provider calls, no DB writes.
   app.get(
     '/api/v1/communications/meta/roles',
     [authJwt.verifyToken, hasPermission('communication:read')],
     controller.listRolesForRecipients
+  )
+  app.get(
+    '/api/v1/communications/meta/settlements',
+    [authJwt.verifyToken, hasPermission('communication:read')],
+    controller.listSettlementsForRecipients
   )
   app.get(
     '/api/v1/communications/meta/users',

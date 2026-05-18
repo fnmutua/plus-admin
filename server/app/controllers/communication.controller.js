@@ -246,14 +246,27 @@ async function resolveRecipients({
     const roleIds = roleRows.map((r) => r.id)
     if (!roleIds.length) return out
 
-    // Find user_roles assignments for those roles, optionally narrowed by county.
+    // Find user_roles assignments for those roles, optionally narrowed by level, county, or settlement.
     const urWhere = { roleid: { [Op.in]: roleIds } }
+
+    // Level filter: national | county | settlement
+    const locationLevel = recipientFilter && recipientFilter.location_level
+    if (locationLevel && ['national', 'county', 'settlement'].includes(locationLevel)) {
+      urWhere.location_level = locationLevel
+    }
+
     const explicitCountyId = recipientFilter && recipientFilter.county_id ? Number(recipientFilter.county_id) : null
     if (explicitCountyId) {
       urWhere.county_id = explicitCountyId
     } else if (Array.isArray(restrictedCountyIds) && restrictedCountyIds.length) {
       urWhere.county_id = { [Op.in]: restrictedCountyIds }
     }
+
+    const explicitSettlementId = recipientFilter && recipientFilter.settlement_id ? Number(recipientFilter.settlement_id) : null
+    if (explicitSettlementId) {
+      urWhere.settlement_id = explicitSettlementId
+    }
+
     const userRoleRows = await db.models.user_roles.findAll({
       where: urWhere,
       attributes: ['userid']
@@ -769,6 +782,39 @@ exports.searchUsersForRecipients = async (req, res) => {
   } catch (err) {
     console.error('[Communications] searchUsersForRecipients error:', err)
     return res.status(500).json({ code: '5000', message: err.message || 'Failed to search users' })
+  }
+}
+
+/**
+ * GET /api/v1/communications/meta/settlements?county_id=&q=
+ * Lightweight settlement list for the "settlement level" recipient picker.
+ * Returns up to 200 settlements matching optional county_id and name search.
+ */
+exports.listSettlementsForRecipients = async (req, res) => {
+  try {
+    const senderAccess = await getSenderAccess(req.userid)
+    if (!senderAccess || !senderAccess.isAdminOrAbove) {
+      return res.status(403).json({ code: '4030', message: 'Only admin users and above can send communications' })
+    }
+    const where = {}
+    const countyId = req.query.county_id ? Number(req.query.county_id) : null
+    if (countyId) where.county_id = countyId
+
+    const q = String(req.query.q || '').trim()
+    if (q) {
+      where.name = { [Op.iLike]: `%${q}%` }
+    }
+
+    const settlements = await db.models.settlement.findAll({
+      where,
+      attributes: ['id', 'name', 'county_id'],
+      order: [['name', 'ASC']],
+      limit: 200
+    })
+    return res.status(200).json({ code: '0000', message: 'OK', results: settlements })
+  } catch (err) {
+    console.error('[Communications] listSettlementsForRecipients error:', err)
+    return res.status(500).json({ code: '5000', message: err.message || 'Failed to load settlements' })
   }
 }
 
