@@ -9,9 +9,37 @@ export function isSuperAdminUser(userInfo: any): boolean {
   const roles = userInfo?.roles
   if (!Array.isArray(roles)) return false
   return roles.some((r: any) => {
-    const n = String(r?.name ?? '').toLowerCase().trim()
+    const n = String(r?.name ?? r ?? '').toLowerCase().trim()
     return n === 'super_admin' || n === 'root_admin'
   })
+}
+
+export function getRoleNames(userInfo: any): string[] {
+  return (userInfo?.roles ?? [])
+    .map((r: any) => (typeof r === 'string' ? r : r?.name))
+    .filter(Boolean)
+}
+
+/** Settings dashboard list: admins and dashboard managers see all records. */
+export function isDashboardSettingsAdmin(userInfo: any): boolean {
+  if (isSuperAdminUser(userInfo)) return true
+  if (
+    hasPermission(userInfo, 'dashboard:create') ||
+    hasPermission(userInfo, 'dashboard:update') ||
+    hasPermission(userInfo, 'dashboard:delete')
+  ) {
+    return true
+  }
+  return getRoleNames(userInfo).some((name) =>
+    ['admin', 'super_admin', 'root_admin'].includes(name)
+  )
+}
+
+export function filterDashboardsForUser(userInfo: any, dashboards: any[]): any[] {
+  if (isDashboardSettingsAdmin(userInfo)) return dashboards
+  return dashboards.filter(
+    (d) => d.createdBy === userInfo?.id || d.public === true
+  )
 }
 
 /** Unlink document from a facility-linked entity (does not delete the file). */

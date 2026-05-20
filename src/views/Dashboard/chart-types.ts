@@ -205,6 +205,44 @@ function resizedataURL(datas, wantedWidth, wantedHeight) {
   })
 }
 
+/** Height for horizontal bar charts with optional expand-to-show-all. */
+export function getExpandableBarChartHeight(
+  categoryCount: number,
+  expanded: boolean,
+  pageSize = 10
+): number {
+  const visibleCount = expanded ? categoryCount : Math.min(pageSize, categoryCount)
+  return Math.max(320, visibleCount * 22 + 160)
+}
+
+/** Higher export resolution when the chart is expanded to full width / all rows. */
+export function getChartExportOptions(chartHeight: number, expanded: boolean) {
+  if (!expanded) {
+    return { scale: 3, width: 1800 }
+  }
+  return {
+    scale: 4,
+    width: Math.min(3600, Math.max(2400, Math.round(chartHeight * 2.8))),
+  }
+}
+
+export function withBarChartExport(chartBlock: any, height: number, expanded: boolean) {
+  const exportOpts = getChartExportOptions(height, expanded)
+  return {
+    ...chartBlock,
+    height,
+    toolbar: {
+      ...(chartBlock?.toolbar || {}),
+      show: chartBlock?.toolbar?.show ?? true,
+      export: {
+        ...(chartBlock?.toolbar?.export || {}),
+        ...exportOpts,
+      },
+      tools: chartBlock?.toolbar?.tools,
+    },
+  }
+}
+
 // ApexCharts options (unchanged, as customTheme is for ECharts)
 export const simpleBarChart = {
   get darkMode() {

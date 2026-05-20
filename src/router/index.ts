@@ -1582,9 +1582,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Settings',
       icon: 'material-symbols:settings',
       alwaysShow: true,
-      permissions: ['settings:read'],
-
-
+      permissions: [
+        'settings:read',
+        'dashboard:read',
+        'dashboard_card:read',
+        'dashboard_section:read',
+        'dashboard_section_chart:read',
+      ],
     },
     children: [
       {
@@ -1817,12 +1821,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'dashboards',
         component: Layout,
-        redirect: '/data/settlement',
+        redirect: '/settings/dashboards/dash',
         name: 'DashboardSettings',
         meta: {
           title: t('Dashboards'),
           icon: 'mdi:map-legend',
-          permissions: ['dashboard:read'],
+          permissions: [
+            'dashboard:read',
+            'dashboard_card:read',
+            'dashboard_section:read',
+            'dashboard_section_chart:read',
+          ],
           alwaysShow: true
         },
         children: [
@@ -1835,7 +1844,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'List',
           hidden: false,
-          icon:'material-symbols:settings'
+          icon:'material-symbols:settings',
+          permissions: ['dashboard:read'],
         }
           }, 
           {
@@ -1845,7 +1855,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Cards',
               hidden: false,
-              icon:'wpf:statistics'
+              icon:'wpf:statistics',
+              permissions: ['dashboard_card:read'],
             }
           }, 
           {
@@ -1855,7 +1866,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Tabs',
               hidden: false,
-              icon:'mdi:file-document-edit-outline'
+              icon:'mdi:file-document-edit-outline',
+              permissions: ['dashboard_section:read'],
             }
           }, 
     
@@ -1866,7 +1878,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Charts',
               hidden: false,
-              icon:'material-symbols:bar-chart-4-bars'
+              icon:'material-symbols:bar-chart-4-bars',
+              permissions: ['dashboard_section_chart:read'],
             }
           }, 
     

@@ -4490,10 +4490,23 @@ async function recursiveCascadeDelete(mdl, whereClause, snapshotStore, isNested 
   const pkAttr = (mdl.primaryKeyAttributes && mdl.primaryKeyAttributes[0]) || 'id';
   const parentIds = rows.map(r => r[pkAttr]).filter(id => id != null);
 
-  // Delete grandchildren first
+  // Delete grandchildren first (HasMany), then BelongsToMany join rows
   for (const assoc of Object.values(mdl.associations || {})) {
-    if (assoc.associationType !== 'HasMany') continue;
-    await recursiveCascadeDelete(assoc.target, { [assoc.foreignKey]: parentIds }, snapshotStore, true);
+    if (assoc.associationType === 'HasMany') {
+      await recursiveCascadeDelete(assoc.target, { [assoc.foreignKey]: parentIds }, snapshotStore, true);
+      continue;
+    }
+
+    if (assoc.associationType === 'BelongsToMany') {
+      const throughModel =
+        typeof assoc.through === 'string'
+          ? db.models[assoc.through]
+          : assoc.through?.model;
+      const fk = assoc.foreignKey || assoc.options?.foreignKey;
+      if (throughModel && fk && parentIds.length) {
+        await throughModel.destroy({ where: { [fk]: parentIds } });
+      }
+    }
   }
 
   return mdl.destroy({ where: whereClause });

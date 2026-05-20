@@ -35,6 +35,7 @@ import { getUniqueFieldValues } from '@/api/households'
 import { Icon } from '@iconify/vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import { isDashboardSettingsAdmin } from '@/utils/documentPermissions';
 
 
 const { wsCache } = useCache()
@@ -101,7 +102,7 @@ const showEditButtons = true
 
 
 // filter Charts only admins can see all 
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin")) {
+if (isDashboardSettingsAdmin(userInfo)) {
   filters = []
   filterValues = []
 }
@@ -2012,13 +2013,13 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
-        <PermissionWrapper :permissions="'dashboard:create'">
+        <PermissionWrapper :permissions="'dashboard_section_chart:create'">
           <el-tooltip content="Add Chart" placement="top">
             <el-button :onClick="AddCard" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
 
-        <PermissionWrapper :permissions="'dashboard:read'">
+        <PermissionWrapper :permissions="'dashboard_section_chart:read'">
           <el-tooltip content="Download" placement="top">
             <el-button :onClick="handleDownload" type="primary" :icon="Download" />
           </el-tooltip>
@@ -2070,7 +2071,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           <el-input v-model="searchKey" size="small" placeholder="Filter by title" />
         </template>
         <template #default="scope">
-          <PermissionWrapper :permissions="'dashboard:update'">
+          <PermissionWrapper :permissions="'dashboard_section_chart:update'">
             <el-tooltip content="Edit" placement="top">
               <el-button
 size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
@@ -2082,7 +2083,7 @@ size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlo
 size="small" type="warning" :icon="CopyDocument" @click="CloneChart(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
-          <PermissionWrapper :permissions="'dashboard:delete'">
+          <PermissionWrapper :permissions="'dashboard_section_chart:delete'">
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
@@ -2313,10 +2314,10 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <el-button @click="prevStep" :disabled="activeStep===0" style="margin:0 8px;">Previous</el-button>
         <el-button @click="nextStep" v-if="activeStep<2" type="primary" style="margin-right:8px;">Next</el-button>
-        <PermissionWrapper :permissions="'dashboard:create'">
+        <PermissionWrapper :permissions="'dashboard_section_chart:create'">
           <el-button v-if="showSubmitBtn&&activeStep===2" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         </PermissionWrapper>
-        <PermissionWrapper :permissions="'dashboard:update'">
+        <PermissionWrapper :permissions="'dashboard_section_chart:update'">
           <el-button v-if="showEditSaveButton&&activeStep===2" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
         </PermissionWrapper>
       </div>

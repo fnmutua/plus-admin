@@ -17,6 +17,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
+import { filterDashboardsForUser } from '@/utils/documentPermissions'
 
 import { ref, reactive,watch, onMounted, computed } from 'vue'
 import {
@@ -461,17 +462,7 @@ const getDashboardOptions = async () => {
     loading.value = false
 
     // Filter dashboards to show only user's dashboards and public ones
-    const filteredDashboards = ret.filter(function (dashboard: any) {
-      // Show dashboards that belong to the current user
-      if (dashboard.createdBy === userInfo?.id) {
-        return true
-      }
-      // Show public dashboards (using the 'public' boolean field)
-      if (dashboard.public === true) {
-        return true
-      }
-      return false
-    })
+    const filteredDashboards = filterDashboardsForUser(userInfo, ret)
 
     DashboardOptions.value = []
     filteredDashboards.forEach(function (arrayItem: { id: string; type: string; title: string; createdBy: number; public: boolean }) {
@@ -1371,12 +1362,12 @@ const handleDrawerBeforeClose = (done) => {
         />
       </el-select>
       <div class="filter-actions">
-        <PermissionWrapper :permissions="'dashboard:create'">
+        <PermissionWrapper :permissions="'dashboard_card:create'">
           <el-tooltip content="Add Card" placement="top">
             <el-button :onClick="AddCard" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
-        <PermissionWrapper :permissions="'dashboard:read'">
+        <PermissionWrapper :permissions="'dashboard_card:read'">
           <el-tooltip content="Download" placement="top">
             <el-button :onClick="handleDownload" type="primary" :icon="Download" />
           </el-tooltip>
@@ -1402,7 +1393,7 @@ v-model="searchKey" size="small" :onChange="remoteMethod" :onBlur="remoteMethod"
 
         </template>
         <template #default="scope">
-          <PermissionWrapper :permissions="'dashboard:update'">
+          <PermissionWrapper :permissions="'dashboard_card:update'">
             <el-tooltip content="Edit" placement="top">
               <el-button
 size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
@@ -1414,7 +1405,7 @@ size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlo
 size="small" type="warning" :icon="CopyDocument" @click="CloneCard(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
-          <PermissionWrapper :permissions="'dashboard:delete'">
+          <PermissionWrapper :permissions="'dashboard_card:delete'">
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
@@ -1644,10 +1635,10 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
 
             <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <PermissionWrapper :permissions="'dashboard:create'">
+            <PermissionWrapper :permissions="'dashboard_card:create'">
               <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
             </PermissionWrapper>
-            <PermissionWrapper :permissions="'dashboard:update'">
+            <PermissionWrapper :permissions="'dashboard_card:update'">
               <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
             </PermissionWrapper>
           </el-col>

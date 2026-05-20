@@ -29,6 +29,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import { filterDashboardsForUser, isDashboardSettingsAdmin } from '@/utils/documentPermissions'
 
 
 const { wsCache } = useCache()
@@ -101,16 +102,14 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 
-// filter Charts only admins can see all 
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin")) {
+// Admins and dashboard managers see all dashboards; others see their own and public ones.
+if (isDashboardSettingsAdmin(userInfo)) {
   showSuperAdminButtons.value = true
   filters = []
   filterValues = []
-}
-else {
-
-  filters = ['createdBy']
-  filterValues = [[userInfo.id]]
+} else {
+  filters = []
+  filterValues = []
 }
 
 
@@ -279,12 +278,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
+  const visibleRows = filterDashboardsForUser(userInfo, res.data)
+  tableDataList.value = visibleRows
+  total.value = visibleRows.length
 
   tblData = [] // reset the table data
   console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
+  visibleRows.forEach(function (arrayItem) {
     //  console.log(countyOpt)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
@@ -370,28 +370,26 @@ const editIndicator = (data: TableSlotDefault) => {
 
 
 const DeleteIndicator = async (data: TableSlotDefault) => {
-  console.log('--xxx--->', data.row.id)
-  let formData = {}
-  formData.id = data.row.id
-  formData.model = model
+  const formData: any = {
+    id: data.row.id,
+    model,
+    cascade: true,
+  }
 
-
-  await DeleteRecord(formData).then(response => {
-    console.log(response)
-    // remove the deleted object from array list 
-    let index = tableDataList.value.indexOf(data);
-    if (index !== -1) {
-      tableDataList.value.splice(index, 1);
-
+  try {
+    const response = await DeleteRecord(formData)
+    if (response?.code === '0000') {
+      ElMessage.success(response.message || 'Dashboard and associated cards, tabs, and charts deleted.')
+      const index = tableDataList.value.findIndex((row: any) => row.id === data.row.id)
+      if (index !== -1) {
+        tableDataList.value.splice(index, 1)
+      }
+    } else {
+      ElMessage.error(response?.message || 'Delete failed.')
     }
-
-  })
-    .catch(error => {
-      console.log(error)
-      ElMessage.error(error)
-    });
-
-
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Delete failed.')
+  }
 
   getFilteredData(filters, filterValues)
 }
@@ -594,8 +592,8 @@ size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlo
           <PermissionWrapper :permissions="'dashboard:delete'">
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
-confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-                icon-color="#626AEF" title="Are you sure to delete this card?"
+confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
+                icon-color="#626AEF" title="Delete this dashboard and all its cards, tabs, and charts?"
                 @confirm="DeleteIndicator(scope as TableSlotDefault)">
                 <template #reference>
                   <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />

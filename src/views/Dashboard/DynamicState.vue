@@ -17,6 +17,7 @@ import {
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs,
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
   mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
+  getExpandableBarChartHeight, withBarChartExport,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1415,13 +1416,13 @@ const getCharts = async (section_id) => {
             const displaySeries = sortedSeries.map((s: any) => ({
               ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data,
             }))
-            thisChart.chartHeight = Math.max(320, Math.min(PAGE, sortedCats.length) * 22 + 160)
+            thisChart.chartHeight = getExpandableBarChartHeight(sortedCats.length, false, PAGE)
 
             const UpdatedBarOptionsMultiple = {
               ...simpleBarChart,
               title: { ...simpleBarChart.title, text: thisChart.title },
               subtitle: { ...simpleBarChart.subtitle, text: subtitleWithSource },
-              chart: { ...simpleBarChart.chart, height: thisChart.chartHeight },
+              chart: withBarChartExport(simpleBarChart.chart, thisChart.chartHeight, false),
               xaxis: { ...simpleBarChart.xaxis, categories: displayCats },
               series: displaySeries,
             };
@@ -1526,13 +1527,13 @@ const getCharts = async (section_id) => {
             const PAGE = 10
             const displayCats = allCats.slice(0, PAGE)
             const displaySeries = allSeries.map((s: any) => ({ ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data }))
-            thisChart.chartHeight = Math.max(320, Math.min(PAGE, allCats.length) * 22 + 160)
+            thisChart.chartHeight = getExpandableBarChartHeight(allCats.length, false, PAGE)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptions,
               title: { ...stackedbarOptions.title, text: thisChart.title },
               subtitle: { ...stackedbarOptions.subtitle, text: subtitleWithSource },
-              chart: { ...stackedbarOptions.chart, height: thisChart.chartHeight },
+              chart: withBarChartExport(stackedbarOptions.chart, thisChart.chartHeight, false),
               xaxis: { ...stackedbarOptions.xaxis, categories: displayCats },
               series: displaySeries
             };
@@ -1595,13 +1596,13 @@ const getCharts = async (section_id) => {
             const displaySeries = sortedSeries.map((s: any) => ({
               ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data,
             }))
-            thisChart.chartHeight = Math.max(320, Math.min(PAGE, sortedCats.length) * 22 + 160)
+            thisChart.chartHeight = getExpandableBarChartHeight(sortedCats.length, false, PAGE)
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptionsAbs,
               title: { ...stackedbarOptionsAbs.title, text: thisChart.title },
               subtitle: { ...stackedbarOptionsAbs.subtitle, text: subtitleWithSource },
-              chart: { ...stackedbarOptionsAbs.chart, height: thisChart.chartHeight },
+              chart: withBarChartExport(stackedbarOptionsAbs.chart, thisChart.chartHeight, false),
               xaxis: { ...stackedbarOptionsAbs.xaxis, categories: displayCats },
               series: displaySeries
             };
@@ -3252,6 +3253,10 @@ const formatNumber =   (value) => {
 }
   const STACKED_PAGE = 10
 
+  function getChartColSpan(chart: any) {
+    return chart.chartExpanded ? 24 : 12
+  }
+
   function toggleSimpleBarExpand(chart: any) {
     if (!chart.chartDataFull) return
     chart.chartExpanded = !chart.chartExpanded
@@ -3263,13 +3268,11 @@ const formatNumber =   (value) => {
         ? (chart.chartExpanded ? s.data : s.data.slice(0, STACKED_PAGE))
         : s.data,
     }))
-    const height = chart.chartExpanded
-      ? Math.max(320, categories.length * 22 + 160)
-      : Math.max(320, Math.min(STACKED_PAGE, categories.length) * 22 + 160)
+    const height = getExpandableBarChartHeight(categories.length, chart.chartExpanded, STACKED_PAGE)
     chart.chartHeight = height
     chart.chart = {
       ...chart.chart,
-      chart: { ...chart.chart.chart, height },
+      chart: withBarChartExport(chart.chart.chart, height, chart.chartExpanded),
       xaxis: { ...chart.chart.xaxis, categories: displayCats },
       series: displaySeries,
     }
@@ -3286,13 +3289,11 @@ const formatNumber =   (value) => {
         ? (chart.chartExpanded ? s.data : s.data.slice(0, STACKED_PAGE))
         : s.data,
     }))
-    const height = chart.chartExpanded
-      ? Math.max(320, categories.length * 22 + 160)
-      : Math.max(320, Math.min(STACKED_PAGE, categories.length) * 22 + 160)
+    const height = getExpandableBarChartHeight(categories.length, chart.chartExpanded, STACKED_PAGE)
     chart.chartHeight = height
     chart.chart = {
       ...chart.chart,
-      chart: { ...chart.chart.chart, height },
+      chart: withBarChartExport(chart.chart.chart, height, chart.chartExpanded),
       xaxis: { ...chart.chart.xaxis, categories: displayCats },
       series: displaySeries,
     }
@@ -3599,10 +3600,10 @@ onBeforeUnmount(() => {
               <el-col
                 v-for="(chart) in tab.charts"
                 :key="chart.id"
-                :span="12"
-                :xl="12"
-                :lg="12"
-                :md="12"
+                :span="getChartColSpan(chart)"
+                :xl="getChartColSpan(chart)"
+                :lg="getChartColSpan(chart)"
+                :md="getChartColSpan(chart)"
                 :sm="24"
                 :xs="24"
               >

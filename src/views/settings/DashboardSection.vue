@@ -21,6 +21,7 @@ Back,
   Delete
 } from '@element-plus/icons-vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
+import { isDashboardSettingsAdmin } from '@/utils/documentPermissions'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
@@ -76,7 +77,7 @@ let filterValues = []
  
 
 // filter Charts only admins can see all 
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
+if (isDashboardSettingsAdmin(userInfo)) {
    filters = []
   filterValues = []
 }
@@ -552,7 +553,7 @@ v-model="value3" @change="handleSeleectDashboard" @clear="handleClear" multiple 
             <!-- Action Buttons -->
             <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
-              <PermissionWrapper :permissions="'dashboard:create'">
+              <PermissionWrapper :permissions="'dashboard_section:create'">
                 <el-tooltip content="Add Tab" placement="top">
                   <el-button :onClick="AddCard" type="primary" :icon="Plus" />
                 </el-tooltip>
@@ -581,12 +582,12 @@ v-model="value3" @change="handleSeleectDashboard" @clear="handleClear" multiple 
 :columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <PermissionWrapper :permissions="'dashboard:update'">
+        <PermissionWrapper :permissions="'dashboard_section:update'">
           <el-tooltip content="Edit" placement="top">
             <el-button type="success" size="small" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" plain />
           </el-tooltip>
         </PermissionWrapper>
-        <PermissionWrapper :permissions="'dashboard:delete'">
+        <PermissionWrapper :permissions="'dashboard_section:delete'">
           <el-tooltip content="Delete" placement="top">
             <el-popconfirm
 confirm-button-text="Yes"  width="340" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
@@ -657,10 +658,10 @@ v-model="ruleForm.programme_id" :onClear="handleClear"   clearable
 
       <span class="dialog-footer">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <PermissionWrapper :permissions="'dashboard:create'">
+        <PermissionWrapper :permissions="'dashboard_section:create'">
           <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         </PermissionWrapper>
-        <PermissionWrapper :permissions="'dashboard:update'">
+        <PermissionWrapper :permissions="'dashboard_section:update'">
           <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
         </PermissionWrapper>
       </span>
