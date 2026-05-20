@@ -99,6 +99,7 @@ module.exports = function (sequelize, DataTypes) {
       mode_acquisition: DataTypes.STRING,
       proof_ownership: DataTypes.STRING,
       ownership_type: DataTypes.STRING,
+      tenure_type: DataTypes.STRING,
       ownership_proportion: DataTypes.STRING,
       under_dispute: DataTypes.STRING,
       dispute_details: DataTypes.STRING,
