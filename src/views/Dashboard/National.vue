@@ -2,7 +2,7 @@
 import {
   ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer
 } from 'element-plus'
-import { ref, reactive, onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, computed, onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Icon } from '@iconify/vue';
 import {
   pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
@@ -1936,6 +1936,9 @@ function getActiveFilterLabel() {
   return ''
 }
 
+/** Locality line for KPI cards — mirrors chart subtitles (county / constituency names). */
+const statisticsCardFilterContext = computed(() => getActiveFilterLabel())
+
 const getCountySubcountySep = async () => {
     // initialize every time its called
   const  nested =['subcounty','ward']
@@ -2431,6 +2434,13 @@ const downloadSettlementData = async () => {
                     {{ formatNumber(card.value) }}{{ card.symbol }}
                   </p>
                   <p class="value-label" :title="card.description">{{ card.description }}</p>
+                  <p
+                    v-if="statisticsCardFilterContext"
+                    class="stat-card-filter-scope"
+                    :title="statisticsCardFilterContext"
+                  >
+                    {{ statisticsCardFilterContext }}
+                  </p>
                 </div>
               </div>
             </el-card>
@@ -2918,9 +2928,26 @@ const downloadSettlementData = async () => {
   text-overflow: ellipsis;
 }
 
+.stat-card-filter-scope {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin: 6px 0 0 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
 /* App store dark mode (html.dark) — stat card caption + section tab labels */
 html.dark .value-label {
   color: #ffffff;
+}
+
+html.dark .stat-card-filter-scope {
+  color: #a8abb2;
 }
 
 html.dark .dashboard-tabs :deep(.el-tabs__item) {
