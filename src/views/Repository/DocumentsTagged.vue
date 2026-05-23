@@ -687,9 +687,18 @@ const getAssociations = (row: any): { label: string; route: any | null; key: str
       params: { id: settlementIdNum }
     })
   }
-  if (row.project_id) {
-    const label = row['project.title'] || resolveLinkLabel('project', Number(row.project_id))
-    addPrimary('project', Number(row.project_id), label, { name: 'ProjectDetails', params: { id: row.project_id } })
+  const projectIdRaw = row.project_id ?? row['project.id'] ?? row.project?.id
+  const projectIdNum =
+    projectIdRaw != null && projectIdRaw !== '' ? Number(projectIdRaw) : NaN
+  if (!Number.isNaN(projectIdNum) && projectIdNum > 0) {
+    const label =
+      row['project.title'] ||
+      row.project?.title ||
+      resolveLinkLabel('project', projectIdNum)
+    addPrimary('project', projectIdNum, label, {
+      name: 'ProjectDetails',
+      params: { id: projectIdNum }
+    })
   }
   if (row.health_facility_id) {
     const label = row['health_facility.name'] || resolveLinkLabel('health_facility', Number(row.health_facility_id))
@@ -1537,6 +1546,8 @@ const docTypes = ref<any[]>([])
 const docGroups = ref<any[]>([])
 const documentName = ref('')
 const dialogVisible = ref(false)
+/** True while association + document categories are hydrating after Edit — drawer opens immediately. */
+const editDrawerHydrating = ref(false)
 
 // Upload options for nested group structure
 const uploadOptions = [
@@ -1669,6 +1680,176 @@ const getparentOptions = async (keyword = '') => {
   }
 }
 
+/** Normalize v-model IDs from el-select (may be string/number mixed). */
+function normalizeParentAssociationIds(idsRaw: unknown): number[] {
+  if (!Array.isArray(idsRaw)) return []
+  const out: number[] = []
+  const seen = new Set<number>()
+  for (const raw of idsRaw) {
+    const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10)
+    if (!Number.isNaN(n) && n > 0 && !seen.has(n)) {
+      seen.add(n)
+      out.push(n)
+    }
+  }
+  return out
+}
+
+function isPoorParentOptionLabel(label: unknown): boolean {
+  if (label == null) return true
+  const s = String(label).trim()
+  return s === '' || s === 'Unknown' || /^\d+$/.test(s) || /^#\d+$/.test(s)
+}
+
+/** Readable label for a linked entity row on the editing document — never rely on keyword search alone. */
+function resolveParentOptionLabel(doc: any, entityType: string, id: number): string {
+  const idNum = Number(id)
+  if (Number.isNaN(idNum) || idNum <= 0)
+    return `${entityType.replace(/_/g, ' ')} (? id)`
+
+  if (entityType === 'settlement') {
+    const cached = settlementOptions.value.find((s) => Number(s.value) === idNum)
+    if (cached?.label) return String(cached.label)
+  }
+  if (entityType === 'project') {
+    const cached = projectOptions.value.find((p) => Number(p.value) === idNum)
+    if (cached?.label) return String(cached.label)
+  }
+
+  const assocs = getAssociations(doc)
+  const hit = assocs.find((a) => {
+    const [et, sid] = a.key.split(':')
+    return (
+      et.toLowerCase() === entityType.toLowerCase() &&
+      Number(sid) === idNum
+    )
+  })
+  if (hit?.label) {
+    const lab = String(hit.label).trim()
+    if (lab && !/^\d+$/.test(lab)) return lab
+  }
+
+  if (entityType === 'settlement') {
+    const sid = Number(doc.settlement_id ?? doc['settlement.id'] ?? doc.settlement?.id)
+    if (sid === idNum && (doc['settlement.name'] || doc.settlement?.name)) {
+      return String(doc['settlement.name'] || doc.settlement?.name)
+    }
+  }
+  if (entityType === 'project') {
+    const pid = Number(doc.project_id ?? doc['project.id'] ?? doc.project?.id)
+    if (pid === idNum && (doc['project.title'] || doc.project?.title)) {
+      return String(doc['project.title'] || doc.project?.title)
+    }
+  }
+  if (entityType === 'beneficiary') {
+    const bid = Number(doc.beneficiary_id ?? doc['beneficiary.id'] ?? doc.beneficiary?.id)
+    if (bid === idNum && (doc['beneficiary.name'] || doc.beneficiary?.name))
+      return String(doc['beneficiary.name'] || doc.beneficiary?.name)
+  }
+  if (entityType === 'contractor') {
+    const cid = Number(doc.contractor_id ?? doc['contractor.id'] ?? doc.contractor?.id)
+    if (cid === idNum &&
+      (doc['contractor.name'] || doc['contractor.contract_number'] || doc.contractor?.name || doc.contractor?.contract_number)
+    )
+      return String(
+        doc['contractor.name'] ||
+          doc.contractor?.name ||
+          doc['contractor.contract_number'] ||
+          doc.contractor?.contract_number
+      )
+  }
+  if (entityType === 'health_facility') {
+    const hid = Number(doc.health_facility_id ?? doc['health_facility.id'] ?? doc.health_facility?.id)
+    if (hid === idNum && (doc['health_facility.name'] || doc.health_facility?.name))
+      return String(doc['health_facility.name'] || doc.health_facility?.name)
+  }
+  if (entityType === 'education_facility') {
+    const eid = Number(
+      doc.education_facility_id ?? doc['education_facility.id'] ?? doc.education_facility?.id
+    )
+    if (
+      eid === idNum &&
+      (doc['education_facility.name'] || doc.education_facility?.name)
+    )
+      return String(doc['education_facility.name'] || doc.education_facility?.name)
+  }
+  if (entityType === 'road') {
+    const rid = Number(doc.road_id ?? doc['road.id'] ?? doc.road?.id)
+    if (rid === idNum && (doc['road.name'] || doc.road?.name))
+      return String(doc['road.name'] || doc.road?.name)
+  }
+  if (entityType === 'road_asset') {
+    const aid = Number(doc.road_asset_id ?? doc['road_asset.id'] ?? doc.road_asset?.id)
+    if (aid === idNum && (doc['road_asset.name'] || doc.road_asset?.name))
+      return String(doc['road_asset.name'] || doc.road_asset?.name)
+  }
+  if (entityType === 'water_point') {
+    const wid = Number(doc.water_point_id ?? doc['water_point.id'] ?? doc.water_point?.id)
+    if (wid === idNum && (doc['water_point.name'] || doc.water_point?.name))
+      return String(doc['water_point.name'] || doc.water_point?.name)
+  }
+  if (entityType === 'sewer') {
+    const sid2 = Number(doc.sewer_id ?? doc['sewer.id'] ?? doc.sewer?.id)
+    if (sid2 === idNum && (doc['sewer.name'] || doc.sewer?.name))
+      return String(doc['sewer.name'] || doc.sewer?.name)
+  }
+  if (entityType === 'other_facility') {
+    const oid = Number(doc.other_facility_id ?? doc['other_facility.id'] ?? doc.other_facility?.id)
+    if (oid === idNum && (doc['other_facility.name'] || doc.other_facility?.name))
+      return String(doc['other_facility.name'] || doc.other_facility?.name)
+  }
+
+  const pretty = entityType.replace(/_/g, ' ')
+  return `${pretty.replace(/\b\w/g, (c) => c.toUpperCase())} (${idNum})`
+}
+
+async function enrichParentOptionsFromEditingDoc(
+  doc: any | null | undefined,
+  entityType: string,
+  idsRaw: unknown
+): Promise<void> {
+  if (!doc || entityType === 'other_documents' || !entityType) return
+  const ids = normalizeParentAssociationIds(idsRaw)
+  if (!ids.length) return
+
+  if (entityType === 'settlement' && settlementOptions.value.length === 0) {
+    try {
+      await getSettlementOptions()
+    } catch {
+      /* ignore */
+    }
+  }
+  if (entityType === 'project' && projectOptions.value.length === 0) {
+    try {
+      await getProjectOptions()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const opts = parentOptions.value
+  for (const rawId of ids) {
+    const id = Number(rawId)
+    if (Number.isNaN(id) || id <= 0) continue
+    const preferredLabel = resolveParentOptionLabel(doc, entityType, id)
+    let row = opts.find((o) => Number(o.value) === id)
+    if (!row) {
+      opts.unshift({
+        value: id,
+        label: preferredLabel,
+        county: undefined,
+        subcounty: undefined,
+        ward: undefined,
+        ward_id: undefined,
+        subcounty_id: undefined,
+        county_id: undefined,
+      })
+    } else if (isPoorParentOptionLabel(row.label) || row.label === '') {
+      row.label = preferredLabel
+    }
+  }
+}
+
 let parentSearchTimer: number | null = null
 function remoteFetchParents(kw: string) {
   if (parentSearchTimer) { clearTimeout(parentSearchTimer); parentSearchTimer = null }
@@ -1676,7 +1857,10 @@ function remoteFetchParents(kw: string) {
   parentSearchTimer = window.setTimeout(() => { getparentOptions(kw || '') }, 500)
 }
 
-const handleSelectType = async (type: string) => {
+const handleSelectType = async (
+  type: string,
+  opts?: { skipEnableSubmitWhileLoading?: boolean }
+) => {
   theParentModel.value = type
 
   // Reset state when type changes
@@ -1688,7 +1872,9 @@ const handleSelectType = async (type: string) => {
     ElMessage.info('Only entities from your assigned county are available.')
   }
 
-  disable_submit.value = false
+  if (!opts?.skipEnableSubmitWhileLoading) {
+    disable_submit.value = false
+  }
 
   const typeMap: Record<string, { field: string; title: string }> = {
     settlement:                 { field: 'settlement_id',                title: 'Settlement' },
@@ -1722,6 +1908,7 @@ const handleSelectType = async (type: string) => {
       originalParentIds.value = existingIds
       documentForm.parent_ids = [...existingIds]
     }
+    await enrichParentOptionsFromEditingDoc(editingDoc.value, type, documentForm.parent_ids)
   }
 }
 
@@ -1839,40 +2026,64 @@ const editDocument = async (data: Document) => {
     }
   }
 
-  // Use handleSelectType to set up the form properly (this sets theParentModel, document_field, parentTitle, etc.)
-  if (foundParentModel && foundParentModel !== 'other_documents') {
-    handleSelectType(foundParentModel)
-    await getparentOptions()
-    // Resolve current association display from loaded options — reliable regardless of API shape
-    const matchedOption = foundParentId ? parentOptions.value.find(opt => opt.value === foundParentId) : null
-    currentAssociation.value = {
-      typeLabel: parentTitle.value,
-      recordName: matchedOption?.label || (foundParentId ? `#${foundParentId}` : '')
-    }
-    if (foundParentId) {
-      await nextTick()
-      const existingIds = getExistingIdsForType(foundParentModel, data as any)
-      if (!existingIds.includes(foundParentId)) existingIds.unshift(foundParentId)
-      originalParentIds.value = existingIds
-      documentForm.parent_ids = [...existingIds]
-    }
-  } else {
-    handleSelectType(foundParentModel || 'other_documents')
-    currentAssociation.value = null
-  }
-
-  // Enable submit button
-  disable_submit.value = false
-
-  console.log('documentForm after edit setup', documentForm)
-  console.log('theParentModel:', theParentModel.value)
-  console.log('document_field:', document_field.value)
-  documentName.value = "Editing: " + data.name
-
+  // Show drawer immediately — heavy work continues with v-loading overlay
+  disable_submit.value = true
+  documentName.value = 'Editing: ' + data.name
   dialogVisible.value = true
 
-  // Load document types from database
-  await getDocumentTypes()
+  editDrawerHydrating.value = true
+  try {
+    await Promise.all([
+      ensureDocumentCategories(),
+      (async () => {
+        if (foundParentModel && foundParentModel !== 'other_documents') {
+          await handleSelectType(foundParentModel, { skipEnableSubmitWhileLoading: true })
+          if (foundParentId) {
+            await nextTick()
+            const existingIds = getExistingIdsForType(foundParentModel, data as any)
+            if (!existingIds.includes(foundParentId)) existingIds.unshift(foundParentId)
+            originalParentIds.value = existingIds
+            documentForm.parent_ids = [...existingIds]
+          }
+
+          await enrichParentOptionsFromEditingDoc(data, foundParentModel, documentForm.parent_ids)
+
+          const leadIdRaw =
+            documentForm.parent_ids?.[0] !== undefined &&
+            documentForm.parent_ids?.[0] !== null
+              ? documentForm.parent_ids[0]
+              : foundParentId
+          const leadId =
+            leadIdRaw !== undefined && leadIdRaw !== null ? Number(leadIdRaw) : NaN
+          const matchedOption =
+            !Number.isNaN(leadId) && leadId > 0
+              ? parentOptions.value.find((opt) => Number(opt.value) === leadId)
+              : null
+          currentAssociation.value = {
+            typeLabel: parentTitle.value,
+            recordName:
+              matchedOption?.label ||
+              (!Number.isNaN(leadId) && leadId > 0 && foundParentModel
+                ? resolveParentOptionLabel(data, foundParentModel, leadId)
+                : ''),
+          }
+        } else {
+          await handleSelectType(foundParentModel || 'other_documents', {
+            skipEnableSubmitWhileLoading: true
+          })
+          currentAssociation.value = null
+        }
+      })()
+    ])
+    disable_submit.value = false
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('Failed to load edit form data')
+    dialogVisible.value = false
+    disable_submit.value = true
+  } finally {
+    editDrawerHydrating.value = false
+  }
 }
 
 const handleClose = () => {
@@ -1931,6 +2142,16 @@ const getDocumentTypes = async () => {
 
   } catch (error) {
     console.error('Error fetching document types:', error);
+  }
+}
+
+const documentTypesFetched = ref(false)
+
+const ensureDocumentCategories = async () => {
+  if (documentTypesFetched.value && docCategories.value.length > 0) return
+  await getDocumentTypes()
+  if (docCategories.value.length > 0) {
+    documentTypesFetched.value = true
   }
 }
 
@@ -2299,6 +2520,7 @@ onMounted(async () => {
   getSettlementOptions()
   getProjectOptions()
   getImportDocTypes()
+  void ensureDocumentCategories()
   window.addEventListener('resize', handleResize) // Add event listener for resize
 })
 
@@ -3663,7 +3885,7 @@ const handleTabChange = async (tabName: string) => {
         </div>
       </template>
       
-      <div style="padding: 24px;">
+      <div v-loading="editDrawerHydrating" style="padding: 24px; min-height: 120px;">
         <el-tabs>
           <!-- Details tab -->
           <el-tab-pane label="Details">
