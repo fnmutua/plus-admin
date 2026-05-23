@@ -3454,7 +3454,6 @@ const handleTabChange = async (tabName: string) => {
            size="small" 
            class="thin-rows-table" 
            border 
-           v-loading="loading"
            @selection-change="handleSelectionChange"
          >
       <!-- Selection Column -->
