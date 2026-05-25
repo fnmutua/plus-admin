@@ -29,7 +29,6 @@ import { defineAsyncComponent, onMounted, onActivated, onUnmounted } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
-import filterDataByKeys from '@/utils/filterArrays'
 import * as turf from '@turf/turf'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
@@ -598,38 +597,28 @@ const updatePageSize = () => {
   }
 };
 
-const getCounts = async () => {
-  const formData: any = {}
-  formData.model = 'settlement'
-  formData.summaryField = 'isApproved'
-  formData.summaryFunction = 'count'
-  formData.groupFields = ['isApproved']
-  
-  // Build filter arrays properly
-  const filterFields: string[] = []
-  const filterValues: any[][] = []
-  const filterOperators: string[] = []
-  
-  // Always include isActive filter
-  filterFields.push('isActive')
-  filterValues.push(['true'])
-  filterOperators.push('in')
-  
-  // Add role-based filters if they exist
+type SummaryFilterBundle = {
+  filterFields: string[]
+  filterValues: any[][]
+  filterOperators: string[]
+}
+
+const buildSettlementSummaryBaseFilters = (): SummaryFilterBundle => {
+  const filterFields: string[] = ['isActive']
+  const filterValues: any[][] = [['true']]
+  const filterOperators: string[] = ['in']
+
   if (roles_filters.length > 0) {
     roles_filters.forEach(roleFilter => {
       const { field, value } = roleFilter
       if (field && value !== null && value !== undefined) {
-        // Check if this filter field is already added
         const existingIndex = filterFields.indexOf(field)
         if (existingIndex === -1) {
           filterFields.push(field)
-          // Ensure value is an array
           const filterValue = Array.isArray(value) ? value : [value]
           filterValues.push(filterValue)
           filterOperators.push('in')
         } else {
-          // Merge values if field already exists
           const existingValue = filterValues[existingIndex]
           const newValue = Array.isArray(value) ? value : [value]
           filterValues[existingIndex] = [...new Set([...existingValue, ...newValue])]
@@ -637,8 +626,7 @@ const getCounts = async () => {
       }
     })
   }
-  
-  // Add user-selected location filters (county, subcounty, ward)
+
   if (selectedCounty.value.length > 0) {
     const existingIndex = filterFields.indexOf('county_id')
     if (existingIndex === -1) {
@@ -646,12 +634,11 @@ const getCounts = async () => {
       filterValues.push(selectedCounty.value)
       filterOperators.push('in')
     } else {
-      // Merge with existing county filter (role-based might have set it)
       const existingValue = filterValues[existingIndex]
       filterValues[existingIndex] = [...new Set([...existingValue, ...selectedCounty.value])]
     }
   }
-  
+
   if (selectedSubCounty.value.length > 0) {
     const existingIndex = filterFields.indexOf('subcounty_id')
     if (existingIndex === -1) {
@@ -663,7 +650,7 @@ const getCounts = async () => {
       filterValues[existingIndex] = [...new Set([...existingValue, ...selectedSubCounty.value])]
     }
   }
-  
+
   if (selectedWard.value.length > 0) {
     const existingIndex = filterFields.indexOf('ward_id')
     if (existingIndex === -1) {
@@ -675,44 +662,111 @@ const getCounts = async () => {
       filterValues[existingIndex] = [...new Set([...existingValue, ...selectedWard.value])]
     }
   }
-  
-  // Only add filterField, filterValue, and filterOperator if we have filters
-  if (filterFields.length > 0) {
-    formData.filterField = filterFields
-    formData.filterValue = filterValues
-    formData.filterOperator = filterOperators
+
+  return { filterFields, filterValues, filterOperators }
+}
+
+const cloneSummaryFilters = (base: SummaryFilterBundle): SummaryFilterBundle => ({
+  filterFields: [...base.filterFields],
+  filterValues: base.filterValues.map((v) => [...v]),
+  filterOperators: [...base.filterOperators],
+})
+
+const appendSummaryFilters = (
+  target: SummaryFilterBundle,
+  fields: string[],
+  values: any[][],
+) => {
+  fields.forEach((field, i) => {
+    target.filterFields.push(field)
+    target.filterValues.push(values[i])
+    target.filterOperators.push('in')
+  })
+}
+
+const applySummaryFiltersToFormData = (formData: any, bundle: SummaryFilterBundle) => {
+  if (bundle.filterFields.length > 0) {
+    formData.filterField = bundle.filterFields
+    formData.filterValue = bundle.filterValues
+    formData.filterOperator = bundle.filterOperators
   }
-  
+}
+
+const parseSummaryTotalCount = (items: any[] | undefined): number => {
+  if (!items?.length) return 0
+  return items.reduce((sum, item) => sum + (parseInt(item.count, 10) || 0), 0)
+}
+
+const applyProfiledTabFilters = () => {
+  filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
+  filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
+}
+
+const applyUnprofiledTabFilters = () => {
+  filters.value = ['profiling_status', 'isApproved', 'isActive']
+  filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED'], ['Approved'], ['true']]
+}
+
+const getCounts = async () => {
+  const baseFilters = buildSettlementSummaryBaseFilters()
+
+  const formData: any = {
+    model: 'settlement',
+    summaryField: 'isApproved',
+    summaryFunction: 'count',
+    groupFields: ['isApproved'],
+  }
+  applySummaryFiltersToFormData(formData, baseFilters)
+
   try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-    
-    // Update the count refs directly instead of modifying computed property
-    const pendingMatch = amount.find((item) => item.isApproved === 'Pending');
-    const approvedMatch = amount.find((item) => item.isApproved === 'Approved');
-    const rejectedMatch = amount.find((item) => item.isApproved === 'Rejected');
-    const decommissionedMatch = amount.find((item) => item.isApproved === 'Decommissioned');
-    
-    totalPending.value = pendingMatch ? parseInt(pendingMatch.count, 10) : 0;
-    totalApproved.value = approvedMatch ? parseInt(approvedMatch.count, 10) : 0;
-    totalRejected.value = rejectedMatch ? parseInt(rejectedMatch.count, 10) : 0;
-    decommSettlementsCount.value = decommissionedMatch ? parseInt(decommissionedMatch.count, 10) : 0;
+    const response = await getSummarybyFieldFromMultipleIncludes(formData)
+    const amount = response.Total || []
 
-    // Compute unprofiled count separately (NOT_PROFILED or PARTIALLY_PROFILED, same filters)
-    const unprofiledFormData: any = { ...formData }
-    unprofiledFormData.summaryField = 'profiling_status'
-    unprofiledFormData.groupFields = ['profiling_status']
+    const pendingMatch = amount.find((item) => item.isApproved === 'Pending')
+    const rejectedMatch = amount.find((item) => item.isApproved === 'Rejected')
+    const decommissionedMatch = amount.find((item) => item.isApproved === 'Decommissioned')
 
+    totalPending.value = pendingMatch ? parseInt(pendingMatch.count, 10) : 0
+    totalRejected.value = rejectedMatch ? parseInt(rejectedMatch.count, 10) : 0
+    decommSettlementsCount.value = decommissionedMatch ? parseInt(decommissionedMatch.count, 10) : 0
+
+    const profiledFilters = cloneSummaryFilters(baseFilters)
+    appendSummaryFilters(
+      profiledFilters,
+      ['profiling_status', 'is_qualified', 'isApproved'],
+      [['PROFILED'], [true], ['Approved']],
+    )
+    const profiledFormData: any = {
+      model: 'settlement',
+      summaryField: 'id',
+      summaryFunction: 'count',
+    }
+    applySummaryFiltersToFormData(profiledFormData, profiledFilters)
+    const profiledResponse = await getSummarybyFieldFromMultipleIncludes(profiledFormData)
+    totalApproved.value = parseSummaryTotalCount(profiledResponse.Total)
+
+    const unprofiledFilters = cloneSummaryFilters(baseFilters)
+    appendSummaryFilters(
+      unprofiledFilters,
+      ['profiling_status', 'isApproved'],
+      [['NOT_PROFILED', 'PARTIALLY_PROFILED'], ['Approved']],
+    )
+    const unprofiledFormData: any = {
+      model: 'settlement',
+      summaryField: 'profiling_status',
+      summaryFunction: 'count',
+      groupFields: ['profiling_status'],
+    }
+    applySummaryFiltersToFormData(unprofiledFormData, unprofiledFilters)
     const unprofiledResponse = await getSummarybyFieldFromMultipleIncludes(unprofiledFormData)
-    const unprofiledAmount = unprofiledResponse.Total || []
-    const unprofiledCount = unprofiledAmount
-      .filter((item: any) => ['NOT_PROFILED', 'PARTIALLY_PROFILED'].includes(item.profiling_status))
-      .reduce((sum: number, item: any) => sum + parseInt(item.count, 10), 0)
-
-    totalUnprofiled.value = unprofiledCount
+    totalUnprofiled.value = parseSummaryTotalCount(
+      (unprofiledResponse.Total || []).filter((item: any) =>
+        ['NOT_PROFILED', 'PARTIALLY_PROFILED'].includes(item.profiling_status),
+      ),
+    )
   } catch (error) {
-    console.error(error);
-    return [];
+    console.error(error)
+    return []
   }
 }
 
@@ -1017,14 +1071,12 @@ const onPageChange = async (selPage: any) => {
   }
   // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value == 'Approved') {
-    filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
-    filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
+    applyProfiledTabFilters()
   } else if (activeSegment.value == 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
   } else if (activeSegment.value == 'Unprofiled') {
-    filters.value = ['profiling_status']
-    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
+    applyUnprofiledTabFilters()
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -1041,14 +1093,12 @@ const onPageSizeChange = async (size: any) => {
   }
   // Set status filters - role filters will be applied in getNewOrRejectedSettlements/getFilteredBySearchData
   if (activeSegment.value === 'Approved') {
-    filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
-    filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
+    applyProfiledTabFilters()
   } else if (activeSegment.value === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
   } else if (activeSegment.value === 'Unprofiled') {
-    filters.value = ['profiling_status']
-    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
+    applyUnprofiledTabFilters()
   }
   saveFiltersToStorage();
   if (search_string.value) {
@@ -1064,110 +1114,14 @@ const getAllSetllementsInitially = async (tab) => {
   } else {
     await getNewOrRejectedSettlements(tab)
   }
-  await getSettlementCount()
-}
-
-const getSettlementCount = async () => {
-  const formData: any = {}
-  formData.model = 'settlement'
-  formData.summaryField = 'isApproved'
-  formData.summaryFunction = 'count'
-  formData.groupFields = ['isApproved']
-  
-  // Build filter arrays properly
-  const filterFields: string[] = []
-  const filterValues: any[][] = []
-  const filterOperators: string[] = []
-  
-  // Always include isActive filter
-  filterFields.push('isActive')
-  filterValues.push(['true'])
-  filterOperators.push('in')
-  
-  // Add role-based filters if they exist
-  if (roles_filters.length > 0) {
-    roles_filters.forEach(roleFilter => {
-      const { field, value } = roleFilter
-      if (field && value !== null && value !== undefined) {
-        // Check if this filter field is already added
-        const existingIndex = filterFields.indexOf(field)
-        if (existingIndex === -1) {
-          filterFields.push(field)
-          // Ensure value is an array
-          const filterValue = Array.isArray(value) ? value : [value]
-          filterValues.push(filterValue)
-          filterOperators.push('in')
-        } else {
-          // Merge values if field already exists
-          const existingValue = filterValues[existingIndex]
-          const newValue = Array.isArray(value) ? value : [value]
-          filterValues[existingIndex] = [...new Set([...existingValue, ...newValue])]
-        }
-      }
-    })
-  }
-  
-  // Add user-selected location filters (county, subcounty, ward)
-  if (selectedCounty.value.length > 0) {
-    const existingIndex = filterFields.indexOf('county_id')
-    if (existingIndex === -1) {
-      filterFields.push('county_id')
-      filterValues.push(selectedCounty.value)
-      filterOperators.push('in')
-    } else {
-      // Merge with existing county filter (role-based might have set it)
-      const existingValue = filterValues[existingIndex]
-      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedCounty.value])]
-    }
-  }
-  
-  if (selectedSubCounty.value.length > 0) {
-    const existingIndex = filterFields.indexOf('subcounty_id')
-    if (existingIndex === -1) {
-      filterFields.push('subcounty_id')
-      filterValues.push(selectedSubCounty.value)
-      filterOperators.push('in')
-    } else {
-      const existingValue = filterValues[existingIndex]
-      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedSubCounty.value])]
-    }
-  }
-  
-  if (selectedWard.value.length > 0) {
-    const existingIndex = filterFields.indexOf('ward_id')
-    if (existingIndex === -1) {
-      filterFields.push('ward_id')
-      filterValues.push(selectedWard.value)
-      filterOperators.push('in')
-    } else {
-      const existingValue = filterValues[existingIndex]
-      filterValues[existingIndex] = [...new Set([...existingValue, ...selectedWard.value])]
-    }
-  }
-  
-  // Only add filterField, filterValue, and filterOperator if we have filters
-  if (filterFields.length > 0) {
-    formData.filterField = filterFields
-    formData.filterValue = filterValues
-    formData.filterOperator = filterOperators
-  }
-  
-  const newSettCount = await getSummarybyFieldFromMultipleIncludes(formData)
-  let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Pending']);
-  let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Approved']);
-  let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved'], ['Rejected']);
-  totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
-  totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
-  totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
+  await getCounts()
 }
 
 const getNewOrRejectedSettlements = async (tab) => {
   loadingGetData.value = true
   // Set status filters first
   if (tab === 'Unprofiled') {
-    // Unprofiled tab: only NOT_PROFILED or PARTIALLY_PROFILED, no approval/active filter
-    filters.value = ['profiling_status']
-    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
+    applyUnprofiledTabFilters()
   } else if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
@@ -1175,9 +1129,7 @@ const getNewOrRejectedSettlements = async (tab) => {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Decommissioned'], ['true']]
   } else {
-    // Approved/Profiled tab: only show profiled & qualified, active, approved settlements
-    filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
-    filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
+    applyProfiledTabFilters()
   }
   
   // Apply role-based filters FIRST to ensure county/settlement restrictions are always present
@@ -3787,6 +3739,12 @@ const handleDownloadGeoData = async () => {
     } else if (activeSegment.value === 'Decommissioned') {
       filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
       filterValues.value = [['Decommissioned'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
+    } else if (activeSegment.value === 'Unprofiled') {
+      filters.value = ['profiling_status', 'isApproved', 'isActive', ...filters.value.filter(f => f !== 'profiling_status' && f !== 'isApproved' && f !== 'isActive')];
+      filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED'], ['Approved'], ['true'], ...filterValues.value.filter((_, i) => {
+        const field = filters.value[i];
+        return field !== 'profiling_status' && field !== 'isApproved' && field !== 'isActive';
+      })];
     } else {
       // Approved
       filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive', ...filters.value.filter(f => f !== 'profiling_status' && f !== 'is_qualified' && f !== 'isApproved' && f !== 'isActive')];
@@ -5085,9 +5043,7 @@ const onSegmentClick = async () => {
   const selected = statusMap[activeSegment.value]
 
   if (activeSegment.value === 'Unprofiled') {
-    // Show settlements that are NOT_PROFILED or PARTIALLY_PROFILED (regardless of approval)
-    filters.value = ['profiling_status']
-    filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED']]
+    applyUnprofiledTabFilters()
   } else if (selected) {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [[selected], ['true']]
@@ -5150,11 +5106,15 @@ const handleDateChange = async () => {
   console.log(dateRange.value)
 
   if (activeSegment.value === 'Approved') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Approved'], ['true']]
+    applyProfiledTabFilters()
   } else if (activeSegment.value === 'New') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Pending'], ['true']]
+  } else if (activeSegment.value === 'Unprofiled') {
+    applyUnprofiledTabFilters()
+  } else if (activeSegment.value === 'Decommissioned') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Decommissioned'], ['true']]
   } else if (activeSegment.value === 'Deleted') {
     saveFiltersToStorage()
     DateDialogVisible.value = false
@@ -5702,7 +5662,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;">
         <template #default>
           <span style="font-size: 12px;">
-            These settlements are NOT_PROFILED or PARTIALLY_PROFILED and may have incomplete data. Use the actions to complete profiling or manage records.
+            These settlements are approved but NOT_PROFILED or PARTIALLY_PROFILED and may have incomplete data. Use the actions to complete profiling or manage records.
           </span>
         </template>
       </el-alert>

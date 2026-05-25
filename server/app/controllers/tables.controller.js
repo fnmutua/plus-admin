@@ -10036,6 +10036,7 @@ exports.getAllListforDownload = async (req, res) => {
 
   const reg_model = req.body.model;
   const user = req.thisUser;
+  const aesKey = process.env.AES_KEY;
 
   // Base query with conditional decryption
   // We'll set attributes later if selectedFields is provided, otherwise use default
@@ -10048,7 +10049,7 @@ exports.getAllListforDownload = async (req, res) => {
               sequelize.fn(
                 'PGP_SYM_DECRYPT',
                 sequelize.cast(sequelize.col(`${reg_model}.name`), 'bytea'),
-                '***REDACTED***'
+                aesKey
               ),
               'name'
             ],
@@ -10056,12 +10057,12 @@ exports.getAllListforDownload = async (req, res) => {
               sequelize.fn(
                 'PGP_SYM_DECRYPT',
                 sequelize.cast(sequelize.col(`${reg_model}.national_id`), 'bytea'),
-                '***REDACTED***'
+                aesKey
               ),
               'national_id'
             ]
           ],
-          exclude: ['latitude', 'longitude', 'coordinates', 'name'] // exclude encrypted name
+          exclude: ['latitude', 'longitude', 'coordinates', 'name', 'national_id']
         }
       : reg_model === 'households'
         ? Object.keys(db.models[reg_model].rawAttributes).filter(
@@ -10252,7 +10253,7 @@ exports.getAllListforDownload = async (req, res) => {
   // Handle selected fields if provided
   const selectedFields = req.body.selectedFields || [];
   // Virtual/computed fields that don't exist in database - must be excluded
-  const virtualFields = ['latitude', 'longitude', 'coordinates', 'user'];
+  const virtualFields = ['latitude', 'longitude', 'coordinates', 'user', 'users'];
   if (selectedFields.length > 0) {
     // Filter out virtual fields that don't exist in the database
     const computedFields = reg_model === 'settlement' ? ['hasRoads'] : [];
@@ -10292,7 +10293,7 @@ exports.getAllListforDownload = async (req, res) => {
       if (reg_model === 'grievance') {
         // For grievance, we need to include decrypted fields if they're selected
         const includeAttributes = [];
-        const excludeFields = ['latitude', 'longitude', 'coordinates', 'name']; // exclude encrypted name
+        const excludeFields = ['latitude', 'longitude', 'coordinates', 'name', 'national_id'];
         
         // Get the model to verify fields exist
         const Model = db.models[reg_model];
@@ -10315,7 +10316,7 @@ exports.getAllListforDownload = async (req, res) => {
             sequelize.fn(
               'PGP_SYM_DECRYPT',
               sequelize.cast(sequelize.col(`${reg_model}.name`), 'bytea'),
-              '***REDACTED***'
+              aesKey
             ),
             'name'
           ]);
@@ -10327,7 +10328,7 @@ exports.getAllListforDownload = async (req, res) => {
             sequelize.fn(
               'PGP_SYM_DECRYPT',
               sequelize.cast(sequelize.col(`${reg_model}.national_id`), 'bytea'),
-              '***REDACTED***'
+              aesKey
             ),
             'national_id'
           ]);

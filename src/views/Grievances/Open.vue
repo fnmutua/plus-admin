@@ -18,7 +18,7 @@ import {
   Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter,
   Document, InfoFilled, Download} from '@element-plus/icons-vue'
 
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getAllForDownload } from '@/api/settlements'
 import {   getGRMStaffByLocation } from '@/api/users'
 
 
@@ -510,6 +510,63 @@ const downloadFilters = computed(() => {
     filterFunctions: downloadFilterFunctions
   };
 })
+
+const filteredDownloadFilters = computed(() => {
+  const formData = buildGrievanceRequestFormData(filters.value, filterValues.value, {
+    searchString: search_string.value?.trim() || '',
+    page: 1,
+    limit: total.value > 0 ? total.value : 10000,
+    includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
+  })
+
+  return {
+    filters: formData.filters,
+    filterValues: formData.filterValues,
+    filterFunctions: formData.filterFunctions,
+    searchKeyword: formData.searchKeyword || formData.searchString || ''
+  }
+})
+
+const allDownloadCount = computed(() => {
+  const isPrivilegedUser =
+    isSuperAdmin.value || isRootAdmin.value || isNationalGRM.value
+
+  if (isPrivilegedUser) {
+    return Statuses.value.find(s => s.value === 'All')?.count ?? 0
+  }
+
+  return Statuses.value.find(s => s.value === 'ReceivedAll')?.count ?? 0
+})
+
+const canDownloadAllGrievances = computed(() => allDownloadCount.value > 0)
+
+const fetchFilteredGrievancesForDownload = async (selectedFieldsList: string[] = []) => {
+  const formData = buildGrievanceRequestFormData(filters.value, filterValues.value, {
+    searchString: search_string.value?.trim() || '',
+    page: 1,
+    limit: total.value > 0 ? total.value : 10000,
+    includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
+  })
+
+  formData.associated_multiple_models = [...associated_multiple_models]
+  if (activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved') {
+    if (!formData.associated_multiple_models.includes('grievance_history')) {
+      formData.associated_multiple_models.push('grievance_history')
+    }
+  }
+  if (selectedFieldsList.length > 0) {
+    formData.selectedFields = selectedFieldsList
+  }
+  formData.nested_models = []
+
+  if (search_string.value?.trim()) {
+    const res = await getByKeyword(formData)
+    return res.data || []
+  }
+
+  const res = await getAllForDownload(formData)
+  return res.data || []
+}
 
 const getUserRoles = async () => {
   // Clear existing filters
@@ -5185,12 +5242,23 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 <div class="header-actions">
                   <div class="total-download-group">
                     <DownloadCustom
+                      three-mode-download
                       :data="tableDataList"
                       :model="model"
                       :associated_models="['users','county','subcounty','ward','settlement']"
-                      :filters="downloadFilters.filters"
-                      :filterValues="downloadFilters.filterValues"
-                      :filterFunctions="downloadFilters.filterFunctions"
+                      :displayed-count="tableDataList.length"
+                      :filtered-count="total"
+                      :all-count="allDownloadCount"
+                      :filtered-filters="filteredDownloadFilters.filters"
+                      :filtered-filter-values="filteredDownloadFilters.filterValues"
+                      :filtered-filter-functions="filteredDownloadFilters.filterFunctions"
+                      :search-keyword="filteredDownloadFilters.searchKeyword"
+                      :all-filters="downloadFilters.filters"
+                      :all-filter-values="downloadFilters.filterValues"
+                      :all-filter-functions="downloadFilters.filterFunctions"
+                      :allow-all-download="canDownloadAllGrievances"
+                      :include-history="activeSegment === 'Deleted' || activeSegment === 'Resolved'"
+                      :filtered-data-fetcher="fetchFilteredGrievancesForDownload"
                       class="action-button"
                     />
                   </div>

@@ -1,7 +1,7 @@
 <template>
   <div style="display: inline-block; margin-left: 5px">
     <el-tooltip content="Download" placement="top">
-      <el-button @click="selectDownload" type="primary" :icon="Download" :loading="loading" />
+      <el-button @click="selectDownload()" type="primary" :icon="Download" :loading="loading" />
     </el-tooltip>
   </div>
 
@@ -86,12 +86,43 @@
     <!-- Drawer Footer -->
     <div class="drawer-footer">
       <el-button @click="showDownloadDialog = false">Cancel</el-button>
-      <el-button type="primary" @click="downloadCSV" :loading="downloadFilteredLoading">
-        Download Filtered<el-icon class="el-icon--right"><Filter /></el-icon>
-      </el-button>
-      <el-button type="primary" @click="downloadAll" :loading="downloadAllLoading">
-        Download All <el-icon class="el-icon--right"><Document /></el-icon>
-      </el-button>
+      <template v-if="threeModeDownload">
+        <el-button
+          type="primary"
+          @click="downloadDisplayed"
+          :loading="downloadDisplayedLoading"
+          :disabled="!canDownloadDisplayed"
+        >
+          <el-icon><List /></el-icon>
+          Displayed ({{ resolvedDisplayedCount }})
+        </el-button>
+        <el-button
+          type="primary"
+          @click="downloadFiltered"
+          :loading="downloadFilteredLoading"
+          :disabled="!canDownloadFiltered"
+        >
+          <el-icon><Filter /></el-icon>
+          Filtered ({{ resolvedFilteredCount }})
+        </el-button>
+        <el-button
+          type="primary"
+          @click="downloadAllGuarded"
+          :loading="downloadAllLoading"
+          :disabled="!canDownloadAll"
+        >
+          <el-icon><Document /></el-icon>
+          All ({{ resolvedAllCount }})
+        </el-button>
+      </template>
+      <template v-else>
+        <el-button type="primary" @click="downloadCSV" :loading="downloadFilteredLoading">
+          Download Filtered<el-icon class="el-icon--right"><Filter /></el-icon>
+        </el-button>
+        <el-button type="primary" @click="downloadAll" :loading="downloadAllLoading">
+          Download All <el-icon class="el-icon--right"><Document /></el-icon>
+        </el-button>
+      </template>
     </div>
   </el-drawer>
 </template>
@@ -105,6 +136,7 @@ import { Finished } from '@element-plus/icons-vue';
 import writeXlsxFile from 'write-excel-file';
 import { getAllForDownload } from '@/api/settlements';
 import { Delete, Edit, Search, Share, List, Upload, Filter, Download, Document, Close } from '@element-plus/icons-vue';
+import { ElMessageBox } from 'element-plus';
 import * as turf from '@turf/turf'
 
 
@@ -115,7 +147,22 @@ const props = defineProps({
   loading: Boolean,
   filters: Array,
   filterValues: Array,
-  filterFunctions: Array
+  filterFunctions: Array,
+  threeModeDownload: { type: Boolean, default: false },
+  displayedCount: { type: Number, default: null },
+  filteredCount: { type: Number, default: null },
+  allCount: { type: Number, default: null },
+  filteredFilters: { type: Array, default: null },
+  filteredFilterValues: { type: Array, default: null },
+  filteredFilterFunctions: { type: Array, default: null },
+  allFilters: { type: Array, default: null },
+  allFilterValues: { type: Array, default: null },
+  allFilterFunctions: { type: Array, default: null },
+  searchKeyword: { type: String, default: '' },
+  allowAllDownload: { type: Boolean, default: true },
+  includeHistory: { type: Boolean, default: false },
+  allDownloadConfirmThreshold: { type: Number, default: 1000 },
+  filteredDataFetcher: { type: Function, default: null },
 });
 
 const tableDataList = ref([]);
@@ -126,8 +173,28 @@ const currentModel = ref();
 const associated_models = ref();
 
 // Separate loading states for each download button
+const downloadDisplayedLoading = ref(false);
 const downloadFilteredLoading = ref(false);
 const downloadAllLoading = ref(false);
+
+const resolvedDisplayedCount = computed(() => {
+  if (props.displayedCount !== null) return props.displayedCount;
+  return Array.isArray(props.data) ? props.data.length : 0;
+});
+
+const resolvedFilteredCount = computed(() => {
+  if (props.filteredCount !== null) return props.filteredCount;
+  return resolvedDisplayedCount.value;
+});
+
+const resolvedAllCount = computed(() => {
+  if (props.allCount !== null) return props.allCount;
+  return 0;
+});
+
+const canDownloadDisplayed = computed(() => resolvedDisplayedCount.value > 0);
+const canDownloadFiltered = computed(() => resolvedFilteredCount.value > 0);
+const canDownloadAll = computed(() => props.allowAllDownload && resolvedAllCount.value > 0);
 
 const checkAll = ref(false);
 const activeCollapse = ref([]);
@@ -443,132 +510,198 @@ const extractData = (data, selectedFields) => {
   });
 };
 
-
-
-
-const downloadCSV = async () => {
-  if (!selectedFields.value.length) {
-    return ElMessage.warning("Please select at least one field.");
+const buildAssociatedModels = () => {
+  const models = Array.isArray(props.associated_models)
+    ? [...props.associated_models]
+    : [];
+  if (props.includeHistory && !models.includes('grievance_history')) {
+    models.push('grievance_history');
   }
-  downloadFilteredLoading.value = true;
-  emit('download-start');
-  try {
-    // Download Filtered: Use data already displayed in browser (from props.data)
-    // This includes computed properties like latitude, longitude, coordinates
-    const browserData = props.data || [];
-    const extractedData = extractData(browserData, selectedFields.value);
-    // Clean up the field names and prepare column headers
-    const columns = selectedFields.value.map((field) => {
-      let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
-      const words = cleanedField.split(/\s+/).filter(word => word);
-      const formattedField = words
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join('');
-      return {
-        column: formattedField,
-        type: String,
-      };
-    });
-    const rows = extractedData.map((row) =>
-      selectedFields.value.map((field) => ({
-        type: String,
-        wrap: true,
-        value: row[field] ? String(row[field]) : '',
-      }))
-    );
-    rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
-    const columnWidths = columns.map((col, index) => {
-      let maxLength = col.column.length;
-      extractedData.forEach((row) => {
-        const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
-        if (cellValue.length > maxLength) {
-          maxLength = cellValue.length;
-        }
-      });
-      return maxLength + 5;
-    });
-    await writeXlsxFile(rows, {
-      fileName: `${props.model}.xlsx`,
-      columns: columnWidths.map((width) => ({ width })),
-    });
-  } finally {
-    downloadFilteredLoading.value = false;
-    emit('download-end');
-  }
+  return models;
 };
 
+const writeSelectedFieldsToExcel = async (sourceData, selectedFieldsList) => {
+  const dataWithComputed = addLatLonToData([...sourceData]);
+  const extractedData = extractData(dataWithComputed, selectedFieldsList);
+  const columns = selectedFieldsList.map((field) => {
+    let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
+    const words = cleanedField.split(/\s+/).filter(word => word);
+    const formattedField = words
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join('');
+    return {
+      column: formattedField,
+      type: String,
+    };
+  });
+  const rows = extractedData.map((row) =>
+    selectedFieldsList.map((field) => ({
+      type: String,
+      wrap: true,
+      value: row[field] ? String(row[field]) : '',
+    }))
+  );
+  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
+  const columnWidths = columns.map((col, index) => {
+    let maxLength = col.column.length;
+    extractedData.forEach((row) => {
+      const cellValue = row[selectedFieldsList[index]] ? String(row[selectedFieldsList[index]]) : '';
+      if (cellValue.length > maxLength) {
+        maxLength = cellValue.length;
+      }
+    });
+    return maxLength + 5;
+  });
+  await writeXlsxFile(rows, {
+    fileName: `${props.model}.xlsx`,
+    columns: columnWidths.map((width) => ({ width })),
+  });
+};
 
-
-const getFilteredData = async (selectedFieldsList = []) => {
-  // Download All: Query backend for all data (respects filters but gets all matching records)
+const getBackendDownloadData = async (
+  selectedFieldsList = [],
+  {
+    filters = props.filters || [],
+    filterValues = props.filterValues || [],
+    filterFunctions = props.filterFunctions || [],
+    searchKeyword = '',
+  } = {}
+) => {
   const formData = {};
 
   formData.model = props.model;
   formData.searchField = 'name';
-  formData.searchKeyword = '';
-  // Use filters from props if provided, otherwise use empty arrays
-  formData.filters = props.filters || [];
-  formData.filterValues = props.filterValues || [];
-  formData.filterFunctions = props.filterFunctions || [];
-  formData.associated_multiple_models = props.associated_models;
+  formData.searchKeyword = searchKeyword || '';
+  formData.filters = filters;
+  formData.filterValues = filterValues;
+  formData.filterFunctions = filterFunctions;
+  formData.associated_multiple_models = buildAssociatedModels();
   formData.nested_models = [];
-  // Pass selected fields to backend for efficient data fetching
   if (selectedFieldsList && selectedFieldsList.length > 0) {
     formData.selectedFields = selectedFieldsList;
   }
 
   const res = await getAllForDownload(formData);
-  // Compute latitude/longitude from geometry in frontend
   return addLatLonToData(res.data);
-}
+};
 
-const downloadAll = async () => {
+const runDownload = async (loadingRef, fetchData) => {
   if (!selectedFields.value.length) {
-    return ElMessage.warning("Please select at least one field.");
+    return ElMessage.warning('Please select at least one field.');
+  }
+  loadingRef.value = true;
+  emit('download-start');
+  try {
+    const sourceData = await fetchData();
+    if (!Array.isArray(sourceData) || sourceData.length === 0) {
+      return ElMessage.warning('No records found to download.');
+    }
+    await writeSelectedFieldsToExcel(sourceData, selectedFields.value);
+    showDownloadDialog.value = false;
+  } finally {
+    loadingRef.value = false;
+    emit('download-end');
+  }
+};
+
+const downloadDisplayed = async () => {
+  await runDownload(downloadDisplayedLoading, async () => {
+    const browserData = props.data || [];
+    return addLatLonToData([...browserData]);
+  });
+};
+
+const downloadFiltered = async () => {
+  await runDownload(downloadFilteredLoading, async () => {
+    if (typeof props.filteredDataFetcher === 'function') {
+      return props.filteredDataFetcher(selectedFields.value);
+    }
+
+    const filters = props.filteredFilters ?? props.filters ?? [];
+    const filterValues = props.filteredFilterValues ?? props.filterValues ?? [];
+    const filterFunctions = props.filteredFilterFunctions ?? props.filterFunctions ?? [];
+    return getBackendDownloadData(selectedFields.value, {
+      filters,
+      filterValues,
+      filterFunctions,
+      searchKeyword: props.searchKeyword || '',
+    });
+  });
+};
+
+const confirmLargeAllDownload = async () => {
+  if (
+    props.allDownloadConfirmThreshold > 0 &&
+    resolvedAllCount.value > props.allDownloadConfirmThreshold
+  ) {
+    await ElMessageBox.confirm(
+      `This will download ${resolvedAllCount.value} records. Continue?`,
+      'Download all',
+      {
+        confirmButtonText: 'Download',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      }
+    );
+  }
+};
+
+const downloadAllGuarded = async () => {
+  if (!canDownloadAll.value) {
+    return ElMessage.warning(props.allowAllDownload
+      ? 'No records available for download all.'
+      : 'Download all is not available for your role.');
+  }
+  if (!selectedFields.value.length) {
+    return ElMessage.warning('Please select at least one field.');
+  }
+  try {
+    await confirmLargeAllDownload();
+  } catch {
+    return;
   }
   downloadAllLoading.value = true;
   emit('download-start');
   try {
-    // Download All: Query backend for all data
-    const backendData = await getFilteredData(selectedFields.value);
-    const extractedData = extractData(backendData, selectedFields.value);
-    const columns = selectedFields.value.map((field) => {
-      let cleanedField = field.replace(/[^a-zA-Z0-9]/g, ' ');
-      const words = cleanedField.split(/\s+/).filter(word => word);
-      const formattedField = words
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join('');
-      return {
-        column: formattedField,
-        type: String,
-      };
+    const filters = props.allFilters ?? props.filters ?? [];
+    const filterValues = props.allFilterValues ?? props.filterValues ?? [];
+    const filterFunctions = props.allFilterFunctions ?? props.filterFunctions ?? [];
+    const backendData = await getBackendDownloadData(selectedFields.value, {
+      filters,
+      filterValues,
+      filterFunctions,
+      searchKeyword: '',
     });
-    const rows = extractedData.map((row) =>
-      selectedFields.value.map((field) => ({
-        type: String,
-        wrap: true,
-        value: row[field] ? String(row[field]) : '',
-      }))
-    );
-    rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
-    const columnWidths = columns.map((col, index) => {
-      let maxLength = col.column.length;
-      extractedData.forEach((row) => {
-        const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
-        if (cellValue.length > maxLength) {
-          maxLength = cellValue.length;
-        }
-      });
-      return maxLength + 5;
-    });
-    await writeXlsxFile(rows, {
-      fileName: `${props.model}.xlsx`,
-      columns: columnWidths.map((width) => ({ width })),
-    });
+    if (!Array.isArray(backendData) || backendData.length === 0) {
+      return ElMessage.warning('No records found to download.');
+    }
+    await writeSelectedFieldsToExcel(backendData, selectedFields.value);
+    showDownloadDialog.value = false;
   } finally {
     downloadAllLoading.value = false;
     emit('download-end');
   }
+};
+const downloadCSV = async () => {
+  await runDownload(downloadFilteredLoading, async () => {
+    const browserData = props.data || [];
+    return addLatLonToData([...browserData]);
+  });
+};
+
+const getFilteredData = async (selectedFieldsList = []) => {
+  return getBackendDownloadData(selectedFieldsList, {
+    filters: props.filters || [],
+    filterValues: props.filterValues || [],
+    filterFunctions: props.filterFunctions || [],
+    searchKeyword: '',
+  });
+};
+
+const downloadAll = async () => {
+  await runDownload(downloadAllLoading, async () =>
+    getFilteredData(selectedFields.value)
+  );
 };
 </script>
 
@@ -709,6 +842,12 @@ const downloadAll = async () => {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.drawer-footer .el-button .el-icon {
+  margin-right: 4px;
 }
 
 /* Custom scrollbar for the fields container */

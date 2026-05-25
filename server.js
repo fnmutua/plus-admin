@@ -110,9 +110,13 @@ app.use('/api/app/verify', otpLimiter)
 
 const db = require('./server/app/models')
 const Role = db.role
-db.sequelize.sync().then(() => {
-  console.log('Drop and Resync Db')
-})
+db.sequelize.sync()
+  .then(() => {
+    console.log('Database sync complete')
+  })
+  .catch((err) => {
+    console.error('Database sync failed:', err.message)
+  })
 
 // Register all API routes BEFORE static middleware
 require('./server/app/routes/auth.routes')(app)
