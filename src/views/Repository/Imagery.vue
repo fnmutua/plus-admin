@@ -1203,6 +1203,7 @@ const xdownloadImagery = (layerName) => {
             :data="tableDataList"
             :model="model"
             :associated_models="associated_multiple_models"
+            :total="totalItems"
           />
         </PermissionWrapper>
       </div>

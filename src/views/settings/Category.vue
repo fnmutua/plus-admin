@@ -417,7 +417,11 @@ const goBack = () => {
           </el-tooltip>
         </PermissionWrapper>
         <PermissionWrapper :permissions="['category:read']">
-          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models" />
+          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models"
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
          </PermissionWrapper>
       </div>
   </div>

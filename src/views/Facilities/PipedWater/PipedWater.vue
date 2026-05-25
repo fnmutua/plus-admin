@@ -2176,7 +2176,11 @@ v-model="search_string" clearable :onClear="handleClear"
 
           <DownloadCustom
 v-if="showEditButtons" :data="tableDataList" :model="pipedWaterFacilityModel"
-            :associated_models="associated_multiple_models" />
+            :associated_models="associated_multiple_models"
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
         </div>
 
 

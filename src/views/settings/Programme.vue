@@ -573,7 +573,11 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
     <PermissionWrapper :permissions="['programme:read']">
        <DownloadCustom
             :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
+            :associated_models="associated_multiple_models"
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
                   <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </PermissionWrapper>
   </div>

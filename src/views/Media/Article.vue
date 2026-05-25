@@ -841,7 +841,11 @@ v-model="search_string" multiple clearable filterable remote :remote-method="sea
 
           <DownloadCustom
 v-if="showEditButtons" :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" />
+            :associated_models="associated_multiple_models"
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
         </div>
       </el-col>
     </el-row>

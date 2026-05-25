@@ -964,7 +964,9 @@ const DocumentComponentProps = ref({
               :model="model"
               :associated_models="associated_multiple_models"
               :filters="filters"
-              :filter-values="filterValues" />
+              :filter-values="filterValues"
+                      :total="total"
+/>
           </div>
         </el-col>
       </el-row>

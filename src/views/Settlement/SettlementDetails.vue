@@ -3812,7 +3812,10 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
               <el-col :span="1">
                 <DownloadCustom
                   :data="households"
-                  model="households" 
+                  model="households"
+                  :total="households.length"
+                  :filters="['settlement_id']"
+                  :filter-values="[[settlementId]]"
                   style="width: 100%"
                 />
               </el-col>

@@ -490,7 +490,9 @@ getFilteredData()
             <el-button @click="AddFacility" type="primary" :icon="Plus" />
           </PermissionWrapper>
           <el-button @click="handleClear" type="primary" :icon="Filter" />
-          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="facilityModel" :associated_models="['settlement', 'county', 'subcounty', 'ward']" />
+          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="facilityModel" :associated_models="['settlement', 'county', 'subcounty', 'ward']"
+                      :total="total"
+/>
         </div>
       </el-col>
     </el-row>

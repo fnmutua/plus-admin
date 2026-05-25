@@ -387,6 +387,7 @@ onMounted(() => {
           model="county"
           :associated_models="[]"
           :loading="downloadLoading"
+          :total="total"
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
         />

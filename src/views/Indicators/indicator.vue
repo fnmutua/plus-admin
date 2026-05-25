@@ -766,7 +766,10 @@ const handleSwitchChange = async (value) => {
           :loading="downloadLoading"
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
-        />
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
           </PermissionWrapper>
         </div>
       </el-col>

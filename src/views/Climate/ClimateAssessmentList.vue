@@ -36,6 +36,7 @@
                 model="climate_assessment"
                 :associated_models="[]"
                 :loading="downloadLoading"
+                :total="assessments.length"
               />
             </PermissionWrapper>
             <ElButton :icon="RefreshRight" @click="fetchAssessments">Refresh</ElButton>

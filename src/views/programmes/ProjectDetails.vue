@@ -4543,7 +4543,9 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
               :loading="downloadClockLoading"
               @download-start="downloadClockLoading = true"
               @download-end="downloadClockLoading = false"
-            />
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
           </div>
 
           <el-table :data="clockInHistory" style="width: 100%" border>

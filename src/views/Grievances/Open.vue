@@ -49,6 +49,7 @@ import moment from 'moment'
 import { getSummarybyFieldFromMultipleIncludes, getSummaryGroupByMultipleFields } from '@/api/summary'
 import { getUserListApi, getUsersByIds } from '@/api/users'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import { useGrievanceDownloadAll } from '@/composables/useGrievanceDownloadAll';
 import { validateInternationalPhone } from '@/utils/phoneValidation'
 import {
   canShowGrievanceCountyFilter,
@@ -447,68 +448,18 @@ watch(canSeeDeletedStatus, (canSee) => {
 }, { immediate: true })
 
 // Computed properties for download filters - always exclude "Deleted" status
-const downloadFilters = computed(() => {
-  const downloadFiltersList = [...filters.value];
-  const downloadFilterValues = filterValues.value.map(arr => [...arr]);
-  const downloadFilterFunctions = [...filterFunction.value];
-
-  const isPrivilegedUser =
-    isSuperAdmin.value || isRootAdmin.value || isNationalGRM.value
-
-  const removeFilterAtIndex = (index: number) => {
-    downloadFiltersList.splice(index, 1);
-    downloadFilterValues.splice(index, 1);
-    if (downloadFilterFunctions[index] !== undefined) {
-      downloadFilterFunctions.splice(index, 1);
-    }
-  };
-
-  const stripStatusFilters = () => {
-    let statusIdx = downloadFiltersList.indexOf('status')
-    while (statusIdx !== -1) {
-      removeFilterAtIndex(statusIdx)
-      statusIdx = downloadFiltersList.indexOf('status')
-    }
-  }
-
-  if (isPrivilegedUser) {
-    downloadFiltersList.length = 0
-    downloadFilterValues.length = 0
-    downloadFilterFunctions.length = 0
-  } else {
-    const statusIndex = downloadFiltersList.indexOf('status');
-    let statusFilterPresent = false;
-
-    if (statusIndex !== -1) {
-      const statusValues = downloadFilterValues[statusIndex];
-      if (Array.isArray(statusValues)) {
-        downloadFilterValues[statusIndex] = statusValues.filter(
-          (val: any) => val !== 'Deleted'
-        );
-
-        if (downloadFilterValues[statusIndex].length === 0) {
-          removeFilterAtIndex(statusIndex);
-        } else {
-          statusFilterPresent = true;
-        }
-      }
-    }
-
-    // Remove any remaining segment filters (status) before enforcing deleted exclusion
-    stripStatusFilters()
-
-    if (!statusFilterPresent) {
-      downloadFiltersList.push('status');
-      downloadFilterValues.push(['Deleted']);
-      downloadFilterFunctions.push('notIn');
-    }
-  }
-
-  return {
-    filters: downloadFiltersList,
-    filterValues: downloadFilterValues,
-    filterFunctions: downloadFilterFunctions
-  };
+const {
+  downloadAllFilters: downloadFilters,
+  allDownloadCount,
+  canDownloadAllGrievances
+} = useGrievanceDownloadAll({
+  filters,
+  filterValues,
+  filterFunction,
+  isSuperAdmin,
+  isRootAdmin,
+  isNationalGRM,
+  statuses: Statuses
 })
 
 const filteredDownloadFilters = computed(() => {
@@ -526,19 +477,6 @@ const filteredDownloadFilters = computed(() => {
     searchKeyword: formData.searchKeyword || formData.searchString || ''
   }
 })
-
-const allDownloadCount = computed(() => {
-  const isPrivilegedUser =
-    isSuperAdmin.value || isRootAdmin.value || isNationalGRM.value
-
-  if (isPrivilegedUser) {
-    return Statuses.value.find(s => s.value === 'All')?.count ?? 0
-  }
-
-  return Statuses.value.find(s => s.value === 'ReceivedAll')?.count ?? 0
-})
-
-const canDownloadAllGrievances = computed(() => allDownloadCount.value > 0)
 
 const fetchFilteredGrievancesForDownload = async (selectedFieldsList: string[] = []) => {
   const formData = buildGrievanceRequestFormData(filters.value, filterValues.value, {
@@ -5242,7 +5180,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 <div class="header-actions">
                   <div class="total-download-group">
                     <DownloadCustom
-                      three-mode-download
                       :data="tableDataList"
                       :model="model"
                       :associated_models="['users','county','subcounty','ward','settlement']"

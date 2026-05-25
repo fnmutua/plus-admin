@@ -86,7 +86,7 @@
     <!-- Drawer Footer -->
     <div class="drawer-footer">
       <el-button @click="showDownloadDialog = false">Cancel</el-button>
-      <template v-if="threeModeDownload">
+      <template v-if="useThreeModeDownload">
         <el-button
           type="primary"
           @click="downloadDisplayed"
@@ -135,6 +135,7 @@ import { ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElCheckbox, ElDrawer, ElFo
 import { Finished } from '@element-plus/icons-vue';
 import writeXlsxFile from 'write-excel-file';
 import { getAllForDownload } from '@/api/settlements';
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
 import { Delete, Edit, Search, Share, List, Upload, Filter, Download, Document, Close } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
 import * as turf from '@turf/turf'
@@ -148,7 +149,8 @@ const props = defineProps({
   filters: Array,
   filterValues: Array,
   filterFunctions: Array,
-  threeModeDownload: { type: Boolean, default: false },
+  threeModeDownload: { type: Boolean, default: null },
+  total: { type: Number, default: null },
   displayedCount: { type: Number, default: null },
   filteredCount: { type: Number, default: null },
   allCount: { type: Number, default: null },
@@ -176,21 +178,154 @@ const associated_models = ref();
 const downloadDisplayedLoading = ref(false);
 const downloadFilteredLoading = ref(false);
 const downloadAllLoading = ref(false);
+const fetchedAllCount = ref(null);
+const allCountLoading = ref(false);
+
+const ALL_SCOPE_STRIP_FIELDS = new Set([
+  'status',
+  'isApproved',
+  'profiling_status',
+  'is_qualified',
+]);
+
+const useThreeModeDownload = computed(() => {
+  if (props.threeModeDownload === false) return false;
+  if (props.threeModeDownload === true) return true;
+  return Boolean(props.model);
+});
 
 const resolvedDisplayedCount = computed(() => {
-  if (props.displayedCount !== null) return props.displayedCount;
+  if (props.displayedCount !== null && props.displayedCount !== undefined) {
+    return props.displayedCount;
+  }
   return Array.isArray(props.data) ? props.data.length : 0;
 });
 
 const resolvedFilteredCount = computed(() => {
-  if (props.filteredCount !== null) return props.filteredCount;
+  if (props.filteredCount !== null && props.filteredCount !== undefined) {
+    return props.filteredCount;
+  }
+  if (props.total !== null && props.total !== undefined) {
+    return props.total;
+  }
   return resolvedDisplayedCount.value;
 });
 
 const resolvedAllCount = computed(() => {
-  if (props.allCount !== null) return props.allCount;
+  if (props.allCount !== null && props.allCount !== undefined) {
+    return props.allCount;
+  }
+  if (fetchedAllCount.value !== null && fetchedAllCount.value !== undefined) {
+    return fetchedAllCount.value;
+  }
   return 0;
 });
+
+const hasExplicitAllFilters = computed(() =>
+  props.allFilters !== null ||
+  props.allFilterValues !== null ||
+  props.allFilterFunctions !== null
+);
+
+const derivedAllScopeFilters = computed(() => {
+  if (hasExplicitAllFilters.value) {
+    return {
+      filters: props.allFilters ?? [],
+      filterValues: props.allFilterValues ?? [],
+      filterFunctions: props.allFilterFunctions ?? [],
+    };
+  }
+
+  const filters = [];
+  const filterValues = [];
+  const filterFunctions = [];
+  const srcFilters = props.filters || [];
+  const srcValues = props.filterValues || [];
+  const srcFunctions = props.filterFunctions || [];
+
+  srcFilters.forEach((field, index) => {
+    if (ALL_SCOPE_STRIP_FIELDS.has(field)) return;
+    filters.push(field);
+    filterValues.push(Array.isArray(srcValues[index]) ? [...srcValues[index]] : srcValues[index] ?? []);
+    filterFunctions.push(srcFunctions[index] ?? 'in');
+  });
+
+  if (props.model === 'grievance' && !filters.includes('status')) {
+    filters.push('status');
+    filterValues.push(['Deleted']);
+    filterFunctions.push('notIn');
+  }
+
+  return { filters, filterValues, filterFunctions };
+});
+
+const effectiveAllFilters = computed(() => derivedAllScopeFilters.value.filters);
+const effectiveAllFilterValues = computed(() => derivedAllScopeFilters.value.filterValues);
+const effectiveAllFilterFunctions = computed(() => derivedAllScopeFilters.value.filterFunctions);
+
+const parseSummaryCount = (response) => {
+  const items = response?.Total;
+  if (!items) return 0;
+  if (Array.isArray(items)) {
+    return items.reduce(
+      (sum, item) => sum + (parseInt(item?.count, 10) || 0),
+      0
+    );
+  }
+  return parseInt(items, 10) || 0;
+};
+
+const fetchAllRecordCount = async () => {
+  if (!props.model || (props.allCount !== null && props.allCount !== undefined)) {
+    fetchedAllCount.value = null;
+    return;
+  }
+
+  allCountLoading.value = true;
+  try {
+    const formData = {
+      model: props.model,
+      summaryField: 'id',
+      summaryFunction: 'count',
+    };
+
+    const { filters, filterValues, filterFunctions } = derivedAllScopeFilters.value;
+    if (filters.length > 0) {
+      formData.filterField = filters;
+      formData.filterValue = filterValues;
+      formData.filterOperator = filterFunctions.map((fn) => fn || 'in');
+    }
+
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    fetchedAllCount.value = parseSummaryCount(response);
+  } catch (error) {
+    console.warn('DownloadCustom: unable to fetch all-record count', error);
+    fetchedAllCount.value = 0;
+  } finally {
+    allCountLoading.value = false;
+  }
+};
+
+watch(
+  () => [
+    props.model,
+    props.allCount,
+    props.filters,
+    props.filterValues,
+    props.filterFunctions,
+    props.allFilters,
+    props.allFilterValues,
+    props.allFilterFunctions,
+  ],
+  () => {
+    fetchAllRecordCount();
+  },
+  { immediate: true, deep: true }
+);
+
+const effectiveFilteredFilters = computed(() => props.filteredFilters ?? props.filters ?? []);
+const effectiveFilteredFilterValues = computed(() => props.filteredFilterValues ?? props.filterValues ?? []);
+const effectiveFilteredFilterFunctions = computed(() => props.filteredFilterFunctions ?? props.filterFunctions ?? []);
 
 const canDownloadDisplayed = computed(() => resolvedDisplayedCount.value > 0);
 const canDownloadFiltered = computed(() => resolvedFilteredCount.value > 0);
@@ -617,9 +752,9 @@ const downloadFiltered = async () => {
       return props.filteredDataFetcher(selectedFields.value);
     }
 
-    const filters = props.filteredFilters ?? props.filters ?? [];
-    const filterValues = props.filteredFilterValues ?? props.filterValues ?? [];
-    const filterFunctions = props.filteredFilterFunctions ?? props.filterFunctions ?? [];
+    const filters = effectiveFilteredFilters.value;
+    const filterValues = effectiveFilteredFilterValues.value;
+    const filterFunctions = effectiveFilteredFilterFunctions.value;
     return getBackendDownloadData(selectedFields.value, {
       filters,
       filterValues,
@@ -663,9 +798,9 @@ const downloadAllGuarded = async () => {
   downloadAllLoading.value = true;
   emit('download-start');
   try {
-    const filters = props.allFilters ?? props.filters ?? [];
-    const filterValues = props.allFilterValues ?? props.filterValues ?? [];
-    const filterFunctions = props.allFilterFunctions ?? props.filterFunctions ?? [];
+    const filters = effectiveAllFilters.value;
+    const filterValues = effectiveAllFilterValues.value;
+    const filterFunctions = effectiveAllFilterFunctions.value;
     const backendData = await getBackendDownloadData(selectedFields.value, {
       filters,
       filterValues,

@@ -1529,7 +1529,10 @@ const filteredSegments = computed(() => [])
               :data="tableDataList"
               :model="healthFacilityModel"
               :associated_models="['settlement', 'county', 'subcounty', 'ward']"
-            />
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
         </template>
 
           <!-- Mobile -->
@@ -1557,7 +1560,10 @@ const filteredSegments = computed(() => [])
               :data="tableDataList"
               :model="healthFacilityModel"
               :associated_models="['settlement', 'county', 'subcounty', 'ward']"
-            />
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
                   </template>
               </div>
       </el-col>

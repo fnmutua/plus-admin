@@ -697,6 +697,15 @@ const parseSummaryTotalCount = (items: any[] | undefined): number => {
   return items.reduce((sum, item) => sum + (parseInt(item.count, 10) || 0), 0)
 }
 
+const settlementAllDownloadFilters = computed(() => {
+  const base = buildSettlementSummaryBaseFilters()
+  return {
+    filters: base.filterFields,
+    filterValues: base.filterValues,
+    filterFunctions: base.filterOperators
+  }
+})
+
 const applyProfiledTabFilters = () => {
   filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
   filterValues.value = [['PROFILED'], [true], ['Approved'], ['true']]
@@ -5433,11 +5442,20 @@ v-model="search_string" clearable :onClear="handleClear"
             </el-button>
           </el-tooltip>
           <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" :loading="downloadLoading"
-            :filters="filters" :filterValues="filterValues"
+            v-if="showEditButtons"
+            :data="tableDataList"
+            :model="model"
+            :associated_models="associated_multiple_models"
+            :loading="downloadLoading"
+            :filters="filters"
+            :filter-values="filterValues"
+            :total="total"
+            :all-filters="settlementAllDownloadFilters.filters"
+            :all-filter-values="settlementAllDownloadFilters.filterValues"
+            :all-filter-functions="settlementAllDownloadFilters.filterFunctions"
             @download-start="downloadLoading = true"
-            @download-end="downloadLoading = false" />
+            @download-end="downloadLoading = false"
+          />
           <PermissionWrapper :permissions="'settlement:downloadGeo'">
             <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
               <el-button 

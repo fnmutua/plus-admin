@@ -2205,7 +2205,10 @@ const filteredSegments = computed(() => []);
               :data="tableDataList"
               :model="educationFacilityModel"
               :associated_models="['settlement', 'county', 'subcounty', 'ward']"
-            />
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
           </template>
 
           <!-- Mobile: collapse actions into dropdown + compact download button -->
@@ -2236,7 +2239,10 @@ const filteredSegments = computed(() => []);
               :data="tableDataList"
               :model="educationFacilityModel"
               :associated_models="['settlement', 'county', 'subcounty', 'ward']"
-            />
+                      :total="total"
+                      :filters="filters"
+                      :filter-values="filterValues"
+/>
           </template>
         </div>
       </el-col>

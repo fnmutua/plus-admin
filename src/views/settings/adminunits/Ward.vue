@@ -477,7 +477,8 @@ onMounted(() => {
           :loading="downloadLoading"
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
-        />
+                      :total="total"
+/>
         <el-button type="primary" :icon="Plus" @click="handleAdd">Add Ward</el-button>
       </div>
     </div>

@@ -31,6 +31,7 @@ import type { FormInstance } from 'element-plus'
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import { useGrievanceDownloadAll } from '@/composables/useGrievanceDownloadAll';
 import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
@@ -51,6 +52,8 @@ const countiesOptions = ref([])
 const settlementOptions = ref([])
 
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
+const isRootAdmin = ref(userInfo.roles.some(role => role.name === "root_admin"));
+const isNationalGRM = computed(() => isNationalStaff.value || isSuperAdmin.value || isRootAdmin.value)
 
 console.log("userInfo--->", userInfo)
 
@@ -372,6 +375,16 @@ const supportingStaffLoading = ref(false)
 const  filters=ref(['status'])
 const  filterValues=ref([['Referred']])
 const  filterFunction=ref(['in'])
+
+const { downloadAllFilters } = useGrievanceDownloadAll({
+  filters,
+  filterValues,
+  filterFunction,
+  isSuperAdmin,
+  isRootAdmin,
+  isNationalGRM,
+  statuses: Statuses
+})
 
 
  
@@ -2285,12 +2298,19 @@ if (search_string.value) {
       <el-tooltip content="Add Grievance" placement="top">
         <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
       </el-tooltip>
-      <DownloadCustom
-        v-if="showEditButtons"
-        :data="tableDataList"
-        :model="model"
-        :associated_models="associated_multiple_models"
-      />
+        <DownloadCustom
+          v-if="showEditButtons"
+          :data="tableDataList"
+          :model="model"
+          :associated_models="associated_multiple_models"
+          :total="total"
+          :filters="filters"
+          :filter-values="filterValues"
+          :filter-functions="filterFunction"
+          :all-filters="downloadAllFilters.filters"
+          :all-filter-values="downloadAllFilters.filterValues"
+          :all-filter-functions="downloadAllFilters.filterFunctions"
+        />
     </div>
   </el-col>
 </el-row>

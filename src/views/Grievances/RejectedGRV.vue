@@ -29,6 +29,7 @@ import xlsx from "json-as-xlsx"
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import { useGrievanceDownloadAll } from '@/composables/useGrievanceDownloadAll';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import type { UploadProps, UploadUserFile } from 'element-plus'
 
@@ -95,6 +96,17 @@ console.log('grmRole', grmRole);
 
 // Check for super_admin role
 const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
+const isRootAdmin = userInfo.roles.some(role => role.name === "root_admin");
+const isNationalGRM = computed(() => isNationalStaff.value || isSuperAdmin || isRootAdmin)
+
+const { downloadAllFilters } = useGrievanceDownloadAll({
+  filters: () => filters,
+  filterValues: () => filterValues,
+  filterFunction: () => filterFunction,
+  isSuperAdmin: () => isSuperAdmin,
+  isRootAdmin: () => isRootAdmin,
+  isNationalGRM,
+})
 
 // Determine the field_filter and value_filter based on roles
 let roles_filters = [];
@@ -1611,8 +1623,18 @@ v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple 
           <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
         <DownloadCustom
-v-if="showEditButtons" :data="tableDataList" :model="model"
-          :associated_models="associated_multiple_models" />
+          v-if="showEditButtons"
+          :data="tableDataList"
+          :model="model"
+          :associated_models="associated_multiple_models"
+          :total="total"
+          :filters="filters"
+          :filter-values="filterValues"
+          :filter-functions="filterFunction"
+          :all-filters="downloadAllFilters.filters"
+          :all-filter-values="downloadAllFilters.filterValues"
+          :all-filter-functions="downloadAllFilters.filterFunctions"
+        />
 
 
 
