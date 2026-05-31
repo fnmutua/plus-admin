@@ -981,7 +981,7 @@ const allNavGroups: NavGroup[] = [
               <h2>Key capabilities</h2>
               <ul>
                 <li><strong>Settlement list</strong> &mdash; browse, search and filter all registered settlements across multiple status tabs</li>
-                <li><strong>Settlement details</strong> &mdash; view demographics, location map, housing, utilities, facilities, documents, households, vulnerability scores, projects and indicator reports</li>
+                <li><strong>Settlement details</strong> &mdash; view demographics, location map (with neighbouring settlement comparison and multi-settlement download), housing, utilities, facilities, documents, households, vulnerability scores, projects and indicator reports</li>
                 <li><strong>Add / Edit</strong> &mdash; register new settlements using a map-first workflow with Google Maps, or update existing records</li>
                 <li><strong>Review workflow</strong> &mdash; new settlements are submitted as <em>Pending</em> and require administrator approval before appearing in the approved list</li>
                 <li><strong>Decommission &amp; Delete</strong> &mdash; super administrators can decommission, soft-delete, cascade-delete, or merge settlements</li>
@@ -1135,12 +1135,33 @@ const allNavGroups: NavGroup[] = [
 
               <h2>Location tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsLocationImg}" alt="Settlement Details — Location tab" />
-              <p>Displays an interactive Mapbox map centred on the settlement. The map shows:</p>
+              <p>Displays an interactive <strong>Google Maps</strong> view centred on the settlement. While the map loads, a progress overlay shows layer status. Once ready, the map shows:</p>
               <ul>
-                <li>The settlement boundary polygon</li>
-                <li>Overlaid layers for facilities, roads, parcels, structures, and other linked spatial data</li>
-                <li>Standard map controls (zoom, basemap switch between Streets and Satellite)</li>
+                <li>The <strong>primary settlement boundary</strong> (red outline)</li>
+                <li>Toggleable layers for <strong>parcels</strong>, <strong>structures</strong>, <strong>roads</strong>, <strong>utilities</strong> (powerline, sewer, piped water), and linked <strong>facilities</strong></li>
+                <li>Optional <strong>satellite imagery</strong> overlays where available for the settlement area</li>
+                <li><strong>Neighbouring settlements</strong> in the same county, shown as pink dotted outlines with name labels when zoomed in</li>
               </ul>
+
+              <h3>Layer KEY</h3>
+              <p>Use the floating <strong>KEY</strong> panel on the map to show or hide parcels, parcel labels, structures, roads, utilities, facilities, and imagery layers. Feature counts are shown next to each layer name.</p>
+
+              <h3>Neighbouring settlements</h3>
+              <p>Click a neighbouring settlement boundary or its label to open a dialog with two options:</p>
+              <ul>
+                <li><strong>Add to Map</strong> &mdash; loads that settlement&rsquo;s boundary, parcels, structures, and facilities <em>on top of</em> the current map without leaving the Location tab. The primary settlement stays visible. Added settlements use a blue boundary outline so you can tell them apart from the primary (red) settlement.</li>
+                <li><strong>View Settlement Details</strong> &mdash; opens the full Settlement Details page for that settlement (Profile, Documents, Projects, and other tabs).</li>
+              </ul>
+              <p>The dialog shows how many settlements are currently on the map (for example, <em>3 of 10 settlements on map</em>).</p>
+              <blockquote>Note &mdash; You can display up to <strong>10 settlements</strong> on the map at once. This limit protects browser performance when many layers are loaded. When the limit is reached, <strong>Add to Map</strong> is disabled and a warning explains that you should open the settlement&rsquo;s details page instead, or refresh the page to start over. Settlements already on the map cannot be added again.</blockquote>
+              <p>After a settlement is added, its pink neighbour outline is removed because it is now shown as full map data.</p>
+
+              <h3>Map toolbar</h3>
+              <ul>
+                <li><strong>Locate me</strong> (location icon) &mdash; centres the map on your current GPS position</li>
+                <li><strong>Download</strong> (download icon) &mdash; exports GeoJSON layers for <strong>all settlements currently displayed on the map</strong> (the primary settlement plus any added neighbours) as a ZIP file. Each settlement&rsquo;s files are prefixed with its ID and name (for example, <code>123_Kibera_parcels.geojson</code>). If only one settlement is loaded, the ZIP is named after that settlement; if several are loaded, the file is named <code>map_N_settlements_layers.zip</code>.</li>
+              </ul>
+              <blockquote>Tip &mdash; Pan and zoom to load more neighbouring settlement outlines in view, then add the ones you need for comparison before downloading the combined layers.</blockquote>
 
               <h2>Documents tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsDocumentsImg}" alt="Settlement Details — Documents tab" />
@@ -1214,7 +1235,7 @@ const allNavGroups: NavGroup[] = [
               <p>Clicking a settlement name opens its details page with the following tabs:</p>
               <table><thead><tr><th>Tab</th><th>Contents</th></tr></thead><tbody>
                 <tr><td><strong>Profile</strong></td><td>Administrative location, settlement profile, housing details and utilities &mdash; displayed in collapsible sections</td></tr>
-                <tr><td><strong>Location</strong></td><td>Interactive map showing the settlement boundary, facilities and parcels</td></tr>
+                <tr><td><strong>Location</strong></td><td>Interactive Google Maps view with settlement boundary, parcels, structures, facilities, neighbouring settlements, layer toggles, and GeoJSON download for all settlements on the map (up to 10)</td></tr>
                 <tr><td><strong>Documents</strong></td><td>Photos in a grid view, plus other documents grouped by type (Plans, Reports, etc.). Upload and category editing available with permissions</td></tr>
                 <tr><td><strong>Projects</strong></td><td>Intervention projects linked to the settlement, with status indicators</td></tr>
                 <tr><td><strong>Households</strong></td><td>Household records with search, pagination and download. Requires household read permission</td></tr>
