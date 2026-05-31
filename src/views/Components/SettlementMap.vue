@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem } from 'element-plus'
+import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem, ElDialog } from 'element-plus'
+import { useRouter } from 'vue-router'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
 import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers } from '@/api/settlements'
@@ -88,9 +89,12 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'layers-loaded': []
+  'settlement-change': [{ id: string; name: string }]
 }>()
 
 const appStore = useAppStore()
+const router = useRouter()
+const activeSettlementId = ref(String(props.settlementId))
 
 const mapRef = ref<any>(null)
 const title = ref('')
@@ -115,6 +119,7 @@ const structures = ref<any[]>([])
 const other_points = ref<any[]>([])
 const neighboringSettlements = ref<any[]>([])
 const neighboringSettlementLabels = ref<any[]>([])
+const neighborClickTargets = ref<any[]>([])
 const currentZoom = ref(8) // Default zoom level
 const MIN_ZOOM_FOR_LABELS = 16 // Hide labels when zoom is below this level
 
@@ -306,15 +311,18 @@ const applyMapDataToState = (mapData: SettlementMapData) => {
 }
 
 // Fetch functions - Consolidated approach (or use preloaded data when provided by parent)
-const fetchAllSettlementData = async (preloadedMapData?: SettlementMapData | null): Promise<SettlementMapData | null> => {
-  if (preloadedMapData) {
+const fetchAllSettlementData = async (
+  preloadedMapData?: SettlementMapData | null,
+  options?: { forceFetch?: boolean }
+): Promise<SettlementMapData | null> => {
+  if (preloadedMapData && !options?.forceFetch) {
     applyMapDataToState(preloadedMapData)
     return preloadedMapData
   }
   isLoading.value = true
   try {
     console.log('🔄 Fetching consolidated settlement data...')
-    const res = await getSettlementMapData({ settlementId: props.settlementId })
+    const res = await getSettlementMapData({ settlementId: activeSettlementId.value })
     const responseData = res as any
     if (!responseData?.data) {
       throw new Error('No settlement data received')
@@ -333,7 +341,10 @@ const fetchAllSettlementData = async (preloadedMapData?: SettlementMapData | nul
 }
 
 // Progressive loading with status updates but keeping layers together
-const loadSelectedLayersWithProgress = async (layers: string[]) => {
+const loadSelectedLayersWithProgress = async (
+  layers: string[],
+  options?: { forceFetch?: boolean }
+) => {
   if (!mapReady.value || !window.google?.maps) {
     console.error('Google Maps API not ready')
     return
@@ -352,6 +363,7 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
   other_points.value = []
   neighboringSettlements.value = []
   neighboringSettlementLabels.value = []
+  neighborClickTargets.value = []
 
   // Reset feature counts
   layerFeatureCounts.value = {
@@ -367,8 +379,15 @@ const loadSelectedLayersWithProgress = async (layers: string[]) => {
     neighboringSettlements: 0,
   }
 
-  updateLoadingStatus(props.initialMapData ? 'Preparing map...' : 'Fetching settlement data...', 15)
-  const allData = await fetchAllSettlementData(props.initialMapData ?? undefined)
+  const usePreloaded =
+    !options?.forceFetch &&
+    activeSettlementId.value === String(props.settlementId) &&
+    !!props.initialMapData
+  updateLoadingStatus(usePreloaded ? 'Preparing map...' : 'Fetching settlement data...', 15)
+  const allData = await fetchAllSettlementData(
+    usePreloaded ? (props.initialMapData ?? undefined) : undefined,
+    { forceFetch: options?.forceFetch }
+  )
   if (!allData) {
     console.error('❌ Failed to fetch settlement data')
     return
@@ -747,6 +766,7 @@ const loadSelectedLayers = async (layers: string[]) => {
   other_points.value = []
   neighboringSettlements.value = []
   neighboringSettlementLabels.value = []
+  neighborClickTargets.value = []
 
   // Reset feature counts
   layerFeatureCounts.value = {
@@ -1105,8 +1125,340 @@ const processFeaturesInChunks = async (features: any[], processor: (feature: any
 }
 
 // Optimized data processing with chunks
-const processSettlementData = async (featureCollection: any, bounds: google.maps.LatLngBounds) => {
+const MAX_LOADED_SETTLEMENTS = 10
+const loadedSettlementIds = ref<Set<string>>(new Set())
+
+const loadedSettlementCount = computed(() => loadedSettlementIds.value.size)
+const canAddMoreSettlements = computed(() => loadedSettlementCount.value < MAX_LOADED_SETTLEMENTS)
+
+const refreshLayerFeatureCounts = () => {
+  layerFeatureCounts.value = {
+    ...layerFeatureCounts.value,
+    settlement: polygons.value.length,
+    parcels: parcels.value.length,
+    parcelLabels: parcelLabels.value.length,
+    structures: structures.value.length,
+    other_points: other_points.value.length,
+    roads: roads.value.length,
+  }
+}
+
+const fetchSettlementMapDataRaw = async (settlementId: string): Promise<SettlementMapData | null> => {
+  try {
+    const res = await getSettlementMapData({ settlementId })
+    const responseData = res as any
+    return responseData?.data ?? null
+  } catch (error) {
+    console.error('Error fetching settlement map data:', error)
+    return null
+  }
+}
+
+const removeNeighborOverlays = (settlementId: string | number) => {
+  const sid = String(settlementId)
+  neighboringSettlements.value = neighboringSettlements.value.filter(
+    (neighbor) => String(neighbor.properties?.id) !== sid
+  )
+  neighboringSettlementLabels.value = neighboringSettlementLabels.value.filter(
+    (label) => String(label.properties?.id) !== sid
+  )
+  neighborClickTargets.value = neighborClickTargets.value.filter(
+    (target) => String(target.properties?.id) !== sid
+  )
+}
+
+const appendSettlementMapData = async (settlementId: string, settlementName: string) => {
+  if (loadedSettlementIds.value.size >= MAX_LOADED_SETTLEMENTS) {
+    throw new Error(`Maximum of ${MAX_LOADED_SETTLEMENTS} settlements allowed on map`)
+  }
+
+  const mapData = await fetchSettlementMapDataRaw(settlementId)
+  if (!mapData) {
+    throw new Error('Failed to fetch settlement map data')
+  }
+
+  const bounds = new google.maps.LatLngBounds()
+  const idPrefix = `${settlementId}-`
+  const layers = ['settlement', 'parcels', 'structures', 'other_points']
+
+  if (mapData.settlement?.features?.length && layers.includes('settlement')) {
+    updateLoadingStatus(`Adding ${settlementName} boundary...`, 30)
+    await processSettlementData(mapData.settlement, bounds, {
+      idPrefix,
+      strokeColor: '#1565C0',
+      strokeWeight: 2
+    })
+  }
+
+  if (mapData.parcel?.features?.length && layers.includes('parcels')) {
+    updateLoadingStatus(`Adding ${settlementName} parcels...`, 45)
+    await processFeaturesInChunks(mapData.parcel.features, (feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        let coordinates = geometry.coordinates
+        if (geometry.type === 'MultiPolygon') {
+          coordinates = coordinates.flat()
+        }
+        coordinates.forEach((polygonCoordinates: number[][]) => {
+          const paths = polygonCoordinates.map(([lng, lat]) => {
+            const point = { lat, lng }
+            bounds.extend(point)
+            return point
+          }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+          const landuseId = properties.landuse_id ?? -1
+          const fillColor = landuseId === 0 ? '#8C675D' :
+            landuseId === 1 ? '#800080' :
+            landuseId === 2 ? '#F6C567' :
+            landuseId === 3 ? '#6FDC6E' :
+            landuseId === 4 ? '#FFFF00' :
+            landuseId === 5 ? '#FF1D1E' :
+            landuseId === 6 ? '#73B2FF' :
+            landuseId === 7 ? '#DCDCDC' :
+            landuseId === 8 ? '#FDFD96' :
+            landuseId === 9 ? '#FDFD96' : 'white'
+          parcels.value.push({
+            id: `parcel-${idPrefix}${properties?.id || index}`,
+            paths,
+            strokeColor: 'white',
+            strokeOpacity: 1,
+            strokeWeight: 1,
+            fillColor,
+            fillOpacity: 0.8,
+            properties: { ...properties }
+          })
+          const centroidPoint = turf.centroid(feature)
+          const [lng, lat] = centroidPoint.geometry.coordinates
+          parcelLabels.value.push({
+            id: `label-${idPrefix}${properties?.id || index}`,
+            position: { lat, lng },
+            label: properties.parcel_no || '',
+            properties: { ...properties }
+          })
+        })
+      }
+    })
+
+    const landuseIdsFound = new Set(
+      mapData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
+    )
+    legendItems.forEach(item => {
+      if (landuseIdsFound.has(item.landuseId)) {
+        item.show = true
+      }
+    })
+  }
+
+  if (layers.includes('structures') && mapData.structure?.features?.length) {
+    updateLoadingStatus(`Adding ${settlementName} structures...`, 65)
+    await processFeaturesInChunks(mapData.structure.features, (feature: any, index: number) => {
+      const { geometry, properties } = feature
+      if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        let coordinates = geometry.coordinates
+        if (geometry.type === 'MultiPolygon') {
+          coordinates = coordinates.flat()
+        }
+        coordinates.forEach((polygonCoordinates: number[][]) => {
+          const paths = polygonCoordinates.map(([lng, lat]) => {
+            const point = { lat, lng }
+            bounds.extend(point)
+            return point
+          }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
+
+          structures.value.push({
+            id: `structure-${idPrefix}${properties?.structure_id || index}`,
+            paths,
+            strokeColor: 'white',
+            strokeOpacity: 1,
+            strokeWeight: 0.5,
+            fillColor: 'black',
+            fillOpacity: 0.7,
+            properties: { ...properties }
+          })
+        })
+      }
+    })
+  }
+
+  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
+  const lineModels = ['road', 'powerline', 'sewer', 'piped_water']
+  const iconMap: Record<string, string> = {
+    water_point: 'icons/waterdrop.png',
+    mast: 'icons/tower.png',
+    streetlight: 'icons/lighthouse-2.png',
+    dumping_site: 'icons/landfill.png',
+    hazard_zone: 'icons/caution.png',
+    community_project: 'icons/country.png',
+    community_hall: 'icons/communitycentre.png',
+    police_station: 'icons/police.png',
+    crime_hotspot: 'icons/theft.png',
+    health_facility: 'icons/hospital-2.png',
+    education_facility: 'icons/school.png',
+  }
+
+  updateLoadingStatus(`Adding ${settlementName} facilities...`, 80)
+  for (const model of pointModels) {
+    if (mapData[model]?.features?.length) {
+      const features = mapData[model].features
+      const iconUrl = iconMap[model] || 'icons/amphitheater.png'
+
+      features.forEach((feature: any, index: number) => {
+        const { geometry, properties } = feature
+        if (geometry.type === 'Point') {
+          const [lng, lat] = geometry.coordinates
+          const point = { lat, lng }
+          bounds.extend(point)
+          other_points.value.push({
+            id: `op-${idPrefix}${model}-${properties?.id || index}`,
+            type: 'marker',
+            position: point,
+            icon: {
+              url: iconUrl,
+              scaledSize: new google.maps.Size(30, 30),
+              anchor: new google.maps.Point(15, 15),
+            },
+            properties: {
+              ...properties,
+              featureType: model
+            },
+          })
+        }
+      })
+
+      const legendItem = PointLegendItems.value.find(item => item.layer === model)
+      if (legendItem) legendItem.show = true
+    }
+  }
+
+  const lineStyles: Record<string, any> = {
+    road: { strokeColor: 'red', strokeOpacity: 1, strokeWeight: 3 },
+    powerline: {
+      strokeColor: 'green',
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      icons: [{
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 2,
+          fillColor: 'green',
+          fillOpacity: 1,
+          strokeColor: 'green',
+          strokeWeight: 1
+        },
+        offset: '0',
+        repeat: '10px'
+      }]
+    },
+    sewer: {
+      strokeColor: '#4B0082',
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      icons: [{
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 2,
+          fillColor: '#4B0082',
+          fillOpacity: 1,
+          strokeColor: '#4B0082',
+          strokeWeight: 1
+        },
+        offset: '0',
+        repeat: '10px'
+      }]
+    },
+    piped_water: {
+      strokeColor: '#00BFFF',
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      icons: [{
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 2,
+          fillColor: '#00BFFF',
+          fillOpacity: 1,
+          strokeColor: '#00BFFF',
+          strokeWeight: 1
+        },
+        offset: '0',
+        repeat: '10px'
+      }]
+    }
+  }
+
+  for (const model of lineModels) {
+    if (mapData[model]?.features?.length) {
+      mapData[model].features.forEach((feature: any, index: number) => {
+        const { geometry, properties } = feature
+        if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+          const lines = geometry.type === 'LineString' ? [geometry.coordinates] : geometry.coordinates
+          lines.forEach((line, lineIndex) => {
+            const path = line.map(([lng, lat]) => {
+              const point = { lat, lng }
+              bounds.extend(point)
+              return point
+            })
+            const style = lineStyles[model] || {
+              strokeColor: '#999999',
+              strokeOpacity: 0.8,
+              strokeWeight: 3,
+            }
+
+            if (model === 'road') {
+              roads.value.push({
+                id: `road-${idPrefix}${properties?.id || index}-${lineIndex}`,
+                path,
+                options: style,
+                properties: {
+                  ...properties,
+                  featureType: model
+                },
+              })
+            } else {
+              other_points.value.push({
+                id: `line-${idPrefix}${model}-${properties?.id || index}-${lineIndex}`,
+                type: 'polyline',
+                path,
+                ...style,
+                properties: {
+                  ...properties,
+                  featureType: model
+                },
+              })
+            }
+          })
+        }
+      })
+
+      const legendLineItem = PolyLineItems.value.find(item => item.layer === model)
+      if (legendLineItem) legendLineItem.show = true
+    }
+  }
+
+  refreshLayerFeatureCounts()
+  loadedSettlementIds.value.add(settlementId)
+
+  await nextTick()
+
+  if (mapRef.value?.map && !bounds.isEmpty()) {
+    const map = mapRef.value.map
+    const currentBounds = map.getBounds()
+    if (currentBounds) {
+      bounds.extend(currentBounds.getNorthEast())
+      bounds.extend(currentBounds.getSouthWest())
+    }
+    map.fitBounds(bounds)
+  }
+}
+
+const processSettlementData = async (
+  featureCollection: any,
+  bounds: google.maps.LatLngBounds,
+  options: { idPrefix?: string; strokeColor?: string; strokeWeight?: number } = {}
+) => {
   if (!featureCollection?.features?.length) return
+
+  const idPrefix = options.idPrefix || ''
+  const strokeColor = options.strokeColor ?? '#000000'
+  const strokeWeight = options.strokeWeight ?? 3
   
   await processFeaturesInChunks(featureCollection.features, (feature: any, index: number) => {
     const { geometry, properties } = feature
@@ -1124,11 +1476,11 @@ const processSettlementData = async (featureCollection: any, bounds: google.maps
           return point
         })
         polygons.value.push({
-          id: properties?.id || index,
+          id: `${idPrefix}${properties?.id || index}`,
           paths,
-          strokeColor: '#000000',
+          strokeColor,
           strokeOpacity: 1,
-          strokeWeight: 3,
+          strokeWeight,
           fillColor: '#FF0000',
           fillOpacity: 0,
           type: "poly",
@@ -1145,7 +1497,7 @@ const processSettlementData = async (featureCollection: any, bounds: google.maps
       let iconUrl = 'https://maps.google.com/mapfiles/kml/paddle/grn-circle.png'
       
       polygons.value.push({
-        id: `sett-${properties?.id || index}`,
+        id: `${idPrefix}sett-${properties?.id || index}`,
         position: point,
         type: "point",
         icon: {
@@ -1283,6 +1635,110 @@ const closeDrawer = () => {
   drawerVisible.value = false
   drawerData.value = []
   drawerTitle.value = ''
+}
+
+const neighborDialogVisible = ref(false)
+const selectedNeighbor = ref<{ id: string | number; name: string } | null>(null)
+
+const isSelectedNeighborAlreadyLoaded = computed(() =>
+  !!selectedNeighbor.value?.id &&
+  loadedSettlementIds.value.has(String(selectedNeighbor.value.id))
+)
+
+const onNeighborClick = (feature: { properties?: { id?: string | number; name?: string } }) => {
+  const neighborId = feature.properties?.id
+  if (!neighborId || neighborDialogVisible.value) return
+
+  selectedNeighbor.value = {
+    id: neighborId,
+    name: feature.properties?.name || 'Unnamed Settlement'
+  }
+
+  // Defer opening so the map click does not immediately hit the dialog backdrop
+  window.setTimeout(() => {
+    neighborDialogVisible.value = true
+  }, 50)
+}
+
+const dismissNeighborDialog = () => {
+  neighborDialogVisible.value = false
+}
+
+const onNeighborDialogClosed = () => {
+  selectedNeighbor.value = null
+}
+
+const goToNeighborSettlement = () => {
+  if (!selectedNeighbor.value?.id) return
+
+  router.push({
+    name: 'SettlementDetails',
+    params: { id: String(selectedNeighbor.value.id) }
+  })
+  dismissNeighborDialog()
+}
+
+const neighborMapLoading = ref(false)
+
+const clearImageryOverlays = () => {
+  const map = mapRef.value?.map
+  if (!map) return
+
+  Object.values(imageryLayerObjects.value).forEach((layerObj) => {
+    const layers = map.overlayMapTypes
+    const index = layers.getArray().indexOf(layerObj)
+    if (index !== -1) {
+      layers.removeAt(index)
+    }
+  })
+
+  availableImageryLayers.value = []
+  selectedImageryLayers.value = []
+  imageryLayerObjects.value = {}
+}
+
+const loadNeighborOnMap = async () => {
+  if (!selectedNeighbor.value?.id || neighborMapLoading.value || !mapReady.value) return
+
+  const id = String(selectedNeighbor.value.id)
+  const name = selectedNeighbor.value.name
+
+  if (loadedSettlementIds.value.has(id)) {
+    ElMessage.info(`${name} is already on the map`)
+    dismissNeighborDialog()
+    return
+  }
+
+  if (loadedSettlementIds.value.size >= MAX_LOADED_SETTLEMENTS) {
+    ElMessage.warning({
+      message: `You can only display up to ${MAX_LOADED_SETTLEMENTS} settlements at once to avoid overloading the browser. Open this settlement's details page instead, or refresh the map to start over.`,
+      duration: 7000,
+      showClose: true
+    })
+    return
+  }
+
+  dismissNeighborDialog()
+  neighborMapLoading.value = true
+
+  try {
+    showProgressOverlay.value = true
+    updateLoadingStatus(`Adding ${name} to map...`, 10)
+
+    await appendSettlementMapData(id, name)
+    removeNeighborOverlays(id)
+    fetchNeighborsOnViewChange()
+
+    ElMessage.success(`Added ${name} to map`)
+  } catch (error) {
+    console.error('Error adding neighbor settlement to map:', error)
+    ElMessage.error('Failed to add settlement to map')
+  } finally {
+    neighborMapLoading.value = false
+    showProgressOverlay.value = false
+    loadingStatus.value = ''
+    loadingProgress.value = 0
+  }
 }
 
 const filteredProperties = computed(() => {
@@ -1537,7 +1993,7 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
     }
     
     const res = await getNeighboringSettlements({
-      settlementId: props.settlementId,
+      settlementId: activeSettlementId.value,
       bbox: bbox,
       expansionFactor: 0.2 // 20% expansion
     })
@@ -1555,6 +2011,7 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
 
     const neighboringSettlementsData: any[] = []
     const neighboringLabelsData: any[] = []
+    const neighboringClickTargetsData: any[] = []
 
     for (const settlement of settlements) {
       // Check if settlement has geometry
@@ -1581,32 +2038,53 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
         }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
 
         if (paths.length > 0) {
-          // Use polyline for dotted pink outline (close the path by adding first point at end)
+          const settlementName = settlement.name || 'Unnamed Settlement'
+          const settlementProps = {
+            id: settlement.id,
+            name: settlementName,
+            featureType: 'neighboring_settlement'
+          }
+
+          // Visual dotted outline
           const closedPath = [...paths, paths[0]]
           neighboringSettlementsData.push({
             id: `neighbor-${settlement.id}`,
-            path: closedPath,
-            strokeColor: '#FF69B4',
-            strokeOpacity: 0.5,
-            strokeWeight: 1,
-            type: 'polyline',
-            // Create dotted pattern using icons - small dots with pink
-            icons: [{
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 2,
-                fillColor: '#FF69B4',
-                fillOpacity: 0.5,
-                strokeColor: '#FF69B4',
-                strokeWeight: 0.3
-              },
-              offset: '0%',
-              repeat: '8px'
-            }],
-            properties: {
-              id: settlement.id,
-              name: settlement.name || 'Unnamed Settlement'
-            }
+            options: {
+              path: closedPath,
+              strokeColor: '#FF69B4',
+              strokeOpacity: 0.5,
+              strokeWeight: 1,
+              clickable: false,
+              zIndex: 2,
+              icons: [{
+                icon: {
+                  path: google.maps.SymbolPath.CIRCLE,
+                  scale: 2,
+                  fillColor: '#FF69B4',
+                  fillOpacity: 0.5,
+                  strokeColor: '#FF69B4',
+                  strokeWeight: 0.3
+                },
+                offset: '0%',
+                repeat: '8px'
+              }]
+            },
+            properties: settlementProps
+          })
+
+          // Invisible clickable polygon rendered above parcels for reliable clicks
+          neighboringClickTargetsData.push({
+            id: `neighbor-hit-${settlement.id}`,
+            options: {
+              paths,
+              strokeOpacity: 0,
+              strokeWeight: 0,
+              fillColor: '#FF69B4',
+              fillOpacity: 0.01,
+              clickable: true,
+              zIndex: 1000
+            },
+            properties: settlementProps
           })
 
           // Calculate centroid for label (only once per settlement, not per polygon)
@@ -1614,7 +2092,6 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
             try {
               const centroidPoint = turf.centroid(settlement.geom)
               const [lng, lat] = centroidPoint.geometry.coordinates
-              const settlementName = settlement.name || 'Unnamed'
               
               // Create text-only marker with HTML content for text wrapping
               // Split long names into multiple lines (max 20 chars per line)
@@ -1637,26 +2114,26 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
               
               neighboringLabelsData.push({
                 id: `neighbor-label-${settlement.id}`,
-                position: { lat, lng },
-                // Use transparent icon to hide default marker
-                icon: {
-                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                    <svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>
-                  `),
-                  scaledSize: new google.maps.Size(1, 1),
-                  anchor: new google.maps.Point(0.5, 0.5)
+                options: {
+                  position: { lat, lng },
+                  // Larger transparent hit area for easier label clicks
+                  icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="48"/>
+                    `),
+                    scaledSize: new google.maps.Size(120, 48),
+                    anchor: new google.maps.Point(60, 24)
+                  },
+                  label: {
+                    text: wrappedText,
+                    color: '#FF69B4',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                  },
+                  clickable: true,
+                  zIndex: 1001
                 },
-                // Label with wrapped text (newlines in label text)
-                label: {
-                  text: wrappedText,
-                  color: '#FF69B4',
-                  fontSize: '12px',
-                  fontWeight: '500'
-                },
-                properties: {
-                  id: settlement.id,
-                  name: settlementName
-                }
+                properties: settlementProps
               })
             } catch (error) {
               console.warn(`Error calculating centroid for settlement ${settlement.id}:`, error)
@@ -1668,6 +2145,7 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
 
     neighboringSettlements.value = neighboringSettlementsData
     neighboringSettlementLabels.value = neighboringLabelsData
+    neighborClickTargets.value = neighboringClickTargetsData
     layerFeatureCounts.value.neighboringSettlements = neighboringSettlementsData.length
 
     const count = neighboringSettlementsData.length
@@ -1695,6 +2173,8 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
 // Debounced function to fetch neighbors on map view changes
 let neighborFetchTimeout: NodeJS.Timeout | null = null
 const fetchNeighborsOnViewChange = () => {
+  if (neighborDialogVisible.value || neighborMapLoading.value) return
+
   // Clear existing timeout
   if (neighborFetchTimeout) {
     clearTimeout(neighborFetchTimeout)
@@ -1903,7 +2383,7 @@ const imageryLayerObjects = ref<Record<string, google.maps.ImageMapType>>({})
 
 const addWmsLayer = async () => {
   const bbox = getSettlementBbox()
-  if (!bbox || !props.settlementId) {
+  if (!bbox || !activeSettlementId.value) {
     console.log('⚠️ No bbox or settlementId available, skipping WMS layer')
     return
   }
@@ -1913,7 +2393,7 @@ const addWmsLayer = async () => {
     
     // Use backend endpoint to get intersecting imagery layers
     const response = await getSettlementImageryLayers({
-      settlementId: props.settlementId,
+      settlementId: activeSettlementId.value,
       bbox
     })
     
@@ -2099,6 +2579,14 @@ const startBlinking = () => {
   }, 10000)
 }
 
+watch(
+  () => props.settlementId,
+  (id) => {
+    activeSettlementId.value = String(id)
+    loadedSettlementIds.value = new Set([String(id)])
+  }
+)
+
 watch(userLocation, (newLocation) => {
   if (newLocation) {
     startBlinking()
@@ -2269,6 +2757,7 @@ const loadMapData = async () => {
     updateLoadingStatus('Setting up map controls...', 90)
     setupMapTypeControl()
     updateLoadingStatus('Map ready!', 100)
+    loadedSettlementIds.value.add(String(props.settlementId))
 
     // Neighboring settlements: one debounced fetch after listeners are attached (see onMounted)
     // Imagery: load in background without blocking
@@ -2367,13 +2856,12 @@ const loadMapData = async () => {
           <Polygon v-for="polygon in polygons.filter(p => p.type !== 'point')" :key="polygon.id" :options="polygon" @click="onPolygonClick(polygon)" />
         </div>
 
-        <!-- Neighboring Settlements (as dotted red polylines) -->
+        <!-- Neighboring Settlements (as dotted pink polylines) -->
         <div>
           <Polyline 
             v-for="neighbor in neighboringSettlements" 
             :key="neighbor.id" 
-            :options="neighbor" 
-            @click="onPointClick(neighbor)" 
+            :options="neighbor.options" 
           />
         </div>
 
@@ -2382,7 +2870,8 @@ const loadMapData = async () => {
           <Marker 
             v-for="label in neighboringSettlementLabels" 
             :key="label.id" 
-            :options="label" 
+            :options="label.options"
+            @click="onNeighborClick(label)"
           />
         </div>
 
@@ -2407,6 +2896,16 @@ const loadMapData = async () => {
       <div v-if="pipedWaterVisible">
         <Polyline v-for="item in other_points.filter(p => p.properties?.featureType === 'piped_water')" :key="item.id" :options="item" @click="onPointClick(item)" />
       </div>
+
+        <!-- Invisible neighbor click targets (above parcels for reliable clicks) -->
+        <div>
+          <Polygon
+            v-for="target in neighborClickTargets"
+            :key="target.id"
+            :options="target.options"
+            @click="onNeighborClick(target)"
+          />
+        </div>
 
         <!-- Keep InfoWindows for backward compatibility but hide them -->
         <InfoWindow v-if="false" @closeclick="closePopup" :options="{ position: gmapCenter }">
@@ -2468,6 +2967,49 @@ const loadMapData = async () => {
           <p>No additional information available for this feature.</p>
         </div>
       </ElDrawer>
+
+      <ElDialog
+        v-model="neighborDialogVisible"
+        :title="selectedNeighbor?.name || 'Neighboring Settlement'"
+        width="480px"
+        append-to-body
+        :close-on-click-modal="false"
+        :z-index="20000"
+        destroy-on-close
+        @closed="onNeighborDialogClosed"
+      >
+        <p style="margin: 0 0 12px; color: #606266; line-height: 1.5;">
+          This is a neighboring settlement. Add its layers to the current map, or open its full details page.
+        </p>
+        <p style="margin: 0 0 12px; font-size: 13px; color: #909399;">
+          {{ loadedSettlementCount }} of {{ MAX_LOADED_SETTLEMENTS }} settlements on map.
+        </p>
+        <p
+          v-if="!canAddMoreSettlements"
+          style="margin: 0; color: var(--el-color-warning); line-height: 1.5; font-size: 13px;"
+        >
+          Maximum reached. Adding more settlements may overload the browser. Use View Settlement Details or refresh the page to start over.
+        </p>
+        <p
+          v-else-if="isSelectedNeighborAlreadyLoaded"
+          style="margin: 0; color: var(--el-color-info); line-height: 1.5; font-size: 13px;"
+        >
+          This settlement is already displayed on the map.
+        </p>
+        <template #footer>
+          <ElButton @click="dismissNeighborDialog">Cancel</ElButton>
+          <ElButton
+            :loading="neighborMapLoading"
+            :disabled="!canAddMoreSettlements || isSelectedNeighborAlreadyLoaded"
+            @click="loadNeighborOnMap"
+          >
+            Add to Map
+          </ElButton>
+          <ElButton type="primary" @click="goToNeighborSettlement">
+            View Settlement Details
+          </ElButton>
+        </template>
+      </ElDialog>
 
       <div id="floating-div">
       <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">

@@ -2296,6 +2296,11 @@ const onLayersLoaded = () => {
   mapLoading.value = false;
 };
 
+const onMapSettlementChange = ({ id }: { id: string; name: string }) => {
+  settlementId.value = id
+  initialMapData.value = null
+};
+
 // Fallback timeout in case layers-loaded event doesn't fire
 const startMapLoadingTimeout = () => {
   setTimeout(() => {
@@ -3597,6 +3602,7 @@ const updateDocumentCategory = async () => {
             :settlementId="settlementId"
             :initial-map-data="initialMapData"
             @layers-loaded="onLayersLoaded"
+            @settlement-change="onMapSettlementChange"
             :class="{ 'map-hidden': mapLoading }"
           />  
         </div>
