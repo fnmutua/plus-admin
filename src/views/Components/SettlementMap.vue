@@ -2681,58 +2681,116 @@ onUnmounted(() => {
   }
 })
  
- const downloadGeo = async () => {
+const sanitizeFileName = (name: string) =>
+  name.replace(/[^a-z0-9_-]/gi, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'settlement'
+
+const addSettlementLayersToZip = (
+  zip: JSZip,
+  settlementId: string,
+  allData: SettlementMapData
+) => {
+  const settlementName = sanitizeFileName(
+    allData.settlement?.features?.[0]?.properties?.name || `settlement_${settlementId}`
+  )
+  const prefix = `${settlementId}_${settlementName}`
+
+  if (allData.settlement?.features?.length) {
+    zip.file(
+      `${prefix}_settlement.geojson`,
+      JSON.stringify({ type: 'FeatureCollection', features: allData.settlement.features }, null, 2)
+    )
+  }
+
+  if (allData.parcel?.features?.length) {
+    zip.file(
+      `${prefix}_parcels.geojson`,
+      JSON.stringify({ type: 'FeatureCollection', features: allData.parcel.features }, null, 2)
+    )
+  }
+
+  if (allData.structure?.features?.length) {
+    zip.file(
+      `${prefix}_structures.geojson`,
+      JSON.stringify({ type: 'FeatureCollection', features: allData.structure.features }, null, 2)
+    )
+  }
+
+  if (allData.road?.features?.length) {
+    zip.file(
+      `${prefix}_roads.geojson`,
+      JSON.stringify({ type: 'FeatureCollection', features: allData.road.features }, null, 2)
+    )
+  }
+
+  const pointModels = [
+    'streetlight', 'crime_hotspot', 'community_project', 'health_facility',
+    'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline',
+    'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone'
+  ]
+
+  pointModels.forEach((model) => {
+    if (allData[model]?.features?.length) {
+      zip.file(
+        `${prefix}_${model}.geojson`,
+        JSON.stringify({ type: 'FeatureCollection', features: allData[model].features }, null, 2)
+      )
+    }
+  })
+}
+
+const downloadLoading = ref(false)
+
+const downloadButtonTitle = computed(() => {
+  const count = loadedSettlementCount.value
+  if (count <= 1) {
+    return `Download ${title.value || 'settlement'} data`
+  }
+  return `Download data for ${count} settlements on map`
+})
+
+const downloadGeo = async () => {
+  const settlementIds = [...loadedSettlementIds.value]
+  if (settlementIds.length === 0) {
+    ElMessage.warning('No settlement data to download')
+    return
+  }
+
   try {
+    downloadLoading.value = true
     const zip = new JSZip()
-    
-    // Fetch all data in one call
-    const allData = await fetchAllSettlementData()
-    if (!allData) {
+    let fetchedCount = 0
+
+    for (const settlementId of settlementIds) {
+      const allData = await fetchSettlementMapDataRaw(settlementId)
+      if (!allData) {
+        console.warn(`Failed to fetch data for settlement ${settlementId}`)
+        continue
+      }
+      addSettlementLayersToZip(zip, settlementId, allData)
+      fetchedCount++
+    }
+
+    if (fetchedCount === 0) {
       throw new Error('Failed to fetch settlement data')
     }
 
-    // Add settlement data
-    if (allData.settlement?.features?.length) {
-      const geojson = { type: 'FeatureCollection', features: allData.settlement.features }
-      zip.file(`settlement_${props.settlementId}_settlement.geojson`, JSON.stringify(geojson, null, 2))
-    }
+    const zipName =
+      fetchedCount === 1
+        ? `${sanitizeFileName(title.value || `settlement_${settlementIds[0]}`)}_layers.zip`
+        : `map_${fetchedCount}_settlements_layers.zip`
 
-    // Add parcel data
-    if (allData.parcel?.features?.length) {
-      const geojson = { type: 'FeatureCollection', features: allData.parcel.features }
-      zip.file(`settlement_${props.settlementId}_parcels.geojson`, JSON.stringify(geojson, null, 2))
-    }
-
-    // Add structure data
-    if (allData.structure?.features?.length) {
-      const geojson = { type: 'FeatureCollection', features: allData.structure.features }
-      zip.file(`settlement_${props.settlementId}_structures.geojson`, JSON.stringify(geojson, null, 2))
-    }
-
-    // Add road data
-    if (allData.road?.features?.length) {
-      const geojson = { type: 'FeatureCollection', features: allData.road.features }
-      zip.file(`settlement_${props.settlementId}_roads.geojson`, JSON.stringify(geojson, null, 2))
-    }
-
-    // Add point features by type
-    const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
-    
-    pointModels.forEach(model => {
-      if (allData[model]?.features?.length) {
-        const geojson = { type: 'FeatureCollection', features: allData[model].features }
-        const fileName = `${title.value}_${model}.geojson`
-        zip.file(fileName, JSON.stringify(geojson, null, 2))
-      }
-    })
-
-    // Generate and download zip
     const content = await zip.generateAsync({ type: 'blob' })
-    saveAs(content, `${title.value}_layers.zip`)
-    ElMessage.success('Download started successfully')
+    saveAs(content, zipName)
+    ElMessage.success(
+      fetchedCount === 1
+        ? 'Download started successfully'
+        : `Download started for ${fetchedCount} settlements`
+    )
   } catch (error) {
     console.error('Error during download:', error)
     ElMessage.error('Failed to generate and download layers')
+  } finally {
+    downloadLoading.value = false
   }
 }
 
@@ -3083,7 +3141,14 @@ const loadMapData = async () => {
       <ElButton circle title="Locate Me" class="geolocate-btn" plain @click="locateMe">
         <Icon icon="mage:location-fill" />
       </ElButton>
-    <ElButton circle title="Download {{ title }} Data" class="download-btn" plain @click="downloadGeo">
+    <ElButton
+      circle
+      :title="downloadButtonTitle"
+      class="download-btn"
+      plain
+      :loading="downloadLoading"
+      @click="downloadGeo"
+    >
       <Icon icon="mdi:download" />
       </ElButton>
     </div>
