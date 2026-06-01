@@ -1602,6 +1602,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'system-settings',
+        name: 'SystemSettings',
+        component: () => import('@/views/settings/SystemSettings.vue'),
+        meta: {
+          title: 'System Settings',
+          icon: 'material-symbols:shield',
+          permissions: ['system_settings:read']
+        }
+      },
+      {
         path: 'climate-settings',
         name: 'ClimateSettings',
         component: () => import('@/views/settings/VulnerabilitySettings.vue'),

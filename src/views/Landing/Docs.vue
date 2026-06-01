@@ -1118,7 +1118,12 @@ const allNavGroups: NavGroup[] = [
 
               <h2>Profile tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsProfileImg}" alt="Settlement Details — Profile tab" />
-              <p>The default tab displays the settlement's full attribute data in collapsible sections. Inline editing is now enabled across profile fields for users with settlement edit permission.</p>
+              <p>The default tab displays the settlement's full attribute data in collapsible sections.</p>
+              <ul>
+                <li>Each section can be collapsed or expanded by clicking its header.</li>
+                <li>If you have permission to edit the settlement, moving the cursor over supported fields reveals an edit icon so you can change values and save in place without opening the full <strong>Edit</strong> form.</li>
+                <li>Dropdown and multi-select lookups are used where configured.</li>
+              </ul>
               <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
                 <tr><td><strong>Administrative Location</strong></td><td>County, Sub-county, Ward, General Location</td></tr>
                 <tr><td><strong>Description</strong></td><td>Name, Type, Population, Area (Ha), Population Density, Number of Households, Average Household Size, Description, General Location</td></tr>
@@ -1128,7 +1133,6 @@ const allNavGroups: NavGroup[] = [
                 <tr><td><strong>Climate Vulnerability</strong></td><td>Climate Region, Soil Type, Land Cover, Altitude Range, Proximity to River, Proximity to Flood Plain, Computed Vulnerability Score, Computed Vulnerability Rating</td></tr>
                 <tr><td><strong>Status &amp; Workflow</strong></td><td>Approval Status, Active, Profiling Status, Qualified Flag, Created By, Created At, Updated At</td></tr>
               </tbody></table>
-              <p>Each section can be collapsed or expanded by clicking its header. Hover any editable field to reveal the edit icon, then save in place. Dropdown and multi-select lookups are used where configured.</p>
               <p>Protected fields remain read-only (for example IDs, geometry presence, population density, approval status, active status, and timestamps). The <strong>Created by</strong> value displays the user name where available.</p>
               <p>Two quick actions are available for editors at the top of the Profile tab: <strong>Estimate population (buildings)</strong> and <strong>Auto-fill climate / vulnerability</strong>. These use the same services as Add Settlement and save values directly to the record.</p>
               <p>A <strong>Download Facts</strong> button generates a PDF report of the settlement profile.</p>

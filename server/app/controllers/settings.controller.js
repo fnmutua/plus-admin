@@ -2,6 +2,29 @@ const db = require('../models')
 const Sequelize = require('sequelize')
 const { Op } = Sequelize
 const { computeSettlementVulnerability } = require('../utils/vulnerability')
+const { invalidateModuleSettingsCache } = require('../utils/moduleSettingsCache')
+
+const SYSTEM_SETTING_PREFIX = 'rate_limit_'
+
+const isSystemSettingModule = (module) =>
+  typeof module === 'string' && module.startsWith(SYSTEM_SETTING_PREFIX)
+
+const userIsRootAdmin = async (req) => {
+  if (!req.userid) return false
+  const user = await db.user.findByPk(req.userid, {
+    include: [{ model: db.role }],
+  })
+  return user?.roles?.some((role) => role.name === 'root_admin') ?? false
+}
+
+const assertRootAdminForSystemSettings = async (req, res) => {
+  if (await userIsRootAdmin(req)) return true
+  res.status(403).send({
+    code: '9999',
+    message: 'Forbidden: root administrator access required for system settings',
+  })
+  return false
+}
 
 /**
  * Get all module settings
@@ -98,19 +121,24 @@ exports.isModuleEnabled = async (module) => {
 exports.updateSetting = async (req, res) => {
   try {
     const { id, module, enabled, description } = req.body
-    
+
     if (!id && !module) {
       return res.status(400).send({
         code: '1001',
         message: 'Either id or module is required'
       })
     }
-    
+
     const whereClause = id ? { id } : { module }
-    
+
     let setting = await db.models.module_settings.findOne({
       where: whereClause
     })
+
+    if (isSystemSettingModule(module) || isSystemSettingModule(setting?.module)) {
+      const allowed = await assertRootAdminForSystemSettings(req, res)
+      if (!allowed) return
+    }
     
     if (!setting) {
       // Create new setting if it doesn't exist
@@ -140,6 +168,8 @@ exports.updateSetting = async (req, res) => {
       
       await setting.update(updateData)
     }
+
+    invalidateModuleSettingsCache(setting.module)
     
     res.status(200).send({
       code: '0000',
@@ -168,6 +198,11 @@ exports.bulkUpdateSettings = async (req, res) => {
         code: '1001',
         message: 'Settings array is required'
       })
+    }
+
+    if (settings.some((setting) => isSystemSettingModule(setting?.module))) {
+      const allowed = await assertRootAdminForSystemSettings(req, res)
+      if (!allowed) return
     }
     
     const results = []
@@ -211,6 +246,8 @@ exports.bulkUpdateSettings = async (req, res) => {
           
           await setting.update(updateData)
         }
+
+        invalidateModuleSettingsCache(module)
         
         results.push({
           module,
@@ -237,6 +274,69 @@ exports.bulkUpdateSettings = async (req, res) => {
       code: '9999',
       message: 'Failed to update settings',
       error: error.message
+    })
+  }
+}
+
+/**
+ * Get system settings (root admin only) — rate limits and other system-wide toggles
+ */
+exports.getSystemSettings = async (req, res) => {
+  try {
+    const settings = await db.models.module_settings.findAll({
+      where: {
+        module: {
+          [Op.like]: `${SYSTEM_SETTING_PREFIX}%`,
+        },
+      },
+      order: [['module', 'ASC']],
+    })
+
+    res.status(200).send({
+      code: '0000',
+      data: settings,
+      message: 'System settings retrieved successfully',
+    })
+  } catch (error) {
+    console.error('Error fetching system settings:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to retrieve system settings',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Bulk update system settings (root admin only)
+ */
+exports.bulkUpdateSystemSettings = async (req, res) => {
+  try {
+    const { settings } = req.body
+
+    if (!Array.isArray(settings) || settings.length === 0) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Settings array is required',
+      })
+    }
+
+    const invalid = settings.filter((setting) => !isSystemSettingModule(setting?.module))
+    if (invalid.length > 0) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Only system settings modules can be updated through this endpoint',
+      })
+    }
+
+    req.body.settings = settings
+    return exports.bulkUpdateSettings(req, res)
+  } catch (error) {
+    console.error('Error bulk updating system settings:', error)
+    res.status(500).send({
+      code: '9999',
+      message: 'Failed to update system settings',
+      error: error.message,
     })
   }
 }

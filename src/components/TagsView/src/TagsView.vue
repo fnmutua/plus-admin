@@ -292,7 +292,7 @@ const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   DroneImagery: 'repo-imagery', DocumentShares: 'repo-shares',
   Media: 'media-overview', Video: 'media-videos', LiveStreams: 'media-live', Articles: 'media-articles',
   systemUsers: 'users-listing', staff: 'users-listing', AdminStaff: 'users-listing', GRM_Staff: 'users-listing', NewAccounts: 'users-activation',
-  Settings: 'settings-sms', ModuleSettings: 'settings-sms', ClimateSettings: 'settings-climate',
+  Settings: 'settings-sms', ModuleSettings: 'settings-sms', SystemSettings: 'settings-system', ClimateSettings: 'settings-climate',
   CommonSettings: 'config-common',
   ProgrammeSettings: 'config-programme', ProjectsProgrammes: 'config-programme', ProgrammeComponents: 'config-programme', ProgrammeImplementation: 'config-programme',
   DashboardSettings: 'config-dashboards-list', DynamicDashboards: 'config-dashboards-list',

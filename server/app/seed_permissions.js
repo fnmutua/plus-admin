@@ -303,6 +303,8 @@ async function seedPermissions() {
       // Settings Module
       { name: 'settings:read', description: 'View module settings' },
       { name: 'settings:update', description: 'Update module settings' },
+      { name: 'system_settings:read', description: 'View system settings (rate limits, security) — root admin only' },
+      { name: 'system_settings:update', description: 'Update system settings — root admin only' },
 
       // Logs Module (root admin only)
       { name: 'logs:read', description: 'View system logs' },
@@ -1230,7 +1232,9 @@ async function seedPermissions() {
     "project_contractor:create",
     "project_contractor:read",
     "project_contractor:update",
-    "project_contractor:delete"
+    "project_contractor:delete",
+    "system_settings:read",
+    "system_settings:update"
   ],
   "super_admin": [
     "activity:create",

@@ -72,6 +72,29 @@ export const bulkUpdateSettings = (settings: Array<{
   })
 }
 
+/**
+ * Get system settings (root admin only)
+ */
+export const getSystemSettings = (): Promise<SettingsResponse> => {
+  return request.get({
+    url: prod + '/api/v1/settings/system'
+  })
+}
+
+/**
+ * Bulk update system settings (root admin only)
+ */
+export const bulkUpdateSystemSettings = (settings: Array<{
+  module: string
+  enabled: boolean
+  description?: string
+}>): Promise<SettingsResponse> => {
+  return request.post({
+    url: prod + '/api/v1/settings/system/bulk-update',
+    data: { settings }
+  })
+}
+
 // Vulnerability weight matrix
 export interface VulnerabilityMatrixRow {
   id: number

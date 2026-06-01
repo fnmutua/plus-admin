@@ -1,6 +1,7 @@
 const controller = require('../controllers/settings.controller')
 const { authJwt } = require('../middleware')
 const { hasPermission } = require('../middleware/permission')
+const { requireRootAdmin } = require('../middleware/requireRootAdmin')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -13,6 +14,17 @@ module.exports = function (app) {
   app.post('/api/v1/settings/get', [authJwt.verifyToken, hasPermission('settings:read')], controller.getSetting)
   app.post('/api/v1/settings/update', [authJwt.verifyToken, hasPermission('settings:update')], controller.updateSetting)
   app.post('/api/v1/settings/bulk-update', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateSettings)
+
+  app.get(
+    '/api/v1/settings/system',
+    [authJwt.verifyToken, requireRootAdmin, hasPermission('system_settings:read')],
+    controller.getSystemSettings
+  )
+  app.post(
+    '/api/v1/settings/system/bulk-update',
+    [authJwt.verifyToken, requireRootAdmin, hasPermission('system_settings:update')],
+    controller.bulkUpdateSystemSettings
+  )
 
   app.get('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:read')], controller.getVulnerabilityMatrix)
   app.post('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityMatrix)
