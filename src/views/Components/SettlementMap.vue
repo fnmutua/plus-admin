@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem, ElTag } from 'element-plus'
+import { ref, reactive, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
+import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer } from 'element-plus'
 import {
-  buildDrawerSections,
+  buildDrawerInlineSections,
+  collectDrawerFieldTypes,
   detectFeatureKind,
   FACILITY_HEADER_ICONS,
   FACILITY_TYPE_LABELS,
@@ -12,16 +13,36 @@ import {
   getDrawerSettlementId,
   getDrawerSubtitle,
   getDrawerTitle,
+  getDrawerUpdateModel,
   getFacilityDetailRouteName,
   normalizeFacilityProperties,
+  prepareDrawerRecordData,
   resolveFeatureType,
-  type DrawerSection,
+  type DrawerInlineSection,
   type FeatureKind,
 } from './settlementMapDrawer'
+import {
+  buildVulnerabilitySelectFallback,
+  canEditDrawerRecord,
+  CLIMATE_VULN_ATTR_FIELDS,
+  coerceDrawerValueForApi,
+  computeAvgHouseholdSize,
+  computePopulationDensity,
+  displayValueAfterSave,
+  getDrawerReadonlyFields,
+  mergeDrawerFieldTypes,
+  settlementSelectFields,
+  type DrawerRecordMeta,
+} from './settlementMapDrawerInline'
+import { inlineSelectOptionsBase } from '@/views/Settlement/settlementInlineEditConfig'
+import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
+import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers, updateOneRecord } from '@/api/settlements'
+import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStoreWithOut } from '@/store/modules/app'
 import { useRouter } from 'vue-router'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
-import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers } from '@/api/settlements'
 import { Icon } from '@iconify/vue'
 import axios from 'axios'
 import { useAppStore } from '@/store/modules/app'
@@ -109,7 +130,33 @@ const emit = defineEmits<{
 }>()
 
 const appStore = useAppStore()
+const appStoreWithOut = useAppStoreWithOut()
+const { wsCache } = useCache()
 const router = useRouter()
+
+const drawerUserInfo = wsCache.get(appStoreWithOut.getUserInfo)
+const drawerIsSuperAdmin = ref(
+  drawerUserInfo?.roles?.some(
+    (role) => role.name === 'super_admin' || role.name === 'root_admin'
+  ) ?? false
+)
+const drawerProcessedRoles = (drawerUserInfo?.roles || []).map((role) => {
+  let field = null
+  let fieldvalue = null
+  if (role.user_roles?.location_level === 'county') {
+    field = 'county_id'
+    fieldvalue = role.user_roles.county_id
+  } else if (role.user_roles?.location_level === 'settlement') {
+    field = 'settlement_id'
+    fieldvalue = role.user_roles.settlement_id
+  }
+  return {
+    field,
+    value: fieldvalue,
+    location_level: role.user_roles?.location_level,
+    roleName: role.name,
+  }
+})
 const activeSettlementId = ref(String(props.settlementId))
 
 const mapRef = ref<any>(null)
@@ -1542,13 +1589,51 @@ const gmapCenter = ref()
 const drawerVisible = ref(false)
 const drawerTitle = ref('')
 const drawerSubtitle = ref('')
-const drawerSections = ref<DrawerSection[]>([])
+const drawerInlineSections = ref<DrawerInlineSection[]>([])
+const drawerRecordData = reactive<Record<string, unknown>>({})
+const drawerRecordMeta = ref<DrawerRecordMeta>({
+  id: null,
+  county_id: null,
+})
 const drawerExpandedSections = ref<string[]>([])
 const drawerFeatureKind = ref<FeatureKind>('generic')
 const drawerFeatureType = ref('')
 const drawerSettlementId = ref<string | null>(null)
 const drawerFacilityId = ref<string | null>(null)
 const drawerFacilityRoute = ref<string | null>(null)
+const drawerInlineSavingField = ref<string | null>(null)
+const drawerVulnerabilitySelectOptions = ref(buildVulnerabilitySelectFallback())
+const drawerSelectOptions = ref<Record<string, Array<{ label: string; value: string | number | boolean }>>>({})
+
+const drawerFieldTypes = computed(() =>
+  mergeDrawerFieldTypes(
+    drawerFeatureKind.value,
+    drawerFeatureType.value,
+    collectDrawerFieldTypes(drawerFeatureKind.value, drawerFeatureType.value)
+  )
+)
+
+const syncDrawerSelectOptions = (kind: FeatureKind) => {
+  if (kind === 'settlement') {
+    drawerSelectOptions.value = {
+      ...inlineSelectOptionsBase,
+      ...drawerVulnerabilitySelectOptions.value,
+    }
+  } else {
+    drawerSelectOptions.value = {}
+  }
+}
+
+const canEditDrawerInline = computed(() =>
+  canEditDrawerRecord(drawerFeatureKind.value, drawerFeatureType.value, drawerRecordMeta.value, {
+    isSuperAdmin: drawerIsSuperAdmin.value,
+    permissions: drawerUserInfo?.permissions || [],
+    processedRoles: drawerProcessedRoles,
+  })
+)
+
+const getDrawerSectionReadonlyFields = (sectionTitle: string) =>
+  getDrawerReadonlyFields(drawerFeatureKind.value, sectionTitle)
 
 const drawerFeatureKindLabel = computed(() => {
   if (drawerFeatureKind.value === 'facility' && drawerFeatureType.value) {
@@ -1580,11 +1665,30 @@ const drawerHeaderIcon = computed(() => {
   return icons[drawerFeatureKind.value] || 'mdi:information-outline'
 })
 
-const drawerHeaderClass = computed(() => {
-  if (drawerFeatureKind.value === 'facility' && drawerFeatureType.value) {
-    return `drawer-header--${drawerFeatureType.value}`
+const isDrawerHeaderEmpty = (value: unknown) =>
+  value == null || value === '' || value === '\u2014'
+
+const drawerHeaderTypeLabel = computed(() => {
+  if (drawerFeatureKind.value === 'settlement') {
+    if (!isDrawerHeaderEmpty(drawerRecordData.settlement_type)) {
+      return String(drawerRecordData.settlement_type)
+    }
+    return 'Settlement'
   }
-  return `drawer-header--${drawerFeatureKind.value}`
+
+  return drawerFeatureKindLabel.value
+})
+
+const drawerHeaderCode = computed(() => {
+  if (!isDrawerHeaderEmpty(drawerRecordData.code)) {
+    return String(drawerRecordData.code)
+  }
+
+  if (drawerFeatureKind.value === 'parcel' && !isDrawerHeaderEmpty(drawerRecordData.parcel_no)) {
+    return String(drawerRecordData.parcel_no)
+  }
+
+  return ''
 })
 
 const resolveMapFeature = (feature: { id?: string; properties?: Record<string, unknown> }) => {
@@ -1623,11 +1727,27 @@ const openFeatureDrawer = (
 
   drawerFeatureKind.value = kind
   drawerFeatureType.value = featureType
+  syncDrawerSelectOptions(kind)
   drawerTitle.value = getDrawerTitle(properties, kind, featureType, normalizedProperties)
   drawerSubtitle.value = getDrawerSubtitle(properties, kind, featureType)
-  drawerSections.value = buildDrawerSections(properties, kind, featureType)
-  drawerExpandedSections.value = drawerSections.value.length > 0
-    ? [drawerSections.value[0].title]
+  drawerInlineSections.value = buildDrawerInlineSections(properties, kind, featureType)
+  Object.keys(drawerRecordData).forEach((key) => delete drawerRecordData[key])
+  Object.assign(
+    drawerRecordData,
+    prepareDrawerRecordData(normalizedProperties, kind, featureType)
+  )
+  drawerRecordMeta.value = {
+    id: normalizedProperties.id ?? resolvedFeature.properties?.id ?? null,
+    county_id:
+      normalizedProperties.county_id != null
+        ? Number(normalizedProperties.county_id)
+        : resolvedFeature.properties?.county_id != null
+          ? Number(resolvedFeature.properties.county_id)
+          : null,
+    featureId: resolvedFeature.id,
+  }
+  drawerExpandedSections.value = drawerInlineSections.value.length > 0
+    ? [drawerInlineSections.value[0].title]
     : []
   drawerSettlementId.value = getDrawerSettlementId(properties, kind)
   drawerFacilityId.value = kind === 'facility' ? getDrawerFacilityId(properties, featureType) : null
@@ -1659,7 +1779,9 @@ const closePopup = () => {
 
 const closeDrawer = () => {
   drawerVisible.value = false
-  drawerSections.value = []
+  drawerInlineSections.value = []
+  Object.keys(drawerRecordData).forEach((key) => delete drawerRecordData[key])
+  drawerRecordMeta.value = { id: null, county_id: null }
   drawerExpandedSections.value = []
   drawerTitle.value = ''
   drawerSubtitle.value = ''
@@ -1668,8 +1790,204 @@ const closeDrawer = () => {
   drawerSettlementId.value = null
   drawerFacilityId.value = null
   drawerFacilityRoute.value = null
+  drawerInlineSavingField.value = null
+  drawerSelectOptions.value = {}
   selectedFeature.value = null
   selectedNeighbor.value = null
+}
+
+const syncMapFeatureProperty = (field: string, value: unknown) => {
+  const featureId = drawerRecordMeta.value.featureId
+  if (!featureId) return
+
+  const collections = [
+    other_points,
+    roads,
+    parcels,
+    polygons,
+    schools,
+    water_points,
+    structures,
+  ]
+
+  for (const collection of collections) {
+    const item = collection.value.find((entry) => entry.id === featureId)
+    if (item?.properties) {
+      item.properties[field] = value
+    }
+  }
+
+  if (selectedFeature.value?.properties) {
+    selectedFeature.value.properties[field] = value
+  }
+}
+
+const refreshDrawerPresentation = () => {
+  const properties = filterFeatureProperties({ ...drawerRecordData })
+  drawerTitle.value = getDrawerTitle(
+    properties,
+    drawerFeatureKind.value,
+    drawerFeatureType.value,
+    properties
+  )
+  drawerSubtitle.value = getDrawerSubtitle(
+    properties,
+    drawerFeatureKind.value,
+    drawerFeatureType.value
+  )
+}
+
+async function persistDrawerVulnerabilityScoreIfComplete() {
+  if (drawerFeatureKind.value !== 'settlement') return
+
+  const vals = CLIMATE_VULN_ATTR_FIELDS.map((key) => drawerRecordData[key])
+  const hasAll = vals.every((value) => value != null && String(value).trim() && value !== '\u2014')
+  if (!hasAll) return
+
+  try {
+    const res = await computeVulnerabilityScore({
+      climate_region: drawerRecordData.climate_region,
+      soil_type: drawerRecordData.soil_type,
+      land_cover: drawerRecordData.land_cover,
+      altitude_range: drawerRecordData.altitude_range,
+      proximity_to_river: drawerRecordData.proximity_to_river,
+      proximity_to_flood_plain: drawerRecordData.proximity_to_flood_plain,
+    })
+    if (String(res?.code) !== '0000') return
+
+    const total = res.data?.total_score ?? null
+    const rating = res.data?.rating ?? null
+    const scoreRes = await updateOneRecord(
+      {
+        model: 'settlement',
+        id: Number(drawerRecordMeta.value.id),
+        vulnerability_total_score: total,
+        vulnerability_rating: rating,
+      } as any,
+      { silent: true }
+    )
+    const scoreCode = scoreRes?.code ?? scoreRes?.data?.code
+    if (scoreCode && String(scoreCode) !== '0000') return
+
+    drawerRecordData.vulnerability_total_score_display =
+      total != null ? String(total) : '\u2014'
+    drawerRecordData.vulnerability_rating = rating || '\u2014'
+    syncMapFeatureProperty('vulnerability_total_score', total)
+    syncMapFeatureProperty('vulnerability_rating', rating)
+  } catch {
+    // non-fatal: attributes still saved
+  }
+}
+
+async function saveDrawerInline(payload: { field: string; value: unknown }) {
+  const { field, value } = payload
+  const model = getDrawerUpdateModel(drawerFeatureKind.value, drawerFeatureType.value)
+
+  if (!model || drawerRecordMeta.value.id == null) {
+    ElMessage.warning('This feature cannot be edited from the map.')
+    return
+  }
+
+  if (!canEditDrawerInline.value) {
+    ElMessage.warning('You do not have permission to edit this feature.')
+    return
+  }
+
+  try {
+    drawerInlineSavingField.value = field
+    const kind = drawerFeatureKind.value
+    const apiValue = coerceDrawerValueForApi(kind, field, value)
+    const updatePayload: Record<string, unknown> = {
+      model,
+      id: Number(drawerRecordMeta.value.id),
+      [field]: apiValue,
+    }
+
+    let computedDensity: number | null = null
+    if (kind === 'settlement' && (field === 'population' || field === 'area')) {
+      const nextPopulation = field === 'population' ? apiValue : drawerRecordData.population
+      const nextArea = field === 'area' ? apiValue : drawerRecordData.area
+      computedDensity = computePopulationDensity(nextPopulation, nextArea)
+      updatePayload.pop_density = computedDensity
+    }
+
+    let computedAvgHhSize: number | null = null
+    let recomputeAvgHhSize = false
+    if (kind === 'settlement' && (field === 'population' || field === 'num_households')) {
+      recomputeAvgHhSize = true
+      const nextPopulation = field === 'population' ? apiValue : drawerRecordData.population
+      const nextNumHouseholds =
+        field === 'num_households' ? apiValue : drawerRecordData.num_households
+      computedAvgHhSize = computeAvgHouseholdSize(nextPopulation, nextNumHouseholds)
+      updatePayload.avg_household_size = computedAvgHhSize
+    }
+
+    const res = await updateOneRecord(updatePayload as any, { silent: true })
+    const responseCode = res?.code ?? res?.data?.code
+    if (responseCode && String(responseCode) !== '0000') {
+      throw new Error(res?.message || res?.data?.message || 'Update failed')
+    }
+
+    const displayVal = displayValueAfterSave(field, apiValue, kind)
+    drawerRecordData[field] = displayVal
+    syncMapFeatureProperty(field, apiValue)
+
+    if (kind === 'settlement' && (field === 'population' || field === 'area')) {
+      drawerRecordData.pop_density =
+        computedDensity === null ? '\u2014' : String(computedDensity)
+      syncMapFeatureProperty('pop_density', computedDensity)
+    }
+
+    if (recomputeAvgHhSize) {
+      drawerRecordData.avg_household_size =
+        computedAvgHhSize === null ? '\u2014' : String(computedAvgHhSize)
+      syncMapFeatureProperty('avg_household_size', computedAvgHhSize)
+    }
+
+    if (
+      kind === 'settlement' &&
+      (CLIMATE_VULN_ATTR_FIELDS as readonly string[]).includes(field)
+    ) {
+      await persistDrawerVulnerabilityScoreIfComplete()
+    }
+
+    refreshDrawerPresentation()
+    ElMessage.success('Saved')
+  } catch (err) {
+    const msg = err?.response?.data?.message || err?.message || 'Save failed'
+    ElMessage.error(msg)
+  } finally {
+    drawerInlineSavingField.value = null
+  }
+}
+
+async function loadDrawerVulnerabilitySelectOptions() {
+  const fallback = buildVulnerabilitySelectFallback()
+  try {
+    const res = await getVulnerabilityMatrix()
+    if (res.code === '0000' && res.data?.length) {
+      const grouped: Record<string, { label: string; value: string }[]> = {}
+      for (const row of res.data) {
+        const attributeType = row.attribute_type
+        if (!grouped[attributeType]) grouped[attributeType] = []
+        grouped[attributeType].push({
+          label: row.attribute_value,
+          value: row.attribute_value,
+        })
+      }
+      drawerVulnerabilitySelectOptions.value = { ...fallback, ...grouped }
+    } else {
+      drawerVulnerabilitySelectOptions.value = fallback
+    }
+    if (drawerFeatureKind.value === 'settlement') {
+      syncDrawerSelectOptions('settlement')
+    }
+  } catch {
+    drawerVulnerabilitySelectOptions.value = fallback
+    if (drawerFeatureKind.value === 'settlement') {
+      syncDrawerSelectOptions('settlement')
+    }
+  }
 }
 
 const goToDrawerSettlement = () => {
@@ -1812,15 +2130,7 @@ const drawerSize = computed(() => {
   return '40%'
 })
 
-// Responsive descriptions column count
-const descriptionsColumn = computed(() => {
-  return 1 // Always 1 column for better mobile readability
-})
-
-// Responsive label min width
-const labelMinWidth = computed(() => {
-  return windowWidth.value < 768 ? '100px' : '120px'
-})
+const descriptionsColumn = computed(() => (windowWidth.value < 768 ? 1 : 2))
 
 const parcelsVisible = ref(true)
 const toggleParcels = (visible: boolean) => {
@@ -2641,6 +2951,8 @@ watch(userLocation, (newLocation) => {
 })
 
 onMounted(async () => {
+  loadDrawerVulnerabilitySelectOptions()
+
   // Setup window resize listener for responsive drawer
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', updateWindowWidth)
@@ -3066,14 +3378,18 @@ const loadMapData = async () => {
         class="feature-drawer"
       >
         <template #header>
-          <div class="drawer-header" :class="drawerHeaderClass">
+          <div class="drawer-header">
             <div class="drawer-header-icon">
               <Icon :icon="drawerHeaderIcon" />
             </div>
-            <div class="drawer-header-content">
-              <span class="drawer-header-badge">{{ drawerFeatureKindLabel }}</span>
-              <h2 class="drawer-header-title">{{ drawerTitle }}</h2>
-              <p v-if="drawerSubtitle" class="drawer-header-subtitle">{{ drawerSubtitle }}</p>
+            <div class="drawer-header-line">
+              <span class="drawer-header-name" :title="drawerTitle">{{ drawerTitle }}</span>
+              <span v-if="drawerHeaderTypeLabel" class="drawer-header-chip drawer-header-chip--type">
+                {{ drawerHeaderTypeLabel }}
+              </span>
+              <span v-if="drawerHeaderCode" class="drawer-header-chip drawer-header-chip--code">
+                {{ drawerHeaderCode }}
+              </span>
             </div>
           </div>
         </template>
@@ -3091,40 +3407,34 @@ const loadMapData = async () => {
           </p>
         </div>
 
-        <div v-if="drawerSections.length > 0" class="drawer-content">
+        <div v-if="drawerInlineSections.length > 0" class="drawer-content">
           <ElCollapse v-model="drawerExpandedSections" class="drawer-sections-collapse">
             <ElCollapseItem
-              v-for="section in drawerSections"
+              v-for="section in drawerInlineSections"
               :key="section.title"
               :name="section.title"
             >
               <template #title>
                 <span class="drawer-section-title">{{ section.title }}</span>
               </template>
-              <ElDescriptions :column="descriptionsColumn" border class="feature-descriptions">
-                <ElDescriptionsItem
-                  v-for="item in section.items"
-                  :key="item.key"
-                  :label="item.label"
-                  :span="item.valueType === 'longtext' ? 2 : 1"
-                  :label-style="{ fontWeight: 'bold', minWidth: labelMinWidth }"
-                >
-                  <ElTag
-                    v-if="item.valueType === 'boolean'"
-                    :type="item.rawValue ? 'success' : 'danger'"
-                    size="small"
-                  >
-                    {{ item.displayValue }}
-                  </ElTag>
-                  <span
-                    v-else
-                    class="drawer-value"
-                    :class="{ 'drawer-value-long': item.valueType === 'longtext' }"
-                  >
-                    {{ item.displayValue }}
-                  </span>
-                </ElDescriptionsItem>
-              </ElDescriptions>
+              <InlineEditableDescriptions
+                :data="drawerRecordData"
+                :schema="section.schema"
+                :column="descriptionsColumn"
+                table-class="feature-descriptions"
+                :boolean-tags="true"
+                :editable="canEditDrawerInline"
+                :readonly-fields="getDrawerSectionReadonlyFields(section.title)"
+                :textarea-fields="drawerFieldTypes.textareaFields"
+                :clamp-fields="drawerFieldTypes.textareaFields"
+                :number-fields="drawerFieldTypes.numberFields"
+                :boolean-fields="drawerFieldTypes.booleanFields"
+                :select-options="drawerSelectOptions"
+                :select-fields="drawerFeatureKind === 'settlement' ? settlementSelectFields : []"
+                :multiselect-fields="drawerFieldTypes.multiselectFields"
+                :saving-field="drawerInlineSavingField"
+                @save="saveDrawerInline"
+              />
             </ElCollapseItem>
           </ElCollapse>
         </div>
@@ -3540,7 +3850,7 @@ const loadMapData = async () => {
 }
 
 .feature-drawer :deep(.el-drawer__body) {
-  padding-top: 18px;
+  padding-top: 12px;
 }
 
 .feature-drawer :deep(.el-drawer__header) {
@@ -3552,175 +3862,88 @@ const loadMapData = async () => {
 
 .feature-drawer :deep(.el-drawer__close-btn) {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 10px;
+  right: 10px;
   z-index: 2;
-  width: 34px;
-  height: 34px;
-  color: #fff;
-  font-size: 18px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.16);
-  transition: background 0.2s ease;
+  width: 28px;
+  height: 28px;
+  color: var(--el-text-color-regular);
+  font-size: 16px;
+  border-radius: 6px;
+  background: transparent;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .feature-drawer :deep(.el-drawer__close-btn:hover) {
-  background: rgba(255, 255, 255, 0.28);
-  color: #fff;
+  background: var(--el-fill-color-light);
+  color: var(--el-color-primary);
 }
 
 .drawer-header {
-  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 22px 56px 22px 22px;
-  overflow: hidden;
-  color: #fff;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
-  box-shadow: 0 4px 14px rgba(64, 158, 255, 0.22);
-}
-
-.drawer-header::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 5px;
-  background: rgba(255, 255, 255, 0.45);
-}
-
-.drawer-header::after {
-  content: '';
-  position: absolute;
-  right: -30px;
-  top: -30px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  pointer-events: none;
-}
-
-.drawer-header--parcel {
-  background: linear-gradient(135deg, #6b4fbb 0%, #9b7fe8 100%);
-  box-shadow: 0 4px 14px rgba(107, 79, 187, 0.22);
-}
-
-.drawer-header--facility,
-.drawer-header--generic {
-  background: linear-gradient(135deg, #0f9b8e 0%, #3ecfc4 100%);
-  box-shadow: 0 4px 14px rgba(15, 155, 142, 0.22);
-}
-
-.drawer-header--education_facility {
-  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.22);
-}
-
-.drawer-header--health_facility {
-  background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.22);
-}
-
-.drawer-header--water_point {
-  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.22);
-}
-
-.drawer-header--road {
-  background: linear-gradient(135deg, #92400e 0%, #d97706 100%);
-  box-shadow: 0 4px 14px rgba(146, 64, 14, 0.22);
-}
-
-.drawer-header--sewer,
-.drawer-header--piped_water {
-  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
-  box-shadow: 0 4px 14px rgba(71, 85, 105, 0.22);
-}
-
-.drawer-header--powerline {
-  background: linear-gradient(135deg, #ca8a04 0%, #facc15 100%);
-  box-shadow: 0 4px 14px rgba(202, 138, 4, 0.22);
-}
-
-.drawer-header--crime_hotspot,
-.drawer-header--police_station {
-  background: linear-gradient(135deg, #7c2d12 0%, #ea580c 100%);
-  box-shadow: 0 4px 14px rgba(124, 45, 18, 0.22);
-}
-
-.drawer-header--hazard_zone,
-.drawer-header--dumping_site {
-  background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
-  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.22);
-}
-
-.drawer-header--settlement {
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
-  box-shadow: 0 4px 14px rgba(64, 158, 255, 0.22);
-}
-
-.drawer-header--neighbor {
-  background: linear-gradient(135deg, #d63384 0%, #ff69b4 100%);
-  box-shadow: 0 4px 14px rgba(214, 51, 132, 0.22);
+  padding: 8px 36px 8px 12px;
+  background: transparent;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .drawer-header-icon {
-  position: relative;
-  z-index: 1;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  font-size: 28px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 14px;
-  backdrop-filter: blur(4px);
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-radius: 8px;
 }
 
-.drawer-header-content {
-  position: relative;
-  z-index: 1;
+.drawer-header-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 
-.drawer-header-badge {
-  display: inline-block;
-  margin-bottom: 8px;
-  padding: 3px 10px;
+.drawer-header-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.drawer-header-chip {
+  flex-shrink: 0;
+  padding: 2px 8px;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  font-weight: 600;
+  line-height: 1.4;
   border-radius: 999px;
+  white-space: nowrap;
 }
 
-.drawer-header-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: #fff;
-  word-break: break-word;
+.drawer-header-chip--type {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-7);
 }
 
-.drawer-header-subtitle {
-  margin: 8px 0 0;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.88);
-  word-break: break-word;
+.drawer-header-chip--code {
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .drawer-sections-collapse {
@@ -3830,29 +4053,41 @@ const loadMapData = async () => {
   max-height: calc(100vh - 60px);
 }
 
-.feature-descriptions {
+.drawer-content .feature-descriptions {
   width: 100%;
 }
 
-.feature-descriptions :deep(.el-descriptions__label) {
+.drawer-content .feature-descriptions :deep(.el-descriptions__label) {
   font-size: 14px;
+  font-weight: bold;
+  min-width: 120px;
   word-break: break-word;
+  color: var(--el-text-color-primary);
 }
 
-.feature-descriptions :deep(.el-descriptions__content) {
+.drawer-content .feature-descriptions :deep(.el-descriptions__content) {
   font-size: 14px;
-  word-break: break-word;
-}
-
-.drawer-value {
   word-break: break-word;
   overflow-wrap: break-word;
 }
 
-.drawer-value-long {
-  display: block;
-  white-space: pre-wrap;
+.drawer-content .feature-descriptions :deep(.el-descriptions__cell) {
+  vertical-align: top;
+}
+
+.drawer-content .feature-descriptions :deep(.inline-cell__text) {
   line-height: 1.5;
+}
+
+.drawer-content .feature-descriptions :deep(.inline-cell__text--clamped) {
+  white-space: pre-wrap;
+}
+
+.drawer-content .feature-descriptions :deep(.inline-cell__input),
+.drawer-content .feature-descriptions :deep(.inline-cell__input-num),
+.drawer-content .feature-descriptions :deep(.inline-cell__input.el-select) {
+  width: 100%;
+  min-width: 140px;
 }
 
 .dark .feature-drawer :deep(.el-drawer__close-btn) {
@@ -3894,23 +4129,23 @@ const loadMapData = async () => {
     padding: 15px;
   }
 
-  .feature-descriptions :deep(.el-descriptions__label) {
+  .drawer-content .feature-descriptions :deep(.el-descriptions__label) {
     font-size: 13px;
     min-width: 100px !important;
     padding: 8px 10px;
   }
 
-  .feature-descriptions :deep(.el-descriptions__content) {
+  .drawer-content .feature-descriptions :deep(.el-descriptions__content) {
     font-size: 13px;
     padding: 8px 10px;
   }
 
-  .feature-descriptions :deep(.el-descriptions__table) {
+  .drawer-content .feature-descriptions :deep(.el-descriptions__table) {
     font-size: 13px;
   }
 
-  .feature-descriptions :deep(.el-descriptions__table th),
-  .feature-descriptions :deep(.el-descriptions__table td) {
+  .drawer-content .feature-descriptions :deep(.el-descriptions__table th),
+  .drawer-content .feature-descriptions :deep(.el-descriptions__table td) {
     padding: 8px 10px;
   }
 
@@ -3930,39 +4165,48 @@ const loadMapData = async () => {
     padding: 20px;
   }
 
-  .feature-descriptions :deep(.el-descriptions__label) {
+  .drawer-content .feature-descriptions :deep(.el-descriptions__label) {
     font-size: 14px;
   }
 
-  .feature-descriptions :deep(.el-descriptions__content) {
+  .drawer-content .feature-descriptions :deep(.el-descriptions__content) {
     font-size: 14px;
   }
+}
+
+.dark .drawer-content .feature-descriptions :deep(.el-descriptions__label) {
+  color: var(--el-text-color-primary);
 }
 
 /* Ensure drawer is touch-friendly on mobile */
 @media (max-width: 768px) {
   .drawer-header {
-    padding: 18px 50px 18px 18px;
-    gap: 12px;
+    padding: 8px 34px 8px 0;
+    gap: 8px;
   }
 
   .drawer-header-icon {
-    width: 44px;
-    height: 44px;
-    font-size: 24px;
-    border-radius: 12px;
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    border-radius: 6px;
   }
 
-  .drawer-header-title {
-    font-size: 18px;
+  .drawer-header-name {
+    font-size: 14px;
+  }
+
+  .drawer-header-chip {
+    font-size: 10px;
+    padding: 1px 6px;
   }
 
   .feature-drawer :deep(.el-drawer__close-btn) {
-    top: 14px;
-    right: 14px;
-    width: 32px;
-    height: 32px;
-    font-size: 16px;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
   }
 }
 

@@ -1,0 +1,223 @@
+import type { FeatureKind } from './settlementMapDrawer'
+import { settlementDetailsMutationAccessForRole, type ProcessedSettlementRole } from '@/utils/roleScope'
+import {
+  buildVulnerabilitySelectFallback,
+  CLIMATE_VULN_ATTR_FIELDS,
+  coerceSettlementValueForApi,
+  formatBoolLabel,
+  inlineMultiselectFields,
+  inlineNumberFields,
+  inlineSelectOptionsBase,
+  inlineTextareaFields,
+  settlementBooleanFields,
+  settlementSelectFields,
+  VULNERABILITY_FALLBACK,
+} from '@/views/Settlement/settlementInlineEditConfig'
+
+export { settlementSelectFields }
+
+export type DrawerRecordMeta = {
+  id: string | number | null
+  county_id: number | null
+  featureId?: string
+}
+
+export { CLIMATE_VULN_ATTR_FIELDS, buildVulnerabilitySelectFallback, VULNERABILITY_FALLBACK }
+
+export const SETTLEMENT_INLINE_SELECT_OPTIONS = inlineSelectOptionsBase
+
+const READONLY_BY_SECTION: Record<string, Record<string, string[]>> = {
+  settlement: {
+    Location: ['county', 'subcounty', 'ward'],
+    Summary: ['id', 'code', 'pop_density', 'area', 'avg_household_size', 'geom_label'],
+    Vulnerability: ['vulnerability_total_score_display', 'vulnerability_rating'],
+    Status: ['isApproved', 'isActive', 'createdBy', 'createdAt', 'updatedAt'],
+  },
+  facility: {
+    Location: ['county_name', 'settlement_name', 'settlement_code'],
+    Status: ['isApproved'],
+    General: ['id'],
+  },
+  parcel: {
+    Parcel: ['id', 'landuse_id'],
+  },
+}
+
+const DRAWER_GLOBAL_READONLY = ['id', 'code']
+
+const FACILITY_GLOBAL_READONLY = [
+  ...DRAWER_GLOBAL_READONLY,
+  'isApproved',
+  'county_name',
+  'settlement_name',
+  'settlement_code',
+]
+
+export function getDrawerReadonlyFields(
+  kind: FeatureKind,
+  sectionTitle: string
+): string[] {
+  const sectionReadonly = READONLY_BY_SECTION[kind]?.[sectionTitle] || []
+  if (kind === 'facility') {
+    return [...new Set([...sectionReadonly, ...FACILITY_GLOBAL_READONLY])]
+  }
+  if (kind === 'settlement' || kind === 'parcel' || kind === 'generic') {
+    return [...new Set([...sectionReadonly, ...DRAWER_GLOBAL_READONLY])]
+  }
+  return sectionReadonly
+}
+
+export function mergeDrawerFieldTypes(
+  kind: FeatureKind,
+  featureType: string | undefined,
+  collected: { numberFields: string[]; booleanFields: string[]; textareaFields: string[] }
+): {
+  numberFields: string[]
+  booleanFields: string[]
+  textareaFields: string[]
+  multiselectFields: string[]
+} {
+  if (kind === 'settlement') {
+    const selectFieldSet = new Set<string>(settlementSelectFields)
+    const multiselectSet = new Set(inlineMultiselectFields)
+    const booleanFieldSet = new Set(settlementBooleanFields)
+    const isSelectField = (field: string) => selectFieldSet.has(field)
+
+    return {
+      numberFields: [
+        ...new Set([
+          ...collected.numberFields,
+          ...inlineNumberFields,
+        ]),
+      ].filter((field) => !isSelectField(field)),
+      booleanFields: [
+        ...new Set([...collected.booleanFields, ...settlementBooleanFields]),
+      ].filter((field) => !isSelectField(field)),
+      textareaFields: [
+        ...new Set([
+          ...collected.textareaFields.filter((field) => !multiselectSet.has(field)),
+          ...inlineTextareaFields,
+        ]),
+      ].filter((field) => !isSelectField(field)),
+      multiselectFields: inlineMultiselectFields,
+    }
+  }
+
+  return {
+    ...collected,
+    multiselectFields: [],
+  }
+}
+
+export function hasFacilityUpdatePermission(
+  featureType: string,
+  permissions: string[] = []
+): boolean {
+  if (permissions.includes('*.*.*')) return true
+  return permissions.includes(`${featureType}:update`)
+}
+
+export function canEditDrawerRecord(
+  kind: FeatureKind,
+  featureType: string,
+  meta: DrawerRecordMeta,
+  options: {
+    isSuperAdmin: boolean
+    permissions: string[]
+    processedRoles: ProcessedSettlementRole[]
+  }
+): boolean {
+  if (kind === 'neighbor' || kind === 'generic') return false
+  if (kind === 'parcel') return false
+
+  if (kind === 'settlement') {
+    if (options.isSuperAdmin) return true
+    const settlement = { id: meta.id, county_id: meta.county_id }
+    return options.processedRoles.some((role) =>
+      settlementDetailsMutationAccessForRole(settlement, role)
+    )
+  }
+
+  if (kind === 'facility' && featureType) {
+    return hasFacilityUpdatePermission(featureType, options.permissions)
+  }
+
+  return false
+}
+
+const SETTLEMENT_BOOLEAN_FIELD_SET = new Set(settlementBooleanFields)
+
+export function coerceDrawerValueForApi(
+  kind: FeatureKind,
+  field: string,
+  value: unknown
+): unknown {
+  if (kind === 'settlement') {
+    return coerceSettlementValueForApi(field, value)
+  }
+
+  if (typeof value === 'boolean') return value
+  if (value === 'Yes' || value === 'true' || value === 1 || value === '1') return true
+  if (value === 'No' || value === 'false' || value === 0 || value === '0') return false
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+  const num = Number(String(value).replace(/,/g, '').trim())
+  const looksNumeric =
+    field.endsWith('_count') ||
+    field.includes('distance') ||
+    field.includes('length') ||
+    field.includes('size') ||
+    field.includes('fees') ||
+    field.includes('beds') ||
+    field.includes('visits') ||
+    field.includes('referral') ||
+    field === 'area' ||
+    field === 'area_ha' ||
+    field === 'population' ||
+    field === 'num_households'
+  if (Number.isFinite(num) && looksNumeric) {
+    return num
+  }
+
+  if (value === '\u2014') return null
+  if (value === '') return null
+  return value
+}
+
+export function parseNumberish(value: unknown): number | null {
+  if (value === null || value === undefined || value === '' || value === '\u2014') return null
+  const n =
+    typeof value === 'number'
+      ? value
+      : Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(n) ? n : null
+}
+
+export function computePopulationDensity(population: unknown, areaHa: unknown): number | null {
+  const pop = parseNumberish(population)
+  const area = parseNumberish(areaHa)
+  if (pop === null || area === null || area <= 0) return null
+  const areaSqKm = area / 100
+  const density = pop / areaSqKm
+  return Number.isFinite(density) ? Math.round(density) : null
+}
+
+export function computeAvgHouseholdSize(
+  population: unknown,
+  numHouseholds: unknown
+): number | null {
+  const pop = parseNumberish(population)
+  const hh = parseNumberish(numHouseholds)
+  if (pop === null || hh === null || hh <= 0) return null
+  const size = pop / hh
+  return Number.isFinite(size) ? Math.round(size * 10) / 10 : null
+}
+
+export function displayValueAfterSave(field: string, apiValue: unknown, kind: FeatureKind): unknown {
+  if (kind === 'settlement' && SETTLEMENT_BOOLEAN_FIELD_SET.has(field)) {
+    return formatBoolLabel(apiValue)
+  }
+  if (apiValue === null || apiValue === undefined || apiValue === '') return '\u2014'
+  return apiValue
+}

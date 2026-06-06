@@ -33,6 +33,23 @@ import {
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import { listAssessments } from '@/api/climate-assessment'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
+import {
+  buildVulnerabilitySelectFallback,
+  CLIMATE_VULN_ATTR_FIELDS,
+  coerceSettlementValueForApi,
+  formatBoolLabel,
+  inlineMultiselectFields,
+  inlineNumberFields,
+  inlineProfileBooleanFields,
+  inlineSelectOptionsBase,
+  inlineTextareaFields,
+  inlineUtilitiesBooleanFields,
+  readonlyInlineLocation,
+  readonlyInlineSummary,
+  readonlyInlineStatus,
+  readonlyInlineVulnerability,
+  settlementBooleanFields,
+} from '@/views/Settlement/settlementInlineEditConfig'
 
 
 import { ElCollapseTransition, ElTooltip } from 'element-plus'
@@ -162,13 +179,6 @@ const formatDateDisplay = (v: any) => {
   const d = v instanceof Date ? v : new Date(v)
   if (Number.isNaN(d.getTime())) return String(v)
   return d.toLocaleString()
-}
-
-const formatBoolLabel = (v: any) => {
-  if (v === true || v === 'true' || v === 1 || v === '1') return 'Yes'
-  if (v === false || v === 'false' || v === 0 || v === '0') return 'No'
-  if (v === null || v === undefined || v === '') return '—'
-  return String(v)
 }
 
 const profile = reactive({
@@ -1108,83 +1118,6 @@ const collapsedSections = reactive({
   status: false
 })
 
-/** Inline edit: field types for settlement profile / utilities / vulnerability */
-const inlineTextareaFields = [
-  'description',
-  'main_env_hazards',
-  'general_location'
-]
-const inlineNumberFields = [
-  'population',
-  'pop_density',
-  'num_households',
-  'avg_household_size',
-  'avg_dist_between',
-  'avg_rent',
-  'plot_ownership_ratio',
-  'plot_tenant_ratio',
-  'dist_town',
-  'dist_trunk',
-  'median_household_income'
-]
-const inlineProfileBooleanFields = ['is_qualified']
-const inlineUtilitiesBooleanFields = [
-  'electricity_availability',
-  'piped_water_availability',
-  'on_wayleave',
-  'on_road_reserve',
-  'near_river'
-]
-const inlineMultiselectFields = [
-  'land_status',
-  'structure_types',
-  'development',
-  'typical_building_materials'
-]
-
-/** KISIP Tool A fallbacks; merged with API vulnerability_matrix in loadVulnerabilityInlineSelectOptions */
-const VULNERABILITY_FALLBACK: Record<string, string[]> = {
-  climate_region: [
-    'Af>Tropical',
-    'Am> Tropical',
-    'Aw> Tropical',
-    'BSh> Arid',
-    'BSk> Arid',
-    'BWh> Arid',
-    'Cfa> Temperate',
-    'Cfb> Temperate',
-    'Csb> Temperate',
-    'Cwa> Temperate',
-    'Cwb> Temperate'
-  ],
-  soil_type: ['Clay', 'Sand', 'Loam', 'Rock'],
-  land_cover: ['Bare Land', 'Natural Terrestrial Vegetation', 'Agricultural Land', 'Water-bodies'],
-  altitude_range: ['<750', 'Between 751-1800', '>1800'],
-  proximity_to_river: ['<2000', 'Between 2001-5999', '>6000'],
-  proximity_to_flood_plain: ['<4500', 'Between 4501-6000', '>6000']
-}
-
-const CLIMATE_VULN_ATTR_FIELDS = [
-  'climate_region',
-  'soil_type',
-  'land_cover',
-  'altitude_range',
-  'proximity_to_river',
-  'proximity_to_flood_plain'
-] as const
-
-function buildVulnerabilitySelectFallback(): Record<
-  string,
-  Array<{ label: string; value: string }>
-> {
-  return Object.fromEntries(
-    Object.entries(VULNERABILITY_FALLBACK).map(([k, vals]) => [
-      k,
-      vals.map((v) => ({ label: v, value: v }))
-    ])
-  )
-}
-
 const vulnerabilityInlineSelectOptions = ref(buildVulnerabilitySelectFallback())
 
 async function loadVulnerabilityInlineSelectOptions() {
@@ -1207,149 +1140,18 @@ async function loadVulnerabilityInlineSelectOptions() {
   }
 }
 
-const inlineSelectOptionsBase: Record<string, Array<{ label: string; value: string | number | boolean }>> = {
-  settlement_type: [
-    { label: 'Slum', value: 'slum' },
-    { label: 'Informal Settlement', value: 'Informal Settlement' }
-  ],
-  parcel_owner_type: [
-    { label: 'Private', value: 'Private' },
-    { label: 'Public', value: 'Public' },
-    { label: 'Community', value: 'Community' },
-    { label: 'Unknown', value: 'Unknown' }
-  ],
-  surveyed: [
-    { label: 'Yes', value: 'yes' },
-    { label: 'No', value: 'no' }
-  ],
-  /** Planning + survey components (same values as AddSettlementNew land_status_planning / _survey) */
-  land_status: [
-    { label: 'Planned', value: 'Planned' },
-    { label: 'Unplanned', value: 'Unplanned' },
-    { label: 'Surveyed', value: 'Surveyed' },
-    { label: 'Unsurveyed', value: 'Unsurveyed' }
-  ],
-  landuse: [
-    { label: 'Mixed', value: 'Mixed' },
-    { label: 'Residential', value: 'Residential' },
-    { label: 'Commercial', value: 'Commercial' },
-    { label: 'Industrial', value: 'Industrial' },
-    { label: 'Educational', value: 'Educational' },
-    { label: 'Public Purpose', value: 'Public Purpose' },
-    { label: 'Public Utility', value: 'Public Utility' },
-    { label: 'Transportation', value: 'Transportation' },
-    { label: 'Agricultural', value: 'Agricultural' },
-    { label: 'Undeveloped', value: 'Undeveloped' },
-    { label: 'Conservation', value: 'Conservation' },
-    { label: 'Other', value: 'Other' }
-  ],
-  structure_types: [
-    { label: 'Permanent', value: 'Permanent' },
-    { label: 'Semi-permanent', value: 'Semi-permanent' },
-    { label: 'Temporary', value: 'Temporary' }
-  ],
-  development: [
-    { label: 'Single Storey', value: 'singleStorey' },
-    { label: 'Multi Storey', value: 'multiStorey' }
-  ],
-  typical_building_materials: [
-    { label: 'Stone/Blocks', value: 'Stone/Blocks' },
-    { label: 'Mud', value: 'Mud' },
-    { label: 'Timber/Wood', value: 'Timber/Wood' },
-    { label: 'Iron sheets', value: 'Iron sheets' },
-    { label: 'Earth', value: 'Earth' },
-    { label: 'Cement', value: 'Cement' },
-    { label: 'Tiles', value: 'Tiles' },
-    { label: 'Grass', value: 'Grass' },
-    { label: 'Plastic/Polythene', value: 'Plastic/Polythene' },
-    { label: 'Concrete/Slab', value: 'Concrete/Slab' },
-    { label: 'Terrazzo', value: 'Terrazzo' },
-    { label: 'Other', value: 'Other' }
-  ],
-  encumbrance: [
-    { label: 'Yes', value: 'yes' },
-    { label: 'No', value: 'no' },
-    { label: 'Unknown', value: 'Unknown' }
-  ],
-  electricity_availability: [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false }
-  ],
-  piped_water_availability: [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false }
-  ],
-  near_river: [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false }
-  ],
-  on_wayleave: [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false }
-  ],
-  on_road_reserve: [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false }
-  ],
-  profiling_status: [
-    { label: 'Not Profiled', value: 'NOT_PROFILED' },
-    { label: 'Partially Profiled', value: 'PARTIALLY_PROFILED' },
-    { label: 'Profiled', value: 'PROFILED' }
-  ],
-  is_qualified: [
-    { label: 'Yes', value: true },
-    { label: 'No', value: false }
-  ],
-  density_typology: [
-    { label: 'Low Density', value: 'LOW DENSITY' },
-    { label: 'Medium Density', value: 'MEDIUM DENSITY' },
-    { label: 'High Density', value: 'HIGH DENSITY' }
-  ]
-}
-
 const mergedInlineSelectOptions = computed(() => ({
   ...inlineSelectOptionsBase,
   ...vulnerabilityInlineSelectOptions.value
 }))
 
-const readonlyInlineLocation = ['county', 'subcounty', 'ward']
-const readonlyInlineSummary = ['id', 'code', 'geom_label', 'pop_density', 'area']
-const readonlyInlineVulnerability = ['vulnerability_total_score_display', 'vulnerability_rating']
-const readonlyInlineStatus = ['isApproved', 'isActive', 'createdBy', 'createdAt', 'updatedAt']
-
-const SETTLEMENT_NUMBER_FIELDS = new Set(inlineNumberFields)
-const SETTLEMENT_BOOLEAN_FIELDS = new Set([
-  ...inlineProfileBooleanFields,
-  ...inlineUtilitiesBooleanFields
-])
+const SETTLEMENT_BOOLEAN_FIELDS = new Set(settlementBooleanFields)
 
 const inlineSavingField = ref<string | null>(null)
 
 const canEditSettlementInline = computed(() =>
   canUserAccessSettlement({ id: Number(route.params.id), county_id: profile.county_id }, 'edit')
 )
-
-function coerceSettlementValueForApi(field: string, value: unknown): unknown {
-  if (SETTLEMENT_BOOLEAN_FIELDS.has(field)) {
-    if (value === true || value === false) return value
-    if (value === 'Yes' || value === 'true' || value === 1 || value === '1') return true
-    if (value === 'No' || value === 'false' || value === 0 || value === '0') return false
-    return Boolean(value)
-  }
-  if (SETTLEMENT_NUMBER_FIELDS.has(field)) {
-    if (value === '' || value === undefined) return null
-    if (typeof value === 'number') {
-      return Number.isFinite(value) ? value : null
-    }
-    const s = String(value).replace(/,/g, '').trim()
-    if (s === '' || s === '\u2014') return null
-    const n = Number(s)
-    return Number.isFinite(n) ? n : null
-  }
-  if (value === '\u2014') return null
-  if (value === '') return null
-  return value
-}
 
 function parseNumberish(value: unknown): number | null {
   if (value === null || value === undefined || value === '' || value === '—') return null

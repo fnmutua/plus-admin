@@ -10,7 +10,8 @@ import {
   ElSelect,
   ElOption,
   ElIcon,
-  ElTooltip
+  ElTooltip,
+  ElTag
 } from 'element-plus'
 import { Edit, Loading } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/modules/app'
@@ -25,6 +26,8 @@ const props = withDefaults(
     numberFields?: string[]
     booleanFields?: string[]
     selectOptions?: Record<string, Array<{ label: string; value: string | number | boolean }>>
+    /** When set, only these fields render as selects (requires matching selectOptions). */
+    selectFields?: string[]
     multiselectFields?: string[]
     savingField?: string | null
     /** Optional per-field class for the read-only value text (e.g. climate risk tone). */
@@ -35,6 +38,10 @@ const props = withDefaults(
      * long-form text such as descriptions, hazards, general location notes.
      */
     clampFields?: string[]
+    column?: number
+    tableClass?: string
+    /** Read-only boolean fields render as Yes/No tags instead of plain text. */
+    booleanTags?: boolean
   }>(),
   {
     editable: false,
@@ -43,10 +50,14 @@ const props = withDefaults(
     numberFields: () => [],
     booleanFields: () => [],
     selectOptions: () => ({}),
+    selectFields: () => [],
     multiselectFields: () => [],
     savingField: null,
     cellTextClass: undefined,
-    clampFields: () => []
+    clampFields: () => [],
+    column: 2,
+    tableClass: '',
+    booleanTags: false
   }
 )
 
@@ -61,6 +72,7 @@ const readonlySet = computed(() => new Set(props.readonlyFields || []))
 const textareaSet = computed(() => new Set(props.textareaFields || []))
 const numberSet = computed(() => new Set(props.numberFields || []))
 const booleanSet = computed(() => new Set(props.booleanFields || []))
+const selectFieldSet = computed(() => new Set(props.selectFields || []))
 const multiselectSet = computed(() => new Set(props.multiselectFields || []))
 const clampSet = computed(() => new Set(props.clampFields || []))
 
@@ -95,8 +107,14 @@ function cellDisplay(field: string) {
   return String(v)
 }
 
-function hasSelect(field: string): boolean {
+function hasSelectOptions(field: string): boolean {
   return Array.isArray(props.selectOptions?.[field]) && props.selectOptions[field].length > 0
+}
+
+function shouldUseSelect(field: string): boolean {
+  if (!hasSelectOptions(field)) return false
+  if (selectFieldSet.value.size > 0) return selectFieldSet.value.has(field)
+  return true
 }
 
 function selectItems(field: string) {
@@ -117,9 +135,7 @@ function startEdit(field: string) {
   snapshot.value = raw
   editingField.value = field
 
-  if (booleanSet.value.has(field)) {
-    draft.value = toBool(raw)
-  } else if (hasSelect(field)) {
+  if (shouldUseSelect(field)) {
     if (multiselectSet.value.has(field)) {
       if (Array.isArray(raw)) {
         draft.value = raw
@@ -134,6 +150,8 @@ function startEdit(field: string) {
     } else {
       draft.value = raw === '\u2014' || raw === null || raw === undefined ? undefined : raw
     }
+  } else if (booleanSet.value.has(field)) {
+    draft.value = toBool(raw)
   } else if (numberSet.value.has(field)) {
     if (raw === '\u2014' || raw === '' || raw === null || raw === undefined) {
       draft.value = undefined
@@ -165,7 +183,7 @@ function coerceNum(v: unknown): number | null {
 function isUnchanged(): boolean {
   const f = editingField.value
   if (!f) return true
-  if (hasSelect(f) && multiselectSet.value.has(f)) {
+  if (shouldUseSelect(f) && multiselectSet.value.has(f)) {
     const normalize = (v: unknown) =>
       (Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : [])
         .map((x) => String(x).trim())
@@ -199,7 +217,7 @@ function commit() {
     return
   }
   let next = draft.value
-  if (hasSelect(f) && multiselectSet.value.has(f)) {
+  if (shouldUseSelect(f) && multiselectSet.value.has(f)) {
     const arr = Array.isArray(next)
       ? next.map((x) => String(x).trim()).filter((x) => x.length > 0)
       : []
@@ -252,14 +270,25 @@ function itemBind(item: Record<string, any>) {
 function displayTextClass(field: string) {
   return props.cellTextClass?.(field) || ''
 }
+
+function isBooleanTagField(field: string) {
+  return props.booleanTags && booleanSet.value.has(field)
+}
+
+function booleanTagType(field: string): 'success' | 'danger' | 'info' {
+  const v = props.data[field]
+  if (v === true || v === 'true' || v === 1 || v === '1' || v === 'Yes') return 'success'
+  if (v === false || v === 'false' || v === 0 || v === '0' || v === 'No') return 'danger'
+  return 'info'
+}
 </script>
 
 <template>
   <ElDescriptions
-    :column="2"
+    :column="column"
     border
     :direction="mobile ? 'vertical' : 'horizontal'"
-    class="inline-editable-descriptions"
+    :class="['inline-editable-descriptions', tableClass]"
   >
     <ElDescriptionsItem
       v-for="item in schema"
@@ -278,18 +307,15 @@ function displayTextClass(field: string) {
           }"
         >
           <template v-if="editingField === item.field">
-            <ElSwitch
-              v-if="booleanSet.has(item.field)"
-              v-model="draft"
-              @change="commit"
-            />
             <ElSelect
-              v-else-if="hasSelect(item.field)"
+              v-if="shouldUseSelect(item.field)"
               ref="inputRef"
               v-model="draft"
               :multiple="multiselectSet.has(item.field)"
               filterable
               clearable
+              teleported
+              popper-class="inline-editable-select-popper"
               class="inline-cell__input"
               @change="!multiselectSet.has(item.field) ? commit() : undefined"
               @blur="multiselectSet.has(item.field) ? commit() : undefined"
@@ -301,6 +327,11 @@ function displayTextClass(field: string) {
                 :value="opt.value"
               />
             </ElSelect>
+            <ElSwitch
+              v-else-if="booleanSet.has(item.field)"
+              v-model="draft"
+              @change="commit"
+            />
             <ElInputNumber
               v-else-if="numberSet.has(item.field)"
               ref="inputRef"
@@ -330,8 +361,15 @@ function displayTextClass(field: string) {
             />
           </template>
           <template v-else>
+            <ElTag
+              v-if="isBooleanTagField(item.field)"
+              :type="booleanTagType(item.field)"
+              size="small"
+            >
+              {{ cellDisplay(item.field) }}
+            </ElTag>
             <ElTooltip
-              v-if="showTooltipFor(item.field)"
+              v-else-if="showTooltipFor(item.field)"
               effect="dark"
               placement="top-start"
               :show-after="250"
@@ -496,5 +534,9 @@ function displayTextClass(field: string) {
   font-size: 13px;
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.inline-editable-select-popper {
+  z-index: 10050 !important;
 }
 </style>

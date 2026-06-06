@@ -13,6 +13,11 @@ export type DrawerSection = {
 
 export type FeatureKind = 'settlement' | 'parcel' | 'facility' | 'neighbor' | 'generic'
 
+export type DrawerInlineSection = {
+  title: string
+  schema: Array<{ field: string; label: string; span?: number }>
+}
+
 type FieldFormat =
   | 'area_ha'
   | 'distance_km'
@@ -62,7 +67,6 @@ const BOOLEAN_KEYS = new Set([
   'on_wayleave',
   'on_road_reserve',
   'is_qualified',
-  'surveyed',
 ])
 
 const INTEGER_KEYS = new Set([
@@ -958,6 +962,224 @@ const buildSectionsFromSchema = (
   }
 
   return sections
+}
+
+export const getDrawerSchemaSections = (
+  kind: FeatureKind,
+  featureType?: string
+): SchemaSection[] => {
+  if (kind === 'neighbor') {
+    return [
+      {
+        title: 'Neighboring settlement',
+        fields: [
+          { key: 'id', label: 'Settlement ID', format: 'integer' },
+          { key: 'name', label: 'Name' },
+        ],
+      },
+    ]
+  }
+
+  if (kind === 'settlement') return SETTLEMENT_SCHEMAS
+  if (kind === 'parcel') return PARCEL_SCHEMAS
+
+  if (kind === 'facility' && featureType) {
+    return FACILITY_SCHEMAS[featureType] || []
+  }
+
+  return []
+}
+
+const formatInlineRecordValue = (
+  key: string,
+  value: unknown,
+  format?: FieldFormat
+): unknown => {
+  if (typeof value === 'boolean' || format === 'boolean' || BOOLEAN_KEYS.has(key)) {
+    if (value === true || value === 'true' || value === 1 || value === '1') return 'Yes'
+    if (value === false || value === 'false' || value === 0 || value === '0') return 'No'
+    if (value === null || value === undefined || value === '') return '\u2014'
+    return String(value)
+  }
+
+  const numericFormats: FieldFormat[] = [
+    'integer',
+    'area_ha',
+    'distance_km',
+    'distance_m',
+    'length_m',
+    'percent',
+  ]
+  if (numericFormats.includes(format as FieldFormat) || INTEGER_KEYS.has(key)) {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : value
+  }
+
+  if (value === null || value === undefined || value === '') return '\u2014'
+  return value
+}
+
+export const prepareDrawerRecordData = (
+  properties: Record<string, unknown> = {},
+  kind: FeatureKind,
+  featureType?: string
+): Record<string, unknown> => {
+  const data: Record<string, unknown> = {}
+  const schemas = getDrawerSchemaSections(kind, featureType)
+
+  for (const schema of schemas) {
+    for (const field of schema.fields) {
+      const resolved = getSchemaFieldValue(properties, field)
+      if (!resolved) continue
+      data[resolved.key] = formatInlineRecordValue(
+        resolved.key,
+        resolved.value,
+        field.format
+      )
+    }
+  }
+
+  if (properties.id != null && data.id == null) {
+    data.id = properties.id
+  }
+
+  return data
+}
+
+export const buildDrawerInlineSections = (
+  properties: Record<string, unknown> = {},
+  kind: FeatureKind,
+  featureType?: string
+): DrawerInlineSection[] => {
+  const schemas = getDrawerSchemaSections(kind, featureType)
+  const sections: DrawerInlineSection[] = []
+  const usedKeys = new Set<string>()
+
+  for (const schema of schemas) {
+    const fields: DrawerInlineSection['schema'] = []
+
+    for (const field of schema.fields) {
+      const resolved = getSchemaFieldValue(properties, field)
+      if (!resolved) continue
+
+      usedKeys.add(resolved.key)
+      fields.push({
+        field: resolved.key,
+        label: field.label,
+        span: field.format === 'longtext' ? 2 : 1,
+      })
+    }
+
+    if (fields.length > 0) {
+      sections.push({ title: schema.title, schema: fields })
+    }
+  }
+
+  const otherFields = Object.entries(properties)
+    .filter(([key, value]) => {
+      const canonical = key.toLowerCase()
+      const alreadyUsed = [...usedKeys].some(
+        (usedKey) => usedKey.toLowerCase() === canonical
+      )
+      return !alreadyUsed && !shouldExcludeKey(key, value)
+    })
+    .sort(([a], [b]) => humanize(a).localeCompare(humanize(b)))
+    .map(([key]) => ({
+      field: key,
+      label: humanize(key),
+      span: LONGTEXT_KEYS.has(key) ? 2 : 1,
+    }))
+
+  if (otherFields.length > 0) {
+    sections.push({ title: 'Other', schema: otherFields })
+  }
+
+  return sections
+}
+
+export const collectDrawerFieldTypes = (
+  kind: FeatureKind,
+  featureType?: string
+): { numberFields: string[]; booleanFields: string[]; textareaFields: string[] } => {
+  const numberFields = new Set<string>()
+  const booleanFields = new Set<string>()
+  const textareaFields = new Set<string>()
+
+  const facilityNumericPatterns = [
+    /_count$/i,
+    /_amount$/i,
+    /_meters$/i,
+    /_km$/i,
+    /_ha$/i,
+    /_rate$/i,
+    /_beds$/i,
+    /^length$/i,
+    /^depth$/i,
+    /^capacity$/i,
+    /^price$/i,
+    /^rd_width/i,
+    /^occupancy/i,
+    /^referral/i,
+    /^number_/i,
+    /^num_/i,
+    /^enrolled_/i,
+    /^male_/i,
+    /^female_/i,
+    /^bom_/i,
+    /^boys_/i,
+    /^girls_/i,
+    /^handwashing_/i,
+    /^boreholes_/i,
+    /^water_tanks_/i,
+    /^classroom/i,
+    /^permanent_/i,
+    /^dropout_/i,
+    /^outpatient_/i,
+    /^maternity_/i,
+    /^antenatal_/i,
+    /^referrals_/i,
+    /^parcel_size/i,
+    /^land_parcel_size/i,
+    /^cost_/i,
+  ]
+
+  for (const schema of getDrawerSchemaSections(kind, featureType)) {
+    for (const field of schema.fields) {
+      const key = field.key
+      if (field.format === 'boolean' || BOOLEAN_KEYS.has(key)) {
+        booleanFields.add(key)
+      } else if (field.format === 'longtext' || LONGTEXT_KEYS.has(key)) {
+        textareaFields.add(key)
+      } else if (
+        field.format === 'integer' ||
+        field.format === 'area_ha' ||
+        field.format === 'distance_km' ||
+        field.format === 'distance_m' ||
+        field.format === 'length_m' ||
+        field.format === 'percent' ||
+        INTEGER_KEYS.has(key) ||
+        (kind === 'facility' && facilityNumericPatterns.some((pattern) => pattern.test(key)))
+      ) {
+        numberFields.add(key)
+      }
+    }
+  }
+
+  return {
+    numberFields: [...numberFields],
+    booleanFields: [...booleanFields],
+    textareaFields: [...textareaFields],
+  }
+}
+
+export const getDrawerUpdateModel = (
+  kind: FeatureKind,
+  featureType?: string
+): string | null => {
+  if (kind === 'settlement' || kind === 'neighbor') return 'settlement'
+  if (kind === 'parcel') return 'parcel'
+  if (kind === 'facility' && featureType) return featureType
+  return null
 }
 
 export const buildDrawerSections = (
