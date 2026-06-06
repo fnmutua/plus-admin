@@ -1,7 +1,23 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem, ElDialog } from 'element-plus'
+import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDescriptions, ElDescriptionsItem, ElTag } from 'element-plus'
+import {
+  buildDrawerSections,
+  detectFeatureKind,
+  FACILITY_HEADER_ICONS,
+  FACILITY_TYPE_LABELS,
+  filterFeatureProperties,
+  getDrawerFacilityId,
+  getDrawerSettlementId,
+  getDrawerSubtitle,
+  getDrawerTitle,
+  getFacilityDetailRouteName,
+  normalizeFacilityProperties,
+  resolveFeatureType,
+  type DrawerSection,
+  type FeatureKind,
+} from './settlementMapDrawer'
 import { useRouter } from 'vue-router'
 import { GoogleMap, Polygon, InfoWindow, Marker, Polyline, Circle } from 'vue3-google-map'
 import * as turf from '@turf/turf'
@@ -1525,105 +1541,115 @@ const gmapCenter = ref()
 // Drawer state
 const drawerVisible = ref(false)
 const drawerTitle = ref('')
-const drawerData = ref<any[]>([])
+const drawerSubtitle = ref('')
+const drawerSections = ref<DrawerSection[]>([])
+const drawerExpandedSections = ref<string[]>([])
+const drawerFeatureKind = ref<FeatureKind>('generic')
+const drawerFeatureType = ref('')
+const drawerSettlementId = ref<string | null>(null)
+const drawerFacilityId = ref<string | null>(null)
+const drawerFacilityRoute = ref<string | null>(null)
 
-// Helper function to format numbers to 2 decimal places
-const formatNumber = (value: any): any => {
-  if (value === null || value === undefined || value === '') {
-    return value
+const drawerFeatureKindLabel = computed(() => {
+  if (drawerFeatureKind.value === 'facility' && drawerFeatureType.value) {
+    return FACILITY_TYPE_LABELS[drawerFeatureType.value] || 'Facility'
   }
-  const num = Number(value)
-  if (isNaN(num)) {
-    return value
+
+  const labels: Record<FeatureKind, string> = {
+    settlement: 'Settlement',
+    parcel: 'Parcel',
+    facility: 'Facility',
+    neighbor: 'Neighboring settlement',
+    generic: 'Feature',
   }
-  // Check if it's a whole number
-  if (Number.isInteger(num)) {
-    return num.toString()
+  return labels[drawerFeatureKind.value] || 'Feature'
+})
+
+const drawerHeaderIcon = computed(() => {
+  if (drawerFeatureKind.value === 'facility' && drawerFeatureType.value) {
+    return FACILITY_HEADER_ICONS[drawerFeatureType.value] || 'mdi:map-marker-outline'
   }
-  // Round to 2 decimal places
-  return num.toFixed(2)
+
+  const icons: Record<FeatureKind, string> = {
+    settlement: 'mdi:home-city-outline',
+    parcel: 'mdi:vector-polygon',
+    facility: 'mdi:map-marker-outline',
+    neighbor: 'mdi:home-group',
+    generic: 'mdi:information-outline',
+  }
+  return icons[drawerFeatureKind.value] || 'mdi:information-outline'
+})
+
+const drawerHeaderClass = computed(() => {
+  if (drawerFeatureKind.value === 'facility' && drawerFeatureType.value) {
+    return `drawer-header--${drawerFeatureType.value}`
+  }
+  return `drawer-header--${drawerFeatureKind.value}`
+})
+
+const resolveMapFeature = (feature: { id?: string; properties?: Record<string, unknown> }) => {
+  const id = feature.id
+  if (!id) return feature
+
+  const match =
+    other_points.value.find((item) => item.id === id) ||
+    roads.value.find((item) => item.id === id) ||
+    parcels.value.find((item) => item.id === id) ||
+    polygons.value.find((item) => item.id === id)
+
+  if (!match?.properties) return feature
+
+  return {
+    ...feature,
+    properties: { ...match.properties, ...feature.properties },
+  }
+}
+
+const openFeatureDrawer = (
+  feature: { id?: string; properties?: Record<string, unknown> },
+  source: 'settlement' | 'parcel' | 'point'
+) => {
+  infowindow.value = false
+  PointInfowindow.value = false
+
+  const resolvedFeature = resolveMapFeature(feature)
+  const featureType = resolveFeatureType(resolvedFeature.properties || {}, resolvedFeature.id, source)
+  const normalizedProperties = normalizeFacilityProperties(
+    featureType,
+    resolvedFeature.properties || {}
+  )
+  const properties = filterFeatureProperties(normalizedProperties)
+  const kind = detectFeatureKind(properties, source, featureType)
+
+  drawerFeatureKind.value = kind
+  drawerFeatureType.value = featureType
+  drawerTitle.value = getDrawerTitle(properties, kind, featureType, normalizedProperties)
+  drawerSubtitle.value = getDrawerSubtitle(properties, kind, featureType)
+  drawerSections.value = buildDrawerSections(properties, kind, featureType)
+  drawerExpandedSections.value = drawerSections.value.length > 0
+    ? [drawerSections.value[0].title]
+    : []
+  drawerSettlementId.value = getDrawerSettlementId(properties, kind)
+  drawerFacilityId.value = kind === 'facility' ? getDrawerFacilityId(properties, featureType) : null
+  drawerFacilityRoute.value = kind === 'facility' ? getFacilityDetailRouteName(featureType) : null
+  drawerVisible.value = true
+
+  selectedFeature.value = {
+    ...resolvedFeature,
+    properties,
+  }
 }
 
 const onPolygonClick = (feature) => {
-  // Close any existing popups
-  infowindow.value = false
-  PointInfowindow.value = false
-  
-  // Prepare drawer data - exclude geom and geometry properties
-  const filteredProperties = Object.fromEntries(
-    Object.entries(feature.properties || {}).filter(([key, value]) => {
-      // Exclude falsy values
-      if (!value) return false
-      // Exclude geom and geometry properties
-      const lowerKey = key.toLowerCase()
-      if (lowerKey === 'geom' || lowerKey === 'geometry' || lowerKey.includes('geometry')) {
-        return false
-      }
-      // Exclude geometry objects (has type and coordinates)
-      if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
-        if ('type' in value && 'coordinates' in value) {
-          return false
-        }
-      }
-      return true
-    })
-  )
-  
-  drawerData.value = Object.entries(filteredProperties).map(([key, value]) => ({
-    field: key,
-    value: formatNumber(value)
-  }))
-  
-  drawerTitle.value = 'Feature Details'
-  drawerVisible.value = true
-  
-  selectedFeature.value = {
-    ...feature,
-    properties: filteredProperties
-  }
-  console.log('Polygon clicked:', selectedFeature.value)
+  openFeatureDrawer(feature, 'settlement')
+}
+
+const onParcelClick = (feature) => {
+  openFeatureDrawer(feature, 'parcel')
 }
 
 const onPointClick = (feature) => {
-  // Close any existing popups
-  infowindow.value = false
-  PointInfowindow.value = false
-  
-  // Prepare drawer data - exclude geom and geometry properties
-  const filteredProperties = Object.fromEntries(
-    Object.entries(feature.properties || {}).filter(([key, value]) => {
-      // Exclude falsy values
-      if (!value) return false
-      // Exclude geom and geometry properties
-      const lowerKey = key.toLowerCase()
-      if (lowerKey === 'geom' || lowerKey === 'geometry' || lowerKey.includes('geometry')) {
-        return false
-      }
-      // Exclude geometry objects (has type and coordinates)
-      if (typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)) {
-        if ('type' in value && 'coordinates' in value) {
-          return false
-        }
-      }
-      return true
-    })
-  )
-  
-  drawerData.value = Object.entries(filteredProperties).map(([key, value]) => ({
-    field: key,
-    value: formatNumber(value)
-  }))
-  
-  // Set appropriate title based on feature type
-  const featureType = feature.properties?.featureType || 'Unknown Feature'
-  drawerTitle.value = featureType.replace(/_/g, ' ').toUpperCase()
-  drawerVisible.value = true
-  
-  selectedFeature.value = {
-    ...feature,
-    properties: filteredProperties
-  }
-  console.log('Point/Line clicked:', selectedFeature.value)
+  openFeatureDrawer(feature, 'point')
 }
 
 const closePopup = () => {
@@ -1633,11 +1659,39 @@ const closePopup = () => {
 
 const closeDrawer = () => {
   drawerVisible.value = false
-  drawerData.value = []
+  drawerSections.value = []
+  drawerExpandedSections.value = []
   drawerTitle.value = ''
+  drawerSubtitle.value = ''
+  drawerFeatureKind.value = 'generic'
+  drawerFeatureType.value = ''
+  drawerSettlementId.value = null
+  drawerFacilityId.value = null
+  drawerFacilityRoute.value = null
+  selectedFeature.value = null
+  selectedNeighbor.value = null
 }
 
-const neighborDialogVisible = ref(false)
+const goToDrawerSettlement = () => {
+  if (!drawerSettlementId.value) return
+
+  router.push({
+    name: 'SettlementDetails',
+    params: { id: drawerSettlementId.value },
+  })
+  closeDrawer()
+}
+
+const goToDrawerFacility = () => {
+  if (!drawerFacilityId.value || !drawerFacilityRoute.value) return
+
+  router.push({
+    name: drawerFacilityRoute.value,
+    params: { id: drawerFacilityId.value },
+  })
+  closeDrawer()
+}
+
 const selectedNeighbor = ref<{ id: string | number; name: string } | null>(null)
 
 const isSelectedNeighborAlreadyLoaded = computed(() =>
@@ -1647,25 +1701,18 @@ const isSelectedNeighborAlreadyLoaded = computed(() =>
 
 const onNeighborClick = (feature: { properties?: { id?: string | number; name?: string } }) => {
   const neighborId = feature.properties?.id
-  if (!neighborId || neighborDialogVisible.value) return
+  if (!neighborId || drawerVisible.value) return
 
   selectedNeighbor.value = {
     id: neighborId,
-    name: feature.properties?.name || 'Unnamed Settlement'
+    name: feature.properties?.name || 'Unnamed Settlement',
   }
 
-  // Defer opening so the map click does not immediately hit the dialog backdrop
-  window.setTimeout(() => {
-    neighborDialogVisible.value = true
-  }, 50)
+  openFeatureDrawer(feature, 'settlement')
 }
 
 const dismissNeighborDialog = () => {
-  neighborDialogVisible.value = false
-}
-
-const onNeighborDialogClosed = () => {
-  selectedNeighbor.value = null
+  closeDrawer()
 }
 
 const goToNeighborSettlement = () => {
@@ -2173,7 +2220,7 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
 // Debounced function to fetch neighbors on map view changes
 let neighborFetchTimeout: NodeJS.Timeout | null = null
 const fetchNeighborsOnViewChange = () => {
-  if (neighborDialogVisible.value || neighborMapLoading.value) return
+  if (drawerVisible.value || neighborMapLoading.value) return
 
   // Clear existing timeout
   if (neighborFetchTimeout) {
@@ -2875,9 +2922,21 @@ const loadMapData = async () => {
         <!-- Map content (unchanged) -->
         <template v-if="OtherPointVisible">
           <template v-for="pnt in other_points" :key="pnt.id">
-            <Marker v-if="pnt.type === 'marker'" :options="pnt" @click="onPointClick(pnt)" />
-            <Polyline v-else-if="pnt.type === 'polyline'" :options="pnt" @click="onPointClick(pnt)" />
-            <Polygon v-else-if="pnt.type === 'polygon'" :options="pnt" @click="onPointClick(pnt)" />
+            <Marker
+              v-if="pnt.type === 'marker'"
+              :options="{ position: pnt.position, icon: pnt.icon }"
+              @click="onPointClick(pnt)"
+            />
+            <Polyline
+              v-else-if="pnt.type === 'polyline'"
+              :options="{ path: pnt.path, ...pnt.options }"
+              @click="onPointClick(pnt)"
+            />
+            <Polygon
+              v-else-if="pnt.type === 'polygon'"
+              :options="{ paths: pnt.paths, ...pnt.options }"
+              @click="onPointClick(pnt)"
+            />
           </template>
         </template>
 
@@ -2934,7 +2993,7 @@ const loadMapData = async () => {
         </div>
 
         <div v-if="parcelsVisible">
-          <Polygon v-for="parcel in parcels" :key="parcel.id" :options="parcel" />
+          <Polygon v-for="parcel in parcels" :key="parcel.id" :options="parcel" @click="onParcelClick(parcel)" />
         </div>
 
         <div v-if="parcelLabelsVisible">
@@ -2942,7 +3001,12 @@ const loadMapData = async () => {
         </div>
 
       <div v-if="roadsVisible">
-        <Polyline v-for="road in roads" :key="road.id" :options="road" @click="onPointClick(road)" />
+        <Polyline
+          v-for="road in roads"
+          :key="road.id"
+          :options="{ path: road.path, ...road.options }"
+          @click="onPointClick(road)"
+        />
       </div>
 
       <div v-if="powerlineVisible">
@@ -2991,7 +3055,6 @@ const loadMapData = async () => {
       <!-- Feature Details Drawer -->
       <ElDrawer
         v-model="drawerVisible"
-        :title="drawerTitle"
         direction="rtl"
         :size="drawerSize"
         :before-close="closeDrawer"
@@ -3002,72 +3065,101 @@ const loadMapData = async () => {
         :append-to-body="true"
         class="feature-drawer"
       >
-        <div v-if="drawerData.length > 0" class="drawer-content">
-          <ElDescriptions :column="descriptionsColumn" border class="feature-descriptions">
-            <ElDescriptionsItem 
-              v-for="item in drawerData" 
-              :key="item.field"
-              :label="item.field"
-              :label-style="{ fontWeight: 'bold', minWidth: labelMinWidth }"
+        <template #header>
+          <div class="drawer-header" :class="drawerHeaderClass">
+            <div class="drawer-header-icon">
+              <Icon :icon="drawerHeaderIcon" />
+            </div>
+            <div class="drawer-header-content">
+              <span class="drawer-header-badge">{{ drawerFeatureKindLabel }}</span>
+              <h2 class="drawer-header-title">{{ drawerTitle }}</h2>
+              <p v-if="drawerSubtitle" class="drawer-header-subtitle">{{ drawerSubtitle }}</p>
+            </div>
+          </div>
+        </template>
+
+        <div v-if="drawerFeatureKind === 'neighbor'" class="drawer-neighbor-note">
+          <p>Add this settlement's layers to the current map, or open its full details page.</p>
+          <p class="drawer-neighbor-meta">
+            {{ loadedSettlementCount }} of {{ MAX_LOADED_SETTLEMENTS }} settlements on map.
+          </p>
+          <p v-if="!canAddMoreSettlements" class="drawer-neighbor-warning">
+            Maximum reached. Adding more settlements may overload the browser. Use View Settlement Details or refresh the page to start over.
+          </p>
+          <p v-else-if="isSelectedNeighborAlreadyLoaded" class="drawer-neighbor-info">
+            This settlement is already displayed on the map.
+          </p>
+        </div>
+
+        <div v-if="drawerSections.length > 0" class="drawer-content">
+          <ElCollapse v-model="drawerExpandedSections" class="drawer-sections-collapse">
+            <ElCollapseItem
+              v-for="section in drawerSections"
+              :key="section.title"
+              :name="section.title"
             >
-              <template #default>
-                <span v-if="typeof item.value === 'object'" class="drawer-value">
-                  {{ JSON.stringify(item.value) }}
-                </span>
-                <span v-else class="drawer-value">
-                  {{ item.value }}
-                </span>
+              <template #title>
+                <span class="drawer-section-title">{{ section.title }}</span>
               </template>
-            </ElDescriptionsItem>
-          </ElDescriptions>
+              <ElDescriptions :column="descriptionsColumn" border class="feature-descriptions">
+                <ElDescriptionsItem
+                  v-for="item in section.items"
+                  :key="item.key"
+                  :label="item.label"
+                  :span="item.valueType === 'longtext' ? 2 : 1"
+                  :label-style="{ fontWeight: 'bold', minWidth: labelMinWidth }"
+                >
+                  <ElTag
+                    v-if="item.valueType === 'boolean'"
+                    :type="item.rawValue ? 'success' : 'danger'"
+                    size="small"
+                  >
+                    {{ item.displayValue }}
+                  </ElTag>
+                  <span
+                    v-else
+                    class="drawer-value"
+                    :class="{ 'drawer-value-long': item.valueType === 'longtext' }"
+                  >
+                    {{ item.displayValue }}
+                  </span>
+                </ElDescriptionsItem>
+              </ElDescriptions>
+            </ElCollapseItem>
+          </ElCollapse>
         </div>
         <div v-else class="no-data">
           <p>No additional information available for this feature.</p>
         </div>
-      </ElDrawer>
 
-      <ElDialog
-        v-model="neighborDialogVisible"
-        :title="selectedNeighbor?.name || 'Neighboring Settlement'"
-        width="480px"
-        append-to-body
-        :close-on-click-modal="false"
-        :z-index="20000"
-        destroy-on-close
-        @closed="onNeighborDialogClosed"
-      >
-        <p style="margin: 0 0 12px; color: #606266; line-height: 1.5;">
-          This is a neighboring settlement. Add its layers to the current map, or open its full details page.
-        </p>
-        <p style="margin: 0 0 12px; font-size: 13px; color: #909399;">
-          {{ loadedSettlementCount }} of {{ MAX_LOADED_SETTLEMENTS }} settlements on map.
-        </p>
-        <p
-          v-if="!canAddMoreSettlements"
-          style="margin: 0; color: var(--el-color-warning); line-height: 1.5; font-size: 13px;"
-        >
-          Maximum reached. Adding more settlements may overload the browser. Use View Settlement Details or refresh the page to start over.
-        </p>
-        <p
-          v-else-if="isSelectedNeighborAlreadyLoaded"
-          style="margin: 0; color: var(--el-color-info); line-height: 1.5; font-size: 13px;"
-        >
-          This settlement is already displayed on the map.
-        </p>
-        <template #footer>
-          <ElButton @click="dismissNeighborDialog">Cancel</ElButton>
-          <ElButton
-            :loading="neighborMapLoading"
-            :disabled="!canAddMoreSettlements || isSelectedNeighborAlreadyLoaded"
-            @click="loadNeighborOnMap"
-          >
-            Add to Map
-          </ElButton>
-          <ElButton type="primary" @click="goToNeighborSettlement">
-            View Settlement Details
-          </ElButton>
+        <template v-if="drawerFeatureKind === 'settlement' || drawerFeatureKind === 'neighbor' || (drawerFeatureKind === 'facility' && drawerFacilityRoute)" #footer>
+          <div class="drawer-footer-actions">
+            <template v-if="drawerFeatureKind === 'settlement'">
+              <ElButton type="primary" @click="goToDrawerSettlement">
+                View Settlement Details
+              </ElButton>
+            </template>
+            <template v-else-if="drawerFeatureKind === 'facility'">
+              <ElButton type="primary" @click="goToDrawerFacility">
+                View Facility Details
+              </ElButton>
+            </template>
+            <template v-else>
+              <ElButton @click="dismissNeighborDialog">Close</ElButton>
+              <ElButton
+                :loading="neighborMapLoading"
+                :disabled="!canAddMoreSettlements || isSelectedNeighborAlreadyLoaded"
+                @click="loadNeighborOnMap"
+              >
+                Add to Map
+              </ElButton>
+              <ElButton type="primary" @click="goToNeighborSettlement">
+                View Settlement Details
+              </ElButton>
+            </template>
+          </div>
         </template>
-      </ElDialog>
+      </ElDrawer>
 
       <div id="floating-div">
       <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">
@@ -3447,6 +3539,291 @@ const loadMapData = async () => {
   transition: all 0.3s ease;
 }
 
+.feature-drawer :deep(.el-drawer__body) {
+  padding-top: 18px;
+}
+
+.feature-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
+}
+
+.feature-drawer :deep(.el-drawer__close-btn) {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  font-size: 18px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.2s ease;
+}
+
+.feature-drawer :deep(.el-drawer__close-btn:hover) {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.drawer-header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 22px 56px 22px 22px;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
+  box-shadow: 0 4px 14px rgba(64, 158, 255, 0.22);
+}
+
+.drawer-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.drawer-header::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.drawer-header--parcel {
+  background: linear-gradient(135deg, #6b4fbb 0%, #9b7fe8 100%);
+  box-shadow: 0 4px 14px rgba(107, 79, 187, 0.22);
+}
+
+.drawer-header--facility,
+.drawer-header--generic {
+  background: linear-gradient(135deg, #0f9b8e 0%, #3ecfc4 100%);
+  box-shadow: 0 4px 14px rgba(15, 155, 142, 0.22);
+}
+
+.drawer-header--education_facility {
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.22);
+}
+
+.drawer-header--health_facility {
+  background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.22);
+}
+
+.drawer-header--water_point {
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.22);
+}
+
+.drawer-header--road {
+  background: linear-gradient(135deg, #92400e 0%, #d97706 100%);
+  box-shadow: 0 4px 14px rgba(146, 64, 14, 0.22);
+}
+
+.drawer-header--sewer,
+.drawer-header--piped_water {
+  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+  box-shadow: 0 4px 14px rgba(71, 85, 105, 0.22);
+}
+
+.drawer-header--powerline {
+  background: linear-gradient(135deg, #ca8a04 0%, #facc15 100%);
+  box-shadow: 0 4px 14px rgba(202, 138, 4, 0.22);
+}
+
+.drawer-header--crime_hotspot,
+.drawer-header--police_station {
+  background: linear-gradient(135deg, #7c2d12 0%, #ea580c 100%);
+  box-shadow: 0 4px 14px rgba(124, 45, 18, 0.22);
+}
+
+.drawer-header--hazard_zone,
+.drawer-header--dumping_site {
+  background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.22);
+}
+
+.drawer-header--settlement {
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
+  box-shadow: 0 4px 14px rgba(64, 158, 255, 0.22);
+}
+
+.drawer-header--neighbor {
+  background: linear-gradient(135deg, #d63384 0%, #ff69b4 100%);
+  box-shadow: 0 4px 14px rgba(214, 51, 132, 0.22);
+}
+
+.drawer-header-icon {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  font-size: 28px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  backdrop-filter: blur(4px);
+}
+
+.drawer-header-content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  flex: 1;
+}
+
+.drawer-header-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+}
+
+.drawer-header-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #fff;
+  word-break: break-word;
+}
+
+.drawer-header-subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  word-break: break-word;
+}
+
+.drawer-sections-collapse {
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item) {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafafa;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item.is-active) {
+  border-color: var(--el-color-primary-light-5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: #fff;
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item__header) {
+  height: auto;
+  min-height: 46px;
+  line-height: 1.4;
+  padding: 12px 14px;
+  font-size: 14px;
+  border-bottom: none;
+  background: transparent;
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item.is-active .el-collapse-item__header) {
+  background: linear-gradient(to right, var(--el-color-primary-light-9), transparent);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item__arrow) {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+
+.drawer-sections-collapse :deep(.el-collapse-item__content) {
+  padding: 12px 14px 16px;
+}
+
+.drawer-section-title {
+  position: relative;
+  padding-left: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #303133;
+  letter-spacing: 0.01em;
+}
+
+.drawer-section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  background: var(--el-color-primary);
+  border-radius: 2px;
+}
+
+.drawer-neighbor-note {
+  margin-bottom: 16px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.drawer-neighbor-note p {
+  margin: 0 0 8px;
+}
+
+.drawer-neighbor-meta {
+  color: #909399;
+}
+
+.drawer-neighbor-warning {
+  color: var(--el-color-warning);
+}
+
+.drawer-neighbor-info {
+  color: var(--el-color-info);
+}
+
+.drawer-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .drawer-content {
   padding: 0;
   overflow-y: auto;
@@ -3470,6 +3847,45 @@ const loadMapData = async () => {
 .drawer-value {
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+.drawer-value-long {
+  display: block;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.dark .feature-drawer :deep(.el-drawer__close-btn) {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.dark .feature-drawer :deep(.el-drawer__close-btn:hover) {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.dark .drawer-sections-collapse :deep(.el-collapse-item) {
+  background: #262727;
+  border-color: #414243;
+}
+
+.dark .drawer-sections-collapse :deep(.el-collapse-item.is-active) {
+  background: #2b2b2c;
+  border-color: rgba(64, 158, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.dark .drawer-sections-collapse :deep(.el-collapse-item.is-active .el-collapse-item__header) {
+  background: linear-gradient(to right, rgba(64, 158, 255, 0.15), transparent);
+  border-bottom-color: #414243;
+}
+
+.dark .drawer-section-title {
+  color: #e0e0e0;
+}
+
+.dark .drawer-neighbor-note,
+.dark .drawer-neighbor-meta {
+  color: #ccc;
 }
 
 /* Mobile-specific styles */
@@ -3525,20 +3941,28 @@ const loadMapData = async () => {
 
 /* Ensure drawer is touch-friendly on mobile */
 @media (max-width: 768px) {
-  .feature-drawer :deep(.el-drawer__header) {
-    padding: 15px;
-    margin-bottom: 10px;
+  .drawer-header {
+    padding: 18px 50px 18px 18px;
+    gap: 12px;
   }
 
-  .feature-drawer :deep(.el-drawer__title) {
-    font-size: 16px;
-    font-weight: 600;
+  .drawer-header-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    border-radius: 12px;
+  }
+
+  .drawer-header-title {
+    font-size: 18px;
   }
 
   .feature-drawer :deep(.el-drawer__close-btn) {
-    font-size: 20px;
+    top: 14px;
+    right: 14px;
     width: 32px;
     height: 32px;
+    font-size: 16px;
   }
 }
 
