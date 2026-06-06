@@ -243,3 +243,71 @@ export function displayValueAfterSave(field: string, apiValue: unknown, kind: Fe
   if (apiValue === null || apiValue === undefined || apiValue === '') return '\u2014'
   return apiValue
 }
+
+function formatVulnerabilityRatingDisplay(rating: unknown): string {
+  if (rating == null || rating === '' || rating === '\u2014') return '\u2014'
+  return String(rating).toUpperCase()
+}
+
+/** Align drawer settlement record with SettlementDetails derived + vulnerability display fields. */
+export function enrichSettlementDrawerRecordData(
+  data: Record<string, unknown>,
+  properties: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const population = data.population ?? properties.population
+  const area = data.area ?? properties.area
+  const numHouseholds = data.num_households ?? properties.num_households
+
+  const computedDensity = computePopulationDensity(population, area)
+  if (computedDensity != null) {
+    data.pop_density = String(computedDensity)
+  } else if (data.pop_density == null || data.pop_density === '') {
+    const stored = properties.pop_density
+    data.pop_density = stored == null || stored === '' ? '\u2014' : String(stored)
+  }
+
+  const computedAvgHh = computeAvgHouseholdSize(population, numHouseholds)
+  if (computedAvgHh != null) {
+    data.avg_household_size = String(computedAvgHh)
+  } else if (data.avg_household_size == null || data.avg_household_size === '') {
+    const stored = properties.avg_household_size
+    data.avg_household_size = stored == null || stored === '' ? '\u2014' : String(stored)
+  }
+
+  const vulnScore =
+    properties.vulnerability_total_score ??
+    (data.vulnerability_total_score_display != null &&
+    data.vulnerability_total_score_display !== '\u2014'
+      ? data.vulnerability_total_score_display
+      : null)
+  data.vulnerability_total_score_display =
+    vulnScore != null && vulnScore !== '' ? String(vulnScore) : '\u2014'
+
+  const vulnRating = properties.vulnerability_rating ?? data.vulnerability_rating
+  data.vulnerability_rating = formatVulnerabilityRatingDisplay(vulnRating)
+
+  return data
+}
+
+function vulnerabilityRatingTone(rating: unknown): 'danger' | 'warning' | 'success' {
+  const r = String(rating ?? '').toUpperCase()
+  if (r === 'HIGH') return 'danger'
+  if (r === 'MEDIUM') return 'warning'
+  return 'success'
+}
+
+/** Climate score/rating tone classes (matches SettlementDetails Profile tab). */
+export function getDrawerClimateVulnCellTextClass(
+  field: string,
+  data: Record<string, unknown>
+): string {
+  if (field !== 'vulnerability_rating' && field !== 'vulnerability_total_score_display') {
+    return ''
+  }
+  const r = data.vulnerability_rating
+  if (r == null || r === '' || r === '\u2014') return 'inline-cell__text--climate-neutral'
+  const tone = vulnerabilityRatingTone(r)
+  if (tone === 'danger') return 'inline-cell__text--climate-high'
+  if (tone === 'warning') return 'inline-cell__text--climate-medium'
+  return 'inline-cell__text--climate-low'
+}

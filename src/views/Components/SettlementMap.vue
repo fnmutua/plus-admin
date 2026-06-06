@@ -30,6 +30,8 @@ import {
   computeAvgHouseholdSize,
   computePopulationDensity,
   displayValueAfterSave,
+  enrichSettlementDrawerRecordData,
+  getDrawerClimateVulnCellTextClass,
   getDrawerReadonlyFields,
   getFacilitySelectFields,
   mergeDrawerFieldTypes,
@@ -1744,10 +1746,11 @@ const openFeatureDrawer = (
   drawerSubtitle.value = getDrawerSubtitle(properties, kind, featureType)
   drawerInlineSections.value = buildDrawerInlineSections(properties, kind, featureType)
   Object.keys(drawerRecordData).forEach((key) => delete drawerRecordData[key])
-  Object.assign(
-    drawerRecordData,
-    prepareDrawerRecordData(normalizedProperties, kind, featureType)
-  )
+  const preparedRecord = prepareDrawerRecordData(normalizedProperties, kind, featureType)
+  if (kind === 'settlement') {
+    enrichSettlementDrawerRecordData(preparedRecord, normalizedProperties)
+  }
+  Object.assign(drawerRecordData, preparedRecord)
   drawerRecordMeta.value = {
     id: normalizedProperties.id ?? resolvedFeature.properties?.id ?? null,
     county_id:
@@ -1883,7 +1886,8 @@ async function persistDrawerVulnerabilityScoreIfComplete() {
 
     drawerRecordData.vulnerability_total_score_display =
       total != null ? String(total) : '\u2014'
-    drawerRecordData.vulnerability_rating = rating || '\u2014'
+    drawerRecordData.vulnerability_rating =
+      rating != null && rating !== '' ? String(rating).toUpperCase() : '\u2014'
     syncMapFeatureProperty('vulnerability_total_score', total)
     syncMapFeatureProperty('vulnerability_rating', rating)
   } catch {
@@ -1961,6 +1965,13 @@ async function saveDrawerInline(payload: { field: string; value: unknown }) {
       (CLIMATE_VULN_ATTR_FIELDS as readonly string[]).includes(field)
     ) {
       await persistDrawerVulnerabilityScoreIfComplete()
+    }
+
+    if (kind === 'settlement') {
+      enrichSettlementDrawerRecordData(
+        drawerRecordData,
+        selectedFeature.value?.properties || {}
+      )
     }
 
     refreshDrawerPresentation()
@@ -3445,6 +3456,7 @@ const loadMapData = async () => {
                 :select-fields="drawerActiveSelectFields"
                 :multiselect-fields="drawerFieldTypes.multiselectFields"
                 :saving-field="drawerInlineSavingField"
+                :cell-text-class="(field) => getDrawerClimateVulnCellTextClass(field, drawerRecordData)"
                 @save="saveDrawerInline"
               />
             </ElCollapseItem>
@@ -4072,7 +4084,8 @@ const loadMapData = async () => {
 .drawer-content .feature-descriptions :deep(.el-descriptions__label) {
   font-size: 14px;
   font-weight: bold;
-  min-width: 120px;
+  min-width: 150px;
+  width: 150px;
   word-break: break-word;
   color: var(--el-text-color-primary);
 }
@@ -4089,10 +4102,6 @@ const loadMapData = async () => {
 
 .drawer-content .feature-descriptions :deep(.inline-cell__text) {
   line-height: 1.5;
-}
-
-.drawer-content .feature-descriptions :deep(.inline-cell__text--clamped) {
-  white-space: pre-wrap;
 }
 
 .drawer-content .feature-descriptions :deep(.inline-cell__input),
@@ -4143,7 +4152,8 @@ const loadMapData = async () => {
 
   .drawer-content .feature-descriptions :deep(.el-descriptions__label) {
     font-size: 13px;
-    min-width: 100px !important;
+    min-width: 118px !important;
+    width: 118px;
     padding: 8px 10px;
   }
 

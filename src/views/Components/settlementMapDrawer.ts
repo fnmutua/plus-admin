@@ -179,7 +179,11 @@ const SETTLEMENT_SCHEMAS: SchemaSection[] = [
       { key: 'altitude_range', label: 'Altitude range' },
       { key: 'proximity_to_river', label: 'Proximity to river' },
       { key: 'proximity_to_flood_plain', label: 'Proximity to flood plain' },
-      { key: 'vulnerability_total_score_display', label: 'Vulnerability total score' },
+      {
+        key: 'vulnerability_total_score_display',
+        label: 'Vulnerability total score',
+        aliases: ['vulnerability_total_score'],
+      },
       { key: 'vulnerability_rating', label: 'Vulnerability rating' },
     ],
   },

@@ -76,6 +76,40 @@ const selectFieldSet = computed(() => new Set(props.selectFields || []))
 const multiselectSet = computed(() => new Set(props.multiselectFields || []))
 const clampSet = computed(() => new Set(props.clampFields || []))
 
+type LayoutSchemaItem = Record<string, any> & { span: number }
+
+/** Element Plus only wraps when the current row is full; pad the prior item so long-text fields start on a new row. */
+const layoutSchema = computed((): LayoutSchemaItem[] => {
+  const cols = Math.max(1, props.column)
+  const result: LayoutSchemaItem[] = []
+  let colUsed = 0
+
+  const isFullRow = (field: string) =>
+    textareaSet.value.has(field) || clampSet.value.has(field)
+
+  for (const item of props.schema) {
+    const field = item.field as string
+    const fullRow = isFullRow(field)
+
+    if (fullRow && colUsed % cols !== 0 && result.length > 0) {
+      const prev = result[result.length - 1]
+      const remainder = cols - (colUsed % cols)
+      prev.span = (prev.span || 1) + remainder
+      colUsed += remainder
+    }
+
+    const span = fullRow ? cols : item.span || 1
+    result.push({ ...item, span })
+    colUsed += span
+  }
+
+  return result
+})
+
+function isFullRowField(field: string) {
+  return textareaSet.value.has(field) || clampSet.value.has(field)
+}
+
 function isClamped(field: string) {
   return clampSet.value.has(field)
 }
@@ -263,7 +297,7 @@ function onInputKeydown(e: KeyboardEvent) {
 }
 
 function itemBind(item: Record<string, any>) {
-  const { field, label, ...rest } = item
+  const { field, label, span, ...rest } = item
   return rest
 }
 
@@ -291,8 +325,10 @@ function booleanTagType(field: string): 'success' | 'danger' | 'info' {
     :class="['inline-editable-descriptions', tableClass]"
   >
     <ElDescriptionsItem
-      v-for="item in schema"
+      v-for="item in layoutSchema"
       :key="item.field"
+      :span="item.span"
+      :class-name="isFullRowField(item.field) ? 'inline-desc-full-row' : ''"
       v-bind="itemBind(item)"
     >
       <template #label>
@@ -519,6 +555,10 @@ function booleanTagType(field: string): 'success' | 'danger' | 'info' {
 
 .inline-cell--editing {
   align-items: stretch;
+}
+
+:deep(.inline-desc-full-row) {
+  width: 100%;
 }
 </style>
 
