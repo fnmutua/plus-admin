@@ -1,6 +1,11 @@
 import type { FeatureKind } from './settlementMapDrawer'
 import { settlementDetailsMutationAccessForRole, type ProcessedSettlementRole } from '@/utils/roleScope'
 import {
+  buildFacilitySelectOptions,
+  getFacilityMultiselectFields,
+  getFacilitySelectFields,
+} from './facilityInlineEditConfig'
+import {
   buildVulnerabilitySelectFallback,
   CLIMATE_VULN_ATTR_FIELDS,
   coerceSettlementValueForApi,
@@ -13,6 +18,8 @@ import {
   settlementSelectFields,
   VULNERABILITY_FALLBACK,
 } from '@/views/Settlement/settlementInlineEditConfig'
+
+export { buildFacilitySelectOptions, getFacilityMultiselectFields, getFacilitySelectFields }
 
 export { settlementSelectFields }
 
@@ -80,7 +87,6 @@ export function mergeDrawerFieldTypes(
   if (kind === 'settlement') {
     const selectFieldSet = new Set<string>(settlementSelectFields)
     const multiselectSet = new Set(inlineMultiselectFields)
-    const booleanFieldSet = new Set(settlementBooleanFields)
     const isSelectField = (field: string) => selectFieldSet.has(field)
 
     return {
@@ -100,6 +106,22 @@ export function mergeDrawerFieldTypes(
         ]),
       ].filter((field) => !isSelectField(field)),
       multiselectFields: inlineMultiselectFields,
+    }
+  }
+
+  if (kind === 'facility' && featureType) {
+    const selectFieldSet = new Set(getFacilitySelectFields(featureType))
+    const multiselectFields = getFacilityMultiselectFields(featureType)
+    const multiselectSet = new Set(multiselectFields)
+    const isSelectField = (field: string) => selectFieldSet.has(field)
+
+    return {
+      numberFields: collected.numberFields.filter((field) => !isSelectField(field)),
+      booleanFields: collected.booleanFields.filter((field) => !isSelectField(field)),
+      textareaFields: collected.textareaFields.filter(
+        (field) => !multiselectSet.has(field) && !isSelectField(field)
+      ),
+      multiselectFields,
     }
   }
 

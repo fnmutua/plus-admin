@@ -22,6 +22,7 @@ import {
   type FeatureKind,
 } from './settlementMapDrawer'
 import {
+  buildFacilitySelectOptions,
   buildVulnerabilitySelectFallback,
   canEditDrawerRecord,
   CLIMATE_VULN_ATTR_FIELDS,
@@ -30,6 +31,7 @@ import {
   computePopulationDensity,
   displayValueAfterSave,
   getDrawerReadonlyFields,
+  getFacilitySelectFields,
   mergeDrawerFieldTypes,
   settlementSelectFields,
   type DrawerRecordMeta,
@@ -1613,12 +1615,22 @@ const drawerFieldTypes = computed(() =>
   )
 )
 
-const syncDrawerSelectOptions = (kind: FeatureKind) => {
+const drawerActiveSelectFields = computed(() => {
+  if (drawerFeatureKind.value === 'settlement') return settlementSelectFields
+  if (drawerFeatureKind.value === 'facility' && drawerFeatureType.value) {
+    return getFacilitySelectFields(drawerFeatureType.value)
+  }
+  return []
+})
+
+const syncDrawerSelectOptions = (kind: FeatureKind, featureType?: string) => {
   if (kind === 'settlement') {
     drawerSelectOptions.value = {
       ...inlineSelectOptionsBase,
       ...drawerVulnerabilitySelectOptions.value,
     }
+  } else if (kind === 'facility' && featureType) {
+    drawerSelectOptions.value = buildFacilitySelectOptions(featureType)
   } else {
     drawerSelectOptions.value = {}
   }
@@ -1727,7 +1739,7 @@ const openFeatureDrawer = (
 
   drawerFeatureKind.value = kind
   drawerFeatureType.value = featureType
-  syncDrawerSelectOptions(kind)
+  syncDrawerSelectOptions(kind, featureType)
   drawerTitle.value = getDrawerTitle(properties, kind, featureType, normalizedProperties)
   drawerSubtitle.value = getDrawerSubtitle(properties, kind, featureType)
   drawerInlineSections.value = buildDrawerInlineSections(properties, kind, featureType)
@@ -3430,7 +3442,7 @@ const loadMapData = async () => {
                 :number-fields="drawerFieldTypes.numberFields"
                 :boolean-fields="drawerFieldTypes.booleanFields"
                 :select-options="drawerSelectOptions"
-                :select-fields="drawerFeatureKind === 'settlement' ? settlementSelectFields : []"
+                :select-fields="drawerActiveSelectFields"
                 :multiselect-fields="drawerFieldTypes.multiselectFields"
                 :saving-field="drawerInlineSavingField"
                 @save="saveDrawerInline"
