@@ -1,27 +1,27 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { canUnlinkDocumentFromFacility, canPermanentlyDeleteFacilityLinkedDocument } from '@/utils/documentPermissions'
 import { useRoute, useRouter } from 'vue-router'
-import { ElCard, ElTabs, ElTabPane, ElButton, ElDescriptions, ElDescriptionsItem, ElTag, ElAlert, ElCollapseTransition, ElTable, ElTableColumn, ElMessage, ElPopconfirm } from 'element-plus'
+import { ElCard, ElTabs, ElTabPane, ElButton, ElTag, ElAlert, ElMessage } from 'element-plus'
 import { Back } from '@element-plus/icons-vue'
-import { Icon } from '@iconify/vue'
 import { GoogleMap, Polygon, Polyline } from 'vue3-google-map'
-import { useDesign } from '@/hooks/web/useDesign'
 import { getSettlementListByCounty, getOneGeo, getSettlementMapData, getLinkedDocuments, unlinkDocument, DeleteRecord, deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
+import FacilityDetailsDocuments from '@/views/Facilities/components/FacilityDetailsDocuments.vue'
+import FacilityProfileInlineSections from '@/views/Facilities/components/FacilityProfileInlineSections.vue'
+import { useFacilityDetailsMobile } from '@/views/Facilities/composables/useFacilityDetailsMobile'
+
+const { pageStyle, mapContainerStyle } = useFacilityDetailsMobile()
 
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id
 
-const { getPrefixCls } = useDesign()
-const prefixCls = getPrefixCls('descriptions')
-const collapsed = reactive({ general: false, pipe: false })
 const loading = ref(true); const error = ref(''); const activeTab = ref('profile')
 const d = ref<any>({})
 const mapRef = ref(); const mapLoading = ref(false)
@@ -29,7 +29,6 @@ const mapCenter = ref({ lat: -1.286389, lng: 36.817223 })
 const settlementPolygons = ref<any[]>([])
 const sewerLines = ref<any[]>([])
 const mapDataLoaded = ref(false)
-const fmt = (val: any) => (val === null || val === undefined || val === '') ? '–' : val
 
 const loadProfile = async () => {
   loading.value = true; error.value = ''
@@ -164,9 +163,9 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div style="padding: 16px;">
+  <div :style="pageStyle">
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon style="margin-bottom: 16px;" />
-    <el-card v-loading="loading">
+    <el-card v-loading="loading" >
       <template #header>
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <el-button :icon="Back" size="small" @click="router.back()">Back</el-button>
@@ -176,46 +175,12 @@ onMounted(loadProfile)
           <el-tag v-if="d.isApproved" size="small" :type="d.isApproved === 'Approved' ? 'success' : d.isApproved === 'Rejected' ? 'danger' : ''">{{ d.isApproved }}</el-tag>
         </div>
       </template>
-      <el-tabs v-model="activeTab" @tab-change="onTabChange">
+      <el-tabs v-model="activeTab"  @tab-change="onTabChange">
         <el-tab-pane label="Profile" name="profile">
-
-          <div :class="prefixCls" style="margin-bottom: 2px;">
-            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);" @click="collapsed.general = !collapsed.general">
-              <span style="font-weight:600;">General</span><Icon :icon="collapsed.general ? 'ep:arrow-down' : 'ep:arrow-up'" />
-            </div>
-            <ElCollapseTransition><div v-show="!collapsed.general" style="padding: 12px;">
-              <el-descriptions :column="2" border>
-                <el-descriptions-item label="Name">{{ fmt(d.name) }}</el-descriptions-item>
-                <el-descriptions-item label="Code">{{ fmt(d.code) }}</el-descriptions-item>
-                <el-descriptions-item label="Ownership">{{ fmt(d.ownership) }}</el-descriptions-item>
-                <el-descriptions-item label="Provider">{{ fmt(d.provider) }}</el-descriptions-item>
-                <el-descriptions-item label="Provider Category">{{ fmt(d.provider_category) }}</el-descriptions-item>
-                <el-descriptions-item label="Condition">{{ fmt(d.condition) }}</el-descriptions-item>
-                <el-descriptions-item label="Settlement">{{ fmt(d.settlement?.name || d.settlement_code) }}</el-descriptions-item>
-                <el-descriptions-item label="County">{{ fmt(d.county?.name || d.county_name) }}</el-descriptions-item>
-                <el-descriptions-item label="Approval Status">{{ fmt(d.isApproved) }}</el-descriptions-item>
-              </el-descriptions>
-            </div></ElCollapseTransition>
-          </div>
-
-          <div :class="prefixCls">
-            <div :class="`${prefixCls}-header`" style="height:50px;display:flex;justify-content:space-between;align-items:center;padding:0 12px;cursor:pointer;border-bottom:1px solid var(--el-border-color-lighter);" @click="collapsed.pipe = !collapsed.pipe">
-              <span style="font-weight:600;">Pipe Details</span><Icon :icon="collapsed.pipe ? 'ep:arrow-down' : 'ep:arrow-up'" />
-            </div>
-            <ElCollapseTransition><div v-show="!collapsed.pipe" style="padding: 12px;">
-              <el-descriptions :column="2" border>
-                <el-descriptions-item label="Pipe Type">{{ fmt(d.pipe_type) }}</el-descriptions-item>
-                <el-descriptions-item label="Pipe Size">{{ fmt(d.pipe_size) }}</el-descriptions-item>
-                <el-descriptions-item label="Length">{{ fmt(d.length) }}</el-descriptions-item>
-                <el-descriptions-item label="Number of Connections">{{ fmt(d.number_of_connections) }}</el-descriptions-item>
-                <el-descriptions-item label="Persons Served">{{ fmt(d.number_of_persons_served) }}</el-descriptions-item>
-              </el-descriptions>
-            </div></ElCollapseTransition>
-          </div>
-
+          <FacilityProfileInlineSections feature-type="sewer" :record="d" />
         </el-tab-pane>
         <el-tab-pane label="Location" name="map">
-          <div v-loading="mapLoading" style="height: 520px; width: 100%; border-radius: 6px; overflow: hidden;">
+          <div v-loading="mapLoading" :style="mapContainerStyle">
             <GoogleMap
               v-if="activeTab === 'map'"
               ref="mapRef"
@@ -240,39 +205,16 @@ onMounted(loadProfile)
           </div>
         </el-tab-pane>
         <el-tab-pane label="Documents" name="documents">
-          <div v-loading="docsLoading" style="min-height: 120px;">
-            <el-alert v-if="!docsLoading && !facilityDocuments.length" title="No documents linked to this facility." type="info" :closable="false" show-icon style="margin-bottom: 12px;" />
-            <el-table v-if="facilityDocuments.length" :data="facilityDocuments" style="width: 100%;">
-              <el-table-column type="index" width="50" />
-              <el-table-column label="Name" prop="name" />
-              <el-table-column label="Type" prop="document_type.type" width="160" />
-              <el-table-column label="Format" prop="format" width="90" />
-              <el-table-column label="Uploaded" prop="createdAt" width="180" />
-              <el-table-column fixed="right" label="" min-width="200">
-                <template #default="scope">
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;">
-                    <el-button plain :loading="downloadingDocId === scope.row.id" @click="downloadFile(scope.row)">
-                      <Icon icon="fa-solid:download" style="margin-right:5px;" /> Download
-                    </el-button>
-                    <el-popconfirm v-if="canUnlinkFacilityDoc" title="Unlink this document from this facility? The document will not be deleted." confirm-button-text="Unlink" cancel-button-text="Cancel" @confirm="handleUnlinkDocument(scope.row)">
-                      <template #reference>
-                        <el-button plain type="warning">
-                          <Icon icon="mdi:link-off" style="margin-right:5px;" /> Unlink
-                        </el-button>
-                      </template>
-                    </el-popconfirm>
-                    <el-popconfirm v-if="canRemoveFacilityDoc" title="Delete this document permanently? This cannot be undone." confirm-button-text="Delete" cancel-button-text="Cancel" confirm-button-type="danger" @confirm="handleRemoveDocument(scope.row)">
-                      <template #reference>
-                        <el-button plain type="danger">
-                          <Icon icon="material-symbols-light:delete-outline" style="margin-right:5px;" /> Remove
-                        </el-button>
-                      </template>
-                    </el-popconfirm>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
+          <FacilityDetailsDocuments
+            :documents="facilityDocuments"
+            :loading="docsLoading"
+            :downloading-id="downloadingDocId"
+            :can-unlink="canUnlinkFacilityDoc"
+            :can-remove="canRemoveFacilityDoc"
+            @download="downloadFile"
+            @unlink="handleUnlinkDocument"
+            @remove="handleRemoveDocument"
+          />
         </el-tab-pane>
       </el-tabs>
     </el-card>

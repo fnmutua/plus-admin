@@ -14,11 +14,12 @@ import {
   getDrawerSubtitle,
   getDrawerTitle,
   getDrawerUpdateModel,
-  getFacilityDetailRouteName,
+  getFacilityDetailNavigation,
   normalizeFacilityProperties,
   prepareDrawerRecordData,
   resolveFeatureType,
   type DrawerInlineSection,
+  type FacilityDetailNavigation,
   type FeatureKind,
 } from './settlementMapDrawer'
 import {
@@ -1604,7 +1605,7 @@ const drawerFeatureKind = ref<FeatureKind>('generic')
 const drawerFeatureType = ref('')
 const drawerSettlementId = ref<string | null>(null)
 const drawerFacilityId = ref<string | null>(null)
-const drawerFacilityRoute = ref<string | null>(null)
+const drawerFacilityNav = ref<FacilityDetailNavigation | null>(null)
 const drawerInlineSavingField = ref<string | null>(null)
 const drawerVulnerabilitySelectOptions = ref(buildVulnerabilitySelectFallback())
 const drawerSelectOptions = ref<Record<string, Array<{ label: string; value: string | number | boolean }>>>({})
@@ -1766,7 +1767,7 @@ const openFeatureDrawer = (
     : []
   drawerSettlementId.value = getDrawerSettlementId(properties, kind)
   drawerFacilityId.value = kind === 'facility' ? getDrawerFacilityId(properties, featureType) : null
-  drawerFacilityRoute.value = kind === 'facility' ? getFacilityDetailRouteName(featureType) : null
+  drawerFacilityNav.value = kind === 'facility' ? getFacilityDetailNavigation(featureType) : null
   drawerVisible.value = true
 
   selectedFeature.value = {
@@ -1804,7 +1805,7 @@ const closeDrawer = () => {
   drawerFeatureType.value = ''
   drawerSettlementId.value = null
   drawerFacilityId.value = null
-  drawerFacilityRoute.value = null
+  drawerFacilityNav.value = null
   drawerInlineSavingField.value = null
   drawerSelectOptions.value = {}
   selectedFeature.value = null
@@ -2024,11 +2025,12 @@ const goToDrawerSettlement = () => {
 }
 
 const goToDrawerFacility = () => {
-  if (!drawerFacilityId.value || !drawerFacilityRoute.value) return
+  if (!drawerFacilityId.value || !drawerFacilityNav.value) return
 
   router.push({
-    name: drawerFacilityRoute.value,
+    name: drawerFacilityNav.value.routeName,
     params: { id: drawerFacilityId.value },
+    query: drawerFacilityNav.value.query,
   })
   closeDrawer()
 }
@@ -3466,7 +3468,7 @@ const loadMapData = async () => {
           <p>No additional information available for this feature.</p>
         </div>
 
-        <template v-if="drawerFeatureKind === 'settlement' || drawerFeatureKind === 'neighbor' || (drawerFeatureKind === 'facility' && drawerFacilityRoute)" #footer>
+        <template v-if="drawerFeatureKind === 'settlement' || drawerFeatureKind === 'neighbor' || (drawerFeatureKind === 'facility' && drawerFacilityNav)" #footer>
           <div class="drawer-footer-actions">
             <template v-if="drawerFeatureKind === 'settlement'">
               <ElButton type="primary" @click="goToDrawerSettlement">

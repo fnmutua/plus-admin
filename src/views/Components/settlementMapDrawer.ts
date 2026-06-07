@@ -291,6 +291,53 @@ export const FACILITY_DETAIL_ROUTES: Record<string, string> = {
   police_station: 'PoliceDetails',
 }
 
+export type FacilityDetailNavigation = {
+  routeName: string
+  query?: Record<string, string>
+}
+
+/** Route + query for opening a facility profile from the map drawer footer. */
+export const FACILITY_DETAIL_NAVIGATION: Record<string, FacilityDetailNavigation> = {
+  ...Object.fromEntries(
+    Object.entries(FACILITY_DETAIL_ROUTES).map(([featureType, routeName]) => [
+      featureType,
+      { routeName },
+    ])
+  ),
+  dumping_site: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'dumping_site', title: 'Dumping Site' },
+  },
+  hazard_zone: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'hazard_zone', title: 'Hazard Zone' },
+  },
+  mast: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'mast', title: 'Telecom Mast' },
+  },
+  streetlight: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'street_light', title: 'Streetlight' },
+  },
+  powerline: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'powerline', title: 'Powerline' },
+  },
+  crime_hotspot: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'crime_hotspot', title: 'Crime Hotspot' },
+  },
+  floodlight: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'floodlight', title: 'Floodlight' },
+  },
+  other_facility: {
+    routeName: 'OtherFacilityDetails',
+    query: { model: 'other_facility', title: 'Facility Profile' },
+  },
+}
+
 const FACILITY_SCHEMAS: Record<string, SchemaSection[]> = {
   education_facility: [
     {
@@ -1101,6 +1148,67 @@ export const buildDrawerInlineSections = (
   return sections
 }
 
+const resolveSchemaFieldRawValue = (
+  properties: Record<string, unknown>,
+  field: SchemaField
+): { key: string; value: unknown } => {
+  const propertyKey = findPropertyKey(properties, field.key, field.aliases)
+  const value = propertyKey ? properties[propertyKey] : undefined
+  return { key: field.key, value }
+}
+
+/** Profile pages: include all schema fields (empty values shown as em dash). */
+export const buildFacilityProfileInlineSections = (
+  _properties: Record<string, unknown> = {},
+  featureType?: string
+): DrawerInlineSection[] => {
+  const schemas = getDrawerSchemaSections('facility', featureType)
+  if (!schemas.length) {
+    return buildDrawerInlineSections(_properties, 'facility', featureType)
+  }
+
+  const sections: DrawerInlineSection[] = []
+
+  for (const schema of schemas) {
+    const fields: DrawerInlineSection['schema'] = schema.fields.map((field) => ({
+      field: field.key,
+      label: field.label,
+      span: field.format === 'longtext' ? 2 : 1,
+    }))
+
+    if (fields.length > 0) {
+      sections.push({ title: schema.title, schema: fields })
+    }
+  }
+
+  return sections
+}
+
+export const prepareFacilityProfileRecordData = (
+  properties: Record<string, unknown> = {},
+  featureType?: string
+): Record<string, unknown> => {
+  const data: Record<string, unknown> = {}
+  const schemas = getDrawerSchemaSections('facility', featureType)
+
+  for (const schema of schemas) {
+    for (const field of schema.fields) {
+      const resolved = resolveSchemaFieldRawValue(properties, field)
+      data[resolved.key] = formatInlineRecordValue(
+        resolved.key,
+        resolved.value,
+        field.format
+      )
+    }
+  }
+
+  if (properties.id != null && data.id == null) {
+    data.id = properties.id
+  }
+
+  return data
+}
+
 export const collectDrawerFieldTypes = (
   kind: FeatureKind,
   featureType?: string
@@ -1298,9 +1406,15 @@ export const getDrawerFacilityId = (
   return String(properties.id)
 }
 
-export const getFacilityDetailRouteName = (featureType?: string): string | null => {
+export const getFacilityDetailNavigation = (
+  featureType?: string
+): FacilityDetailNavigation | null => {
   if (!featureType) return null
-  return FACILITY_DETAIL_ROUTES[featureType] || null
+  return FACILITY_DETAIL_NAVIGATION[featureType] || null
+}
+
+export const getFacilityDetailRouteName = (featureType?: string): string | null => {
+  return getFacilityDetailNavigation(featureType)?.routeName ?? null
 }
 
 export const filterFeatureProperties = (

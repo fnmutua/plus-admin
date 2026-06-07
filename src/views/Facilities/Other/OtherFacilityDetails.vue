@@ -8,20 +8,23 @@ import {
   ElTabs,
   ElTabPane,
   ElButton,
-  ElDescriptions,
-  ElDescriptionsItem,
   ElAlert,
-  ElTable,
-  ElTableColumn,
-  ElMessage,
-  ElPopconfirm
+  ElMessage
 } from 'element-plus'
 import { Back } from '@element-plus/icons-vue'
-import { Icon } from '@iconify/vue'
 import { GoogleMap, Polygon, Marker, Polyline, InfoWindow } from 'vue3-google-map'
 import { getSettlementListByCounty, getOneGeo, getLinkedDocuments, unlinkDocument, DeleteRecord, deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
+import FacilityDetailsDocuments from '@/views/Facilities/components/FacilityDetailsDocuments.vue'
+import FacilityProfileInlineSections from '@/views/Facilities/components/FacilityProfileInlineSections.vue'
+import { resolveFacilitySchemaType } from '@/views/Facilities/facilityProfileInlineEdit'
+import { useFacilityDetailsMobile } from '@/views/Facilities/composables/useFacilityDetailsMobile'
+
+const {
+  pageStyle,
+  mapContainerStyle,
+} = useFacilityDetailsMobile()
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { canUnlinkDocumentFromFacility, canPermanentlyDeleteFacilityLinkedDocument } from '@/utils/documentPermissions'
@@ -32,6 +35,7 @@ const router = useRouter()
 const id = route.params.id
 const model = computed(() => route.query.model || 'other_facility')
 const pageTitle = computed(() => (route.query.title as string) || 'Facility Profile')
+const inlineFeatureType = computed(() => resolveFacilitySchemaType(String(model.value)))
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -246,22 +250,6 @@ const onTabChange = (tab: string) => {
   if (tab === 'documents' && !facilityDocuments.value.length) loadDocuments()
 }
 
-const basicFields = [
-  { key: 'name', label: 'Name' },
-  { key: 'code', label: 'Code' },
-  { key: 'type', label: 'Type' },
-  { key: 'condition', label: 'Condition' },
-  { key: 'ownership_type', label: 'Ownership Type' },
-  { key: 'owner', label: 'Owner' }
-]
-
-const locationFields = [
-  { key: 'settlement.name', label: 'Settlement' },
-  { key: 'ward.name', label: 'Ward' },
-  { key: 'subcounty.name', label: 'Subcounty' },
-  { key: 'county.name', label: 'County' }
-]
-
 const getNested = (obj: any, path: string) =>
   path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : null), obj)
 
@@ -269,7 +257,7 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div style="padding: 16px;">
+  <div :style="pageStyle">
     <el-alert
       v-if="error"
       :title="error"
@@ -279,7 +267,7 @@ onMounted(loadProfile)
       style="margin-bottom: 16px;"
     />
 
-    <el-card v-loading="loading">
+    <el-card v-loading="loading" >
       <template #header>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <el-button :icon="Back" size="small" @click="router.back()">Back</el-button>
@@ -289,33 +277,18 @@ onMounted(loadProfile)
         </div>
       </template>
 
-      <el-tabs v-model="activeTab" @tab-change="onTabChange">
+      <el-tabs v-model="activeTab"  @tab-change="onTabChange">
         <el-tab-pane label="Profile" name="profile">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item
-              v-for="field in basicFields"
-              :key="field.key"
-              :label="field.label"
-            >
-              {{ fmt(record[field.key]) }}
-            </el-descriptions-item>
-          </el-descriptions>
-
-          <el-descriptions :column="2" border style="margin-top:16px;">
-            <el-descriptions-item
-              v-for="field in locationFields"
-              :key="field.key"
-              :label="field.label"
-            >
-              {{ fmt(getNested(record, field.key)) }}
-            </el-descriptions-item>
-          </el-descriptions>
+          <FacilityProfileInlineSections
+            :feature-type="inlineFeatureType"
+            :update-model="model"
+            :record="record"
+          />
         </el-tab-pane>
 
         <el-tab-pane label="Location" name="map">
           <div
-            v-loading="mapLoading"
-            style="height: 520px; width: 100%; border-radius: 6px; overflow: hidden;"
+            v-loading="mapLoading" :style="mapContainerStyle"
           >
             <GoogleMap
               v-if="activeTab === 'map'"
@@ -353,43 +326,18 @@ onMounted(loadProfile)
           </div>
         </el-tab-pane>
         <el-tab-pane label="Documents" name="documents">
-          <div v-loading="docsLoading" style="min-height: 120px;">
-            <el-alert v-if="!docsLoading && !facilityDocuments.length" title="No documents linked to this facility." type="info" :closable="false" show-icon style="margin-bottom: 12px;" />
-            <el-table v-if="facilityDocuments.length" :data="facilityDocuments" style="width: 100%;">
-              <el-table-column type="index" width="50" />
-              <el-table-column label="Name" prop="name" />
-              <el-table-column label="Type" prop="document_type.type" width="160" />
-              <el-table-column label="Format" prop="format" width="90" />
-              <el-table-column label="Uploaded" prop="createdAt" width="180" />
-              <el-table-column fixed="right" label="" min-width="200">
-                <template #default="scope">
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;">
-                    <el-button plain :loading="downloadingDocId === scope.row.id" @click="downloadFile(scope.row)">
-                      <Icon icon="fa-solid:download" style="margin-right:5px;" /> Download
-                    </el-button>
-                    <el-popconfirm v-if="canUnlinkFacilityDoc" title="Unlink this document from this facility? The document will not be deleted." confirm-button-text="Unlink" cancel-button-text="Cancel" @confirm="handleUnlinkDocument(scope.row)">
-                      <template #reference>
-                        <el-button plain type="warning">
-                          <Icon icon="mdi:link-off" style="margin-right:5px;" /> Unlink
-                        </el-button>
-                      </template>
-                    </el-popconfirm>
-                    <el-popconfirm v-if="canRemoveFacilityDoc" title="Delete this document permanently? This cannot be undone." confirm-button-text="Delete" cancel-button-text="Cancel" confirm-button-type="danger" @confirm="handleRemoveDocument(scope.row)">
-                      <template #reference>
-                        <el-button plain type="danger">
-                          <Icon icon="material-symbols-light:delete-outline" style="margin-right:5px;" /> Remove
-                        </el-button>
-                      </template>
-                    </el-popconfirm>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
+          <FacilityDetailsDocuments
+            :documents="facilityDocuments"
+            :loading="docsLoading"
+            :downloading-id="downloadingDocId"
+            :can-unlink="canUnlinkFacilityDoc"
+            :can-remove="canRemoveFacilityDoc"
+            @download="downloadFile"
+            @unlink="handleUnlinkDocument"
+            @remove="handleRemoveDocument"
+          />
         </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
 </template>
-
- 
