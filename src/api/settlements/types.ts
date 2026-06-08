@@ -7,6 +7,8 @@ export type SettlementType = {
   area?: number
   code?: string
   population?: number
+  pop_male?: number
+  pop_female?: number
   county?: string
   geom?: string
 

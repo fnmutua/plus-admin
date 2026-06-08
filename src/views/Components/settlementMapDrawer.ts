@@ -72,6 +72,8 @@ const BOOLEAN_KEYS = new Set([
 const INTEGER_KEYS = new Set([
   'id',
   'population',
+  'pop_male',
+  'pop_female',
   'num_households',
   'landuse_id',
 ])
@@ -117,6 +119,8 @@ const SETTLEMENT_SCHEMAS: SchemaSection[] = [
       { key: 'settlement_type', label: 'Type' },
       { key: 'density_typology', label: 'Density typology' },
       { key: 'population', label: 'Population', format: 'integer' },
+      { key: 'pop_male', label: 'Male population', format: 'integer' },
+      { key: 'pop_female', label: 'Female population', format: 'integer' },
       { key: 'area', label: 'Area', format: 'area_ha' },
       { key: 'pop_density', label: 'Population density' },
       { key: 'num_households', label: 'Number of households', format: 'integer' },

@@ -40,7 +40,7 @@ import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
-import { countyOptions, wardOptions, subcountyOptions } from './common/index'
+import { countyOptions, countyRefList, wardOptions, subcountyOptions } from './common/index'
 import { getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -137,6 +137,8 @@ const settlementForm = reactive({
   ward_id: '',
   settlement_type: '',
   population: '',
+  pop_male: null as number | null,
+  pop_female: null as number | null,
   area: '',
   description: null,
   geom: null,
@@ -194,7 +196,7 @@ const activeFormSection = ref<'basic' | 'location' | 'parcel' | 'physical' | 'so
 type SectionKey = 'basic' | 'location' | 'parcel' | 'physical' | 'socio' | 'vulnerability'
 
 const sectionFields: Record<SectionKey, (keyof typeof settlementForm)[]> = {
-  basic: ['name', 'settlement_type', 'area', 'population', 'description'],
+  basic: ['name', 'settlement_type', 'area', 'population', 'pop_male', 'pop_female', 'description'],
   location: ['county_id', 'ward_id'],
   parcel: ['parcel_no', 'parcel_owner', 'parcel_owner_type', 'rim_no', 'surveyed', 'land_status'],
   physical: [
@@ -1751,6 +1753,31 @@ const fetchWardAvgHouseholdSize = async (wardId: any): Promise<number | null> =>
   }
 }
 
+/** Split total population into male/female using the selected county's census sex ratio. */
+const applyCountySexSplit = (total: number) => {
+  const countyId = settlementForm.county_id
+  const counties = countyRefList?.value as Array<{
+    id: number | string
+    pop_male?: number
+    pop_female?: number
+    pop_total?: number
+  }> | undefined
+  if (!countyId || !counties?.length) return
+
+  const county = counties.find((c) => String(c.id) === String(countyId))
+  if (!county) return
+
+  const refMale = Number(county.pop_male)
+  const refFemale = Number(county.pop_female)
+  const refTotal = Number(county.pop_total) || refMale + refFemale
+  if (!Number.isFinite(refTotal) || refTotal <= 0) return
+  if (!Number.isFinite(refMale) || !Number.isFinite(refFemale)) return
+
+  const popMale = Math.round(total * (refMale / refTotal))
+  settlementForm.pop_male = popMale
+  settlementForm.pop_female = total - popMale
+}
+
 // Auto-fill population from building-based population estimation service
 const fetchPopulationEstimate = async (geometry: any) => {
   populationLoading.value = true
@@ -1771,6 +1798,7 @@ const fetchPopulationEstimate = async (geometry: any) => {
     if (data?.estimated_population != null) {
       const population = Math.round(data.estimated_population / 100) * 100
       settlementForm.population = population
+      applyCountySexSplit(population)
       if (wardAvgHouseholdSize.value != null) {
         settlementForm.avg_household_size = wardAvgHouseholdSize.value
       }
@@ -1884,6 +1912,8 @@ const clearFormAndGeometry = () => {
     ward_id: '',
     settlement_type: '',
     population: '',
+    pop_male: null,
+    pop_female: null,
     area: '',
     description: null,
     geom: null,
@@ -2602,6 +2632,17 @@ onMounted(async () => {
                     <el-icon class="cursor-help text-gray-500" style="margin-left: 6px; vertical-align: middle;" :size="16"><QuestionFilled /></el-icon>
                   </template>
                 </el-popover>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="Male population">
+              <el-input-number v-model="settlementForm.pop_male" :min="0" style="width: 100%" />
+            </el-form-item>
+
+            <el-form-item label="Female population">
+              <el-input-number v-model="settlementForm.pop_female" :min="0" style="width: 100%" />
+              <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+                Optional. When population is estimated, male and female are split using the selected county's census sex ratio.
               </div>
             </el-form-item>
 

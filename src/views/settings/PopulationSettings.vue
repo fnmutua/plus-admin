@@ -455,6 +455,473 @@
             </div>
           </ElTabPane>
 
+          <!-- 4. County growth rates -->
+          <ElTabPane label="County growth rates" name="rates">
+            <div class="bulk-update-section">
+              <p class="section-desc">
+                Annual compound growth by county and year. Enter separate rates for <strong>population (Pop)</strong> and <strong>households (HH)</strong> as percent, e.g. <code>2.8</code> = 2.8%.
+                Male/female splits use county census ratios when projecting — not stored here.
+              </p>
+
+              <div class="bulk-options">
+                <div class="bulk-options-row">
+                  <div class="bulk-option-group">
+                    <p class="option-label">County</p>
+                    <ElSelect v-model="rateFilterCountyId" placeholder="All counties" clearable filterable style="width: 280px" @change="loadCountyRates">
+                      <ElOption label="All counties" :value="null" />
+                      <ElOption v-for="c in countyOptions" :key="c.value" :label="c.label" :value="c.value" />
+                    </ElSelect>
+                  </div>
+                  <div class="bulk-option-group">
+                    <p class="option-label">Year range</p>
+                    <div class="threshold-inputs">
+                      <ElInputNumber v-model="rateFromYear" :min="2000" :max="rateToYear" controls-position="right" style="width: 120px" @change="loadCountyRates" />
+                      <span class="threshold-sep">–</span>
+                      <ElInputNumber v-model="rateToYear" :min="rateFromYear" :max="2100" controls-position="right" style="width: 120px" @change="loadCountyRates" />
+                    </div>
+                  </div>
+                </div>
+                <div class="bulk-actions-row">
+                  <ElButton type="primary" plain :loading="ratesLoading" @click="loadCountyRates">Reload</ElButton>
+                  <ElButton type="primary" :loading="ratesSaving" :disabled="ratesSaving" @click="saveCountyRates">Save rates</ElButton>
+                </div>
+              </div>
+
+              <div v-if="rateGridRows.length > 0" class="rates-grid-wrap">
+                <ElTable :data="rateGridRows" size="small" border stripe height="420" class="rates-table">
+                  <ElTableColumn prop="label" label="County" min-width="160" fixed show-overflow-tooltip />
+                  <ElTableColumn
+                    v-for="year in rateYearColumns"
+                    :key="year"
+                    :label="String(year)"
+                    width="136"
+                    align="center"
+                  >
+                    <template #default="{ row }">
+                      <div class="rate-cell">
+                        <div class="rate-cell__row">
+                          <span class="rate-cell__label">Pop</span>
+                          <ElInputNumber
+                            :key="`pop-${ratesGridEpoch}-${row.countyId}-${year}`"
+                            :model-value="getPopRatePercent(row.countyId, year)"
+                            size="small"
+                            :step="0.001"
+                            :precision="3"
+                            controls-position="right"
+                            class="rate-cell__input"
+                            @update:model-value="(v: number | undefined) => setPopRatePercent(row.countyId, year, v)"
+                          />
+                        </div>
+                        <div class="rate-cell__row">
+                          <span class="rate-cell__label">HH</span>
+                          <ElInputNumber
+                            :key="`hh-${ratesGridEpoch}-${row.countyId}-${year}`"
+                            :model-value="getHhRatePercent(row.countyId, year)"
+                            size="small"
+                            :step="0.001"
+                            :precision="3"
+                            controls-position="right"
+                            class="rate-cell__input"
+                            @update:model-value="(v: number | undefined) => setHhRatePercent(row.countyId, year, v)"
+                          />
+                        </div>
+                      </div>
+                    </template>
+                  </ElTableColumn>
+                </ElTable>
+              </div>
+              <ElEmpty v-else-if="!ratesLoading" description="Load counties to edit growth rates" />
+            </div>
+          </ElTabPane>
+
+          <!-- 5. Annual projections -->
+          <ElTabPane label="Annual projections" name="projections">
+            <div class="bulk-update-section">
+              <p class="section-desc">
+                Three-step workflow: import a <strong>{{ baselineYear }}</strong> settlement baseline, load county growth rates, then project forward into <code>settlement_population</code>.
+              </p>
+
+              <ElTabs v-model="projectionsSubTab" class="projections-subtabs">
+                <ElTabPane label="Import baseline" name="baseline">
+              <div class="baseline-import-block">
+                <p class="option-label">Import baseline (Excel)</p>
+                <p class="section-desc section-desc--tab">
+                  Columns: <code>id</code>, <code>code</code>, <code>population</code>, <code>pop_male</code>, <code>pop_female</code>, <code>num_households</code>.
+                  Match settlements by <strong>id</strong> or <strong>code</strong> (at least one required per row).
+                </p>
+                <div class="bulk-options-row">
+                  <div class="bulk-option-group">
+                    <p class="option-label">Baseline year</p>
+                    <ElInputNumber v-model="baselineYear" :min="2000" :max="projectThroughYear - 1" controls-position="right" style="width: 120px" />
+                  </div>
+                  <div class="bulk-option-group">
+                    <ElCheckbox v-model="baselineImportSyncSettlement">Also update settlement population fields</ElCheckbox>
+                  </div>
+                </div>
+                <div class="bulk-actions-row baseline-import-actions">
+                  <ElButton type="primary" plain @click="downloadBaselineTemplate">Download template</ElButton>
+                  <ElUpload
+                    :auto-upload="false"
+                    :limit="1"
+                    accept=".xlsx,.xls"
+                    :show-file-list="true"
+                    :on-change="onBaselineFileChange"
+                    :on-remove="onBaselineFileRemove"
+                  >
+                    <ElButton type="primary" plain>Select Excel file</ElButton>
+                  </ElUpload>
+                  <ElButton
+                    type="primary"
+                    plain
+                    :loading="baselineImportPreviewing"
+                    :disabled="!baselineImportFile || baselineImportPreviewing"
+                    @click="previewBaselineImport"
+                  >
+                    Preview import
+                  </ElButton>
+                  <ElButton
+                    type="primary"
+                    :loading="baselineImporting"
+                    :disabled="!baselineImportFile || baselineImporting"
+                    @click="applyBaselineImport"
+                  >
+                    Import baseline
+                  </ElButton>
+                </div>
+                <div v-if="baselineImportSummary" class="density-summary">
+                  <div class="density-summary__row">
+                    <div class="density-summary__stat">
+                      <span class="stat-num">{{ baselineImportSummary.total_rows ?? '—' }}</span>
+                      <span class="stat-label">rows read</span>
+                    </div>
+                    <div class="density-summary__stat">
+                      <span class="stat-num stat-num--primary">{{ baselineImportSummary.imported ?? baselineImportSummary.would_write ?? '—' }}</span>
+                      <span class="stat-label">{{ baselineImportSummary.dry_run ? 'would import' : 'imported' }}</span>
+                    </div>
+                    <div class="density-summary__stat">
+                      <span class="stat-num">{{ baselineImportSummary.errors ?? 0 }}</span>
+                      <span class="stat-label">errors</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="baselineImportResults.length > 0" class="density-preview">
+                  <ElTable :data="baselineImportResults" size="small" border stripe height="280">
+                    <ElTableColumn prop="excel_row" label="Row" width="64" align="right" />
+                    <ElTableColumn label="Result" width="80" align="center">
+                      <template #default="{ row }">
+                        <ElTag size="small" :type="row.status === 'ok' ? 'success' : 'danger'" effect="plain">
+                          {{ row.status }}
+                        </ElTag>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn prop="settlement_name" label="Settlement" min-width="140" show-overflow-tooltip />
+                    <ElTableColumn prop="settlement_code" label="Code" width="110" show-overflow-tooltip />
+                    <ElTableColumn label="Population" width="100" align="right">
+                      <template #default="{ row }">{{ row.population != null ? Number(row.population).toLocaleString() : '—' }}</template>
+                    </ElTableColumn>
+                    <ElTableColumn prop="detail" label="Notes" min-width="180" show-overflow-tooltip />
+                  </ElTable>
+                </div>
+              </div>
+                </ElTabPane>
+
+                <ElTabPane label="Import growth rates" name="rates">
+              <div class="baseline-import-block rates-import-panel">
+                <div class="rates-import-panel__head">
+                  <div>
+                    <p class="option-label">Import county growth rates</p>
+                    <p class="section-desc section-desc--tab">
+                      Upload population and household rate files separately. Preview before importing — rows merge by <code>county_id</code> and year.
+                    </p>
+                  </div>
+                  <div class="rates-import-steps">
+                    <span :class="['rates-step', { 'rates-step--done': ratesHasAnyFile }]">1. Upload</span>
+                    <span class="rates-step__sep">→</span>
+                    <span :class="['rates-step', { 'rates-step--done': ratesImportPreviewed }]">2. Preview</span>
+                    <span class="rates-step__sep">→</span>
+                    <span :class="['rates-step', { 'rates-step--done': ratesImportApplied }]">3. Import</span>
+                  </div>
+                </div>
+
+                <div class="rates-upload-grid">
+                  <div :class="['rates-upload-card', { 'rates-upload-card--ready': ratesPopImportFile }]">
+                    <div class="rates-upload-card__title">
+                      <ElIcon class="rates-upload-card__icon"><DataLine /></ElIcon>
+                      <div>
+                        <strong>Population rates</strong>
+                        <span>Wide CSV/Excel with <code>county_id</code> + <code>growth_rate_pct_YYYY</code></span>
+                      </div>
+                    </div>
+                    <ElUpload
+                      v-if="!ratesPopImportFile"
+                      class="rates-dropzone"
+                      drag
+                      :auto-upload="false"
+                      :limit="1"
+                      accept=".xlsx,.xls,.csv"
+                      :show-file-list="false"
+                      :on-change="onPopRateFileChange"
+                    >
+                      <ElIcon class="rates-dropzone__icon"><UploadFilled /></ElIcon>
+                      <p class="rates-dropzone__title">Drop file here or click to browse</p>
+                      <p class="rates-dropzone__hint">.xlsx, .xls, .csv</p>
+                    </ElUpload>
+                    <div v-else class="rates-file-selected">
+                      <ElIcon class="rates-file-selected__icon"><Document /></ElIcon>
+                      <div class="rates-file-selected__meta">
+                        <span class="rates-file-selected__name">{{ ratesPopImportFile.name }}</span>
+                        <span class="rates-file-selected__size">{{ formatFileSize(ratesPopImportFile.size) }}</span>
+                      </div>
+                      <ElButton type="danger" link @click="clearPopRateFile">Remove</ElButton>
+                    </div>
+                    <ElButton type="primary" link class="rates-template-link" @click="downloadPopRateTemplate">
+                      Download population template
+                    </ElButton>
+                  </div>
+
+                  <div :class="['rates-upload-card', { 'rates-upload-card--ready': ratesHhImportFile }]">
+                    <div class="rates-upload-card__title">
+                      <ElIcon class="rates-upload-card__icon rates-upload-card__icon--hh"><House /></ElIcon>
+                      <div>
+                        <strong>Household rates</strong>
+                        <span>Wide CSV/Excel with <code>county_id</code> + <code>growth_rate_YYYY_percent</code></span>
+                      </div>
+                    </div>
+                    <ElUpload
+                      v-if="!ratesHhImportFile"
+                      class="rates-dropzone"
+                      drag
+                      :auto-upload="false"
+                      :limit="1"
+                      accept=".xlsx,.xls,.csv"
+                      :show-file-list="false"
+                      :on-change="onHhRateFileChange"
+                    >
+                      <ElIcon class="rates-dropzone__icon"><UploadFilled /></ElIcon>
+                      <p class="rates-dropzone__title">Drop file here or click to browse</p>
+                      <p class="rates-dropzone__hint">.xlsx, .xls, .csv</p>
+                    </ElUpload>
+                    <div v-else class="rates-file-selected">
+                      <ElIcon class="rates-file-selected__icon"><Document /></ElIcon>
+                      <div class="rates-file-selected__meta">
+                        <span class="rates-file-selected__name">{{ ratesHhImportFile.name }}</span>
+                        <span class="rates-file-selected__size">{{ formatFileSize(ratesHhImportFile.size) }}</span>
+                      </div>
+                      <ElButton type="danger" link @click="clearHhRateFile">Remove</ElButton>
+                    </div>
+                    <ElButton type="primary" link class="rates-template-link" @click="downloadHhRateTemplate">
+                      Download household template
+                    </ElButton>
+                  </div>
+                </div>
+
+                <ElCollapse class="rates-format-help">
+                  <ElCollapseItem title="File format reference" name="formats">
+                    <ul class="rates-format-list">
+                      <li><strong>Population (wide):</strong> <code>county_id</code>, <code>code</code>, <code>county</code>, <code>growth_rate_pct_2020</code> … <code>growth_rate_pct_2040</code></li>
+                      <li><strong>Household (wide):</strong> <code>county_id</code>, <code>code</code>, <code>county</code>, optional <code>households_YYYY</code>, <code>growth_rate_YYYY_percent</code>, <code>data_note</code></li>
+                      <li><strong>Long format</strong> (either file): <code>county_id</code> or <code>code</code>, <code>year</code>, <code>rate</code> as percent (e.g. <code>2.8</code>)</li>
+                      <li>Reference files live in <code>tools/growth_rates/</code> — ready to upload as-is.</li>
+                    </ul>
+                  </ElCollapseItem>
+                </ElCollapse>
+
+                <div class="rates-action-bar">
+                  <div class="rates-action-bar__status">
+                    <ElTag v-if="ratesPopImportFile" type="success" effect="plain" size="small">Pop file ready</ElTag>
+                    <ElTag v-else type="info" effect="plain" size="small">Pop file optional</ElTag>
+                    <ElTag v-if="ratesHhImportFile" type="success" effect="plain" size="small">HH file ready</ElTag>
+                    <ElTag v-else type="info" effect="plain" size="small">HH file optional</ElTag>
+                  </div>
+                  <div class="rates-action-bar__buttons">
+                    <ElButton
+                      type="primary"
+                      plain
+                      :loading="ratesImportPreviewing"
+                      :disabled="!ratesHasAnyFile || ratesImportPreviewing || ratesImporting"
+                      @click="previewRatesImport"
+                    >
+                      Preview import
+                    </ElButton>
+                    <ElButton
+                      type="primary"
+                      :loading="ratesImporting"
+                      :disabled="!ratesCanImport"
+                      @click="applyRatesImport"
+                    >
+                      Import rates
+                    </ElButton>
+                  </div>
+                </div>
+
+                <ElAlert
+                  v-if="ratesImportSummary && ratesImportErrorCount > 0 && ratesImportSummary.dry_run"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  class="rates-import-alert"
+                  :title="`${ratesImportErrorCount} row(s) will fail — fix the file or import only valid rows after review.`"
+                />
+
+                <div v-if="ratesImportSummary" class="density-summary rates-import-summary">
+                  <div class="density-summary__row">
+                    <div class="density-summary__stat">
+                      <span class="stat-num">{{ ratesImportSummary.pop_file_rows ?? 0 }}</span>
+                      <span class="stat-label">pop rows parsed</span>
+                    </div>
+                    <div class="density-summary__stat">
+                      <span class="stat-num">{{ ratesImportSummary.hh_file_rows ?? 0 }}</span>
+                      <span class="stat-label">HH rows parsed</span>
+                    </div>
+                    <div class="density-summary__stat">
+                      <span class="stat-num stat-num--primary">{{ ratesImportSummary.imported ?? ratesImportSummary.would_write ?? '—' }}</span>
+                      <span class="stat-label">{{ ratesImportSummary.dry_run ? 'would import' : 'imported' }}</span>
+                    </div>
+                    <div class="density-summary__stat">
+                      <span class="stat-num" :class="{ 'stat-num--danger': ratesImportErrorCount > 0 }">{{ ratesImportErrorCount }}</span>
+                      <span class="stat-label">errors</span>
+                    </div>
+                    <div class="density-summary__breakdown">
+                      <ElTag v-if="ratesImportSummary.pop_file_format" size="small" effect="plain">
+                        Pop: {{ ratesImportSummary.pop_file_format }}
+                      </ElTag>
+                      <ElTag v-if="ratesImportSummary.hh_file_format" size="small" effect="plain">
+                        HH: {{ ratesImportSummary.hh_file_format }}
+                      </ElTag>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="ratesImportResults.length > 0" class="rates-results">
+                  <div class="rates-results__toolbar">
+                    <span class="rates-results__title">
+                      Preview results
+                      <span class="rates-results__count">({{ ratesImportDisplayedResults.length }} shown)</span>
+                    </span>
+                    <div class="rates-results__filters">
+                      <ElRadioGroup v-model="ratesImportResultFilter" size="small">
+                        <ElRadioButton label="all">All</ElRadioButton>
+                        <ElRadioButton label="ok">OK</ElRadioButton>
+                        <ElRadioButton label="error">Errors</ElRadioButton>
+                      </ElRadioGroup>
+                    </div>
+                  </div>
+                  <ElTable :data="ratesImportDisplayedResults" size="small" border stripe max-height="320" class="rates-results-table">
+                    <ElTableColumn prop="county_id" label="ID" width="56" align="right" />
+                    <ElTableColumn prop="county_name" label="County" min-width="120" show-overflow-tooltip />
+                    <ElTableColumn prop="year" label="Year" width="68" align="right" />
+                    <ElTableColumn label="Pop %" width="76" align="right">
+                      <template #default="{ row }">
+                        <span v-if="row.pop_rate_percent != null">{{ row.pop_rate_percent }}</span>
+                        <span v-else class="muted-cell">—</span>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn label="HH %" width="76" align="right">
+                      <template #default="{ row }">
+                        <span v-if="row.hh_rate_percent != null">{{ row.hh_rate_percent }}</span>
+                        <span v-else class="muted-cell">—</span>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn label="Status" width="84" align="center">
+                      <template #default="{ row }">
+                        <ElTag size="small" :type="row.status === 'ok' ? 'success' : 'danger'" effect="plain">
+                          {{ row.status }}
+                        </ElTag>
+                      </template>
+                    </ElTableColumn>
+                    <ElTableColumn prop="detail" label="Detail" min-width="180" show-overflow-tooltip />
+                  </ElTable>
+                </div>
+              </div>
+                </ElTabPane>
+
+                <ElTabPane label="Project forward" name="project">
+              <p class="option-label">Project forward</p>
+              <p class="section-desc section-desc--tab">
+                Writes projected rows to <code>settlement_population</code> from the <strong>{{ baselineYear }}</strong> baseline through <strong>Project through</strong>.
+                <strong>Population</strong> and <strong>male/female</strong> use the county population rate; <strong>households</strong> use the household rate.
+                When enabled, the <strong>settlement</strong> master is updated from the <strong>{{ currentCalendarYear }}</strong> projected row (population, pop_male, pop_female, num_households).
+              </p>
+
+              <div class="bulk-options">
+                <div class="bulk-options-row">
+                  <div class="bulk-option-group">
+                    <p class="option-label">County</p>
+                    <ElSelect v-model="projCountyId" placeholder="All counties" clearable filterable style="width: 280px">
+                      <ElOption label="All counties" :value="null" />
+                      <ElOption v-for="c in countyOptions" :key="c.value" :label="c.label" :value="c.value" />
+                    </ElSelect>
+                  </div>
+                  <div class="bulk-option-group">
+                    <p class="option-label">Project through</p>
+                    <ElInputNumber v-model="projectThroughYear" :min="baselineYear + 1" :max="2100" controls-position="right" style="width: 120px" />
+                  </div>
+                </div>
+                <div class="bulk-options-row">
+                  <div class="bulk-option-group">
+                    <ElCheckbox v-model="projSyncSettlement">
+                      Update settlement master to {{ currentCalendarYear }} (population, male, female, households)
+                    </ElCheckbox>
+                  </div>
+                </div>
+                <p v-if="projSyncSettlement && projectThroughYear < currentCalendarYear" class="section-desc section-desc--tab proj-sync-warning">
+                  Set <strong>Project through</strong> to at least {{ currentCalendarYear }} to update the settlement master for this year.
+                </p>
+                <div class="bulk-actions-row">
+                  <ElButton type="primary" plain :loading="projPreviewing" @click="previewProjection">Preview projection</ElButton>
+                  <ElButton type="primary" :loading="projApplying" @click="applyProjection">Run projection</ElButton>
+                </div>
+              </div>
+
+              <div v-if="projSummary" class="density-summary">
+                <div class="density-summary__row">
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ projSummary.baselines_found ?? projSummary.total_candidates ?? '—' }}</span>
+                    <span class="stat-label">baselines</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num stat-num--primary">{{ projSummary.would_write ?? projSummary.rows_written ?? '—' }}</span>
+                    <span class="stat-label">{{ projSummary.dry_run ? 'would write' : 'rows written' }}</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ projSummary.settlements_projected ?? '—' }}</span>
+                    <span class="stat-label">settlements</span>
+                  </div>
+                  <div v-if="projSummary.missing_rate_events" class="density-summary__stat">
+                    <span class="stat-num">{{ projSummary.missing_rate_events }}</span>
+                    <span class="stat-label">missing rates</span>
+                  </div>
+                  <div v-if="projSummary.sync_settlement_year" class="density-summary__stat">
+                    <span class="stat-num stat-num--primary">{{ projSummary.settlements_synced ?? projSummary.would_sync_settlement ?? '—' }}</span>
+                    <span class="stat-label">{{ projSummary.dry_run ? 'would sync master' : 'master synced' }} ({{ projSummary.sync_settlement_year }})</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="projPreviewRows.length > 0" class="density-preview">
+                <ElTable :data="projPreviewRows" size="small" border stripe height="320">
+                  <ElTableColumn prop="settlement_name" label="Settlement" min-width="140" show-overflow-tooltip />
+                  <ElTableColumn prop="year" label="Year" width="72" align="right" />
+                  <ElTableColumn label="Population" width="110" align="right">
+                    <template #default="{ row }">{{ row.population?.toLocaleString?.() ?? row.population }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="Male" width="90" align="right">
+                    <template #default="{ row }">{{ row.pop_male != null ? Number(row.pop_male).toLocaleString() : '—' }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="Female" width="90" align="right">
+                    <template #default="{ row }">{{ row.pop_female != null ? Number(row.pop_female).toLocaleString() : '—' }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn label="Households" width="100" align="right">
+                    <template #default="{ row }">{{ row.num_households != null ? Number(row.num_households).toLocaleString() : '—' }}</template>
+                  </ElTableColumn>
+                  <ElTableColumn prop="source" label="Source" width="110" />
+                </ElTable>
+              </div>
+                </ElTabPane>
+              </ElTabs>
+            </div>
+          </ElTabPane>
+
         </ElTabs>
       </div>
     </ElCard>
@@ -462,7 +929,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   ElCard,
   ElTabs,
@@ -478,8 +945,19 @@ import {
   ElOption,
   ElInputNumber,
   ElTable,
-  ElTableColumn
+  ElTableColumn,
+  ElCheckbox,
+  ElUpload,
+  ElDivider,
+  ElCollapse,
+  ElCollapseItem,
+  ElIcon,
+  ElAlert,
+  ElMessageBox,
+  ElRadioButton
 } from 'element-plus'
+import { UploadFilled, Document, DataLine, House } from '@element-plus/icons-vue'
+import * as XLSX from 'xlsx'
 import {
   updateOneRecord,
   applySettlementDensityTypology,
@@ -488,6 +966,13 @@ import {
   applySettlementSurveyHhAvg,
   searchByKeyWord,
   getOneSettlement,
+  listCountyPopulationGrowthRates,
+  saveCountyPopulationGrowthRates,
+  importSettlementPopulationBaselineExcel,
+  importCountyPopulationGrowthRatesExcel,
+  applySettlementPopulationProjection,
+  type BaselineImportResultRow,
+  type CountyRateImportResultRow,
   type DensityTypologyComputeRow,
   type DensityTypologySummary
 } from '@/api/settlements'
@@ -499,6 +984,7 @@ import { useCache } from '@/hooks/web/useCache'
 
 const activeTab = ref('bulk')
 const hhSurveySubTab = ref<'single' | 'bulk'>('single')
+const projectionsSubTab = ref<'baseline' | 'rates' | 'project'>('baseline')
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 const { wsCache } = useCache()
@@ -518,7 +1004,10 @@ const loadCounties = async () => {
   const res = await getListWithoutGeo({
     params: { pageIndex: 1, limit: 100, curUser: 1, model: 'county', searchField: '', searchKeyword: '', sort: 'ASC' }
   })
-  countyOptions.value = (res?.data || []).map((c: any) => ({ label: c.name, value: c.id }))
+  countyOptions.value = (res?.data || []).map((c: any) => ({
+    label: c.name,
+    value: Number(c.id),
+  }))
 }
 
 // ── Bulk Population Update ───────────────────────────────────────────────────
@@ -996,10 +1485,501 @@ const applyDensityTypology = async () => {
   }
 }
 
+// ── County growth rates grid ─────────────────────────────────────────────────
+
+const rateFilterCountyId = ref<any>(null)
+const rateFromYear = ref(2020)
+const rateToYear = ref(2040)
+const ratesLoading = ref(false)
+const ratesSaving = ref(false)
+const ratesGridEpoch = ref(0)
+/** Percent display values keyed as `${countyId}:${year}` */
+const ratePopPercentByKey = ref<Record<string, number | null>>({})
+const rateHhPercentByKey = ref<Record<string, number | null>>({})
+
+/** DB stores decimal fraction (0.028 = 2.8%). */
+const storedRateToPercent = (value: unknown): number | null => {
+  if (value == null || value === '') return null
+  const n = Number(value)
+  if (!Number.isFinite(n)) return null
+  return Math.round(n * 100 * 1000) / 1000
+}
+
+const rateYearColumns = computed(() => {
+  const from = rateFromYear.value
+  const to = rateToYear.value
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return []
+  const years: number[] = []
+  for (let y = from; y <= to; y++) years.push(y)
+  return years
+})
+
+const rateGridRows = computed(() => {
+  const filterId =
+    rateFilterCountyId.value != null && rateFilterCountyId.value !== ''
+      ? Number(rateFilterCountyId.value)
+      : null
+  const counties =
+    filterId != null && Number.isFinite(filterId)
+      ? countyOptions.value.filter((x) => Number(x.value) === filterId)
+      : countyOptions.value
+  return counties.map((c) => ({
+    countyId: Number(c.value),
+    label: c.label,
+  }))
+})
+
+const rateKey = (countyId: number | string, year: number) =>
+  `${Number(countyId)}:${Number(year)}`
+
+const getPopRatePercent = (countyId: number | string, year: number): number | null => {
+  const v = ratePopPercentByKey.value[rateKey(countyId, year)]
+  return v == null ? null : v
+}
+
+const getHhRatePercent = (countyId: number | string, year: number): number | null => {
+  const v = rateHhPercentByKey.value[rateKey(countyId, year)]
+  return v == null ? null : v
+}
+
+const setRatePercentInMap = (
+  mapRef: typeof ratePopPercentByKey,
+  countyId: number | string,
+  year: number,
+  value: number | undefined
+) => {
+  const key = rateKey(countyId, year)
+  if (value == null || !Number.isFinite(value)) {
+    const next = { ...mapRef.value }
+    delete next[key]
+    mapRef.value = next
+    return
+  }
+  mapRef.value = { ...mapRef.value, [key]: value }
+}
+
+const setPopRatePercent = (countyId: number | string, year: number, value: number | undefined) => {
+  setRatePercentInMap(ratePopPercentByKey, countyId, year, value)
+}
+
+const setHhRatePercent = (countyId: number | string, year: number, value: number | undefined) => {
+  setRatePercentInMap(rateHhPercentByKey, countyId, year, value)
+}
+
+const loadCountyRates = async () => {
+  ratesLoading.value = true
+  ratePopPercentByKey.value = {}
+  rateHhPercentByKey.value = {}
+  try {
+    const res = await listCountyPopulationGrowthRates({
+      from_year: rateFromYear.value,
+      to_year: rateToYear.value,
+      county_id:
+        rateFilterCountyId.value != null && rateFilterCountyId.value !== ''
+          ? Number(rateFilterCountyId.value)
+          : null,
+    })
+    const rows = Array.isArray(res?.data) ? res.data : []
+    const popNext: Record<string, number | null> = {}
+    const hhNext: Record<string, number | null> = {}
+    for (const row of rows) {
+      const countyId = Number(row.county_id)
+      const year = Number(row.year)
+      if (!Number.isFinite(countyId) || !Number.isFinite(year)) continue
+
+      const key = rateKey(countyId, year)
+      const popPct = storedRateToPercent(row.annual_rate)
+      if (popPct != null) {
+        popNext[key] = popPct
+      }
+
+      const hhSource =
+        row.household_growth_rate != null && row.household_growth_rate !== ''
+          ? row.household_growth_rate
+          : row.annual_rate
+      const hhPct = storedRateToPercent(hhSource)
+      if (hhPct != null) {
+        hhNext[key] = hhPct
+      }
+    }
+    ratePopPercentByKey.value = popNext
+    rateHhPercentByKey.value = hhNext
+    ratesGridEpoch.value += 1
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Failed to load county growth rates')
+  } finally {
+    ratesLoading.value = false
+  }
+}
+
+const saveCountyRates = async () => {
+  const keySet = new Set([
+    ...Object.keys(ratePopPercentByKey.value),
+    ...Object.keys(rateHhPercentByKey.value)
+  ])
+  const rates: Array<{
+    county_id: number
+    year: number
+    annual_rate: number
+    household_growth_rate: number
+  }> = []
+
+  for (const key of keySet) {
+    const popPct = ratePopPercentByKey.value[key]
+    const hhPct = rateHhPercentByKey.value[key]
+    if (popPct == null || !Number.isFinite(popPct)) continue
+    const [countyId, yearStr] = key.split(':')
+    const year = parseInt(yearStr, 10)
+    const county_id = parseInt(countyId, 10)
+    if (!Number.isFinite(year) || !Number.isFinite(county_id)) continue
+    rates.push({
+      county_id,
+      year,
+      annual_rate: popPct / 100,
+      household_growth_rate:
+        hhPct != null && Number.isFinite(hhPct) ? hhPct / 100 : popPct / 100
+    })
+  }
+  if (rates.length === 0) {
+    ElMessage.warning('Enter at least one growth rate before saving')
+    return
+  }
+  ratesSaving.value = true
+  try {
+    const res = await saveCountyPopulationGrowthRates({ rates })
+    ElMessage.success(res?.message || `Saved ${rates.length} rate(s)`)
+    await loadCountyRates()
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Failed to save county growth rates')
+  } finally {
+    ratesSaving.value = false
+  }
+}
+
+// ── Annual projections ───────────────────────────────────────────────────────
+
+const currentCalendarYear = new Date().getFullYear()
+
+const projCountyId = ref<any>(null)
+const baselineYear = ref(2019)
+const projectThroughYear = ref(Math.max(currentCalendarYear, 2040))
+const projSyncSettlement = ref(true)
+const baselineImportFile = ref<File | null>(null)
+const baselineImportSyncSettlement = ref(true)
+const baselineImportPreviewing = ref(false)
+const baselineImporting = ref(false)
+const baselineImportSummary = ref<Record<string, any> | null>(null)
+const baselineImportResults = ref<BaselineImportResultRow[]>([])
+const projPreviewing = ref(false)
+const projApplying = ref(false)
+const projSummary = ref<Record<string, any> | null>(null)
+const projPreviewRows = ref<any[]>([])
+
+const onBaselineFileChange = (uploadFile: { raw?: File }) => {
+  baselineImportFile.value = uploadFile?.raw ?? null
+}
+
+const onBaselineFileRemove = () => {
+  baselineImportFile.value = null
+}
+
+const downloadBaselineTemplate = () => {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['id', 'code', 'population', 'pop_male', 'pop_female', 'num_households'],
+    ['', 'EXAMPLE-CODE', 12000, 5900, 6100, 3100]
+  ])
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'baseline')
+  XLSX.writeFile(wb, 'settlement_population_baseline_template.xlsx')
+}
+
+const runBaselineImport = async (dryRun: boolean) => {
+  if (!baselineImportFile.value) {
+    ElMessage.warning('Select an Excel file first')
+    return
+  }
+  const formData = new FormData()
+  formData.append('file', baselineImportFile.value)
+  formData.append('baseline_year', String(baselineYear.value))
+  formData.append('dry_run', dryRun ? 'true' : 'false')
+  formData.append('sync_settlement', baselineImportSyncSettlement.value ? 'true' : 'false')
+
+  const res = await importSettlementPopulationBaselineExcel(formData)
+  baselineImportSummary.value = res?.data || null
+  baselineImportResults.value = (res?.data?.results as BaselineImportResultRow[]) || []
+  return res
+}
+
+const previewBaselineImport = async () => {
+  baselineImportPreviewing.value = true
+  try {
+    const res = await runBaselineImport(true)
+    ElMessage.info(res?.message || 'Import preview ready')
+  } catch (e: any) {
+    ElMessage.error(e?.message || e?.response?.data?.message || 'Import preview failed')
+  } finally {
+    baselineImportPreviewing.value = false
+  }
+}
+
+const applyBaselineImport = async () => {
+  baselineImporting.value = true
+  try {
+    const res = await runBaselineImport(false)
+    ElMessage.success(res?.message || 'Baseline imported')
+  } catch (e: any) {
+    ElMessage.error(e?.message || e?.response?.data?.message || 'Baseline import failed')
+  } finally {
+    baselineImporting.value = false
+  }
+}
+
+// ── County growth rates Excel import (projections tab) ─────────────────────
+
+const ratesPopImportFile = ref<File | null>(null)
+const ratesHhImportFile = ref<File | null>(null)
+const ratesImportPreviewing = ref(false)
+const ratesImporting = ref(false)
+const ratesImportSummary = ref<Record<string, any> | null>(null)
+const ratesImportResults = ref<CountyRateImportResultRow[]>([])
+const ratesImportResultFilter = ref<'all' | 'ok' | 'error'>('all')
+const ratesImportPreviewed = ref(false)
+const ratesImportApplied = ref(false)
+
+const ratesHasAnyFile = computed(
+  () => ratesPopImportFile.value != null || ratesHhImportFile.value != null
+)
+
+const ratesImportErrorCount = computed(() =>
+  ratesImportResults.value.filter((r) => r.status === 'error').length
+)
+
+const ratesImportDisplayedResults = computed(() => {
+  const rows = ratesImportResults.value
+  if (ratesImportResultFilter.value === 'ok') {
+    return rows.filter((r) => r.status === 'ok')
+  }
+  if (ratesImportResultFilter.value === 'error') {
+    return rows.filter((r) => r.status === 'error')
+  }
+  return rows
+})
+
+const ratesCanImport = computed(
+  () =>
+    ratesHasAnyFile.value &&
+    ratesImportPreviewed.value &&
+    !ratesImportPreviewing.value &&
+    !ratesImporting.value
+)
+
+const resetRatesImportPreview = () => {
+  ratesImportPreviewed.value = false
+  ratesImportApplied.value = false
+  ratesImportSummary.value = null
+  ratesImportResults.value = []
+  ratesImportResultFilter.value = 'all'
+}
+
+const formatFileSize = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes < 1024) return `${bytes || 0} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const onPopRateFileChange = (uploadFile: { raw?: File }) => {
+  ratesPopImportFile.value = uploadFile?.raw ?? null
+  resetRatesImportPreview()
+}
+
+const clearPopRateFile = () => {
+  ratesPopImportFile.value = null
+  resetRatesImportPreview()
+}
+
+const onHhRateFileChange = (uploadFile: { raw?: File }) => {
+  ratesHhImportFile.value = uploadFile?.raw ?? null
+  resetRatesImportPreview()
+}
+
+const clearHhRateFile = () => {
+  ratesHhImportFile.value = null
+  resetRatesImportPreview()
+}
+
+const popRateWideYears = () => Array.from({ length: 21 }, (_, i) => 2020 + i)
+
+const downloadPopRateTemplate = () => {
+  const years = popRateWideYears()
+  const headers = ['county_id', 'code', 'county', ...years.map((y) => `growth_rate_pct_${y}`)]
+  const sampleRates = years.map((y, i) => (i === 0 ? 2.8 : 2.5))
+  const ws = XLSX.utils.aoa_to_sheet([headers, [1, 'Mombasa', 'Mombasa', ...sampleRates]])
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'population_rates')
+  XLSX.writeFile(wb, 'county_population_growth_rates_wide_template.xlsx')
+}
+
+const downloadHhRateTemplate = () => {
+  const years = popRateWideYears()
+  const householdYears = [2019, ...years]
+  const headers = [
+    'county_id',
+    'code',
+    'county',
+    ...householdYears.map((y) => `households_${y}`),
+    ...years.map((y) => `growth_rate_${y}_percent`),
+    'projection_method_2030_2040',
+    'data_note'
+  ]
+  const sampleHouseholds = householdYears.map((y, i) => 100000 + i * 2500)
+  const sampleRates = years.map((y, i) => (i === 0 ? 2.5 : 2.3))
+  const ws = XLSX.utils.aoa_to_sheet([
+    headers,
+    [
+      1,
+      'Mombasa',
+      'Mombasa',
+      ...sampleHouseholds,
+      ...sampleRates,
+      'Population projection growth + decaying household formation premium from 2026-2029',
+      '2030-2040 are modelled extensions, not official KNBS household projections.'
+    ]
+  ])
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'household_rates')
+  XLSX.writeFile(wb, 'county_household_growth_rates_wide_template.xlsx')
+}
+
+const runRatesImport = async (dryRun: boolean) => {
+  if (!ratesPopImportFile.value && !ratesHhImportFile.value) {
+    ElMessage.warning('Select at least one rates Excel file')
+    return
+  }
+  const formData = new FormData()
+  if (ratesPopImportFile.value) formData.append('pop_file', ratesPopImportFile.value)
+  if (ratesHhImportFile.value) formData.append('hh_file', ratesHhImportFile.value)
+  formData.append('dry_run', dryRun ? 'true' : 'false')
+
+  const res = await importCountyPopulationGrowthRatesExcel(formData)
+  ratesImportSummary.value = res?.data || null
+  ratesImportResults.value = (res?.data?.results as CountyRateImportResultRow[]) || []
+  if (!dryRun) {
+    await loadCountyRates()
+  }
+  return res
+}
+
+const previewRatesImport = async () => {
+  ratesImportPreviewing.value = true
+  try {
+    const res = await runRatesImport(true)
+    ratesImportPreviewed.value = true
+    if (ratesImportErrorCount.value > 0) {
+      ratesImportResultFilter.value = 'error'
+      ElMessage.warning(
+        `Preview ready — ${ratesImportErrorCount.value} error(s). Review before importing.`
+      )
+    } else {
+      ElMessage.success(res?.message || 'Preview ready — no errors found')
+    }
+  } catch (e: any) {
+    ratesImportPreviewed.value = false
+    ElMessage.error(e?.message || e?.response?.data?.message || 'Rates import preview failed')
+  } finally {
+    ratesImportPreviewing.value = false
+  }
+}
+
+const applyRatesImport = async () => {
+  if (!ratesImportPreviewed.value) {
+    ElMessage.warning('Run preview first')
+    return
+  }
+
+  if (ratesImportErrorCount.value > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `${ratesImportErrorCount.value} row(s) have errors and will be skipped. Import the ${ratesImportSummary.value?.imported ?? ratesImportSummary.value?.would_write ?? 0} valid row(s)?`,
+        'Import with errors',
+        { type: 'warning', confirmButtonText: 'Import valid rows', cancelButtonText: 'Cancel' }
+      )
+    } catch {
+      return
+    }
+  }
+
+  ratesImporting.value = true
+  try {
+    const res = await runRatesImport(false)
+    ratesImportApplied.value = true
+    ratesImportPreviewed.value = false
+    ElMessage.success(res?.message || 'Growth rates imported')
+  } catch (e: any) {
+    ElMessage.error(e?.message || e?.response?.data?.message || 'Growth rates import failed')
+  } finally {
+    ratesImporting.value = false
+  }
+}
+
+const previewProjection = async () => {
+  projPreviewing.value = true
+  try {
+    const res = await applySettlementPopulationProjection({
+      baseline_year: baselineYear.value,
+      project_through_year: projectThroughYear.value,
+      sync_settlement_year: currentCalendarYear,
+      county_id: projCountyId.value,
+      sync_settlement: projSyncSettlement.value,
+      dry_run: true
+    })
+    projSummary.value = res?.data || null
+    projPreviewRows.value = (res?.data?.preview as any[]) || []
+    ElMessage.info(res?.message || 'Projection preview ready')
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Projection preview failed')
+  } finally {
+    projPreviewing.value = false
+  }
+}
+
+const applyProjection = async () => {
+  if (projSyncSettlement.value && projectThroughYear.value < currentCalendarYear) {
+    ElMessage.warning(
+      `Project through must be at least ${currentCalendarYear} to update settlement master for this year`
+    )
+    return
+  }
+  projApplying.value = true
+  try {
+    const res = await applySettlementPopulationProjection({
+      baseline_year: baselineYear.value,
+      project_through_year: projectThroughYear.value,
+      sync_settlement_year: currentCalendarYear,
+      county_id: projCountyId.value,
+      sync_settlement: projSyncSettlement.value,
+      dry_run: false
+    })
+    projSummary.value = res?.data || null
+    projPreviewRows.value = (res?.data?.preview as any[]) || []
+    ElMessage.success(res?.message || 'Projection applied')
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Projection failed')
+  } finally {
+    projApplying.value = false
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 
-onMounted(() => {
-  loadCounties()
+watch(activeTab, (tab) => {
+  if (tab === 'rates') {
+    loadCountyRates()
+  }
+})
+
+onMounted(async () => {
+  await loadCounties()
+  await loadCountyRates()
 })
 </script>
 
@@ -1040,10 +2020,20 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.hh-survey-subtabs {
+.hh-survey-subtabs,
+.projections-subtabs {
   :deep(.el-tabs__header) {
     margin-bottom: 12px;
   }
+}
+
+.projections-subtabs {
+  margin-top: 4px;
+}
+
+.proj-sync-warning {
+  color: var(--el-color-warning, #e6a23c);
+  margin-top: -8px;
 }
 
 .hh-survey-settlement-field {
@@ -1228,6 +2218,317 @@ onMounted(() => {
     font-size: 12px;
     color: var(--el-text-color-secondary, #909399);
   }
+}
+
+.baseline-import-block {
+  margin-bottom: 8px;
+}
+
+.baseline-import-actions {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rates-import-panel {
+  padding: 20px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 10px;
+}
+
+.rates-import-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.rates-import-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  flex-shrink: 0;
+}
+
+.rates-step {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--el-fill-color, #f0f2f5);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+
+  &--done {
+    color: var(--el-color-primary, #409eff);
+    border-color: var(--el-color-primary-light-7, #c6e2ff);
+    background: var(--el-color-primary-light-9, #ecf5ff);
+    font-weight: 600;
+  }
+}
+
+.rates-step__sep {
+  color: #c0c4cc;
+}
+
+.rates-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.rates-upload-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--el-bg-color, #fff);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &--ready {
+    border-color: var(--el-color-success-light-5, #b3e19d);
+    box-shadow: 0 0 0 1px var(--el-color-success-light-8, #e1f3d8);
+  }
+
+  &__title {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+
+    strong {
+      display: block;
+      font-size: 14px;
+      color: var(--el-text-color-primary, #303133);
+      margin-bottom: 2px;
+    }
+
+    span {
+      display: block;
+      font-size: 12px;
+      color: var(--el-text-color-secondary, #909399);
+      line-height: 1.4;
+    }
+  }
+
+  &__icon {
+    font-size: 22px;
+    color: var(--el-color-primary, #409eff);
+    margin-top: 2px;
+
+    &--hh {
+      color: var(--el-color-warning, #e6a23c);
+    }
+  }
+}
+
+.rates-dropzone {
+  width: 100%;
+
+  :deep(.el-upload) {
+    width: 100%;
+  }
+
+  :deep(.el-upload-dragger) {
+    width: 100%;
+    padding: 20px 16px;
+    border-radius: 8px;
+    border-style: dashed;
+    background: var(--el-fill-color-blank, #fafafa);
+  }
+
+  &__icon {
+    font-size: 32px;
+    color: var(--el-color-primary-light-3, #79bbff);
+    margin-bottom: 8px;
+  }
+
+  &__title {
+    margin: 0 0 4px;
+    font-size: 13px;
+    color: var(--el-text-color-primary, #303133);
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: 12px;
+    color: var(--el-text-color-secondary, #909399);
+  }
+}
+
+.rates-file-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  background: var(--el-fill-color-light, #f5f7fa);
+
+  &__icon {
+    font-size: 24px;
+    color: var(--el-color-primary, #409eff);
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary, #303133);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__size {
+    font-size: 12px;
+    color: var(--el-text-color-secondary, #909399);
+  }
+}
+
+.rates-template-link {
+  align-self: flex-start;
+  padding-left: 0;
+  font-size: 12px;
+}
+
+.rates-format-help {
+  margin-bottom: 12px;
+  border: none;
+  background: transparent;
+
+  :deep(.el-collapse-item__header) {
+    height: 36px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary, #909399);
+    background: transparent;
+    border-bottom: none;
+  }
+
+  :deep(.el-collapse-item__wrap) {
+    border-bottom: none;
+    background: transparent;
+  }
+
+  :deep(.el-collapse-item__content) {
+    padding-bottom: 0;
+  }
+}
+
+.rates-format-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--el-text-color-regular, #606266);
+  line-height: 1.7;
+}
+
+.rates-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+
+  &__status {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
+
+.rates-import-alert {
+  margin-bottom: 12px;
+}
+
+.rates-import-summary {
+  .stat-num--danger {
+    color: var(--el-color-danger, #f56c6c);
+  }
+}
+
+.rates-results {
+  margin-top: 4px;
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  &__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary, #303133);
+  }
+
+  &__count {
+    font-weight: 400;
+    color: var(--el-text-color-secondary, #909399);
+  }
+}
+
+.rates-results-table {
+  width: 100%;
+
+  .muted-cell {
+    color: #c0c4cc;
+  }
+}
+
+.rates-grid-wrap {
+  margin-top: 16px;
+}
+
+.rates-table {
+  width: 100%;
+}
+
+.rate-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.rate-cell__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rate-cell__label {
+  width: 26px;
+  font-size: 11px;
+  color: #909399;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.rate-cell__input {
+  width: 84px;
 }
 
 .density-preview {

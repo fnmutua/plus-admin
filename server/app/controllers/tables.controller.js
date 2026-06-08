@@ -3758,6 +3758,336 @@ exports.applyPopulationEstimate = async (req, res) => {
   }
 }
 
+const populationProjection = require('../services/populationProjection')
+
+/** List county growth rates for the admin grid (optional county + year range). */
+exports.getCountyPopulationGrowthRates = async (req, res) => {
+  try {
+    const body = req.body || {}
+    const fromYear =
+      body.from_year != null ? parseInt(body.from_year, 10) : populationProjection.DEFAULT_BASELINE_YEAR + 1
+    const toYear =
+      body.to_year != null ? parseInt(body.to_year, 10) : new Date().getFullYear() + 5
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+
+    const where = {
+      year: { [op.between]: [fromYear, toYear] },
+    }
+    if (countyId != null && Number.isFinite(countyId)) {
+      where.county_id = countyId
+    }
+
+    const rates = await db.models.county_population_growth_rate.findAll({
+      where,
+      order: [
+        ['county_id', 'ASC'],
+        ['year', 'ASC'],
+      ],
+      raw: true,
+    })
+
+    return res.status(200).json({
+      code: '0000',
+      data: rates,
+      summary: { from_year: fromYear, to_year: toYear, count: rates.length },
+    })
+  } catch (error) {
+    console.error('❌ Error in getCountyPopulationGrowthRates:', error)
+    return res.status(500).json({
+      message: 'Failed to load county growth rates',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+/** Bulk upsert county_population_growth_rate rows. */
+exports.bulkUpsertCountyPopulationGrowthRates = async (req, res) => {
+  const t = await db.sequelize.transaction()
+  try {
+    const rates = Array.isArray(req.body?.rates) ? req.body.rates : []
+    if (rates.length === 0) {
+      await t.rollback()
+      return res.status(400).json({
+        message: 'rates array is required',
+        code: 'INVALID_INPUT',
+      })
+    }
+
+    const result = await populationProjection.bulkUpsertCountyGrowthRates(db, rates, {
+      transaction: t,
+    })
+    await t.commit()
+
+    return res.status(200).json({
+      code: '0000',
+      message: `Saved ${result.upserted} county growth rate(s)`,
+      data: result,
+    })
+  } catch (error) {
+    try {
+      await t.rollback()
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('❌ Error in bulkUpsertCountyPopulationGrowthRates:', error)
+    return res.status(500).json({
+      message: 'Failed to save county growth rates',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+/** Seed settlement_population baseline from current settlement values. */
+exports.seedSettlementPopulationBaseline = async (req, res) => {
+  const t = await db.sequelize.transaction()
+  try {
+    const body = req.body || {}
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const scope = body.scope === 'all' ? 'all' : 'missing'
+    const dryRun = body.dry_run === true
+    const baselineYear =
+      body.baseline_year != null
+        ? parseInt(body.baseline_year, 10)
+        : populationProjection.DEFAULT_BASELINE_YEAR
+
+    const result = await populationProjection.seedSettlementPopulationBaseline(db, {
+      baseline_year: baselineYear,
+      county_id: countyId,
+      scope,
+      dry_run: dryRun,
+      transaction: t,
+    })
+
+    if (dryRun) {
+      await t.rollback()
+    } else {
+      await t.commit()
+    }
+
+    return res.status(200).json({
+      code: '0000',
+      message: dryRun
+        ? `Preview: ${result.total_candidates} settlement(s) would be seeded`
+        : `Seeded ${result.rows_written} baseline row(s)`,
+      data: result,
+    })
+  } catch (error) {
+    try {
+      await t.rollback()
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('❌ Error in seedSettlementPopulationBaseline:', error)
+    return res.status(500).json({
+      message: 'Failed to seed population baseline',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+/** Project settlement_population using county annual rates. */
+exports.applySettlementPopulationProjection = async (req, res) => {
+  const t = await db.sequelize.transaction()
+  try {
+    const body = req.body || {}
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const dryRun = body.dry_run === true
+    const syncSettlement = body.sync_settlement !== false
+    const baselineYear =
+      body.baseline_year != null
+        ? parseInt(body.baseline_year, 10)
+        : populationProjection.DEFAULT_BASELINE_YEAR
+    const projectThroughYear =
+      body.project_through_year != null
+        ? parseInt(body.project_through_year, 10)
+        : new Date().getFullYear()
+    const syncSettlementYear =
+      body.sync_settlement_year != null
+        ? parseInt(body.sync_settlement_year, 10)
+        : new Date().getFullYear()
+
+    const result = await populationProjection.applySettlementPopulationProjection(db, {
+      baseline_year: baselineYear,
+      project_through_year: projectThroughYear,
+      sync_settlement_year: syncSettlementYear,
+      county_id: countyId,
+      dry_run: dryRun,
+      sync_settlement: syncSettlement,
+      transaction: t,
+    })
+
+    if (dryRun) {
+      await t.rollback()
+    } else {
+      await t.commit()
+    }
+
+    return res.status(200).json({
+      code: '0000',
+      message: dryRun
+        ? `Preview: ${result.would_write} projected row(s)`
+        : `Projected ${result.rows_written} row(s) for ${result.settlements_projected} settlement(s)`,
+      data: result,
+    })
+  } catch (error) {
+    try {
+      await t.rollback()
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('❌ Error in applySettlementPopulationProjection:', error)
+    return res.status(500).json({
+      message: 'Failed to apply population projection',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
+/** Import settlement_population baseline from uploaded Excel (.xlsx / .xls). */
+exports.importSettlementPopulationBaselineExcel = (req, res) => {
+  baselineExcelUpload.single('file')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(400).json({
+        message: uploadErr.message || 'File upload failed',
+        code: 'INVALID_FILE',
+      })
+    }
+
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        message: 'Excel file is required (field name: file)',
+        code: 'INVALID_INPUT',
+      })
+    }
+
+    const t = await db.sequelize.transaction()
+    try {
+      const body = req.body || {}
+      const dryRun = body.dry_run === 'true' || body.dry_run === true
+      const syncSettlement = !(body.sync_settlement === 'false' || body.sync_settlement === false)
+      const baselineYear =
+        body.baseline_year != null && body.baseline_year !== ''
+          ? parseInt(body.baseline_year, 10)
+          : populationProjection.DEFAULT_BASELINE_YEAR
+
+      const result = await populationProjection.importSettlementPopulationBaselineFromExcel(
+        db,
+        req.file.buffer,
+        {
+          baseline_year: baselineYear,
+          dry_run: dryRun,
+          sync_settlement: syncSettlement,
+          transaction: t,
+        }
+      )
+
+      if (dryRun) {
+        await t.rollback()
+      } else {
+        await t.commit()
+      }
+
+      return res.status(200).json({
+        code: '0000',
+        message: dryRun
+          ? `Preview: ${result.would_write} row(s) would import (${result.errors} error(s))`
+          : `Imported ${result.imported} baseline row(s) (${result.errors} error(s))`,
+        data: result,
+      })
+    } catch (error) {
+      try {
+        await t.rollback()
+      } catch (_) {
+        /* ignore */
+      }
+      console.error('❌ Error in importSettlementPopulationBaselineExcel:', error)
+      return res.status(500).json({
+        message: error.message || 'Failed to import population baseline',
+        code: 'SERVER_ERROR',
+        error: error.message,
+      })
+    }
+  })
+}
+
+/** Import county growth rates from separate population and/or household Excel files. */
+exports.importCountyPopulationGrowthRatesExcel = (req, res) => {
+  baselineExcelUpload.fields([
+    { name: 'pop_file', maxCount: 1 },
+    { name: 'hh_file', maxCount: 1 },
+  ])(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(400).json({
+        message: uploadErr.message || 'File upload failed',
+        code: 'INVALID_FILE',
+      })
+    }
+
+    const popFile = req.files?.pop_file?.[0]
+    const hhFile = req.files?.hh_file?.[0]
+    if (!popFile?.buffer && !hhFile?.buffer) {
+      return res.status(400).json({
+        message: 'Upload at least one rates file (pop_file and/or hh_file, Excel or CSV)',
+        code: 'INVALID_INPUT',
+      })
+    }
+
+    const t = await db.sequelize.transaction()
+    try {
+      const body = req.body || {}
+      const dryRun = body.dry_run === 'true' || body.dry_run === true
+
+      const result = await populationProjection.importCountyGrowthRatesFromExcel(
+        db,
+        {
+          popBuffer: popFile?.buffer ?? null,
+          hhBuffer: hhFile?.buffer ?? null,
+        },
+        { dry_run: dryRun, transaction: t }
+      )
+
+      if (dryRun) {
+        await t.rollback()
+      } else {
+        await t.commit()
+      }
+
+      return res.status(200).json({
+        code: '0000',
+        message: dryRun
+          ? `Preview: ${result.would_write} rate row(s) would import (${result.errors} error(s))`
+          : `Imported ${result.imported} rate row(s) (${result.errors} error(s))`,
+        data: result,
+      })
+    } catch (error) {
+      try {
+        await t.rollback()
+      } catch (_) {
+        /* ignore */
+      }
+      console.error('❌ Error in importCountyPopulationGrowthRatesExcel:', error)
+      return res.status(500).json({
+        message: error.message || 'Failed to import county growth rates',
+        code: 'SERVER_ERROR',
+        error: error.message,
+      })
+    }
+  })
+}
+
 // Build summary stats for compute / apply responses.
 function buildDensitySummary(preview, willChange, updatedCount) {
   const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, NONE: 0 }
@@ -6388,6 +6718,11 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024 * 1024, // 1GB limit
   },
+});
+
+const baselineExcelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
 });
 
 

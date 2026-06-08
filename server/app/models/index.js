@@ -2004,6 +2004,23 @@ db.models.settlement.hasMany(db.models.settlement_history, {
   foreignKey: 'settlement_id'
 })
 
+db.models.settlement_population.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id',
+  onDelete: 'CASCADE',
+})
+
+db.models.settlement.hasMany(db.models.settlement_population, {
+  foreignKey: 'settlement_id',
+})
+
+db.models.county_population_growth_rate.belongsTo(db.models.county, {
+  foreignKey: 'county_id',
+  onDelete: 'CASCADE',
+})
+
+db.models.county.hasMany(db.models.county_population_growth_rate, {
+  foreignKey: 'county_id',
+})
 
 db.models.settlement_history.belongsTo(db.models.users, {
   foreignKey: 'changed_by',

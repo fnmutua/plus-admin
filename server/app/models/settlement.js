@@ -44,6 +44,14 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+      pop_male: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      pop_female: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
       code: {
         type: DataTypes.STRING,
         allowNull: false,

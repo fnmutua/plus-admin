@@ -153,6 +153,8 @@ const formFields: Field[][] = [
   [
     { id: "btn13", name: "area", label: "Area (Ha)", type: "number", multiselect: "false", adminUnit: false, options: [] },
     { id: "btn14", name: "population", label: "Population", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn14a", name: "pop_male", label: "Male population", type: "number", multiselect: "false", adminUnit: false, options: [] },
+    { id: "btn14b", name: "pop_female", label: "Female population", type: "number", multiselect: "false", adminUnit: false, options: [] },
     { id: "btn15", name: "pop_density", label: "Population Density", type: "number", multiselect: "false", adminUnit: false, options: [] },
     { id: "btn16", name: "landuse", label: "Pre-Dominant Landuse", type: "text", multiselect: "false", adminUnit: false, options: [] },
     { id: "btn17", name: "near_river", label: "Near River?", type: "select", multiselect: "false", adminUnit: false, options: yes_no.value },

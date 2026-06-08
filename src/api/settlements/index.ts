@@ -718,6 +718,141 @@ export const getSettlementPopulationEstimateJobStatus = (
   return request.post({ url: prod + '/api/v1/data/settlements/population-estimate/job/status', data: { job_id } })
 }
 
+export interface CountyPopulationGrowthRateRow {
+  id?: number
+  county_id: number
+  year: number
+  annual_rate: number
+  household_growth_rate?: number | null
+  notes?: string | null
+}
+
+export interface SettlementPopulationYearRow {
+  id?: number
+  settlement_id: number
+  settlement_name?: string
+  county_id?: number
+  year: number
+  population: number
+  pop_male?: number | null
+  pop_female?: number | null
+  num_households?: number | null
+  source: string
+  method?: string | null
+}
+
+export const listCountyPopulationGrowthRates = (data: {
+  from_year?: number
+  to_year?: number
+  county_id?: number | null
+}): Promise<{ code: string; data: CountyPopulationGrowthRateRow[]; summary: { from_year: number; to_year: number; count: number } }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-growth-rates/list', data })
+}
+
+export interface CountyRateImportResultRow {
+  excel_row?: number
+  kind?: string
+  status: 'ok' | 'error'
+  county_id?: number
+  county_name?: string
+  county_code?: string
+  year?: number
+  pop_rate_percent?: number
+  hh_rate_percent?: number
+  detail: string
+}
+
+export const importCountyPopulationGrowthRatesExcel = (formData: FormData): Promise<{
+  code: string
+  message: string
+  data: {
+    pop_file_rows: number
+    hh_file_rows: number
+    total_merged: number
+    imported: number
+    errors: number
+    would_write?: number
+    rows_written?: number
+    preview?: CountyRateImportResultRow[]
+    results?: CountyRateImportResultRow[]
+    dry_run?: boolean
+  }
+}> => {
+  return request.post({
+    url: prod + '/api/v1/data/settlements/population-growth-rates/import-excel',
+    data: formData,
+    timeout: 0
+  })
+}
+
+export const saveCountyPopulationGrowthRates = (data: {
+  rates: Array<{
+    county_id: number
+    year: number
+    annual_rate: number
+    household_growth_rate?: number | null
+    notes?: string | null
+  }>
+}): Promise<{ code: string; message: string; data: { upserted: number } }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-growth-rates/save', data })
+}
+
+export const seedSettlementPopulationBaseline = (data: {
+  baseline_year?: number
+  county_id?: number | null
+  scope?: 'missing' | 'all'
+  dry_run?: boolean
+}): Promise<{ code: string; message: string; data: Record<string, unknown> }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-baseline/seed', data })
+}
+
+export interface BaselineImportResultRow {
+  excel_row: number
+  status: 'ok' | 'error'
+  settlement_id?: number
+  settlement_name?: string
+  settlement_code?: string
+  code?: string | null
+  population?: number
+  pop_male?: number | null
+  pop_female?: number | null
+  num_households?: number | null
+  detail: string
+}
+
+export const importSettlementPopulationBaselineExcel = (formData: FormData): Promise<{
+  code: string
+  message: string
+  data: {
+    baseline_year: number
+    total_rows: number
+    imported: number
+    errors: number
+    would_write?: number
+    rows_written?: number
+    preview?: BaselineImportResultRow[]
+    results?: BaselineImportResultRow[]
+    dry_run?: boolean
+  }
+}> => {
+  return request.post({
+    url: prod + '/api/v1/data/settlements/population-baseline/import-excel',
+    data: formData,
+    timeout: 0
+  })
+}
+
+export const applySettlementPopulationProjection = (data: {
+  baseline_year?: number
+  project_through_year?: number
+  sync_settlement_year?: number
+  county_id?: number | null
+  sync_settlement?: boolean
+  dry_run?: boolean
+}): Promise<{ code: string; message: string; data: Record<string, unknown> }> => {
+  return request.post({ url: prod + '/api/v1/data/settlements/population-projection/apply', data, timeout: 0 })
+}
+
 // Get imagery layers for a settlement - returns layer names that intersect with settlement bbox
 export const getSettlementImageryLayers = (data: {
   settlementId: string | number

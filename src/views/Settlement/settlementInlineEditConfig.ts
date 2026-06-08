@@ -8,6 +8,8 @@ export const inlineTextareaFields = [
 
 export const inlineNumberFields = [
   'population',
+  'pop_male',
+  'pop_female',
   'pop_density',
   'num_households',
   'avg_household_size',

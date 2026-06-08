@@ -191,6 +191,8 @@ const profile = reactive({
   subcounty: '',
   ward: '',
   population: '',
+  pop_male: '',
+  pop_female: '',
   area: '',
   pop_density: '',
   description: '',
@@ -336,6 +338,8 @@ const schemaSummaryDescription = reactive<DescriptionsSchema[]>([
   { field: 'settlement_type', label: t('Type') },
   { field: 'density_typology', label: t('Density typology') },
   { field: 'population', label: t('Population') },
+  { field: 'pop_male', label: t('Male population') },
+  { field: 'pop_female', label: t('Female population') },
   { field: 'area', label: t('Area (Ha.)') },
   { field: 'pop_density', label: t('Population density') },
   { field: 'geom_label', label: t('Boundary geometry') },
@@ -510,6 +514,8 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.subcounty = settlementData.subcounty?.name || '';
     profile.ward = settlementData.ward?.name || '';
     profile.population = dashDisplay(settlementData.population);
+    profile.pop_male = dashDisplay(settlementData.pop_male);
+    profile.pop_female = dashDisplay(settlementData.pop_female);
     profile.area = dashDisplay(settlementData.area);
     profile.pop_density = dashDisplay(settlementData.pop_density);
     profile.description = settlementData.description ?? '';
@@ -551,6 +557,8 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.createdBy = createdByDisplay
     profile.createdAt = formatDateDisplay(settlementData.createdAt)
     profile.updatedAt = formatDateDisplay(settlementData.updatedAt)
+
+    await loadPopulationHistory(settlementData.id)
 
     // Set vulnerability assessment data (raw values for Vulnerability tab conditions)
     vulnerability.climate_region = settlementData.climate_region || '';
@@ -1111,12 +1119,51 @@ const prefixCls = getPrefixCls('descriptions')
 const collapsedSections = reactive({
   location: false,
   description: false,
+  populationHistory: false,
   landParcel: false,
   builtEnvironment: false,
   utilities: false,
   vulnerabilityRecord: false,
   status: false
 })
+
+const populationHistoryRows = ref<any[]>([])
+const populationHistoryLoading = ref(false)
+const populationReportingYear = new Date().getFullYear()
+
+const loadPopulationHistory = async (settlementId: number | string) => {
+  populationHistoryLoading.value = true
+  try {
+    const res = await getSettlementListByCounty({
+      limit: 100,
+      page: 1,
+      curUser: 1,
+      model: 'settlement_population',
+      searchField: 'year',
+      searchKeyword: '',
+      filters: ['settlement_id'],
+      filterValues: [[Number(settlementId)]],
+      returnAll: true
+    } as any)
+    const rows = Array.isArray(res?.data) ? res.data : []
+    populationHistoryRows.value = [...rows].sort(
+      (a: any, b: any) => Number(b.year) - Number(a.year)
+    )
+  } catch {
+    populationHistoryRows.value = []
+  } finally {
+    populationHistoryLoading.value = false
+  }
+}
+
+const populationSourceTagType = (source: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
+  const s = String(source || '').toLowerCase()
+  if (s === 'census_2019') return 'info'
+  if (s === 'projected') return 'primary'
+  if (s === 'building_estimate') return 'success'
+  if (s === 'manual') return 'warning'
+  return 'info'
+}
 
 const vulnerabilityInlineSelectOptions = ref(buildVulnerabilitySelectFallback())
 
@@ -2661,6 +2708,8 @@ const generatePDFReport = async () => {
       head: [['Metric', 'Value']],
       body: [
         ['Population', formatNumber(profile.population)],
+        ['Male population', formatNumber(profile.pop_male)],
+        ['Female population', formatNumber(profile.pop_female)],
         ['Area', `${formatNumber(profile.area)} Ha.`],
         ['Households', formatNumber(profile.num_households)],
         ['Avg. HH Size', formatNumber(profile.avg_household_size)]
@@ -3225,6 +3274,58 @@ const updateDocumentCategory = async () => {
                 :saving-field="inlineSavingField"
                 @save="saveSettlementInline"
               />
+            </div>
+          </ElCollapseTransition>
+        </div>
+
+        <!-- Population by year (decoupled time series) -->
+        <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
+          <div
+:class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+               @click="collapsedSections.populationHistory = !collapsedSections.populationHistory">
+            <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+              <div class="flex items-center gap-8px">
+                {{ t('Population by year') }}
+                <ElTag size="small" type="info" effect="plain">Reporting {{ populationReportingYear }}</ElTag>
+              </div>
+            </div>
+            <Icon :icon="collapsedSections.populationHistory ? 'ep:arrow-down' : 'ep:arrow-up'" />
+          </div>
+          <ElCollapseTransition>
+            <div v-show="!collapsedSections.populationHistory" :class="[`${prefixCls}-content`, 'p-10px']">
+              <p class="text-13px text-[var(--el-text-color-secondary)] mb-10px">
+                Annual estimates from census baseline, county growth rates, and manual updates. Current profile fields above reflect the latest reporting year when synced.
+              </p>
+              <ElTable
+                v-loading="populationHistoryLoading"
+                :data="populationHistoryRows"
+                size="small"
+                border
+                stripe
+                empty-text="No annual population records yet — seed baseline and run projections in Population Settings."
+              >
+                <ElTableColumn prop="year" label="Year" width="72" align="right" sortable />
+                <ElTableColumn label="Population" width="120" align="right">
+                  <template #default="{ row }">{{ formatNumber(row.population) }}</template>
+                </ElTableColumn>
+                <ElTableColumn label="Male" width="100" align="right">
+                  <template #default="{ row }">{{ formatNumber(row.pop_male) }}</template>
+                </ElTableColumn>
+                <ElTableColumn label="Female" width="100" align="right">
+                  <template #default="{ row }">{{ formatNumber(row.pop_female) }}</template>
+                </ElTableColumn>
+                <ElTableColumn label="Households" width="110" align="right">
+                  <template #default="{ row }">{{ formatNumber(row.num_households) }}</template>
+                </ElTableColumn>
+                <ElTableColumn label="Source" width="130">
+                  <template #default="{ row }">
+                    <ElTag size="small" :type="populationSourceTagType(row.source)" effect="plain">
+                      {{ row.source || '—' }}
+                    </ElTag>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="method" label="Method" min-width="160" show-overflow-tooltip />
+              </ElTable>
             </div>
           </ElCollapseTransition>
         </div>

@@ -1388,6 +1388,12 @@ module.exports = function (app) {
   app.post('/api/v1/data/settlements/population-estimate/apply', [authJwt.verifyToken], controller.applyPopulationEstimate)
   app.post('/api/v1/data/settlements/population-estimate/job/start', [authJwt.verifyToken], controller.createPopulationEstimateJob)
   app.post('/api/v1/data/settlements/population-estimate/job/status', [authJwt.verifyToken], controller.getPopulationEstimateJobStatus)
+  app.post('/api/v1/data/settlements/population-growth-rates/list', [authJwt.verifyToken], controller.getCountyPopulationGrowthRates)
+  app.post('/api/v1/data/settlements/population-growth-rates/save', [authJwt.verifyToken], controller.bulkUpsertCountyPopulationGrowthRates)
+  app.post('/api/v1/data/settlements/population-growth-rates/import-excel', [authJwt.verifyToken], controller.importCountyPopulationGrowthRatesExcel)
+  app.post('/api/v1/data/settlements/population-baseline/seed', [authJwt.verifyToken], controller.seedSettlementPopulationBaseline)
+  app.post('/api/v1/data/settlements/population-baseline/import-excel', [authJwt.verifyToken], controller.importSettlementPopulationBaselineExcel)
+  app.post('/api/v1/data/settlements/population-projection/apply', [authJwt.verifyToken], controller.applySettlementPopulationProjection)
   app.post('/api/v1/data/admin-units-from-coords', [authJwt.verifyToken], controller.getAdminUnitsFromCoordinates)
 
   /**

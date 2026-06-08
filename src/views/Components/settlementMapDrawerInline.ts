@@ -197,6 +197,8 @@ export function coerceDrawerValueForApi(
     field === 'area' ||
     field === 'area_ha' ||
     field === 'population' ||
+    field === 'pop_male' ||
+    field === 'pop_female' ||
     field === 'num_households'
   if (Number.isFinite(num) && looksNumeric) {
     return num
