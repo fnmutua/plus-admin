@@ -10,6 +10,7 @@ import {
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
   mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
   getExpandableBarChartHeight, withBarChartExport,
+  getChartTimeFieldKey, getChartTimeGroupField,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -585,15 +586,17 @@ function buildChartSummaryFormData(thisChart: any) {
   }
 
   if (chartType == 5 || chartType == 6) {
-    groupFields.push(cmodel + '.createdAt')
+    groupFields.push(getChartTimeGroupField(cmodel, thisChart))
   }
+
+  const isTimeSeriesChart = chartType == 5 || chartType == 6
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
     filterFields.push('county_id')
     filterValues.push(selectedCounties.value)
     filterOperators.push('or')
-    if (chartType != 3 && chartType != 10) {
+    if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('subcounty.name')
     }
   } else if (filterLevel.value === 'subcounty') {
@@ -601,12 +604,14 @@ function buildChartSummaryFormData(thisChart: any) {
     filterFields.push('subcounty_id')
     filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
-    if (chartType != 3 && chartType != 10) {
+    if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('ward.name')
     }
   } else if (filterLevel.value === 'national') {
-    associated_Models.push('county')
-    if (chartType != 3 && chartType != 10) {
+    if (!isTimeSeriesChart) {
+      associated_Models.push('county')
+    }
+    if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('county.name')
     }
   }
@@ -644,22 +649,30 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
     }
   })
 
+  const timeKey = getChartTimeFieldKey(thisChart)
+
   if (chartType == 5) {
-    const keys = amount.reduce((allKeys: string[], obj: any) => allKeys.concat(Object.keys(obj)), [])
-    const uniqueKeys = [...new Set(keys)]
-    const values: Record<string, any[]> = {}
-    uniqueKeys.forEach((key) => {
-      values[key] = amount.map((obj) => obj[key] || null)
+    const dateSums: Record<string, number> = {}
+    for (const obj of amount) {
+      const d = obj[timeKey] != null ? String(obj[timeKey]).trim() : ''
+      if (!d) continue
+      const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0
+      dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val)
+    }
+    const sortedDates = Object.keys(dateSums).sort((a, b) => {
+      const na = Number(a)
+      const nb = Number(b)
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+      return a.localeCompare(b)
     })
-    const aggKey = String(cAggregation)
-    return [values.createdAt, values[aggKey]]
+    return [sortedDates, sortedDates.map((d) => dateSums[d])]
   }
 
   if (chartType == 6) {
-    const dates = [...new Set(amount.map((item: any) => item.createdAt))].sort()
+    const dates = [...new Set(amount.map((item: any) => item[timeKey]).filter((v) => v != null && v !== ''))].sort()
     const result: Record<string, any> = {}
     for (const item of amount) {
-      const createdAt = item.createdAt
+      const timeValue = item[timeKey]
       const aggVal = item[cAggregation]
       if (!result[item[cfield]]) {
         result[item[cfield]] = {
@@ -669,7 +682,7 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
           data: [],
         }
       }
-      const dateIndex = dates.indexOf(createdAt)
+      const dateIndex = dates.indexOf(timeValue)
       result[item[cfield]].data.push([dateIndex, Number(aggVal)])
     }
     return [dates, Object.values(result)]
@@ -1290,8 +1303,9 @@ async function processTreemapChart() {
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-
-
+            const categories = Array.isArray(cdata?.[0]) ? cdata[0] : []
+            const seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : []
+            const safeData = seriesData.map((v) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0))
 
             const UpdatedBarOptionsMultiple = {
               ...lineOptions,
@@ -1303,22 +1317,24 @@ async function processTreemapChart() {
                 ...lineOptions.subtitle,
                 text: subtitleWithSource
               },
-              xAxis: {
-                ...lineOptions.xAxis,
-                data: cdata[0]  // categories as recieved 
+              xaxis: {
+                ...lineOptions.xaxis,
+                categories,
               },
-              series: {
-                ...lineOptions.series[0],
-                data: cdata[1],  // categories as recieved 
-                name: thisChart.card_model_field
-              },
+              series: [
+                {
+                  ...lineOptions.series[0],
+                  name: thisChart.card_model_field || 'Series',
+                  data: safeData,
+                },
+              ],
             };
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
             // show no data 
-            if (cdata[1].length === 0) {
+            if (safeData.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text',
                 left: 'center',

@@ -36,6 +36,7 @@ if (typeof globalThis.fetch === 'undefined') {
 const db = require('../models')
 const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 const { computeSettlementVulnerability } = require('../utils/vulnerability')
+const settlementPopulationGeo = require('../services/settlementPopulationGeo')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -1304,7 +1305,7 @@ exports.modelImportDataUpsert = async (req, res) => {
     // Add metadata and perform field-level encryption/sanitization for households
     const currentUser = req.thisUser?.id;
     const timestamp = new Date();
-    const validData = validRecords.map(item => {
+    let validData = validRecords.map(item => {
       const record = {
         ...item,
         createdBy: currentUser,
@@ -1320,6 +1321,10 @@ exports.modelImportDataUpsert = async (req, res) => {
       }
       return record;
     });
+
+    if (modelName === 'settlement_population') {
+      validData = await settlementPopulationGeo.enrichSettlementPopulationRecords(db, validData)
+    }
 
     // Upsert logic with code field priority
     for (const item of validData) {
@@ -1378,7 +1383,17 @@ exports.modelImportDataUpsert = async (req, res) => {
           if (item.code) {
             delete updateData.code;
           }
+          const shouldSyncPopulationGeo =
+            modelName === 'settlement' &&
+            settlementPopulationGeo.settlementGeoChanged(existing, updateData)
           await existing.update(updateData);
+          if (shouldSyncPopulationGeo) {
+            await settlementPopulationGeo.syncSettlementPopulationGeoFromSettlement(db, existing.id, {
+              county_id: existing.county_id,
+              subcounty_id: existing.subcounty_id,
+              ward_id: existing.ward_id,
+            })
+          }
           updated.push(item.code || existing.id);
           
           // Process updated record for AI
@@ -1420,7 +1435,17 @@ exports.modelImportDataUpsert = async (req, res) => {
                 if (item.code) {
                   delete upd.code;
                 }
+                const shouldSyncPopulationGeo =
+                  modelName === 'settlement' &&
+                  settlementPopulationGeo.settlementGeoChanged(rec, upd)
                 await rec.update(upd);
+                if (shouldSyncPopulationGeo) {
+                  await settlementPopulationGeo.syncSettlementPopulationGeoFromSettlement(db, rec.id, {
+                    county_id: rec.county_id,
+                    subcounty_id: rec.subcounty_id,
+                    ward_id: rec.ward_id,
+                  })
+                }
                 updated.push(item.code || rec.id);
                 
                 // Process updated record for AI (from unique constraint handling)
@@ -1679,6 +1704,10 @@ exports.modelCreateOneRecord = async (req, res) => {
     delete obj.id;
   }
   delete obj.checkFields; // Used for duplicate check only, not a model field
+
+  if (reg_model === 'settlement_population') {
+    Object.assign(obj, await settlementPopulationGeo.applySettlementPopulationGeo(db, obj))
+  }
 
   try {
   const item = await db.models[reg_model].create(obj)
@@ -4759,6 +4788,20 @@ exports.modelEditOneRecord = (req, res) => {
         }
       }
      
+      if (reg_model === 'settlement_population') {
+        const populationPayload = {
+          settlement_id: updateObj.settlement_id ?? result.settlement_id,
+          county_id: updateObj.county_id,
+          subcounty_id: updateObj.subcounty_id,
+          ward_id: updateObj.ward_id,
+        }
+        Object.assign(updateObj, await settlementPopulationGeo.applySettlementPopulationGeo(db, populationPayload))
+      }
+
+      const shouldSyncPopulationGeo =
+        reg_model === 'settlement' &&
+        settlementPopulationGeo.settlementGeoChanged(result, updateObj)
+
       if (reg_model === 'settlement' ) { 
 
         updateHistory(result.id,req.body,req.thisUser.id,'Edit')
@@ -4770,6 +4813,14 @@ exports.modelEditOneRecord = (req, res) => {
       if (result) {
         result.set(updateObj);
         await result.save(); // Wait for the record to be saved
+
+        if (shouldSyncPopulationGeo) {
+          await settlementPopulationGeo.syncSettlementPopulationGeoFromSettlement(db, result.id, {
+            county_id: result.county_id,
+            subcounty_id: result.subcounty_id,
+            ward_id: result.ward_id,
+          })
+        }
 
        
 

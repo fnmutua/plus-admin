@@ -18,6 +18,7 @@ import {
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
   mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
   getExpandableBarChartHeight, withBarChartExport,
+  getChartTimeFieldKey, getChartTimeGroupField,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -660,15 +661,17 @@ function buildChartSummaryFormData(thisChart: any) {
   }
 
   if (chartType == 5 || chartType == 6) {
-    groupFields.push(cmodel + '.createdAt')
+    groupFields.push(getChartTimeGroupField(cmodel, thisChart))
   }
+
+  const isTimeSeriesChart = chartType == 5 || chartType == 6
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
     filterFields.push('county_id')
     filterValues.push(selectedCounties.value)
     filterOperators.push('or')
-    if (chartType != 3 && chartType != 10) {
+    if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('subcounty.name')
     }
   } else if (filterLevel.value === 'subcounty') {
@@ -676,12 +679,14 @@ function buildChartSummaryFormData(thisChart: any) {
     filterFields.push('subcounty_id')
     filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
-    if (chartType != 3 && chartType != 10) {
+    if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('ward.name')
     }
   } else if (filterLevel.value === 'national') {
-    associated_Models.push('county')
-    if (chartType != 3 && chartType != 10) {
+    if (!isTimeSeriesChart) {
+      associated_Models.push('county')
+    }
+    if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('county.name')
     }
   }
@@ -728,15 +733,22 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
     }
   })
 
+  const timeKey = getChartTimeFieldKey(thisChart)
+
   if (chartType == 5) {
     const dateSums: Record<string, number> = {}
     for (const obj of amount) {
-      const d = obj.createdAt != null ? String(obj.createdAt).trim() : ''
+      const d = obj[timeKey] != null ? String(obj[timeKey]).trim() : ''
       if (!d) continue
       const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0
       dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val)
     }
-    const sortedDates = Object.keys(dateSums).sort()
+    const sortedDates = Object.keys(dateSums).sort((a, b) => {
+      const na = Number(a)
+      const nb = Number(b)
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+      return a.localeCompare(b)
+    })
     categoryArray = sortedDates
     seriesData = sortedDates.map((d) => dateSums[d])
     return [categoryArray, seriesData]
@@ -745,14 +757,19 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
   if (chartType == 6) {
     const bySeriesAndDate: Record<string, Record<string, number>> = {}
     for (const item of amount) {
-      const d = item.createdAt != null ? String(item.createdAt).trim() : ''
+      const d = item[timeKey] != null ? String(item[timeKey]).trim() : ''
       if (!d) continue
       const seriesName = item[cfield]
       if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {}
       const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0
       bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val)
     }
-    const dates = [...new Set(amount.map((item) => item.createdAt).filter(Boolean))].sort()
+    const dates = [...new Set(amount.map((item) => item[timeKey]).filter((v) => v != null && v !== ''))].sort((a, b) => {
+      const na = Number(a)
+      const nb = Number(b)
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+      return String(a).localeCompare(String(b))
+    })
     const result: Record<string, any> = {}
     for (const seriesName of Object.keys(bySeriesAndDate)) {
       result[seriesName] = {
@@ -1018,12 +1035,14 @@ formData.ignoreEmpty = ignoreEmpty
 
 
  
+    const timeKey = getChartTimeFieldKey(thisChart)
+
     if (chartType == 5) {
       console.log('Data line chart ', amount)
       // Aggregate by date so one point per date (sum when backend grouped by date + county/etc.)
       const dateSums = {};
       for (const obj of amount) {
-        const d = obj.createdAt != null ? String(obj.createdAt).trim() : '';
+        const d = obj[timeKey] != null ? String(obj[timeKey]).trim() : '';
         if (!d) continue;
         const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0;
         dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val);
@@ -1041,14 +1060,14 @@ formData.ignoreEmpty = ignoreEmpty
       // Aggregate by series and date (sum when backend returned multiple rows per date)
       const bySeriesAndDate = {};
       for (const item of amount) {
-        const d = item.createdAt != null ? String(item.createdAt).trim() : '';
+        const d = item[timeKey] != null ? String(item[timeKey]).trim() : '';
         if (!d) continue;
         const seriesName = item[cfield];
         if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {};
         const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0;
         bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val);
       }
-      const dates = [...new Set(amount.map((item) => item.createdAt).filter(Boolean))].sort();
+      const dates = [...new Set(amount.map((item) => item[timeKey]).filter((v) => v != null && v !== ''))].sort();
       const result = {};
       for (const seriesName of Object.keys(bySeriesAndDate)) {
         result[seriesName] = {

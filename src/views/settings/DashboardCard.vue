@@ -52,6 +52,10 @@ const ModelOptions = [
     value: 'settlement',
     label: 'Settlement'
   },
+  {
+    value: 'settlement_population',
+    label: 'Settlement Population'
+  },
 
   {
     value: 'grievance',

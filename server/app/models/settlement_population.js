@@ -14,6 +14,18 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      county_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      subcounty_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      ward_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       year: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -63,6 +75,18 @@ module.exports = function (sequelize, DataTypes) {
         {
           name: 'settlement_population_year_idx',
           fields: ['year'],
+        },
+        {
+          name: 'settlement_population_county_id_idx',
+          fields: ['county_id'],
+        },
+        {
+          name: 'settlement_population_subcounty_id_idx',
+          fields: ['subcounty_id'],
+        },
+        {
+          name: 'settlement_population_ward_id_idx',
+          fields: ['ward_id'],
         },
       ],
     }

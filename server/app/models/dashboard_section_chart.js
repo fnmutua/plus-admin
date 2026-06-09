@@ -54,6 +54,13 @@ module.exports = function(sequelize, DataTypes) {
 
     },
 
+    time_field: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+      defaultValue: 'createdAt',
+      comment: 'Field used as time axis for line charts (default createdAt)',
+    },
+
     filter_value: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true

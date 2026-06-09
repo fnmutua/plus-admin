@@ -129,6 +129,10 @@ const ModelOptions = [
     label: 'Settlement'
   },
   {
+    value: 'settlement_population',
+    label: 'Settlement Population'
+  },
+  {
     value: 'grievance',
     label: 'Grievances'
   },
@@ -546,6 +550,7 @@ const editIndicator = (data: TableSlotDefault) => {
 
   ruleForm.card_model = data.row.card_model
   ruleForm.categorized = data.row.categorized
+  ruleForm.time_field = data.row.time_field || 'createdAt'
 
   ruleForm.categorized = data.row.categorized
 
@@ -735,6 +740,7 @@ const CloneChart = (data: TableSlotDefault) => {
 
   ruleForm.card_model = data.row.card_model
   ruleForm.categorized = data.row.categorized
+  ruleForm.time_field = data.row.time_field || 'createdAt'
 
   if (data.row.category == 'Status') {
     showStatusExtras.value = true
@@ -916,6 +922,7 @@ const ruleForm = reactive({
   card_model_field: null,
   card_model: '',
   categorized: false,
+  time_field: 'createdAt',
   filter_value: [],
   filter_function: '',
   filter_option: '',
@@ -946,6 +953,7 @@ const handleClose = () => {
   ruleForm.card_model_field = null
   ruleForm.card_model = ''
   ruleForm.categorized = false
+  ruleForm.time_field = 'createdAt'
   ruleForm.filter_value = []
   ruleForm.filter_function = ''
   ruleForm.filter_option = ''
@@ -1052,6 +1060,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
+      if (!ruleForm.time_field) {
+        ruleForm.time_field = 'createdAt'
+      }
 
       // if (isInterventionsDashboard.value) {
       //   console.log('add interventions')
@@ -1078,6 +1089,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate((valid, fields) => {
     if (valid) {
       ruleForm.model = model
+      if (!ruleForm.time_field) {
+        ruleForm.time_field = 'createdAt'
+      }
 
       updateOneRecord(ruleForm).then(() => {
         ElMessage.success('Chart saved');
@@ -1281,6 +1295,21 @@ chartOptions.value = [
 ]
 
 const hideCategorize = ref(true)
+
+const showTimeFieldConfig = computed(() => ruleForm.type === 5 || ruleForm.type === 6)
+
+const timeFieldOptions = computed(() => {
+  const options = [{ value: 'createdAt', label: 'Created at (default)' }]
+  const seen = new Set(['createdAt'])
+  for (const field of fieldSet.value || []) {
+    if (!field?.value || seen.has(field.value)) continue
+    if (field.type === 'INTEGER' || field.type === 'DATE' || field.type === 'DATEONLY') {
+      options.push({ value: field.value, label: field.label || field.value })
+      seen.add(field.value)
+    }
+  }
+  return options
+})
 
 const handleSelectModel = async (selModel) => {
 
@@ -2214,6 +2243,26 @@ style="width: 100%;" v-model="ruleForm.type" @clear="handleClear" clearable filt
             </el-select>
           </el-form-item>
 
+          <el-form-item
+            v-if="ruleForm.category === 'Status' && showTimeFieldConfig && ruleForm.card_model"
+            label="Time period"
+            prop="time_field"
+          >
+            <el-select
+              v-model="ruleForm.time_field"
+              filterable
+              clearable
+              placeholder="Time axis for line charts"
+              style="width: 100%;"
+            >
+              <el-option
+                v-for="item in timeFieldOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
 
           <el-form-item id="btn12" v-if="ruleForm.category" label="Aggregation" prop="aggregation">
             <el-select

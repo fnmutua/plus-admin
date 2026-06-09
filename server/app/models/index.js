@@ -2013,6 +2013,30 @@ db.models.settlement.hasMany(db.models.settlement_population, {
   foreignKey: 'settlement_id',
 })
 
+db.models.county.hasMany(db.models.settlement_population, {
+  foreignKey: 'county_id',
+})
+
+db.models.settlement_population.belongsTo(db.models.county, {
+  foreignKey: 'county_id',
+})
+
+db.models.subcounty.hasMany(db.models.settlement_population, {
+  foreignKey: 'subcounty_id',
+})
+
+db.models.settlement_population.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id',
+})
+
+db.models.ward.hasMany(db.models.settlement_population, {
+  foreignKey: 'ward_id',
+})
+
+db.models.settlement_population.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id',
+})
+
 db.models.county_population_growth_rate.belongsTo(db.models.county, {
   foreignKey: 'county_id',
   onDelete: 'CASCADE',

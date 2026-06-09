@@ -8,6 +8,24 @@ import customColorPalette from './colors'
 
 const { t } = useI18n()
 
+/** Result column key for the configured chart time axis (default createdAt). */
+export function getChartTimeFieldKey(chart: { time_field?: string | null } | null | undefined): string {
+  const raw = String(chart?.time_field || 'createdAt').trim()
+  if (!raw) return 'createdAt'
+  const parts = raw.split('.')
+  return parts[parts.length - 1] || 'createdAt'
+}
+
+/** Group-by field sent to the summary API for line charts. */
+export function getChartTimeGroupField(
+  model: string,
+  chart: { time_field?: string | null } | null | undefined
+): string {
+  const raw = String(chart?.time_field || 'createdAt').trim() || 'createdAt'
+  if (raw.includes('.')) return raw
+  return `${model}.${raw}`
+}
+
 /** Read dark mode when options are consumed — never snapshot at module load. */
 function getAppDark(): boolean {
   return useAppStore().getIsDark

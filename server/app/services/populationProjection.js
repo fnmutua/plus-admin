@@ -500,6 +500,9 @@ async function upsertSettlementPopulationRows(db, rows, options = {}) {
   const transaction = options.transaction ?? null
 
   const settlementIds = rows.map((r) => r.settlement_id)
+  const countyIds = rows.map((r) => (r.county_id == null ? null : r.county_id))
+  const subcountyIds = rows.map((r) => (r.subcounty_id == null ? null : r.subcounty_id))
+  const wardIds = rows.map((r) => (r.ward_id == null ? null : r.ward_id))
   const years = rows.map((r) => r.year)
   const populations = rows.map((r) => r.population)
   const males = rows.map((r) => (r.pop_male == null ? null : r.pop_male))
@@ -512,6 +515,9 @@ async function upsertSettlementPopulationRows(db, rows, options = {}) {
     `
       INSERT INTO settlement_population (
         settlement_id,
+        county_id,
+        subcounty_id,
+        ward_id,
         year,
         population,
         pop_male,
@@ -524,6 +530,9 @@ async function upsertSettlementPopulationRows(db, rows, options = {}) {
       )
       SELECT
         v.settlement_id,
+        v.county_id,
+        v.subcounty_id,
+        v.ward_id,
         v.year,
         v.population,
         v.pop_male,
@@ -536,15 +545,21 @@ async function upsertSettlementPopulationRows(db, rows, options = {}) {
       FROM (
         SELECT
           UNNEST($1::int[]) AS settlement_id,
-          UNNEST($2::int[]) AS year,
-          UNNEST($3::int[]) AS population,
-          UNNEST($4::int[]) AS pop_male,
-          UNNEST($5::int[]) AS pop_female,
-          UNNEST($6::int[]) AS num_households,
-          UNNEST($7::varchar[]) AS source,
-          UNNEST($8::varchar[]) AS method
+          UNNEST($2::int[]) AS county_id,
+          UNNEST($3::int[]) AS subcounty_id,
+          UNNEST($4::int[]) AS ward_id,
+          UNNEST($5::int[]) AS year,
+          UNNEST($6::int[]) AS population,
+          UNNEST($7::int[]) AS pop_male,
+          UNNEST($8::int[]) AS pop_female,
+          UNNEST($9::int[]) AS num_households,
+          UNNEST($10::varchar[]) AS source,
+          UNNEST($11::varchar[]) AS method
       ) v
       ON CONFLICT (settlement_id, year) DO UPDATE SET
+        county_id = EXCLUDED.county_id,
+        subcounty_id = EXCLUDED.subcounty_id,
+        ward_id = EXCLUDED.ward_id,
         population = EXCLUDED.population,
         pop_male = EXCLUDED.pop_male,
         pop_female = EXCLUDED.pop_female,
@@ -556,6 +571,9 @@ async function upsertSettlementPopulationRows(db, rows, options = {}) {
     {
       bind: [
         settlementIds,
+        countyIds,
+        subcountyIds,
+        wardIds,
         years,
         populations,
         males,
@@ -655,6 +673,8 @@ async function seedSettlementPopulationBaseline(db, options = {}) {
         s.id AS settlement_id,
         s.name AS settlement_name,
         s.county_id,
+        s.subcounty_id,
+        s.ward_id,
         s.population,
         s.pop_male,
         s.pop_female,
@@ -693,6 +713,8 @@ async function seedSettlementPopulationBaseline(db, options = {}) {
       settlement_id: s.settlement_id,
       settlement_name: s.settlement_name,
       county_id: s.county_id,
+      subcounty_id: s.subcounty_id,
+      ward_id: s.ward_id,
       year: baselineYear,
       population,
       pop_male,
@@ -759,7 +781,9 @@ async function applySettlementPopulationProjection(db, options = {}) {
       SELECT
         sp.settlement_id,
         s.name AS settlement_name,
-        s.county_id,
+        COALESCE(sp.county_id, s.county_id) AS county_id,
+        COALESCE(sp.subcounty_id, s.subcounty_id) AS subcounty_id,
+        COALESCE(sp.ward_id, s.ward_id) AS ward_id,
         sp.year,
         sp.population,
         sp.pop_male,
@@ -871,6 +895,8 @@ async function applySettlementPopulationProjection(db, options = {}) {
         settlement_id: base.settlement_id,
         settlement_name: base.settlement_name,
         county_id: base.county_id,
+        subcounty_id: base.subcounty_id,
+        ward_id: base.ward_id,
         year,
         population,
         pop_male,
@@ -1024,7 +1050,7 @@ async function importSettlementPopulationBaselineFromExcel(db, buffer, options =
 
   const parsed = parseBaselineExcelBuffer(buffer)
   const settlements = await db.models.settlement.findAll({
-    attributes: ['id', 'code', 'name', 'county_id'],
+    attributes: ['id', 'code', 'name', 'county_id', 'subcounty_id', 'ward_id'],
     raw: true,
     transaction,
   })
@@ -1096,6 +1122,8 @@ async function importSettlementPopulationBaselineFromExcel(db, buffer, options =
       settlement_name: settlement.name,
       settlement_code: settlement.code,
       county_id: settlement.county_id,
+      subcounty_id: settlement.subcounty_id,
+      ward_id: settlement.ward_id,
       year: baselineYear,
       population: row.population,
       pop_male: row.pop_male,
