@@ -54,6 +54,50 @@ function groupByExpr(g) {
   return Array.isArray(g) ? g[0] : g;
 }
 
+function summaryFieldAlias(fieldPath) {
+  const parts = String(fieldPath || '').split('.');
+  return parts[parts.length - 1] || 'value';
+}
+
+function resolveSummaryFieldPaths(body) {
+  if (Array.isArray(body.summaryFields) && body.summaryFields.length > 0) {
+    return body.summaryFields;
+  }
+  if (body.summaryField) {
+    return [body.summaryField];
+  }
+  return [];
+}
+
+function appendSummaryAttributes(qry, body) {
+  const summaryFunction = body.summaryFunction;
+  const unique_counts = body.uniqueCounts ? body.uniqueCounts : false;
+  const fieldPaths = resolveSummaryFieldPaths(body);
+  const multiMetric = fieldPaths.length > 1;
+
+  for (const fieldPath of fieldPaths) {
+    // Single-metric charts expect the aggregation name (e.g. sum); multi-metric uses field aliases.
+    const alias = multiMetric ? summaryFieldAlias(fieldPath) : summaryFunction;
+    if (summaryFunction === 'count' && unique_counts) {
+      qry.attributes.push([
+        Sequelize.fn(summaryFunction, Sequelize.fn('DISTINCT', Sequelize.col(fieldPath))),
+        alias,
+      ]);
+    } else if (summaryFunction && fieldPath) {
+      qry.attributes.push([Sequelize.fn(summaryFunction, Sequelize.col(fieldPath)), alias]);
+    }
+  }
+}
+
+function buildIgnoreEmptyConditions(body, operatorMappings) {
+  const ignoreEmpty = body.ignoreEmpty !== undefined ? body.ignoreEmpty : false;
+  if (!ignoreEmpty) return [];
+
+  return resolveSummaryFieldPaths(body).map((fieldPath) => ({
+    [summaryFieldAlias(fieldPath)]: { [operatorMappings.notEmpty]: null },
+  }));
+}
+
 (async () => {
  // redisClient = redis.createClient();
   const url = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -1329,22 +1373,8 @@ let groupfields = []
   console.log('-----------*************---------------');
   console.log(groupfields);
 
-  // Add summary calculation to the query attributes
-  if (summaryField && summaryFunction) {
-    // generate querry that has disticnt/unique results 
-    if (summaryFunction =='count' && unique_counts ) {
-        qry.attributes.push([
-        Sequelize.fn(summaryFunction, Sequelize.fn('DISTINCT', Sequelize.col(summaryField))),summaryFunction
-      ]);
-
-    } else {
-      qry.attributes.push([Sequelize.fn(summaryFunction, Sequelize.col(summaryField)), summaryFunction]);
-    }
-     
-  }
-
-
-  
+  // Add summary calculation to the query attributes (single or multiple metrics)
+  appendSummaryAttributes(qry, req.body);
 
   // Add associated models to the query
   if (assoc_models &&  req.body.assoc_models.length > 0 && Array.isArray(assoc_models) ) {
@@ -1417,19 +1447,8 @@ let groupfields = []
     // Add more operator mappings as needed
   };
 
-  const filterConditions = [];
+  const filterConditions = buildIgnoreEmptyConditions(req.body, operatorMappings);
 
-// if ignoring empty is enabled
-
-const inputString = summaryField;
-const parts = inputString.split('.');
-//console.log(parts);  
-
-
-if (ignoreEmpty) {
-  filterConditions.push({ [parts[1]]: { [operatorMappings['notEmpty']]: null } });
-
-  }
   console.log('filterConditions',filterConditions )
  
 if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
@@ -1443,10 +1462,6 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     filterOperators = [filterOperators];
   }
 
- 
-
-
- 
   console.log('-----------------------------y--------------------------------',req.body.filterField)
   console.log('filter values',filterValues )
   console.log('  filterCols',filterCols )

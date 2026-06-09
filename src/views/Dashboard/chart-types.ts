@@ -16,6 +16,25 @@ export function getChartTimeFieldKey(chart: { time_field?: string | null } | nul
   return parts[parts.length - 1] || 'createdAt'
 }
 
+/** Read aggregated value from a summary row (supports legacy field-name aliases). */
+export function getSummaryResultValue(
+  row: Record<string, unknown> | null | undefined,
+  aggregation: string,
+  fieldName?: string | null
+): number {
+  if (!row) return 0
+  const aggKey = String(aggregation || 'sum')
+  if (row[aggKey] != null) {
+    const v = Number(row[aggKey])
+    return Number.isNaN(v) ? 0 : v
+  }
+  if (fieldName && row[fieldName] != null) {
+    const v = Number(row[fieldName])
+    return Number.isNaN(v) ? 0 : v
+  }
+  return 0
+}
+
 /** Group-by field sent to the summary API for line charts. */
 export function getChartTimeGroupField(
   model: string,
@@ -24,6 +43,56 @@ export function getChartTimeGroupField(
   const raw = String(chart?.time_field || 'createdAt').trim() || 'createdAt'
   if (raw.includes('.')) return raw
   return `${model}.${raw}`
+}
+
+function sortTimeCategories(values: string[]): string[] {
+  return [...values].sort((a, b) => {
+    const na = Number(a)
+    const nb = Number(b)
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+    return a.localeCompare(b)
+  })
+}
+
+/** Build Apex series for multi-variable line charts (type 12). */
+export function buildMultiVariableLineSeries(
+  amount: any[] | null | undefined,
+  timeKey: string,
+  metricFields: string[]
+): { categories: string[]; series: { name: string; data: number[] }[]; dualAxis: boolean } {
+  const metrics = Array.isArray(metricFields) ? metricFields.filter(Boolean) : []
+  if (!amount?.length || !metrics.length) {
+    return { categories: [], series: [], dualAxis: false }
+  }
+
+  const byTime: Record<string, Record<string, number>> = {}
+  for (const row of amount) {
+    const timeValue = row?.[timeKey]
+    if (timeValue == null || timeValue === '') continue
+    const key = String(timeValue).trim()
+    if (!key) continue
+    if (!byTime[key]) byTime[key] = {}
+    for (const metric of metrics) {
+      const val = row[metric] != null ? Number(row[metric]) : 0
+      byTime[key][metric] = (byTime[key][metric] || 0) + (Number.isNaN(val) ? 0 : val)
+    }
+  }
+
+  const categories = sortTimeCategories(Object.keys(byTime))
+  const series = metrics.map((metric) => ({
+    name: metric,
+    data: categories.map((cat) => byTime[cat]?.[metric] ?? 0),
+  }))
+
+  const maxVals = series.map((s) => Math.max(...s.data, 0)).filter((v) => v > 0)
+  let dualAxis = false
+  if (maxVals.length >= 2) {
+    const hi = Math.max(...maxVals)
+    const lo = Math.min(...maxVals)
+    dualAxis = lo > 0 && hi / lo > 10
+  }
+
+  return { categories, series, dualAxis }
 }
 
 /** Read dark mode when options are consumed — never snapshot at module load. */

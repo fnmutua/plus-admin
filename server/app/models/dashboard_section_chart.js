@@ -61,6 +61,12 @@ module.exports = function(sequelize, DataTypes) {
       comment: 'Field used as time axis for line charts (default createdAt)',
     },
 
+    metric_fields: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      comment: 'Numeric fields for multi-variable line chart (type 12)',
+    },
+
     filter_value: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true

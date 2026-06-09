@@ -53,8 +53,9 @@ console.log("userInfo--->", userInfo)
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
-var value3 = ref([])
-var value4 = ref([])
+const value3 = ref([])
+const value4 = ref([])
+const value5 = ref([])
 
 const componentOptions = ref([])
 const categories = ref([])
@@ -82,11 +83,55 @@ const updatepSize = () => {
   }
 };
 
-// Set up event listener on mount
-onMounted(() => {
-  window.addEventListener('resize', updatepSize);
-  updatepSize(); // Initial check
-});
+const getDefaultFilters = () => {
+  if (isDashboardSettingsAdmin(userInfo)) {
+    return { filters: [] as string[], filterValues: [] as any[][] }
+  }
+  return { filters: ['createdBy'], filterValues: [[userInfo.id]] }
+}
+
+const getSectionIdsForDashboards = (dashboardIds: any[]) => {
+  if (!dashboardIds.length) return []
+  return DashBoardSectionOptions.value
+    .filter((opt: any) => dashboardIds.includes(opt.dashboard_id))
+    .map((opt: any) => opt.value)
+}
+
+const buildChartListFilters = () => {
+  const { filters: apiFilters, filterValues: apiFilterValues } = getDefaultFilters()
+  const dashboardIds = normalizeDashboardIds(value5.value)
+  const sectionIds = normalizeDashboardIds(value3.value)
+
+  let effectiveSectionIds = sectionIds
+  if (dashboardIds.length > 0) {
+    const sectionsForDashboard = getSectionIdsForDashboards(dashboardIds)
+    effectiveSectionIds = sectionIds.length > 0
+      ? sectionIds.filter((id) => sectionsForDashboard.includes(id))
+      : sectionsForDashboard
+  }
+
+  if (effectiveSectionIds.length > 0) {
+    apiFilters.push('dashboard_section_id')
+    apiFilterValues.push(effectiveSectionIds)
+  }
+
+  return { filters: apiFilters, filterValues: apiFilterValues }
+}
+
+const refreshChartList = async () => {
+  const { filters: apiFilters, filterValues: apiFilterValues } = buildChartListFilters()
+  filters = apiFilters
+  filterValues = apiFilterValues
+  await getFilteredData(apiFilters, apiFilterValues)
+}
+
+// Set up event listener on mount and load chart list after filter options are ready
+onMounted(async () => {
+  window.addEventListener('resize', updatepSize)
+  updatepSize()
+  await Promise.all([getdashboardOptions(), getDashSectionOptions()])
+  await refreshChartList()
+})
 
 
 
@@ -237,21 +282,17 @@ const columns: TableColumn[] = [
 
 ]
 const handleClear = async () => {
-  console.log('cleared....')
-
-  // clear all the fileters -------
-  filterValues = []
-  filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  value4.value = ''
-  value5.value = ''
-  // pSize.value = 5
+  value1.value = []
+  value2.value = []
+  value3.value = []
+  value4.value = []
+  value5.value = []
+  selectedDashboardIds.value = []
   currentPage.value = 1
+  page.value = 1
   tblData = []
-  //----run the get data--------
-  getInterventionsAll()
+  DashBoardSectionFilterdOptions.value = [...DashBoardSectionOptions.value]
+  await refreshChartList()
 }
 
 
@@ -268,131 +309,46 @@ const normalizeDashboardIds = (dashboard_id: any) => {
 
 
 
-const handleSelectDashboard = async (indicator: any) => {
-  var selectOption = 'dashboard_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
-
-
-
-
-const handleSelectDashboardSection = async (indicator: any) => {
-  var selectOption = 'dashboard_section_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
+const handleSelectDashboardSection = async () => {
+  await refreshChartList()
 }
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-  getFilteredData(filters, filterValues)
+  await refreshChartList()
 }
 
 const onpSizeChange = async (size: any) => {
   pSize.value = size
-  getFilteredData(filters, filterValues)
-}
-
-const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
+  await refreshChartList()
 }
 
 
 
 
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
+  loading.value = true
+  try {
+    const formData = {}
+    formData.limit = pSize.value
+    formData.page = page.value
+    formData.curUser = 1 // Id for logged in user
+    formData.model = model
+    formData.searchField = 'title'
+    formData.searchKeyword = ''
+    formData.assocModel = associated_Model
+    formData.filters = selFilters
+    formData.filterValues = selfilterValues
+    formData.associated_multiple_models = associated_multiple_models
+    formData.nested_models = nested
 
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('After cards', res)
-
-  // base data from API
-  let rows = res.data || []
-
-  // extra client-side filter by dashboard if API doesn't apply it
-  if (selectedDashboardIds.value && selectedDashboardIds.value.length > 0) {
-    rows = rows.filter((row: any) => {
-      const dashId = row?.dashboard_section?.dashboard_id || row?.dashboard_id
-      return selectedDashboardIds.value.includes(dashId)
-    })
+    const res = await getSettlementListByCounty(formData)
+    tableDataList.value = res.data || []
+    total.value = res.total
+    tblData = []
+  } finally {
+    loading.value = false
   }
-
-  tableDataList.value = rows
-  total.value = res.total
-
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
-  })
-
-  console.log('TBL-4f', tblData)
 }
 
 
@@ -495,8 +451,6 @@ const getDashSectionOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
-
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
@@ -551,6 +505,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.card_model = data.row.card_model
   ruleForm.categorized = data.row.categorized
   ruleForm.time_field = data.row.time_field || 'createdAt'
+  ruleForm.metric_fields = Array.isArray(data.row.metric_fields) ? data.row.metric_fields : []
 
   ruleForm.categorized = data.row.categorized
 
@@ -602,6 +557,10 @@ const editIndicator = (data: TableSlotDefault) => {
           value: 5,
           label: 'Line Chart'
         },
+        {
+          value: 12,
+          label: 'Multi-variable Line'
+        },
 
         {
           value: 7,
@@ -647,6 +606,10 @@ const editIndicator = (data: TableSlotDefault) => {
         {
           value: 5,
           label: 'Line Chart'
+        },
+        {
+          value: 12,
+          label: 'Multi-variable Line'
         },
         /* {
           value: 6,
@@ -741,6 +704,7 @@ const CloneChart = (data: TableSlotDefault) => {
   ruleForm.card_model = data.row.card_model
   ruleForm.categorized = data.row.categorized
   ruleForm.time_field = data.row.time_field || 'createdAt'
+  ruleForm.metric_fields = Array.isArray(data.row.metric_fields) ? data.row.metric_fields : []
 
   if (data.row.category == 'Status') {
     showStatusExtras.value = true
@@ -799,6 +763,10 @@ const CloneChart = (data: TableSlotDefault) => {
         value: 5,
         label: 'Line Chart'
       },
+      {
+        value: 12,
+        label: 'Multi-variable Line'
+      },
 
       {
         value: 7,
@@ -844,6 +812,10 @@ const CloneChart = (data: TableSlotDefault) => {
       {
         value: 5,
         label: 'Line Chart'
+      },
+      {
+        value: 12,
+        label: 'Multi-variable Line'
       },
       /* {
         value: 6,
@@ -905,7 +877,7 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
       console.log(error)
 
     });
-  getFilteredData(filters, filterValues)
+  await refreshChartList()
 }
 
 const ruleFormRef = ref<FormInstance>()
@@ -923,6 +895,7 @@ const ruleForm = reactive({
   card_model: '',
   categorized: false,
   time_field: 'createdAt',
+  metric_fields: [],
   filter_value: [],
   filter_function: '',
   filter_option: '',
@@ -954,6 +927,7 @@ const handleClose = () => {
   ruleForm.card_model = ''
   ruleForm.categorized = false
   ruleForm.time_field = 'createdAt'
+  ruleForm.metric_fields = []
   ruleForm.filter_value = []
   ruleForm.filter_function = ''
   ruleForm.filter_option = ''
@@ -1063,6 +1037,13 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       if (!ruleForm.time_field) {
         ruleForm.time_field = 'createdAt'
       }
+      if (ruleForm.type == 12) {
+        if (!Array.isArray(ruleForm.metric_fields) || ruleForm.metric_fields.length < 2) {
+          ElMessage.error('Select at least two metrics for a multi-variable line chart')
+          return
+        }
+        ruleForm.card_model_field = ruleForm.metric_fields[0]
+      }
 
       // if (isInterventionsDashboard.value) {
       //   console.log('add interventions')
@@ -1091,6 +1072,13 @@ const editForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = model
       if (!ruleForm.time_field) {
         ruleForm.time_field = 'createdAt'
+      }
+      if (ruleForm.type == 12) {
+        if (!Array.isArray(ruleForm.metric_fields) || ruleForm.metric_fields.length < 2) {
+          ElMessage.error('Select at least two metrics for a multi-variable line chart')
+          return
+        }
+        ruleForm.card_model_field = ruleForm.metric_fields[0]
       }
 
       updateOneRecord(ruleForm).then(() => {
@@ -1159,9 +1147,7 @@ const getIndicatorCategories = async () => {
 
 
 getdashboardOptions()
-
 getIndicatorOptions()
-getInterventionsAll()
 getDashSectionOptions()
 
 //getStrategicFocusAreas()
@@ -1170,38 +1156,28 @@ getIndicatorCategories()
 
 const isInterventionsDashboard = ref(false)
 const handleFilterDashboards = async (dashboard_id) => {
-  console.log('filtreing teh aggregators.....', dashboard_id)
   const normalizedIds = normalizeDashboardIds(dashboard_id)
+  selectedDashboardIds.value = normalizedIds
+
   if (normalizedIds.length === 0) {
-    selectedDashboardIds.value = []
-    DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value
-    // Clear dashboard filter from the list
-    await handleSelectDashboard([])
+    DashBoardSectionFilterdOptions.value = [...DashBoardSectionOptions.value]
+    value3.value = []
+    await refreshChartList()
     return
   }
 
-  // remember which dashboards are selected for optional client-side filtering
-  selectedDashboardIds.value = normalizedIds
-
-  let selDashboard = dashboardOptions.value.filter(item => normalizedIds.includes(item.value));
-
-  console.log('selDashboard', selDashboard[0].type)
-
-  // if (selDashboard[0].type === 'status') {  // status dashabords
-  //     showStatusExtras.value=true
-  // } else {
-  //   showStatusExtras.value = false
-  //   isInterventionsDashboard.value=true
-
-
-  // }
-
-  DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter(option =>
+  DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter((option: any) =>
     normalizedIds.includes(option.dashboard_id)
-  );
+  )
 
-  // Also apply filter to the charts list
-  await handleSelectDashboard(normalizedIds)
+  const validSectionIds = new Set(DashBoardSectionFilterdOptions.value.map((option: any) => option.value))
+  const currentSectionIds = normalizeDashboardIds(value3.value)
+  const prunedSectionIds = currentSectionIds.filter((id) => validSectionIds.has(id))
+  if (prunedSectionIds.length !== currentSectionIds.length) {
+    value3.value = prunedSectionIds
+  }
+
+  await refreshChartList()
 }
 
 
@@ -1274,6 +1250,10 @@ chartOptions.value = [
     value: 5,
     label: 'Line Chart'
   },
+  {
+    value: 12,
+    label: 'Multi-variable Line'
+  },
 
   {
     value: 7,
@@ -1296,7 +1276,14 @@ chartOptions.value = [
 
 const hideCategorize = ref(true)
 
-const showTimeFieldConfig = computed(() => ruleForm.type === 5 || ruleForm.type === 6)
+const showTimeFieldConfig = computed(() => ruleForm.type === 5 || ruleForm.type === 6 || ruleForm.type === 12)
+const showMetricFieldConfig = computed(() => ruleForm.type === 12 && ruleForm.category === 'Status' && ruleForm.card_model)
+const showSingleFieldConfig = computed(() => ruleForm.category === 'Status' && ruleForm.card_model && ruleForm.type !== 12)
+
+const numericMetricFieldOptions = computed(() => {
+  const numericTypes = new Set(['INTEGER', 'BIGINT', 'FLOAT', 'DOUBLE', 'DECIMAL'])
+  return (fieldSet.value || []).filter((field) => numericTypes.has(field.type))
+})
 
 const timeFieldOptions = computed(() => {
   const options = [{ value: 'createdAt', label: 'Created at (default)' }]
@@ -1354,6 +1341,10 @@ const handleSelectModel = async (selModel) => {
         value: 5,
         label: 'Line Chart'
       },
+      {
+        value: 12,
+        label: 'Multi-variable Line'
+      },
 
       {
         value: 7,
@@ -1401,6 +1392,10 @@ const handleSelectModel = async (selModel) => {
         value: 5,
         label: 'Line Chart'
       },
+      {
+        value: 12,
+        label: 'Multi-variable Line'
+      },
       /* {
         value: 6,
         label: 'Stacked Line Chart'
@@ -1418,16 +1413,14 @@ const handleSelectModel = async (selModel) => {
 
 }
 const handleSelectChart = async (ctype) => {
-
-
-  if (ctype != 7) {
-    hideCategorize.value = false
-  } else {
+  if (ctype == 7 || ctype == 12) {
     hideCategorize.value = true
-
+  } else {
+    hideCategorize.value = false
   }
-
-
+  if (ctype == 12 && (!Array.isArray(ruleForm.metric_fields) || ruleForm.metric_fields.length === 0)) {
+    ruleForm.metric_fields = []
+  }
 }
 
 // const handleFilterAggregators = async (selModel) => {
@@ -1740,7 +1733,6 @@ const handleFilterFunction = async (val) => {
 const fieldOptions = ref([])
 const isMobile = computed(() => appStore.getMobile)
 
-const value5 = ref()
 console.log('IsMobile', isMobile)
 
 
@@ -2082,6 +2074,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
           <Icon v-if="scope.row.type === 9" width="24" icon="ic:baseline-stacked-bar-chart" />
           <Icon v-if="scope.row.type === 10" width="24" icon="ic:sharp-donut-large" />
           <Icon v-if="scope.row.type === 11" width="24" icon="oi:grid-three-up" />
+          <Icon v-if="scope.row.type === 12" width="24" icon="carbon:chart-multi-line" />
         </template>
       </el-table-column>
 
@@ -2206,11 +2199,29 @@ v-model="ruleForm.card_model" @clear="handleClear" clearable filterable collapse
             </el-select>
           </el-form-item>
 
-          <el-form-item id="btn7" v-if="ruleForm.category === 'Status' && ruleForm.card_model" label="Field" prop="card_model_field">
+          <el-form-item id="btn7" v-if="showSingleFieldConfig" label="Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" @clear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item v-if="showMetricFieldConfig" label="Metrics" prop="metric_fields">
+            <el-select
+              v-model="ruleForm.metric_fields"
+              multiple
+              filterable
+              collapse-tags
+              placeholder="Select two or more metrics"
+              style="width: 100%;"
+            >
+              <el-option
+                v-for="item in numericMetricFieldOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
             </el-select>
           </el-form-item>
 

@@ -18,7 +18,7 @@ import {
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
   mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
   getExpandableBarChartHeight, withBarChartExport,
-  getChartTimeFieldKey, getChartTimeGroupField,
+  getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -660,11 +660,11 @@ function buildChartSummaryFormData(thisChart: any) {
     groupFields.push(cmodel + '.' + cfield)
   }
 
-  if (chartType == 5 || chartType == 6) {
+  if (chartType == 5 || chartType == 6 || chartType == 12) {
     groupFields.push(getChartTimeGroupField(cmodel, thisChart))
   }
 
-  const isTimeSeriesChart = chartType == 5 || chartType == 6
+  const isTimeSeriesChart = chartType == 5 || chartType == 6 || chartType == 12
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
@@ -697,8 +697,19 @@ function buildChartSummaryFormData(thisChart: any) {
 
   const formData: Record<string, any> = {}
   formData.model = cmodel
-  formData.summaryField = cmodel + '.' + cfield
-  formData.summaryFunction = cAggregation
+  if (chartType == 12) {
+    const metrics = Array.isArray(thisChart.metric_fields)
+      ? thisChart.metric_fields.filter(Boolean)
+      : []
+    formData.summaryFields = metrics.map((f: string) => `${cmodel}.${f}`)
+    formData.summaryFunction = cAggregation
+    if (metrics.length > 0) {
+      formData.summaryField = `${cmodel}.${metrics[0]}`
+    }
+  } else {
+    formData.summaryField = cmodel + '.' + cfield
+    formData.summaryFunction = cAggregation
+  }
   formData.assoc_models = associated_Models
   formData.groupFields = groupFields
   formData.filterField = filterFields
@@ -740,8 +751,8 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
     for (const obj of amount) {
       const d = obj[timeKey] != null ? String(obj[timeKey]).trim() : ''
       if (!d) continue
-      const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0
-      dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val)
+      const val = getSummaryResultValue(obj, cAggregation, cfield)
+      dateSums[d] = (dateSums[d] || 0) + val
     }
     const sortedDates = Object.keys(dateSums).sort((a, b) => {
       const na = Number(a)
@@ -761,8 +772,8 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
       if (!d) continue
       const seriesName = item[cfield]
       if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {}
-      const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0
-      bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val)
+      const val = getSummaryResultValue(item, cAggregation, cfield)
+      bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + val
     }
     const dates = [...new Set(amount.map((item) => item[timeKey]).filter((v) => v != null && v !== ''))].sort((a, b) => {
       const na = Number(a)
@@ -1044,8 +1055,8 @@ formData.ignoreEmpty = ignoreEmpty
       for (const obj of amount) {
         const d = obj[timeKey] != null ? String(obj[timeKey]).trim() : '';
         if (!d) continue;
-        const val = obj[cAggregation] != null ? Number(obj[cAggregation]) : 0;
-        dateSums[d] = (dateSums[d] || 0) + (Number.isNaN(val) ? 0 : val);
+        const val = getSummaryResultValue(obj, cAggregation, cfield);
+        dateSums[d] = (dateSums[d] || 0) + val;
       }
       const sortedDates = Object.keys(dateSums).sort();
       categoryArray = sortedDates;
@@ -1064,8 +1075,8 @@ formData.ignoreEmpty = ignoreEmpty
         if (!d) continue;
         const seriesName = item[cfield];
         if (!bySeriesAndDate[seriesName]) bySeriesAndDate[seriesName] = {};
-        const val = item[cAggregation] != null ? Number(item[cAggregation]) : 0;
-        bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + (Number.isNaN(val) ? 0 : val);
+        const val = getSummaryResultValue(item, cAggregation, cfield);
+        bySeriesAndDate[seriesName][d] = (bySeriesAndDate[seriesName][d] || 0) + val;
       }
       const dates = [...new Set(amount.map((item) => item[timeKey]).filter((v) => v != null && v !== ''))].sort();
       const result = {};
@@ -1297,7 +1308,10 @@ const getCharts = async (section_id) => {
           c.category === 'Status' &&
           Number(c.type) !== 8 &&
           c.card_model &&
-          c.card_model_field,
+          (c.card_model_field ||
+            (Number(c.type) === 12 &&
+              Array.isArray(c.metric_fields) &&
+              c.metric_fields.length > 0)),
       )
       if (forBatch.length > 0) {
         const items = forBatch.map((c: any) => ({
@@ -1650,6 +1664,72 @@ const getCharts = async (section_id) => {
 
 
       // function to process processMultiBarChart charts 
+      async function processMultiVariableLineChart() {
+        const promises = [async function () {
+          try {
+            let amount: any
+            const preloaded = summaryByChartId.get(String(thisChart.id))
+            if (preloaded?.Total !== undefined && preloaded?.Total !== null) {
+              amount = preloaded.Total
+            } else {
+              const formData = buildChartSummaryFormData(thisChart)
+              const response = await getSummarybyFieldFromMultipleIncludes(formData)
+              amount = response.Total
+            }
+
+            const metrics = Array.isArray(thisChart.metric_fields)
+              ? thisChart.metric_fields.filter(Boolean)
+              : []
+            const { categories, series, dualAxis } = buildMultiVariableLineSeries(
+              amount,
+              getChartTimeFieldKey(thisChart),
+              metrics
+            )
+
+            const apexSeries = series.map((s, index) => ({
+              ...lineOptions.series[0],
+              name: s.name,
+              data: s.data,
+              ...(dualAxis && index > 0 ? { yAxisIndex: 1 } : {}),
+            }))
+
+            thisChart.chart = {
+              ...lineOptions,
+              title: { ...lineOptions.title, text: thisChart.title },
+              subtitle: { ...lineOptions.subtitle, text: subtitleWithSource },
+              xaxis: { ...lineOptions.xaxis, categories },
+              yaxis: dualAxis
+                ? [
+                    { ...lineOptions.yaxis, title: { text: series[0]?.name || '' } },
+                    {
+                      opposite: true,
+                      title: { text: series[1]?.name || '' },
+                      labels: { style: { colors: undefined } },
+                    },
+                  ]
+                : lineOptions.yaxis,
+              series: apexSeries,
+            }
+
+            if (!series.length || series.every((s) => !s.data.length)) {
+              thisChart.chart.graphic = [{
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                z: 100,
+              }]
+            }
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        }]
+
+        await promises[0]()
+        charts.push(thisChart)
+        setChartLoaded(thisChart.id)
+      }
+
       async function processLineChart() {
         const promises = [async function () {
           console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
@@ -2855,6 +2935,10 @@ const getCharts = async (section_id) => {
         await processLineChart();
       }
 
+      else if (thisChart.type == 12 && thisChart.category=="Status") {
+        await processMultiVariableLineChart();
+      }
+
       else if (thisChart.type == 6 && thisChart.category=="Status") {
         await processStackLineChart();
       }
@@ -3334,7 +3418,7 @@ const formatNumber =   (value) => {
       else if ( typeId==10) {
       return 'donut';
     }
-    else if (typeId==5) {
+    else if (typeId==5 || typeId==12) {
       return 'area';
     }
     else if (typeId==7) {
