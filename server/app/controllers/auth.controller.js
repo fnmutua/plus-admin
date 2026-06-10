@@ -116,55 +116,47 @@ async function sendBulkNotifications(entries) {
   }
 }
 
+const ACCESS_REASON_LABELS = {
+  research: 'Research',
+  journalism: 'Journalism',
+  ngo_cso: 'NGO / CSO Work',
+  academic: 'Academic Study',
+  government: 'Government / Public Sector',
+  personal: 'Personal Interest',
+  other: 'Other',
+}
+
+function formatAccessReasonLabel(accessReason) {
+  if (!accessReason) return 'Not specified'
+  const key = String(accessReason).trim().toLowerCase()
+  return ACCESS_REASON_LABELS[key] || String(accessReason).trim()
+}
+
+function buildNewAccountAdminSmsMessage(sms_obj) {
+  const name = sms_obj.name || 'Unknown'
+  const phone = sms_obj.phone || 'N/A'
+  const organization = sms_obj.organization_name || 'Not specified'
+  const reason = formatAccessReasonLabel(sms_obj.access_reason)
+  return (
+    `Dear Admin, new KeSMIS account registered. ` +
+    `Name: ${name}, Phone: ${phone}, Org: ${organization}, Reason: ${reason}. ` +
+    `Review: https://kesmis.go.ke/users/new`
+  )
+}
+
 async function sendSMS(sms_obj, admins_phones) {
-  // Check if SMS is enabled for auth module
-  const smsEnabled = await isAuthSMSEnabled()
-  if (!smsEnabled) {
-    console.log('[SMS Registration] SMS sending is disabled for auth module. Skipping SMS notification.')
+  const adminMessage = buildNewAccountAdminSmsMessage(sms_obj)
+  const entries = admins_phones
+    .filter((phone) => phone && typeof phone === 'string' && phone.trim() !== '')
+    .map((phone) => ({ phone, message: adminMessage }))
+
+  if (!entries.length) {
+    console.warn('[SMS Registration] No valid admin phone numbers for registration SMS')
     return
   }
 
-  const url = SMS_SEND_URL
-
-  // Message to be sent to the admins
-  let adminMessage = 
-    "Dear Admin, a new account has been registered for your review. " +
-    "The user's name is " + sms_obj.name + "(" + sms_obj.phone+ "). "+
-    "Please review the account at the following link: " +
-    "https://kesmis.go.ke/users/new";
-
-  console.log(`[SMS Registration] Attempting to send registration SMS to ${admins_phones.length} admin(s) for user ${sms_obj.name} (${sms_obj.phone})`);
-   
-  // Send SMS to each admin in the `admins` list
-  for (const phone of admins_phones) {
-    // Check if phone number exists and is valid (not null or undefined)
-    if (phone && typeof phone === 'string' && phone.trim() !== '') {
-      let formattedPhone;
-      try {
-        formattedPhone = formatPhoneNumber(phone);
-      } catch (error) {
-        console.error(`[SMS Registration] Error formatting admin phone number ${phone}:`, error);
-        continue;
-      }
-
-      const requestData = {
-        apikey: process.env.SMS_API_KEY, // Replace with your actual API key
-        partnerID: process.env.SMS_PARTNER_ID || '12108', // Replace with your actual partner ID
-        shortcode: "KISIP",
-        message: adminMessage,
-        mobile: formattedPhone, // Send the message to the admin's phone number
-      };
-
-      try {
-        const response = await axios.post(url, requestData, { timeout: SMS_REQUEST_TIMEOUT_MS });
-        console.log(`[SMS Registration] Message sent successfully to admin (${phone}):`, response.data);
-      } catch (error) {
-        console.error(`[SMS Registration] Error sending message to admin (${phone}):`, error.message || error);
-      }
-    } else {
-      console.warn(`[SMS Registration] Admin phone number is invalid: ${phone}`);
-    }
-  }
+  console.log(`[SMS Registration] Sending registration SMS to ${entries.length} admin(s): ${adminMessage}`)
+  await sendBulkNotifications(entries)
 }
 
 
