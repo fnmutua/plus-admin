@@ -132,16 +132,62 @@ function formatAccessReasonLabel(accessReason) {
   return ACCESS_REASON_LABELS[key] || String(accessReason).trim()
 }
 
+function getNewAccountRegistrationDetails(userLike) {
+  return {
+    name: userLike?.name || 'Unknown',
+    phone: userLike?.phone || 'N/A',
+    email: userLike?.email || 'N/A',
+    organization: userLike?.organization_name || 'Not specified',
+    reason: formatAccessReasonLabel(userLike?.access_reason),
+  }
+}
+
 function buildNewAccountAdminSmsMessage(sms_obj) {
-  const name = sms_obj.name || 'Unknown'
-  const phone = sms_obj.phone || 'N/A'
-  const organization = sms_obj.organization_name || 'Not specified'
-  const reason = formatAccessReasonLabel(sms_obj.access_reason)
+  const { name, phone, organization, reason } = getNewAccountRegistrationDetails(sms_obj)
   return (
     `Dear Admin, new KeSMIS account registered. ` +
     `Name: ${name}, Phone: ${phone}, Org: ${organization}, Reason: ${reason}. ` +
     `Review: https://kesmis.go.ke/users/new`
   )
+}
+
+function buildNewAccountAdminEmailContent(user, reviewUrl) {
+  const { name, phone, email, organization, reason } = getNewAccountRegistrationDetails(user)
+  const reviewLink = reviewUrl || 'https://kesmis.go.ke/#/users/new'
+
+  const text = [
+    'Dear Admin,',
+    '',
+    'A new KeSMIS account has been registered and requires your review.',
+    '',
+    `Name: ${name}`,
+    `Phone: ${phone}`,
+    `Email: ${email}`,
+    `Organization: ${organization}`,
+    `Reason for access: ${reason}`,
+    '',
+    `Review the account: ${reviewLink}`,
+  ].join('\n')
+
+  const html = `
+    <p>Dear Admin,</p>
+    <p>A new KeSMIS account has been registered and requires your review.</p>
+    <ul>
+      <li><strong>Name:</strong> ${name}</li>
+      <li><strong>Phone:</strong> ${phone}</li>
+      <li><strong>Email:</strong> ${email}</li>
+      <li><strong>Organization:</strong> ${organization}</li>
+      <li><strong>Reason for access:</strong> ${reason}</li>
+    </ul>
+    <p><a href="${reviewLink}">Review the account</a></p>
+    <p>Kenya Slum Information Management System (KeSMIS)</p>
+  `
+
+  return {
+    subject: 'New KeSMIS user account',
+    text,
+    html,
+  }
 }
 
 async function sendSMS(sms_obj, admins_phones) {
@@ -496,13 +542,14 @@ exports.signup = (req, res) => {
         console.log('Reset-URL', CLIENT_URL)
         console.log('Admin Emails >>', emails); // an array of email addresses
 
+        const reviewUrl = `${CLIENT_URL}#/users/new`
+        const adminEmail = buildNewAccountAdminEmailContent(user, reviewUrl)
         const mailOptions = {
           from: 'kisip.mis@gmail.com',
           to: emails,
-          subject: 'New KeSMIS user account',
-          text:
-            'A new user account (' +  req.body.email + ')has been created. Please review and approve appropriately via this link:\n\n' +
-            CLIENT_URL+'#/users/new'  
+          subject: adminEmail.subject,
+          text: adminEmail.text,
+          html: adminEmail.html,
         }
 
         console.log('sending mail')
