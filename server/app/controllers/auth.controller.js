@@ -56,6 +56,66 @@ function formatPhoneNumber(phoneNumber) {
   return '254' + formattedNumber;
 }
 
+const SMS_SEND_URL = 'https://quicksms.advantasms.com/api/services/sendotp/'
+const SMS_BULK_URL = 'https://quicksms.advantasms.com/api/services/sendbulk/'
+const SMS_BULK_CHUNK_SIZE = 20
+const SMS_REQUEST_TIMEOUT_MS = 15000
+
+function normalizeSmsEntries(entries) {
+  const normalized = []
+  for (const entry of entries) {
+    const phone = entry?.phone
+    const message = entry?.message
+    if (!phone || !message || typeof phone !== 'string' || phone.trim() === '') continue
+    try {
+      normalized.push({ phone: formatPhoneNumber(phone), message })
+    } catch (error) {
+      console.error(`[SMS] Error formatting phone number ${phone}:`, error.message || error)
+    }
+  }
+  return normalized
+}
+
+async function sendBulkNotifications(entries) {
+  const smsEnabled = await isAuthSMSEnabled()
+  if (!smsEnabled) {
+    console.log('[SMS] SMS sending is disabled for auth module. Skipping bulk SMS notification.')
+    return
+  }
+
+  const normalizedEntries = normalizeSmsEntries(entries)
+  if (!normalizedEntries.length) return
+
+  const apikey = process.env.SMS_API_KEY
+  const partnerID = process.env.SMS_PARTNER_ID || '12108'
+  const shortcode = process.env.SMS_SHORTCODE || 'KISIP'
+
+  for (let i = 0; i < normalizedEntries.length; i += SMS_BULK_CHUNK_SIZE) {
+    const chunk = normalizedEntries.slice(i, i + SMS_BULK_CHUNK_SIZE)
+    const smslist = chunk.map((entry, index) => ({
+      partnerID,
+      apikey,
+      shortcode,
+      pass_type: 'plain',
+      clientsmsid: Date.now() + index,
+      mobile: entry.phone,
+      message: entry.message,
+    }))
+
+    try {
+      console.log(`[SMS] Sending bulk batch ${Math.floor(i / SMS_BULK_CHUNK_SIZE) + 1} (${chunk.length} message(s))`)
+      const response = await axios.post(
+        SMS_BULK_URL,
+        { count: smslist.length, smslist },
+        { timeout: SMS_REQUEST_TIMEOUT_MS }
+      )
+      console.log('[SMS] Bulk SMS sent successfully:', response.data)
+    } catch (error) {
+      console.error('[SMS] Error sending bulk SMS:', error.message || error)
+    }
+  }
+}
+
 async function sendSMS(sms_obj, admins_phones) {
   // Check if SMS is enabled for auth module
   const smsEnabled = await isAuthSMSEnabled()
@@ -64,8 +124,7 @@ async function sendSMS(sms_obj, admins_phones) {
     return
   }
 
-  // URL for the SMS service
-  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+  const url = SMS_SEND_URL
 
   // Message to be sent to the admins
   let adminMessage = 
@@ -97,7 +156,7 @@ async function sendSMS(sms_obj, admins_phones) {
       };
 
       try {
-        const response = await axios.post(url, requestData);
+        const response = await axios.post(url, requestData, { timeout: SMS_REQUEST_TIMEOUT_MS });
         console.log(`[SMS Registration] Message sent successfully to admin (${phone}):`, response.data);
       } catch (error) {
         console.error(`[SMS Registration] Error sending message to admin (${phone}):`, error.message || error);
@@ -109,6 +168,75 @@ async function sendSMS(sms_obj, admins_phones) {
 }
 
 
+const USER_STATUS_ALERT_ROLES = ['support', 'root_admin', 'super_admin']
+
+function buildUserStatusChangeMessage(affectedUser, isactive, actor, { greeting } = {}) {
+  const statusText = isactive ? 'activated' : 'deactivated'
+  const affectedName = affectedUser.name || 'User'
+  const affectedUsername = affectedUser.username || affectedUser.email || `ID ${affectedUser.id}`
+  const actorName = actor?.name || actor?.username || 'Unknown'
+  const core = `user ${affectedName} (${affectedUsername}) has been ${statusText} by ${actorName}.`
+  if (greeting) {
+    return `${greeting}, ${core}`
+  }
+  const capitalizedCore = core.charAt(0).toUpperCase() + core.slice(1)
+  return capitalizedCore
+}
+
+async function getUserStatusAlertPhones() {
+  try {
+    const alertUsers = await User.findAll({
+      attributes: ['id', 'name', 'phone', 'isactive'],
+      where: { isactive: true },
+      include: [{
+        model: Role,
+        where: { name: { [Op.in]: USER_STATUS_ALERT_ROLES } },
+        through: { attributes: [] }
+      }]
+    })
+
+    const phones = []
+    for (const user of alertUsers) {
+      const phone = user.phone
+      if (!phone || typeof phone !== 'string' || phone.trim() === '') continue
+      try {
+        phones.push(formatPhoneNumber(phone))
+      } catch (error) {
+        console.error(`[User Activation] Invalid admin phone ${phone}:`, error.message || error)
+      }
+    }
+    return [...new Set(phones)]
+  } catch (error) {
+    console.error('[User Activation] Failed to fetch admin alert phones:', error.message || error)
+    return []
+  }
+}
+
+async function sendUserStatusChangeSms({ affectedUser, isactive, actor, userPhone }) {
+  const entries = []
+  const adminMessage = buildUserStatusChangeMessage(affectedUser, isactive, actor, { greeting: 'Dear Admin' })
+
+  if (userPhone && typeof userPhone === 'string' && userPhone.trim() !== '') {
+    entries.push({
+      phone: userPhone,
+      message: `Dear ${affectedUser.name || 'User'}, your KeSMIS account has been ${isactive ? 'activated' : 'deactivated'}.`,
+    })
+  }
+
+  const alertPhones = await getUserStatusAlertPhones()
+  for (const phone of alertPhones) {
+    entries.push({ phone, message: adminMessage })
+  }
+
+  if (!entries.length) {
+    console.warn('[User Activation] No SMS recipients for status change notification.')
+    return
+  }
+
+  console.log(`[User Activation] Queueing ${entries.length} status change SMS via bulk send`)
+  await sendBulkNotifications(entries)
+}
+
 async function sendNotification(phone_number, message) {
   // Check if SMS is enabled for auth module
   const smsEnabled = await isAuthSMSEnabled()
@@ -117,8 +245,7 @@ async function sendNotification(phone_number, message) {
     return
   }
 
-  // URL for the SMS service
-  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+  const url = SMS_SEND_URL
 
   // Check if phone number and message are valid
   if (!phone_number || !message) {
@@ -150,7 +277,7 @@ async function sendNotification(phone_number, message) {
 
   try {
     console.log(`[SMS] Attempting to send SMS to ${formattedPhone} (original: ${phone_number})`);
-    const response = await axios.post(url, requestData);
+    const response = await axios.post(url, requestData, { timeout: SMS_REQUEST_TIMEOUT_MS });
     console.log(`[SMS] Message sent successfully to ${phone_number}:`, response.data);
     return response.data; // Return response for further handling if needed
   } catch (error) {
@@ -583,20 +710,20 @@ exports.modelActivateUser = async (req, res) => {
     const hasPhone = phoneNumber && typeof phoneNumber === 'string' && phoneNumber.trim() !== '';
     console.log(`[User Activation] Phone check - hasPhone: ${hasPhone}, phone value: ${phoneNumber}, type: ${typeof phoneNumber}, isactive: ${isactive}`);
     
-    if (hasPhone) {
-      const statusText = isactive ? 'activated' : 'deactivated';
-      const message = `Dear ${user.name || 'User'}, your KeSMIS account has been ${statusText}.`;
-      try {
-        console.log(`[User Activation] Attempting to send SMS to user ${user.id} (${user.name}) at ${phoneNumber}, isactive: ${isactive}, statusText: ${statusText}`);
-        await sendNotification(phoneNumber, message);
-        console.log(`[User Activation] SMS sent successfully to user ${user.id} (${statusText})`);
-      } catch (error) {
-        // Log SMS error but don't affect the response
-        console.error(`[User Activation] Failed to send SMS to ${phoneNumber} for user ${user.id}:`, error.message || error);
-      }
-    } else {
+    const statusChangeMessage = buildUserStatusChangeMessage(user, isactive, req.thisUser)
+
+    if (!hasPhone) {
       console.warn(`[User Activation] No valid phone number found for user ID ${user.id} (phone from DB: ${user.phone}, phone from body: ${phone}, isactive: ${isactive})`);
     }
+
+    void sendUserStatusChangeSms({
+      affectedUser: user,
+      isactive,
+      actor: req.thisUser,
+      userPhone: hasPhone ? phoneNumber : null,
+    }).catch((error) => {
+      console.error('[User Activation] Failed to send status change SMS:', error.message || error)
+    })
 
     const requestBaseUrl = `${req.protocol}://${req.get('host')}`;
     const frontendBaseUrl = getFrontendBaseUrl(requestBaseUrl, req);
@@ -636,7 +763,7 @@ exports.modelActivateUser = async (req, res) => {
         field: 'isactive',
         before: previousIsActive,
         after: isactive,
-        description: `User status changed to ${isactive ? 'active' : 'inactive'}`
+        description: statusChangeMessage
       },
       metadata: {
         affectedUser: buildAffectedUserMetadata(user),
