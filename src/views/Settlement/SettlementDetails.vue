@@ -1156,6 +1156,30 @@ const loadPopulationHistory = async (settlementId: number | string) => {
   }
 }
 
+const exportPopulationHistoryExcel = async () => {
+  if (!populationHistoryRows.value.length) return
+  const XLSX = await import('xlsx')
+  const rows = [...populationHistoryRows.value]
+    .sort((a: any, b: any) => Number(a.year) - Number(b.year))
+    .map((row: any) => ({
+      Year: row.year,
+      Population: row.population ?? '',
+      Male: row.pop_male ?? '',
+      Female: row.pop_female ?? '',
+      Households: row.num_households ?? '',
+      Source: row.source ?? '',
+      Method: row.method ?? ''
+    }))
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { wch: 6 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 28 }
+  ]
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Population by year')
+  const safeName = String(profile.name || profile.code || 'settlement').replace(/[^\w\- ]+/g, '').trim() || 'settlement'
+  XLSX.writeFile(workbook, `${safeName} - population by year.xlsx`)
+}
+
 const populationSourceTagType = (source: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
   const s = String(source || '').toLowerCase()
   if (s === 'census_2019') return 'info'
@@ -3289,7 +3313,17 @@ const updateDocumentCategory = async () => {
                 <ElTag size="small" type="info" effect="plain">Reporting {{ populationReportingYear }}</ElTag>
               </div>
             </div>
-            <Icon :icon="collapsedSections.populationHistory ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            <div class="flex items-center gap-8px">
+              <ElButton
+                size="small"
+                :icon="Download"
+                :disabled="!populationHistoryRows.length"
+                @click.stop="exportPopulationHistoryExcel"
+              >
+                {{ t('Excel') }}
+              </ElButton>
+              <Icon :icon="collapsedSections.populationHistory ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
           </div>
           <ElCollapseTransition>
             <div v-show="!collapsedSections.populationHistory" :class="[`${prefixCls}-content`, 'p-10px']">
