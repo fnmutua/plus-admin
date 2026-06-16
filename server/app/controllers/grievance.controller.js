@@ -2538,7 +2538,11 @@ exports.modelImportGrievances = async (req, res) => {
         // Update the grievance status
         grievance.status = newStatus;
         grievance.current_level = current_level;
-        grievance.reffered_to_officer = req.body.reffered_to_officer;
+        if (newStatus === 'Resolved' || newStatus === 'Closed') {
+          grievance.reffered_to_officer = null;
+        } else if (req.body.reffered_to_officer !== undefined) {
+          grievance.reffered_to_officer = req.body.reffered_to_officer;
+        }
 
         // Auto-populate date fields when status changes to Resolved or Closed
         if (newStatus === 'Resolved' ) {

@@ -1207,12 +1207,12 @@ function getStageDuration(status) {
     const durations = {
         "Sorting": 7, // 7 days
         "Investigation": 14, // 14 days
-        "Escalated": 14 , // 3 days
-        "Resolved": 21,  // 3 days
-        "Closed": 42,  // 3 days
+        "Escalated": 14 , // 14 days
+        "Resolved": 21,  // 21 days
+        "Closed": 42,  // 42 days
   
     };
-    return (durations[status] || 0)  ; // Convert days to milliseconds
+    return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
 
 
@@ -2204,8 +2204,12 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 const rules = computed(() => ({
   action: [{ required: true, message: "Action is required", trigger: "blur" }],
-  reffered_to: [{ required: true, message: "Name of organization is required", trigger: "blur" }],
-  reffered_to_officer: [{ required: true, message: "The officer is required", trigger: "blur" }],
+  reffered_to: isExternalReferralStatus.value
+    ? [{ required: true, message: "Name of organization is required", trigger: "blur" }]
+    : [],
+  reffered_to_officer: isReferredStatus.value
+    ? [{ required: true, message: "The officer is required", trigger: "blur" }]
+    : [],
 
 
   

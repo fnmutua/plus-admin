@@ -21,7 +21,12 @@ module.exports = function (sequelize, DataTypes) {
 
       action_type: {
         type: DataTypes.STRING,
-        enum: ['Reported', 'Updated', 'Edit', 'Resolved', 'Escalated', 'Document Requested','Document Uploaded','Referred','Rejected', 'Reminder', 'Reverted'],
+        enum: [
+          'Reported', 'Updated', 'Edit', 'Resolved', 'Escalated', 'Document Requested',
+          'Document Uploaded', 'Referred', 'Rejected', 'Reminder', 'Reverted',
+          'Sorting', 'Investigation', 'Under Review', 'Returned', 'Closed', 'In Court',
+          'ExternalReferral'
+        ],
         allowNull: false
       },
  
@@ -54,13 +59,21 @@ module.exports = function (sequelize, DataTypes) {
 
       prev_status: {
         type: DataTypes.STRING,
-        enum: ['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed'],
+        enum: [
+          'Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed',
+          'Sorting', 'Under Review', 'Referred', 'Returned', 'Rejected', 'In Court',
+          'ExternalReferral'
+        ],
         allowNull: false
       },
 
       new_status: {
         type: DataTypes.STRING,
-        enum: ['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed'],
+        enum: [
+          'Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed',
+          'Sorting', 'Under Review', 'Referred', 'Returned', 'Rejected', 'In Court',
+          'ExternalReferral'
+        ],
         allowNull: false
       },
 
