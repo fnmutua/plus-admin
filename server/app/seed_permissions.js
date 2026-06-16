@@ -60,6 +60,7 @@ async function seedPermissions() {
       { name: 'gbv', description: 'Gender Based Violence specialist role' },
       { name: 'support', description: 'Support role' },
       { name: 'donor', description: 'Donor: read-only access to settlements, projects, repository, facilities, and media (articles/video); view and download; no create/edit' },
+      { name: 'demo', description: 'Demo role: GRM view-only — browse grievances, logs, and related read access; no create, update, resolve, or delete' },
       { name: 'public', description: 'Public access role' }
     ];
 
@@ -4559,6 +4560,23 @@ async function seedPermissions() {
     "subcounty:read",
     "ward:read",
     "water_point:read"
+  ],
+  "demo": [
+    "dashboard:read",
+    "county:read",
+    "subcounty:read",
+    "ward:read",
+    "settlement:read",
+    "document:read",
+    "report:export",
+    "grievance:read",
+    "grievance:viewLog",
+    "grievance:export",
+    "grievance_history:read",
+    "incident:read",
+    "incident:viewLog",
+    "incident:export",
+    "incident_document:read"
   ],
   "public": [
     "article:read",

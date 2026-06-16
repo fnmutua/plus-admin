@@ -17,6 +17,9 @@ const Sequelize = require('sequelize')
  const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
  const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 
+const GRM_ACCESS_ROLE_NAMES = new Set(['grm', 'gbv', 'admin', 'staff', 'demo'])
+const userHasGRMAccess = (roles) => roles.some((role) => GRM_ACCESS_ROLE_NAMES.has(role.name))
+
 const SMS_ERROR_CODES = {
   200:  'Successful',
   1001: 'Invalid sender ID',
@@ -805,7 +808,7 @@ exports.getGrievances = async (req, res) => {
 
   // Role checks
   const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin'].includes(role.name));
-  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
+  const hasGRMRole = userHasGRMAccess(currentUserRoles);
   const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
   const countyRoleIds = [...new Set(
     currentUserRoles
@@ -1354,7 +1357,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
         );
 
         
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
+        const hasGRMRole = userHasGRMAccess(currentUserRoles);
     
         // Initialize attributes, including all fields from grievance and sensitive fields with conditional redaction
         let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
@@ -1702,7 +1705,7 @@ exports.getGrievanceByPublicId = async (req, res) => {
     // Check if the current user has the 'super_admin' role or 'grm/gbv' roles
     const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
     //const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
-    const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
+    const hasGRMRole = userHasGRMAccess(currentUserRoles);
 
     // Initialize attributes, including all fields from grievance and sensitive fields with conditional redaction
     let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
@@ -2258,7 +2261,7 @@ exports.modelImportGrievances = async (req, res) => {
       //  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
         const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
 
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
+        const hasGRMRole = userHasGRMAccess(currentUserRoles);
       
         let settlement_id;
         let county_id;
@@ -2610,7 +2613,7 @@ exports.modelImportGrievances = async (req, res) => {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
+        const hasGRMRole = userHasGRMAccess(currentUserRoles);
     
         if (!hasGRMRole && !hasSuperAdminRole) {
           return res.status(403).send({
@@ -2698,7 +2701,7 @@ exports.modelImportGrievances = async (req, res) => {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
+        const hasGRMRole = userHasGRMAccess(currentUserRoles);
     
         if (!hasGRMRole && !hasSuperAdminRole) {
           return res.status(403).send({
@@ -2757,7 +2760,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
         const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'admin' || role.name === 'staff');
+        const hasGRMRole = userHasGRMAccess(currentUserRoles);
     
         if (!hasGRMRole && !hasSuperAdminRole) {
           return res.status(403).send({
@@ -3078,7 +3081,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
 
       //const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
-      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
+      const hasGRMRole = userHasGRMAccess(currentUserRoles);
 
       if (!hasGRMRole && !hasSuperAdminRole) {
         return res.status(200).send({
@@ -4279,7 +4282,7 @@ exports.sendReminder = async (req, res) => {
     const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
     const hasSuperAdminRole = currentUserRoles.some((role) => role.name === "super_admin");
    // const hasGRMRole = currentUserRoles.some((role) => role.name === "grm" || role.name === "gbv");
-    const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv' || role.name === 'staff' || role.name === 'admin');
+    const hasGRMRole = userHasGRMAccess(currentUserRoles);
 
     if (!hasGRMRole && !hasSuperAdminRole) {
       return res.status(403).send({ code: "9999", message: "Unauthorized access to grievances denied" });
