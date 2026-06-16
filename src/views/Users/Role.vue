@@ -573,8 +573,17 @@ const rules = {
               clearable
               style="margin-bottom: 16px; width: 100%;"
             />
-            <div style="margin-bottom: 10px; color: #409EFF;">
-              This role currently has {{ selectedPermissionsCount }} permission{{ selectedPermissionsCount === 1 ? '' : 's' }} assigned.
+            <div style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="color: #409EFF;">
+                This role currently has {{ selectedPermissionsCount }} permission{{ selectedPermissionsCount === 1 ? '' : 's' }} assigned.
+              </span>
+              <el-button
+                v-if="selectedPermissions.length > 0"
+                type="danger"
+                plain
+                size="small"
+                @click="selectedPermissions = []"
+              >Clear All</el-button>
             </div>
             <el-collapse v-model="openGroups">
               <el-collapse-item
