@@ -1215,6 +1215,33 @@ function getStageDuration(status) {
     return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
 
+const resolveActionLevel = () => {
+  const level = current_user_roles.find((value) => ['settlement', 'county', 'national'].includes(value))
+  return level || form.value.current_level || Grievance.value.current_level || 'settlement'
+}
+
+const buildGrievanceLogPayload = (msg: string, finalStatus: string) => ({
+  grievance_id: Grievance.value.id,
+  action_type: finalStatus,
+  action_by: userInfo.id,
+  action: msg,
+  date_actioned: new Date(),
+  prev_status: Grievance.value.status,
+  new_status: finalStatus,
+  current_level: form.value.current_level || Grievance.value.current_level || 'settlement',
+  action_level: resolveActionLevel(),
+  resolution_date: form.value.resolution_date,
+  filer_present: form.value.filer_present,
+  field_verification_conducted: form.value.field_verification_conducted,
+  field_investigations: form.value.field_investigations,
+  agreement_reached: form.value.agreement_reached,
+  agreement: form.value.agreement,
+  point_disagreement: form.value.point_disagreement,
+  issues: form.value.issues,
+  reffered_to: form.value.reffered_to,
+  reffered_to_officer: form.value.reffered_to_officer,
+})
+
 
 
 const dynamicFormRef = ref<FormInstance>()
@@ -1243,7 +1270,11 @@ const rollbackStatusUpdate = async (
       current_status_date: previousStatusDate || new Date(),
       status_expiry_date: previousStatusExpiryDate || new Date(),
       action_by: userInfo.id,
-      action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
+      action_level: resolveActionLevel(),
+    }
+
+    if (previousStatus === 'Referred' && Grievance.value.reffered_to_officer) {
+      rollbackData.reffered_to_officer = Grievance.value.reffered_to_officer
     }
 
     await updateGrievanceStatus(rollbackData)
@@ -1266,7 +1297,11 @@ const rollbackStatusUpdate = async (
 
 const submitResolutionForm = async () => {
   const extractApiErrorMessage = (error: any, fallback = 'Request failed') =>
-    error?.response?.data?.message || error?.message || fallback
+    error?.response?.data?.error ||
+    error?.response?.data?.details?.join?.(' ') ||
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
   const isDuplicateDocumentError = (error: any) =>
     error?.response?.status === 409 ||
     error?.response?.data?.code === 'DUPLICATE_GRIEVANCE_DOCUMENT' ||
@@ -1346,16 +1381,17 @@ const submitResolutionForm = async () => {
       // Check if user is at national level for auto-closure
       const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
       const shouldAutoClose = isNationalLevel && form.value.new_status === 'Resolved';
+      const finalStatus = shouldAutoClose ? 'Closed' : form.value.new_status;
 
       const formData: any = {
         code: Grievance.value.code,
-          new_status: shouldAutoClose ? 'Closed' : form.value.new_status,
+          new_status: finalStatus,
         recipient: Grievance.value.phone,
         grievance_id: Grievance.value.id,
         action: msg,
         current_level: form.value.current_level,
         current_status_date: new Date(),
-          status_expiry_date: new Date(Date.now() + getStageDuration(shouldAutoClose ? 'Closed' : form.value.new_status)),
+          status_expiry_date: new Date(Date.now() + getStageDuration(finalStatus)),
         action_by: userInfo.id,
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
         reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
@@ -1365,11 +1401,9 @@ const submitResolutionForm = async () => {
       // Use the action text directly (without the "Your grievance has been resolved. " prefix)
       if (form.value.new_status === 'Resolved') {
           formData.resolution = form.value.action || msg.replace(/^Your grievance has been resolved[^.]*\.\s*/, "");
-          // If national level, also set status to Closed
-          if (shouldAutoClose) {
-            formData.new_status = 'Closed';
-          }
       }
+
+      const logPayload = buildGrievanceLogPayload(msg, finalStatus)
 
       // Step 1: Update Status
       console.log('Starting status update...', formData)
@@ -1416,8 +1450,7 @@ const submitResolutionForm = async () => {
           try {
             // Create log entry temporarily to get action_id for file uploads
             // We'll show the success message for logging at the end
-            const logData = { ...form.value };
-            logData.action = msg;
+            const logData = logPayload;
             logRes = await logGrievanceAction(logData, true)
             actionIdForLogging = logRes.data.id
             loggingSuccess = true
@@ -1448,8 +1481,7 @@ const submitResolutionForm = async () => {
         // Step 3: Log Action (only if not already logged for uploads)
         if (!actionIdForLogging) {
           try {
-            const logData = { ...form.value };
-            logData.action = msg;
+            const logData = logPayload;
             logRes = await logGrievanceAction(logData, true)
             actionIdForLogging = logRes.data.id
             loggingSuccess = true

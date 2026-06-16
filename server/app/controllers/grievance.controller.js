@@ -20,6 +20,47 @@ const Sequelize = require('sequelize')
 const GRM_ACCESS_ROLE_NAMES = new Set(['grm', 'gbv', 'admin', 'staff', 'demo'])
 const userHasGRMAccess = (roles) => roles.some((role) => GRM_ACCESS_ROLE_NAMES.has(role.name))
 
+const GRIEVANCE_LOG_FIELDS = [
+  'grievance_id', 'action_type', 'action_by', 'action', 'action_level',
+  'current_level', 'date_actioned', 'prev_status', 'new_status',
+  'resolution_date', 'filer_present', 'field_verification_conducted',
+  'agreement_reached', 'agreement', 'reffered_to', 'reffered_to_officer',
+  'field_investigations', 'point_disagreement', 'issues',
+]
+
+const VALID_GRIEVANCE_LOG_LEVELS = new Set(['none', 'settlement', 'county', 'national'])
+
+function sanitizeGrievanceLogPayload(raw = {}) {
+  const obj = {}
+  for (const key of GRIEVANCE_LOG_FIELDS) {
+    if (raw[key] !== undefined && raw[key] !== null && raw[key] !== '') {
+      obj[key] = raw[key]
+    }
+  }
+
+  if (!obj.date_actioned) {
+    obj.date_actioned = new Date()
+  }
+
+  if (!obj.current_level || !VALID_GRIEVANCE_LOG_LEVELS.has(obj.current_level)) {
+    const fallbackLevel = raw.current_level || raw.action_level
+    obj.current_level = VALID_GRIEVANCE_LOG_LEVELS.has(fallbackLevel) ? fallbackLevel : 'settlement'
+  }
+
+  if (!obj.action_level || !VALID_GRIEVANCE_LOG_LEVELS.has(obj.action_level)) {
+    obj.action_level = obj.current_level
+  }
+
+  if (!obj.action_type && obj.new_status) {
+    obj.action_type = obj.new_status
+  }
+  if (!obj.new_status && obj.action_type) {
+    obj.new_status = obj.action_type
+  }
+
+  return obj
+}
+
 const SMS_ERROR_CODES = {
   200:  'Successful',
   1001: 'Invalid sender ID',
@@ -680,7 +721,7 @@ exports.logGrievanceAction = async (req, res) => {
   try {
   
     // Prepare the object for creation
-    let obj = req.body;
+    let obj = sanitizeGrievanceLogPayload(req.body);
 
     console.log('Log>>', obj)
 
@@ -724,8 +765,12 @@ exports.logGrievanceAction = async (req, res) => {
 
   } catch (err) {
    
-    console.log(err)
-    res.status(500).send({ message: 'Logging action failed' });
+    console.error('logGrievanceAction failed:', err)
+    res.status(500).send({
+      message: 'Logging action failed',
+      error: err?.message || 'Unknown error',
+      details: err?.errors?.map((e) => e.message) || undefined,
+    });
   }
 };
  
@@ -2012,20 +2057,17 @@ const generateNextGrievanceCode = async (lastCode) => {
 
  async function logGrievanceAction(action) {
       try {
-        // Prepare the object for creation
-        const obj = action;
+        const obj = sanitizeGrievanceLogPayload(action);
     
         console.log('Logging....>>', obj);
     
-        // Simulate async database call
-       //const item = await createGrievanceLog(obj);
         const item = await db.models.grievance_log.create(obj);
 
         console.log('Created log:', item);
-        return item; // Return the created log so we can get the ID
+        return item;
      
       } catch (err) {
-        console.log(err);
+        console.error('Internal logGrievanceAction failed:', err);
         return null;
        }
     }
@@ -2487,7 +2529,7 @@ exports.modelImportGrievances = async (req, res) => {
         }
         
     
-        if (newStatus == 'Referred') {
+        if (newStatus == 'Referred' && req.body.reffered_to_officer) {
           const grm_officials = [];
           const grm_officials_names = [];
         
@@ -2495,7 +2537,7 @@ exports.modelImportGrievances = async (req, res) => {
             
 
             const whereConditions = {
-              userid: req.body.reffered_to_officer, // GRM Role
+              userid: req.body.reffered_to_officer,
             };
             
             const grms = await Users.findAll({
@@ -2535,7 +2577,7 @@ exports.modelImportGrievances = async (req, res) => {
             console.log('GRM Officials:', grm_officials_names, grm_officials);
         
           } catch (error) {
-            console.error('Failed to return grievance:', error);
+            console.error('Failed to notify referred officer:', error);
           }
         }
         // Update the grievance status
