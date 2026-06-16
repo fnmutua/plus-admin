@@ -1560,6 +1560,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           title: 'Project Details',
           icon:'ion:document-attach',
+          permissions: ['project:read'],
        //   noCache: true
         }
       },
