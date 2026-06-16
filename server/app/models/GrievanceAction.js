@@ -86,12 +86,12 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
       agreement: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
       },
      
       reffered_to: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
       }, 
 
@@ -101,17 +101,17 @@ module.exports = function (sequelize, DataTypes) {
       }, 
 
       field_investigations: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
          allowNull: true
       },
 
       point_disagreement: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
          allowNull: true
       },
 
       issues: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
          allowNull: true
       },
   
