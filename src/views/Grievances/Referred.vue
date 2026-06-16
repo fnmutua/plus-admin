@@ -48,6 +48,15 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+const GRM_ROLE_NAMES = new Set(['grm', 'admin', 'root_admin', 'super_admin', 'staff', 'demo', 'gbv'])
+
+const toGrievanceList = (response: any): any[] => {
+  if (Array.isArray(response)) return response
+  if (Array.isArray(response?.data)) return response.data
+  if (Array.isArray(response?.data?.data)) return response.data.data
+  return []
+}
+
 const countiesOptions = ref([])
 const settlementOptions = ref([])
 
@@ -81,7 +90,7 @@ let  roles_filters = [];
 const getUserRoles =  async () => { 
   // Check for the "grm" role and get its level, field, and field value
 const grmRole = userInfo.roles.map(role => {
-  if (role.name === "grm" || role.name === "admin" || role.name === "root_admin"|| role.name === "super_admin" || role.name === "staff") {
+  if (GRM_ROLE_NAMES.has(role.name)) {
     let field = null;
     let fieldvalue = null;
 
@@ -554,7 +563,8 @@ console.log('After Querry - selFilters', selFilters)
 console.log('After Querry - selfilterValues', selfilterValues)
 
 // Filter grievances to show only those referred to the logged-in user OR where they are supporting staff
-const filteredGrievances = res.data.filter(grievance => {
+const grievanceRows = toGrievanceList(res)
+const filteredGrievances = grievanceRows.filter(grievance => {
   // Check if grievance is referred to the logged-in user
   const isReferredToUser = grievance.reffered_to_officer === userInfo.id;
   
@@ -614,7 +624,7 @@ const getIndicatorOptions = async (selFilters, selfilterValues) => {
   //console.log(formData)
   const res = await getGrievances(formData)
  
-  makeOptions(res.data)
+  makeOptions(toGrievanceList(res))
   
 }
 
@@ -1618,7 +1628,8 @@ const getFilteredBySearchData = async (searchKey) => {
   console.log('---->', res.data)
 
   // Filter grievances to show only those referred to the logged-in user OR where they are supporting staff
-  const filteredGrievances = res.data.filter(grievance => {
+  const grievanceRows = toGrievanceList(res)
+  const filteredGrievances = grievanceRows.filter(grievance => {
     // Check if grievance is referred to the logged-in user
     const isReferredToUser = grievance.reffered_to_officer === userInfo.id;
     
@@ -1702,13 +1713,15 @@ formData.filterValues = [['Delete'],['Open']]
 //-------------------------
 console.log("formData", formData)
 //console.log(formData)
+try {
 const res = await getSettlementListByCounty(formData)
 
 console.log('History collected........', res.data)
  // Initialize deleted settlements
  
 // Process each element in the response
-res.data.forEach((item) => {
+const historyRows = Array.isArray(res?.data) ? res.data : []
+historyRows.forEach((item) => {
   const beforeObject = item.changes?.before; // Extract the "before" object if it exists
   if (beforeObject) {
     // Add the history_id to the beforeObject
@@ -1721,6 +1734,9 @@ res.data.forEach((item) => {
     deletedGrievances.value.push(beforeObject);
   }
 });
+} catch (error) {
+  console.error('Error fetching deleted grievances:', error)
+}
 
  
 deletedGrievancesCount.value = deletedGrievances.value.length;
@@ -1759,7 +1775,7 @@ const getSubCountyNames = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received subcounties response:', response)
-    var ret = response.data
+    const ret = Array.isArray(response?.data) ? response.data : []
     subcountiesOptions.value = []
     loading.value = false
 
@@ -1790,7 +1806,7 @@ const getWardNames = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received wards response:', response)
-    var ret = response.data
+    const ret = Array.isArray(response?.data) ? response.data : []
     wardOptions.value = []
     loading.value = false
 

@@ -894,16 +894,6 @@ exports.getGrievances = async (req, res) => {
   attributes.push(decryptedName, decryptedNationalId);
   findAndCountOptions.attributes = attributes;
 
-  // Unauthorized users
-  if (!hasGRMRole && !hasSuperAdminRole) {
-    return res.status(200).send({
-      data: [],
-      total: 0,
-      code: '9999',
-      message: 'Unauthorized access to grievances denied',
-    });
-  }
-
   const normalizeToArray = (rawValue) => {
     if (Array.isArray(rawValue)) return rawValue.filter(v => v !== null && v !== undefined && v !== '');
     if (rawValue === null || rawValue === undefined || rawValue === '') return [];
@@ -3125,15 +3115,6 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       //const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
       const hasGRMRole = userHasGRMAccess(currentUserRoles);
 
-      if (!hasGRMRole && !hasSuperAdminRole) {
-        return res.status(200).send({
-          data: [],
-          total: 0,
-          code: '9999',
-          message: 'Unauthorized access to grievances denied',
-        });
-      }
-    
       if (!hasSuperAdminRole) {
         const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
         const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');

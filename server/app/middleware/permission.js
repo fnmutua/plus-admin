@@ -1,46 +1,122 @@
 const db = require('../models');
 const User = db.user;
 
+// Sequelize model names that map to a different permission resource (e.g. users -> user:read).
+const MODEL_PERMISSION_ALIASES = {
+  users: 'user',
+};
+
+// Lookup/reference tables shared across modules (county filters, joins, labels, etc.).
+const REFERENCE_DATA_MODELS = new Set([
+  'county',
+  'subcounty',
+  'ward',
+  'settlement',
+  'document',
+  'document_category',
+  'document_type',
+  'category',
+  'domain',
+  'component',
+  'grievance_document',
+  'incident_document',
+  'users',
+  'user',
+]);
+
+// Any of these grants read access to reference lookup models above.
+const CONTEXT_READ_PERMISSIONS = new Set([
+  'grievance:read',
+  'grievance:export',
+  'grievance:viewLog',
+  'grievance_history:read',
+  'incident:read',
+  'incident:export',
+  'incident:viewLog',
+  'settlement:read',
+  'dashboard:read',
+  'facility:read',
+  'project:read',
+  'households:read',
+  'beneficiary:read',
+  'user:read',
+]);
+
+function resolvePermissionName(model, action) {
+  const normalized = String(model).toLowerCase();
+  const resource = MODEL_PERMISSION_ALIASES[normalized] || normalized;
+  return `${resource}:${action}`;
+}
+
+async function loadUserWithPermissions(userid) {
+  const user = await User.findByPk(userid, {
+    include: [{
+      model: db.role,
+      include: [db.permission],
+    }],
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  const roleNames = user.roles ? user.roles.map((role) => role.name) : [];
+  const permissions = user.roles
+    ? user.roles.flatMap((role) => (role.permissions ? role.permissions.map((p) => p.name) : []))
+    : [];
+
+  return { user, roleNames, permissions };
+}
+
+async function evaluatePermission(req, permissionName, options = {}) {
+  const { allowReferenceRead = false, model = null } = options;
+
+  if (!req.userid) {
+    return { allowed: false, status: 401, message: 'User not authenticated' };
+  }
+
+  const loaded = await loadUserWithPermissions(req.userid);
+  if (!loaded) {
+    return { allowed: false, status: 401, message: 'User not found' };
+  }
+
+  const { roleNames, permissions } = loaded;
+
+  if (roleNames.includes('super_admin') || roleNames.includes('root_admin')) {
+    return { allowed: true };
+  }
+
+  if (permissions.includes(permissionName)) {
+    return { allowed: true };
+  }
+
+  if (
+    allowReferenceRead &&
+    model &&
+    REFERENCE_DATA_MODELS.has(String(model).toLowerCase()) &&
+    permissions.some((permission) => CONTEXT_READ_PERMISSIONS.has(permission))
+  ) {
+    return { allowed: true };
+  }
+
+  return { allowed: false, status: 403, message: 'Forbidden: insufficient permissions' };
+}
+
 const hasPermission = (permissionName) => {
   return async (req, res, next) => {
     try {
-      if (!req.userid) {
-        console.error('hasPermission: req.userid is missing');
-        return res.status(401).json({ message: 'User not authenticated' });
-      }
-
-      const user = await User.findByPk(req.userid, {
-        include: [{
-          model: db.role,
-          include: [db.permission]
-        }]
-      });
-      
-      if (!user) {
-        console.error('hasPermission: User not found for userid:', req.userid);
-        return res.status(401).json({ message: 'User not found' });
-      }
-
-      // Check if user has super_admin or root_admin role - they have all permissions
-      const userRoles = user.roles ? user.roles.map(role => role.name) : [];
-      console.log('hasPermission: Checking permission', permissionName, 'for user roles:', userRoles);
-      
-      if (userRoles.includes('super_admin') || userRoles.includes('root_admin')) {
-        console.log('hasPermission: User has super_admin or root_admin role, allowing access');
+      const result = await evaluatePermission(req, permissionName);
+      if (result.allowed) {
         return next();
       }
 
-      // Flatten all permissions from all roles
-      const userPermissions = user.roles ? user.roles.flatMap(role => role.permissions ? role.permissions.map(p => p.name) : []) : [];
-      console.log('hasPermission: User permissions:', userPermissions);
-      
-      if (userPermissions.includes(permissionName)) {
-        console.log('hasPermission: User has required permission, allowing access');
-        return next();
+      if (result.status === 401) {
+        console.error('hasPermission: auth failure for userid:', req.userid, result.message);
+      } else {
+        console.log('hasPermission: Access denied - user does not have permission:', permissionName);
       }
-      
-      console.log('hasPermission: Access denied - user does not have permission:', permissionName);
-      return res.status(403).json({ message: 'Forbidden: insufficient permissions' });
+
+      return res.status(result.status).json({ message: result.message });
     } catch (error) {
       console.error('Error in hasPermission middleware:', error);
       return res.status(500).json({ message: 'Error checking permissions', error: error.message });
@@ -50,11 +126,42 @@ const hasPermission = (permissionName) => {
 
 const hasDynamicPermission = (action) => {
   return async (req, res, next) => {
-    const model = req.body.model || req.body.table || req.query.model || req.query.table;
-    if (!model) return res.status(400).json({ message: 'Model not specified' });
-    const permissionName = `${model.toLowerCase()}:${action}`;
-    return hasPermission(permissionName)(req, res, next);
+    try {
+      const model = req.body.model || req.body.table || req.query.model || req.query.table;
+      if (!model) {
+        return res.status(400).json({ message: 'Model not specified' });
+      }
+
+      const permissionName = resolvePermissionName(model, action);
+      const result = await evaluatePermission(req, permissionName, {
+        allowReferenceRead: action === 'read',
+        model,
+      });
+
+      if (result.allowed) {
+        return next();
+      }
+
+      console.log(
+        'hasDynamicPermission: Access denied for model',
+        model,
+        'action',
+        action,
+        'required permission:',
+        permissionName
+      );
+      return res.status(result.status).json({ message: result.message });
+    } catch (error) {
+      console.error('Error in hasDynamicPermission middleware:', error);
+      return res.status(500).json({ message: 'Error checking permissions', error: error.message });
+    }
   };
 };
 
-module.exports = { hasPermission, hasDynamicPermission }; 
+module.exports = {
+  hasPermission,
+  hasDynamicPermission,
+  REFERENCE_DATA_MODELS,
+  CONTEXT_READ_PERMISSIONS,
+  resolvePermissionName,
+};
