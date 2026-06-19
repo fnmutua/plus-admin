@@ -1556,7 +1556,7 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
       <el-row v-if="activeStep === 1" :gutter="20">
         <el-col :span="24">
-          <el-form-item id="btn4" label="Icon" prop="icon">
+          <el-form-item id="btn4" label="Icon" prop="icon" class="icon-picker-form-field">
             <ElementPlusIconPickerField
               v-model="ruleForm.icon"
               :preview-color="ruleForm.iconColor"
@@ -1751,7 +1751,7 @@ target="#btn2" title="Type"
   <el-tour v-model="showTourStep1" z-index="100000" :onClose="endTour">
     <el-tour-step
 target="#btn4" title="Icon"
-      description="Pick an Element Plus icon (e.g. House, PieChart) or type the icon name. See the Element Plus icon collection for all options." />
+      description="Use Browse to pick an Element Plus icon, or Paste to enter a name (e.g. House) or legacy Iconify string (e.g. mdi:home-city)." />
     <el-tour-step target="#btn5" title="Icon Color" description="The  color of the ICon on the statistic card" />
 
   </el-tour>
@@ -1856,5 +1856,9 @@ target="#btn11" title="Filters"
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.icon-picker-form-field :deep(.icon-picker-panel) {
+  width: 100%;
 }
 </style>

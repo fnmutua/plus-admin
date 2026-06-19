@@ -673,7 +673,7 @@ v-model="ruleForm.type" @clear="handleClear" clearable filterable collapse-tags
       </el-row>
 
 
-      <el-form-item id="btn5" label="Icon" prop="icon">
+      <el-form-item id="btn5" label="Icon" prop="icon" class="icon-picker-form-field">
         <ElementPlusIconPickerField v-model="ruleForm.icon" />
       </el-form-item>
 
@@ -749,7 +749,7 @@ target="#btn4" title="Public"
 
     <el-tour-step
 target="#btn5" title="Icon"
-      description="Pick an Element Plus icon for the dashboard navigation menu (e.g. House, PieChart). Browse the icon picker or type the icon name." />
+      description="Use Browse to pick an Element Plus icon, or Paste to enter a name (e.g. House) or legacy Iconify string (e.g. mdi:view-dashboard)." />
 
  <el-tour-step target="#btn6" title="Description" description="Provide a short narrative about this dashboard." />
 
@@ -795,5 +795,9 @@ target="#btn5" title="Icon"
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.icon-picker-form-field :deep(.icon-picker-panel) {
+  width: 100%;
 }
 </style>
