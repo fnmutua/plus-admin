@@ -128,6 +128,8 @@ const page = ref(1)
 
 const selCounties = []
 const loading = ref(true)
+const drawerLoading = ref(false)
+const drawerLoadingText = ref('Please wait...')
 
 const currentPage = ref(1)
 const total = ref(0)
@@ -149,10 +151,12 @@ const updatepSize = () => {
   }
 };
 
-// Set up event listener on mount
-onMounted(() => {
+// Set up event listener on mount and load table data
+onMounted(async () => {
   window.addEventListener('resize', updatepSize);
-  updatepSize(); // Initial check
+  updatepSize();
+  await getDashboardOptions();
+  await getInterventionsAll();
 });
 
 
@@ -357,45 +361,44 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
+const getFilteredData = async (selFilters, selfilterValues, { silent = false } = {}) => {
+  if (!silent) loading.value = true
+  try {
+    const formData = {}
+    formData.limit = pSize.value
+    formData.page = page.value
+    formData.curUser = 1 // Id for logged in user
+    formData.model = model
+    //-Search field--------------------------------------------
+    formData.searchField = 'title'
+    formData.searchKeyword = ''
+    //--Single Filter -----------------------------------------
 
-  formData.assocModel = associated_Model
+    formData.assocModel = associated_Model
 
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
+    // - multiple filters -------------------------------------
+    formData.filters = selFilters
+    formData.filterValues = selfilterValues
+    formData.associated_multiple_models = associated_multiple_models
 
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+    //-------------------------
+    const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
+    console.log('After Querry', res)
+    tableDataList.value = res.data
+    total.value = res.total
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    tblData = [] // reset the table data
+    console.log('TBL-b4', tblData)
+    res.data.forEach(function (arrayItem) {
+      var dd = flattenJSON(arrayItem)
+      tblData.push(dd)
+    })
 
-    var dd = flattenJSON(arrayItem)
-
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
+    console.log('TBL-4f', tblData)
+  } finally {
+    if (!silent) loading.value = false
+  }
 }
 
 
@@ -416,7 +419,6 @@ const getIndicatorOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
     // pass result to the makeoptions
 
     categories.value = ret
@@ -463,8 +465,6 @@ const getDashboardOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
-
     // Filter dashboards to show only user's dashboards and public ones
     const filteredDashboards = filterDashboardsForUser(userInfo, ret)
 
@@ -503,8 +503,6 @@ const getStrategicFocusAreas = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
-
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
@@ -516,9 +514,13 @@ const getStrategicFocusAreas = async () => {
 }
 
 const editIndicator = async (data: TableSlotDefault) => {
+  drawerLoadingText.value = 'Loading...'
+  drawerLoading.value = true
+  AddDialogVisible.value = true
   showSubmitBtn.value = false
   console.log('Edit--->', data)
   
+  try {
   // Set category first
   ruleForm.category = data.row.category
   
@@ -566,8 +568,9 @@ const editIndicator = async (data: TableSlotDefault) => {
   showStatusExtras.value = true
 
   formHeader.value = 'Edit Card'
-
-  AddDialogVisible.value = true
+  } finally {
+    drawerLoading.value = false
+  }
 }
 
 
@@ -618,12 +621,30 @@ const ruleForm = reactive({
 
 
 })
-const handleClose = () => {
-  console.log("Clsoing the dialoig")
+const getPreservedCardContext = () => ({
+  dashboard_id: ruleForm.dashboard_id,
+  category: ruleForm.category,
+  card_model: ruleForm.card_model,
+  card_model_field: ruleForm.card_model_field,
+  indicator_category_id: ruleForm.indicator_category_id,
+  icon: ruleForm.icon,
+  iconColor: ruleForm.iconColor,
+  aggregation: ruleForm.aggregation,
+  computation: ruleForm.computation,
+  unique: ruleForm.unique,
+  filtered: ruleForm.filtered,
+  filter_field: ruleForm.filter_field,
+  filter_function: ruleForm.filter_function,
+  filter_value: ruleForm.filter_value,
+  filters: ruleForm.filters ? JSON.parse(JSON.stringify(ruleForm.filters)) : null,
+})
+
+const resetCardForm = ({ closeDrawer = true, preserveContext = null } = {}) => {
   showSubmitBtn.value = true
   showEditSaveButton.value = false
-  AddDialogVisible.value = false
-  // Reset all fields in ruleForm to their initial state
+  formHeader.value = 'Add Card'
+  activeStep.value = 0
+
   ruleForm.id = ''
   ruleForm.title = ''
   ruleForm.dashboard_id = ''
@@ -631,7 +652,7 @@ const handleClose = () => {
   ruleForm.iconColor = ''
   ruleForm.icon = ''
   ruleForm.aggregation = ''
-   ruleForm.card_model_field = ''
+  ruleForm.card_model_field = ''
   ruleForm.filter_value = null
   ruleForm.computation = null
   ruleForm.filter_function = null
@@ -642,8 +663,27 @@ const handleClose = () => {
   ruleForm.filters = null
   ruleForm.category = ''
   ruleForm.indicator_category_id = null
-  formHeader.value = 'Add Card'
-  activeStep.value = 0
+
+  if (preserveContext) {
+    Object.assign(ruleForm, preserveContext)
+    tableData.value = Array.isArray(preserveContext.filters)
+      ? JSON.parse(JSON.stringify(preserveContext.filters))
+      : []
+  } else {
+    tableData.value = []
+  }
+
+  if (closeDrawer) {
+    AddDialogVisible.value = false
+  } else {
+    initialFormJson.value = JSON.stringify(ruleForm)
+    ruleFormRef.value?.clearValidate()
+  }
+  drawerLoading.value = false
+}
+
+const handleClose = () => {
+  resetCardForm({ closeDrawer: true })
 }
 
 
@@ -749,9 +789,9 @@ const AddCard = () => {
 }
 
 
-const submitForm = async (formEl: FormInstance | undefined) => {
+const submitForm = async (formEl: FormInstance | undefined, addAnother = false) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
@@ -760,15 +800,22 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       if (ruleForm.category === 'Status') {
         ruleForm.indicator_category_id = null
       }
-      
-      const res = CreateRecord(ruleForm).then(() => {
-        // Close drawer after successful submission
-        AddDialogVisible.value = false
-        // Clear the form
-        handleClose()
-        // Refresh the data
-        getFilteredData(filters, filterValues)
-      })
+
+      drawerLoadingText.value = 'Saving...'
+      drawerLoading.value = true
+      try {
+        await CreateRecord(ruleForm)
+        ElMessage.success('Card created')
+        await getFilteredData(filters, filterValues, { silent: true })
+        resetCardForm({
+          closeDrawer: !addAnother,
+          preserveContext: addAnother ? getPreservedCardContext() : null,
+        })
+      } catch (error) {
+        console.error(error)
+        ElMessage.error('Failed to create card')
+        drawerLoading.value = false
+      }
 
     } else {
       console.log('error submit!', fields)
@@ -777,9 +824,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-const editForm = async (formEl: FormInstance | undefined) => {
+const editForm = async (formEl: FormInstance | undefined, addAnother = false) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       
@@ -788,14 +835,21 @@ const editForm = async (formEl: FormInstance | undefined) => {
         ruleForm.indicator_category_id = null
       }
 
-      updateOneRecord(ruleForm).then(() => {
-        // Close drawer after successful update
-        AddDialogVisible.value = false
-        // Clear the form
-        handleClose()
-        // Refresh the data
-        getFilteredData(filters, filterValues)
-      })
+      drawerLoadingText.value = 'Saving...'
+      drawerLoading.value = true
+      try {
+        await updateOneRecord(ruleForm)
+        ElMessage.success('Card saved')
+        await getFilteredData(filters, filterValues, { silent: true })
+        resetCardForm({
+          closeDrawer: !addAnother,
+          preserveContext: addAnother ? getPreservedCardContext() : null,
+        })
+      } catch (error) {
+        console.error(error)
+        ElMessage.error('Failed to save card')
+        drawerLoading.value = false
+      }
 
     } else {
       console.log('error submit!', fields)
@@ -807,8 +861,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 //getIndicatorOptions()
-getInterventionsAll()
-getDashboardOptions()
 //getIndicatorCategories() // Only load when Indicator category is selected
 //getStrategicFocusAreas()
 //getIndicatorNames()
@@ -1382,7 +1434,7 @@ const handleDrawerBeforeClose = (done) => {
       </div>
     </div>
 
-    <el-table :data="cards_filtered" stripe>
+    <el-table v-loading="loading" :data="cards_filtered" stripe>
       <el-table-column type="index" />
       <el-table-column prop="title" label="Title" />
       <el-table-column prop="dashboard.title" label="Dashboard" />
@@ -1440,6 +1492,8 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
     :size="isMobile ? '100%' : '40%'"
     :with-header="false"
     :before-close="handleDrawerBeforeClose"
+    v-loading="drawerLoading"
+    :element-loading-text="drawerLoadingText"
   >
     <template #header>
       <div class="drawer-header">
@@ -1635,15 +1689,17 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
             <el-tooltip content="Help" placement="top">
               <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
             </el-tooltip>
-            <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+            <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading">Previous</el-button>
 
-            <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
-            <el-button @click="AddDialogVisible = false">Cancel</el-button>
+            <el-button @click="nextStep" v-if="activeStep < 3" :disabled="drawerLoading">Next</el-button>
+            <el-button @click="AddDialogVisible = false" :disabled="drawerLoading">Cancel</el-button>
             <PermissionWrapper :permissions="'dashboard_card:create'">
-              <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+              <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
+              <el-button v-if="showSubmitBtn && activeStep === 3" :loading="drawerLoading" @click="submitForm(ruleFormRef, true)">Submit & Add Another</el-button>
             </PermissionWrapper>
             <PermissionWrapper :permissions="'dashboard_card:update'">
-              <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+              <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" :loading="drawerLoading" @click="editForm(ruleFormRef)">Save</el-button>
+              <el-button v-if="showEditSaveButton && activeStep === 3" :loading="drawerLoading" @click="editForm(ruleFormRef, true)">Save & Add Another</el-button>
             </PermissionWrapper>
           </el-col>
         </el-row>

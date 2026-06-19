@@ -1565,7 +1565,7 @@ const formatNumber =   (value) => {
               <el-divider direction="vertical" />
               <div class="card-value">
                 <p class="value-text">{{ formatNumber(card.value) }}</p>
-                <p class="value-label">{{ card.description }}</p>
+                <p class="value-label" :title="card.title">{{ card.title }}</p>
               </div>
 
             </div>

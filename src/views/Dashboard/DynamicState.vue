@@ -3660,7 +3660,7 @@ onBeforeUnmount(() => {
                   <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)" :title="formatNumber(card.value) + card.symbol">
                     {{ formatNumber(card.value) }}{{ card.symbol }}
                   </p>
-                  <p class="value-label" :title="card.description">{{ card.description }}</p>
+                  <p class="value-label" :title="card.title">{{ card.title }}</p>
                   <p
                     v-if="statisticsCardFilterContext"
                     class="stat-card-filter-scope"

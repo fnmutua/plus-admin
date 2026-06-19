@@ -64,6 +64,8 @@ const page = ref(1)
 
 const selCounties = []
 const loading = ref(true)
+const drawerLoading = ref(false)
+const drawerLoadingText = ref('Please wait...')
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
@@ -118,17 +120,18 @@ const buildChartListFilters = () => {
   return { filters: apiFilters, filterValues: apiFilterValues }
 }
 
-const refreshChartList = async () => {
+const refreshChartList = async ({ silent = false } = {}) => {
   const { filters: apiFilters, filterValues: apiFilterValues } = buildChartListFilters()
   filters = apiFilters
   filterValues = apiFilterValues
-  await getFilteredData(apiFilters, apiFilterValues)
+  await getFilteredData(apiFilters, apiFilterValues, { silent })
 }
 
 // Set up event listener on mount and load chart list after filter options are ready
 onMounted(async () => {
   window.addEventListener('resize', updatepSize)
   updatepSize()
+  loading.value = true
   await Promise.all([getdashboardOptions(), getDashSectionOptions()])
   await refreshChartList()
 })
@@ -326,8 +329,8 @@ const onpSizeChange = async (size: any) => {
 
 
 
-const getFilteredData = async (selFilters, selfilterValues) => {
-  loading.value = true
+const getFilteredData = async (selFilters, selfilterValues, { silent = false } = {}) => {
+  if (!silent) loading.value = true
   try {
     const formData = {}
     formData.limit = pSize.value
@@ -347,7 +350,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     total.value = res.total
     tblData = []
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -369,7 +372,6 @@ const getIndicatorOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
     // pass result to the makeoptions
 
     categories.value = ret
@@ -907,13 +909,34 @@ const ruleForm = reactive({
 
 
 })
-const handleClose = () => {
-  console.log("Closing the dialog")
+const getPreservedChartContext = () => ({
+  dashboard_id: ruleForm.dashboard_id,
+  dashboard_section_id: ruleForm.dashboard_section_id,
+  category: ruleForm.category,
+  card_model: ruleForm.card_model,
+  card_model_field: ruleForm.card_model_field,
+  type: ruleForm.type,
+  aggregation: ruleForm.aggregation,
+  categorized: ruleForm.categorized,
+  time_field: ruleForm.time_field || 'createdAt',
+  metric_fields: Array.isArray(ruleForm.metric_fields) ? [...ruleForm.metric_fields] : [],
+  indicator_id: Array.isArray(ruleForm.indicator_id) ? [...ruleForm.indicator_id] : ruleForm.indicator_id,
+  ignore_empty: ruleForm.ignore_empty,
+  filtered: ruleForm.filtered,
+  filter_field: ruleForm.filter_field,
+  filter_function: ruleForm.filter_function,
+  filter_value: ruleForm.filter_value,
+  filter_option: ruleForm.filter_option,
+  filters: ruleForm.filters ? JSON.parse(JSON.stringify(ruleForm.filters)) : null,
+})
+
+const resetChartForm = ({ closeDrawer = true, preserveContext = null } = {}) => {
   showSubmitBtn.value = true
   showEditSaveButton.value = false
-  formHeader.value = 'Add Section'
+  formHeader.value = 'Add Chart'
   activeStep.value = 0
-  // Reset all fields in ruleForm to their initial state
+
+  ruleForm.id = ''
   ruleForm.title = ''
   ruleForm.dashboard_section_id = ''
   ruleForm.dashboard_id = ''
@@ -936,6 +959,29 @@ const handleClose = () => {
   ruleForm.ignore_empty = true
   ruleForm.category = ''
   ruleForm.filters = null
+
+  if (preserveContext) {
+    Object.assign(ruleForm, preserveContext)
+    tableData.value = Array.isArray(preserveContext.filters)
+      ? JSON.parse(JSON.stringify(preserveContext.filters))
+      : []
+    showStatusExtras.value = preserveContext.category === 'Status'
+  } else {
+    tableData.value = []
+    showStatusExtras.value = false
+  }
+
+  if (closeDrawer) {
+    AddDialogVisible.value = false
+  } else {
+    initialFormJson.value = JSON.stringify(ruleForm)
+    ruleFormRef.value?.clearValidate()
+  }
+  drawerLoading.value = false
+}
+
+const handleClose = () => {
+  resetChartForm({ closeDrawer: true })
 }
 
 const initialFormJson = ref('')
@@ -1019,7 +1065,7 @@ const AddCard = () => {
 }
 
 
-const submitForm = async (formEl: FormInstance | undefined) => {
+const submitForm = async (formEl: FormInstance | undefined, addAnother = false) => {
 
 
   if (!showStatusExtras.value) {
@@ -1030,7 +1076,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
@@ -1045,18 +1091,21 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         ruleForm.card_model_field = ruleForm.metric_fields[0]
       }
 
-      // if (isInterventionsDashboard.value) {
-      //   console.log('add interventions')
-      //   ruleForm.card_model='indicator_category_report'
-      //   ruleForm.card_model_field='amount'
-      // }
-
-
-      CreateRecord(ruleForm).then(() => {
-        ElMessage.success('Chart created');
-        handleClose();
-        AddDialogVisible.value = false;
-      })
+      drawerLoadingText.value = 'Saving...'
+      drawerLoading.value = true
+      try {
+        await CreateRecord(ruleForm)
+        ElMessage.success('Chart created')
+        await refreshChartList({ silent: true })
+        resetChartForm({
+          closeDrawer: !addAnother,
+          preserveContext: addAnother ? getPreservedChartContext() : null,
+        })
+      } catch (error) {
+        console.error(error)
+        ElMessage.error('Failed to create chart')
+        drawerLoading.value = false
+      }
 
     } else {
       console.log('error submit!', fields)
@@ -1065,9 +1114,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-const editForm = async (formEl: FormInstance | undefined) => {
+const editForm = async (formEl: FormInstance | undefined, addAnother = false) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       if (!ruleForm.time_field) {
@@ -1081,14 +1130,21 @@ const editForm = async (formEl: FormInstance | undefined) => {
         ruleForm.card_model_field = ruleForm.metric_fields[0]
       }
 
-      updateOneRecord(ruleForm).then(() => {
-        ElMessage.success('Chart saved');
-        handleClose();
-        AddDialogVisible.value = false;
-      })
-
-      // dialogFormVisible.value = false
-
+      drawerLoadingText.value = 'Saving...'
+      drawerLoading.value = true
+      try {
+        await updateOneRecord(ruleForm)
+        ElMessage.success('Chart saved')
+        await refreshChartList({ silent: true })
+        resetChartForm({
+          closeDrawer: !addAnother,
+          preserveContext: addAnother ? getPreservedChartContext() : null,
+        })
+      } catch (error) {
+        console.error(error)
+        ElMessage.error('Failed to save chart')
+        drawerLoading.value = false
+      }
 
     } else {
       console.log('error submit!', fields)
@@ -1147,7 +1203,6 @@ const getIndicatorCategories = async () => {
 
 
 getdashboardOptions()
-getIndicatorOptions()
 getDashSectionOptions()
 
 //getStrategicFocusAreas()
@@ -2060,7 +2115,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
 
     
 
-    <el-table :loading="loading" :data="charts_filtered" stripe="stripe">
+    <el-table v-loading="loading" :data="charts_filtered" stripe="stripe">
       <el-table-column label="Type">
         <template #default="scope">
           <Icon v-if="scope.row.type === 1" width="24" icon="tabler:chart-bar" />
@@ -2138,6 +2193,8 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
     :size="isMobile ? '100%' : '40%'"
     :with-header="false"
     :before-close="handleDrawerBeforeClose"
+    v-loading="drawerLoading"
+    :element-loading-text="drawerLoadingText"
   >
     <template #header>
       <div class="drawer-header">
@@ -2371,14 +2428,16 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
     </el-form>
     <template #footer>
       <div style="padding:12px 20px; border-top:1px solid #ebeef5; text-align:right;">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button @click="prevStep" :disabled="activeStep===0" style="margin:0 8px;">Previous</el-button>
-        <el-button @click="nextStep" v-if="activeStep<2" type="primary" style="margin-right:8px;">Next</el-button>
+        <el-button @click="AddDialogVisible = false" :disabled="drawerLoading">Cancel</el-button>
+        <el-button @click="prevStep" :disabled="activeStep===0 || drawerLoading" style="margin:0 8px;">Previous</el-button>
+        <el-button @click="nextStep" v-if="activeStep<2" type="primary" :disabled="drawerLoading" style="margin-right:8px;">Next</el-button>
         <PermissionWrapper :permissions="'dashboard_section_chart:create'">
-          <el-button v-if="showSubmitBtn&&activeStep===2" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showSubmitBtn&&activeStep===2" type="primary" :loading="drawerLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showSubmitBtn&&activeStep===2" :loading="drawerLoading" @click="submitForm(ruleFormRef, true)">Submit & Add Another</el-button>
         </PermissionWrapper>
         <PermissionWrapper :permissions="'dashboard_section_chart:update'">
-          <el-button v-if="showEditSaveButton&&activeStep===2" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+          <el-button v-if="showEditSaveButton&&activeStep===2" type="primary" :loading="drawerLoading" @click="editForm(ruleFormRef)">Save</el-button>
+          <el-button v-if="showEditSaveButton&&activeStep===2" :loading="drawerLoading" @click="editForm(ruleFormRef, true)">Save & Add Another</el-button>
         </PermissionWrapper>
       </div>
     </template>
