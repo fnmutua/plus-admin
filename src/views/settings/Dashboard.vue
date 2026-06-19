@@ -16,7 +16,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCol, ElRow, ElCheckbox,
   ElPopconfirm, ElSwitch, ElTable, ElTableColumn, ElTour, ElTourStep
@@ -36,6 +36,7 @@ import { filterDashboardsForUser, isDashboardSettingsAdmin } from '@/utils/docum
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const isMobile = computed(() => appStore.getMobile)
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
@@ -647,8 +648,22 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
       @current-change="onPageChange" class="mt-4" />
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+  <el-dialog
+    v-model="AddDialogVisible"
+    @close="handleClose"
+    :title="formHeader"
+    :width="isMobile ? '100%' : '520px'"
+    :fullscreen="isMobile"
+    :draggable="!isMobile"
+    :class="['dashboard-form-dialog', { 'is-mobile': isMobile }]"
+  >
+    <el-form
+      ref="ruleFormRef"
+      :model="ruleForm"
+      :rules="rules"
+      :label-width="isMobile ? 'auto' : '120px'"
+      :label-position="isMobile ? 'top' : 'right'"
+    >
 
       <el-form-item id="btn1" label="Title" prop="title">
         <el-input v-model="ruleForm.title" />
@@ -692,7 +707,7 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
     </el-form>
     <template #footer>
 
-      <span class="dialog-footer">
+      <span :class="['dialog-footer', { 'dialog-footer-mobile': isMobile }]">
         <el-button type="primary" plain @click="openHelp = true" :disabled="dialogLoading">Help</el-button>
         <el-button @click="AddDialogVisible = false" :disabled="dialogLoading">Cancel</el-button>
         <PermissionWrapper :permissions="'dashboard:create'">
@@ -707,7 +722,12 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
 
 
 
-  <el-dialog v-model="infoDialog" width="40%">
+  <el-dialog
+    v-model="infoDialog"
+    :width="isMobile ? '100%' : '520px'"
+    :fullscreen="isMobile"
+    :class="['dashboard-form-dialog', { 'is-mobile': isMobile }]"
+  >
     <div class="info-dialog-content">
       <div class="info-dialog-section">
         <h4 class="info-heading">Status Dashboard:</h4>
@@ -828,5 +848,29 @@ target="#btn5" title="Icon"
   font-size: 12px;
   line-height: 1.4;
   color: #94a3b8;
+}
+
+.dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-footer-mobile {
+  flex-direction: column;
+}
+
+.dialog-footer-mobile :deep(.el-button) {
+  width: 100%;
+  margin-left: 0;
+}
+
+.dashboard-form-dialog.is-mobile :deep(.el-dialog__body) {
+  padding: 16px;
+}
+
+.dashboard-form-dialog.is-mobile :deep(.el-form-item) {
+  margin-bottom: 16px;
 }
 </style>

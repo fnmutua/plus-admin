@@ -23,7 +23,7 @@ Back,
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { isDashboardSettingsAdmin } from '@/utils/documentPermissions'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -34,11 +34,9 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
-const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
-
-
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const isMobile = computed(() => appStore.getMobile)
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
@@ -608,11 +606,25 @@ confirm-button-text="Yes"  width="340" cancel-button-text="No" :icon="InfoFilled
       :pager-count="isMobile ? 3 : 7" />
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+  <el-dialog
+    v-model="AddDialogVisible"
+    @close="handleClose"
+    :title="formHeader"
+    :width="isMobile ? '100%' : '520px'"
+    :fullscreen="isMobile"
+    :draggable="!isMobile"
+    :class="['dashboard-form-dialog', { 'is-mobile': isMobile }]"
+  >
+    <el-form
+      ref="ruleFormRef"
+      :model="ruleForm"
+      :rules="rules"
+      :label-width="isMobile ? 'auto' : '120px'"
+      :label-position="isMobile ? 'top' : 'right'"
+    >
 
       <el-form-item label="Dashboard" prop="dashboard">
-        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select">
+        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" style="width: 100%;">
           <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -656,7 +668,7 @@ v-model="ruleForm.programme_id" :onClear="handleClear"   clearable
     </el-form>
     <template #footer>
 
-      <span class="dialog-footer">
+      <span :class="['dialog-footer', { 'dialog-footer-mobile': isMobile }]">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <PermissionWrapper :permissions="'dashboard_section:create'">
           <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
@@ -668,6 +680,31 @@ v-model="ruleForm.programme_id" :onClear="handleClear"   clearable
     </template>
   </el-dialog>
 </template>
+<style scoped>
+.dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-footer-mobile {
+  flex-direction: column;
+}
+
+.dialog-footer-mobile :deep(.el-button) {
+  width: 100%;
+  margin-left: 0;
+}
+
+.dashboard-form-dialog.is-mobile :deep(.el-dialog__body) {
+  padding: 16px;
+}
+
+.dashboard-form-dialog.is-mobile :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+</style>
 <style>
 .gray-tooltip .el-tooltip__popper {
   background-color: gray;

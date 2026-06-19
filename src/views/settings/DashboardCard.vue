@@ -1387,9 +1387,9 @@ const handleDrawerBeforeClose = (done) => {
 </script>
 
 <template>
-  <el-card class="cards-settings-card">
-    <div class="filter-bar">
-      <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+  <el-card :class="['cards-settings-card', { 'is-mobile': isMobile }]">
+    <div :class="['filter-bar', { 'filter-bar-mobile': isMobile }]">
+      <el-button type="primary" plain :icon="Back" @click="goBack" class="filter-bar-back">
         Back
       </el-button>
       <el-input
@@ -1397,9 +1397,9 @@ const handleDrawerBeforeClose = (done) => {
         placeholder="Search by card title"
         prefix-icon="el-icon-search"
         clearable
+        class="filter-bar-search"
         @clear="handleClear"
         @input="remoteMethod"
-        style="max-width: 220px;"
       />
       <el-select
         v-model="value3"
@@ -1409,8 +1409,9 @@ const handleDrawerBeforeClose = (done) => {
         clearable
         filterable
         collapse-tags
+        collapse-tags-tooltip
         placeholder="Filter by Dashboard"
-        style="min-width: 200px; max-width: 320px;"
+        class="filter-bar-dashboard"
       >
         <el-option
           v-for="item in DashboardOptions"
@@ -1419,7 +1420,7 @@ const handleDrawerBeforeClose = (done) => {
           :value="item.value"
         />
       </el-select>
-      <div class="filter-actions">
+      <div class="filter-bar-actions">
         <PermissionWrapper :permissions="'dashboard_card:create'">
           <el-tooltip content="Add Card" placement="top">
             <el-button :onClick="AddCard" type="primary" :icon="Plus" />
@@ -1436,11 +1437,12 @@ const handleDrawerBeforeClose = (done) => {
       </div>
     </div>
 
+    <div class="cards-table-wrap">
     <el-table v-loading="loading" :data="cards_filtered" stripe class="cards-table" table-layout="auto">
-      <el-table-column type="index" width="50" />
-      <el-table-column prop="title" label="Title" min-width="200" show-overflow-tooltip />
-      <el-table-column prop="dashboard.title" label="Dashboard" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="icon" label="Icon" min-width="140">
+      <el-table-column v-if="!isMobile" type="index" width="50" />
+      <el-table-column prop="title" label="Title" :min-width="isMobile ? 130 : 200" show-overflow-tooltip />
+      <el-table-column prop="dashboard.title" label="Dashboard" :min-width="isMobile ? 100 : 180" show-overflow-tooltip />
+      <el-table-column v-if="!isMobile" prop="icon" label="Icon" min-width="140">
         <template #default="{ row }">
           <div class="cards-table-icon">
             <span v-if="row.icon" class="cards-table-icon-preview">
@@ -1454,16 +1456,14 @@ const handleDrawerBeforeClose = (done) => {
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="Operations" min-width="200" align="right">
-        <template #header>
-          <!-- <el-input v-model="searchKey" size="small" placeholder="Filter By Title" /> -->
-
+      <el-table-column label="Operations" :width="isMobile ? 112 : undefined" :min-width="isMobile ? 112 : 200" align="right" fixed="right">
+        <template v-if="!isMobile" #header>
           <el-input
 v-model="searchKey" size="small" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear="handleClear"
             placeholder="Type to search" />
-
         </template>
         <template #default="scope">
+          <div class="cards-table-ops">
           <PermissionWrapper :permissions="'dashboard_card:update'">
             <el-tooltip content="Edit" placement="top">
               <el-button
@@ -1488,9 +1488,11 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
               </el-popconfirm>
             </el-tooltip>
           </PermissionWrapper>
+          </div>
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
 
     <ElPagination
@@ -1519,9 +1521,10 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
     <div class="steps-wrapper">
       <el-steps :active="activeStep" align-center finish-status="success">
-        <el-step title="Details" />
-        <el-step title="Icons" />
-        <el-step title="Computation" />
+        <el-step title="Details" description="Basic card info" />
+        <el-step title="Icons" description="Icon and color" />
+        <el-step title="Computation" description="Category and aggregation" />
+        <el-step title="Filters" description="Computation and filters" />
       </el-steps>
     </div>
 
@@ -1529,7 +1532,7 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn1" label="Dashboard" prop="dashboard_id">
-            <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleSelectType">
+            <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleSelectType" style="width: 100%;">
               <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1564,10 +1567,10 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
         </el-col>
       </el-row>
 
-            <el-row v-if="activeStep === 2" :gutter="20">
+      <el-row v-if="activeStep === 2" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn6" label="Category" prop="category">
-            <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleCategorySelection">
+            <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleCategorySelection" style="width: 100%;">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1578,7 +1581,7 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
           <el-form-item id="btn8" label="Entity" prop="card_model">
             <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
-              :onChange="handleSelectModel" placeholder="Select Entity to summarize">
+              :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
               <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1589,7 +1592,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
           <el-form-item id="btn7" label="Aggregation Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
-              placeholder="Field to summarize">
+              placeholder="Field to summarize" style="width: 100%;">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1599,7 +1602,7 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
           <el-form-item id="btn7_indicator" label="Select Indicator" prop="indicator_category_id">
             <el-select
 v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filterable collapse-tags
-              placeholder="Select Indicator Category">
+              placeholder="Select Indicator Category" style="width: 100%;">
               <el-option v-for="item in indicatorCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1623,7 +1626,7 @@ v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
           <el-form-item id="btn10" label="Computation" prop="computation" class="mt-4">
             <el-select
 size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable filterable
-              collapse-tags placeholder="Select">
+              collapse-tags placeholder="Select" style="width: 100%;">
               <el-option label="Proportion(%)" value="proportion" />
               <el-option label="Absolute" value="absolute" /> </el-select>
           </el-form-item>
@@ -1637,7 +1640,7 @@ v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-of
         </el-col>
         
         <el-col :span="24" v-if="ruleForm.filtered">
-          <div>
+          <div class="filter-table-wrap">
             <el-table
 :data="tableData" style="width: 100%;" max-height="250"
               size="small">
@@ -1683,43 +1686,34 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
         </el-col>
         
         <el-col :span="24" v-if="ruleForm.filtered">
-          <el-row>
-            <el-button-group>
-              <el-button class="mt-4" style="width: 45%" @click="onAddItem" size="small">
-                Add Filter
-              </el-button>
-              <el-button class="mt-4" style="width: 45%" @click="onAddFilter" size="small">
-                Save Filters
-              </el-button>
-            </el-button-group>
-          </el-row>
+          <div :class="['filter-actions', { 'filter-actions-mobile': isMobile }]">
+            <el-button class="mt-4" @click="onAddItem" size="small">
+              Add Filter
+            </el-button>
+            <el-button class="mt-4" @click="onAddFilter" size="small">
+              Save Filters
+            </el-button>
+          </div>
         </el-col>
 
       </el-row>
 
     </el-form>
     <template #footer>
-      <span class="dialog-footer">
-        <el-row :gutter="5">
-          <el-col :span="24">
-            <el-tooltip content="Help" placement="top">
-              <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-            </el-tooltip>
-            <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading">Previous</el-button>
-
-            <el-button @click="nextStep" v-if="activeStep < 3" :disabled="drawerLoading">Next</el-button>
-            <el-button @click="AddDialogVisible = false" :disabled="drawerLoading">Cancel</el-button>
-            <PermissionWrapper :permissions="'dashboard_card:create'">
-              <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
-              <el-button v-if="showSubmitBtn && activeStep === 3" :loading="drawerLoading" @click="submitForm(ruleFormRef, true)">Submit & Add Another</el-button>
-            </PermissionWrapper>
-            <PermissionWrapper :permissions="'dashboard_card:update'">
-              <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" :loading="drawerLoading" @click="editForm(ruleFormRef)">Save</el-button>
-              <el-button v-if="showEditSaveButton && activeStep === 3" :loading="drawerLoading" @click="editForm(ruleFormRef, true)">Save & Add Another</el-button>
-            </PermissionWrapper>
-          </el-col>
-        </el-row>
-      </span>
+      <div class="drawer-footer-bar">
+        <el-button @click="AddDialogVisible = false" :disabled="drawerLoading">Cancel</el-button>
+        <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading" style="margin: 0 8px;">Previous</el-button>
+        <el-button @click="nextStep" v-if="activeStep < 3" type="primary" :disabled="drawerLoading" style="margin-right: 8px;">Next</el-button>
+        <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain style="margin-right: 8px;" />
+        <PermissionWrapper :permissions="'dashboard_card:create'">
+          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showSubmitBtn && activeStep === 3" :loading="drawerLoading" @click="submitForm(ruleFormRef, true)">Submit & Add Another</el-button>
+        </PermissionWrapper>
+        <PermissionWrapper :permissions="'dashboard_card:update'">
+          <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" :loading="drawerLoading" @click="editForm(ruleFormRef)">Save</el-button>
+          <el-button v-if="showEditSaveButton && activeStep === 3" :loading="drawerLoading" @click="editForm(ruleFormRef, true)">Save & Add Another</el-button>
+        </PermissionWrapper>
+      </div>
     </template>
 
 
@@ -1800,7 +1794,7 @@ target="#btn11" title="Filters"
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary));
+  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary)) !important;
   color: white;
   position: sticky;
   top: 0;
@@ -1809,15 +1803,48 @@ target="#btn11" title="Filters"
 .drawer-title {
   font-size: 20px;
   font-weight: 600;
+  color: white;
 }
 .drawer-close {
   color: white;
+  border-radius: 4px;
+}
+.drawer-close:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 .steps-wrapper {
   background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-8));
   padding: 16px;
   border-radius: 4px;
   margin: 20px 0;
+}
+.drawer-footer-bar {
+  padding: 12px 20px;
+  border-top: 1px solid #ebeef5;
+  text-align: right;
+}
+.icon-picker-form-field :deep(.icon-picker-panel) {
+  width: 100%;
+}
+.filter-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-table-wrap :deep(.el-table) {
+  min-width: 560px;
+}
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.filter-actions-mobile {
+  flex-direction: column;
+}
+.filter-actions-mobile .el-button {
+  width: 100%;
+  margin: 0;
 }
 </style>
 
@@ -1826,24 +1853,95 @@ target="#btn11" title="Filters"
   display: flex;
   align-items: center;
   gap: 14px;
-  /* background: #fafbfc; */
   padding: 14px 18px;
   border-radius: 6px;
   margin-bottom: 18px;
 }
-.filter-actions {
+
+.filter-bar-search {
+  max-width: 220px;
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
+.filter-bar-dashboard {
+  min-width: 200px;
+  max-width: 320px;
+  flex: 1 1 220px;
+}
+
+.filter-bar-actions {
   margin-left: auto;
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
+
+.filter-bar-mobile {
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 0 14px;
+  margin-bottom: 12px;
+}
+
+.filter-bar-mobile .filter-bar-back {
+  margin-right: 0;
+}
+
+.filter-bar-mobile .filter-bar-search,
+.filter-bar-mobile .filter-bar-dashboard {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: 1 1 100%;
+}
+
+.filter-bar-mobile .filter-bar-actions {
+  width: 100%;
+  margin-left: 0;
+  justify-content: flex-end;
+}
+
+.cards-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .cards-table {
   width: 100%;
 }
+
 .cards-settings-card {
   width: 100%;
 }
+
 .cards-settings-card :deep(.el-card__body) {
   width: 100%;
+}
+
+.cards-settings-card.is-mobile :deep(.el-card__body) {
+  padding: 12px;
+}
+
+.cards-settings-card.is-mobile :deep(.el-pagination) {
+  justify-content: center;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.cards-table-ops {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.cards-table-ops :deep(.el-button) {
+  margin-left: 0;
+  padding: 5px 8px;
 }
 .cards-table-icon {
   display: flex;
@@ -1863,9 +1961,5 @@ target="#btn11" title="Filters"
 .cards-table-icon-name {
   min-width: 0;
   word-break: break-word;
-}
-
-.icon-picker-form-field :deep(.icon-picker-panel) {
-  width: 100%;
 }
 </style>
