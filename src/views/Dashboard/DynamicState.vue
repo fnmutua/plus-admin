@@ -10,7 +10,7 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } 
 
 
 
-import { Icon } from '@iconify/vue';
+import { Icon } from '@/components/Icon'
 
 import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, pyramidOptions,
@@ -3654,7 +3654,7 @@ onBeforeUnmount(() => {
             <el-card shadow="hover" class="stat-card" :body-style="{ padding: '0' }">
               <div class="card-content">
                 <div class="icon-container" :style="{ backgroundColor: card.iconColor + '15' }">
-                  <Icon :icon="card.icon" width="32" :color="card.iconColor" />
+                  <Icon :icon="card.icon" :size="32" :color="card.iconColor" />
                 </div>
                 <div class="card-value">
                   <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)" :title="formatNumber(card.value) + card.symbol">

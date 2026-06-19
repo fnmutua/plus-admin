@@ -8,7 +8,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 
 
 
-import { Icon } from '@iconify/vue';
+import { Icon } from '@/components/Icon'
 
 import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
 import type { EChartsOption } from 'echarts'
@@ -1559,7 +1559,7 @@ const formatNumber =   (value) => {
           <el-card shadow="always">
             <div class="card-content">
               <div class="icon-container">
-                <Icon :icon=card.icon width="80" :color=card.iconColor />
+                <Icon :icon="card.icon" :size="80" :color="card.iconColor" />
               </div>
 
               <el-divider direction="vertical" />

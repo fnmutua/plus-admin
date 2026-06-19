@@ -28,6 +28,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import { filterDashboardsForUser, isDashboardSettingsAdmin } from '@/utils/documentPermissions'
 
@@ -651,18 +652,7 @@ v-model="ruleForm.type" @clear="handleClear" clearable filterable collapse-tags
 
 
       <el-form-item id="btn5" label="Icon" prop="icon">
-        <el-tooltip class="item" effect="dark" placement="top">
-          <template #content>
-            <div>
-              <p>Get Icons from <a href="https://iconify.design/" target="_blank">https://iconify.design/</a></p>
-            </div>
-          </template>
-          <el-input v-model="ruleForm.icon" />
-        </el-tooltip>
-        <a
-v-if="ruleForm.icon" :href="'https://icnoffydesign.com/icons/' + ruleForm.icon" target="_blank"
-          rel="noopener noreferrer">
-        </a>
+        <ElementPlusIconPickerField v-model="ruleForm.icon" />
       </el-form-item>
 
       <el-form-item id="btn6" label="Description" prop="description">
@@ -737,7 +727,7 @@ target="#btn4" title="Public"
 
     <el-tour-step
 target="#btn5" title="Icon"
-      description="This is the icon to appear on the dashboards navigation menu/navbar. The icons are available from https://icon-sets.iconify.design/?category=General. Copy the icon name and paste here." />
+      description="Pick an Element Plus icon for the dashboard navigation menu (e.g. House, PieChart). Browse the icon picker or type the icon name." />
 
  <el-tour-step target="#btn6" title="Description" description="Provide a short narrative about this dashboard." />
 

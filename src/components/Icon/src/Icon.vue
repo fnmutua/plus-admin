@@ -4,6 +4,7 @@ import { ElIcon } from 'element-plus'
 import { propTypes } from '@/utils/propTypes'
 import Iconify from '@purge-icons/generated'
 import { useDesign } from '@/hooks/web/useDesign'
+import { isElementPlusIconName, resolveElementPlusIcon } from '@/utils/elementPlusIcons'
 
 const { getPrefixCls } = useDesign()
 
@@ -22,6 +23,10 @@ const elRef = ref<ElRef>(null)
 
 const isLocal = computed(() => props.icon.startsWith('svg-icon:'))
 
+const isElementPlus = computed(() => isElementPlusIconName(props.icon))
+
+const elementPlusComponent = computed(() => resolveElementPlusIcon(props.icon))
+
 const symbolId = computed(() => {
   return unref(isLocal) ? `#icon-${props.icon.split('svg-icon:')[1]}` : props.icon
 })
@@ -35,7 +40,7 @@ const getIconifyStyle = computed(() => {
 })
 
 const updateIcon = async (icon: string) => {
-  if (unref(isLocal)) return
+  if (unref(isLocal) || unref(isElementPlus)) return
 
   const el = unref(elRef)
   if (!el) return
@@ -66,7 +71,10 @@ watch(
 </script>
 
 <template>
-  <ElIcon :class="prefixCls" :size="size" :color="color">
+  <ElIcon v-if="isElementPlus" :class="prefixCls" :size="size" :color="color">
+    <component :is="elementPlusComponent" />
+  </ElIcon>
+  <ElIcon v-else :class="prefixCls" :size="size" :color="color">
     <svg v-if="isLocal" aria-hidden="true">
       <use :xlink:href="symbolId" />
     </svg>

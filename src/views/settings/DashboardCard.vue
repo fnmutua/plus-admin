@@ -32,6 +32,9 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { getUniqueFieldValues } from '@/api/households'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
+import { Icon } from '@/components/Icon'
+import { resolveElementPlusIcon } from '@/utils/elementPlusIcons'
 
 import { getModelSpecs, } from '@/api/fields'
 
@@ -1385,7 +1388,7 @@ const handleDrawerBeforeClose = (done) => {
 </script>
 
 <template>
-  <el-card>
+  <el-card class="cards-settings-card">
     <div class="filter-bar">
       <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
         Back
@@ -1434,12 +1437,31 @@ const handleDrawerBeforeClose = (done) => {
       </div>
     </div>
 
-    <el-table v-loading="loading" :data="cards_filtered" stripe>
-      <el-table-column type="index" />
-      <el-table-column prop="title" label="Title" />
-      <el-table-column prop="dashboard.title" label="Dashboard" />
-      <el-table-column prop="icon" label="Icon" />
-      <el-table-column label="Operations">
+    <el-table v-loading="loading" :data="cards_filtered" stripe class="cards-table" table-layout="auto">
+      <el-table-column type="index" width="50" />
+      <el-table-column prop="title" label="Title" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="dashboard.title" label="Dashboard" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="icon" label="Icon" min-width="140">
+        <template #default="{ row }">
+          <div class="cards-table-icon">
+            <el-icon
+              v-if="resolveElementPlusIcon(row.icon)"
+              :size="18"
+              :color="row.iconColor || '#475569'"
+            >
+              <component :is="resolveElementPlusIcon(row.icon)" />
+            </el-icon>
+            <Icon
+              v-else-if="row.icon"
+              :icon="row.icon"
+              :size="18"
+              :color="row.iconColor || '#475569'"
+            />
+            <span>{{ row.icon || '—' }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Operations" min-width="200" align="right">
         <template #header>
           <!-- <el-input v-model="searchKey" size="small" placeholder="Filter By Title" /> -->
 
@@ -1535,9 +1557,10 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
       <el-row v-if="activeStep === 1" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn4" label="Icon" prop="icon">
-            <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
-              <el-input v-model="ruleForm.icon" />
-            </el-tooltip>
+            <ElementPlusIconPickerField
+              v-model="ruleForm.icon"
+              :preview-color="ruleForm.iconColor"
+            />
           </el-form-item>
         </el-col>
 
@@ -1728,7 +1751,7 @@ target="#btn2" title="Type"
   <el-tour v-model="showTourStep1" z-index="100000" :onClose="endTour">
     <el-tour-step
 target="#btn4" title="Icon"
-      description="This is the icon to appear on the statistic card. The icons are available from https://icon-sets.iconify.design/?category=General. Copy the icon name and paste here." />
+      description="Pick an Element Plus icon (e.g. House, PieChart) or type the icon name. See the Element Plus icon collection for all options." />
     <el-tour-step target="#btn5" title="Icon Color" description="The  color of the ICon on the statistic card" />
 
   </el-tour>
@@ -1818,6 +1841,20 @@ target="#btn11" title="Filters"
 .filter-actions {
   margin-left: auto;
   display: flex;
+  gap: 8px;
+}
+.cards-table {
+  width: 100%;
+}
+.cards-settings-card {
+  width: 100%;
+}
+.cards-settings-card :deep(.el-card__body) {
+  width: 100%;
+}
+.cards-table-icon {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 </style>
