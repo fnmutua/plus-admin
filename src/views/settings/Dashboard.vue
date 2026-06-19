@@ -258,44 +258,43 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 const searchKeyword = ref(null)
 
 const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchKeyword.value
-  //--Single Filter -----------------------------------------
+  loading.value = true
+  try {
+    const formData = {}
+    formData.limit = pSize.value
+    formData.page = page.value
+    formData.curUser = 1 // Id for logged in user
+    formData.model = model
+    //-Search field--------------------------------------------
+    formData.searchField = 'name'
+    formData.searchKeyword = searchKeyword.value
+    //--Single Filter -----------------------------------------
 
-  formData.assocModel = associated_Model
+    formData.assocModel = associated_Model
 
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
+    // - multiple filters -------------------------------------
+    formData.filters = selFilters
+    formData.filterValues = selfilterValues
+    formData.associated_multiple_models = associated_multiple_models
 
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+    //-------------------------
+    const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  const visibleRows = filterDashboardsForUser(userInfo, res.data)
-  tableDataList.value = visibleRows
-  total.value = visibleRows.length
+    console.log('After Querry', res)
+    const visibleRows = filterDashboardsForUser(userInfo, res.data)
+    tableDataList.value = visibleRows
+    total.value = visibleRows.length
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  visibleRows.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    tblData = [] // reset the table data
+    visibleRows.forEach(function (arrayItem) {
+      var dd = flattenJSON(arrayItem)
+      tblData.push(dd)
+    })
 
-    var dd = flattenJSON(arrayItem)
-
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
+    console.log('TBL-4f', tblData)
+  } finally {
+    loading.value = false
+  }
 }
 
 
@@ -316,7 +315,6 @@ const getIndicatorOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
     // pass result to the makeoptions
 
     categories.value = ret
@@ -571,7 +569,7 @@ const openHelp = ref(false)
     </el-row>
 
 
-    <el-table :data="tableDataList" class="dashboards-table" table-layout="auto">
+    <el-table v-loading="loading" :data="tableDataList" class="dashboards-table" table-layout="auto">
       <el-table-column label="#" type="index" width="50" />
       <el-table-column label="Dashboard" prop="title" min-width="180" show-overflow-tooltip sortable />
       <el-table-column label="Icon" min-width="140">
@@ -641,30 +639,32 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
       </el-form-item>
 
       <el-form-item id="btn2" label="Type" prop="type">
-        <el-select
-v-model="ruleForm.type" @clear="handleClear" clearable filterable collapse-tags
-          placeholder="Select Type of dashboard">
-          <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-
- 
+        <div class="type-field">
+          <el-select
+            v-model="ruleForm.type"
+            clearable
+            filterable
+            collapse-tags
+            placeholder="Select type of dashboard"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+          <p class="field-hint">
+            Status — based on entities in the database (settlements, facilities, households, etc.).<br />
+            Intervention — based on M&amp;E indicators (outputs and outcomes).
+          </p>
+        </div>
       </el-form-item>
-      <el-row>
 
-        <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-          <el-form-item id="btn3" label="Main" prop="main_dashboard">
-            <el-switch v-model="ruleForm.main_dashboard" />
-          </el-form-item>
-        </el-col>
-
-
-        <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-          <el-form-item id="btn4" prop="public"  >
-            <el-checkbox v-model="ruleForm.public" label="Public" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-
+      <el-form-item id="btn4" label="Public" prop="public">
+        <div class="public-field">
+          <el-checkbox v-model="ruleForm.public" label="Make this dashboard public" />
+          <p class="field-hint">
+            When enabled, every user can see this dashboard in the menu. When off, only you (and admins) can see it.
+          </p>
+        </div>
+      </el-form-item>
 
       <el-form-item id="btn5" label="Icon" prop="icon" class="icon-picker-form-field">
         <ElementPlusIconPickerField v-model="ruleForm.icon" />
@@ -696,33 +696,22 @@ v-model="ruleForm.type" @clear="handleClear" clearable filterable collapse-tags
       <div class="info-dialog-section">
         <h4 class="info-heading">Status Dashboard:</h4>
         <p>
-          A dashboard that draws data from the entities within the system. It allows configurations of summaries related
-          to settlements, facilities, etc.
+          Based on entities in the database — settlements, facilities, households, and other system records.
         </p>
       </div>
       <div class="info-dialog-section">
-        <h4 class="info-heading"> Interventions Dashboard:</h4>
+        <h4 class="info-heading">Intervention Dashboard:</h4>
         <p>
-          A dashboard that draws data exclusively from slum interventions such as construction of infrastructure,
-          issuance
-          of titles, and more. The dashboard draws data from the indicator reports (output and outcomes).
+          Based on M&amp;E indicators — outputs, outcomes, and intervention reports.
         </p>
       </div>
 
       <div class="info-dialog-section">
         <h4 class="info-heading">Public Dashboard:</h4>
         <p>
-          A dashboard that is accessible to everyone with access to the system, else exclusive to the creator.
+          A dashboard that is accessible to everyone with access to the system. If not public, it is only visible to you and admins.
         </p>
       </div>
-
-      <div class="info-dialog-section">
-        <h4 class="info-heading">Main Dashboard:</h4>
-        <p>
-          The Default dashboard. There can only be on such dashboard.
-        </p>
-      </div>
-
 
     </div>
   </el-dialog>
@@ -732,13 +721,10 @@ v-model="ruleForm.type" @clear="handleClear" clearable filterable collapse-tags
     <el-tour-step target="#btn1" title="Title" description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
     <el-tour-step
 target="#btn2" title="Type"
-      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
-    <el-tour-step
-target="#btn3" title="Main"
-      description="A main dashboard remains after creation and cannot be deleted. For custom dashboards, keep this disabled" />
+      description="Status dashboards use entities in the database (settlements, facilities, households, etc.). Intervention dashboards use M&amp;E indicators (outputs and outcomes)." />
     <el-tour-step
 target="#btn4" title="Public"
-      description=" Allows the dashboards to be visible to every user. Keep it unchecked for your own custom dashboards" />
+      description="Make the dashboard visible to all users in the navigation menu. Leave unchecked to keep it private to you." />
 
     <el-tour-step
 target="#btn5" title="Icon"
@@ -806,5 +792,25 @@ target="#btn5" title="Icon"
 
 .icon-picker-form-field :deep(.icon-picker-panel) {
   width: 100%;
+}
+
+.public-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.type-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #94a3b8;
 }
 </style>
