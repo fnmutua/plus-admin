@@ -134,6 +134,7 @@ const AddDialogVisible = ref(false)
 const formHeader = ref('Add Dashboard')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
+const dialogLoading = ref(false)
 
 
 
@@ -432,41 +433,56 @@ const AddIndicator = () => {
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
-
-    var exists = await checkIfRouteExists(ruleForm.title)
+    const exists = await checkIfRouteExists(ruleForm.title)
 
     if (exists) {
       ElMessage.error('A route with same name exists. Try a different Name')
-    } else {
-
-      if (valid) {
-        ruleForm.model = model
-        ruleForm.code = uuid.v4()
-        const res = CreateRecord(ruleForm)
-
-      } else {
-        console.log('error submit!', fields)
-      }
+      return
     }
 
+    if (!valid) {
+      console.log('error submit!', fields)
+      return
+    }
 
+    ruleForm.model = model
+    ruleForm.code = uuid.v4()
+    dialogLoading.value = true
+    try {
+      await CreateRecord(ruleForm)
+      ElMessage.success('Dashboard created')
+      await getFilteredData(filters, filterValues)
+      AddDialogVisible.value = false
+    } catch (error) {
+      console.error(error)
+      ElMessage.error('Failed to create dashboard')
+    } finally {
+      dialogLoading.value = false
+    }
   })
 }
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-
-      updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
-
-    } else {
+  await formEl.validate(async (valid, fields) => {
+    if (!valid) {
       console.log('error submit!', fields)
+      return
+    }
+
+    ruleForm.model = model
+    dialogLoading.value = true
+    try {
+      await updateOneRecord(ruleForm)
+      ElMessage.success('Dashboard saved')
+      await getFilteredData(filters, filterValues)
+      AddDialogVisible.value = false
+    } catch (error) {
+      console.error(error)
+      ElMessage.error('Failed to save dashboard')
+    } finally {
+      dialogLoading.value = false
     }
   })
 }
@@ -677,13 +693,13 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
     <template #footer>
 
       <span class="dialog-footer">
-        <el-button type="primary" plain @click="openHelp = true">Help</el-button>
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" plain @click="openHelp = true" :disabled="dialogLoading">Help</el-button>
+        <el-button @click="AddDialogVisible = false" :disabled="dialogLoading">Cancel</el-button>
         <PermissionWrapper :permissions="'dashboard:create'">
-          <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showSubmitBtn" type="primary" :loading="dialogLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
         </PermissionWrapper>
         <PermissionWrapper :permissions="'dashboard:update'">
-          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" :loading="dialogLoading" @click="editForm(ruleFormRef)">Save</el-button>
         </PermissionWrapper>
       </span>
     </template>
