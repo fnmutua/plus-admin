@@ -32,7 +32,7 @@ import { getModelSpecs } from '@/api/fields'
 import { getListWithoutGeo } from '@/api/counties'
 import { getUniqueFieldValues } from '@/api/households'
 
-import { Icon } from '@iconify/vue';
+import { resolveChartTypeIcon } from '@/utils/chartTypeIcons'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { isDashboardSettingsAdmin } from '@/utils/documentPermissions';
@@ -1279,6 +1279,11 @@ const getModeldefinition = async (selModel) => {
 
 const chartOptions = ref([])
 
+const chartTypeLabel = (type) => {
+  const match = chartOptions.value.find((item) => item.value === type)
+  return match?.label || `Type ${type}`
+}
+
 chartOptions.value = [
   {
     value: 1,
@@ -2115,35 +2120,29 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
 
     
 
-    <el-table v-loading="loading" :data="charts_filtered" stripe="stripe">
-      <el-table-column label="Type">
+    <el-table v-loading="loading" :data="charts_filtered" stripe class="charts-table" table-layout="auto">
+      <el-table-column label="Type" min-width="160">
         <template #default="scope">
-          <Icon v-if="scope.row.type === 1" width="24" icon="tabler:chart-bar" />
-          <Icon v-if="scope.row.type === 2" width="24" icon="fa-regular:chart-bar" />
-          <Icon v-if="scope.row.type === 3" width="24" icon="bi:pie-chart-fill" />
-          <Icon v-if="scope.row.type === 4" width="24" icon="material-symbols:full-stacked-bar-chart" />
-          <Icon v-if="scope.row.type === 5" width="24" icon="vaadin:line-chart" />
-          <Icon v-if="scope.row.type === 6" width="24" icon="material-symbols:1x-mobiledata-badge-rounded" />
-          <Icon v-if="scope.row.type === 7" width="24" icon="foundation:map" />
-          <Icon v-if="scope.row.type === 8" width="24" icon="carbon:chart-population" />
-          <Icon v-if="scope.row.type === 9" width="24" icon="ic:baseline-stacked-bar-chart" />
-          <Icon v-if="scope.row.type === 10" width="24" icon="ic:sharp-donut-large" />
-          <Icon v-if="scope.row.type === 11" width="24" icon="oi:grid-three-up" />
-          <Icon v-if="scope.row.type === 12" width="24" icon="carbon:chart-multi-line" />
+          <div class="charts-table-type">
+            <el-icon :size="18" color="#475569">
+              <component :is="resolveChartTypeIcon(scope.row.type)" />
+            </el-icon>
+            <span>{{ chartTypeLabel(scope.row.type) }}</span>
+          </div>
         </template>
       </el-table-column>
 
-      <el-table-column label="Dashboard" :sort-method="sortByDashboard" sortable>
+      <el-table-column label="Dashboard" :sort-method="sortByDashboard" sortable min-width="160" show-overflow-tooltip>
         <template #default="scope">
           <span>{{ scope.row.dashboard_section?.dashboard?.title || '-' }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="Title" prop="title" sortable />
-      <el-table-column label="Description" prop="description" sortable />
+      <el-table-column label="Title" prop="title" sortable min-width="160" show-overflow-tooltip />
+      <el-table-column label="Description" prop="description" sortable min-width="200" show-overflow-tooltip />
 
 
-      <el-table-column label="Operations">
+      <el-table-column label="Operations" min-width="200" align="right">
         <template #header>
           <el-input v-model="searchKey" size="small" placeholder="Filter by title" />
         </template>
@@ -2552,6 +2551,16 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.charts-table {
+  width: 100%;
+}
+
+.charts-table-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
 

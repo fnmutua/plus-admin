@@ -29,6 +29,8 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
+import { Icon } from '@/components/Icon'
+import { resolveElementPlusIcon } from '@/utils/elementPlusIcons'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import { filterDashboardsForUser, isDashboardSettingsAdmin } from '@/utils/documentPermissions'
 
@@ -570,11 +572,31 @@ const openHelp = ref(false)
     </el-row>
 
 
-    <el-table :data="tableDataList" style="width: 100%">
+    <el-table :data="tableDataList" class="dashboards-table" table-layout="auto">
       <el-table-column label="#" type="index" width="50" />
-      <el-table-column label="Dashboard" prop="title" sortable />
-      <el-table-column label="Description" prop="description" sortable />
-      <el-table-column align="right">
+      <el-table-column label="Dashboard" prop="title" min-width="180" show-overflow-tooltip sortable />
+      <el-table-column label="Icon" min-width="140">
+        <template #default="{ row }">
+          <div class="dashboards-table-icon">
+            <el-icon
+              v-if="resolveElementPlusIcon(row.icon)"
+              :size="18"
+              color="#475569"
+            >
+              <component :is="resolveElementPlusIcon(row.icon)" />
+            </el-icon>
+            <Icon
+              v-else-if="row.icon"
+              :icon="row.icon"
+              :size="18"
+              color="#475569"
+            />
+            <span>{{ row.icon || '—' }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Description" prop="description" min-width="220" show-overflow-tooltip sortable />
+      <el-table-column label="Operations" min-width="180" align="right">
         <template #header>
           <el-input
 v-model="searchKeyword" size="small" @change="remoteMethod" @blur="remoteMethod" @clear="handleClear"
@@ -763,5 +785,15 @@ target="#btn5" title="Icon"
   font-size: 1.2em;
   font-weight: bold;
   margin-bottom: 10px;
+}
+
+.dashboards-table {
+  width: 100%;
+}
+
+.dashboards-table-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
