@@ -28,10 +28,15 @@ export const filterElementPlusIconNames = (query = '') => {
 
 export const isElementPlusIconName = (name?: string | null): name is string => {
   if (!name || name.includes(':')) return false
-  return name in elementPlusIconComponents
+  return Boolean(resolveElementPlusIcon(name))
 }
 
 export const resolveElementPlusIcon = (name?: string | null): Component | null => {
-  if (!isElementPlusIconName(name)) return null
-  return elementPlusIconComponents[name]
+  if (!name || name.includes(':')) return null
+  if (name in elementPlusIconComponents) return elementPlusIconComponents[name]
+
+  const match = elementPlusIconNames.find(
+    (iconName) => iconName.toLowerCase() === name.toLowerCase()
+  )
+  return match ? elementPlusIconComponents[match] : null
 }

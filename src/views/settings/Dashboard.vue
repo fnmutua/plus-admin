@@ -30,7 +30,6 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
 import { Icon } from '@/components/Icon'
-import { resolveElementPlusIcon } from '@/utils/elementPlusIcons'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import { filterDashboardsForUser, isDashboardSettingsAdmin } from '@/utils/documentPermissions'
 
@@ -578,20 +577,14 @@ const openHelp = ref(false)
       <el-table-column label="Icon" min-width="140">
         <template #default="{ row }">
           <div class="dashboards-table-icon">
-            <el-icon
-              v-if="resolveElementPlusIcon(row.icon)"
-              :size="18"
-              color="#475569"
-            >
-              <component :is="resolveElementPlusIcon(row.icon)" />
-            </el-icon>
-            <Icon
-              v-else-if="row.icon"
-              :icon="row.icon"
-              :size="18"
-              color="#475569"
-            />
-            <span>{{ row.icon || '—' }}</span>
+            <span v-if="row.icon" class="dashboards-table-icon-preview">
+              <Icon
+                :icon="row.icon"
+                :size="18"
+                color="#475569"
+              />
+            </span>
+            <span class="dashboards-table-icon-name">{{ row.icon || '—' }}</span>
           </div>
         </template>
       </el-table-column>
@@ -795,6 +788,20 @@ target="#btn5" title="Icon"
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.dashboards-table-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.dashboards-table-icon-name {
+  min-width: 0;
+  word-break: break-word;
 }
 
 .icon-picker-form-field :deep(.icon-picker-panel) {

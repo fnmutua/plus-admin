@@ -34,7 +34,6 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
 import { Icon } from '@/components/Icon'
-import { resolveElementPlusIcon } from '@/utils/elementPlusIcons'
 
 import { getModelSpecs, } from '@/api/fields'
 
@@ -1444,20 +1443,14 @@ const handleDrawerBeforeClose = (done) => {
       <el-table-column prop="icon" label="Icon" min-width="140">
         <template #default="{ row }">
           <div class="cards-table-icon">
-            <el-icon
-              v-if="resolveElementPlusIcon(row.icon)"
-              :size="18"
-              :color="row.iconColor || '#475569'"
-            >
-              <component :is="resolveElementPlusIcon(row.icon)" />
-            </el-icon>
-            <Icon
-              v-else-if="row.icon"
-              :icon="row.icon"
-              :size="18"
-              :color="row.iconColor || '#475569'"
-            />
-            <span>{{ row.icon || '—' }}</span>
+            <span v-if="row.icon" class="cards-table-icon-preview">
+              <Icon
+                :icon="row.icon"
+                :size="18"
+                :color="row.iconColor || '#475569'"
+              />
+            </span>
+            <span class="cards-table-icon-name">{{ row.icon || '—' }}</span>
           </div>
         </template>
       </el-table-column>
@@ -1856,6 +1849,20 @@ target="#btn11" title="Filters"
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.cards-table-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.cards-table-icon-name {
+  min-width: 0;
+  word-break: break-word;
 }
 
 .icon-picker-form-field :deep(.icon-picker-panel) {
