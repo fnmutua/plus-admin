@@ -15,9 +15,10 @@ export const CHART_TYPE_ICONS: Record<number, string> = {
   12: 'DataLine',
 }
 
-export const getChartTypeIconName = (type?: number | null) => {
-  if (!type) return 'PieChart'
-  return CHART_TYPE_ICONS[type] || 'PieChart'
+export const getChartTypeIconName = (type?: number | string | null) => {
+  const numericType = Number(type)
+  if (!type || Number.isNaN(numericType)) return 'PieChart'
+  return CHART_TYPE_ICONS[numericType] || 'PieChart'
 }
 
 export const resolveChartTypeIcon = (type?: number | null) => {

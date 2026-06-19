@@ -32,7 +32,8 @@ import { getModelSpecs } from '@/api/fields'
 import { getListWithoutGeo } from '@/api/counties'
 import { getUniqueFieldValues } from '@/api/households'
 
-import { resolveChartTypeIcon } from '@/utils/chartTypeIcons'
+import { getChartTypeIconName } from '@/utils/chartTypeIcons'
+import { Icon } from '@/components/Icon'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { isDashboardSettingsAdmin } from '@/utils/documentPermissions';
@@ -2124,9 +2125,11 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
       <el-table-column label="Type" min-width="160">
         <template #default="scope">
           <div class="charts-table-type">
-            <el-icon :size="18" color="#475569">
-              <component :is="resolveChartTypeIcon(scope.row.type)" />
-            </el-icon>
+            <Icon
+              :icon="getChartTypeIconName(scope.row.type)"
+              :size="18"
+              color="#475569"
+            />
             <span>{{ chartTypeLabel(scope.row.type) }}</span>
           </div>
         </template>
