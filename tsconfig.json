@@ -24,7 +24,7 @@
       "@/*": ["src/*"]
     },
     "types": [
-      "@intlify/unplugin-vue-i18n/client",
+      "@intlify/vite-plugin-vue-i18n/client",
       "vite/client",
       "element-plus/global",
       "@types/intro.js",
