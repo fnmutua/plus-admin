@@ -625,6 +625,6 @@ module.exports = function (app) {
    */
   app.post('/api/v1/summary/county/facilities', [authJwt.verifyToken], controller.countsByCountyFacilities)
 
- 
-  
+  app.post('/api/v1/chart/data', [authJwt.verifyToken], controller.getChartData)
+
 }

@@ -27,6 +27,8 @@ import {
   getSummarybyFieldFromMultipleIncludes,
   getSummaryBatchByFieldFromMultipleIncludes,
   getSummaryGroupByMultipleFields,
+  getChartData,
+  renderChart,
 } from '@/api/summary'
 import { getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
@@ -839,8 +841,63 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
   return [categoryArray, seriesData]
 }
 
+/**
+ * Fetch chart data via the dedicated per-type endpoint (/api/v1/chart/render).
+ * Returns [categories, series] same shape as xgetSummaryMultipleParentsGrouped.
+ */
+const getAxisChartData = async (thisChart: any): Promise<[any[], any[]]> => {
+  const { x_axis, y_axis, series_field, card_model, time_field, metric_fields, filters, ignore_empty, type } = thisChart
+  const chartType = Number(type)
+
+  // Build payload — per-type controller handles missing fields gracefully
+  const payload: any = {
+    chart_type:   chartType,
+    model:        card_model,
+    ignore_empty: ignore_empty !== false,
+  }
+
+  if (x_axis?.field)       payload.x_axis = x_axis
+  if (y_axis?.aggregation) payload.y_axis  = y_axis
+  if (series_field?.field) payload.series_field = series_field
+  if (time_field)          payload.time_field = time_field
+  if (Array.isArray(metric_fields) && metric_fields.length) payload.metric_fields = metric_fields
+
+  // Merge stored chart filters with the runtime dashboard location filter
+  // Qualify with the model table name to avoid ambiguity when admin JOINs are active
+  const locationFilters: any[] = []
+  if (filterLevel.value === 'county' && selectedCounties.value?.length) {
+    locationFilters.push({ field: card_model + '.county_id', operation: 'in', value: selectedCounties.value })
+  } else if (filterLevel.value === 'subcounty' && selectedSubCounties.value?.length) {
+    locationFilters.push({ field: card_model + '.subcounty_id', operation: 'in', value: selectedSubCounties.value })
+  }
+  const mergedFilters = [...(Array.isArray(filters) ? filters : []), ...locationFilters]
+  if (mergedFilters.length) payload.filters = mergedFilters
+
+  const res = await renderChart(payload)
+  const categories: any[] = Array.isArray(res.categories) ? res.categories : []
+  const series: any[]     = Array.isArray(res.series) ? res.series : []
+
+  // Pie / donut / treemap (types 3, 10, 11) expect [labels, numericValues] not [labels, [{name,data}]]
+  if (chartType === 3 || chartType === 10 || chartType === 11) {
+    const data = series[0]?.data ?? []
+    return [categories, data.map(Number)]
+  }
+
+  // Map chart (type 7): backend returns categories=[min,max], series=[{name,value}]
+  if (chartType === 7) {
+    return [categories, series]
+  }
+
+  return [categories, series]
+}
+
 const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any) => {
   try {
+    // Use new axis endpoint when x_axis is configured
+    if (thisChart.x_axis?.field && thisChart.y_axis?.aggregation) {
+      return await getAxisChartData(thisChart)
+    }
+
     let amount: any
     if (preloaded && preloaded.Total !== undefined && preloaded.Total !== null) {
       amount = preloaded.Total
@@ -1308,6 +1365,7 @@ const getCharts = async (section_id) => {
           c.category === 'Status' &&
           Number(c.type) !== 8 &&
           c.card_model &&
+          !c.x_axis?.field &&   // skip new-style charts — they call /chart/data directly
           (c.card_model_field ||
             (Number(c.type) === 12 &&
               Array.isArray(c.metric_fields) &&
@@ -1480,69 +1538,62 @@ const getCharts = async (section_id) => {
         charts.push(thisChart)
         setChartLoaded(thisChart.id); // Mark chart as loaded
       }
-      // function to process processMultiBarChart charts 
+      // function to process processMultiBarChart charts
       async function processMultiBarChart() {
-        const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+        setChartLoading(thisChart.id, 'Loading chart data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
 
-          try {
+          const allCats: any[]   = Array.isArray(cdata[0]) ? cdata[0] : []
+          const allSeries: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-            console.log('Multi[e]', cdata);
+          // Sort X categories by combined total descending
+          const indexed = allCats.map((cat: any, i: number) => ({
+            cat,
+            total: allSeries.reduce((sum: number, s: any) =>
+              sum + (Array.isArray(s.data) ? (Number(s.data[i]) || 0) : 0), 0),
+            idx: i,
+          }))
+          indexed.sort((a: any, b: any) => b.total - a.total)
 
-            const UpdatedBarOptionsMultiple = {
-              ...multipleBarChart,
-              title: {
-                ...multipleBarChart.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...multipleBarChart.subtitle,
-                text: subtitleWithSource
-              },
-              xAxis: {
-                ...multipleBarChart.xAxis,
-                categories: cdata[0] // categories as received 
-              },
-            };
+          const sortedCats   = indexed.map((x: any) => x.cat)
+          const sortedSeries = allSeries.map((s: any) => ({
+            ...s,
+            data: Array.isArray(s.data) ? indexed.map((x: any) => s.data[x.idx]) : s.data,
+          }))
 
-            thisChart.chart = UpdatedBarOptionsMultiple;
-            thisChart.chart.series = cdata[1];
+          thisChart.chartDataFull = { categories: sortedCats, series: sortedSeries }
+          thisChart.chartExpanded = false
+          const PAGE = 10
+          const displayCats   = sortedCats.slice(0, PAGE)
+          const displaySeries = sortedSeries.map((s: any) => ({
+            ...s, data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : s.data,
+          }))
+          thisChart.chartHeight = getExpandableBarChartHeight(sortedCats.length, false, PAGE)
 
-            // show no data 
-            if (cdata[1].length === 0) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-              }];
-            }
-
-          } catch (error) {
-            // Handle any errors that occurred during the process
+          thisChart.chart = {
+            ...multipleBarChart,
+            title:    { ...multipleBarChart.title,    text: thisChart.title },
+            subtitle: { ...multipleBarChart.subtitle, text: subtitleWithSource },
+            chart:    withBarChartExport(multipleBarChart.chart, thisChart.chartHeight, false),
+            xaxis:    { ...multipleBarChart.xaxis, categories: displayCats },
+            series:   displaySeries,
           }
-        }];
 
-        //     await Promise.all(promises);
-        await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
-
-
-
-
+          if (allCats.length === 0) {
+            thisChart.chart.graphic = [{
+              type: 'text', left: 'center', top: 'middle',
+              style: { text: 'No data available', fill: '#999', fontSize: 16 },
+              z: 100,
+            }]
+          }
+        } catch (error) {
+          // handled by chart error boundary
+        }
 
         charts.push(thisChart)
-        setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
-      }
+        setChartLoaded(thisChart.id)
+      }
 
   
       // function to process processStackedBarChart charts 
@@ -2428,17 +2479,12 @@ const getCharts = async (section_id) => {
                 ...multipleBarChart.subtitle,
                 text: subtitleWithSource
               },
-              xAxis: {
-                ...multipleBarChart.xAxis,
-                categories: cdata[0]  // categories as recieved 
+              xaxis: {
+                ...multipleBarChart.xaxis,
+                categories: cdata[0],
               },
-
-            };
-
-
-            thisChart.chart = UpdatedBarOptionsMultiple
-
-            thisChart.chart.series = cdata[1]
+              series: cdata[1],
+            }
 
             // show no data 
             if (cdata[0].length===0) {

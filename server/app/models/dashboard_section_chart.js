@@ -106,6 +106,21 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    x_axis: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
+
+    y_axis: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
+
+    series_field: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
+
  
     code: {
       type: DataTypes.STRING,

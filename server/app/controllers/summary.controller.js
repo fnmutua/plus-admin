@@ -2157,3 +2157,128 @@ exports.batchSumModelAssociatedMultipleModels = async (req, res) => {
     return res.status(500).send({ error: err.message, code: '5000' })
   }
 }
+
+/**
+ * Axis-based chart data endpoint.
+ * POST /api/v1/chart/data
+ *
+ * Body:
+ *   model        {string}  Sequelize model name (e.g. "settlement")
+ *   x_axis       {object}  { field: string, label?: string }
+ *   y_axis       {object}  { field: string, aggregation: "count"|"sum"|"avg"|"min"|"max", label?: string }
+ *   series_field {object?} { field: string, label?: string } — optional breakdown
+ *   filters      {array?}  [{ field, operation, value }]
+ *   ignore_empty {boolean?}
+ *
+ * Returns:
+ *   { categories: string[], series: [{ name: string, data: number[] }], code: "0000" }
+ */
+exports.getChartData = async (req, res) => {
+  try {
+    const { model: modelName, x_axis, y_axis, series_field, filters, ignore_empty } = req.body;
+
+    if (!modelName || !x_axis?.field || !y_axis?.field || !y_axis?.aggregation) {
+      return res.status(400).send({ message: 'model, x_axis.field, y_axis.field and y_axis.aggregation are required', code: '4001' });
+    }
+    if (!db.models[modelName]) {
+      return res.status(400).send({ message: `Model '${modelName}' not found`, code: '4002' });
+    }
+
+    const xField = x_axis.field;
+    const yField = y_axis.field;
+    const yAgg   = (y_axis.aggregation || 'count').toLowerCase();
+    const yLabel = y_axis.label || yAgg;
+    const sField = series_field?.field || null;
+
+    // Build GROUP BY fields
+    const groupFieldPaths = [xField];
+    if (sField) groupFieldPaths.push(sField);
+
+    const groupAttrs = groupFieldPaths.map(f => formatGroupFieldAsDateOnly(f));
+
+    // Build query
+    const qry = {
+      attributes: [...groupAttrs],
+      group: groupAttrs.map(groupByExpr),
+      raw: true,
+      where: {},
+    };
+
+    // Y aggregation
+    const aggAlias = 'agg_value';
+    if (yAgg === 'count' && yField === 'id') {
+      qry.attributes.push([Sequelize.fn('COUNT', Sequelize.col(`${modelName}.id`)), aggAlias]);
+    } else {
+      qry.attributes.push([Sequelize.fn(yAgg.toUpperCase(), Sequelize.col(yField)), aggAlias]);
+    }
+
+    // Filters
+    const filterConditions = [];
+    if (ignore_empty) {
+      filterConditions.push({ [yField]: { [op.not]: null } });
+    }
+    if (Array.isArray(filters)) {
+      const opMap = {
+        eq: op.eq, ne: op.ne, gt: op.gt, gte: op.gte, lt: op.lt, lte: op.lte,
+        in: op.in, notIn: op.notIn, like: op.like, iLike: op.iLike, all: null,
+      };
+      for (const f of filters) {
+        if (!f.field || !f.operation || f.operation === 'all') continue;
+        const sqOp = opMap[f.operation];
+        if (!sqOp) continue;
+        const val = Array.isArray(f.value) && f.value.length === 1 ? f.value[0] : f.value;
+        if (f.operation === 'in' || f.operation === 'notIn') {
+          filterConditions.push({ [f.field]: { [sqOp]: Array.isArray(f.value) ? f.value : [f.value] } });
+        } else {
+          filterConditions.push({ [f.field]: { [sqOp]: val } });
+        }
+      }
+    }
+    if (filterConditions.length > 0) {
+      qry.where = { [op.and]: filterConditions };
+    }
+
+    const rows = await db.models[modelName].findAll(qry);
+
+    // Transform rows → { categories, series }
+    let categories = [];
+    let series = [];
+
+    if (!sField) {
+      // Simple: one series
+      for (const row of rows) {
+        const xVal = row[xField] != null ? String(row[xField]) : '(empty)';
+        const yVal = parseFloat(row[aggAlias]) || 0;
+        categories.push(xVal);
+        series.push(yVal);
+      }
+      series = [{ name: yLabel, data: series }];
+    } else {
+      // Pivot by series field
+      const catSet = new Map();   // xVal → index
+      const seriesMap = new Map(); // sVal → { name, dataByX: Map<xVal, number> }
+
+      for (const row of rows) {
+        const xVal = row[xField] != null ? String(row[xField]) : '(empty)';
+        const sVal = row[sField] != null ? String(row[sField]) : '(other)';
+        const yVal = parseFloat(row[aggAlias]) || 0;
+
+        if (!catSet.has(xVal)) catSet.set(xVal, catSet.size);
+        if (!seriesMap.has(sVal)) seriesMap.set(sVal, { name: sVal, dataByX: new Map() });
+        const existing = seriesMap.get(sVal).dataByX.get(xVal) || 0;
+        seriesMap.get(sVal).dataByX.set(xVal, existing + yVal);
+      }
+
+      categories = [...catSet.keys()];
+      series = [...seriesMap.values()].map(s => ({
+        name: s.name,
+        data: categories.map(c => s.dataByX.get(c) || 0),
+      }));
+    }
+
+    return res.status(200).send({ categories, series, code: '0000' });
+  } catch (err) {
+    console.error('getChartData error:', err);
+    return res.status(500).send({ message: 'Failed to fetch chart data', error: err.message, code: '5000' });
+  }
+};

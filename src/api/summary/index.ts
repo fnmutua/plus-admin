@@ -88,4 +88,37 @@ export const getPhoto = (data: any) => {
   return request.post({ url: prod + '/api/v1/photo', data, responseType: 'blob' })
 }
 
+/**
+ * Axis-based chart data — returns { categories, series } directly from axis config.
+ * @deprecated Use renderChart() which dispatches per-type optimised SQL.
+ */
+export const getChartData = (data: {
+  model: string
+  x_axis: { field: string; label?: string }
+  y_axis: { field: string; aggregation: 'count' | 'sum' | 'avg' | 'min' | 'max'; label?: string }
+  series_field?: { field: string; label?: string } | null
+  filters?: { field: string; operation: string; value: any }[]
+  ignore_empty?: boolean
+}): Promise<{ categories: string[]; series: { name: string; data: number[] }[]; code: string }> => {
+  return request.post({ url: prod + '/api/v1/chart/data', data }) as Promise<any>
+}
+
+/**
+ * Per-chart-type optimised data endpoint.
+ * Dispatches to the lightest SQL for each chart type server-side.
+ */
+export const renderChart = (data: {
+  chart_type: number
+  model?: string
+  x_axis?: { field: string; label?: string }
+  y_axis?: { field: string; aggregation: 'count' | 'sum' | 'avg' | 'min' | 'max'; label?: string }
+  series_field?: { field: string; label?: string } | null
+  time_field?: string
+  metric_fields?: string[]
+  filters?: { field: string; operation: string; value: any }[]
+  ignore_empty?: boolean
+}): Promise<{ categories: any[]; series: any[]; code: string }> => {
+  return request.post({ url: prod + '/api/v1/chart/render', data }) as Promise<any>
+}
+
  
