@@ -172,9 +172,9 @@ const selectIcon = (icon: string) => {
 .icon-picker-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
@@ -198,7 +198,7 @@ const selectIcon = (icon: string) => {
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
@@ -214,7 +214,7 @@ const selectIcon = (icon: string) => {
 .icon-picker-paste {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .icon-picker-toolbar,
@@ -228,8 +228,8 @@ const selectIcon = (icon: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   border-radius: 8px;
   background: #f8fafc;
@@ -248,7 +248,7 @@ const selectIcon = (icon: string) => {
 .icon-picker-paste-input {
   flex: 1;
   min-width: 0;
-  height: 30px;
+  height: 28px;
   padding: 0 10px;
   border: 1px solid var(--el-border-color);
   border-radius: 8px;
@@ -291,7 +291,7 @@ const selectIcon = (icon: string) => {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 4px;
-  max-height: 168px;
+  max-height: 140px;
   overflow-y: auto;
   padding: 2px 4px 2px 0;
 }
@@ -311,7 +311,7 @@ const selectIcon = (icon: string) => {
   justify-content: center;
   width: 100%;
   aspect-ratio: 1;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 6px;
