@@ -138,6 +138,8 @@ const AGGREGATION_OPTIONS = [
 ]
 
 const EXCLUDE_FIELDS = new Set(['title', 'name', 'geom', 'code', 'createdBy', 'updatedAt', 'description', 'createdAt'])
+/** Fields unsuitable as pie/donut/treemap slice axes — grouping by id creates one tile per row. */
+const EXCLUDE_SLICE_AXES = new Set(['id'])
 
 // ─── API constants ────────────────────────────────────────────────────────────
 const API_MODEL = 'dashboard_section_chart'
@@ -290,21 +292,14 @@ const ruleForm = reactive({
   icon:                 '',
   category:             '',     // 'Status' | 'Intervention'
   type:                 null as number | null,
-  aggregation:          '',
   card_model:           '',
-  card_model_field:     null as string | null,
   metric_fields:        [] as string[],
   time_field:           'createdAt',
   indicator_id:         null as number[] | null,
-  categorized:          false,
   ignore_empty:         true,
   filtered:             false,
   filters:              null as any[] | null,
-  filter_field:         '',
-  filter_function:      '',
-  filter_value:         [] as any[],
-  filter_option:        '',
-  // ── Axis-based config (new) ──────────────────────────────────────────────────
+  // ── Axis-based config ────────────────────────────────────────────────────────
   x_axis:               null as { field: string; label: string } | null,
   y_axis:               null as { field: string; aggregation: string; label: string } | null,
   series_field:         null as { field: string; label: string } | null,
@@ -317,7 +312,6 @@ const rules = reactive<FormRules>({
   description:          [{ required: true, message: 'Description is required', trigger: 'blur' }],
   category:             [{ required: true, message: 'Select Status or Intervention', trigger: 'change' }],
   type:                 [{ required: true, message: 'Select a chart type', trigger: 'change' }],
-  aggregation:          [{ required: true, message: 'Select aggregation method', trigger: 'change' }],
 })
 
 // ─── Derived from form ─────────────────────────────────────────────────────────
@@ -374,7 +368,7 @@ const axisPreviewSentence = computed(() => {
   }
   const entity = MODEL_OPTIONS.find(o => o.value === ruleForm.card_model)?.label || ruleForm.card_model
   const xField = showTimeAxis.value ? (ruleForm.time_field || 'date') : (ruleForm.x_axis?.field || '')
-  const agg    = ruleForm.y_axis?.aggregation || ruleForm.aggregation || 'count'
+  const agg    = ruleForm.y_axis?.aggregation || 'count'
   const yField = ruleForm.y_axis?.field
   const sField = ruleForm.series_field?.field
   const aggVerb = agg === 'count' ? 'count' : `${agg} of`
@@ -387,24 +381,20 @@ const axisPreviewSentence = computed(() => {
 // ── Axis change handlers ──────────────────────────────────────────────────────
 const onXAxisChange = (field: string) => {
   ruleForm.x_axis = field ? { field, label: field } : null
-  ruleForm.card_model_field = field || null
 }
 
 const onYAxisFieldChange = (field: string) => {
   const agg = ruleForm.y_axis?.aggregation || 'count'
   ruleForm.y_axis = field ? { field, aggregation: agg, label: agg } : null
-  ruleForm.aggregation = agg
 }
 
 const onYAxisAggChange = (agg: string) => {
   const field = ruleForm.y_axis?.field || 'id'
   ruleForm.y_axis = { field, aggregation: agg, label: agg }
-  ruleForm.aggregation = agg
 }
 
 const onSeriesFieldChange = (field: string) => {
   ruleForm.series_field = field ? { field, label: field } : null
-  ruleForm.categorized = !!field
 }
 
 // (aggregationOptions computed is defined above in the axis config block)
@@ -414,18 +404,24 @@ const fieldSet = ref<any[]>([])
 const fieldSetLoading = ref(false)
 
 const loadModelFields = async (selModel: string) => {
-  if (!selModel) return
+  if (!selModel) {
+    fieldSet.value = []
+    return
+  }
   fieldSetLoading.value = true
   fieldSet.value = []
   try {
     const res = await getModelSpecs({ model: selModel })
-    fieldSet.value = res.data
+    fieldSet.value = (res.data || [])
       .filter((f: any) => !EXCLUDE_FIELDS.has(f.field))
       .map((f: any) => ({ value: f.field, label: f.field, type: f.type }))
     // Inject virtual county.name option whenever the model has a county_id FK
     if (fieldSet.value.some((f: any) => f.value === 'county_id')) {
       fieldSet.value.unshift({ value: 'county.name', label: 'County / Sub-county / Ward (auto)', type: 'STRING' })
     }
+  } catch (e) {
+    console.error('loadModelFields:', e)
+    ElMessage.error('Could not load fields for this entity')
   } finally {
     fieldSetLoading.value = false
   }
@@ -436,6 +432,13 @@ const numericFields = computed(() => {
   return fieldSet.value.filter(f => numTypes.has(f.type))
 })
 
+/** Slice/tile axis options — exclude id (one tile per row hangs treemap). */
+const xAxisFieldOptions = computed(() => {
+  const sliceTypes = new Set([3, 10, 11])
+  const exclude = sliceTypes.has(Number(ruleForm.type)) ? EXCLUDE_SLICE_AXES : new Set<string>()
+  return fieldSet.value.filter(f => !exclude.has(f.value))
+})
+
 const timeFields = computed(() => {
   const timeTypes = new Set(['INTEGER', 'DATE', 'DATEONLY'])
   return [
@@ -444,10 +447,23 @@ const timeFields = computed(() => {
   ]
 })
 
-const handleSelectModel = async (selModel: string) => {
-  ruleForm.card_model_field = null
+const resetAxisForEntityChange = () => {
   ruleForm.metric_fields = []
-  ruleForm.type = null
+  ruleForm.x_axis = null
+  ruleForm.series_field = null
+  const conf = ruleForm.type ? CHART_TYPE_CONFIG[ruleForm.type] : null
+  if (conf?.yAxisField === false) {
+    const agg = ruleForm.y_axis?.aggregation || 'count'
+    ruleForm.y_axis = { field: 'id', aggregation: agg, label: agg }
+  } else if (conf?.yAxis || conf?.mapChart) {
+    ruleForm.y_axis = { field: 'id', aggregation: 'count', label: 'count' }
+  } else {
+    ruleForm.y_axis = null
+  }
+}
+
+const handleSelectModel = async (selModel: string) => {
+  resetAxisForEntityChange()
   await loadModelFields(selModel)
 }
 
@@ -546,10 +562,10 @@ const saveFilters = () => {
 // ─── Form lifecycle ────────────────────────────────────────────────────────────
 const EMPTY_FORM = () => ({
   id: '', title: '', dashboard_id: '', dashboard_section_id: '', description: '',
-  iconColor: '', icon: '', category: '', type: null, aggregation: '', card_model: '',
-  card_model_field: null, metric_fields: [], time_field: 'createdAt',
-  indicator_id: null, categorized: false, ignore_empty: true,
-  filtered: false, filters: null, filter_field: '', filter_function: '', filter_value: [], filter_option: '',
+  iconColor: '', icon: '', category: '', type: null, card_model: '',
+  metric_fields: [], time_field: 'createdAt',
+  indicator_id: null, ignore_empty: true,
+  filtered: false, filters: null,
   x_axis: null, y_axis: null, series_field: null,
 })
 
@@ -563,6 +579,7 @@ const resetForm = ({ closeDrawer = true, preserveContext = null }: any = {}) => 
   indicatorOptions.value = []
   drawerLoading.value = false
   ruleFormRef.value?.clearValidate()
+  if (preserveContext?.card_model) loadModelFields(preserveContext.card_model)
   if (closeDrawer) drawerVisible.value = false
 }
 
@@ -595,20 +612,13 @@ const populateForm = async (row: any) => {
     icon:                 row.icon,
     category:             row.category,
     type:                 row.type,
-    aggregation:          row.aggregation,
     card_model:           row.card_model,
-    card_model_field:     row.card_model_field,
     metric_fields:        Array.isArray(row.metric_fields) ? row.metric_fields : [],
     time_field:           row.time_field || 'createdAt',
     indicator_id:         row.indicators?.map((i: any) => i.id) ?? null,
-    categorized:          row.categorized,
     ignore_empty:         row.ignore_empty,
     filtered:             row.filtered,
     filters:              row.filters,
-    filter_field:         row.filter_field,
-    filter_function:      row.filter_function,
-    filter_value:         row.filter_value ?? [],
-    filter_option:        row.filter_option,
     x_axis:               row.x_axis ?? null,
     y_axis:               row.y_axis ?? null,
     series_field:         row.series_field ?? null,
@@ -667,22 +677,22 @@ const selectChartType = (id: number) => {
   // Clear axis state that doesn't carry over between chart types
   ruleForm.x_axis = null
   ruleForm.series_field = null
-  ruleForm.categorized = false
   const def = CHART_DEFS.find(d => d.id === id)
   if (def?.householdsOnly) ruleForm.card_model = 'households'
-  // Pie / Donut / Word Map don't expose a Y-field picker — default to count of rows
   const conf = CHART_TYPE_CONFIG[id]
   if (conf?.yAxisField === false) {
-    ruleForm.y_axis = { field: 'id', aggregation: ruleForm.y_axis?.aggregation || 'count' }
+    ruleForm.y_axis = { field: 'id', aggregation: ruleForm.y_axis?.aggregation || 'count', label: ruleForm.y_axis?.aggregation || 'count' }
   } else if (conf && !conf.yAxis) {
     ruleForm.y_axis = null
+  } else if (conf?.yAxis || conf?.mapChart) {
+    const agg = ruleForm.y_axis?.aggregation || 'count'
+    ruleForm.y_axis = { field: ruleForm.y_axis?.field || 'id', aggregation: agg, label: agg }
   }
 }
 
 const handleCategoryChange = () => {
   ruleForm.type = null
   ruleForm.card_model = ''
-  ruleForm.card_model_field = null
   ruleForm.metric_fields = []
   ruleForm.indicator_id = null
   fieldSet.value = []
@@ -702,24 +712,22 @@ const submitForm = async (addAnother = false) => {
 
   if (!isStatus.value) {
     ruleForm.card_model = 'indicator_category_report'
-    ruleForm.card_model_field = 'id'
   }
-  // Sync axis config → legacy fields so old rendering path stays compatible
-  if (ruleForm.x_axis?.field) {
-    ruleForm.card_model_field = ruleForm.x_axis.field
-  }
-  if (ruleForm.y_axis?.aggregation) {
-    ruleForm.aggregation = ruleForm.y_axis.aggregation
-  }
-  if (ruleForm.series_field?.field) {
-    ruleForm.categorized = true
-  }
+
   if (ruleForm.type === 12) {
     if (!Array.isArray(ruleForm.metric_fields) || ruleForm.metric_fields.length < 2) {
       ElMessage.error('Select at least two metrics for Multi-variable Line')
       return
     }
-    ruleForm.card_model_field = ruleForm.metric_fields[0]
+  }
+  const conf = ruleForm.type ? CHART_TYPE_CONFIG[ruleForm.type] : null
+  if (conf?.series === 'required' && !ruleForm.series_field?.field) {
+    ElMessage.error('Select a series / breakdown field — it is required for this chart type')
+    return
+  }
+  if (ruleForm.type === 11 && (!ruleForm.x_axis?.field || ruleForm.x_axis.field === 'id')) {
+    ElMessage.error('Word Map needs a category tile field (e.g. county.name) — not id')
+    return
   }
   if (!ruleForm.time_field) ruleForm.time_field = 'createdAt'
 
@@ -942,11 +950,11 @@ const submitForm = async (addAnother = false) => {
               </div>
 
               <!-- X Axis (all bar/pie/treemap types) -->
-              <el-form-item v-if="showXAxis" :label="typeConf?.xLabel || 'X Axis — Group by'" prop="card_model_field">
+              <el-form-item v-if="showXAxis" :label="typeConf?.xLabel || 'X Axis — Group by'" prop="x_axis">
                 <el-select :model-value="ruleForm.x_axis?.field ?? null" filterable clearable
                   placeholder="Pick the field to group records by" style="width:100%"
                   :loading="fieldSetLoading" @change="onXAxisChange">
-                  <el-option v-for="f in fieldSet" :key="f.value" :label="f.label" :value="f.value" />
+                  <el-option v-for="f in xAxisFieldOptions" :key="f.value" :label="f.label" :value="f.value" />
                 </el-select>
                 <div class="field-hint">{{ typeConf?.xHint }}</div>
               </el-form-item>

@@ -32,26 +32,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-   
-    aggregation: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
 
     card_model: {
       type: DataTypes.STRING,
       allowNull: true
-    },
-
-    card_model_field: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    categorized: {
-      type: DataTypes.BOOLEAN,
-       defaultValue: false
-
     },
 
     time_field: {
@@ -67,34 +51,11 @@ module.exports = function(sequelize, DataTypes) {
       comment: 'Numeric fields for multi-variable line chart (type 12)',
     },
 
-    filter_value: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: true
-    },
-    
-    filter_function: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-        
-    filter_option: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-
     filtered: {
       type: DataTypes.BOOLEAN,
       defaultValue:false
     },
 
-       
-    filter_field: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-         
     ignore_empty: {
       type: DataTypes.BOOLEAN,
       defaultValue: true

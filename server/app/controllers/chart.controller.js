@@ -79,6 +79,30 @@ function safeModel(name) {
   return name
 }
 
+// Integer period columns (year, etc.) — cannot use AT TIME ZONE / TO_CHAR timestamp ops
+const INTEGER_TIME_FIELDS = new Set(['year', 'month', 'quarter', 'period'])
+
+function timeFieldBare(name) {
+  return String(name || 'createdAt').split('.').pop()
+}
+
+/** SQL expression + result alias for a chart time axis column. */
+function buildTimeAxis(timeFieldName) {
+  const bare = timeFieldBare(timeFieldName)
+  const col  = safeCol(timeFieldName || 'createdAt')
+  if (INTEGER_TIME_FIELDS.has(bare)) {
+    return { expr: `CAST(${col} AS TEXT)`, alias: bare }
+  }
+  return { expr: `TO_CHAR(${col} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`, alias: 'to_char' }
+}
+
+function rowTimeValue(row, alias) {
+  if (!row) return ''
+  if (row[alias] != null) return String(row[alias])
+  if (row.to_char != null) return String(row.to_char)
+  return String(row[Object.keys(row).find(k => k !== 'agg_value') || ''] || '')
+}
+
 // ─── WHERE clause builder ─────────────────────────────────────────────────────
 function buildWhere(filters, ignoreEmpty, yField) {
   const parts = []
@@ -112,10 +136,38 @@ function buildWhere(filters, ignoreEmpty, yField) {
     }
   }
 
-  return {
-    clause: parts.length ? `WHERE ${parts.join(' AND ')}` : '',
-    bind,
-  }
+  return { clause: parts.length ? `WHERE ${parts.join(' AND ')}` : '', bind }
+}
+
+/** Rewrite WHERE clause table qualifier to a SQL alias (e.g. "settlement" → t). */
+function qualifyClauseForAlias(clause, tbl, alias = 't') {
+  if (!clause) return ''
+  return clause.replace(new RegExp(`"${tbl}"`, 'g'), alias)
+}
+
+/** Y-axis column with table alias. */
+function yColAliased(field, tbl, alias = 't') {
+  if (!field || field === 'id') return `${alias}.id`
+  const bare = String(field).split('.').pop()
+  return `${alias}."${bare}"`
+}
+
+async function modelHasColumn(tbl, col) {
+  if (db.models[tbl]?.rawAttributes?.[col]) return true
+  const r = await sequelize.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2 LIMIT 1`,
+    { bind: [tbl, col], type: QueryTypes.SELECT },
+  ).catch(() => [])
+  return r.length > 0
+}
+
+/** Pick map geo aggregation level from active filters + model columns. */
+async function resolveMapGeoLevel(filters, tbl) {
+  const admin = resolveAdminLevel(filters)
+  if (admin === 'ward' && await modelHasColumn(tbl, 'ward_id')) return 'ward'
+  if (admin === 'subcounty' && await modelHasColumn(tbl, 'subcounty_id')) return 'subcounty'
+  if (admin === 'ward' && await modelHasColumn(tbl, 'subcounty_id')) return 'subcounty'
+  return 'county'
 }
 
 // ─── 1. BAR — types 1, 2, 4, 6, 9 ───────────────────────────────────────────
@@ -178,17 +230,29 @@ async function barChart(body) {
 
 // ─── 2. PIE / DONUT / TREEMAP — types 3, 10, 11 ─────────────────────────────
 // GROUP BY x_axis, AGG(y_axis)
-// Returns: { categories, series: [{ name: 'value', data: [n] }] }
-// The frontend for pie extracts series[0].data as the numeric values array.
+// Treemap (11) capped to TREEMAP_SLICE_LIMIT tiles — large GROUP BY sets hang the browser.
+const TREEMAP_SLICE_LIMIT = 40
+const PIE_SLICE_LIMIT     = 100
+
 async function pieChart(body) {
-  const { model, x_axis, y_axis, filters, ignore_empty } = body
+  const { model, x_axis, y_axis, filters, ignore_empty, chart_type } = body
+  const chartType = Number(chart_type)
   const tbl  = safeModel(model)
+  const xBare = String(x_axis?.field || '').split('.').pop()
+
+  if (chartType === 11 && (!x_axis?.field || xBare === 'id')) {
+    throw new Error('Word Map requires a category field (not id) — e.g. county.name, gender')
+  }
+
   const { joinSql, xExpr, xAlias } = resolveVirtualField(x_axis.field, tbl, filters)
   const yCol = safeCol(y_axis.field === 'id' ? `${tbl}.id` : y_axis.field)
   const yAgg = safeAgg(y_axis.aggregation)
   const yFieldForWhere = y_axis.field === 'id' ? `${tbl}.id` : y_axis.field
 
   const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+
+  const sqlLimit = chartType === 11 ? TREEMAP_SLICE_LIMIT : (chartType === 3 || chartType === 10 ? PIE_SLICE_LIMIT : null)
+  const limitSql = sqlLimit ? ` LIMIT ${sqlLimit}` : ''
 
   const sql = `
     SELECT ${xExpr}, ${yAgg}(${yCol}) AS agg_value
@@ -197,6 +261,7 @@ async function pieChart(body) {
     ${clause}
     GROUP  BY ${xExpr}
     ORDER  BY agg_value DESC
+    ${limitSql}
   `
   const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
   const xField = xAlias
@@ -212,7 +277,7 @@ async function pieChart(body) {
 async function lineChart(body) {
   const { model, time_field, y_axis, series_field, filters, ignore_empty } = body
   const tbl      = safeModel(model)
-  const timeCol  = safeCol(time_field || 'createdAt')
+  const { expr: timeExpr, alias: timeAlias } = buildTimeAxis(time_field || 'createdAt')
   const yCol     = safeCol(y_axis.field === 'id' ? `${tbl}.id` : y_axis.field)
   const yAgg     = safeAgg(y_axis.aggregation)
   const yLabel   = y_axis.label || yAgg.toLowerCase()
@@ -223,8 +288,6 @@ async function lineChart(body) {
   const sCol        = serResolved?.xExpr || null
   const sJoinSql    = serResolved?.joinSql || ''
   const sField      = serResolved?.xAlias || null
-
-  const timeExpr = `TO_CHAR(${timeCol} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`
 
   const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
 
@@ -241,18 +304,17 @@ async function lineChart(body) {
   const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
 
   if (!sCol) {
-    const categories = rows.map(r => String(r.to_char || r[Object.keys(r)[0]] || ''))
+    const categories = rows.map(r => rowTimeValue(r, timeAlias))
     const data       = rows.map(r => parseFloat(r.agg_value) || 0)
     return { categories, series: [{ name: yLabel, data }] }
   }
 
   // Pivot by series
-  const dateKey = 'to_char'
-  const dates   = [...new Set(rows.map(r => String(r[dateKey] || '')))]
+  const dates   = [...new Set(rows.map(r => rowTimeValue(r, timeAlias)))]
   const serMap  = new Map()
 
   for (const row of rows) {
-    const d    = String(row[dateKey] || '')
+    const d    = rowTimeValue(row, timeAlias)
     const sVal = row[sField] != null ? String(row[sField]) : '(other)'
     const val  = parseFloat(row.agg_value) || 0
     if (!serMap.has(sVal)) serMap.set(sVal, new Map())
@@ -268,43 +330,44 @@ async function lineChart(body) {
 }
 
 // ─── 4. MAP — type 7 ──────────────────────────────────────────────────────────
-// Joins county, GROUP BY county name. Returns min/max for color scale + data.
-// categories = [min, max], series = [{name: countyName, value: n}]
+// Groups by county / subcounty / ward name depending on active geo filters.
+// categories = [min, max], series = [{name, value}]
 async function mapChart(body) {
   const { model, y_axis, filters, ignore_empty } = body
   const tbl   = safeModel(model)
-  const yCol  = safeCol(y_axis?.field === 'id' ? `${tbl}.id` : (y_axis?.field || `${tbl}.id`))
+  const yField = y_axis?.field || 'id'
   const yAgg  = safeAgg(y_axis?.aggregation || 'count')
+  const yFieldForWhere = yField === 'id' ? `${tbl}.id` : yField
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, y_axis?.field)
+  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+  const geoLevel = await resolveMapGeoLevel(filters, tbl)
 
-  // Try joining county if model has county_id
-  let sql
-  const hasCountyId = db.models[tbl]?.rawAttributes?.county_id ||
-    await sequelize.query(
-      `SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name='county_id' LIMIT 1`,
-      { bind: [tbl], type: QueryTypes.SELECT }
-    ).then(r => r.length > 0).catch(() => false)
-
-  if (hasCountyId) {
-    sql = `
-      SELECT c.name, ${yAgg}(${yCol}) AS agg_value
-      FROM   "${tbl}" t
-      JOIN   county c ON c.id = t.county_id
-      ${clause.replace('WHERE', 'WHERE t.')}
-      GROUP  BY c.name
-      ORDER  BY agg_value DESC
-    `
+  let joinSql, groupExpr
+  if (geoLevel === 'ward') {
+    joinSql   = `JOIN ward w ON w.id = t.ward_id`
+    groupExpr = 'w.name'
+  } else if (geoLevel === 'subcounty') {
+    joinSql   = `JOIN subcounty sc ON sc.id = t.subcounty_id`
+    groupExpr = 'sc.name'
+  } else if (await modelHasColumn(tbl, 'county_id')) {
+    joinSql   = `JOIN county c ON c.id = t.county_id`
+    groupExpr = 'c.name'
   } else {
-    // Fallback: just count by county_id
-    sql = `
-      SELECT county_id::text AS name, ${yAgg}(${yCol}) AS agg_value
-      FROM   "${tbl}"
-      ${clause}
-      GROUP  BY county_id
-      ORDER  BY agg_value DESC
-    `
+    joinSql   = ''
+    groupExpr = 't.county_id::text'
   }
+
+  const whereSql = qualifyClauseForAlias(clause, tbl, 't')
+  const yCol     = yColAliased(yField, tbl, 't')
+
+  const sql = `
+    SELECT ${groupExpr} AS name, ${yAgg}(${yCol}) AS agg_value
+    FROM   "${tbl}" t
+    ${joinSql}
+    ${whereSql}
+    GROUP  BY ${groupExpr}
+    ORDER  BY agg_value DESC
+  `
 
   const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
   const data = rows.map(r => ({ name: String(r.name || ''), value: parseFloat(r.agg_value) || 0 }))
@@ -359,21 +422,20 @@ async function multiLineChart(body) {
   const metrics = (Array.isArray(metric_fields) ? metric_fields : []).filter(Boolean)
   if (!metrics.length) return { categories: [], series: [] }
 
-  const timeCol = safeCol(time_field || 'createdAt')
-  const timeExpr = `TO_CHAR(${timeCol} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`
+  const { expr: timeExpr, alias: periodAlias } = buildTimeAxis(time_field || 'createdAt')
 
   const metricSelects = metrics.map(m => `SUM(${safeCol(m)}) AS ${m.replace(/\./g, '_')}`).join(',\n    ')
   const { clause, bind } = buildWhere(filters, false)
 
   const sql = `
-    SELECT ${timeExpr} AS period, ${metricSelects}
+    SELECT ${timeExpr} AS ${periodAlias}, ${metricSelects}
     FROM   "${tbl}"
     ${clause}
     GROUP  BY ${timeExpr}
     ORDER  BY 1
   `
   const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
-  const categories = rows.map(r => String(r.period || ''))
+  const categories = rows.map(r => rowTimeValue(r, periodAlias))
 
   const series = metrics.map(m => {
     const alias = m.replace(/\./g, '_')

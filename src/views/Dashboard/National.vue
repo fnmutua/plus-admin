@@ -10,6 +10,9 @@ import {
   mapChartOptions, mapChartSourceFooterFill, mapChartNoDataFill, mapChartNoDataAreaColor,
   mergeApexChartOptionsWithTheme, mergeEchartsMapOptionForTheme,
   getExpandableBarChartHeight, withBarChartExport,
+  normalizeApexBarSeries,
+  buildApexLineSeries,
+  buildApexTreemapSeries,
   getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
@@ -19,6 +22,7 @@ import {
   getSummarybyFieldFromMultipleIncludes,
   getSummaryBatchByFieldFromMultipleIncludes,
   getSummaryGroupByMultipleFields,
+  renderChart,
 } from '@/api/summary'
 import { getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
@@ -564,12 +568,15 @@ function buildChartSummaryFormData(thisChart: any) {
 
   const cmodel = thisChart.card_model
   const filters = thisChart.filters
-  const cfield = thisChart.card_model_field
-  const cAggregation = thisChart.aggregation
-  const chartType = thisChart.type
-  const categorizedField = thisChart.categorized
+  const x_axis = parseAxisJson(thisChart.x_axis)
+  const y_axis = parseAxisJson(thisChart.y_axis)
+  const series_field = parseAxisJson(thisChart.series_field)
+  const chartType = Number(thisChart.type)
   const unique = thisChart.unique ? thisChart.unique : false
   const ignoreEmpty = thisChart.ignore_empty ? thisChart.ignore_empty : false
+
+  const cAggregation = (y_axis?.aggregation || 'count').toLowerCase()
+  const measureField = y_axis?.field || 'id'
 
   if (filters) {
     for (const item of filters) {
@@ -581,8 +588,13 @@ function buildChartSummaryFormData(thisChart: any) {
     }
   }
 
-  if (categorizedField) {
-    groupFields.push(cmodel + '.' + cfield)
+  if (chartType === 3 || chartType === 10) {
+    const sliceField = x_axis?.field || measureField
+    groupFields.push(cmodel + '.' + sliceField)
+  } else if (series_field?.field && x_axis?.field) {
+    groupFields.push(cmodel + '.' + x_axis.field)
+  } else if (x_axis?.field && x_axis.field !== 'county.name') {
+    groupFields.push(cmodel + '.' + x_axis.field)
   }
 
   if (chartType == 5 || chartType == 6 || chartType == 12) {
@@ -628,7 +640,10 @@ function buildChartSummaryFormData(thisChart: any) {
       formData.summaryField = `${cmodel}.${metrics[0]}`
     }
   } else {
-    formData.summaryField = cmodel + '.' + cfield
+    const summaryField = (chartType === 3 || chartType === 10)
+      ? (x_axis?.field || measureField)
+      : measureField
+    formData.summaryField = cmodel + '.' + summaryField
     formData.summaryFunction = cAggregation
   }
   formData.assoc_models = associated_Models
@@ -645,9 +660,11 @@ function buildChartSummaryFormData(thisChart: any) {
 }
 
 function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
-  const cfield = thisChart.card_model_field
-  const cAggregation = thisChart.aggregation
-  const chartType = thisChart.type
+  const y_axis = parseAxisJson(thisChart.y_axis)
+  const x_axis = parseAxisJson(thisChart.x_axis)
+  const cAggregation = (y_axis?.aggregation || 'count').toLowerCase()
+  const chartType = Number(thisChart.type)
+  const cfield = x_axis?.field || y_axis?.field || 'id'
 
   if (!amount || !Array.isArray(amount) || amount.length === 0) {
     return [[], []]
@@ -752,8 +769,98 @@ function transformMultipleSummaryTotal(thisChart: any, amount: any[]) {
   return [categoryArray, seriesData]
 }
 
+/** Parse axis JSONB — may arrive as object or string depending on API path. */
+function parseAxisJson(val: any) {
+  if (!val) return null
+  if (typeof val === 'string') {
+    try { return JSON.parse(val) } catch { return null }
+  }
+  return val
+}
+
+/** Route to /chart/render when axis config is present (incl. line/map/multi-line types). */
+function shouldUseAxisEndpoint(chart: any): boolean {
+  if (chart.category && chart.category !== 'Status') return false
+  const type = Number(chart.type)
+  if (type === 12) {
+    return Array.isArray(chart.metric_fields) && chart.metric_fields.length > 0
+  }
+  const y_axis = parseAxisJson(chart.y_axis)
+  if (!y_axis?.aggregation) return false
+  const x_axis = parseAxisJson(chart.x_axis)
+  if (x_axis?.field) return true
+  if (type === 5) return true
+  if (type === 7) return true
+  return false
+}
+
+/** Use a second Y axis when series magnitudes differ by more than 10×. */
+function detectDualAxis(series: { name: string; data: number[] }[]): boolean {
+  const maxVals = series.map((s) => Math.max(...s.data, 0)).filter((v) => v > 0)
+  if (maxVals.length < 2) return false
+  const hi = Math.max(...maxVals)
+  const lo = Math.min(...maxVals)
+  return lo > 0 && hi / lo > 10
+}
+
+const getAxisChartData = async (thisChart: any): Promise<[any[], any[]]> => {
+  const x_axis       = parseAxisJson(thisChart.x_axis)
+  const y_axis       = parseAxisJson(thisChart.y_axis)
+  const series_field = parseAxisJson(thisChart.series_field)
+  const { card_model, time_field, metric_fields, filters, ignore_empty, type } = thisChart
+  const chartType = Number(type)
+
+  const payload: any = {
+    chart_type:   chartType,
+    model:        card_model,
+    ignore_empty: ignore_empty !== false,
+  }
+
+  if (x_axis?.field)       payload.x_axis = x_axis
+  if (y_axis?.aggregation) {
+    payload.y_axis = {
+      field: y_axis.field || 'id',
+      aggregation: y_axis.aggregation,
+      label: y_axis.label || y_axis.aggregation,
+    }
+  }
+  if (series_field?.field) payload.series_field = series_field
+  if (time_field)          payload.time_field = time_field
+  if (Array.isArray(metric_fields) && metric_fields.length) payload.metric_fields = metric_fields
+
+  const locationFilters: any[] = []
+  if (filterLevel.value === 'county' && selectedCounties.value?.length) {
+    locationFilters.push({ field: card_model + '.county_id', operation: 'in', value: selectedCounties.value })
+  } else if (filterLevel.value === 'subcounty' && selectedSubCounties.value?.length) {
+    locationFilters.push({ field: card_model + '.subcounty_id', operation: 'in', value: selectedSubCounties.value })
+  }
+  const mergedFilters = [...(Array.isArray(filters) ? filters : []), ...locationFilters]
+  if (mergedFilters.length) payload.filters = mergedFilters
+
+  const res = await renderChart(payload)
+  const categories: any[] = Array.isArray(res.categories) ? res.categories : (res.data?.categories ?? [])
+  const series: any[]     = Array.isArray(res.series) ? res.series : (res.data?.series ?? [])
+
+  if (chartType === 3 || chartType === 10 || chartType === 11) {
+    const data = series[0]?.data ?? []
+    return [categories, data.map(Number)]
+  }
+
+  if (chartType === 7) {
+    return [categories, series]
+  }
+
+  return [categories, series]
+}
+
 const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any) => {
   try {
+    const x_axis = parseAxisJson(thisChart.x_axis)
+    const y_axis = parseAxisJson(thisChart.y_axis)
+    if (shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
+      return await getAxisChartData({ ...thisChart, x_axis, y_axis, series_field: parseAxisJson(thisChart.series_field) })
+    }
+
     let amount: any
     if (preloaded && preloaded.Total !== undefined && preloaded.Total !== null) {
       amount = preloaded.Total
@@ -763,8 +870,9 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any
       amount = response.Total
     }
     return transformMultipleSummaryTotal(thisChart, amount)
-  } catch {
-    return []
+  } catch (err) {
+    console.error('xgetSummaryMultipleParentsGrouped:', thisChart?.id, thisChart?.title, err)
+    return [[], []]
   }
 }
 
@@ -880,9 +988,12 @@ const getCharts = async (section_id) => {
     try {
       const forBatch = response.data.filter(
         (c: any) =>
+          c.category === 'Status' &&
           Number(c.type) !== 8 &&
           c.card_model &&
-          (c.card_model_field ||
+          !shouldUseAxisEndpoint(c) &&
+          (parseAxisJson(c.x_axis)?.field ||
+            parseAxisJson(c.y_axis)?.aggregation ||
             (Number(c.type) === 12 &&
               Array.isArray(c.metric_fields) &&
               c.metric_fields.length > 0)),
@@ -985,76 +1096,69 @@ const getCharts = async (section_id) => {
 
 // Function to process treemap charts
 async function processTreemapChart() {
-  const promises = [async function () {
-    
-    // Set loading state for this chart
-    setChartLoading(thisChart.id, 'Loading treemap data...');
-
-    try {
-      const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)));
-
-      const UpdatedTreemapOptions = {
+  setChartLoading(thisChart.id, 'Loading word map data...')
+  try {
+    const xField = parseAxisJson(thisChart.x_axis)?.field
+    if (!xField || xField === 'id') {
+      thisChart.chart = {
         ...treemapOptions,
-        chart: {
-          ...treemapOptions.chart,
-          type: 'treemap', // Ensure type is treemap
-          toolbar: {
-            ...(treemapOptions.chart?.toolbar || {}),
-            show: true,
-            export: {
-              scale: 3,
-              width: 1800
-            }
-          }
-        },
-        title: {
-          ...treemapOptions.title,
-          text: thisChart.title,
-        },
-        subtitle: {
-          ...treemapOptions.subtitle,
-          text: subtitleWithSource,
-        },
-        //series: [{ data: cdata[0].map((label, index) => ({ x: label, y: cdata[1][index] })) }], // Combine labels and series into treemap format
-        series:cdata[1],
-        plotOptions: {
-          ...treemapOptions.plotOptions,
-          treemap: {
-            ...treemapOptions.plotOptions?.treemap,
-            distributed: true,
-            enableShades: false,
-          },
-        },
-        legend: {
-          show: false,
-        },
-      };
-
-
-      thisChart.chart = UpdatedTreemapOptions;
-
-      // Show "No data" message if data is empty
-      if (!cdata[1] || cdata[1].length === 0) {
-        thisChart.chart.graphic = [{
-          type: 'text',
-          left: 'center',
-          top: 'middle',
-          style: {
-            text: 'No data available',
-            fill: '#999',
-            fontSize: 16,
-          },
-          z: 100,
-        }];
+        title: { ...treemapOptions.title, text: thisChart.title },
+        subtitle: { ...treemapOptions.subtitle, text: subtitleWithSource },
+        series: [{ data: [] }],
+        noData: { text: 'Reconfigure: pick a category field (not id)' },
       }
-    } catch (error) {
+      thisChart.apexSeries = [{ data: [] }]
+      charts.push(thisChart)
+      setChartLoaded(thisChart.id)
+      return
     }
-  }];
 
-  await promises[0]();
+    const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+    const { series: treemapSeries } = buildApexTreemapSeries(cdata)
 
-  charts.push(thisChart);
-  setChartLoaded(thisChart.id); // Mark chart as loaded
+    thisChart.apexSeries = treemapSeries
+    thisChart.chart = {
+      ...treemapOptions,
+      chart: {
+        ...treemapOptions.chart,
+        type: 'treemap',
+        animations: { enabled: false },
+        toolbar: {
+          ...(treemapOptions.chart?.toolbar || {}),
+          show: true,
+          export: { scale: 3, width: 1800 },
+        },
+      },
+      title:    { ...treemapOptions.title,    text: thisChart.title },
+      subtitle: { ...treemapOptions.subtitle, text: subtitleWithSource },
+      plotOptions: {
+        ...treemapOptions.plotOptions,
+        treemap: {
+          ...treemapOptions.plotOptions?.treemap,
+          distributed: true,
+          enableShades: false,
+        },
+      },
+      legend: { show: false },
+      series: treemapSeries,
+    }
+
+    if (!treemapSeries[0]?.data?.length) {
+      thisChart.chart.noData = { text: 'No data available' }
+    }
+  } catch (error) {
+    console.error('processTreemapChart:', thisChart?.id, error)
+    thisChart.apexSeries = [{ data: [] }]
+    thisChart.chart = {
+      ...treemapOptions,
+      title: { ...treemapOptions.title, text: thisChart.title },
+      series: [{ data: [] }],
+      noData: { text: 'No data available' },
+    }
+  }
+
+  charts.push(thisChart)
+  setChartLoaded(thisChart.id)
 }
 
 
@@ -1124,63 +1228,58 @@ async function processTreemapChart() {
       }
       // function to process processMultiBarChart charts 
       async function processMultiBarChart() {
-        const promises = [async function () {
+        setChartLoading(thisChart.id, 'Loading chart data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
 
-          try {
+          const allCats: any[]   = Array.isArray(cdata?.[0]) ? cdata[0] : []
+          const allSeries: any[] = Array.isArray(cdata?.[1]) ? cdata[1] : []
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
+          const indexed = allCats.map((cat: any, i: number) => ({
+            cat,
+            total: allSeries.reduce((sum: number, s: any) =>
+              sum + (Array.isArray(s?.data) ? (Number(s.data[i]) || 0) : 0), 0),
+            idx: i,
+          }))
+          indexed.sort((a: any, b: any) => b.total - a.total)
 
-            const UpdatedBarOptionsMultiple = {
-              ...multipleBarChart,
-              title: {
-                ...multipleBarChart.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...multipleBarChart.subtitle,
-                text: subtitleWithSource
-              },
-              xAxis: {
-                ...multipleBarChart.xAxis,
-                categories: cdata[0] // categories as received 
-              },
-            };
+          const sortedCats   = indexed.map((x: any) => x.cat)
+          const sortedSeries = allSeries.map((s: any) => ({
+            name: s?.name ?? 'Series',
+            data: Array.isArray(s?.data) ? indexed.map((x: any) => s.data[x.idx]) : [],
+          }))
 
-            thisChart.chart = UpdatedBarOptionsMultiple;
-            thisChart.chart.series = cdata[1];
+          thisChart.chartDataFull = { categories: sortedCats, series: sortedSeries }
+          thisChart.chartExpanded = false
+          const PAGE = 10
+          const displayCats   = sortedCats.slice(0, PAGE)
+          const displaySeries = normalizeApexBarSeries(
+            sortedSeries.map((s: any) => ({
+              name: s.name,
+              data: Array.isArray(s.data) ? s.data.slice(0, PAGE) : [],
+            })),
+          )
+          thisChart.chartHeight = getExpandableBarChartHeight(sortedCats.length, false, PAGE)
 
-            // show no data 
-            if (cdata[1].length === 0) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-              }];
-            }
-
-          } catch (error) {
-            // Handle any errors that occurred during the process
+          thisChart.apexSeries = displaySeries
+          thisChart.chart = {
+            ...simpleBarChart,
+            title:    { ...simpleBarChart.title,    text: thisChart.title },
+            subtitle: { ...simpleBarChart.subtitle, text: subtitleWithSource },
+            chart:    withBarChartExport(simpleBarChart.chart, thisChart.chartHeight, false),
+            xaxis:    { ...simpleBarChart.xaxis, categories: displayCats },
+            series:   displaySeries,
           }
-        }];
 
-        //     await Promise.all(promises);
-        await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-
-
-
-
+          if (allCats.length === 0 || displaySeries.length === 0) {
+            thisChart.chart.noData = { text: 'No data available' }
+          }
+        } catch (error) {
+          console.error('processMultiBarChart:', thisChart?.id, error)
+        }
 
         charts.push(thisChart)
-        setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
+        setChartLoaded(thisChart.id)
       }
 
       // function to process processStackedBarChart charts 
@@ -1315,142 +1414,73 @@ async function processTreemapChart() {
 
       // function to process processMultiBarChart charts 
       async function processMultiVariableLineChart() {
-        const promises = [async function () {
-          try {
-            let amount: any
-            const preloaded = summaryByChartId.get(String(thisChart.id))
-            if (preloaded?.Total !== undefined && preloaded?.Total !== null) {
-              amount = preloaded.Total
-            } else {
-              const formData = buildChartSummaryFormData(thisChart)
-              const response = await getSummarybyFieldFromMultipleIncludes(formData)
-              amount = response.Total
-            }
+        setChartLoading(thisChart.id, 'Loading multi-line chart data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+          const { categories, series } = buildApexLineSeries(cdata, 'Series')
+          const dualAxis = detectDualAxis(series)
 
-            const metrics = Array.isArray(thisChart.metric_fields)
-              ? thisChart.metric_fields.filter(Boolean)
-              : []
-            const { categories, series, dualAxis } = buildMultiVariableLineSeries(
-              amount,
-              getChartTimeFieldKey(thisChart),
-              metrics
-            )
+          const apexSeries = series.map((s, index) => ({
+            name: s.name,
+            data: s.data,
+            ...(dualAxis && index > 0 ? { yAxisIndex: 1 } : {}),
+          }))
 
-            const apexSeries = series.map((s, index) => ({
-              ...lineOptions.series[0],
-              name: s.name,
-              data: s.data,
-              ...(dualAxis && index > 0 ? { yAxisIndex: 1 } : {}),
-            }))
-
-            thisChart.chart = {
-              ...lineOptions,
-              title: { ...lineOptions.title, text: thisChart.title },
-              subtitle: { ...lineOptions.subtitle, text: subtitleWithSource },
-              xaxis: { ...lineOptions.xaxis, categories },
-              yaxis: dualAxis
-                ? [
-                    { ...lineOptions.yaxis, title: { text: series[0]?.name || '' } },
-                    {
-                      opposite: true,
-                      title: { text: series[1]?.name || '' },
-                      labels: { style: { colors: undefined } },
-                    },
-                  ]
-                : lineOptions.yaxis,
-              series: apexSeries,
-            }
-
-            if (!series.length || series.every((s) => !s.data.length)) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: { text: 'No data available', fill: '#999', fontSize: 16 },
-                z: 100,
-              }]
-            }
-          } catch (error) {
-            // Handle any errors that occurred during the process
+          thisChart.apexSeries = apexSeries
+          thisChart.chart = {
+            ...lineOptions,
+            title:    { ...lineOptions.title,    text: thisChart.title },
+            subtitle: { ...lineOptions.subtitle, text: subtitleWithSource },
+            xaxis:    { ...lineOptions.xaxis, categories },
+            yaxis: dualAxis
+              ? [
+                  { ...lineOptions.yaxis, title: { text: series[0]?.name || '' } },
+                  {
+                    opposite: true,
+                    title: { text: series[1]?.name || '' },
+                    labels: { style: { colors: undefined } },
+                  },
+                ]
+              : lineOptions.yaxis,
+            series: apexSeries,
           }
-        }]
 
-        await promises[0]()
+          if (!categories.length || !series.length || series.every((s) => !s.data.length)) {
+            thisChart.chart.noData = { text: 'No data available' }
+          }
+        } catch (error) {
+          console.error('processMultiVariableLineChart:', thisChart?.id, error)
+        }
+
         charts.push(thisChart)
         setChartLoaded(thisChart.id)
       }
 
       async function processLineChart() {
-        const promises = [async function () {
+        setChartLoading(thisChart.id, 'Loading line chart data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+          const fallbackName = parseAxisJson(thisChart.y_axis)?.label || 'Series'
+          const { categories, series: apexSeries } = buildApexLineSeries(cdata, fallbackName)
 
-          try {
-
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id))); // first array is the categories // second is the data
-            const categories = Array.isArray(cdata?.[0]) ? cdata[0] : []
-            const seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : []
-            const safeData = seriesData.map((v) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0))
-
-            const UpdatedBarOptionsMultiple = {
-              ...lineOptions,
-              title: {
-                ...lineOptions.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...lineOptions.subtitle,
-                text: subtitleWithSource
-              },
-              xaxis: {
-                ...lineOptions.xaxis,
-                categories,
-              },
-              series: [
-                {
-                  ...lineOptions.series[0],
-                  name: thisChart.card_model_field || 'Series',
-                  data: safeData,
-                },
-              ],
-            };
-
-
-            thisChart.chart = UpdatedBarOptionsMultiple
-
-            // show no data 
-            if (safeData.length === 0) {
-              thisChart.chart.graphic = [{
-                type: 'text',
-                left: 'center',
-                top: 'middle',
-                style: {
-                  text: 'No data  available',
-                  fill: '#999',
-                  fontSize: 16
-                },
-                z: 100 // Higher z value to place it on top
-
-              }]
-            }
-
-
-
-          } catch (error) {
-            // Handle any errors that occurred during the process
+          thisChart.apexSeries = apexSeries
+          thisChart.chart = {
+            ...lineOptions,
+            title:    { ...lineOptions.title,    text: thisChart.title },
+            subtitle: { ...lineOptions.subtitle, text: subtitleWithSource },
+            xaxis:    { ...lineOptions.xaxis, categories },
+            series:   apexSeries,
           }
-        }];
 
-        //     await Promise.all(promises);
-        await promises[0]();
-
-        // The loop has completed and all promises have been resolved/rejected
-
-
-
-
+          if (!categories.length || !apexSeries.length || apexSeries.every((s) => !s.data.length)) {
+            thisChart.chart.noData = { text: 'No data available' }
+          }
+        } catch (error) {
+          console.error('processLineChart:', thisChart?.id, error)
+        }
 
         charts.push(thisChart)
-        setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
+        setChartLoaded(thisChart.id)
       }
       // function to process processMultiBarChart charts 
       async function processStackLineChart() {
@@ -2202,11 +2232,12 @@ function toggleSimpleBarExpand(chart: any) {
   }))
   const height = getExpandableBarChartHeight(categories.length, chart.chartExpanded, STACKED_PAGE)
   chart.chartHeight = height
+  const normalized = normalizeApexBarSeries(displaySeries)
+  chart.apexSeries = normalized
   chart.chart = {
     ...chart.chart,
     chart: withBarChartExport(chart.chart.chart, height, chart.chartExpanded),
     xaxis: { ...chart.chart.xaxis, categories: displayCats },
-    series: displaySeries,
   }
 }
 
@@ -2223,11 +2254,12 @@ function toggleChartExpand(chart: any) {
   }))
   const height = getExpandableBarChartHeight(categories.length, chart.chartExpanded, STACKED_PAGE)
   chart.chartHeight = height
+  const normalized = normalizeApexBarSeries(displaySeries)
+  chart.apexSeries = normalized
   chart.chart = {
     ...chart.chart,
     chart: withBarChartExport(chart.chart.chart, height, chart.chartExpanded),
     xaxis: { ...chart.chart.xaxis, categories: displayCats },
-    series: displaySeries,
   }
 }
 
@@ -2640,16 +2672,16 @@ const downloadSettlementData = async () => {
                           </div> 
                           <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
                             <apexchart 
-                              :key="`apex-${chart.id}-${appStore.getIsDark}`"
+                              :key="`apex-${chart.id}-${appStore.getIsDark}-${(chart.apexSeries || chart.chart?.series || []).length}`"
                               :id="chart.id"
                               :options="chart.chart" 
-                              :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" 
+                              :series="Array.isArray(chart.apexSeries) ? chart.apexSeries : (Array.isArray(chart.chart.series) ? chart.chart.series : [])" 
                               :type="getChartType(chart.type)" 
                               :height="chart.chartHeight || 300" 
                               autoresize
                             />
                             <div
-                            v-if="(chart.type == 1 || chart.type == 4 || chart.type == 9) && chart.chartDataFull && chart.chartDataFull.categories.length > 10"
+                            v-if="(chart.type == 1 || chart.type == 2 || chart.type == 4 || chart.type == 9) && chart.chartDataFull && chart.chartDataFull.categories.length > 10"
                             class="chart-expand-row"
                           >
                             <el-button text size="small" @click="chart.type == 1 ? toggleSimpleBarExpand(chart) : toggleChartExpand(chart)">

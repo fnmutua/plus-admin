@@ -118,7 +118,7 @@ export const renderChart = (data: {
   filters?: { field: string; operation: string; value: any }[]
   ignore_empty?: boolean
 }): Promise<{ categories: any[]; series: any[]; code: string }> => {
-  return request.post({ url: prod + '/api/v1/chart/render', data }) as Promise<any>
+  return request.post({ url: prod + '/api/v1/chart/render', data, silent: true }) as Promise<any>
 }
 
  

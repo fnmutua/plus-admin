@@ -19,12 +19,24 @@ y_axis       = { "field": "id", "aggregation": "count", "label": "count" }
 series_field = { "field": "gender", "label": "Gender" }
 ```
 
+Legacy columns **removed** from `dashboard_section_chart`:
+- `aggregation`, `card_model_field`, `categorized`
+- `filter_field`, `filter_function`, `filter_value`, `filter_option`
+
+Use `filters` (JSONB array) and `filtered` (boolean) for chart scoping.
+
 ---
 
 ## One-time Setup (new environment)
 
-### 1. Add the DB columns
+### 1. Add the DB columns (if not already present)
 
+```bash
+# Sequelize migration
+npx sequelize-cli db:migrate --to 033-add-axis-config-to-dashboard-section-chart.js
+```
+
+Or manually:
 ```sql
 ALTER TABLE dashboard_section_chart
   ADD COLUMN IF NOT EXISTS x_axis      JSONB,
@@ -34,14 +46,38 @@ ALTER TABLE dashboard_section_chart
 
 ### 2. Run the migration script
 
-Converts all existing charts from legacy fields to the new axis format:
+Converts existing charts and drops legacy columns:
 
 ```bash
 node server/scripts/migrate-charts-to-axis.js
 ```
 
-Output will show `[OK migrated]`, `[SKIP already migrated]`, or `[ERROR]` per chart.  
-Re-running is safe — charts that already have `x_axis` or `y_axis` set are skipped.
+Options:
+- `--force` — re-derive axis config from legacy fields (before columns are dropped)
+- `--dry-run` — preview changes without writing
+
+Output shows `[OK migrated]`, `[FIX bad axis]`, `[SKIP]`, or `[ERROR]` per chart.
+
+### 3. Drop legacy columns (if script not run)
+
+```bash
+npx sequelize-cli db:migrate --to 034-drop-legacy-dashboard-section-chart-columns.js
+```
+
+---
+
+## Migration semantics (legacy → axis)
+
+| Legacy pattern | New axis config |
+|---|---|
+| Pie/donut/treemap: `card_model_field` | `x_axis.field` = slice/tile field; `y_axis` = count/sum of `id` |
+| Bar `categorized=true` | `x_axis` = group field; `y_axis` = aggregation of `id` |
+| Bar `categorized=false` | `x_axis` = `county.name`; `y_axis.field` = measure field |
+| Line (5) | `x_axis` null; `y_axis.field` = measure; uses `time_field` |
+| Map (7) | `x_axis` null; `y_axis` = measure + aggregation |
+| Multi-line (12) | `metric_fields` + `time_field` only |
+| Pyramid (8) | no axis config |
+| Intervention charts | axis cleared — indicator path unchanged |
 
 ---
 
@@ -104,31 +140,15 @@ When `x_axis.field = "county.name"` the backend auto-detects the admin level fro
 | `county_id` filter | `JOIN subcounty` → sub-county names |
 | `subcounty_id` filter | `JOIN ward` → ward names |
 
-This means one chart config drills down automatically when a county or sub-county is selected on the dashboard.
-
-Requirements: the model table must have `county_id`, `subcounty_id`, and `ward_id` columns.
-
 ---
 
 ## Creating a New Chart (going forward)
 
-1. In the chart settings UI, select model → chart type → fill in:
-   - **X axis field** — pick from the field list (or `County / Sub-county / Ward (auto)`)
-   - **Aggregation** — count / sum / avg / min / max
-   - **Y axis field** — the numeric field to measure (hidden for pie/donut/treemap)
-   - **Series field** — optional, for grouped/multiple bar
-2. Add filters if the chart should always be scoped (e.g. only a specific programme)
-3. Save — the chart is immediately live on the dashboard
+1. In the chart settings UI, select model → chart type → fill in X axis, Y axis, series (if needed).
+2. Add filters via the `filters` table if the chart should always be scoped.
+3. Save — chart config is stored only in `x_axis` / `y_axis` / `series_field`.
 
-No manual SQL or script runs are needed for new charts.
-
----
-
-## Adding a New Chart Type (developer)
-
-1. Add the type ID to `CHART_TYPE_CONFIG` in `src/views/settings/DashboardChart.vue` with the correct flags (`xAxis`, `yAxis`, `yAxisField`, `series`, labels).
-2. Add a handler in `server/app/controllers/chart.controller.js` and register it in the `renderChart` dispatcher at the bottom of the file.
-3. Add a `processXxx` function in `src/views/Dashboard/DynamicState.vue` and call it from `getCharts`.
+No legacy fields are written.
 
 ---
 
@@ -137,8 +157,10 @@ No manual SQL or script runs are needed for new charts.
 | File | Purpose |
 |---|---|
 | `server/app/controllers/chart.controller.js` | Per-type SQL, `resolveVirtualField`, `buildWhere` |
-| `server/app/models/dashboard_section_chart.js` | Sequelize model (x_axis, y_axis, series_field defined here) |
-| `server/scripts/migrate-charts-to-axis.js` | One-time migration script |
-| `server/migrations/033-add-axis-config-to-dashboard-section-chart.js` | Sequelize migration (run via CLI or manually) |
-| `src/views/settings/DashboardChart.vue` | Chart config form — `CHART_TYPE_CONFIG` source of truth |
-| `src/views/Dashboard/DynamicState.vue` | Dashboard renderer — `getAxisChartData`, `processMultiBarChart`, etc. |
+| `server/app/models/dashboard_section_chart.js` | Sequelize model (axis columns only) |
+| `server/scripts/migrate-charts-to-axis.js` | One-time migration + column drop |
+| `server/migrations/033-*.js` | Add axis columns |
+| `server/migrations/034-*.js` | Drop legacy columns |
+| `src/views/settings/DashboardChart.vue` | Chart config form |
+| `src/views/Dashboard/DynamicState.vue` | Dashboard renderer |
+| `src/views/Dashboard/National.vue` | National dashboard renderer |

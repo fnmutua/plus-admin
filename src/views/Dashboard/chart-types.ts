@@ -599,6 +599,8 @@ export const multipleBarChart = {
   colors: romaColors, // Use Roma theme colors
 
   legend: {
+    position: 'bottom' as const,
+    horizontalAlign: 'center' as const,
     labels: {
       get colors() {
         return apexLegendLabelColor()
@@ -619,6 +621,7 @@ export const multipleBarChart = {
   chart: {
     type: 'bar',
     height: 350,
+    stacked: false,
     get foreColor() {
       return apexLegendLabelColor()
     },
@@ -630,9 +633,10 @@ export const multipleBarChart = {
       }
     },
     zoom: {
-      enabled: true
+      enabled: false
     }
   },
+  dataLabels: { enabled: false },
   responsive: [
     {
       breakpoint: 600,
@@ -1604,6 +1608,88 @@ export function mergeApexChartOptionsWithTheme(existing: Record<string, unknown>
     yaxis,
     ...(Array.isArray(ex.graphic) ? { graphic } : {}),
   }
+}
+
+/** Normalize backend/legacy series rows for vue3-apexcharts (name + data only). */
+export function normalizeApexBarSeries(raw: any[]): { name: string; data: number[] }[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((s) => s && Array.isArray(s.data))
+    .map((s) => ({
+      name: String(s.name ?? 'Series'),
+      data: s.data.map((v: any) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0)),
+    }))
+}
+
+/**
+ * Build Apex line/area series from [categories, seriesPayload].
+ * Accepts new API shape [{name,data}] or legacy flat number[].
+ */
+export function buildApexLineSeries(
+  cdata: any[],
+  fallbackName = 'Series',
+): { categories: string[]; series: { name: string; data: number[] }[] } {
+  const categories = Array.isArray(cdata?.[0]) ? cdata[0].map(String) : []
+  const raw = Array.isArray(cdata?.[1]) ? cdata[1] : []
+  if (raw.length > 0 && typeof raw[0] === 'object' && Array.isArray((raw[0] as any).data)) {
+    return { categories, series: normalizeApexBarSeries(raw) }
+  }
+  const data = raw.map((v: any) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0))
+  return { categories, series: [{ name: fallbackName, data }] }
+}
+
+/** Build Apex treemap series from [labels, values] returned by pie/treemap endpoints. */
+export const TREEMAP_MAX_TILES = 40
+
+export function buildApexTreemapSeries(
+  cdata: any[],
+  maxTiles = TREEMAP_MAX_TILES,
+): { series: { data: { x: string; y: number }[] }[] } {
+  const labels = Array.isArray(cdata?.[0]) ? cdata[0].map(String) : []
+  const values = Array.isArray(cdata?.[1]) ? cdata[1] : []
+  const all = labels
+    .map((label, i) => ({
+      x: label,
+      y: values[i] != null && !Number.isNaN(Number(values[i])) ? Number(values[i]) : 0,
+    }))
+    .filter((d) => d.x && d.y > 0)
+    .sort((a, b) => b.y - a.y)
+
+  let data = all
+  if (all.length > maxTiles) {
+    const top = all.slice(0, maxTiles - 1)
+    const otherSum = all.slice(maxTiles - 1).reduce((sum, d) => sum + d.y, 0)
+    data = otherSum > 0 ? [...top, { x: 'Other', y: otherSum }] : top
+  }
+
+  return { series: [{ data }] }
+}
+
+/**
+ * Build Apex grouped-bar chart config.
+ * Series is kept separate — vue3-apexcharts reads it from the :series prop, not options.
+ */
+export function buildApexGroupedBarChart(
+  base: Record<string, unknown>,
+  opts: {
+    title: string
+    subtitle: string
+    categories: string[]
+    series: any[]
+    height: number
+    expanded?: boolean
+  },
+) {
+  const series = normalizeApexBarSeries(opts.series)
+  const options = mergeApexChartOptionsWithTheme({
+    ...base,
+    title: { ...(base.title as object), text: opts.title },
+    subtitle: { ...(base.subtitle as object), text: opts.subtitle },
+    chart: withBarChartExport((base.chart as Record<string, unknown>) || {}, opts.height, !!opts.expanded),
+    xaxis: { ...(base.xaxis as object), categories: opts.categories },
+  } as Record<string, unknown>)
+  delete (options as Record<string, unknown>).series
+  return { options, series }
 }
 
 /** Re-apply ECharts map tooltip / visualMap / toolbox / region chrome after dark toggle. */
