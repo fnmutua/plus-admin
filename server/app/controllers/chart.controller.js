@@ -499,13 +499,42 @@ async function multiLineChart(body) {
   return { categories, series }
 }
 
+// ─── 7. GAUGE — type 15 ──────────────────────────────────────────────────────
+// Returns the filtered count/sum as a percentage of the unfiltered total.
+// categories = [label], series = [percentage 0-100], meta = { value, total }
+async function gaugeChart(body) {
+  const { model, y_axis, filters, ignore_empty } = body
+  const tbl   = safeModel(model)
+  const yField = y_axis?.field || 'id'
+  const yAgg  = safeAgg(y_axis?.aggregation || 'count')
+  const yCol  = yField === 'id' ? `"${tbl}".id` : safeCol(yField)
+  const label = y_axis?.label || yAgg
+
+  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yField === 'id' ? `${tbl}.id` : yField)
+
+  const filteredSql = `SELECT ${yAgg}(${yCol}) AS agg_value FROM "${tbl}" ${clause}`
+  const totalSql    = `SELECT ${yAgg}(${yCol}) AS agg_value FROM "${tbl}"`
+
+  const [filteredRows, totalRows] = await Promise.all([
+    sequelize.query(filteredSql, { type: QueryTypes.SELECT, replacements: bind }),
+    sequelize.query(totalSql,    { type: QueryTypes.SELECT }),
+  ])
+
+  const value   = parseFloat(filteredRows[0]?.agg_value) || 0
+  const total   = parseFloat(totalRows[0]?.agg_value)    || 1
+  const pct     = Math.min(100, Math.round((value / total) * 100))
+
+  return { categories: [label], series: [pct], meta: { value, total } }
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
-const BAR_TYPES   = new Set([1, 2, 4, 6, 9])
+const BAR_TYPES   = new Set([1, 2, 4, 6, 9, 14])
 const PIE_TYPES   = new Set([3, 10, 11])
 const LINE_TYPES  = new Set([5])
 const MAP_TYPES   = new Set([7])
 const PYR_TYPES   = new Set([8])
 const MLINE_TYPES = new Set([12])
+const GAUGE_TYPES = new Set([15])
 
 exports.renderChart = async (req, res) => {
   try {
@@ -521,6 +550,7 @@ exports.renderChart = async (req, res) => {
     else if (MAP_TYPES.has(chartType))  result = await mapChart(body)
     else if (PYR_TYPES.has(chartType))  result = await pyramidChart()
     else if (MLINE_TYPES.has(chartType)) result = await multiLineChart(body)
+    else if (GAUGE_TYPES.has(chartType)) result = await gaugeChart(body)
     else result = await barChart(body) // safe fallback
 
     return res.status(200).send({ ...result, code: '0000' })

@@ -14,6 +14,7 @@ import {
   buildApexLineSeries,
   buildApexTreemapSeries,
   getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
+  heatmapOptions, gaugeOptions,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -791,6 +792,8 @@ function shouldUseAxisEndpoint(chart: any): boolean {
   if (x_axis?.field) return true
   if (type === 5) return true
   if (type === 7) return true
+  if (type === 14) return true
+  if (type === 15) return true
   return false
 }
 
@@ -1908,7 +1911,77 @@ async function processTreemapChart() {
  
 
 
-      // Run the approriate funtion 
+      // ── Heatmap (type 14) ────────────────────────────────────────────────────
+      async function processHeatmapChart() {
+        setChartLoading(thisChart.id, 'Loading heatmap data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+          const categories: string[] = Array.isArray(cdata[0]) ? cdata[0] : []
+          const rawSeries: any[]     = Array.isArray(cdata[1]) ? cdata[1] : []
+
+          // Transform bar-format series [{name, data:[numbers]}] → heatmap [{name, data:[{x,y}]}]
+          const heatSeries = rawSeries.map((s: any) => ({
+            name: s.name,
+            data: categories.map((cat: string, i: number) => ({ x: cat, y: s.data[i] ?? 0 })),
+          }))
+
+          thisChart.apexSeries = heatSeries
+          thisChart.chart = {
+            ...heatmapOptions,
+            chart: { ...heatmapOptions.chart, height: Math.max(250, 60 + rawSeries.length * 40) },
+            title:    { ...heatmapOptions.title,    text: thisChart.title },
+            subtitle: { ...heatmapOptions.subtitle, text: subtitleWithSource },
+            series: heatSeries,
+          }
+          if (!heatSeries.length) {
+            thisChart.chart.noData = { text: 'No data available' }
+          }
+        } catch (err) {
+          console.error('processHeatmapChart:', thisChart?.id, err)
+          thisChart.apexSeries = []
+          thisChart.chart = {
+            ...heatmapOptions,
+            title: { ...heatmapOptions.title, text: thisChart.title },
+            series: [],
+            noData: { text: 'No data available' },
+          }
+        }
+        charts.push(thisChart)
+        setChartLoaded(thisChart.id)
+      }
+
+      // ── Gauge / Radial Bar (type 15) ─────────────────────────────────────────
+      async function processGaugeChart() {
+        setChartLoading(thisChart.id, 'Loading gauge data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+          // cdata[0] = [label], cdata[1] = [percentage]  (from gaugeChart backend)
+          const labels: string[]  = Array.isArray(cdata[0]) ? cdata[0] : [thisChart.title]
+          const series: number[]  = Array.isArray(cdata[1]) ? cdata[1].map(Number) : [0]
+
+          thisChart.apexSeries = series
+          thisChart.chart = {
+            ...gaugeOptions,
+            title:    { ...gaugeOptions.title,    text: thisChart.title },
+            subtitle: { ...gaugeOptions.subtitle, text: subtitleWithSource },
+            labels,
+            series,
+          }
+        } catch (err) {
+          console.error('processGaugeChart:', thisChart?.id, err)
+          thisChart.apexSeries = [0]
+          thisChart.chart = {
+            ...gaugeOptions,
+            title:  { ...gaugeOptions.title,  text: thisChart.title },
+            labels: [thisChart.title],
+            series: [0],
+          }
+        }
+        charts.push(thisChart)
+        setChartLoaded(thisChart.id)
+      }
+
+      // Run the approriate funtion
       if (thisChart.type == 1) {
         processPromises.push(processSimpleBarChart())
       }
@@ -1951,6 +2024,14 @@ async function processTreemapChart() {
 
       else if (thisChart.type == 8) {
         processPromises.push(processPyramid());
+      }
+
+      else if (thisChart.type == 14) {
+        processPromises.push(processHeatmapChart())
+      }
+
+      else if (thisChart.type == 15) {
+        processPromises.push(processGaugeChart())
       }
 
     })
@@ -2287,6 +2368,12 @@ const getChartType =   (typeId) => {
     }
     else if (typeId == 11) {
       return 'treemap';
+    }
+    else if (typeId == 14) {
+      return 'heatmap';
+    }
+    else if (typeId == 15) {
+      return 'radialBar';
     }
 }
 

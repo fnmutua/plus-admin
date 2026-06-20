@@ -49,6 +49,8 @@ const CHART_DEFS = [
   { id: 10, label: 'Donut',               icon: 'PieChart',    desc: 'Pie chart with total shown in the centre',           category: 'both',         householdsOnly: false },
   { id: 11, label: 'Word Map',            icon: 'Grid',        desc: 'Category sizes as proportional tiles',               category: 'both',         householdsOnly: false },
   { id: 12, label: 'Multi-variable Line', icon: 'DataLine',    desc: 'Multiple numeric metrics as lines over time',        category: 'status',       householdsOnly: false },
+  { id: 14, label: 'Heatmap',            icon: 'Grid',        desc: 'Matrix grid — X categories × series breakdown, colour = intensity', category: 'status', householdsOnly: false },
+  { id: 15, label: 'Gauge (Radial)',     icon: 'Odometer',    desc: 'Percentage of total shown as a radial arc — use filters to set numerator', category: 'both', householdsOnly: false },
 ]
 
 /**
@@ -118,6 +120,16 @@ const CHART_TYPE_CONFIG: Record<number, {
   // Multi-variable Line — time axis + multiple numeric metrics
   12: { xAxis: false, yAxis: false, series: 'none',     timeAxis: true, metrics: true,
         xHint: 'Date or year field for the time axis.' },
+  // Heatmap — X categories + required series; colour intensity = measure
+  14: { xAxis: true,  yAxis: true,  series: 'required',
+        xLabel: 'X categories',            yLabel: 'Measure (colour intensity)',
+        xHint: 'Each unique value = one column in the matrix.',
+        seriesLabel: 'Row breakdown (required)',
+        seriesHint: 'Required: one row per unique value — creates the matrix rows.' },
+  // Gauge — measure only; filters define numerator; total is denominator
+  15: { xAxis: false, yAxis: true,  series: 'none',
+        yLabel: 'Measure (what to count / sum)',
+        yHint: 'The total count/sum across all records is the denominator. Use chart filters to define the numerator subset.' },
 }
 
 const MODEL_OPTIONS = [
@@ -1051,6 +1063,17 @@ const submitForm = async (addAnother = false) => {
                   <div class="field-hint">Count = number of records per slice. Sum = total of a numeric field.</div>
                 </el-form-item>
               </template>
+
+              <!-- Gauge center label (type 15 only) -->
+              <el-form-item v-if="ruleForm.type === 15" label="Center label">
+                <el-input
+                  :model-value="ruleForm.y_axis?.label ?? ''"
+                  placeholder="e.g. Approved, Connected, Vulnerable…"
+                  clearable
+                  @input="(v: string) => { if (ruleForm.y_axis) ruleForm.y_axis.label = v }"
+                />
+                <div class="field-hint">Text shown inside the radial arc. Defaults to the aggregation name if left blank.</div>
+              </el-form-item>
 
               <!-- Series / breakdown (only for chart types that support it) -->
               <el-form-item v-if="showSeries"

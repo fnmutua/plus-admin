@@ -2094,3 +2094,149 @@ export const pyramidOptions  = {
   },
 };
 
+/** Heatmap (type 14): X categories × series rows, colour = intensity. */
+export const heatmapOptions = {
+  chart: {
+    type: 'heatmap',
+    height: 350,
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
+    toolbar: {
+      show: true,
+      export: { scale: 3, width: 1800 },
+    },
+    animations: { enabled: false },
+  },
+  title: {
+    text: '',
+    align: 'left' as const,
+    get style() {
+      return { fontSize: '16px', fontWeight: 'bold', color: apexTitleColor() }
+    },
+  },
+  subtitle: {
+    text: '',
+    align: 'left' as const,
+    get style() {
+      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+    },
+  },
+  dataLabels: { enabled: false },
+  plotOptions: {
+    heatmap: {
+      shadeIntensity: 0.5,
+      radius: 0,
+      useFillColorAsStroke: false,
+      colorScale: {
+        ranges: [
+          { from: 0,   to: 0,   name: 'Zero',   color: '#e2e8f0' },
+          { from: 1,   to: 25,  name: 'Low',    color: '#bfdbfe' },
+          { from: 26,  to: 100, name: 'Medium', color: '#3b82f6' },
+          { from: 101, to: 500, name: 'High',   color: '#1d4ed8' },
+          { from: 501, to: 1e9, name: 'Very High', color: '#1e3a8a' },
+        ],
+      },
+    },
+  },
+  stroke: { width: 2, get colors() { return [getAppDark() ? 'rgba(15,23,42,0.9)' : '#fff'] } },
+  legend: {
+    show: true,
+    position: 'bottom' as const,
+    get labels() { return { colors: apexLegendLabelColor() } },
+  },
+  xaxis: {
+    type: 'category' as const,
+    labels: {
+      rotate: -30,
+      get style() { return { colors: apexLegendLabelColor(), fontSize: '11px' } },
+    },
+    get axisBorder() { return { color: apexGridBorderColor() } },
+    get axisTicks() { return { color: apexGridBorderColor() } },
+  },
+  yaxis: {
+    labels: {
+      get style() { return { colors: apexLegendLabelColor() } },
+    },
+  },
+  tooltip: {
+    y: { formatter: (val: number) => String(val) },
+  },
+  series: [] as any[],
+}
+
+/** Gauge / Radial Bar (type 15): filtered value as % of total. */
+export const gaugeOptions = {
+  chart: {
+    type: 'radialBar',
+    height: 380,
+    get foreColor() {
+      return apexLegendLabelColor()
+    },
+    toolbar: {
+      show: true,
+      export: { scale: 3, width: 1800 },
+    },
+    animations: { speed: 800 },
+  },
+  title: {
+    text: '',
+    align: 'center' as const,
+    get style() {
+      return { fontSize: '16px', fontWeight: 'bold', color: apexTitleColor() }
+    },
+  },
+  subtitle: {
+    text: '',
+    align: 'center' as const,
+    get style() {
+      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+    },
+  },
+  plotOptions: {
+    radialBar: {
+      startAngle: -135,
+      endAngle: 135,
+      hollow: {
+        margin: 0,
+        size: '70%',
+        background: 'transparent',
+      },
+      track: {
+        background: '#e2e8f0',
+        strokeWidth: '97%',
+        margin: 5,
+      },
+      dataLabels: {
+        name: {
+          offsetY: -10,
+          get color() { return apexSubtitleColor() },
+          fontSize: '14px',
+        },
+        value: {
+          get color() { return apexTitleColor() },
+          fontSize: '36px',
+          fontWeight: 'bold',
+          formatter: (val: number) => val + '%',
+        },
+      },
+    },
+  },
+  fill: {
+    type: 'gradient',
+    gradient: {
+      shade: 'dark',
+      type: 'horizontal',
+      shadeIntensity: 0.5,
+      gradientToColors: ['#1d4ed8'],
+      inverseColors: false,
+      opacityFrom: 1,
+      opacityTo: 1,
+      stops: [0, 100],
+    },
+  },
+  stroke: { lineCap: 'round' as const },
+  labels: [] as string[],
+  series: [] as number[],
+}
+

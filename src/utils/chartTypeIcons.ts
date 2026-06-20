@@ -13,6 +13,8 @@ export const CHART_TYPE_ICONS: Record<number, string> = {
   10: 'PieChart',
   11: 'Grid',
   12: 'DataLine',
+  14: 'Grid',
+  15: 'Odometer',
 }
 
 export const getChartTypeIconName = (type?: number | string | null) => {
