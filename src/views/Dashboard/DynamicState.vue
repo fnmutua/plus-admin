@@ -3919,7 +3919,8 @@ onBeforeUnmount(() => {
   max-height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - var(--app-content-padding));
   min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 0 12px 12px;
+  margin-top: -8px;
 }
 
 :deep(.el-loading-mask) {
@@ -3960,7 +3961,7 @@ onBeforeUnmount(() => {
 
 .cards-row {
   flex-shrink: 0;
-  margin-top: 1rem;
+  margin-top: 0;
   position: relative;
   z-index: 1;
 }
