@@ -499,7 +499,54 @@ async function multiLineChart(body) {
   return { categories, series }
 }
 
-// ─── 7. GAUGE — type 15 ──────────────────────────────────────────────────────
+// ─── 7. SCATTER — type 13 ────────────────────────────────────────────────────
+// Returns raw (x, y) pairs per record. Optional series field splits into colour groups.
+// series = [{name, data: [{x, y}]}]
+async function scatterChart(body) {
+  const { model, x_axis, y_axis, series_field, filters, ignore_empty } = body
+  const tbl  = safeModel(model)
+  const xCol = safeCol(x_axis?.field || 'id')
+  const yCol = safeCol(y_axis?.field || 'id')
+
+  const { clause, bind } = buildWhere(filters, ignore_empty !== false)
+  const nullCheck   = `${xCol} IS NOT NULL AND ${yCol} IS NOT NULL`
+  const whereClause = clause ? `${clause} AND ${nullCheck}` : `WHERE ${nullCheck}`
+
+  if (series_field?.field) {
+    const sCol = safeCol(series_field.field)
+    const sql = `
+      SELECT ${xCol} AS x_val, ${yCol} AS y_val, ${sCol}::text AS series_val
+      FROM   "${tbl}"
+      ${whereClause}
+      ORDER  BY series_val, x_val
+      LIMIT  3000
+    `
+    const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
+    const groups = new Map()
+    for (const row of rows) {
+      const s = row.series_val ?? 'Other'
+      if (!groups.has(s)) groups.set(s, [])
+      groups.get(s).push({ x: Number(row.x_val), y: Number(row.y_val) })
+    }
+    return { categories: [], series: [...groups.entries()].map(([name, data]) => ({ name, data })) }
+  }
+
+  const sql = `
+    SELECT ${xCol} AS x_val, ${yCol} AS y_val
+    FROM   "${tbl}"
+    ${whereClause}
+    ORDER  BY x_val
+    LIMIT  3000
+  `
+  const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
+  const label = y_axis?.label || String(y_axis?.field || 'value')
+  return {
+    categories: [],
+    series: [{ name: label, data: rows.map(r => ({ x: Number(r.x_val), y: Number(r.y_val) })) }],
+  }
+}
+
+// ─── 8. GAUGE — type 15 ──────────────────────────────────────────────────────
 // Returns the filtered count/sum as a percentage of the unfiltered total.
 // categories = [label], series = [percentage 0-100], meta = { value, total }
 async function gaugeChart(body) {
@@ -528,13 +575,14 @@ async function gaugeChart(body) {
 }
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
-const BAR_TYPES   = new Set([1, 2, 4, 6, 9, 14])
-const PIE_TYPES   = new Set([3, 10, 11])
-const LINE_TYPES  = new Set([5])
-const MAP_TYPES   = new Set([7])
-const PYR_TYPES   = new Set([8])
-const MLINE_TYPES = new Set([12])
-const GAUGE_TYPES = new Set([15])
+const BAR_TYPES     = new Set([1, 2, 4, 6, 9, 14])
+const PIE_TYPES     = new Set([3, 10, 11])
+const LINE_TYPES    = new Set([5])
+const MAP_TYPES     = new Set([7])
+const PYR_TYPES     = new Set([8])
+const MLINE_TYPES   = new Set([12])
+const SCATTER_TYPES = new Set([13])
+const GAUGE_TYPES   = new Set([15])
 
 exports.renderChart = async (req, res) => {
   try {
@@ -550,6 +598,7 @@ exports.renderChart = async (req, res) => {
     else if (MAP_TYPES.has(chartType))  result = await mapChart(body)
     else if (PYR_TYPES.has(chartType))  result = await pyramidChart()
     else if (MLINE_TYPES.has(chartType)) result = await multiLineChart(body)
+    else if (SCATTER_TYPES.has(chartType)) result = await scatterChart(body)
     else if (GAUGE_TYPES.has(chartType)) result = await gaugeChart(body)
     else result = await barChart(body) // safe fallback
 

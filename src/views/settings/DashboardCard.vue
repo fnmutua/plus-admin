@@ -1252,15 +1252,31 @@ const cards_filtered = computed(() => {
 
 
 const activeStep = ref(0)
+
+const preloadFilterOptions = async () => {
+  if (!ruleForm.card_model || !tableData.value.length) return
+  const fields = [...new Set(tableData.value.map((r: any) => r.field).filter(Boolean))]
+  if (!fields.length) return
+  fieldOptions.value = []
+  for (const field of fields) {
+    try {
+      const res = await getUniqueFieldValues({ model: ruleForm.card_model, selectedField: field })
+      res.data.flat(Infinity).forEach((arrayItem: any) => {
+        const opt = arrayItem !== null && typeof arrayItem === 'object' && 'value' in arrayItem
+          ? { value: arrayItem.value, label: arrayItem.label ?? String(arrayItem.value) }
+          : { value: arrayItem, label: String(arrayItem) }
+        if (!fieldOptions.value.some((e: any) => e.value === opt.value)) fieldOptions.value.push(opt)
+      })
+    } catch { /* ignore per-field failures */ }
+  }
+}
+
 const nextStep = async () => {
-  //console.log(ruleFormRef.value)
-  await ruleFormRef.value?.validate((valid) => {
-    if (valid) {
-      if (activeStep.value < 4) {
-        activeStep.value++
-      }
-    }
-  })
+  try {
+    await ruleFormRef.value?.validate()
+    if (activeStep.value < 4) activeStep.value++
+    if (activeStep.value === 3) await preloadFilterOptions()
+  } catch { /* validation failed — stay on current step */ }
 }
 const prevStep = () => {
   if (activeStep.value > 0) {
@@ -1512,16 +1528,19 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
             <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleSelectType" style="width: 100%;">
               <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
+            <div class="field-hint">Which dashboard this card will appear on.</div>
           </el-form-item>
         </el-col>
         <el-col :span="24">
           <el-form-item id="btn2" label="Title" prop="title">
-            <el-input v-model="ruleForm.title" />
+            <el-input v-model="ruleForm.title" placeholder="e.g. Total Settlements, Households with Electricity…" />
+            <div class="field-hint">Short label shown above the number on the card.</div>
           </el-form-item>
         </el-col>
         <el-col :span="24">
           <el-form-item id="btn3" label="Description" prop="description">
-            <el-input v-model="ruleForm.description" />
+            <el-input v-model="ruleForm.description" placeholder="e.g. Count of all registered settlements in the database" />
+            <div class="field-hint">Longer explanation shown on hover or in card details.</div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -1534,12 +1553,14 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
               v-model="ruleForm.icon"
               :preview-color="ruleForm.iconColor"
             />
+            <div class="field-hint">Icon shown on the card. Search by keyword — e.g. "house", "user", "lightning".</div>
           </el-form-item>
         </el-col>
 
         <el-col :span="24">
           <el-form-item id="btn5" label="Icon Color" prop="iconColor">
             <el-color-picker v-model="ruleForm.iconColor" />
+            <div class="field-hint">Accent colour for the icon background.</div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -1550,9 +1571,10 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
             <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleCategorySelection" style="width: 100%;">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
+            <div class="field-hint"><b>Status</b> — counts or sums from a database table (settlements, households…). <b>Indicator</b> — pulls a value from a pre-recorded indicator report.</div>
           </el-form-item>
         </el-col>
-        
+
         <!-- Show Entity selection only for Status cards -->
         <el-col :span="24" v-if="ruleForm.category === 'Status'">
           <el-form-item id="btn8" label="Entity" prop="card_model">
@@ -1561,9 +1583,10 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
               :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
               <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
+            <div class="field-hint">The database table whose records will be counted or summed.</div>
           </el-form-item>
         </el-col>
-        
+
         <!-- Show different fields based on category -->
         <el-col :span="24" v-if="ruleForm.category === 'Status'">
           <el-form-item id="btn7" label="Aggregation Field" prop="card_model_field">
@@ -1572,9 +1595,10 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
               placeholder="Field to summarize" style="width: 100%;">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
+            <div class="field-hint">Field to aggregate — leave as <b>id</b> for a plain row count, or pick a numeric field to sum/average.</div>
           </el-form-item>
         </el-col>
-        
+
         <el-col :span="24" v-if="ruleForm.category === 'Indicator'">
           <el-form-item id="btn7_indicator" label="Select Indicator" prop="indicator_category_id">
             <el-select
@@ -1582,6 +1606,7 @@ v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filter
               placeholder="Select Indicator Category" style="width: 100%;">
               <el-option v-for="item in indicatorCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
+            <div class="field-hint">The indicator category whose latest reported value will be shown on the card.</div>
           </el-form-item>
         </el-col>
 
@@ -1594,6 +1619,7 @@ size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="widt
 v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
+            <div class="field-hint"><b>Count</b> — total number of matching records. <b>Sum</b> — total of the chosen field. <b>Average</b> — mean value. <b>Max / Min</b> — highest or lowest value.</div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -1606,13 +1632,17 @@ size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable f
               collapse-tags placeholder="Select" style="width: 100%;">
               <el-option label="Proportion(%)" value="proportion" />
               <el-option label="Absolute" value="absolute" /> </el-select>
+            <div class="field-hint"><b>Absolute</b> — show the raw number (e.g. 1 245 households). <b>Proportion</b> — show the filtered count as a % of the total (requires a filter below).</div>
           </el-form-item>
         </el-col>
         <el-col :span="24" v-if="ruleForm.card_model">
           <el-form-item id="btn11" label="Filter" prop="filtered" class="mt-4">
-            <el-switch
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <el-switch
 v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
-              active-text="Yes" inactive-text="No" />
+                active-text="Yes" inactive-text="No" />
+              <div class="field-hint">Enable to restrict the count to a subset of records — e.g. only approved settlements, or only female-headed households.</div>
+            </div>
           </el-form-item>
         </el-col>
         
@@ -1822,6 +1852,12 @@ target="#btn11" title="Filters"
 .filter-actions-mobile .el-button {
   width: 100%;
   margin: 0;
+}
+.field-hint {
+  font-size: 11px;
+  color: #909399;
+  margin-top: 3px;
+  line-height: 1.4;
 }
 </style>
 

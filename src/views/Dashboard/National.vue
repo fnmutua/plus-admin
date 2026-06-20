@@ -14,7 +14,7 @@ import {
   buildApexLineSeries,
   buildApexTreemapSeries,
   getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
-  heatmapOptions, gaugeOptions,
+  heatmapOptions, gaugeOptions, scatterOptions,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1911,6 +1911,43 @@ async function processTreemapChart() {
  
 
 
+      // ── Scatter Plot (type 13) ───────────────────────────────────────────────
+      async function processScatterChart() {
+        setChartLoading(thisChart.id, 'Loading scatter data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+          const series: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
+          const xAxisCfg = parseAxisJson(thisChart.x_axis)
+          const yAxisCfg = parseAxisJson(thisChart.y_axis)
+          const xLabel = xAxisCfg?.label || xAxisCfg?.field || ''
+          const yLabel = yAxisCfg?.label || yAxisCfg?.field || ''
+          thisChart.apexSeries = series
+          thisChart.chart = {
+            ...scatterOptions,
+            title:    { ...scatterOptions.title,    text: thisChart.title },
+            subtitle: { ...scatterOptions.subtitle, text: subtitleWithSource },
+            xaxis: {
+              ...scatterOptions.xaxis,
+              title: { text: xLabel, style: { color: '#909399', fontSize: '12px' } },
+            },
+            yaxis: {
+              ...scatterOptions.yaxis,
+              title: { text: yLabel, style: { color: '#909399', fontSize: '12px' } },
+            },
+            series,
+          }
+          if (!series.length || !series[0]?.data?.length) {
+            thisChart.chart.noData = { text: 'No data available' }
+          }
+        } catch (err) {
+          console.error('processScatterChart:', thisChart?.id, err)
+          thisChart.apexSeries = []
+          thisChart.chart = { ...scatterOptions, title: { ...scatterOptions.title, text: thisChart.title }, series: [], noData: { text: 'No data available' } }
+        }
+        charts.push(thisChart)
+        setChartLoaded(thisChart.id)
+      }
+
       // ── Heatmap (type 14) ────────────────────────────────────────────────────
       async function processHeatmapChart() {
         setChartLoading(thisChart.id, 'Loading heatmap data...')
@@ -2024,6 +2061,10 @@ async function processTreemapChart() {
 
       else if (thisChart.type == 8) {
         processPromises.push(processPyramid());
+      }
+
+      else if (thisChart.type == 13) {
+        processPromises.push(processScatterChart())
       }
 
       else if (thisChart.type == 14) {
@@ -2368,6 +2409,9 @@ const getChartType =   (typeId) => {
     }
     else if (typeId == 11) {
       return 'treemap';
+    }
+    else if (typeId == 13) {
+      return 'scatter';
     }
     else if (typeId == 14) {
       return 'heatmap';

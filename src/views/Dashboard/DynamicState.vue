@@ -23,7 +23,7 @@ import {
   buildApexLineSeries,
   buildApexTreemapSeries,
   getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
-  heatmapOptions, gaugeOptions,
+  heatmapOptions, gaugeOptions, scatterOptions,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1535,6 +1535,40 @@ const getCharts = async (section_id) => {
   charts.push(thisChart);
   setChartLoaded(thisChart.id); // Mark chart as loaded
 }
+
+      async function processScatterChart() {
+        setChartLoading(thisChart.id, 'Loading scatter data...')
+        try {
+          const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
+          const series: any[] = Array.isArray(cdata[1]) ? cdata[1] : []
+          const xAxisCfg = parseAxisJson(thisChart.x_axis)
+          const yAxisCfg = parseAxisJson(thisChart.y_axis)
+          const xLabel = xAxisCfg?.label || xAxisCfg?.field || ''
+          const yLabel = yAxisCfg?.label || yAxisCfg?.field || ''
+          thisChart.apexSeries = series
+          thisChart.chart = {
+            ...scatterOptions,
+            title:    { ...scatterOptions.title,    text: thisChart.title },
+            subtitle: { ...scatterOptions.subtitle, text: subtitleWithSource },
+            xaxis: {
+              ...scatterOptions.xaxis,
+              title: { text: xLabel, style: { color: '#909399', fontSize: '12px' } },
+            },
+            yaxis: {
+              ...scatterOptions.yaxis,
+              title: { text: yLabel, style: { color: '#909399', fontSize: '12px' } },
+            },
+            series,
+          }
+          if (!series.length || !series[0]?.data?.length) thisChart.chart.noData = { text: 'No data available' }
+        } catch (err) {
+          console.error('processScatterChart:', thisChart?.id, err)
+          thisChart.apexSeries = []
+          thisChart.chart = { ...scatterOptions, title: { ...scatterOptions.title, text: thisChart.title }, series: [], noData: { text: 'No data available' } }
+        }
+        charts.push(thisChart)
+        setChartLoaded(thisChart.id)
+      }
 
       async function processHeatmapChart() {
         setChartLoading(thisChart.id, 'Loading heatmap data...')
@@ -3108,6 +3142,10 @@ const getCharts = async (section_id) => {
         await processPyramid();
       }
 
+      else if (thisChart.type == 13 && thisChart.category=="Status") {
+        await processScatterChart();
+      }
+
       else if (thisChart.type == 14 && thisChart.category=="Status") {
         await processHeatmapChart();
       }
@@ -3154,6 +3192,10 @@ const getCharts = async (section_id) => {
 
       else if (thisChart.type == 8 && thisChart.category=="Intervention") {
         await processPyramid();
+      }
+
+      else if (thisChart.type == 13 && thisChart.category=="Intervention") {
+        await processScatterChart();
       }
 
       else if (thisChart.type == 14 && thisChart.category=="Intervention") {
@@ -3608,6 +3650,9 @@ const formatNumber =   (value) => {
     } 
     else if (typeId==8) {
       return 'pyramid';
+    }
+    else if (typeId==13) {
+      return 'scatter';
     }
     else if (typeId==14) {
       return 'heatmap';

@@ -2094,6 +2094,63 @@ export const pyramidOptions  = {
   },
 };
 
+/** Scatter Plot (type 13): raw (x,y) points per record, optional colour series. */
+export const scatterOptions = {
+  chart: {
+    type: 'scatter',
+    height: 420,
+    get foreColor() { return apexLegendLabelColor() },
+    toolbar: { show: true, export: { scale: 3, width: 1800 } },
+    zoom: { enabled: true, type: 'xy' as const },
+    animations: { enabled: false },
+  },
+  title: {
+    text: '',
+    align: 'left' as const,
+    get style() { return { fontSize: '16px', fontWeight: 'bold', color: apexTitleColor() } },
+  },
+  subtitle: {
+    text: '',
+    align: 'left' as const,
+    get style() { return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() } },
+  },
+  colors: romaColors,
+  markers: { size: 6, strokeWidth: 0, hover: { sizeOffset: 2 } },
+  dataLabels: { enabled: false },
+  xaxis: {
+    type: 'numeric' as const,
+    tickAmount: 8,
+    labels: {
+      get style() { return { colors: apexLegendLabelColor(), fontSize: '11px' } },
+      formatter: (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(1),
+    },
+    get axisBorder() { return { color: apexGridBorderColor() } },
+    get axisTicks()  { return { color: apexGridBorderColor() } },
+  },
+  yaxis: {
+    tickAmount: 7,
+    labels: {
+      get style() { return { colors: apexLegendLabelColor(), fontSize: '11px' } },
+      formatter: (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(1),
+    },
+  },
+  grid: {
+    get borderColor() { return apexGridBorderColor() },
+    xaxis: { lines: { show: true } },
+    yaxis: { lines: { show: true } },
+  },
+  legend: {
+    show: true,
+    position: 'bottom' as const,
+    get labels() { return { colors: apexLegendLabelColor() } },
+  },
+  tooltip: {
+    x: { formatter: (v: number) => String(v) },
+    y: { formatter: (v: number) => String(v) },
+  },
+  series: [] as any[],
+}
+
 /** Heatmap (type 14): X categories × series rows, colour = intensity. */
 export const heatmapOptions = {
   chart: {

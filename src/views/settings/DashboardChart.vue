@@ -38,19 +38,20 @@ const isMobile = computed(() => appStore.getMobile)
 // ─── Chart type definitions — single source of truth ─────────────────────────
 // category: 'both' | 'status' | 'intervention'
 const CHART_DEFS = [
-  { id: 1,  label: 'Simple Bar',          icon: 'Histogram',   desc: 'Count or sum per category (horizontal bars)',         category: 'both',         householdsOnly: false },
-  { id: 2,  label: 'Multiple Bar',        icon: 'DataBoard',   desc: 'Side-by-side bars — requires a series/breakdown',    category: 'status',       householdsOnly: false },
-  { id: 3,  label: 'Pie',                 icon: 'PieChart',    desc: 'Proportions of a whole as slices',                   category: 'both',         householdsOnly: false },
-  { id: 4,  label: 'Stacked Bar (100%)',  icon: 'Grid',        desc: 'Percentage breakdown — requires a series/breakdown', category: 'status',       householdsOnly: false },
-  { id: 5,  label: 'Line Chart',          icon: 'TrendCharts', desc: 'Trend over a date/time field',                       category: 'both',         householdsOnly: false },
-  { id: 7,  label: 'Map Chart',           icon: 'MapLocation', desc: 'Values shaded on a Kenya county map',                category: 'status',       householdsOnly: false },
-  { id: 8,  label: 'Population Pyramid',  icon: 'User',        desc: 'Male / female age distribution (fixed — Households)',category: 'status',       householdsOnly: true  },
-  { id: 9,  label: 'Stacked Bar (Abs)',   icon: 'DataLine',    desc: 'Stacked absolute totals — requires a series',        category: 'status',       householdsOnly: false },
-  { id: 10, label: 'Donut',               icon: 'PieChart',    desc: 'Pie chart with total shown in the centre',           category: 'both',         householdsOnly: false },
-  { id: 11, label: 'Word Map',            icon: 'Grid',        desc: 'Category sizes as proportional tiles',               category: 'both',         householdsOnly: false },
-  { id: 12, label: 'Multi-variable Line', icon: 'DataLine',    desc: 'Multiple numeric metrics as lines over time',        category: 'status',       householdsOnly: false },
-  { id: 14, label: 'Heatmap',            icon: 'Grid',        desc: 'Matrix grid — X categories × series breakdown, colour = intensity', category: 'status', householdsOnly: false },
-  { id: 15, label: 'Gauge (Radial)',     icon: 'Odometer',    desc: 'Percentage of total shown as a radial arc — use filters to set numerator', category: 'both', householdsOnly: false },
+  { id: 1,  label: 'Simple Bar',          icon: 'material-symbols:bar-chart',              desc: 'Count or sum per category (horizontal bars)',                              category: 'both',   householdsOnly: false },
+  { id: 2,  label: 'Multiple Bar',        icon: 'material-symbols:grouped-bar-chart',      desc: 'Side-by-side bars — requires a series/breakdown',                          category: 'status', householdsOnly: false },
+  { id: 3,  label: 'Pie',                 icon: 'material-symbols:pie-chart',              desc: 'Proportions of a whole as slices',                                         category: 'both',   householdsOnly: false },
+  { id: 4,  label: 'Stacked Bar (100%)',  icon: 'material-symbols:full-stacked-bar-chart', desc: 'Percentage breakdown — requires a series/breakdown',                        category: 'status', householdsOnly: false },
+  { id: 5,  label: 'Line Chart',          icon: 'material-symbols:show-chart',             desc: 'Trend over a date/time field',                                             category: 'both',   householdsOnly: false },
+  { id: 7,  label: 'Map Chart',           icon: 'material-symbols:map',                    desc: 'Values shaded on a Kenya county map',                                      category: 'status', householdsOnly: false },
+  { id: 8,  label: 'Population Pyramid',  icon: 'material-symbols:bar-chart',              desc: 'Male / female age distribution (fixed — Households)',                       category: 'status', householdsOnly: true  },
+  { id: 9,  label: 'Stacked Bar (Abs)',   icon: 'material-symbols:stacked-bar-chart',      desc: 'Stacked absolute totals — requires a series',                              category: 'status', householdsOnly: false },
+  { id: 10, label: 'Donut',               icon: 'material-symbols:donut-large',            desc: 'Pie chart with total shown in the centre',                                 category: 'both',   householdsOnly: false },
+  { id: 11, label: 'Word Map',            icon: 'material-symbols:grid-view',              desc: 'Category sizes as proportional tiles',                                     category: 'both',   householdsOnly: false },
+  { id: 12, label: 'Multi-variable Line', icon: 'material-symbols:multiline-chart',        desc: 'Multiple numeric metrics as lines over time',                              category: 'status', householdsOnly: false },
+  { id: 13, label: 'Scatter Plot',        icon: 'material-symbols:scatter-plot',           desc: 'Each record as a dot — correlate two numeric fields',                      category: 'both',   householdsOnly: false },
+  { id: 14, label: 'Heatmap',             icon: 'material-symbols:gradient',               desc: 'Matrix grid — X categories × series breakdown, colour = intensity',        category: 'status', householdsOnly: false },
+  { id: 15, label: 'Gauge (Radial)',      icon: 'material-symbols:speed',                  desc: 'Percentage of total shown as a radial arc — use filters to set numerator', category: 'both',   householdsOnly: false },
 ]
 
 /**
@@ -65,7 +66,7 @@ const CHART_DEFS = [
  *   mapChart: X is fixed to county — no x picker
  */
 const CHART_TYPE_CONFIG: Record<number, {
-  xAxis: boolean; yAxis: boolean; yAxisField?: boolean; series: 'none'|'optional'|'required'
+  xAxis: boolean; yAxis: boolean; yAxisField?: boolean; noAgg?: boolean; series: 'none'|'optional'|'required'
   timeAxis?: boolean; metrics?: boolean; fixed?: boolean; mapChart?: boolean
   xLabel?: string; yLabel?: string; xHint?: string; yHint?: string; seriesLabel?: string; seriesHint?: string
 }> = {
@@ -120,6 +121,13 @@ const CHART_TYPE_CONFIG: Record<number, {
   // Multi-variable Line — time axis + multiple numeric metrics
   12: { xAxis: false, yAxis: false, series: 'none',     timeAxis: true, metrics: true,
         xHint: 'Date or year field for the time axis.' },
+  // Scatter Plot — X numeric field, Y numeric field, optional series colour grouping
+  13: { xAxis: true,  yAxis: true,  noAgg: true,  series: 'optional',
+        xLabel: 'X axis (numeric field)',   yLabel: 'Y axis (numeric field)',
+        xHint: 'Horizontal axis — pick a numeric field. Each row becomes one dot.',
+        yHint: 'Vertical axis — pick a numeric field.',
+        seriesLabel: 'Colour groups (optional)',
+        seriesHint: 'Optional: dots coloured by each unique value of this field.' },
   // Heatmap — X categories + required series; colour intensity = measure
   14: { xAxis: true,  yAxis: true,  series: 'required',
         xLabel: 'X categories',            yLabel: 'Measure (colour intensity)',
@@ -1042,7 +1050,7 @@ const submitForm = async (addAnother = false) => {
                       <div v-if="typeConf?.yHint" class="field-hint">{{ typeConf.yHint }}</div>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="10">
+                  <el-col v-if="!typeConf?.noAgg" :span="10">
                     <el-form-item label="Aggregation">
                       <el-select
                         :model-value="ruleForm.y_axis?.aggregation ?? 'count'"
