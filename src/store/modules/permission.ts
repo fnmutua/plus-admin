@@ -441,18 +441,35 @@ const getComponents = async (): Promise<void> => {
       console.warn('Cannot load dynamic dashboards: user not logged in');
       return;
     }
-    
-    const formData: RouteRequestData = {
-      limit: 100,
-      page: 1,
-      curUser: 1, // Id for logged in user
-      model: 'dashboard',
-      searchField: 'title',
-      searchKeyword: '',
-      filters: ['createdBy'],
-      filterValues: [[currentUserInfo.id]],
-      associated_multiple_models: []
-    };
+
+    const PRIVILEGED_ROLES = ['root_admin', 'super_admin']
+    const userRoleNames: string[] = (currentUserInfo.roles || []).map((r: any) => r.name)
+    const isPrivileged = userRoleNames.some(r => PRIVILEGED_ROLES.includes(r))
+
+    // Privileged users see all dashboards; others only see their own
+    const formData: RouteRequestData = isPrivileged
+      ? {
+          limit: 100,
+          page: 1,
+          curUser: 1,
+          model: 'dashboard',
+          searchField: 'title',
+          searchKeyword: '',
+          filters: [],
+          filterValues: [],
+          associated_multiple_models: []
+        }
+      : {
+          limit: 100,
+          page: 1,
+          curUser: 1,
+          model: 'dashboard',
+          searchField: 'title',
+          searchKeyword: '',
+          filters: ['createdBy'],
+          filterValues: [[currentUserInfo.id]],
+          associated_multiple_models: []
+        };
   
     //-------------------------
     //console.log(formData)
