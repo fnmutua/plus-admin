@@ -66,6 +66,42 @@ npx sequelize-cli db:migrate --to 034-drop-legacy-dashboard-section-chart-column
 
 ---
 
+## Recovery: legacy columns already dropped
+
+If legacy columns were removed before charts were migrated, restore an **older SQL backup** into a **temp database** and export chart config to CSV.
+
+### 1. Restore backup to temp DB (on server)
+
+```bash
+cd /data/backup
+tar -xf 19062026.kesmis.sql.tar
+
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS kesmis_tmp;"
+sudo -u postgres psql -c "CREATE DATABASE kesmis_tmp OWNER kesmis;"
+sudo -u postgres psql -d kesmis_tmp -v ON_ERROR_STOP=1 -f 19062026.kesmis.sql
+```
+
+### 2. Export legacy chart CSV
+
+```bash
+sudo -u postgres psql -d kesmis_tmp -c "\copy (
+  SELECT id, title, type, category, card_model, card_model_field,
+         aggregation, categorized, time_field, metric_fields
+  FROM dashboard_section_chart ORDER BY id
+) TO '/tmp/dashboard_section_chart_legacy.csv' WITH CSV HEADER"
+```
+
+### 3. Apply to live DB
+
+```bash
+cd /data/plus-admin
+node server/scripts/repair-charts-from-csv.js /tmp/dashboard_section_chart_legacy.csv --dry-run
+node server/scripts/repair-charts-from-csv.js /tmp/dashboard_section_chart_legacy.csv
+node server/scripts/audit-charts-axis.js
+```
+
+---
+
 ## Migration semantics (legacy → axis)
 
 | Legacy pattern | New axis config |
@@ -159,6 +195,8 @@ No legacy fields are written.
 | `server/app/controllers/chart.controller.js` | Per-type SQL, `resolveVirtualField`, `buildWhere` |
 | `server/app/models/dashboard_section_chart.js` | Sequelize model (axis columns only) |
 | `server/scripts/migrate-charts-to-axis.js` | One-time migration + column drop |
+| `server/scripts/repair-charts-from-csv.js` | Repair axis from legacy CSV export |
+| `server/scripts/audit-charts-axis.js` | Find charts with missing/bad axis |
 | `server/migrations/033-*.js` | Add axis columns |
 | `server/migrations/034-*.js` | Drop legacy columns |
 | `src/views/settings/DashboardChart.vue` | Chart config form |

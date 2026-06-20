@@ -63,11 +63,8 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
- 
-
-console.log("Show Buttons -->", showAdminButtons)
-
-
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////

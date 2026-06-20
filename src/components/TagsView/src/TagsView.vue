@@ -292,12 +292,14 @@ const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   DroneImagery: 'repo-imagery', DocumentShares: 'repo-shares',
   Media: 'media-overview', Video: 'media-videos', LiveStreams: 'media-live', Articles: 'media-articles',
   systemUsers: 'users-listing', staff: 'users-listing', AdminStaff: 'users-listing', GRM_Staff: 'users-listing', NewAccounts: 'users-activation',
-  Settings: 'settings-sms', ModuleSettings: 'settings-sms', SystemSettings: 'settings-system', ClimateSettings: 'settings-climate',
-  CommonSettings: 'config-common',
+  Settings: 'settings-sms', SettingsPlatform: 'settings-system', SettingsAnalytics: 'config-dashboards-list',
+  ModuleSettings: 'settings-sms', SystemSettings: 'settings-system', ClimateSettings: 'settings-climate',
+  PopulationSettings: 'settings-population', PageVisits: 'settings-page-visits',
+  ReferenceDataSettings: 'config-common', CommonSettings: 'config-common',
   ProgrammeSettings: 'config-programme', ProjectsProgrammes: 'config-programme', ProgrammeComponents: 'config-programme', ProgrammeImplementation: 'config-programme',
   DashboardSettings: 'config-dashboards-list', DynamicDashboards: 'config-dashboards-list',
   DashboardCards: 'config-dashboards-cards', DashboardSections: 'config-dashboards-sections', DashboardSectionCharts: 'config-dashboards-charts',
-  AdminUnits: 'config-admin-units', Counties: 'config-admin-units', Subcounties: 'config-admin-units', Wards: 'config-admin-units',
+  GeographySettings: 'config-admin-units', AdminUnits: 'config-admin-units', Counties: 'config-admin-units', Subcounties: 'config-admin-units', Wards: 'config-admin-units',
 }
 
 const openDocs = () => {
