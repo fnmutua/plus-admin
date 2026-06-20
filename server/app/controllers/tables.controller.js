@@ -6705,32 +6705,52 @@ exports.modelGetParentIDS = (req, res) => {
 
 
 exports.getFieldQUnique = async (req, res) => {
-  var reg_model = req.body.model;
-  var selField = req.body.selectedField;
+  const reg_model = req.body.model;
+  const selField  = req.body.selectedField;
 
   try {
     const Model = db.models[reg_model];
-    
-    // Find all unique values in the specified field
+    if (!Model) return res.status(404).send({ error: 'Model not found', code: '4040' });
+
+    // Detect BelongsTo association whose foreignKey matches the requested field
+    const assoc = Object.values(Model.associations || {}).find(
+      a => a.associationType === 'BelongsTo' && a.foreignKey === selField
+    );
+
+    if (assoc) {
+      const TargetModel  = assoc.target;
+      const targetTable  = TargetModel.tableName;
+      const targetAttrs  = Object.keys(TargetModel.rawAttributes || {});
+      const LABEL_COLS   = ['name', 'title', 'label', 'description', 'username', 'first_name'];
+      const labelCol     = LABEL_COLS.find(c => targetAttrs.includes(c)) || 'id';
+
+      const sql = `
+        SELECT DISTINCT s."${selField}" AS value, t."${labelCol}" AS label
+        FROM   "${Model.tableName}" s
+        JOIN   "${targetTable}" t ON t.id = s."${selField}"
+        WHERE  s."${selField}" IS NOT NULL
+        ORDER  BY t."${labelCol}"
+      `;
+      const rows = await db.sequelize.query(sql, { type: db.Sequelize.QueryTypes.SELECT });
+      return res.status(200).send({ data: rows, code: '0000' });
+    }
+
+    // Non-FK field: return distinct non-null values as {value, label}
     const uniqueValues = await Model.findAll({
-      attributes: [
-        [sequelize.fn('DISTINCT', sequelize.col(selField)), selField],
-      ],
+      attributes: [[sequelize.fn('DISTINCT', sequelize.col(selField)), selField]],
+      where: { [selField]: { [db.Sequelize.Op.not]: null } },
+      order: [[sequelize.col(selField), 'ASC']],
     });
 
-    // Extract the unique values from the Sequelize result
-    const data = uniqueValues.map(value => value.dataValues[selField]);
+    const data = uniqueValues
+      .map(v => v.dataValues[selField])
+      .filter(v => v !== null && v !== undefined && v !== '')
+      .map(v => ({ value: v, label: String(v) }));
 
-    res.status(200).send({
-      data,
-      code: '0000',
-    });
+    return res.status(200).send({ data, code: '0000' });
   } catch (error) {
-    console.error('Error executing query:', error);
-    res.status(500).send({
-      error: 'An error occurred',
-      code: '5000',
-    });
+    console.error('getFieldQUnique error:', error);
+    res.status(500).send({ error: 'An error occurred', code: '5000' });
   }
 };
 

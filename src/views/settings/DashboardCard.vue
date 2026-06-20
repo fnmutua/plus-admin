@@ -995,15 +995,11 @@ const handleFilterAggregators = async (selField) => {
   formData.selectedField = selField
   //--Single Filter -----------------------------------------
   const res = await getUniqueFieldValues(formData)
-  console.log('Filter Fields 2:', res.data)
 
-
-  res.data.forEach(function (arrayItem: {}) {
-    var opt = {}
-    console.log(arrayItem)
-    opt.value = arrayItem
-    opt.label = arrayItem
-    // opt.title = arrayItem.category.title
+  res.data.forEach(function (arrayItem: any) {
+    const opt = arrayItem !== null && typeof arrayItem === 'object' && 'value' in arrayItem
+      ? { value: arrayItem.value, label: arrayItem.label ?? String(arrayItem.value) }
+      : { value: arrayItem, label: String(arrayItem) }
 
     fieldOptions.value.push(opt)
   })
@@ -1199,33 +1195,14 @@ const handleChangeFilterField = async (selField) => {
   formData.selectedField = selField
   //--Single Filter -----------------------------------------
   const res = await getUniqueFieldValues(formData)
-  console.log('Filter Fields 2:', res.data)
 
-  // Flatten all levels of nested arrays
-  const flattenedData = res.data.flat(Infinity);
-  console.log('Flattened Data:', flattenedData);
+  res.data.flat(Infinity).forEach(function (arrayItem: any) {
+    const opt = arrayItem !== null && typeof arrayItem === 'object' && 'value' in arrayItem
+      ? { value: arrayItem.value, label: arrayItem.label ?? String(arrayItem.value) }
+      : { value: arrayItem, label: String(arrayItem) }
 
-
-  flattenedData.forEach(function (arrayItem: {}) {
-    var opt = {}
-    console.log(arrayItem)
-    opt.value = arrayItem
-    opt.label = arrayItem
-    // opt.title = arrayItem.category.title
-
-    //fieldOptions.value.push(opt)
-
-    // Check if an item with the same value or label already exists
-    const exists = fieldOptions.value.some((existingItem) => {
-      return existingItem.value === opt.value || existingItem.label === opt.label;
-    });
-
-    // If the item doesn't exist, push it into the array
-    if (!exists) {
-      fieldOptions.value.push(opt);
-    }
-
-
+    const exists = fieldOptions.value.some((e) => e.value === opt.value)
+    if (!exists) fieldOptions.value.push(opt)
   })
 
 }

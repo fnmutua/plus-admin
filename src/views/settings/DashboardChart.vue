@@ -559,6 +559,13 @@ const funcOptsForField = (fieldName: string | null) => {
   return def?.type === 'STRING' ? FUNC_OPTS_STRING : FUNC_OPTS_NUM
 }
 
+const toOpts = (items: any[]) =>
+  (items || []).map((v: any) =>
+    v !== null && typeof v === 'object' && 'value' in v
+      ? { value: v.value, label: v.label ?? String(v.value) }
+      : { value: v, label: String(v) }
+  )
+
 const onFilterFieldChange = async (row: FilterRow, fieldName: string) => {
   row.field = fieldName
   row.operation = null
@@ -568,7 +575,7 @@ const onFilterFieldChange = async (row: FilterRow, fieldName: string) => {
   row._loading = true
   try {
     const res = await getUniqueFieldValues({ model: ruleForm.card_model, selectedField: fieldName })
-    row._opts = (res.data || []).map((v: any) => ({ value: v, label: String(v) }))
+    row._opts = toOpts(res.data)
   } finally {
     row._loading = false
   }
@@ -579,7 +586,7 @@ const loadFilterRowOpts = async (row: FilterRow) => {
   row._loading = true
   try {
     const res = await getUniqueFieldValues({ model: ruleForm.card_model, selectedField: row.field })
-    row._opts = (res.data || []).map((v: any) => ({ value: v, label: String(v) }))
+    row._opts = toOpts(res.data)
   } finally {
     row._loading = false
   }
