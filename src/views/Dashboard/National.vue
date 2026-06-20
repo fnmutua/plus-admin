@@ -124,6 +124,42 @@ const cardLoading = ref(true)
 const geoLoading = ref(true)
 const chartsLoading = ref(true)
 const dashboardLoading = ref(true)
+
+// ── AI loading overlay ────────────────────────────────────────────────────────
+const aiMessages = computed(() => {
+  const loc = statisticsCardFilterContext.value || 'Kenya'
+  return [
+    `Querying settlement records for ${loc}…`,
+    `Analysing vulnerability patterns in ${loc}…`,
+    `Mapping household distributions across ${loc}…`,
+    `Aggregating indicator metrics for ${loc}…`,
+    `Cross-referencing tenure and infrastructure data in ${loc}…`,
+    `Computing population density clusters in ${loc}…`,
+    `Correlating water, sanitation and electricity access in ${loc}…`,
+    `Scanning grievance trends in ${loc}…`,
+    `Joining spatial layers with demographic records for ${loc}…`,
+    `Crunching the numbers for ${loc} — almost there…`,
+  ]
+})
+const aiMsgIndex = ref(0)
+const aiMsgVisible = ref(true)
+let aiMsgTimer: ReturnType<typeof setInterval> | null = null
+
+watch(chartsLoading, (loading) => {
+  if (loading) {
+    aiMsgIndex.value = 0
+    aiMsgVisible.value = true
+    aiMsgTimer = setInterval(() => {
+      aiMsgVisible.value = false
+      setTimeout(() => {
+        aiMsgIndex.value = (aiMsgIndex.value + 1) % aiMessages.value.length
+        aiMsgVisible.value = true
+      }, 300)
+    }, 2800)
+  } else {
+    if (aiMsgTimer) { clearInterval(aiMsgTimer); aiMsgTimer = null }
+  }
+})
 /** Plain object (not Map) so Vue tracks updates when messages change. */
 const chartLoadingMessages = ref<Record<string, string>>({})
 const filtersVisible = ref(false)
@@ -2610,6 +2646,30 @@ const downloadSettlementData = async () => {
 
 <template>
   <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-background="rgba(255, 255, 255, 0.75)">
+
+    <!-- AI loading overlay -->
+    <Transition name="ai-overlay-fade">
+      <div v-if="chartsLoading" class="ai-loading-overlay" :style="{ left: appStore.getCollapse ? 'var(--left-menu-min-width)' : 'var(--left-menu-max-width)' }">
+        <div class="ai-loading-box">
+          <div class="ai-spinner">
+            <div class="ai-ring ai-ring-1"></div>
+            <div class="ai-ring ai-ring-2"></div>
+            <div class="ai-ring ai-ring-3"></div>
+            <Icon icon="material-symbols:query-stats" :size="36" class="ai-center-icon" />
+          </div>
+          <p class="ai-loading-title">
+            Analysing {{ statisticsCardFilterContext || 'Kenya' }} data
+          </p>
+          <Transition name="ai-msg-fade" mode="out-in">
+            <p :key="aiMsgIndex" class="ai-loading-msg">{{ aiMessages[aiMsgIndex] }}</p>
+          </Transition>
+          <div class="ai-dots">
+            <span v-for="(_, i) in aiMessages" :key="i" :class="['ai-dot', { active: i === aiMsgIndex }]"></span>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Filter Drawer -->
     <el-drawer
       v-model="filtersVisible"
@@ -3324,6 +3384,120 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   }
 }
 
+/* ── AI loading overlay ──────────────────────────────────────────────────────── */
+.ai-loading-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
 
- 
+.ai-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 48px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+  text-align: center;
+}
+
+.ai-spinner {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  animation: ai-spin linear infinite;
+}
+.ai-ring-1 {
+  width: 80px; height: 80px;
+  border-top-color: #3b82f6;
+  animation-duration: 1.2s;
+}
+.ai-ring-2 {
+  width: 60px; height: 60px;
+  border-top-color: #60a5fa;
+  border-right-color: #60a5fa;
+  animation-duration: 1.8s;
+  animation-direction: reverse;
+}
+.ai-ring-3 {
+  width: 40px; height: 40px;
+  border-top-color: #93c5fd;
+  animation-duration: 2.4s;
+}
+
+@keyframes ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-center-icon {
+  color: #93c5fd !important;
+  position: relative;
+  z-index: 1;
+}
+
+.ai-loading-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.ai-loading-msg {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+  min-height: 36px;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+.ai-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.3);
+  transition: background 0.3s, transform 0.3s;
+}
+.ai-dot.active {
+  background: #3b82f6;
+  transform: scale(1.3);
+}
+
+/* Overlay enter/leave */
+.ai-overlay-fade-enter-active { transition: opacity 0.4s ease; }
+.ai-overlay-fade-leave-active { transition: opacity 0.6s ease; }
+.ai-overlay-fade-enter-from, .ai-overlay-fade-leave-to { opacity: 0; }
+
+/* Message cross-fade */
+.ai-msg-fade-enter-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.ai-msg-fade-leave-active { transition: opacity 0.2s ease; }
+.ai-msg-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.ai-msg-fade-leave-to   { opacity: 0; }
 </style>
