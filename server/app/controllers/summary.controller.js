@@ -1144,10 +1144,10 @@ if (ignoreEmpty) {
   }
   console.log('filterConditions',filterConditions )
  
-if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
+if (req.body.filterField && req.body.filterValue && req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
   let filterCols = req.body.filterField;
   let filterValues = req.body.filterValue;
-  let filterOperators = req.body.filterOperator; // Array of filter operators
+  let filterOperators = req.body.filterOperator;
 
   if (!Array.isArray(filterCols)) {
     filterCols = [filterCols];
@@ -1155,49 +1155,23 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     filterOperators = [filterOperators];
   }
 
- 
-
-
- 
-  console.log('-----------------------------x--------------------------------',req.body.filterField)
+  const eqGroups    = new Map();
+  const neqNullSeen = new Set();
 
   for (let i = 0; i < filterCols.length; i++) {
-
-    console.log(filterCols[i], filterOperators[i],filterValues[i] )
     const filterCol = filterCols[i];
     const filterVal = filterValues[i];
-    const operator = filterOperators[i]; // Get the operator corresponding to the filter field
-    // keep a record of the ops in ths querry 
-    operators.push(operator)
+    const operator  = filterOperators[i];
+    operators.push(operator);
 
-    // if (operator === "all" ) {
-    //   // No filter, retrieve all records for this field
-    //   continue; // Skip adding any condition for this field
-    // } else {
-
-    //   console.log('Operator---->S',operator, [operatorMappings[operator]] )
-
-    //   if (Array.isArray(filterVal)) {
-    //    // const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
-    //     const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
-  
-    //     filterConditions.push({ [op.or]: nestedConditions });
-    //   } else if (operator !== "all" && operator) {
-
-    //     filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
-    //   }
-    // }
-
-
-    if (operator === "all") {
-      // No filter, retrieve all records for this field
-      continue; // Skip adding any condition for this field
-    } else if (operator === "or") {
-      const orConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings['eq']]: nestedVal } }));
+    if (operator === 'all') {
+      continue;
+    } else if (operator === 'or') {
+      const orConditions = filterVal.map((v) => ({ [filterCol]: { [operatorMappings['eq']]: v } }));
       filterConditions.push({ [op.or]: orConditions });
     } else if (operator === 'between' && Array.isArray(filterVal) && filterVal.length === 2) {
-      const a = filterVal[0] instanceof Date ? filterVal[0] : new Date(filterVal[0])
-      const b = filterVal[1] instanceof Date ? filterVal[1] : new Date(filterVal[1])
+      const a = filterVal[0] instanceof Date ? filterVal[0] : new Date(filterVal[0]);
+      const b = filterVal[1] instanceof Date ? filterVal[1] : new Date(filterVal[1]);
       if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
         filterConditions.push({ [filterCol]: { [op.between]: [a, b] } });
       }
@@ -1205,36 +1179,45 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
       filterConditions.push({ [filterCol]: null });
     } else if (operator === 'is_not_null') {
       filterConditions.push({ [filterCol]: { [op.not]: null } });
-    } else {
+    } else if (operator === 'eq') {
       const nullVal = filterVal === null || filterVal === undefined ||
         (Array.isArray(filterVal) && filterVal.length === 1 && (filterVal[0] === null || filterVal[0] === undefined));
-      if (nullVal && operator === 'eq') {
+      if (nullVal) {
         filterConditions.push({ [filterCol]: null });
-      } else if (nullVal && (operator === 'neq' || operator === 'ne')) {
-        filterConditions.push({ [filterCol]: { [op.not]: null } });
-      } else if (operatorMappings[operator] && filterVal) {
-        if (Array.isArray(filterVal)) {
-          if (operator === 'in') {
-            filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
-          } else {
-            const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
-            filterConditions.push({ [op.or]: nestedConditions });
-          }
+      } else {
+        if (!eqGroups.has(filterCol)) eqGroups.set(filterCol, []);
+        const vals = Array.isArray(filterVal) ? filterVal : [filterVal];
+        eqGroups.get(filterCol).push(...vals);
+      }
+    } else if (operator === 'neq' || operator === 'ne') {
+      const nullVal = filterVal === null || filterVal === undefined ||
+        (Array.isArray(filterVal) && filterVal.length === 1 && (filterVal[0] === null || filterVal[0] === undefined));
+      if (nullVal) {
+        if (!neqNullSeen.has(filterCol)) { neqNullSeen.add(filterCol); filterConditions.push({ [filterCol]: { [op.not]: null } }); }
+      } else {
+        const val = Array.isArray(filterVal) && filterVal.length === 1 ? filterVal[0] : filterVal;
+        filterConditions.push({ [filterCol]: { [op.ne]: val } });
+      }
+    } else if (operatorMappings[operator] && filterVal) {
+      if (Array.isArray(filterVal)) {
+        if (operator === 'in' || operator === 'not_in' || operator === 'notIn') {
+          if (filterVal.length) filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
         } else {
-          filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+          const nestedConditions = filterVal.map((v) => ({ [filterCol]: { [operatorMappings[operator]]: v } }));
+          filterConditions.push({ [op.or]: nestedConditions });
         }
+      } else {
+        filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
       }
     }
-    
-
-
- 
-    
-   
   }
-
-
- 
+  for (const [field, values] of eqGroups) {
+    if (values.length === 1) {
+      filterConditions.push({ [field]: { [op.eq]: values[0] } });
+    } else {
+      filterConditions.push({ [field]: { [op.in]: values } });
+    }
+  }
   }
   
  
@@ -1464,12 +1447,10 @@ let groupfields = []
 
   const filterConditions = buildIgnoreEmptyConditions(req.body, operatorMappings);
 
-  console.log('filterConditions',filterConditions )
- 
-if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
+if (req.body.filterField && req.body.filterValue && req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
   let filterCols = req.body.filterField;
   let filterValues = req.body.filterValue;
-  let filterOperators = req.body.filterOperator; // Array of filter operators
+  let filterOperators = req.body.filterOperator;
 
   if (!Array.isArray(filterCols)) {
     filterCols = [filterCols];
@@ -1477,33 +1458,23 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     filterOperators = [filterOperators];
   }
 
-  console.log('-----------------------------y--------------------------------',req.body.filterField)
-  console.log('filter values',filterValues )
-  console.log('  filterCols',filterCols )
-  console.log('  filterOperators',filterOperators )
-
-
+  const eqGroups    = new Map();
+  const neqNullSeen = new Set();
 
   for (let i = 0; i < filterCols.length; i++) {
-
-    console.log(filterCols[i], filterOperators[i],filterValues[i] )
-
     const filterCol = filterCols[i];
     const filterVal = filterValues[i];
-    const operator = filterOperators[i]; // Get the operator corresponding to the filter field
-    // keep a record of the ops in ths querry 
-    operators.push(operator)
- 
+    const operator  = filterOperators[i];
+    operators.push(operator);
 
-    if (operator === "all") {
-      // No filter, retrieve all records for this field
-      continue; // Skip adding any condition for this field
-    } else if (operator === "or") {
-      const orConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings['eq']]: nestedVal } }));
+    if (operator === 'all') {
+      continue;
+    } else if (operator === 'or') {
+      const orConditions = filterVal.map((v) => ({ [filterCol]: { [operatorMappings['eq']]: v } }));
       filterConditions.push({ [op.or]: orConditions });
     } else if (operator === 'between' && Array.isArray(filterVal) && filterVal.length === 2) {
-      const a = filterVal[0] instanceof Date ? filterVal[0] : new Date(filterVal[0])
-      const b = filterVal[1] instanceof Date ? filterVal[1] : new Date(filterVal[1])
+      const a = filterVal[0] instanceof Date ? filterVal[0] : new Date(filterVal[0]);
+      const b = filterVal[1] instanceof Date ? filterVal[1] : new Date(filterVal[1]);
       if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
         filterConditions.push({ [filterCol]: { [op.between]: [a, b] } });
       }
@@ -1511,45 +1482,45 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
       filterConditions.push({ [filterCol]: null });
     } else if (operator === 'is_not_null') {
       filterConditions.push({ [filterCol]: { [op.not]: null } });
-    } else {
+    } else if (operator === 'eq') {
       const nullVal = filterVal === null || filterVal === undefined ||
         (Array.isArray(filterVal) && filterVal.length === 1 && (filterVal[0] === null || filterVal[0] === undefined));
-      if (nullVal && operator === 'eq') {
+      if (nullVal) {
         filterConditions.push({ [filterCol]: null });
-      } else if (nullVal && (operator === 'neq' || operator === 'ne')) {
-        filterConditions.push({ [filterCol]: { [op.not]: null } });
-      } else if (operatorMappings[operator] && filterVal) {
-        if (Array.isArray(filterVal)) {
-          console.log('>><<', operatorMappings[operator], filterVal)
-          let nestedConditions
-          if (operator === 'in' || operator === 'notIn' || operator === 'not_in') {
-            nestedConditions = { [filterCol]: { [operatorMappings[operator]]: filterVal } };
-          } else if (operator === 'contains') {
-            nestedConditions = ({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
-          } else {
-            nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
-          }
-          if (operator === 'in' || operator === 'notIn' || operator === 'not_in') {
-            filterConditions.push(nestedConditions);
-          } else {
-            filterConditions.push({ [op.or]: nestedConditions });
-          }
+      } else {
+        if (!eqGroups.has(filterCol)) eqGroups.set(filterCol, []);
+        const vals = Array.isArray(filterVal) ? filterVal : [filterVal];
+        eqGroups.get(filterCol).push(...vals);
+      }
+    } else if (operator === 'neq' || operator === 'ne') {
+      const nullVal = filterVal === null || filterVal === undefined ||
+        (Array.isArray(filterVal) && filterVal.length === 1 && (filterVal[0] === null || filterVal[0] === undefined));
+      if (nullVal) {
+        if (!neqNullSeen.has(filterCol)) { neqNullSeen.add(filterCol); filterConditions.push({ [filterCol]: { [op.not]: null } }); }
+      } else {
+        const val = Array.isArray(filterVal) && filterVal.length === 1 ? filterVal[0] : filterVal;
+        filterConditions.push({ [filterCol]: { [op.ne]: val } });
+      }
+    } else if (operatorMappings[operator] && filterVal) {
+      if (Array.isArray(filterVal)) {
+        if (operator === 'in' || operator === 'not_in' || operator === 'notIn') {
+          if (filterVal.length) filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
         } else {
-          filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+          const nestedConditions = filterVal.map((v) => ({ [filterCol]: { [operatorMappings[operator]]: v } }));
+          filterConditions.push({ [op.or]: nestedConditions });
         }
+      } else {
+        filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
       }
     }
-    
-
-
-    console.log('filterConditions',JSON.stringify(filterConditions) )
-
-    
-   
   }
-
-
- 
+  for (const [field, values] of eqGroups) {
+    if (values.length === 1) {
+      filterConditions.push({ [field]: { [op.eq]: values[0] } });
+    } else {
+      filterConditions.push({ [field]: { [op.in]: values } });
+    }
+  }
   }
   
   // Store search info for later application
