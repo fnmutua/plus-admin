@@ -114,24 +114,75 @@ function buildWhere(filters, ignoreEmpty, yField) {
   }
 
   const opSql = {
-    eq:    '=',    ne:    '!=',
+    eq:    '=',    ne:    '!=',    neq:   '!=',
     gt:    '>',    gte:   '>=',
     lt:    '<',    lte:   '<=',
     like:  'LIKE', iLike: 'ILIKE',
   }
 
   if (Array.isArray(filters)) {
+    // Group eq/neq filters by field so that multiple eq rows on the same field
+    // become IN (...) instead of field='A' AND field='B' (always false).
+    const eqGroups  = new Map() // field → [non-null values]
+    const neqGroups = new Map() // field → true (IS NOT NULL already covers all neq-null rows)
+
     for (const f of filters) {
       if (!f.field || !f.operation || f.operation === 'all') continue
-      const col = safeCol(f.field)
-      const vals = Array.isArray(f.value) ? f.value : [f.value]
+      const col  = safeCol(f.field)
+      const vals = (Array.isArray(f.value) ? f.value : [f.value]).filter(v => v !== undefined)
 
-      if (f.operation === 'in' || f.operation === 'notIn') {
+      if (f.operation === 'is_null') {
+        parts.push(`${col} IS NULL`)
+      } else if (f.operation === 'is_not_null') {
+        parts.push(`${col} IS NOT NULL`)
+      } else if (f.operation === 'in' || f.operation === 'not_in') {
+        if (!vals.length) continue
         const keys = vals.map((v) => { const k = `f${++idx}`; bind[k] = v; return `:${k}` })
         parts.push(`${col} ${f.operation === 'in' ? 'IN' : 'NOT IN'} (${keys.join(',')})`)
+      } else if (f.operation === 'contains' || f.operation === 'not_contains' ||
+                 f.operation === 'starts_with' || f.operation === 'ends_with') {
+        const raw = vals[0]
+        if (raw === null || raw === undefined || raw === '') continue
+        const k = `f${++idx}`
+        if (f.operation === 'contains')          { bind[k] = `%${raw}%`; parts.push(`${col} ILIKE :${k}`) }
+        else if (f.operation === 'not_contains') { bind[k] = `%${raw}%`; parts.push(`${col} NOT ILIKE :${k}`) }
+        else if (f.operation === 'starts_with')  { bind[k] = `${raw}%`;  parts.push(`${col} ILIKE :${k}`) }
+        else if (f.operation === 'ends_with')    { bind[k] = `%${raw}`;  parts.push(`${col} ILIKE :${k}`) }
+      } else if (f.operation === 'eq') {
+        const val = vals[0]
+        if (val === null || val === undefined || val === '') {
+          parts.push(`${col} IS NULL`)
+        } else {
+          if (!eqGroups.has(f.field)) eqGroups.set(f.field, [])
+          eqGroups.get(f.field).push(val)
+        }
+      } else if (f.operation === 'neq' || f.operation === 'ne') {
+        const val = vals[0]
+        if (val === null || val === undefined || val === '') {
+          // neq null → IS NOT NULL; deduplicate per field
+          if (!neqGroups.has(f.field)) { neqGroups.set(f.field, true); parts.push(`${col} IS NOT NULL`) }
+        } else {
+          const k = `f${++idx}`; bind[k] = val
+          parts.push(`${col} != :${k}`)
+        }
       } else if (opSql[f.operation]) {
-        const k = `f${++idx}`; bind[k] = vals[0]
-        parts.push(`${col} ${opSql[f.operation]} :${k}`)
+        const val = vals[0]
+        if (val !== null && val !== undefined && val !== '') {
+          const k = `f${++idx}`; bind[k] = val
+          parts.push(`${col} ${opSql[f.operation]} :${k}`)
+        }
+      }
+    }
+
+    // Emit grouped eq conditions: 1 value → =, multiple → IN (OR semantics)
+    for (const [field, values] of eqGroups) {
+      const col = safeCol(field)
+      if (values.length === 1) {
+        const k = `f${++idx}`; bind[k] = values[0]
+        parts.push(`${col} = :${k}`)
+      } else {
+        const keys = values.map(v => { const k = `f${++idx}`; bind[k] = v; return `:${k}` })
+        parts.push(`${col} IN (${keys.join(',')})`)
       }
     }
   }

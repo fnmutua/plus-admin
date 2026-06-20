@@ -515,15 +515,30 @@ type FilterRow = { field: string | null; operation: string | null; value: any[];
 const filterRows = ref<FilterRow[]>([])
 
 const FUNC_OPTS_STRING = [
-  { value: 'all', label: 'All' },
-  { value: 'eq',  label: 'Equal' },
+  { value: 'all',         label: 'All' },
+  { value: 'eq',          label: 'Equal' },
+  { value: 'neq',         label: 'Not Equal' },
+  { value: 'contains',    label: 'Contains' },
+  { value: 'not_contains',label: 'Does Not Contain' },
+  { value: 'starts_with', label: 'Starts With' },
+  { value: 'ends_with',   label: 'Ends With' },
+  { value: 'in',          label: 'In' },
+  { value: 'not_in',      label: 'Not In' },
+  { value: 'is_null',     label: 'Is Empty' },
+  { value: 'is_not_null', label: 'Is Not Empty' },
 ]
 const FUNC_OPTS_NUM = [
-  { value: 'all', label: 'All' },
-  { value: 'lt',  label: 'Less Than' },
-  { value: 'lte', label: 'Less than or equal to' },
-  { value: 'eq',  label: 'Equal' },
-  { value: 'gte', label: 'Greater than or equal to' },
+  { value: 'all',         label: 'All' },
+  { value: 'eq',          label: 'Equal' },
+  { value: 'neq',         label: 'Not Equal' },
+  { value: 'lt',          label: 'Less Than' },
+  { value: 'lte',         label: 'Less Than or Equal To' },
+  { value: 'gt',          label: 'Greater Than' },
+  { value: 'gte',         label: 'Greater Than or Equal To' },
+  { value: 'in',          label: 'In' },
+  { value: 'not_in',      label: 'Not In' },
+  { value: 'is_null',     label: 'Is Empty' },
+  { value: 'is_not_null', label: 'Is Not Empty' },
 ]
 
 const funcOptsForField = (fieldName: string | null) => {
@@ -547,15 +562,28 @@ const onFilterFieldChange = async (row: FilterRow, fieldName: string) => {
   }
 }
 
+const loadFilterRowOpts = async (row: FilterRow) => {
+  if (!row.field || !ruleForm.card_model || row._opts.length) return
+  row._loading = true
+  try {
+    const res = await getUniqueFieldValues({ model: ruleForm.card_model, selectedField: row.field })
+    row._opts = (res.data || []).map((v: any) => ({ value: v, label: String(v) }))
+  } finally {
+    row._loading = false
+  }
+}
+
 const addFilterRow = () =>
   filterRows.value.push({ field: null, operation: null, value: [], _opts: [], _loading: false })
 
 const removeFilterRow = (i: number) => filterRows.value.splice(i, 1)
 
+const NO_VALUE_OPS = new Set(['all', 'is_null', 'is_not_null'])
+
 const saveFilters = () => {
   ruleForm.filters = filterRows.value
-    .filter(r => r.field && r.operation)
-    .map(({ field, operation, value }) => ({ field, operation, value }))
+    .filter(r => r.field && r.operation && (NO_VALUE_OPS.has(r.operation!) || r.value.length > 0))
+    .map(({ field, operation, value }) => ({ field, operation, value: NO_VALUE_OPS.has(operation!) ? [] : value }))
   ElMessage.success('Filters saved')
 }
 
@@ -668,7 +696,12 @@ const nextStep = async () => {
       .catch(() => false)
     if (ok === false) return
   }
-  if (activeStep.value < 3) activeStep.value++
+  if (activeStep.value < 3) {
+    activeStep.value++
+    if (activeStep.value === 3) {
+      filterRows.value.forEach(row => loadFilterRowOpts(row))
+    }
+  }
 }
 const prevStep = () => { if (activeStep.value > 0) activeStep.value-- }
 
@@ -1108,7 +1141,8 @@ const submitForm = async (addAnother = false) => {
 
               <el-table-column label="Value(s)" min-width="150">
                 <template #default="{ row }">
-                  <el-select v-model="row.value" multiple filterable allow-create collapse-tags
+                  <span v-if="['all', 'is_null', 'is_not_null'].includes(row.operation)" class="text-gray-400 text-xs">—</span>
+                  <el-select v-else v-model="row.value" multiple filterable allow-create collapse-tags
                     placeholder="Select or type" :loading="row._loading"
                     @update:model-value="saveFilters">
                     <el-option v-for="o in row._opts" :key="String(o.value)" :label="String(o.label)" :value="o.value" />
@@ -1118,9 +1152,7 @@ const submitForm = async (addAnother = false) => {
 
               <el-table-column width="50" align="center">
                 <template #default="{ $index }">
-                  <el-tooltip content="Remove filter" placement="top">
-                    <el-button size="small" type="danger" :icon="Delete" @click="removeFilterRow($index)" />
-                  </el-tooltip>
+                  <el-button size="small" type="danger" :icon="Delete" @click="removeFilterRow($index)" />
                 </template>
               </el-table-column>
             </el-table>
