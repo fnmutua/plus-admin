@@ -1,11 +1,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
-import { useRouter,Router} from 'vue-router'
- 
+
 import qs from 'qs'
 
 import { config } from './config'
 
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import router from '@/router'
 
 const { result_code, base_url } = config
@@ -13,6 +12,37 @@ const { result_code, base_url } = config
 const apiBasePath = (import.meta.env.VITE_API_BASEPATH || 'base') as keyof typeof base_url
 export const PATH_URL = base_url[apiBasePath] ?? ''
 
+// ── Session-expiry guard ─────────────────────────────────────────────────────
+// Only one dialog, one redirect — however many requests fail simultaneously.
+let isHandlingExpiry = false
+
+function handleSessionExpired() {
+  if (isHandlingExpiry) return
+  isHandlingExpiry = true
+
+  // Kill the token immediately so no further requests sneak through
+  try {
+    sessionStorage.clear()
+    localStorage.clear()
+  } catch { /* ignore storage errors */ }
+
+  const currentPath = router.currentRoute.value.fullPath
+
+  ElMessageBox.alert(
+    'Your session has expired. Please log in again to continue.',
+    'Session Expired',
+    {
+      confirmButtonText: 'Go to Login',
+      type: 'warning',
+      showClose: false,
+      closeOnClickModal: false,
+      closeOnPressEscape: false,
+    }
+  ).finally(() => {
+    isHandlingExpiry = false
+    router.replace(`/login?redirect=${encodeURIComponent(currentPath)}`)
+  })
+}
 
 // 创建axios实例
 const service: AxiosInstance = axios.create({
@@ -23,6 +53,11 @@ const service: AxiosInstance = axios.create({
 // request拦截器
 service.interceptors.request.use(
   (config: AxiosRequestConfig) => {
+    // If session expiry is already being handled, abort queued requests immediately
+    if (isHandlingExpiry) {
+      return Promise.reject(new axios.Cancel('Session expired'))
+    }
+
     if (
       config.method === 'post' &&
       (config.headers as any)['Content-Type'] === 'application/x-www-form-urlencoded'
@@ -50,14 +85,12 @@ service.interceptors.request.use(
       config.onUploadProgress = function (progressEvent) {
         const uploadPercentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
         console.log('Upload Progress:', uploadPercentage);
-        // You can handle the upload progress here, e.g., update a progress bar
       };
     }
 
     return config;
   },
   (error: AxiosError) => {
-    // Do something with request error
     console.log(error); // for debug
     return Promise.reject(error);
   }
@@ -68,51 +101,47 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse<any>) => {
     if (response.config.responseType === 'blob') {
-      // 如果是文件流，直接过
       return response
-    } 
+    }
     else if (response.data.code === result_code) {
-
       if (response.data.message && !(response.config as any).silent) {
         ElMessage({
           message: response.data.message,
           type: 'success',
-          duration:5000,
-        })    // felix - show message on success request
-
+          duration: 5000,
+        })
       }
-
       return response.data
     } else {
       console.log('xxxx', response)
       return response
-     // ElMessage.error(response.data.message)
-     
     }
   },
-  (error) => {
-    console.log('the Error-0->', error    ); // Log the error message to the console for debugging
-    //console.log(error.response.data.message); // Log any specific message from the response (if available)
-  
-    // if (error.response.data.message && error.response.data.message == 'Unauthorized!') {
-      
-    //   console.log("Unauth-Redirecting...")
-    //   router.push({
-    //     path: '/login',
-    //     name: 'Login',
-    //    })
-    // }
+  (error: AxiosError) => {
+    console.log('the Error-0->', error)
 
-    
-     //ElMessage.error(error.response.data.message )   /// Revist Felix 
-     const errorMessage = error?.response?.data?.message || error?.message || 'An error occurred'
-     if (!error?.config?.silent) {
-       ElMessage({
+    // Cancelled requests (e.g. aborted after session expiry) — no toast
+    if (axios.isCancel(error)) return Promise.reject(error)
+
+    const status = error?.response?.status
+    const message = (error?.response?.data as any)?.message || ''
+
+    // 401 = expired/invalid token, 403 = no token provided
+    if (status === 401 || status === 403 || message === 'Unauthorized!') {
+      handleSessionExpired()
+      // Swallow the error — the dialog + redirect is the UX, not a toast
+      return Promise.reject(error)
+    }
+
+    // All other errors: show toast (unless request marked silent)
+    const errorMessage = message || error?.message || 'An error occurred'
+    if (!(error?.config as any)?.silent) {
+      ElMessage({
         message: errorMessage,
         type: 'error',
-        duration:5000,
-      })    // felix - global error toast (can be suppressed per request)
-     }
+        duration: 5000,
+      })
+    }
 
     return Promise.reject(error)
   }

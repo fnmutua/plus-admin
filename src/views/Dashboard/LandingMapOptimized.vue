@@ -57,7 +57,31 @@
     </el-collapse>
   </div>
 
-  <div v-loading="mapLoading" :element-loading-text="mapLoadingText" id="map" class="map"></div>
+  <div id="map" class="map"></div>
+
+  <!-- AI loading overlay -->
+  <Transition name="ai-overlay-fade">
+    <div v-if="mapLoading" class="ai-loading-overlay">
+      <div class="ai-loading-box">
+        <div class="ai-spinner">
+          <div class="ai-ring ai-ring-1"></div>
+          <div class="ai-ring ai-ring-2"></div>
+          <div class="ai-ring ai-ring-3"></div>
+          <Icon icon="material-symbols:map" width="36" class="ai-center-icon" />
+        </div>
+        <p class="ai-loading-title">
+          Analysing {{ mapFilterContext || 'Kenya' }} data
+        </p>
+        <p class="ai-loading-wait">Please wait…</p>
+        <Transition name="ai-msg-fade" mode="out-in">
+          <p :key="aiMapMsgIndex" class="ai-loading-msg">{{ aiMapMessages[aiMapMsgIndex] }}</p>
+        </Transition>
+        <div class="ai-dots">
+          <span v-for="(_, i) in aiMapMessages" :key="i" :class="['ai-dot', { active: i === aiMapMsgIndex }]"></span>
+        </div>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -113,6 +137,53 @@ const map = ref<mapboxgl.Map | null>(null)
 const mapLoading = ref(false)
 const mapLoadingText = ref('Loading map....')
 const isDarkMode = computed(() => appStore.getIsDark)
+
+// ── AI loading overlay ────────────────────────────────────────────────────────
+const mapFilterContext = computed(() => {
+  const summarize = (labels: string[], max = 3) => {
+    if (!labels.length) return ''
+    if (labels.length <= max) return labels.join(', ')
+    return `${labels.slice(0, max).join(', ')} (+${labels.length - max} more)`
+  }
+  if (subcounty.value?.length) {
+    const labels = subCountyOptions.value.filter(s => subcounty.value.includes(s.value as any)).map(s => s.label)
+    return summarize(labels)
+  }
+  if (county.value?.length) {
+    const labels = countyOptions.value.filter(c => county.value.includes(c.value as any)).map(c => c.label)
+    return summarize(labels)
+  }
+  return ''
+})
+
+const aiMapMessages = computed(() => {
+  const loc = mapFilterContext.value || 'Kenya'
+  return [
+    `Loading settlement locations for ${loc}…`,
+    `Rendering informal settlement boundaries in ${loc}…`,
+    `Fetching geospatial data for ${loc}…`,
+    `Mapping infrastructure access points in ${loc}…`,
+    `Clustering settlement data across ${loc}…`,
+    `Joining tenure records with map layers for ${loc}…`,
+    `Drawing vulnerability zones in ${loc}…`,
+    `Loading satellite overlay for ${loc}…`,
+    `Rendering population density for ${loc}…`,
+    `Almost ready — finalising map for ${loc}…`,
+  ]
+})
+const aiMapMsgIndex = ref(0)
+let aiMapMsgTimer: ReturnType<typeof setInterval> | null = null
+
+watch(mapLoading, (loading) => {
+  if (loading) {
+    aiMapMsgIndex.value = 0
+    aiMapMsgTimer = setInterval(() => {
+      aiMapMsgIndex.value = (aiMapMsgIndex.value + 1) % aiMapMessages.value.length
+    }, 2800)
+  } else {
+    if (aiMapMsgTimer) { clearInterval(aiMapMsgTimer); aiMapMsgTimer = null }
+  }
+})
 
 // Collapse state - closed by default on all screen sizes
 const activeCollapse = ref<string[]>([])
@@ -1210,4 +1281,98 @@ const getClickedSettlement = async (id: number) => {
     line-height: 18px;
   }
 }
+
+/* ── AI loading overlay ──────────────────────────────────────────────────────── */
+.ai-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ai-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 48px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+  text-align: center;
+}
+
+.ai-spinner {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  animation: ai-spin linear infinite;
+}
+.ai-ring-1 { width: 80px; height: 80px; border-top-color: #3b82f6; animation-duration: 1.2s; }
+.ai-ring-2 { width: 60px; height: 60px; border-top-color: #60a5fa; border-right-color: #60a5fa; animation-duration: 1.8s; animation-direction: reverse; }
+.ai-ring-3 { width: 40px; height: 40px; border-top-color: #93c5fd; animation-duration: 2.4s; }
+
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+
+.ai-center-icon { color: #93c5fd !important; position: relative; z-index: 1; }
+
+.ai-loading-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.ai-loading-wait {
+  font-size: 12px;
+  color: #64748b;
+  margin: -8px 0 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ai-loading-msg {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+  min-height: 36px;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+.ai-dots { display: flex; gap: 6px; margin-top: 4px; }
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.3);
+  transition: background 0.3s, transform 0.3s;
+}
+.ai-dot.active { background: #3b82f6; transform: scale(1.3); }
+
+.ai-overlay-fade-enter-active { transition: opacity 0.4s ease; }
+.ai-overlay-fade-leave-active { transition: opacity 0.6s ease; }
+.ai-overlay-fade-enter-from, .ai-overlay-fade-leave-to { opacity: 0; }
+
+.ai-msg-fade-enter-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.ai-msg-fade-leave-active { transition: opacity 0.2s ease; }
+.ai-msg-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.ai-msg-fade-leave-to   { opacity: 0; }
 </style>

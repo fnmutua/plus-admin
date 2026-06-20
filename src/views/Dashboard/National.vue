@@ -2645,7 +2645,7 @@ const downloadSettlementData = async () => {
 </script>
 
 <template>
-  <div class="dashboard-container" v-loading="dashboardLoading" element-loading-text="Loading dashboard..." element-loading-background="rgba(255, 255, 255, 0.75)">
+  <div class="dashboard-container">
 
     <!-- AI loading overlay -->
     <Transition name="ai-overlay-fade">
@@ -2660,6 +2660,7 @@ const downloadSettlementData = async () => {
           <p class="ai-loading-title">
             Analysing {{ statisticsCardFilterContext || 'Kenya' }} data
           </p>
+          <p class="ai-loading-wait">Please wait…</p>
           <Transition name="ai-msg-fade" mode="out-in">
             <p :key="aiMsgIndex" class="ai-loading-msg">{{ aiMessages[aiMsgIndex] }}</p>
           </Transition>
@@ -3462,6 +3463,14 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   color: #f1f5f9;
   margin: 0;
   letter-spacing: 0.02em;
+}
+
+.ai-loading-wait {
+  font-size: 12px;
+  color: #64748b;
+  margin: -8px 0 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .ai-loading-msg {
