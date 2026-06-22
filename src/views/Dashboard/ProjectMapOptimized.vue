@@ -34,7 +34,23 @@
               teleported
               popper-class="filter-select-dropdown"
             >
-              <el-option v-for="item in implementerOptions" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option-group
+                v-for="group in programmeOptionGroups"
+                :key="group.id"
+                :label="group.label"
+              >
+                <el-option
+                  :key="`root-${group.id}`"
+                  :label="group.rootLabel"
+                  :value="group.id"
+                />
+                <el-option
+                  v-for="item in group.children"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-option-group>
             </el-select>
             <el-select
               multiple
@@ -48,7 +64,12 @@
               teleported
               popper-class="filter-select-dropdown"
             >
-              <el-option v-for="item in componentOptions" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option
+                v-for="item in componentOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
             </el-select>
             <el-select
               multiple
@@ -170,18 +191,19 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, type Ref } from 'vue'
-import { ElButton, ElSelect, ElOption, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem } from 'element-plus'
+import { ElButton, ElSelect, ElOption, ElOptionGroup, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
 import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
-import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import {
   getOptimizedProjectLocations,
   getBatchGeometries,
   getCountiesList,
-  getSubcountiesList
+  getSubcountiesList,
+  getProgrammesList,
+  getComponentsList
 } from '@/api/project-locations-optimized'
 import { getOneSettlement } from '@/api/settlements'
 import { useRouter } from 'vue-router'
@@ -195,7 +217,6 @@ const router = useRouter()
 const { wsCache } = useCache()
 const appStoreWithOut = useAppStoreWithOut()
 const userInfo = wsCache.get(appStoreWithOut.getUserInfo)
-const permissionStore = usePermissionStoreWithOut()
 
 // User location-based filtering
 const isSuperAdmin = computed(() => {
@@ -360,27 +381,56 @@ const countyGeo = ref<any>(null)
 // Options refs
 const countyOptions = ref<Array<{value: number, label: string}>>([])
 const subCountyOptions = ref<Array<{value: number, label: string}>>([])
+const programmeList = ref<Array<{ id: number; title: string; acronym: string; parentId: number | string | null }>>([])
+const componentOptions = ref<Array<{ value: number; label: string; programmeId: number }>>([])
 
-// Programmes and components come from the permission store (already loaded at login)
-const implementerOptions = computed(() =>
-  permissionStore.getProgrammeOptions.map((p: any) => ({
-    value: p.id,
-    label: p.acronym || p.title,
-    title: p.title
+/** Programme dropdown grouped by root (KISIP2, SUD, etc.) from programmex table */
+const programmeOptionGroups = computed(() => {
+  const roots = programmeList.value.filter((p) => p.parentId == null || p.parentId === '')
+  return roots.map((root) => ({
+    id: root.id,
+    label: root.title || root.acronym,
+    rootLabel: `${root.title || root.acronym} (all)`,
+    children: programmeList.value
+      .filter((p) => String(p.parentId) === String(root.id))
+      .map((p) => ({
+        value: p.id,
+        label: p.title || p.acronym,
+        title: p.title
+      }))
   }))
-)
+})
 
-const componentOptions = computed(() => {
-  if (!implementer.value.length) return []
-  const selectedSet = new Set(implementer.value)
-  return permissionStore.getAllComponents
-    .filter((c: any) => selectedSet.has(c.programme_id))
-    .map((c: any) => ({
+const loadProgrammeOptions = async () => {
+  try {
+    const res = await getProgrammesList({})
+    programmeList.value = Array.isArray(res?.data) ? res.data : []
+  } catch (error) {
+    console.error('Error loading programmes:', error)
+    programmeList.value = []
+  }
+}
+
+const loadComponentOptions = async () => {
+  if (!implementer.value.length) {
+    componentOptions.value = []
+    return
+  }
+  try {
+    const res = await getComponentsList({
+      params: { programme_ids: implementer.value.join(',') }
+    })
+    const rows = Array.isArray(res?.data) ? res.data : []
+    componentOptions.value = rows.map((c: any) => ({
       value: c.id,
-      label: c.acronym || c.title,
+      label: c.title || c.acronym,
       programmeId: c.programme_id
     }))
-})
+  } catch (error) {
+    console.error('Error loading components for programme:', error)
+    componentOptions.value = []
+  }
+}
 
 // Mapbox token
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -524,8 +574,9 @@ const initializeMapData = async () => {
     mapLoading.value = true
     mapLoadingText.value = 'Loading data...'
 
-    // Parallelize all initial data loading (implementers/components come from the permission store)
-    const [, , countyGeoData] = await Promise.all([
+    // Parallelize initial data loading
+    const [, , , countyGeoData] = await Promise.all([
+      loadProgrammeOptions(),
       loadProjectLocations(),
       loadCounties(),
       loadCountyGeo()
@@ -554,7 +605,7 @@ const initializeMapData = async () => {
 const loadProjectLocations = async (filters?: {
   countyIds?: number[],
   subcountyIds?: number[],
-  implementerIds?: number[],
+  programmeIds?: number[],
   componentIds?: number[]
 }) => {
   try {
@@ -584,13 +635,13 @@ const loadProjectLocations = async (filters?: {
       filterValues.push(filters.subcountyIds)
     }
 
-    // Apply implementer filter (works for both restricted and non-restricted users)
-    if (filters?.implementerIds && filters.implementerIds.length > 0) {
-      filterFields.push('implementer')
-      filterValues.push(filters.implementerIds)
+    // Programme filter — via project → component.programme_id (when no component selected)
+    if (filters?.programmeIds && filters.programmeIds.length > 0 && !(filters?.componentIds?.length)) {
+      filterFields.push('programme_id')
+      filterValues.push(filters.programmeIds)
     }
 
-    // Apply component filter via server-side subquery (project_location → project.component_id)
+    // Component filter — via project.component_id (narrows within selected programme(s))
     if (filters?.componentIds && filters.componentIds.length > 0) {
       filterFields.push('component_id')
       filterValues.push(filters.componentIds)
@@ -785,8 +836,8 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
       const [, countyGeos] = await Promise.all([
         loadProjectLocations({
           countyIds: countyArray,
-          implementerIds: implementer.value,
-          componentIds: component.value
+          programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
+          componentIds: component.value.length > 0 ? component.value : undefined
         }),
         loadCountyGeometries(countyArray)
       ])
@@ -814,7 +865,7 @@ const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
       mapLoadingText.value = 'Loading all project locations...'
 
       await loadProjectLocations({
-        implementerIds: implementer.value.length > 0 ? implementer.value : undefined,
+        programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
         componentIds: component.value.length > 0 ? component.value : undefined
       })
       await addProjectLayers()
@@ -858,7 +909,7 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
     await loadProjectLocations({
       countyIds: (!isCountyRestricted.value && county.value.length > 0) ? county.value : undefined,
       subcountyIds: subcountyArray.length > 0 ? subcountyArray : undefined,
-      implementerIds: implementer.value.length > 0 ? implementer.value : undefined,
+      programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
       componentIds: component.value.length > 0 ? component.value : undefined
     })
 
@@ -892,56 +943,55 @@ const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) =
   }
 }, 300)
 
-// Debounced implementer change handler
-const handleChangeImplementer = debounce(async (implementerIds: number | number[]) => {
+// Debounced programme change handler — cascades to components then projects
+const handleChangeImplementer = debounce(async (programmeIds: number | number[]) => {
   if (!map.value) return
 
-  const implementerArray = Array.isArray(implementerIds) ? implementerIds : (implementerIds ? [implementerIds] : [])
+  const programmeArray = Array.isArray(programmeIds) ? programmeIds : (programmeIds ? [programmeIds] : [])
+
+  component.value = []
 
   try {
     mapLoading.value = true
     mapLoadingText.value = 'Loading filtered project locations...'
 
+    await loadComponentOptions()
+
+    const validComponentIds = new Set(componentOptions.value.map((o) => o.value))
+    component.value = component.value.filter((id) => validComponentIds.has(id))
+
     await loadProjectLocations({
-      countyIds: county.value,
-      subcountyIds: subcounty.value,
-      implementerIds: implementerArray,
-      componentIds: component.value
+      countyIds: county.value.length > 0 ? county.value : undefined,
+      subcountyIds: subcounty.value.length > 0 ? subcounty.value : undefined,
+      programmeIds: programmeArray.length > 0 ? programmeArray : undefined,
+      componentIds: undefined
     })
 
-    // All three depend only on geojson.value being set — run in parallel
     await Promise.all([
       filterCountyOptionsByImplementer(),
       loadCountiesFromFilteredProjects(),
       addProjectLayers()
     ])
 
-    // If implementer was cleared, restore the full county list
-    if (implementerArray.length === 0) {
+    if (programmeArray.length === 0) {
       await loadCounties()
-      component.value = []
-    } else {
-      // Cascade: componentOptions recomputes automatically; clear any selection no longer valid
-      const validComponentIds = new Set(componentOptions.value.map(o => o.value))
-      component.value = component.value.filter(id => validComponentIds.has(id))
+      componentOptions.value = []
     }
 
-    // Cascade: remove county selections that are no longer in the filtered options
     const validCountyIds = new Set(countyOptions.value.map(o => o.value))
     county.value = county.value.filter(id => validCountyIds.has(id))
 
-    // Cascade: reset subcounty, then reload it restricted by active filters
     subcounty.value = []
     subCountyOptions.value = []
     if (county.value.length > 0) {
-      const subcountyRestriction = implementerArray.length > 0 ? getSubcountyIdsFromProjects() : undefined
+      const subcountyRestriction = programmeArray.length > 0 ? getSubcountyIdsFromProjects() : undefined
       await loadSubcountiesForCounties(county.value, subcountyRestriction)
     }
 
     mapLoading.value = false
   } catch (error: any) {
-    console.error('Error changing implementer:', error)
-    ElMessage.error('Failed to load implementer data')
+    console.error('Error changing programme:', error)
+    ElMessage.error('Failed to load programme data')
     mapLoading.value = false
   }
 }, 300)
@@ -957,10 +1007,10 @@ const handleChangeComponent = debounce(async (componentIds: number | number[]) =
     mapLoadingText.value = 'Loading filtered project locations...'
 
     await loadProjectLocations({
-      countyIds: county.value,
-      subcountyIds: subcounty.value,
-      implementerIds: implementer.value,
-      componentIds: componentArray
+      countyIds: county.value.length > 0 ? county.value : undefined,
+      subcountyIds: subcounty.value.length > 0 ? subcounty.value : undefined,
+      programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
+      componentIds: componentArray.length > 0 ? componentArray : undefined
     })
 
     // Cascade: narrow county options to counties containing matching projects
@@ -1179,6 +1229,7 @@ const resetFilters = async () => {
     subcounty.value = []
     implementer.value = []
     component.value = []
+    componentOptions.value = []
     subCountyOptions.value = []
     await handleChangeCounty([userCountyId.value])
     return
@@ -1189,6 +1240,7 @@ const resetFilters = async () => {
   subCountyOptions.value = []
   implementer.value = []
   component.value = []
+  componentOptions.value = []
 
   mapLoading.value = true
   mapLoadingText.value = 'Resetting filters...'
@@ -1231,8 +1283,11 @@ const getClickedProjectLocation = async (projectLocationId: number) => {
     const projectCode = project.project_code || 'N/A'
     const projectTitle = project.title || 'Unknown Project'
     
-    const implementerOption = implementerOptions.value.find(opt => opt.value === projectLocation.implementer)
-    const implementerName = implementerOption?.title || 'Unknown'
+    const programmeId = project.component?.programme_id
+    const programmeOption = programmeId
+      ? programmeList.value.find((p) => p.id === programmeId)
+      : null
+    const implementerName = programmeOption?.title || programmeOption?.acronym || 'Unknown'
 
     projectDetails.value = {
       projectTitle,

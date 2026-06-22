@@ -39,6 +39,22 @@ export const getOptimizedProjectLocations = async ({ params }: AxiosConfig): Pro
 }
 
 /**
+ * Get programmes list (programmex table)
+ */
+export const getProgrammesList = async ({ params }: AxiosConfig): Promise<IResponse<any>> => {
+  const response = await request.get<{ data: any[]; code: string }>({
+    url: prod + '/api/v1/data/optimized/programmes',
+    params
+  })
+  const body = response as any
+  return {
+    data: Array.isArray(body?.data) ? body.data : [],
+    code: body?.code || '0000',
+    message: body?.message || 'Success'
+  } as any
+}
+
+/**
  * Get implementers list (programme_implementation)
  */
 export const getImplementersList = ({ params }: AxiosConfig): Promise<IResponse<any>> => {
@@ -49,13 +65,19 @@ export const getImplementersList = ({ params }: AxiosConfig): Promise<IResponse<
 }
 
 /**
- * Get components list for a programme (cascades from implementer selection)
+ * Get components list for selected programme(s) — cascade filter
  */
-export const getComponentsList = ({ params }: AxiosConfig): Promise<IResponse<any>> => {
-  return request.get({
+export const getComponentsList = async ({ params }: AxiosConfig): Promise<IResponse<any>> => {
+  const response = await request.get<{ data: any[]; code: string }>({
     url: prod + '/api/v1/data/optimized/components',
     params
   })
+  const body = response as any
+  return {
+    data: Array.isArray(body?.data) ? body.data : [],
+    code: body?.code || '0000',
+    message: body?.message || 'Success'
+  } as any
 }
 
 // Re-export batch geometries and other utilities from settlements-optimized

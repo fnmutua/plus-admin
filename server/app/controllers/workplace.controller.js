@@ -9,6 +9,7 @@ const {
   endOfDay,
   daysAgo
 } = require('../utils/workplaceScope')
+const { queryMergedAuditLogs, normalizeLoginAttemptRow } = require('../utils/auditLogQuery')
 
 const Users = db.models.users
 
@@ -184,14 +185,10 @@ exports.getLoginAttempts = async (req, res) => {
       fromDate = daysAgo(dayCount - 1)
     }
 
-    const where = {
-      action: { [Op.iLike]: '%login%' },
-      date: { [Op.between]: [fromDate, toDate] }
-    }
-
+    let actorIds = null
     if (!scope.isNational) {
-      const userIds = await getScopedUserIdList(scope)
-      if (!userIds || userIds.length === 0) {
+      actorIds = await getScopedUserIdList(scope)
+      if (!actorIds || actorIds.length === 0) {
         return res.status(200).send({
           code: '0000',
           message: 'Login attempts retrieved successfully',
@@ -201,22 +198,22 @@ exports.getLoginAttempts = async (req, res) => {
           limit: limitNum
         })
       }
-      where.userId = { [Op.in]: userIds.map(String) }
     }
 
-    const result = await db.models.logs.findAndCountAll({
-      where,
-      order: [['date', 'DESC']],
+    const result = await queryMergedAuditLogs({
+      page: pageNum,
       limit: limitNum,
-      offset,
-      attributes: ['id', 'userId', 'userName', 'action', 'status', 'source', 'date', 'loginTime']
+      action: 'login',
+      from: fromDate,
+      to: toDate,
+      actorIds
     })
 
     res.status(200).send({
       code: '0000',
       message: 'Login attempts retrieved successfully',
-      data: result.rows,
-      total: result.count,
+      data: result.data.map(normalizeLoginAttemptRow),
+      total: result.total,
       page: pageNum,
       limit: limitNum,
       from: fromDate,

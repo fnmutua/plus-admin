@@ -15305,6 +15305,18 @@ exports.getOptimizedProjectLocations = async (req, res) => {
       });
     }
 
+    // Expand parent programme selections to descendant IDs before building filters
+    if (parsedFilters.length > 0 && parsedFilterValues.length === parsedFilters.length) {
+      for (let i = 0; i < parsedFilters.length; i++) {
+        if (parsedFilters[i] === 'programme_id') {
+          const values = Array.isArray(parsedFilterValues[i])
+            ? parsedFilterValues[i]
+            : [parsedFilterValues[i]];
+          parsedFilterValues[i] = await expandProgrammeIds(values);
+        }
+      }
+    }
+
     // Build WHERE clause
     let whereClause = "geom IS NOT NULL AND ST_IsEmpty(geom) = false";
     
@@ -15322,6 +15334,17 @@ exports.getOptimizedProjectLocations = async (req, res) => {
           const escapedValues = values.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
           if (escapedValues.length > 0) {
             filterConditions.push(`project_id IN (SELECT id FROM project WHERE component_id IN (${escapedValues.join(', ')}))`);
+          }
+          return;
+        }
+
+        // programme_id lives on component — filter projects via component.programme_id
+        if (filter === 'programme_id') {
+          const escapedValues = values.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
+          if (escapedValues.length > 0) {
+            filterConditions.push(
+              `project_id IN (SELECT p.id FROM project p INNER JOIN component c ON p.component_id = c.id WHERE c.programme_id IN (${escapedValues.join(', ')}))`
+            );
           }
           return;
         }
@@ -15417,6 +15440,69 @@ exports.getOptimizedProjectLocations = async (req, res) => {
 };
 
 /**
+ * Expand programme IDs to include all descendants in programmex hierarchy.
+ * Selecting KISIP2 (18) also matches components under Tenure, Infrastructure, etc.
+ */
+async function expandProgrammeIds(rawIds) {
+  const parsed = (Array.isArray(rawIds) ? rawIds : [rawIds])
+    .map((v) => parseInt(v, 10))
+    .filter((v) => !isNaN(v));
+  if (!parsed.length) return [];
+
+  const rows = await db.sequelize.query(
+    `SELECT id, "parentId" FROM programmex`,
+    { type: db.sequelize.QueryTypes.SELECT, mapToModel: false }
+  );
+
+  const childrenByParent = new Map();
+  for (const row of rows) {
+    const id = parseInt(row.id, 10);
+    const parentRaw = row.parentId;
+    if (parentRaw != null && parentRaw !== '') {
+      const parentId = parseInt(parentRaw, 10);
+      if (!isNaN(parentId)) {
+        if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+        childrenByParent.get(parentId).push(id);
+      }
+    }
+  }
+
+  const expanded = new Set();
+  const walk = (id) => {
+    if (expanded.has(id)) return;
+    expanded.add(id);
+    for (const childId of childrenByParent.get(id) || []) walk(childId);
+  };
+  for (const id of parsed) walk(id);
+  return [...expanded];
+}
+
+/**
+ * Get programmes list (programmex) - optimized, no geometry
+ */
+exports.getProgrammesList = async (req, res) => {
+  try {
+    const qry = `
+      SELECT id, title, acronym, code, "parentId"
+      FROM programmex
+      ORDER BY title ASC
+    `;
+    const results = await db.sequelize.query(qry, {
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+    res.status(200).send({ data: results, code: '0000', message: 'Success' });
+  } catch (error) {
+    console.error('Error in getProgrammesList:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Get implementers list (programme_implementation) - optimized, no geometry
  */
 exports.getImplementersList = async (req, res) => {
@@ -15464,11 +15550,37 @@ exports.getImplementersList = async (req, res) => {
 
 exports.getComponentsList = async (req, res) => {
   try {
-    const { programme_id } = req.query;
-    const whereClause = programme_id
-      ? 'WHERE programme_id = ' + parseInt(programme_id, 10)
-      : '';
-    const qry = 'SELECT id, title, acronym, code, programme_id FROM component ' + whereClause + ' ORDER BY title ASC';
+    const { programme_id, programme_ids } = req.query;
+    let whereClause = '';
+
+    const parseIds = (raw) => {
+      if (raw == null || raw === '') return [];
+      if (Array.isArray(raw)) return raw.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            return parsed.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
+          }
+        } catch (_e) {
+          // fall through to comma-separated
+        }
+        return raw.split(',').map(v => parseInt(v.trim(), 10)).filter(v => !isNaN(v));
+      }
+      const n = parseInt(raw, 10);
+      return isNaN(n) ? [] : [n];
+    };
+
+    const ids = programme_ids != null ? parseIds(programme_ids) : parseIds(programme_id);
+    const expandedIds = ids.length > 0 ? await expandProgrammeIds(ids) : [];
+    if (expandedIds.length > 0) {
+      whereClause = `WHERE programme_id IN (${expandedIds.join(', ')})`;
+    } else {
+      // No programme selected — return nothing (cascade requires a programme first)
+      return res.status(200).send({ data: [], code: '0000', message: 'Success' });
+    }
+
+    const qry = `SELECT id, title, acronym, code, programme_id FROM component ${whereClause} ORDER BY title ASC`;
     const results = await db.sequelize.query(qry, {
       type: db.sequelize.QueryTypes.SELECT,
       mapToModel: false,

@@ -275,7 +275,7 @@ const onMutationFilterChange = () => {
 
 const onTabChange = (name: string | number) => {
   if (name === 'sessions' && !sessions.value.length) loadSessions()
-  if (name === 'logins' && !loginAttempts.value.length) loadLoginAttempts()
+  if (name === 'logins') loadLoginAttempts()
   if (name === 'mutations' && !mutations.value.length) loadMutations()
 }
 
@@ -436,12 +436,14 @@ onMounted(init)
                   <el-table-column prop="action" label="Action" width="100" />
                   <el-table-column label="Status" width="120">
                     <template #default="{ row }">
-                      <el-tag :type="loginStatusType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
+                      <el-tag :type="loginStatusType(row.status || row.outcome)" size="small" effect="light">
+                        {{ row.status || row.outcome }}
+                      </el-tag>
                     </template>
                   </el-table-column>
                   <el-table-column prop="source" label="Source" width="140" show-overflow-tooltip />
                   <el-table-column label="Time" min-width="170">
-                    <template #default="{ row }">{{ formatDateTime(row.date || row.loginTime) }}</template>
+                    <template #default="{ row }">{{ formatDateTime(row.date || row.timestamp || row.loginTime) }}</template>
                   </el-table-column>
                 </el-table>
                 <el-pagination

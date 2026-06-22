@@ -1287,6 +1287,22 @@ module.exports = function (app) {
 
   /**
    * @swagger
+   * /api/v1/data/optimized/programmes:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get programmes list (programmex, optimized, no geometry)
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Programmes list retrieved successfully
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/programmes', [authJwt.verifyToken], controller.getProgrammesList)
+
+  /**
+   * @swagger
    * /api/v1/data/optimized/components:
    *   get:
    *     tags: [Data]

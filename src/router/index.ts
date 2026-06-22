@@ -287,7 +287,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'ion:home',
           affix: false,
           hidden: true,
-
         }
       }, 
       {

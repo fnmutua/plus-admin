@@ -10,11 +10,11 @@ export const useRenderMenuItem = (
   // allRouters: AppRouteRecordRaw[] = [],
   menuMode: 'vertical' | 'horizontal'
 ) => {
-  const renderMenuItem = (routers: AppRouteRecordRaw[], parentPath = '/') => {
+  const renderMenuItem = (routers: AppRouteRecordRaw[] = [], parentPath = '/') => {
     return routers.map((v) => {
       const meta = (v.meta ?? {}) as RouteMeta
       if (!meta.hidden) {
-        const { oneShowingChild, onlyOneChild } = hasOneShowingChild(v.children, v)
+        const { oneShowingChild, onlyOneChild } = hasOneShowingChild(v.children ?? [], v)
         const fullPath = isUrl(v.path) ? v.path : pathResolve(parentPath, v.path) // getAllParentPath<AppRouteRecordRaw>(allRouters, v.path).join('/')
 
         const { renderMenuTitle } = useRenderMenuTitle()
@@ -44,7 +44,7 @@ export const useRenderMenuItem = (
             >
               {{
                 title: () => renderMenuTitle(meta),
-                default: () => renderMenuItem(v.children!, fullPath)
+                default: () => renderMenuItem(v.children ?? [], fullPath)
               }}
             </ElSubMenu>
           )
