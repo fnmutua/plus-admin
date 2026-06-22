@@ -8,9 +8,9 @@
   ></div>
 
   <!-- Filters panel -->
-  <div 
+  <div
     v-if="filtersVisible"
-    class="floating-collapse" 
+    class="floating-collapse"
     :class="{ 'mobile-open': filtersVisible && isMobile, 'mobile-closed': !filtersVisible && isMobile }"
   >
     <el-collapse v-model="activeCollapse">
@@ -22,84 +22,96 @@
           </div>
         </template>
         <div class="filters-wrapper">
-          <div class="filters-container">
-            <el-select 
-              multiple 
-              clearable 
-              filterable 
-              v-model="implementer" 
-              placeholder="Filter by Programme" 
-              @change="handleChangeImplementer"
-              class="filter-select compact-select"
-              teleported
-              popper-class="filter-select-dropdown"
-            >
-              <el-option-group
-                v-for="group in programmeOptionGroups"
-                :key="group.id"
-                :label="group.label"
-              >
-                <el-option
-                  :key="`root-${group.id}`"
-                  :label="group.rootLabel"
-                  :value="group.id"
-                />
-                <el-option
-                  v-for="item in group.children"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-option-group>
-            </el-select>
-            <el-select
-              multiple
-              clearable
-              filterable
-              v-model="component"
-              placeholder="Filter by Component"
-              @change="handleChangeComponent"
-              :disabled="implementer.length === 0"
-              class="filter-select compact-select"
-              teleported
-              popper-class="filter-select-dropdown"
-            >
-              <el-option
-                v-for="item in componentOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-            <el-select
-              multiple
-              v-model="county"
-              placeholder="Filter by County"
-              @change="handleChangeCounty" 
-              filterable 
-              :clearable="!isCountyRestricted"
-              :disabled="isCountyRestricted"
-              class="filter-select compact-select"
-              teleported
-              popper-class="filter-select-dropdown"
-            >
-              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-            <el-select 
-              multiple
-              clearable 
-              filterable 
-              v-model="subcounty" 
-              placeholder="Filter by Subcounty" 
-              @change="handleChangeSubcounty"
-              class="filter-select compact-select"
-              teleported
-              popper-class="filter-select-dropdown"
-            >
-              <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-            <el-button @click="resetFilters" class="reset-button compact-button">Reset Filters</el-button>
-          </div>
+          <el-tabs v-model="activeFilterTab" class="filter-tabs">
+            <el-tab-pane label="Component" name="component">
+              <div class="filters-container">
+                <el-select
+                  multiple
+                  clearable
+                  filterable
+                  v-model="implementer"
+                  placeholder="Filter by Programme"
+                  @change="handleChangeImplementer"
+                  class="filter-select compact-select"
+                  teleported
+                  :popper-options="selectPopperOptions"
+                  popper-class="filter-select-dropdown"
+                >
+                  <el-option-group
+                    v-for="group in programmeOptionGroups"
+                    :key="group.id"
+                    :label="group.label"
+                  >
+                    <el-option
+                      :key="`root-${group.id}`"
+                      :label="group.rootLabel"
+                      :value="group.id"
+                    />
+                    <el-option
+                      v-for="item in group.children"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-option-group>
+                </el-select>
+                <el-select
+                  multiple
+                  clearable
+                  filterable
+                  v-model="component"
+                  placeholder="Filter by Component"
+                  @change="handleChangeComponent"
+                  :disabled="implementer.length === 0"
+                  class="filter-select compact-select"
+                  teleported
+                  :popper-options="selectPopperOptions"
+                  popper-class="filter-select-dropdown"
+                >
+                  <el-option
+                    v-for="item in componentOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="Admin" name="admin">
+              <div class="filters-container">
+                <el-select
+                  multiple
+                  v-model="county"
+                  placeholder="Filter by County"
+                  @change="handleChangeCounty"
+                  filterable
+                  :clearable="!isCountyRestricted"
+                  :disabled="isCountyRestricted"
+                  class="filter-select compact-select"
+                  teleported
+                  :popper-options="selectPopperOptions"
+                  popper-class="filter-select-dropdown"
+                >
+                  <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+                <el-select
+                  multiple
+                  clearable
+                  filterable
+                  v-model="subcounty"
+                  placeholder="Filter by Subcounty"
+                  @change="handleChangeSubcounty"
+                  class="filter-select compact-select"
+                  teleported
+                  :popper-options="selectPopperOptions"
+                  popper-class="filter-select-dropdown"
+                >
+                  <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+          <el-button @click="resetFilters" class="reset-button compact-button">Reset Filters</el-button>
         </div>
       </el-collapse-item>
     </el-collapse>
@@ -191,7 +203,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, type Ref } from 'vue'
-import { ElButton, ElSelect, ElOption, ElOptionGroup, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem } from 'element-plus'
+import { ElButton, ElSelect, ElOption, ElOptionGroup, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem, ElTabs, ElTabPane } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -294,8 +306,10 @@ watch(mapLoading, (loading) => {
   }
 })
 
-// Collapse state - closed by default on all screen sizes
+// Collapse state — closed by default on all screen sizes
 const activeCollapse = ref<string[]>([])
+const activeFilterTab = ref('component')
+const selectPopperOptions = { strategy: 'fixed' as const }
 
 // Mobile filter visibility
 const filtersVisible = ref(false)
@@ -317,9 +331,8 @@ const updateMobileState = () => {
 const toggleFilters = () => {
   filtersVisible.value = !filtersVisible.value
   if (filtersVisible.value) {
-    activeCollapse.value = ['filters'] // Auto-expand when opened
+    activeCollapse.value = ['filters']
   } else if (!isMobile.value) {
-    // On desktop, when closing, also collapse the panel
     activeCollapse.value = []
   }
 }
@@ -330,6 +343,8 @@ const outsideClickHandler = (e: MouseEvent) => {
     const target = e.target as HTMLElement
     const filtersPanel = document.querySelector('.floating-collapse')
     const filterControl = document.querySelector('.filter-control')
+    const inSelectDropdown = target.closest('.filter-select-dropdown')
+    if (inSelectDropdown) return
     if (filtersPanel && filterControl &&
         !filtersPanel.contains(target) &&
         !filterControl.contains(target)) {
@@ -1372,10 +1387,8 @@ const drawerSize = computed(() => {
   flex-direction: column;
   gap: 12px;
   max-height: calc(100vh - 130px);
-  overflow-y: auto;
-  overflow-x: visible;
+  overflow: visible;
   pointer-events: auto;
-  transform: translateZ(0);
 }
 
 .dark .floating-collapse {
@@ -1404,11 +1417,13 @@ const drawerSize = computed(() => {
 
 :deep(.el-collapse-item__wrap) {
   border: none;
+  overflow: visible;
 }
 
 :deep(.el-collapse-item__content) {
   padding: 0;
   margin-top: 12px;
+  overflow: visible;
 }
 
 .filter-header {
@@ -1426,18 +1441,52 @@ const drawerSize = computed(() => {
   padding: 12px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
   background: var(--el-bg-color);
+  overflow: visible;
+}
+
+.filter-tabs {
+  width: 100%;
+  overflow: visible;
+}
+
+.filter-tabs :deep(.el-tabs__header) {
+  margin-bottom: 12px;
+}
+
+.filter-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0;
+}
+
+.filter-tabs :deep(.el-tabs__item) {
+  font-size: 13px;
+  padding: 0 12px;
+  height: 32px;
+  line-height: 32px;
+}
+
+.filter-tabs :deep(.el-tabs__content) {
+  overflow: visible;
+}
+
+.filter-tabs :deep(.el-tab-pane) {
+  overflow: visible;
 }
 
 .filters-container {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: visible;
 }
 
 .filter-select {
   width: 100% !important;
   position: relative;
-  z-index: auto;
+  z-index: 1;
+}
+
+.filter-select:focus-within {
+  z-index: 2;
 }
 
 .compact-select :deep(.el-input__wrapper) {
@@ -1616,15 +1665,16 @@ const drawerSize = computed(() => {
   color: green;
 }
 
-/* Global styles for select dropdowns to appear on top */
+/* Global styles for select dropdowns to appear on top of filter panel + map */
 .el-select-dropdown,
-.el-popper,
-.el-select__popper {
-  z-index: 10001 !important;
+.el-popper.is-pure,
+.el-select__popper,
+.filter-select-dropdown {
+  z-index: 25000 !important;
 }
 
-.filter-select-dropdown {
-  z-index: 10001 !important;
+.filter-select-dropdown.el-popper {
+  z-index: 25000 !important;
 }
 
 .filter-control-button {
