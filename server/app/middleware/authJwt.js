@@ -28,6 +28,20 @@ verifyToken = (req, res, next) => {
  //    User.findByPk(decoded.id).then(function(user){
       // Do something with the user
       User.findByPk(decoded.id).then(user => {
+        if (!user) {
+          return res.status(401).send({ message: "Unauthorized!" });
+        }
+
+        if (user.force_logout_at && decoded.iat) {
+          const logoutAt = new Date(user.force_logout_at).getTime();
+          const tokenIssuedAt = decoded.iat * 1000;
+          if (logoutAt > tokenIssuedAt) {
+            return res.status(401).send({
+              message: "Session has been terminated.",
+              code: "SESSION_TERMINATED"
+            });
+          }
+        }
 
        user.getRoles(getActiveRolesGetOptions()).then(roles => {
          if (!roles || roles.length === 0) {
@@ -313,29 +327,24 @@ isAdminOrCountyAdmin = (req, res, next) => {
  };
 
  isSomeAdmin = (req, res, next) => {
-  // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
-   //  console.log(user)
      user.getRoles(getActiveRolesGetOptions()).then(roles => {
        for (let i = 0; i < roles.length; i++) {
-           console.log(roles[i].name)
-         if (roles[i].name === "super_admin") {
+         if (roles[i].name === "super_admin" || roles[i].name === "root_admin") {
            next();
            return;
          }
          if (roles[i].name === "admin") {
           next();
           return;
-         }  
-             
+         }
          if (roles[i].name === "county_admin") {
           next();
           return;
         }
-        
        }
        res.status(403).send({
-         message: "You require  Admin Role to perform this function"
+         message: "You require Admin Role to perform this function"
        });
      });
    });

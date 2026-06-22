@@ -16,7 +16,7 @@ export const PATH_URL = base_url[apiBasePath] ?? ''
 // Only one dialog, one redirect — however many requests fail simultaneously.
 let isHandlingExpiry = false
 
-function handleSessionExpired() {
+function handleSessionExpired(customMessage?: string) {
   if (isHandlingExpiry) return
   isHandlingExpiry = true
 
@@ -27,10 +27,11 @@ function handleSessionExpired() {
   } catch { /* ignore storage errors */ }
 
   const currentPath = router.currentRoute.value.fullPath
+  const isForceLogout = customMessage?.includes('administrator') || customMessage?.includes('terminated')
 
   ElMessageBox.alert(
-    'Your session has expired. Please log in again to continue.',
-    'Session Expired',
+    customMessage || 'Your session has expired. Please log in again to continue.',
+    isForceLogout ? 'Logged Out' : 'Session Expired',
     {
       confirmButtonText: 'Go to Login',
       type: 'warning',
@@ -125,10 +126,14 @@ service.interceptors.response.use(
 
     const status = error?.response?.status
     const message = (error?.response?.data as any)?.message || ''
+    const code = (error?.response?.data as any)?.code || ''
 
     // 401 = expired/invalid token, 403 = no token provided
     if (status === 401 || status === 403 || message === 'Unauthorized!') {
-      handleSessionExpired()
+      const terminated = code === 'SESSION_TERMINATED' || message.includes('terminated')
+      handleSessionExpired(
+        terminated ? 'You have been logged out by an administrator.' : undefined
+      )
       // Swallow the error — the dialog + redirect is the UX, not a toast
       return Promise.reject(error)
     }
@@ -147,4 +152,4 @@ service.interceptors.response.use(
   }
 )
 
-export { service }
+export { service, handleSessionExpired }

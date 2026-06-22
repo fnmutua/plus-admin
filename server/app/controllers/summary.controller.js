@@ -1031,43 +1031,26 @@ exports._sumModelAssociatedMultipleModels = async (req, res) => {
   var qry = {
     attributes: [],
     include: [],
-    group: [],
     where: {},
   };
 
 
   let groupfields = []
-  
-  // if (req.body.groupFields) {
-  //   for (let i = 0; i < req.body.groupFields.length; i++) {
-  //     let field = req.body.groupFields[i]
-  //     groupfields.push(field)
-  //   }
-  // }
 
-
-  if (req.body.groupFields) {
+  if (req.body.groupFields && Array.isArray(req.body.groupFields)) {
     for (let i = 0; i < req.body.groupFields.length; i++) {
       const field = req.body.groupFields[i];
       groupfields.push(formatGroupFieldAsDateOnly(field));
     }
   }
 
-  // Add group fields to the query if provided
-  if (groupFields && Array.isArray(groupFields)) {
+  // Only set GROUP BY when there are real group fields — empty array groups by PK (~71k rows).
+  if (groupfields.length > 0) {
     qry.attributes = [...groupfields];
     qry.group = groupfields.map(groupByExpr);
-    qry.raw = true
-    
-
-
-  }
-  else {
-    
-  //    qry.attributes= [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      qry.raw=true
-   
-
+    qry.raw = true;
+  } else {
+    qry.raw = true;
   }
 
 
@@ -1320,16 +1303,10 @@ let groupfields = []
   var qry = {
     attributes: [],
     include: [],
-    group: [],
     where: {},
   };
 
-
- // let groupfields = []
-  
-
-
-  if (req.body.groupFields) {
+  if (req.body.groupFields && Array.isArray(req.body.groupFields)) {
     for (let i = 0; i < req.body.groupFields.length; i++) {
       const field = req.body.groupFields[i];
       groupfields.push(formatGroupFieldAsDateOnly(field));
@@ -1353,13 +1330,12 @@ let groupfields = []
   }
   
 
-  // Add group fields to the query if provided (attributes keep [literal, alias] for result keys; group uses expression only)
-  if (req.body.groupFields && Array.isArray(req.body.groupFields)) {
+  // Only set GROUP BY when there are real group fields — empty array groups by PK (~71k rows).
+  if (groupfields.length > 0) {
     qry.attributes = [...groupfields];
     qry.group = groupfields.map(groupByExpr);
     qry.raw = true;
-  }
-  else {
+  } else {
     qry.raw = true;
   }
 
@@ -1644,7 +1620,11 @@ try {
   db.models[reg_model].findAll(qry).then(async (list) => {
     try {
       let totalValue;
-      console.log('list', list)
+      if (Array.isArray(list) && list.length > 50) {
+        console.log('list length', list.length, 'sample', list[0]);
+      } else {
+        console.log('list', list);
+      }
 
       if (calculationType === 'proportion') {
         console.log("The array contains the string.", qry);

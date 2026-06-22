@@ -37,7 +37,33 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
 });
 
 // Create HTTP server
-const server = http.createServer();
+const server = http.createServer(async (req, res) => {
+  const match = req.url && req.url.match(/^\/internal\/force-logout\/(\d+)$/);
+  if (req.method === 'POST' && match) {
+    const secret = req.headers['x-internal-secret'];
+    const expected = process.env.INTERNAL_API_SECRET || require('./app/config/auth.config').secret;
+    if (!secret || secret !== expected) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Forbidden' }));
+      return;
+    }
+    try {
+      await forceDisconnectUser(parseInt(match[1], 10));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    } catch (error) {
+      console.error('Internal force-logout error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: error.message }));
+    }
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.writeHead(404);
+    res.end();
+  }
+});
 
 // Create WebSocket server
 const wss = new WebSocket.Server({ 
@@ -741,6 +767,38 @@ async function setUserOffline(userId) {
   } catch (error) {
     console.error('Error setting user offline:', error);
   }
+}
+
+/** Force-disconnect a user (admin force logout). */
+async function forceDisconnectUser(userId) {
+  const numericId = parseInt(userId, 10);
+  const keys = [userId, numericId, String(userId)];
+  let ws = null;
+  for (const key of keys) {
+    if (clients.has(key)) {
+      ws = clients.get(key);
+      break;
+    }
+  }
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'session_terminated',
+      message: 'You have been logged out by an administrator.'
+    }));
+    ws.close(4001, 'Force logout');
+  }
+
+  clients.delete(userId);
+  clients.delete(numericId);
+  clients.delete(String(userId));
+  drawerStates.delete(userId);
+  drawerStates.delete(numericId);
+
+  await setUserOffline(numericId);
+
+  const onlineUsers = await getOnlineUsers();
+  broadcast({ type: 'users_update', users: onlineUsers });
 }
 
 // Handle graceful shutdown

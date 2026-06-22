@@ -31,13 +31,14 @@ import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
 import { Icon } from '@/components/Icon'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
-import { filterDashboardsForUser, isDashboardSettingsAdmin } from '@/utils/documentPermissions'
+import { filterDashboardsForUser, isDashboardSettingsAdmin, canPublishDashboard } from '@/utils/documentPermissions'
 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
-const isMobile = computed(() => appStore.getMobile)
 const userInfo = wsCache.get(appStore.getUserInfo)
+const isMobile = computed(() => appStore.getMobile)
+const canMakeDashboardPublic = computed(() => canPublishDashboard(userInfo))
 
 
 console.log("userInfo--->", userInfo)
@@ -448,6 +449,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
     ruleForm.model = model
     ruleForm.code = uuid.v4()
+    if (!canPublishDashboard(userInfo)) {
+      ruleForm.public = false
+    }
     dialogLoading.value = true
     try {
       await CreateRecord(ruleForm)
@@ -473,6 +477,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
     }
 
     ruleForm.model = model
+    if (!canPublishDashboard(userInfo)) {
+      ruleForm.public = false
+    }
     dialogLoading.value = true
     try {
       await updateOneRecord(ruleForm)
@@ -688,7 +695,7 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
         </div>
       </el-form-item>
 
-      <el-form-item id="btn4" label="Public" prop="public">
+      <el-form-item v-if="canMakeDashboardPublic" id="btn4" label="Public" prop="public">
         <div class="public-field">
           <el-checkbox v-model="ruleForm.public" label="Make this dashboard public" />
           <p class="field-hint">

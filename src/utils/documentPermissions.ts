@@ -42,6 +42,16 @@ export function filterDashboardsForUser(userInfo: any, dashboards: any[]): any[]
   )
 }
 
+/** Make a dashboard public — root/super admins, or national-level admin only. */
+export function canPublishDashboard(userInfo: any): boolean {
+  if (!hasPermission(userInfo, 'dashboard:publish')) return false
+  if (isSuperAdminUser(userInfo)) return true
+  return (userInfo?.roles ?? []).some(
+    (r: any) =>
+      r?.name === 'admin' && r?.user_roles?.location_level === 'national'
+  )
+}
+
 /** Unlink document from a facility-linked entity (does not delete the file). */
 export function canUnlinkDocumentFromFacility(userInfo: any): boolean {
   if (isSuperAdminUser(userInfo)) return true

@@ -11,7 +11,11 @@
       "Bash(pip install:*)",
       "Bash(find c:UsersUSERplus-admin -name *.py -o -name estimate_population*)",
       "WebSearch",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(node c:/Users/USER/plus-admin/_patch_controller.js)",
+      "Bash(node -e ' *)",
+      "Bash(node c:/Users/USER/plus-admin/_add_components_controller.js)",
+      "Bash(node c:/Users/USER/plus-admin/_fix_components_controller.js)"
     ]
   }
 }

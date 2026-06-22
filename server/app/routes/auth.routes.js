@@ -1142,4 +1142,8 @@ module.exports = function (app) {
    *         description: Unauthorized - invalid token
    */
   app.post('/api/auth/signout', [authJwt.verifyToken], controller.Logout)
+
+  app.get('/api/v1/auth/session-check', [authJwt.verifyToken], (req, res) => {
+    res.status(200).send({ code: '0000', valid: true, userId: req.userid })
+  })
 }

@@ -4,6 +4,7 @@ import { ElButton, ElInput, ElDrawer, ElAvatar, ElAlert, ElTooltip } from 'eleme
 import { Icon } from '@iconify/vue'
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { handleSessionExpired } from '@/config/axios/service'
 
 const appStore = useAppStore()
 const { wsCache } = useCache()
@@ -322,6 +323,16 @@ const handleWebSocketMessage = (data: any) => {
         onlineUsers.value = onlineUsers.value.filter(u => u.id !== data.user.id)
         updateBadgeCount()
       }
+      break
+
+    case 'session_terminated':
+      visible.value = false
+      if (ws) {
+        ws.close()
+        ws = null
+      }
+      isConnected.value = false
+      handleSessionExpired(data.message || 'You have been logged out by an administrator.')
       break
       
     case 'message_read':

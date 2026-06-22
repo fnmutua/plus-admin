@@ -77,6 +77,11 @@ module.exports = function (sequelize, DataTypes) {
       last_login: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      force_logout_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Tokens issued before this timestamp are rejected (admin force logout)'
       }
     },
     {

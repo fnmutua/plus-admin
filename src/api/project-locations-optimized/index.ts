@@ -48,5 +48,15 @@ export const getImplementersList = ({ params }: AxiosConfig): Promise<IResponse<
   })
 }
 
+/**
+ * Get components list for a programme (cascades from implementer selection)
+ */
+export const getComponentsList = ({ params }: AxiosConfig): Promise<IResponse<any>> => {
+  return request.get({
+    url: prod + '/api/v1/data/optimized/components',
+    params
+  })
+}
+
 // Re-export batch geometries and other utilities from settlements-optimized
 export { getBatchGeometries, getCountiesList, getSubcountiesList } from '@/api/settlements-optimized'

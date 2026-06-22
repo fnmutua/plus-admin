@@ -2457,10 +2457,34 @@ exports.forceLogout = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    await Users.update(
-      { lastLogoutAt: new Date() },
+
+    const sessionTracker = require('../utils/sessionTracker');
+    const { notifyChatForceLogout } = require('../utils/forceLogoutNotify');
+    const source = req.headers['x-forwarded-for']?.split(',')[0]
+      || req.headers['x-real-ip']
+      || req.connection?.remoteAddress
+      || 'Admin force logout';
+
+    const forceLogoutAt = new Date();
+
+    await db.user.update(
+      { force_logout_at: forceLogoutAt },
       { where: { id: targetUserId } }
     );
+
+    await sessionTracker.createLogoutLog({
+      userId: targetUserId,
+      userName: user.username,
+      source
+    });
+
+    await db.userStatus.update(
+      { is_online: false, status: 'offline', last_seen: forceLogoutAt },
+      { where: { user_id: targetUserId } }
+    );
+
+    await notifyChatForceLogout(targetUserId);
+
     res.status(200).json({ code: '0000', message: `User ${user.username} has been forcefully logged out.` });
   } catch (error) {
     console.error('Force logout error:', error);

@@ -1,22 +1,79 @@
 import request from '@/config/axios'
-import type { WorkplaceTotal, Project, Dynamic, Team, RadarData } from './types'
+import { apiOrigin as prod } from '@/config/apiBase'
 
-export const getCountApi = (): Promise<IResponse<WorkplaceTotal>> => {
-  return request.get({ url: '/workplace/total' })
+export type WorkplaceStats = {
+  totalUsers: number
+  unapprovedUsers: number
+  countyUsers: number
+  usersThisWeek: number
+  scopeLabel: string
+  isNational: boolean
+  countyId: number | null
+  countyName: string | null
 }
 
-export const getProjectApi = (): Promise<IResponse<Project>> => {
-  return request.get({ url: '/workplace/project' })
+export type ActiveSession = {
+  userId: number
+  userName: string
+  name: string
+  email: string | null
+  username: string
+  county: string | null
+  loginTime: string
+  sessionDuration: number
+  sessionDurationFormatted: string
+  source: string
+  status?: string
+  lastSeen?: string
 }
 
-export const getDynamicApi = (): Promise<IResponse<Dynamic[]>> => {
-  return request.get({ url: '/workplace/dynamic' })
+export type LoginAttempt = {
+  id: number
+  userId: string
+  userName: string
+  action: string
+  status: string
+  source: string
+  date: string
+  loginTime: string | null
 }
 
-export const getTeamApi = (): Promise<IResponse<Team[]>> => {
-  return request.get({ url: '/workplace/team' })
+export type MutationLog = {
+  id: number
+  timestamp: string
+  action: string
+  actorName: string | null
+  actorId: string | null
+  entityType: string
+  entityId: string | null
+  resource: string
+  outcome: string
 }
 
-export const getRadarApi = (): Promise<IResponse<RadarData[]>> => {
-  return request.get({ url: '/workplace/radar' })
+export const getWorkplaceStatsApi = (): Promise<IResponse<WorkplaceStats>> => {
+  return request.get({ url: prod + '/api/v1/workplace/stats' })
+}
+
+export const getActiveSessionsApi = (hoursThreshold = 24): Promise<IResponse<{ count: number; sessions: ActiveSession[] }>> => {
+  return request.get({ url: prod + '/api/v1/workplace/active-sessions', params: { hoursThreshold } })
+}
+
+export const getLoginAttemptsApi = (data: {
+  page?: number
+  limit?: number
+  days?: number
+  from?: string
+  to?: string
+}): Promise<IResponse<LoginAttempt[]>> => {
+  return request.post({ url: prod + '/api/v1/workplace/login-attempts', data, silent: true })
+}
+
+export const getMutationsApi = (data: {
+  page?: number
+  limit?: number
+  days?: number
+  from?: string
+  to?: string
+}): Promise<IResponse<MutationLog[]>> => {
+  return request.post({ url: prod + '/api/v1/workplace/mutations', data, silent: true })
 }

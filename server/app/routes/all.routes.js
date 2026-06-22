@@ -1284,6 +1284,29 @@ module.exports = function (app) {
    *         description: Internal server error
    */
   app.get('/api/v1/data/optimized/implementers', [authJwt.verifyToken], controller.getImplementersList)
+
+  /**
+   * @swagger
+   * /api/v1/data/optimized/components:
+   *   get:
+   *     tags: [Data]
+   *     summary: Get components list for a programme (optimized, no geometry)
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: programme_id
+   *         in: query
+   *         required: false
+   *         description: Filter components by programme (implementer) ID
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Components list retrieved successfully
+   *       500:
+   *         description: Internal server error
+   */
+  app.get('/api/v1/data/optimized/components', [authJwt.verifyToken], controller.getComponentsList)
   
   /**
    * @swagger

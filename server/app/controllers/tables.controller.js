@@ -15313,22 +15313,31 @@ exports.getOptimizedProjectLocations = async (req, res) => {
       const filterConditions = [];
       
       parsedFilters.forEach((filter, i) => {
+        const values = Array.isArray(parsedFilterValues[i])
+          ? parsedFilterValues[i]
+          : [parsedFilterValues[i]];
+
+        // component_id lives on project, not project_location — resolve via subquery
+        if (filter === 'component_id') {
+          const escapedValues = values.map(v => parseInt(v, 10)).filter(v => !isNaN(v));
+          if (escapedValues.length > 0) {
+            filterConditions.push(`project_id IN (SELECT id FROM project WHERE component_id IN (${escapedValues.join(', ')}))`);
+          }
+          return;
+        }
+
         if (!validColumns.includes(filter)) {
           console.warn(`Filter field ${filter} not found in model ${model}, skipping...`);
           return;
         }
-        
-        const values = Array.isArray(parsedFilterValues[i]) 
-          ? parsedFilterValues[i] 
-          : [parsedFilterValues[i]];
-        
+
         if (values.length === 1) {
-          const value = typeof values[0] === 'string' 
-            ? `'${values[0].replace(/'/g, "''")}'` 
+          const value = typeof values[0] === 'string'
+            ? `'${values[0].replace(/'/g, "''")}'`
             : values[0];
           filterConditions.push(`${filter} = ${value}`);
         } else if (values.length > 1) {
-          const escapedValues = values.map(v => 
+          const escapedValues = values.map(v =>
             typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v
           );
           filterConditions.push(`${filter} IN (${escapedValues.join(', ')})`);
@@ -15450,5 +15459,23 @@ exports.getImplementersList = async (req, res) => {
       code: 'SERVER_ERROR',
       error: error.message
     });
+  }
+};
+
+exports.getComponentsList = async (req, res) => {
+  try {
+    const { programme_id } = req.query;
+    const whereClause = programme_id
+      ? 'WHERE programme_id = ' + parseInt(programme_id, 10)
+      : '';
+    const qry = 'SELECT id, title, acronym, code, programme_id FROM component ' + whereClause + ' ORDER BY title ASC';
+    const results = await db.sequelize.query(qry, {
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+    res.status(200).send({ data: results, code: '0000', message: 'Success' });
+  } catch (error) {
+    console.error('Error in getComponentsList:', error);
+    res.status(500).send({ message: 'Internal server error', code: 'SERVER_ERROR', error: error.message });
   }
 };

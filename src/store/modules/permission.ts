@@ -657,6 +657,12 @@ export const usePermissionStore = defineStore('permission', {
     },
     getDynamicDashboards(): DashboardComponent[] {
       return dynamicDashbaordOptions.value;
+    },
+    getProgrammeOptions(): RouteItem[] {
+      return programmeComponentOptions.value;
+    },
+    getAllComponents(): RouteComponent[] {
+      return components.value;
     }
   },
   actions: {

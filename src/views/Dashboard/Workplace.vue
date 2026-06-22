@@ -2,616 +2,553 @@
 import {
   ElRow, ElCol, ElCard, ElSkeleton, ElAlert,
   ElTable, ElTableColumn, ElTabs, ElTabPane,
-  ElTimeline, ElTimelineItem, ElTag, ElButton,
-  ElAvatar, ElEmpty, ElTooltip, ElDivider, ElMessage
+  ElTag, ElButton, ElEmpty, ElMessage, ElMessageBox,
+  ElPagination, ElSelect, ElOption, ElDatePicker
 } from 'element-plus'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { CountTo } from '@/components/CountTo'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { getMyProfile } from '@/api/users'
-import { getSummarybyFieldSimple } from '@/api/summary'
-import { getSettlementListByCounty } from '@/api/settlements'
-import { getAuditLogs } from '@/api/audit'
-import { useRouter } from 'vue-router'
+import { forceLogoutUserApi } from '@/api/users'
+import {
+  getWorkplaceStatsApi,
+  getActiveSessionsApi,
+  getLoginAttemptsApi,
+  getMutationsApi,
+  type ActiveSession,
+  type LoginAttempt,
+  type MutationLog,
+  type WorkplaceStats
+} from '@/api/dashboard/workplace'
 import { Icon } from '@iconify/vue'
-import { isPublicOrGuestRole, userHasPrivilegedNationalLocation } from '@/utils/roleScope'
+import { SwitchButton } from '@element-plus/icons-vue'
 
+const CARD_ICON_COLOR = '#409eff'
+const { push } = useRouter()
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const { push } = useRouter()
 
-// ── Permission helper ─────────────────────────────────────────────────────────
-const userPermissions = (userInfo?.permissions || []) as string[]
-const can = (perm: string) =>
-  userPermissions.includes('*.*.*') || userPermissions.includes(perm)
-
-// ── Role detection ────────────────────────────────────────────────────────────
-const isSuperAdmin = computed(() =>
-  userInfo?.roles?.some((r: any) => r.name === 'super_admin' || r.name === 'root_admin') || false
-)
-const hasNationalAccess = computed(() => userHasPrivilegedNationalLocation(userInfo?.roles))
-const isPublicLikeUser = computed(
-  () => Array.isArray(userInfo?.roles) && userInfo.roles.some((r: any) => isPublicOrGuestRole(r))
-)
-const countyRole = computed(() =>
-  userInfo?.roles?.find((r: any) => r.user_roles?.location_level === 'county')
+// ── Access control: admin, root_admin, super_admin only ─────────────────────
+const isPlatformAdmin = computed(() =>
+  userInfo?.roles?.some((r: any) =>
+    ['admin', 'root_admin', 'super_admin'].includes(r.name)
+  ) ?? false
 )
 
-const userRoleLabel = computed(() => {
-  if (isSuperAdmin.value)      return 'Super Admin'
-  if (hasNationalAccess.value) return 'National'
-  if (countyRole.value)        return 'County'
-  if (isPublicLikeUser.value)  return 'Public'
-  return 'User'
+const isSuperOrRoot = computed(() =>
+  userInfo?.roles?.some((r: any) =>
+    ['super_admin', 'root_admin'].includes(r.name)
+  ) ?? false
+)
+
+const isNationalAdmin = computed(() =>
+  userInfo?.roles?.some((r: any) =>
+    r.name === 'admin' && r.user_roles?.location_level === 'national'
+  ) ?? false
+)
+
+const isCountyAdmin = computed(() =>
+  userInfo?.roles?.some((r: any) =>
+    r.name === 'admin' && r.user_roles?.location_level === 'county'
+  ) ?? false
+)
+
+const roleLabel = computed(() => {
+  if (isSuperOrRoot.value) return 'Super Admin'
+  if (isNationalAdmin.value) return 'National Admin'
+  if (isCountyAdmin.value) return 'County Admin'
+  return 'Admin'
 })
 
-const userRoleTagType = computed((): 'danger' | 'warning' | 'success' | 'info' => {
-  if (isSuperAdmin.value)      return 'danger'
-  if (hasNationalAccess.value) return 'warning'
-  if (countyRole.value)        return 'success'
-  if (isPublicLikeUser.value)  return 'info'
-  return 'info'
+const roleTagType = computed((): 'danger' | 'warning' | 'success' => {
+  if (isSuperOrRoot.value) return 'danger'
+  if (isNationalAdmin.value) return 'warning'
+  return 'success'
 })
-
-// ── Loading states (per section) ──────────────────────────────────────────────
-const loadingProfile     = ref(true)
-const loadingStats       = ref(true)
-const loadingSettlements = ref(true)
-const loadingActivity    = ref(true)
-
-// ── Greeting ──────────────────────────────────────────────────────────────────
-const greeting = ref('Good Morning')
-const getTimeGreeting = () => {
-  const h = new Date().getHours()
-  if (h >= 5 && h < 12)       greeting.value = 'Good Morning'
-  else if (h >= 12 && h < 17) greeting.value = 'Good Afternoon'
-  else if (h >= 17 && h < 21) greeting.value = 'Good Evening'
-  else                         greeting.value = 'Good Night'
-}
-
-// ── Profile ───────────────────────────────────────────────────────────────────
-const profile = ref({ id: '', name: '', email: '', username: '', photo: null as string | null, date: '' })
-const initials = ref('')
-
-const formatDate = (d: string) => {
-  const date = new Date(d)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-const loadProfile = async () => {
-  try {
-    const res = await getMyProfile({ model: 'users', id: userInfo.id })
-    const d = res.data
-    profile.value = { id: d.id, name: d.name, email: d.email, username: d.username, photo: d.photo, date: formatDate(d.createdAt) }
-    initials.value = d.name.split(' ').map((w: string) => w[0]?.toUpperCase() || '').join('')
-  } catch { /* silent */ } finally {
-    loadingProfile.value = false
-  }
-}
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-const stats = ref({ settlements: 0, projects: 0, documents: 0 })
+const loadingStats = ref(true)
+const stats = ref<WorkplaceStats>({
+  totalUsers: 0,
+  unapprovedUsers: 0,
+  countyUsers: 0,
+  usersThisWeek: 0,
+  scopeLabel: '',
+  isNational: true,
+  countyId: null,
+  countyName: null
+})
 
-const getCountFor = async (model: string): Promise<number> => {
-  try {
-    const res = await getSummarybyFieldSimple({ model, summaryFunction: 'count', summaryField: 'createdBy', summaryFieldValue: userInfo.id })
-    return Number(res.Total?.[0]?.count || 0)
-  } catch { return 0 }
+const statCards = computed(() => [
+  {
+    label: 'Total Users',
+    value: stats.value.totalUsers,
+    icon: 'mdi:account-group-outline',
+    route: { name: 'staff' }
+  },
+  {
+    label: 'Unapproved Users',
+    value: stats.value.unapprovedUsers,
+    icon: 'mdi:account-clock-outline',
+    route: { name: 'NewAccounts' }
+  },
+  {
+    label: stats.value.isNational ? 'County-level Users' : 'County Users',
+    value: stats.value.countyUsers,
+    icon: 'mdi:map-marker-account-outline',
+    route: stats.value.isNational
+      ? { name: 'AdminStaff', query: { tab: 'county' } }
+      : { name: 'staff' }
+  },
+  {
+    label: 'Users This Week',
+    value: stats.value.usersThisWeek,
+    icon: 'mdi:account-plus-outline',
+    route: { name: 'staff' }
+  }
+])
+
+const handleCardClick = (card: { route: { name: string; query?: Record<string, string> } }) => {
+  push(card.route)
 }
 
 const loadStats = async () => {
-  const [s, p, d] = await Promise.all([getCountFor('settlement'), getCountFor('project'), getCountFor('document')])
-  stats.value = { settlements: s, projects: p, documents: d }
-  loadingStats.value = false
-}
-
-// ── My Settlements (primary content) ─────────────────────────────────────────
-const settlementsList   = ref<any[]>([])
-const missingBoundary   = computed(() => settlementsList.value.filter(s => !s.geom))
-const projectsList      = ref<any[]>([])
-const activeRecordsTab  = ref('projects')
-
-const loadSettlements = async () => {
+  loadingStats.value = true
   try {
-    const res = await getSettlementListByCounty({
-      limit: 10, page: 1, curUser: userInfo.id, model: 'settlement',
-      searchField: 'name', searchKeyword: '',
-      associated_multiple_models: ['county', 'subcounty', 'ward'],
-      sort: 'DESC', sortField: 'createdAt'
-    })
-    settlementsList.value = res.data || []
-  } catch { /* silent */ } finally {
-    loadingSettlements.value = false
+    const res = await getWorkplaceStatsApi()
+    if (res.data) stats.value = res.data
+  } catch {
+    ElMessage.error('Failed to load user statistics')
+  } finally {
+    loadingStats.value = false
   }
 }
 
-const loadProjects = async () => {
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+const activeTab = ref('sessions')
+
+// Tab A: active sessions
+const loadingSessions = ref(true)
+const sessions = ref<ActiveSession[]>([])
+
+const loadSessions = async () => {
+  loadingSessions.value = true
   try {
-    const res = await getSettlementListByCounty({
-      limit: 10, page: 1, curUser: userInfo.id, model: 'project',
-      searchField: 'title', searchKeyword: '',
-      associated_multiple_models: [],
-      sort: 'DESC', sortField: 'createdAt'
-    })
-    projectsList.value = res.data || []
-  } catch { /* silent */ }
-}
-
-// ── Recent documents (supporting settlements) ─────────────────────────────────
-
-// ── Activity ──────────────────────────────────────────────────────────────────
-const recentActivities = ref<any[]>([])
-
-const timeSince = (date: string) => {
-  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  for (const [label, secs] of [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]] as [string, number][]) {
-    const n = Math.floor(seconds / secs)
-    if (n >= 1) return `${n} ${label}${n !== 1 ? 's' : ''} ago`
+    const res = await getActiveSessionsApi(24)
+    sessions.value = res.data?.sessions || []
+  } catch {
+    sessions.value = []
+    ElMessage.error('Failed to load active sessions')
+  } finally {
+    loadingSessions.value = false
   }
-  return 'just now'
 }
 
-const ENTITY_LABELS: Record<string, string> = {
-  settlement: 'Settlement', households: 'Household', document: 'Document',
-  project: 'Project', project_task: 'Project Task', auth: 'Authentication',
-  users: 'User', grievance: 'Grievance', community: 'Community',
-  education_facility: 'Education Facility', health_facility: 'Health Facility',
-  water_point: 'Water Point', road: 'Road', intervention: 'Intervention',
-  indicator: 'Indicator', indicator_category_report: 'Indicator Report',
-  logs: 'System', unknown: 'Other'
+const formatDateTime = (d: string | null) => {
+  if (!d) return '—'
+  return new Date(d).toLocaleString()
 }
 
-const ACTION_ICONS: Record<string, { icon: string; color: string }> = {
-  login:         { icon: 'mdi:login-variant',       color: '#409eff' },
-  logout:        { icon: 'mdi:logout-variant',       color: '#909399' },
-  create:        { icon: 'mdi:plus-circle-outline',  color: '#67c23a' },
-  update:        { icon: 'mdi:pencil-outline',        color: '#e6a23c' },
-  delete:        { icon: 'mdi:delete-outline',        color: '#f56c6c' },
-  status_change: { icon: 'mdi:swap-horizontal',       color: '#9c27b0' },
-}
-
-const lastLogin = ref('')
-
-const loadLastLogin = async (username: string) => {
+const handleForceLogout = async (row: ActiveSession) => {
   try {
-    const res = await getAuditLogs({ page: 1, limit: 2, actor: username, action: 'login', silent: true })
-    const rows: any[] = Array.isArray(res?.data) ? res.data : []
-    // skip index 0 — that's the current session; use index 1 as the previous login
-    const entry = rows[1] ?? rows[0]
-    if (entry) lastLogin.value = timeSince(entry.timestamp || entry.createdAt || entry.date)
-  } catch { /* silent */ }
+    await ElMessageBox.confirm(
+      `Force logout ${row.name || row.username}? They will need to sign in again.`,
+      'Force Logout',
+      { confirmButtonText: 'Logout', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+    await forceLogoutUserApi(row.userId)
+    ElMessage.success(`${row.username} has been logged out`)
+    await loadSessions()
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error('Failed to force logout user')
+  }
 }
 
-const loadActivity = async (username: string) => {
+// Tab B: login attempts
+const loadingLogins = ref(true)
+const loginAttempts = ref<LoginAttempt[]>([])
+const loginTotal = ref(0)
+const loginPage = ref(1)
+const loginPageSize = ref(25)
+const loginDayFilter = ref('today')
+
+const loginFilterOptions = [
+  { label: 'Today', value: 'today', days: 1 },
+  { label: 'Yesterday', value: 'yesterday', days: 2 },
+  { label: 'Last 7 days', value: 'week', days: 7 },
+  { label: 'Last 30 days', value: 'month', days: 30 }
+]
+
+const loginDateRange = ref<[Date, Date] | null>(null)
+
+const loginStatusType = (status: string): 'success' | 'danger' | 'info' => {
+  const s = (status || '').toLowerCase()
+  if (s.includes('success')) return 'success'
+  if (s.includes('fail')) return 'danger'
+  return 'info'
+}
+
+const loadLoginAttempts = async () => {
+  loadingLogins.value = true
   try {
-    const res = await getAuditLogs({ page: 1, limit: 5, actor: username })
-    const rows: any[] = Array.isArray(res?.data) ? res.data : []
-    recentActivities.value = rows.map((r: any) => {
-      const action  = (r.action  || '').toLowerCase()
-      const outcome = (r.outcome || r.status || '').toLowerCase()
-      const meta    = ACTION_ICONS[action] ?? { icon: 'mdi:information-outline', color: '#909399' }
-      return {
-        action,
-        entityLabel: ENTITY_LABELS[r.entityType] || r.entityType || 'System',
-        outcome,
-        timestamp:   timeSince(r.timestamp || r.createdAt || r.date),
-        icon:        meta.icon,
-        dotColor:    outcome === 'failure' ? '#f56c6c' : meta.color
+    const payload: Record<string, any> = {
+      page: loginPage.value,
+      limit: loginPageSize.value
+    }
+
+    if (loginDayFilter.value === 'custom' && loginDateRange.value) {
+      payload.from = loginDateRange.value[0].toISOString()
+      payload.to = loginDateRange.value[1].toISOString()
+    } else {
+      const opt = loginFilterOptions.find(o => o.value === loginDayFilter.value)
+      payload.days = loginDayFilter.value === 'yesterday' ? 2 : (opt?.days || 1)
+      if (loginDayFilter.value === 'yesterday') {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        payload.from = yesterday.toISOString()
+        payload.to = yesterday.toISOString()
       }
+    }
+
+    const res = await getLoginAttemptsApi(payload)
+    loginAttempts.value = Array.isArray(res.data) ? res.data : []
+    loginTotal.value = res.total ?? loginAttempts.value.length
+  } catch {
+    loginAttempts.value = []
+    loginTotal.value = 0
+  } finally {
+    loadingLogins.value = false
+  }
+}
+
+const onLoginFilterChange = () => {
+  loginPage.value = 1
+  loadLoginAttempts()
+}
+
+// Tab C: mutations (edits/deletes)
+const loadingMutations = ref(true)
+const mutations = ref<MutationLog[]>([])
+const mutationTotal = ref(0)
+const mutationPage = ref(1)
+const mutationPageSize = ref(25)
+const mutationDayFilter = ref(7)
+
+const mutationFilterOptions = [
+  { label: 'Last 7 days', value: 7 },
+  { label: 'Last 14 days', value: 14 },
+  { label: 'Last 30 days', value: 30 }
+]
+
+const actionTagType = (action: string): 'success' | 'warning' | 'danger' | 'info' => {
+  const a = (action || '').toLowerCase()
+  if (a === 'create') return 'success'
+  if (a === 'update') return 'warning'
+  if (a === 'delete') return 'danger'
+  return 'info'
+}
+
+const loadMutations = async () => {
+  loadingMutations.value = true
+  try {
+    const res = await getMutationsApi({
+      page: mutationPage.value,
+      limit: mutationPageSize.value,
+      days: mutationDayFilter.value
     })
-  } catch { recentActivities.value = [] } finally {
-    loadingActivity.value = false
+    mutations.value = Array.isArray(res.data) ? res.data : []
+    mutationTotal.value = res.total ?? mutations.value.length
+  } catch {
+    mutations.value = []
+    mutationTotal.value = 0
+  } finally {
+    loadingMutations.value = false
   }
 }
 
-// ── Map navigation ────────────────────────────────────────────────────────────
-const viewOnMap = (row: any) => {
-  if (row.geom) {
-    push({ path: '/settlement/map/:id', name: 'SettlementMap', params: { id: row.id } })
-  } else {
-    ElMessage.warning('This settlement does not have a boundary defined.')
-  }
+const onMutationFilterChange = () => {
+  mutationPage.value = 1
+  loadMutations()
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+const onTabChange = (name: string | number) => {
+  if (name === 'sessions' && !sessions.value.length) loadSessions()
+  if (name === 'logins' && !loginAttempts.value.length) loadLoginAttempts()
+  if (name === 'mutations' && !mutations.value.length) loadMutations()
+}
+
 const init = async () => {
-  getTimeGreeting()
-  await loadProfile()
-  // Settlements load first — docs depend on their IDs
-  await Promise.all([loadStats(), loadSettlements(), loadProjects(), loadActivity(profile.value.username), loadLastLogin(profile.value.username)])
+  if (!isPlatformAdmin.value) return
+  await loadStats()
+  await loadSessions()
 }
 
-init()
+onMounted(init)
 </script>
 
 <template>
   <div class="dashboard">
 
-    <!-- ── Profile header ────────────────────────────────────────────────── -->
-    <el-card shadow="never" class="mb-16px">
-      <el-skeleton :loading="loadingProfile" animated :rows="2">
-        <template #default>
-          <div class="profile-header">
+    <!-- Access denied -->
+    <el-alert
+      v-if="!isPlatformAdmin"
+      title="Access restricted"
+      type="warning"
+      show-icon
+      :closable="false"
+      description="This dashboard is available to administrators only (admin, root admin, and super admin roles)."
+      class="mb-16px"
+    />
 
-            <!-- Avatar + name block -->
-            <div class="profile-identity">
-              <el-avatar
-                :src="profile.photo || undefined"
-                :size="52"
-                class="cursor-pointer flex-shrink-0 text-18px font-bold"
-                @click="push({ name: 'userProfile' })"
-              >{{ initials }}</el-avatar>
-              <div class="profile-text">
-                <div class="profile-name-row">
-                  <span class="profile-name">{{ greeting }}, {{ profile.name }}</span>
-                  <el-tag :type="userRoleTagType" size="small" effect="light">{{ userRoleLabel }}</el-tag>
-                </div>
-                <div class="profile-meta">
-                  <span>{{ profile.email }}</span>
-                  <span class="meta-sep">·</span>
-                  <span>Since {{ profile.date }}</span>
-                  <template v-if="lastLogin">
-                    <span class="meta-sep">·</span>
-                    <span>Last login {{ lastLogin }}</span>
-                  </template>
-                </div>
-              </div>
+    <template v-else>
+      <!-- Header -->
+      <el-card shadow="never" class="mb-16px">
+        <div class="header-row">
+          <div>
+            <div class="header-title">
+              Admin Workplace
+              <el-tag :type="roleTagType" size="small" effect="light" class="ml-8px">{{ roleLabel }}</el-tag>
             </div>
-
-            <!-- Quick actions -->
-            <div class="profile-actions">
-              <el-button
-                v-if="can('settlement:create')"
-                type="primary" size="small"
-                @click="push({ name: 'AddSettlementNew' })"
-              >
-                <Icon icon="mdi:home-plus-outline" width="14" class="mr-4px" />Add Settlement
-              </el-button>
-              <el-button
-                v-if="can('settlement:read')"
-                size="small" plain
-                @click="push({ name: 'Settlements' })"
-              >
-                <Icon icon="mdi:home-city-outline" width="14" class="mr-4px" />Settlements
-              </el-button>
-              <el-button
-                size="small" plain
-                @click="push({ name: 'LandingMap' })"
-              >
-                <Icon icon="mdi:map-outline" width="14" class="mr-4px" />Map
-              </el-button>
+            <div class="header-sub">
+              User oversight for
+              <strong>{{ stats.scopeLabel || '…' }}</strong>
             </div>
-
           </div>
-        </template>
-      </el-skeleton>
-    </el-card>
-
-    <!-- ── Onboarding (shown when user has no data yet) ─────────────────── -->
-    <el-card
-      v-if="!loadingStats && !stats.settlements && !stats.projects && !stats.documents"
-      shadow="never" class="mb-16px onboarding-card"
-    >
-      <div class="onboarding-inner">
-        <Icon icon="mdi:rocket-launch-outline" width="48" color="#409eff" />
-        <div class="mt-12px mb-6px text-20px font-bold">Welcome to KeSMIS, {{ profile.name.split(' ')[0] }}!</div>
-        <div class="text-14px text-gray-400 mb-24px">You don't have any data yet. Here's where to begin.</div>
-        <el-row :gutter="16" justify="center">
-          <el-col v-if="can('settlement:create')" :xl="6" :lg="6" :md="8" :sm="12" :xs="24" class="mb-10px">
-            <el-card shadow="hover" class="action-tile" @click="push({ name: 'AddSettlementNew' })">
-              <Icon icon="mdi:home-plus-outline" width="32" color="#409eff" />
-              <div class="mt-8px font-medium">Add a Settlement</div>
-              <div class="text-12px text-gray-400 mt-4px">Register a new informal settlement</div>
-            </el-card>
-          </el-col>
-          <el-col v-if="can('document:create')" :xl="6" :lg="6" :md="8" :sm="12" :xs="24" class="mb-10px">
-            <el-card shadow="hover" class="action-tile" @click="push({ name: 'ImportDocument' })">
-              <Icon icon="mdi:file-upload-outline" width="32" color="#e6a23c" />
-              <div class="mt-8px font-medium">Upload Documents</div>
-              <div class="text-12px text-gray-400 mt-4px">Attach files to settlements or projects</div>
-            </el-card>
-          </el-col>
-          <el-col :xl="6" :lg="6" :md="8" :sm="12" :xs="24" class="mb-10px">
-            <el-card shadow="hover" class="action-tile" @click="push({ name: 'LandingMap' })">
-              <Icon icon="mdi:map-outline" width="32" color="#67c23a" />
-              <div class="mt-8px font-medium">Explore the Map</div>
-              <div class="text-12px text-gray-400 mt-4px">View settlements across the country</div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </div>
-    </el-card>
-
-    <!-- ── Stat cards ────────────────────────────────────────────────────── -->
-    <el-row :gutter="16" class="mb-16px">
-      <el-col
-        v-for="stat in [
-          { label: 'My Settlements', value: stats.settlements, icon: 'mdi:home-city-outline',     color: '#409eff', route: 'Settlement'       },
-          { label: 'My Documents',   value: stats.documents,   icon: 'mdi:file-document-outline', color: '#e6a23c', route: 'RepositoryTagged' },
-          { label: 'My Projects',    value: stats.projects,    icon: 'mdi:briefcase-outline',      color: '#67c23a', route: 'Project'          }
-        ]"
-        :key="stat.label"
-        :xl="8" :lg="8" :md="8" :sm="24" :xs="24"
-        class="mb-10px"
-      >
-        <el-card shadow="hover" class="stat-card cursor-pointer" @click="push({ name: stat.route })">
-          <el-skeleton :loading="loadingStats" animated :rows="1">
-            <template #default>
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-13px text-gray-400 mb-8px">{{ stat.label }}</div>
-                  <CountTo class="text-28px font-bold" :start-val="0" :end-val="stat.value" :duration="1600" />
-                </div>
-                <Icon :icon="stat.icon" width="44" :color="stat.color" style="opacity:0.7" />
-              </div>
-            </template>
-          </el-skeleton>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- ── My Settlements — primary content ─────────────────────────────── -->
-    <el-card v-if="loadingSettlements || settlementsList.length" shadow="never" class="mb-16px">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-10px">
-            <span class="font-semibold text-16px">Recent Settlements</span>
-            <el-tag v-if="missingBoundary.length" type="warning" size="small" effect="light">
-              <Icon icon="mdi:alert-outline" width="12" class="mr-4px" />
-              {{ missingBoundary.length }} missing boundary
-            </el-tag>
-          </div>
-          <el-button type="primary" link @click="push({ name: 'Settlement' })">View all →</el-button>
+          <el-button size="small" plain :loading="loadingStats" @click="loadStats(); loadSessions()">
+            <Icon icon="mdi:refresh" width="14" class="mr-4px" />Refresh
+          </el-button>
         </div>
-      </template>
+      </el-card>
 
-      <el-skeleton :loading="loadingSettlements" animated :rows="5">
-        <template #default>
-          <!-- Attention banner -->
-          <el-alert
-            v-if="missingBoundary.length"
-            :title="`${missingBoundary.length} settlement${missingBoundary.length > 1 ? 's' : ''} have no boundary defined — they won't appear on the map.`"
-            type="warning" show-icon :closable="false" class="mb-12px"
-          />
+      <!-- Stat cards -->
+      <el-row :gutter="16" class="mb-16px">
+        <el-col
+          v-for="card in statCards"
+          :key="card.label"
+          :xl="6" :lg="6" :md="12" :sm="12" :xs="24"
+          class="mb-10px"
+        >
+          <el-card shadow="hover" class="stat-card">
+            <el-skeleton :loading="loadingStats" animated :rows="1">
+              <template #default>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-13px text-gray-400 mb-8px">{{ card.label }}</div>
+                    <CountTo
+                      class="text-28px font-bold stat-value-link"
+                      :start-val="0"
+                      :end-val="card.value"
+                      :duration="1200"
+                      role="link"
+                      tabindex="0"
+                      @click="handleCardClick(card)"
+                      @keydown.enter="handleCardClick(card)"
+                    />
+                    <div v-if="stats.scopeLabel" class="text-11px text-gray-400 mt-4px">{{ stats.scopeLabel }}</div>
+                  </div>
+                  <Icon :icon="card.icon" width="40" :color="CARD_ICON_COLOR" style="opacity:0.75" />
+                </div>
+              </template>
+            </el-skeleton>
+          </el-card>
+        </el-col>
+      </el-row>
 
-          <el-table :data="settlementsList" style="width:100%" size="small">
-            <el-table-column type="index" width="42" />
-            <el-table-column label="Name" min-width="160">
-              <template #default="{ row }">
-                <span class="font-medium">{{ row.name }}</span>
+      <!-- Tabs -->
+      <el-card shadow="never">
+        <el-tabs v-model="activeTab" @tab-change="onTabChange">
+          <!-- A: Online users (same source as chat) -->
+          <el-tab-pane label="Online Now" name="sessions">
+            <el-skeleton :loading="loadingSessions" animated :rows="6">
+              <template #default>
+                <el-empty v-if="!sessions.length" description="No users online" :image-size="64" />
+                <el-table v-else :data="sessions" size="small" style="width:100%">
+                  <el-table-column type="index" width="42" />
+                  <el-table-column label="User" min-width="160">
+                    <template #default="{ row }">
+                      <div class="font-medium">{{ row.name }}</div>
+                      <div class="text-12px text-gray-400">{{ row.username }}</div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
+                  <el-table-column prop="county" label="County" width="130">
+                    <template #default="{ row }">{{ row.county || '—' }}</template>
+                  </el-table-column>
+                  <el-table-column label="Logged in" width="170">
+                    <template #default="{ row }">{{ formatDateTime(row.loginTime) }}</template>
+                  </el-table-column>
+                  <el-table-column prop="sessionDurationFormatted" label="Duration" width="100" />
+                  <el-table-column label="Status" width="90">
+                    <template #default="{ row }">
+                      <el-tag type="success" size="small" effect="light">{{ row.status || 'online' }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="source" label="Source" width="120" show-overflow-tooltip />
+                  <el-table-column label="" width="120" align="right" fixed="right">
+                    <template #default="{ row }">
+                      <el-button
+                        type="danger"
+                        size="small"
+                        plain
+                        :icon="SwitchButton"
+                        @click="handleForceLogout(row)"
+                      >
+                        Force logout
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
               </template>
-            </el-table-column>
-            <el-table-column label="Location" min-width="180">
-              <template #default="{ row }">
-                <span class="text-13px text-gray-600">
-                  {{ [row.county?.name, row.subcounty?.name, row.ward?.name].filter(Boolean).join(', ') || '—' }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="Area (Ha)" width="100" align="right">
-              <template #default="{ row }">
-                <span class="text-13px">{{ row.area ? Number(row.area).toLocaleString() : '—' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="Population" width="110" align="right">
-              <template #default="{ row }">
-                <span class="text-13px">{{ row.population ? Number(row.population).toLocaleString() : '—' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="Climate Vulnerability" width="180" align="center">
-              <template #default="{ row }">
-                <el-tag
-                  v-if="row.vulnerability_rating"
-                  :type="row.vulnerability_rating?.toUpperCase() === 'HIGH' ? 'danger' : row.vulnerability_rating?.toUpperCase() === 'MEDIUM' ? 'warning' : 'success'"
-                  size="small" effect="light"
-                >{{ row.vulnerability_rating.toUpperCase() }}</el-tag>
-                <span v-else class="text-gray-400 text-13px">—</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="Map" width="70" align="center">
-              <template #default="{ row }">
-                <el-tooltip :content="row.geom ? 'View on map' : 'No boundary defined'" placement="top">
-                  <el-button type="primary" link size="small" :disabled="!row.geom" @click="viewOnMap(row)">
-                    <Icon icon="mdi:map-marker-outline" width="16" />
-                  </el-button>
-                </el-tooltip>
-              </template>
-            </el-table-column>
-          </el-table>
-        </template>
-      </el-skeleton>
-    </el-card>
+            </el-skeleton>
+          </el-tab-pane>
 
-    <!-- ── Documents + Activity ──────────────────────────────────────────── -->
-    <el-row :gutter="16">
-
-      <!-- Left column -->
-      <el-col :xl="16" :lg="16" :md="24" :sm="24" :xs="24" class="mb-16px">
-
-        <!-- Projects -->
-        <el-card v-if="loadingSettlements || projectsList.length" shadow="never">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <span class="font-semibold">Recent Projects</span>
-              <el-button type="primary" link @click="push({ name: 'Project' })">View all →</el-button>
+          <!-- B: Login attempts -->
+          <el-tab-pane label="Login Attempts" name="logins">
+            <div class="tab-toolbar">
+              <el-select v-model="loginDayFilter" size="small" style="width:160px" @change="onLoginFilterChange">
+                <el-option
+                  v-for="opt in loginFilterOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+                <el-option label="Custom range" value="custom" />
+              </el-select>
+              <el-date-picker
+                v-if="loginDayFilter === 'custom'"
+                v-model="loginDateRange"
+                type="daterange"
+                size="small"
+                start-placeholder="From"
+                end-placeholder="To"
+                style="width:260px"
+                @change="onLoginFilterChange"
+              />
             </div>
-          </template>
-          <el-skeleton :loading="loadingSettlements" animated :rows="3">
-            <template #default>
-              <el-table :data="projectsList" style="width:100%" size="small">
-                <el-table-column type="index" width="42" />
-                <el-table-column prop="project_code" label="Code"  width="130" />
-                <el-table-column prop="title"        label="Title" min-width="180" />
-                <el-table-column label="Status" width="120">
-                  <template #default="{ row }">
-                    <el-tag
-                      v-if="row.status"
-                      :type="row.status === 'active' ? 'success' : row.status === 'completed' ? 'info' : ''"
-                      size="small"
-                      effect="light"
-                    >{{ row.status }}</el-tag>
-                    <span v-else class="text-gray-400">—</span>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </template>
-          </el-skeleton>
-        </el-card>
-      </el-col>
+            <el-skeleton :loading="loadingLogins" animated :rows="6">
+              <template #default>
+                <el-empty v-if="!loginAttempts.length" description="No login attempts for this period" :image-size="64" />
+                <el-table v-else :data="loginAttempts" size="small" style="width:100%">
+                  <el-table-column type="index" width="42" />
+                  <el-table-column prop="userName" label="Username" min-width="140" />
+                  <el-table-column prop="action" label="Action" width="100" />
+                  <el-table-column label="Status" width="120">
+                    <template #default="{ row }">
+                      <el-tag :type="loginStatusType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="source" label="Source" width="140" show-overflow-tooltip />
+                  <el-table-column label="Time" min-width="170">
+                    <template #default="{ row }">{{ formatDateTime(row.date || row.loginTime) }}</template>
+                  </el-table-column>
+                </el-table>
+                <el-pagination
+                  v-if="loginTotal > loginPageSize"
+                  class="mt-12px"
+                  small
+                  layout="total, prev, pager, next"
+                  :total="loginTotal"
+                  :page-size="loginPageSize"
+                  v-model:current-page="loginPage"
+                  @current-change="loadLoginAttempts"
+                />
+              </template>
+            </el-skeleton>
+          </el-tab-pane>
 
-      <!-- Activity + Attention sidebar -->
-      <el-col :xl="8" :lg="8" :md="24" :sm="24" :xs="24" class="mb-16px right-col">
-
-        <!-- Attention items -->
-        <el-card v-if="missingBoundary.length" shadow="never" class="mb-16px attention-card">
-          <template #header>
-            <div class="flex items-center gap-8px">
-              <Icon icon="mdi:bell-badge-outline" width="16" color="#e6a23c" />
-              <span class="font-semibold">Needs Attention</span>
+          <!-- C: Edits & deletes -->
+          <el-tab-pane label="Edits & Deletes" name="mutations">
+            <div class="tab-toolbar">
+              <el-select v-model="mutationDayFilter" size="small" style="width:160px" @change="onMutationFilterChange">
+                <el-option
+                  v-for="opt in mutationFilterOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
             </div>
-          </template>
-          <div class="attention-list">
-            <div v-if="missingBoundary.length" class="attention-item" @click="push({ name: 'Settlement' })">
-              <Icon icon="mdi:map-marker-off-outline" width="18" color="#e6a23c" />
-              <div>
-                <div class="font-medium text-14px">{{ missingBoundary.length }} settlement{{ missingBoundary.length > 1 ? 's' : '' }} missing boundary</div>
-                <div class="text-12px text-gray-400">These won't appear on the map</div>
-              </div>
-            </div>
-          </div>
-        </el-card>
-
-        <!-- Activity timeline -->
-        <el-card shadow="never" class="activity-card">
-          <template #header>
-            <span class="font-semibold">My Recent Activity</span>
-          </template>
-          <el-skeleton :loading="loadingActivity" animated :rows="6">
-            <template #default>
-              <el-empty v-if="!recentActivities.length" description="No recent activity" :image-size="60" />
-              <div v-else class="activity-scroll">
-                <el-timeline style="padding-left:4px">
-                  <el-timeline-item
-                    v-for="(a, i) in recentActivities"
-                    :key="i"
-                    :color="a.dotColor"
-                    :timestamp="a.timestamp"
-                    placement="top"
-                    size="large"
-                  >
-                    <div class="flex items-center gap-8px flex-wrap">
-                      <Icon :icon="a.icon" width="15" :color="a.dotColor" style="flex-shrink:0" />
-                      <span class="text-13px font-medium capitalize">{{ a.action.replace('_', ' ') }}</span>
-                      <el-tag size="small" effect="plain">{{ a.entityLabel }}</el-tag>
-                      <el-tag size="small" :type="a.outcome === 'failure' ? 'danger' : 'success'" effect="light">
-                        {{ a.outcome === 'failure' ? 'Failed' : 'Success' }}
+            <el-skeleton :loading="loadingMutations" animated :rows="6">
+              <template #default>
+                <el-empty v-if="!mutations.length" description="No edits or deletes in this period" :image-size="64" />
+                <el-table v-else :data="mutations" size="small" style="width:100%">
+                  <el-table-column type="index" width="42" />
+                  <el-table-column label="Time" width="170">
+                    <template #default="{ row }">{{ formatDateTime(row.timestamp) }}</template>
+                  </el-table-column>
+                  <el-table-column label="Action" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="actionTagType(row.action)" size="small" effect="light" class="capitalize">
+                        {{ row.action }}
                       </el-tag>
-                    </div>
-                  </el-timeline-item>
-                </el-timeline>
-              </div>
-            </template>
-          </el-skeleton>
-        </el-card>
-
-      </el-col>
-    </el-row>
-
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="actorName" label="User" min-width="130" />
+                  <el-table-column prop="entityType" label="Entity" width="140" />
+                  <el-table-column prop="entityId" label="ID" width="80" />
+                  <el-table-column prop="resource" label="Resource" min-width="180" show-overflow-tooltip />
+                  <el-table-column label="Outcome" width="100">
+                    <template #default="{ row }">
+                      <el-tag
+                        :type="row.outcome === 'failure' ? 'danger' : 'success'"
+                        size="small"
+                        effect="plain"
+                      >{{ row.outcome }}</el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-pagination
+                  v-if="mutationTotal > mutationPageSize"
+                  class="mt-12px"
+                  small
+                  layout="total, prev, pager, next"
+                  :total="mutationTotal"
+                  :page-size="mutationPageSize"
+                  v-model:current-page="mutationPage"
+                  @current-change="loadMutations"
+                />
+              </template>
+            </el-skeleton>
+          </el-tab-pane>
+        </el-tabs>
+      </el-card>
+    </template>
   </div>
 </template>
 
 <style scoped>
-/* ── Profile header ── */
-.profile-header {
+.header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.profile-identity {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  min-width: 0;
-}
-.profile-text {
-  min-width: 0;
-}
-.profile-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
 }
-.profile-name {
+.header-title {
   font-size: 18px;
   font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.profile-meta {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
 }
-.meta-sep { opacity: 0.4; }
-.profile-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
+.header-sub {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
 }
-
-@media (max-width: 640px) {
-  .profile-header { flex-direction: column; align-items: flex-start; }
-  .profile-name   { font-size: 16px; }
-  .profile-actions { width: 100%; }
-  .profile-actions .el-button { flex: 1; justify-content: center; }
-}
-
 .stat-card :deep(.el-card__body) { padding: 18px 20px; }
-
-.attention-card :deep(.el-card__body) { padding: 12px 16px; }
-.attention-list { display: flex; flex-direction: column; gap: 4px; }
-.attention-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 10px 8px; border-radius: 6px; cursor: pointer;
-  transition: background 0.15s;
+.stat-value-link {
+  cursor: pointer;
+  color: var(--el-color-primary);
+  transition: opacity 0.15s;
 }
-.attention-item:hover { background: #fdf6ec; }
-
-.right-col {
+.stat-value-link:hover { opacity: 0.75; }
+.tab-toolbar {
   display: flex;
-  flex-direction: column;
-}
-.activity-card {
-  flex: 1;
-}
-.activity-card :deep(.el-card__body) {
-  display: flex;
-  flex-direction: column;
-  height: calc(100% - 55px);
-}
-.onboarding-card :deep(.el-card__body) { padding: 40px 24px; }
-.onboarding-inner { display: flex; flex-direction: column; align-items: center; text-align: center; }
-.action-tile {
-  cursor: pointer; text-align: center;
-  padding: 8px 4px;
-  transition: transform 0.15s;
-}
-.action-tile:hover { transform: translateY(-3px); }
-
-.activity-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 </style>

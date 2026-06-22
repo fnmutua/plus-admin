@@ -25,7 +25,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { activateUserApi, updateUserApi, getAdminStaff, resetUserPassword, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -123,6 +123,7 @@ const isCountyRestricted = computed(() => {
 })
 
 const { push } = useRouter()
+const route = useRoute()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
@@ -144,7 +145,12 @@ const currentPage = ref(1)
 const total = ref(0)
 
 // Tab management
-const activeTab = ref('national')
+const tabFromQuery = route.query.tab
+const activeTab = ref(
+  typeof tabFromQuery === 'string' && ['national', 'county', 'settlement'].includes(tabFromQuery)
+    ? tabFromQuery
+    : 'national'
+)
 const loadingNational = ref(true)
 const loadingCounty = ref(true)
 const loadingSettlement = ref(true)

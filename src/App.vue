@@ -5,6 +5,9 @@ import { ConfigGlobal } from '@/components/ConfigGlobal'
 import { isDark } from '@/utils/is'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useCache } from '@/hooks/web/useCache'
+import { useSessionGuard } from '@/hooks/web/useSessionGuard'
+
+useSessionGuard()
 
 const { getPrefixCls } = useDesign()
 

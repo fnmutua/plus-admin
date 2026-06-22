@@ -106,6 +106,7 @@ const AddDialogVisible = ref(false)
 const formHeader = ref('Add Section')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
+const dialogLoading = ref(false)
 
 
 
@@ -439,14 +440,25 @@ const AddCard = () => {
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
-
-    } else {
+  await formEl.validate(async (valid, fields) => {
+    if (!valid) {
       console.log('error submit!', fields)
+      return
+    }
+
+    ruleForm.model = model
+    ruleForm.code = uuid.v4()
+    dialogLoading.value = true
+    try {
+      await CreateRecord(ruleForm)
+      ElMessage.success('Section created')
+      await getFilteredData(filters, filterValues)
+      AddDialogVisible.value = false
+    } catch (error) {
+      console.error(error)
+      ElMessage.error('Failed to create section')
+    } finally {
+      dialogLoading.value = false
     }
   })
 }
@@ -454,17 +466,24 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-
-      updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
-
-    } else {
+  await formEl.validate(async (valid, fields) => {
+    if (!valid) {
       console.log('error submit!', fields)
+      return
+    }
+
+    ruleForm.model = model
+    dialogLoading.value = true
+    try {
+      await updateOneRecord(ruleForm)
+      ElMessage.success('Section saved')
+      await getFilteredData(filters, filterValues)
+      AddDialogVisible.value = false
+    } catch (error) {
+      console.error(error)
+      ElMessage.error('Failed to save section')
+    } finally {
+      dialogLoading.value = false
     }
   })
 }
@@ -669,12 +688,12 @@ v-model="ruleForm.programme_id" :onClear="handleClear"   clearable
     <template #footer>
 
       <span :class="['dialog-footer', { 'dialog-footer-mobile': isMobile }]">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button @click="AddDialogVisible = false" :disabled="dialogLoading">Cancel</el-button>
         <PermissionWrapper :permissions="'dashboard_section:create'">
-          <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showSubmitBtn" type="primary" :loading="dialogLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
         </PermissionWrapper>
         <PermissionWrapper :permissions="'dashboard_section:update'">
-          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" :loading="dialogLoading" @click="editForm(ruleFormRef)">Save</el-button>
         </PermissionWrapper>
       </span>
     </template>
