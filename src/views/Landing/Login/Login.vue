@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, unref, watch } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElForm, ElFormItem, ElInput, ElTabs, ElTabPane, FormInstance, ElMessage, ElLink, ElDialog } from 'element-plus'
+import { ElButton, ElForm, ElFormItem, ElInput, ElTabs, ElTabPane, FormInstance, ElMessage, ElMessageBox, ElLink, ElDialog } from 'element-plus'
 import { InputPassword } from '@/components/InputPassword'
 import { loginApi, guestLoginApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -242,7 +242,25 @@ const signIn = async () => {
           }
         }
       } catch (error: any) {
-        ElMessage.error(error?.message || 'Login failed. Please check your credentials.')
+        const code = error?.response?.data?.code
+        const msg = error?.response?.data?.message
+        const devices = error?.response?.data?.activeDevices
+        if (code === 'DEVICE_LIMIT_REACHED') {
+          const deviceList = Array.isArray(devices) && devices.length
+            ? devices.map((d: any) =>
+                `${d.deviceLabel || 'Device'}${d.ipAddress ? ` (${d.ipAddress})` : ''}`
+              ).join('<br/>')
+            : ''
+          await ElMessageBox.alert(
+            deviceList
+              ? `${msg}<br/><br/><strong>Active sessions:</strong><br/>${deviceList}`
+              : (msg || 'Too many active devices. Sign out elsewhere first.'),
+            'Device limit reached',
+            { type: 'warning', dangerouslyUseHTMLString: true, confirmButtonText: 'OK' }
+          )
+        } else {
+          ElMessage.error(msg || error?.message || 'Login failed. Please check your credentials.')
+        }
       } finally {
         loginLoading.value = false
       }

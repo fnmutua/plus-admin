@@ -27,6 +27,28 @@ const {
   getActiveRolesGetOptions,
   activeGrantWhere,
 } = require('../utils/userRoleExpiry')
+const userSessionManager = require('../utils/userSessionManager')
+
+const JWT_EXPIRES_IN_SECONDS = parseInt(process.env.JWT_EXPIRES_IN_SECONDS || '86400', 10)
+
+async function issueUserAccessToken(userId, req, options = {}) {
+  const expiresIn = options.expiresInSec || JWT_EXPIRES_IN_SECONDS
+  const sessionResult = await userSessionManager.registerLoginSession(
+    userId,
+    req,
+    expiresIn,
+    options
+  )
+  if (!sessionResult.ok) {
+    return sessionResult
+  }
+  const token = jwt.sign(
+    { id: userId, sid: sessionResult.sessionId },
+    config.secret,
+    { expiresIn }
+  )
+  return { ok: true, token, sessionId: sessionResult.sessionId }
+}
 
  
 
@@ -1295,9 +1317,31 @@ exports.signin = async (req, res) => {
 
       await user.update({ last_login: new Date() })
 
-      var token = jwt.sign({ id: user.id }, config.secret, {
-        expiresIn: 86400 // 24 hours
-      })
+      const tokenResult = await issueUserAccessToken(user.id, req)
+      if (!tokenResult.ok) {
+        instlog.status = 'Fail. Device limit reached'
+        await writeLegacyAndAuditLog(instlog, {
+          action: 'login',
+          actorId: user.id,
+          actorName: user.username,
+          entityType: 'auth',
+          outcome: 'failure',
+          statusCode: tokenResult.status,
+          metadata: {
+            code: tokenResult.code,
+            maxDevices: tokenResult.maxDevices,
+            activeDevices: tokenResult.activeDevices
+          }
+        })
+        return res.status(tokenResult.status).send({
+          code: tokenResult.code,
+          message: tokenResult.message,
+          maxDevices: tokenResult.maxDevices,
+          activeDevices: tokenResult.activeDevices
+        })
+      }
+
+      var token = tokenResult.token
 
       // Active assignments only (respects expires_at on user_roles)
       const userRoles = await db.models.user_roles.findAll({
@@ -1356,7 +1400,12 @@ exports.guestLogin = async (req, res) => {
     }
 
     // Short-lived token for guest — 2 hours
-    const token = jwt.sign({ id: user.id }, config.secret, { expiresIn: 7200 })
+    const guestExpiresIn = 7200
+    const tokenResult = await issueUserAccessToken(user.id, req, {
+      skipDeviceLimit: true,
+      expiresInSec: guestExpiresIn
+    })
+    const token = tokenResult.token
 
     await user.update({ last_login: new Date() })
 
@@ -2616,9 +2665,17 @@ exports.verifyCode = async (req, res) => {
     // Update the OTP status to invalid
     await otp.update({ status: 'Invalid' });
 
-    var token = jwt.sign({ id: user.id }, config.secret, {
-      expiresIn: 86400 // 24 hours
-    })
+    const tokenResult = await issueUserAccessToken(user.id, req)
+    if (!tokenResult.ok) {
+      return res.status(tokenResult.status).send({
+        code: tokenResult.code,
+        message: tokenResult.message,
+        maxDevices: tokenResult.maxDevices,
+        activeDevices: tokenResult.activeDevices
+      })
+    }
+
+    var token = tokenResult.token
     
     // Create login log for successful OTP verification
     const loginLog = {
@@ -2945,6 +3002,11 @@ exports.Logout = async (req, res) => {
     
     if (userId) {
       const sessionTracker = require('../utils/sessionTracker');
+      const userSessionManager = require('../utils/userSessionManager');
+
+      if (req.sessionId) {
+        await userSessionManager.revokeSession(req.sessionId);
+      }
       
       // Get user info from database
       const user = await db.models.users.findByPk(userId);

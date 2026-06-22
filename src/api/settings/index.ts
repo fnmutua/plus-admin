@@ -6,6 +6,7 @@ export interface ModuleSetting {
   module: string
   enabled: boolean
   description?: string
+  config_value?: string | null
   created_by?: number
   updated_by?: number
   createdAt?: string
@@ -88,6 +89,7 @@ export const bulkUpdateSystemSettings = (settings: Array<{
   module: string
   enabled: boolean
   description?: string
+  config_value?: string | null
 }>): Promise<SettingsResponse> => {
   return request.post({
     url: prod + '/api/v1/settings/system/bulk-update',

@@ -24,6 +24,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       comment: 'Description of what this setting controls'
     },
+    config_value: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Optional config payload (e.g. numeric limits as string)'
+    },
     created_by: {
       type: DataTypes.INTEGER,
       allowNull: true,

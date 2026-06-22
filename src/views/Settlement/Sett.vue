@@ -17,7 +17,7 @@ import {
   ElRadio, ElRadioGroup, ElAlert, ElDivider, ElDrawer,
 } from 'element-plus'
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled,  CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch, watchEffect } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -65,7 +65,50 @@ const loadingGetData = ref(false)
 const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
 
 const DateDialogVisible = ref(false)
-const dateRange = ref()
+const dateRange = ref<[Date, Date] | null>(null)
+
+const startOfDay = (d: Date) => {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+const endOfDay = (d: Date) => {
+  const x = new Date(d)
+  x.setHours(23, 59, 59, 999)
+  return x
+}
+
+/** Default range: last 30 days through today. */
+const defaultSettlementDateRange = (): [Date, Date] => {
+  const end = startOfDay(new Date())
+  const start = new Date(end)
+  start.setDate(start.getDate() - 30)
+  return [start, end]
+}
+
+const normalizeDateRange = (range: unknown): [Date, Date] | null => {
+  if (!range || !Array.isArray(range) || range.length < 2 || !range[0] || !range[1]) return null
+  let start = startOfDay(new Date(range[0] as Date | string))
+  let end = endOfDay(new Date(range[1] as Date | string))
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
+  if (start > end) {
+    const tmp = start
+    start = startOfDay(end)
+    end = endOfDay(tmp)
+  }
+  return [start, end]
+}
+
+const getDateRangeForApi = (): Date[] => {
+  const normalized = normalizeDateRange(dateRange.value)
+  return normalized ? [normalized[0], normalized[1]] : []
+}
+
+/** Block future dates only — any past date is allowed. */
+const disableSettlementFilterDate = (time: Date) => {
+  return time.getTime() > endOfDay(new Date()).getTime()
+}
 
 // Save filters to localStorage
 const saveFiltersToStorage = () => {
@@ -82,6 +125,7 @@ const saveFiltersToStorage = () => {
     page: page.value,
     pageSize: pageSize.value,
     activeSegment: activeSegment.value,
+    dateRange: getDateRangeForApi().map((d) => d.toISOString()),
   }
   localStorage.setItem('settlementFilters', JSON.stringify(filterState))
 }
@@ -118,9 +162,16 @@ const loadFiltersFromStorage = () => {
     if (filterState.pageSize) pageSize.value = filterState.pageSize
     if (filterState.page) page.value = filterState.page
     if (filterState.activeSegment) activeSegment.value = filterState.activeSegment
-  } else if (isCountyStaff.value && selectedCounty.value.length > 0) {
-    // No saved filters; for county staff ensure UI reflects their role county
-    value4.value = selectedCounty.value
+    if (activeSegment.value === 'Duplicates') activeSegment.value = 'Approved'
+    if (Array.isArray(filterState.dateRange) && filterState.dateRange.length === 2) {
+      dateRange.value = normalizeDateRange(filterState.dateRange)
+    }
+  } else {
+    // First visit: default table filter to last 30 days through today
+    dateRange.value = defaultSettlementDateRange()
+    if (isCountyStaff.value && selectedCounty.value.length > 0) {
+      value4.value = selectedCounty.value
+    }
   }
 
   // Normalize to arrays so .length checks work even if a primitive id was stored
@@ -663,6 +714,13 @@ const buildSettlementSummaryBaseFilters = (): SummaryFilterBundle => {
     }
   }
 
+  const normalizedDates = normalizeDateRange(dateRange.value)
+  if (normalizedDates) {
+    filterFields.push('createdAt')
+    filterValues.push(normalizedDates)
+    filterOperators.push('between')
+  }
+
   return { filterFields, filterValues, filterOperators }
 }
 
@@ -977,6 +1035,12 @@ const isDateRangeFilterActive = computed(() => {
   return !!(d[0] && d[1])
 })
 
+watch(DateDialogVisible, (open) => {
+  if (open && !isDateRangeFilterActive.value) {
+    dateRange.value = defaultSettlementDateRange()
+  }
+})
+
 /** Any toolbar filter is applied (search, date, location, or narrowed county for multi-county staff). */
 const hasActiveToolbarFilters = computed(() => {
   if (search_string.value?.trim()) return true
@@ -1052,7 +1116,7 @@ const handleClear = async () => {
   }
   value5.value = []
   value6.value = []
-  dateRange.value = []
+  dateRange.value = null
   // Reset both page refs to ensure pagination resets
   currentPage.value = 1
   page.value = 1
@@ -1212,7 +1276,7 @@ const getNewOrRejectedSettlements = async (tab) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.dateRange = dateRange.value
+  formData.dateRange = getDateRangeForApi()
   formData.excludeGeom = true // Exclude geometry for table performance
 
 
@@ -1321,7 +1385,7 @@ async function fetchRejectedSettlementsForDeletedTab(): Promise<any[]> {
     filterValues: filterValues.value,
     associated_multiple_models,
     nested_models,
-    dateRange: dateRange.value,
+    dateRange: getDateRangeForApi(),
     excludeGeom: true,
   }
   const res = await getSettlementListByCounty(formData)
@@ -1663,7 +1727,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.dateRange = dateRange.value
+  formData.dateRange = getDateRangeForApi()
   formData.excludeGeom = true // Exclude geometry for table performance
 
 
@@ -3703,7 +3767,7 @@ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.dateRange = dateRange.value
+  formData.dateRange = getDateRangeForApi()
   // Don't exclude geometry for filtered downloads - we need it to compute latitude/longitude
   formData.excludeGeom = false
 
@@ -3782,7 +3846,7 @@ const handleDownloadGeoData = async () => {
       nested_models: [],                   // no nested models needed to get IDs
       fields: ['id'],                      // only fetch settlement IDs
       excludeGeom: true,                   // explicitly skip geometry in this query
-      dateRange: dateRange.value,
+      dateRange: getDateRangeForApi(),
       returnAll: true
     };
     
@@ -4054,34 +4118,6 @@ const handleUploadGeo = async (uploadFile) => {
 const activeStep = ref(0)
 const next = () => {
   if (activeStep.value++ > 2) activeStep.value = 0
-}
-
-const copyToClipboard = (code) => {
-  navigator.clipboard.writeText(code)
-    .then(() => {
-      ElMessage({
-        message: 'Code copied to clipboard!',
-        type: 'success'
-      });
-    })
-    .catch((error) => {
-      console.error(error);
-      ElMessage.error('Failed to copy code to clipboard');
-    });
-}
-
-const hoveredRow = ref()
-const showCopyIcon = (row) => {
-  hoveredRow.value = row;
-}
-const hideCopyIcon = (row) => {
-  if (hoveredRow.value === row) {
-    hoveredRow.value = null;
-  }
-}
-
-const isCopyIconVisible = (row) => {
-  return hoveredRow.value === row;
 }
 
 const handleSelectCounty = async (county_id: any) => {
@@ -4961,8 +4997,7 @@ const Statuses = computed(() => [
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
-    // Hide for county admin/staff, only show for national/super admin
-    hidden: !(isNationalStaff.value || isSuperAdmin.value) || !showAdminButtons.value || isCountyAdmin.value
+    hidden: true,
   },
   {
     label: 'Decommissioned',
@@ -5012,6 +5047,10 @@ const getThisHistory = async (sett_id) => {
 
 // Watch activeSegment to ensure non-national/non-admin users always stay on Approved
 watch(activeSegment, (newValue) => {
+  if (newValue === 'Duplicates') {
+    activeSegment.value = 'Approved'
+    return
+  }
   if (isPublicUser.value && newValue === 'Deleted') {
     activeSegment.value = 'Approved'
     return
@@ -5112,6 +5151,13 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
 const handleDateChange = async () => {
+  const normalized = normalizeDateRange(dateRange.value)
+  if (normalized) {
+    dateRange.value = normalized
+  } else {
+    dateRange.value = null
+  }
+
   console.log(dateRange.value)
 
   if (activeSegment.value === 'Approved') {
@@ -5575,20 +5621,6 @@ v-model="search_string" clearable :onClear="handleClear"
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
-        <el-table-column label="Code" prop="code" sortable>
-          <template #default="{ row }">
-            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-              <span>{{ row.code }}</span>
-              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                  plain
-                  style="position: absolute; left: 50%;  top: 50%;  transform: translateY(-50%); margin-right: 5px;"
-                  @click="copyToClipboard(row.code)" />
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <TableActions
@@ -5732,25 +5764,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
 
-        <el-table-column label="Code" prop="code" sortable>
-          <template #default="{ row }">
-            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-              <span>{{ row.code }}</span>
-              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                <el-button
-                  v-show="isCopyIconVisible(row)"
-                  type="information"
-                  size="small"
-                  :icon="CopyDocument"
-                  circle
-                  plain
-                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                  @click="copyToClipboard(row.code)" />
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
-
         <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <TableActions
@@ -5877,22 +5890,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
 
-        <el-table-column label="Code" prop="code" sortable>
-          <template #default="{ row }">
-            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-              <span>{{ row.code }}</span>
-              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                  plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                  @click="copyToClipboard(row.code)" />
-
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
-
-
         <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
@@ -5991,20 +5988,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
           <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
-
-          <el-table-column label="Code" prop="code" sortable>
-            <template #default="{ row }">
-              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-                <span>{{ row.code }}</span>
-                <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
-                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                    @click="copyToClipboard(row.code)" />
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column>
 
           <el-table-column label="Actions" :width="actionColumnWidth">
             <template #default="{ row }">
@@ -6140,19 +6123,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
         <el-table-column label="Population" prop="population" sortable />
         <el-table-column label="Area(HA)" prop="area" sortable :formatter="row => Number(row.area).toFixed(2)" />
         <el-table-column label="Created" prop="updatedAt" sortable :formatter="formatDate" />
-        <el-table-column label="Code" prop="code" sortable>
-          <template #default="{ row }">
-            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-              <span>{{ row.code }}</span>
-              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                <el-button
-                  v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
-                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                  @click="copyToClipboard(row.code)" />
-              </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
         <el-table-column fixed="right" label="Actions" :width="isMobile ? '80' : '160'">
           <template #default="{ row }">
             <template v-if="row._deletedTabSource === 'rejected'">
@@ -6260,7 +6230,6 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" ci
             </el-table-column>
             <el-table-column label="Population" prop="population" width="120" />
             <el-table-column label="Area (HA)" prop="area" width="120" />
-            <el-table-column label="Code" prop="code" width="120" />
             <el-table-column label="Created At" prop="createdAt" width="140">
               <template #default="{ row }">
                 <span>{{ row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '' }}</span>
@@ -6787,6 +6756,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
         width="30%" >
         <el-form   ref="dateFormRef">
           <el-form-item label="Date Range">
+            <p class="date-filter-hint">Defaults to the last 30 days. You can pick any date before today; future dates are not allowed.</p>
             <el-date-picker
               v-model="dateRange"
               type="daterange"
@@ -6796,7 +6766,8 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
               end-placeholder="End date"
               size="default"
               style="width: 100%;"
-              @change="handleDateChange"
+              :disabled-date="disableSettlementFilterDate"
+              :default-value="defaultSettlementDateRange()"
             />
           </el-form-item>
         </el-form>
@@ -7385,5 +7356,12 @@ html.dark .gm-style .gm-ui-hover-effect:hover,
   flex: 0 0 auto;
   min-width: 92px;
   align-items: stretch;
+}
+
+.date-filter-hint {
+  margin: 0 0 8px;
+  color: #909399;
+  font-size: 13px;
+  line-height: 1.4;
 }
 </style>

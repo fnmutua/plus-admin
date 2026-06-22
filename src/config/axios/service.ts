@@ -127,14 +127,23 @@ service.interceptors.response.use(
     const status = error?.response?.status
     const message = (error?.response?.data as any)?.message || ''
     const code = (error?.response?.data as any)?.code || ''
+    const hadToken = Boolean(
+      (error?.config?.headers as any)?.['x-access-token']
+      || (error?.config?.headers as any)?.['X-Access-Token']
+    )
 
-    // 401 = expired/invalid token, 403 = no token provided
-    if (status === 401 || status === 403 || message === 'Unauthorized!') {
+    // 401/403 with an existing token = expired/invalid session (not login failures)
+    if ((status === 401 || status === 403) && hadToken) {
       const terminated = code === 'SESSION_TERMINATED' || message.includes('terminated')
       handleSessionExpired(
         terminated ? 'You have been logged out by an administrator.' : undefined
       )
       // Swallow the error — the dialog + redirect is the UX, not a toast
+      return Promise.reject(error)
+    }
+
+    // Device limit on login — handled by the login page
+    if (code === 'DEVICE_LIMIT_REACHED') {
       return Promise.reject(error)
     }
 

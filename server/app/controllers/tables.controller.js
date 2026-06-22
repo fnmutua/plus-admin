@@ -5704,12 +5704,16 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
     // Handle date range filter for createdAt
     if (Array.isArray(dateRange) && dateRange.length === 2) {
-      const [startDate, endDate] = dateRange.map(date => new Date(date));
+      const startDate = new Date(dateRange[0]);
+      const endDate = new Date(dateRange[1]);
 
       // Validate dates
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         return res.status(400).json({ message: 'Invalid date format in dateRange', code: 'INVALID_DATE_RANGE' });
       }
+
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
 
       if (startDate > endDate) {
         return res.status(400).json({ message: 'First date must be before second date', code: 'INVALID_DATE_RANGE' });
@@ -5719,7 +5723,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       baseQuery.where.createdAt = {
         [Op.between]: [startDate, endDate],
       };
-    } else if (dateRange.length !== 0) {
+    } else if (Array.isArray(dateRange) && dateRange.length !== 0) {
       return res.status(400).json({ message: 'dateRange must be an array with two dates', code: 'INVALID_DATE_RANGE' });
     }
 

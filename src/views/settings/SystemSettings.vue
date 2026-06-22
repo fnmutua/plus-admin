@@ -16,7 +16,7 @@
             </p>
             <div class="settings-list">
               <div
-                v-for="setting in securitySettings"
+                v-for="setting in toggleSettings"
                 :key="setting.id || setting.module"
                 class="setting-item"
               >
@@ -42,8 +42,37 @@
                 </div>
               </div>
 
-              <div v-if="securitySettings.length === 0" class="empty-state">
+              <div v-if="toggleSettings.length === 0" class="empty-state">
                 <ElEmpty description="No security settings found" />
+              </div>
+            </div>
+
+            <div v-if="maxDevicesSetting" class="setting-item setting-item--numeric">
+              <div class="setting-info">
+                <div class="setting-header">
+                  <h3 class="setting-title">Max login sessions per user</h3>
+                  <ElTag type="info" size="small">
+                    {{ maxDevicesValue === 0 ? 'Unlimited' : `${maxDevicesValue} devices` }}
+                  </ElTag>
+                </div>
+                <p class="setting-description">
+                  {{ maxDevicesSetting.description }}
+                </p>
+              </div>
+              <div class="setting-action setting-action--numeric">
+                <ElSwitch
+                  v-model="maxDevicesSetting.enabled"
+                  active-text="Limit ON"
+                  inactive-text="Unlimited"
+                />
+                <ElInputNumber
+                  v-model="maxDevicesValue"
+                  :min="0"
+                  :max="50"
+                  :step="1"
+                  :disabled="!maxDevicesSetting.enabled"
+                  controls-position="right"
+                />
               </div>
             </div>
           </ElTabPane>
@@ -62,15 +91,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { ElCard, ElSwitch, ElTag, ElButton, ElEmpty, ElMessage, ElTabs, ElTabPane } from 'element-plus'
+import { ElCard, ElSwitch, ElTag, ElButton, ElEmpty, ElMessage, ElTabs, ElTabPane, ElInputNumber } from 'element-plus'
 import { getSystemSettings, bulkUpdateSystemSettings, type ModuleSetting } from '@/api/settings'
 
 const loading = ref(false)
 const saving = ref(false)
 const settings = ref<Array<ModuleSetting & { saving?: boolean }>>([])
 const activeTab = ref('security')
+const maxDevicesValue = ref(5)
 
 const SYSTEM_SETTING_PREFIX = 'rate_limit_'
+const AUTH_MAX_DEVICES_MODULE = 'auth_max_devices'
 
 const defaultSettings: ModuleSetting[] = [
   {
@@ -84,26 +115,42 @@ const defaultSettings: ModuleSetting[] = [
     enabled: true,
     description:
       'OTP guessing protection on mobile verify: max 5 attempts per IP every 10 minutes (/api/app/verify).'
+  },
+  {
+    module: AUTH_MAX_DEVICES_MODULE,
+    enabled: true,
+    config_value: '5',
+    description:
+      'Maximum simultaneous logged-in devices per user. Re-login on the same device replaces that session. Set to 0 or turn off the limit for unlimited sessions. Changes apply within about 30 seconds.'
   }
 ]
 
 const formatModuleName = (module: string): string => {
   const labels: Record<string, string> = {
     rate_limit_login: 'Login rate limit',
-    rate_limit_otp: 'OTP rate limit'
+    rate_limit_otp: 'OTP rate limit',
+    auth_max_devices: 'Max login sessions per user'
   }
   if (labels[module]) return labels[module]
 
   return module
     .replace(/^rate_limit_/, '')
+    .replace(/^auth_/, '')
     .replace(/_/g, ' ')
     .split(' ')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
 
-const securitySettings = computed(() =>
+const isSystemModule = (module: string) =>
+  module.startsWith(SYSTEM_SETTING_PREFIX) || module.startsWith('auth_')
+
+const toggleSettings = computed(() =>
   settings.value.filter((s) => s.module.startsWith(SYSTEM_SETTING_PREFIX))
+)
+
+const maxDevicesSetting = computed(() =>
+  settings.value.find((s) => s.module === AUTH_MAX_DEVICES_MODULE)
 )
 
 const loadSettings = async () => {
@@ -115,10 +162,11 @@ const loadSettings = async () => {
       const missingDefaults = defaultSettings.filter((s) => !existingModules.has(s.module))
       settings.value = [
         ...response.data
-          .filter((s) => s.module.startsWith(SYSTEM_SETTING_PREFIX))
+          .filter((s) => isSystemModule(s.module))
           .map((s) => ({ ...s, saving: false })),
         ...missingDefaults.map((s) => ({ ...s, saving: false }))
       ]
+      syncMaxDevicesValueFromSetting()
     } else {
       ElMessage.error(response.message || 'Failed to load settings')
     }
@@ -126,6 +174,7 @@ const loadSettings = async () => {
     console.error('Error loading system settings:', error)
     ElMessage.error('Failed to load settings')
     settings.value = defaultSettings.map((s) => ({ ...s, saving: false }))
+    syncMaxDevicesValueFromSetting()
   } finally {
     loading.value = false
   }
@@ -140,14 +189,30 @@ const handleToggle = async (setting: ModuleSetting & { saving?: boolean }) => {
   }
 }
 
+const syncMaxDevicesValueFromSetting = () => {
+  const setting = settings.value.find((s) => s.module === AUTH_MAX_DEVICES_MODULE)
+  const parsed = parseInt(String(setting?.config_value ?? '5'), 10)
+  maxDevicesValue.value = Number.isNaN(parsed) ? 5 : parsed
+}
+
 const saveAllSettings = async () => {
   saving.value = true
   try {
-    const settingsToSave = securitySettings.value.map((s) => ({
-      module: s.module,
-      enabled: s.enabled,
-      description: s.description
-    }))
+    const maxSetting = maxDevicesSetting.value
+    if (maxSetting) {
+      maxSetting.config_value = maxSetting.enabled
+        ? String(maxDevicesValue.value)
+        : '0'
+    }
+
+    const settingsToSave = settings.value
+      .filter((s) => isSystemModule(s.module))
+      .map((s) => ({
+        module: s.module,
+        enabled: s.enabled,
+        description: s.description,
+        config_value: s.config_value ?? null
+      }))
 
     const response = await bulkUpdateSystemSettings(settingsToSave)
     if (response.code === '0000') {
@@ -264,6 +329,16 @@ onMounted(() => {
 .setting-action {
   display: flex;
   align-items: center;
+}
+
+.setting-action--numeric {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.setting-item--numeric {
+  margin-top: 8px;
 }
 
 .card-footer {

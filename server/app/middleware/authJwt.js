@@ -3,6 +3,7 @@ const config = require("../config/auth.config.js");
 const db = require("../models");
 const User = db.user;
 const { getActiveRolesGetOptions } = require("../utils/userRoleExpiry");
+const userSessionManager = require("../utils/userSessionManager");
 
 verifyToken = (req, res, next) => {
  // console.log("headers----->", req.headers)
@@ -12,62 +13,60 @@ verifyToken = (req, res, next) => {
       message: "No token provided!"
     });
   }
-  jwt.verify(token, config.secret, (err, decoded) => {
+  jwt.verify(token, config.secret, async (err, decoded) => {
     if (err) {
       return res.status(401).send({
         message: "Unauthorized!"
       });
     }
-    // console.log("----x-----", decoded.id)
-    thisUser = User.findOne({
-      where: {
-        id: decoded.id
+    try {
+      const user = await User.findByPk(decoded.id);
+      if (!user) {
+        return res.status(401).send({ message: "Unauthorized!" });
       }
-    })
-     // Fetch the user by id 
- //    User.findByPk(decoded.id).then(function(user){
-      // Do something with the user
-      User.findByPk(decoded.id).then(user => {
-        if (!user) {
-          return res.status(401).send({ message: "Unauthorized!" });
+
+      if (user.force_logout_at && decoded.iat) {
+        const logoutAt = new Date(user.force_logout_at).getTime();
+        const tokenIssuedAt = decoded.iat * 1000;
+        if (logoutAt > tokenIssuedAt) {
+          return res.status(401).send({
+            message: "Session has been terminated.",
+            code: "SESSION_TERMINATED"
+          });
         }
+      }
 
-        if (user.force_logout_at && decoded.iat) {
-          const logoutAt = new Date(user.force_logout_at).getTime();
-          const tokenIssuedAt = decoded.iat * 1000;
-          if (logoutAt > tokenIssuedAt) {
-            return res.status(401).send({
-              message: "Session has been terminated.",
-              code: "SESSION_TERMINATED"
-            });
-          }
+      if (decoded.sid) {
+        const sessionValid = await userSessionManager.validateSession(decoded.id, decoded.sid);
+        if (!sessionValid) {
+          return res.status(401).send({
+            message: "Your session has expired or was signed out on this device.",
+            code: "SESSION_TERMINATED"
+          });
         }
+      }
 
-       user.getRoles(getActiveRolesGetOptions()).then(roles => {
-         if (!roles || roles.length === 0) {
-           return res.status(401).send({
-             message: "Unauthorized: no active role assignments (expired or revoked).",
-           });
-         }
-         req.userid = decoded.id;
-         req.thisUser = user;
-         //req.roles = roles;
-         //var chests = roles[].toJSON(); //same as chestsSeq.get({});
-     //    console.log('roles>>', roles[0])
-         let userRoles = []
-         for (let i = 0; i < roles.length; i++) {
-            userRoles.push(roles[i].id)
-         }
-         console.log(userRoles)
-         req.roles = userRoles;
-         next();
-       })
- 
+      const roles = await user.getRoles(getActiveRolesGetOptions());
+      if (!roles || roles.length === 0) {
+        return res.status(401).send({
+          message: "Unauthorized: no active role assignments (expired or revoked).",
+        });
+      }
 
-     });
-    
-    
-
+      req.userid = decoded.id;
+      req.sessionId = decoded.sid || null;
+      req.thisUser = user;
+      const userRoles = [];
+      for (let i = 0; i < roles.length; i++) {
+        userRoles.push(roles[i].id);
+      }
+      console.log(userRoles);
+      req.roles = userRoles;
+      next();
+    } catch (verifyErr) {
+      console.error('Token verification error:', verifyErr);
+      return res.status(500).send({ message: "Unable to validate session." });
+    }
   });
 };
 

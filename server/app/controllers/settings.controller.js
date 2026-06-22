@@ -5,9 +5,11 @@ const { computeSettlementVulnerability } = require('../utils/vulnerability')
 const { invalidateModuleSettingsCache } = require('../utils/moduleSettingsCache')
 
 const SYSTEM_SETTING_PREFIX = 'rate_limit_'
+const AUTH_SETTING_PREFIX = 'auth_'
 
 const isSystemSettingModule = (module) =>
-  typeof module === 'string' && module.startsWith(SYSTEM_SETTING_PREFIX)
+  typeof module === 'string'
+  && (module.startsWith(SYSTEM_SETTING_PREFIX) || module.startsWith(AUTH_SETTING_PREFIX))
 
 const userIsRootAdmin = async (req) => {
   if (!req.userid) return false
@@ -115,6 +117,21 @@ exports.isModuleEnabled = async (module) => {
   }
 }
 
+/** Read config_value for a module (used by auth session limits, etc.) */
+exports.getModuleConfigValue = async (module) => {
+  try {
+    const setting = await db.models.module_settings.findOne({
+      where: { module },
+    })
+    if (!setting) return null
+    if (setting.enabled === false) return null
+    return setting.config_value
+  } catch (error) {
+    console.error(`Error reading config for module ${module}:`, error)
+    return null
+  }
+}
+
 /**
  * Update a module setting
  */
@@ -208,7 +225,7 @@ exports.bulkUpdateSettings = async (req, res) => {
     const results = []
     
     for (const settingData of settings) {
-      const { module, enabled, description } = settingData
+      const { module, enabled, description, config_value } = settingData
       
       if (!module) {
         results.push({
@@ -229,6 +246,7 @@ exports.bulkUpdateSettings = async (req, res) => {
             module,
             enabled: enabled !== undefined ? enabled : true,
             description: description || `Settings for ${module} module`,
+            config_value: config_value !== undefined ? String(config_value) : null,
             created_by: req.thisUser?.id || null
           })
         } else {
@@ -242,6 +260,10 @@ exports.bulkUpdateSettings = async (req, res) => {
           
           if (description !== undefined) {
             updateData.description = description
+          }
+
+          if (config_value !== undefined) {
+            updateData.config_value = config_value == null ? null : String(config_value)
           }
           
           await setting.update(updateData)
@@ -285,9 +307,10 @@ exports.getSystemSettings = async (req, res) => {
   try {
     const settings = await db.models.module_settings.findAll({
       where: {
-        module: {
-          [Op.like]: `${SYSTEM_SETTING_PREFIX}%`,
-        },
+        [Op.or]: [
+          { module: { [Op.like]: `${SYSTEM_SETTING_PREFIX}%` } },
+          { module: { [Op.like]: `${AUTH_SETTING_PREFIX}%` } },
+        ],
       },
       order: [['module', 'ASC']],
     })

@@ -2459,6 +2459,7 @@ exports.forceLogout = async (req, res) => {
     }
 
     const sessionTracker = require('../utils/sessionTracker');
+    const userSessionManager = require('../utils/userSessionManager');
     const { notifyChatForceLogout } = require('../utils/forceLogoutNotify');
     const source = req.headers['x-forwarded-for']?.split(',')[0]
       || req.headers['x-real-ip']
@@ -2471,6 +2472,8 @@ exports.forceLogout = async (req, res) => {
       { force_logout_at: forceLogoutAt },
       { where: { id: targetUserId } }
     );
+
+    await userSessionManager.revokeAllSessionsForUser(targetUserId);
 
     await sessionTracker.createLogoutLog({
       userId: targetUserId,
