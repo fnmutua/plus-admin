@@ -633,10 +633,17 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 const settlementId=ref(route.params.id)
 
 onMounted(async () => {
+  resetProfileCollapsedSections()
   mapLoading.value = true
   startMapLoadingTimeout()
-  getFilteredData(filters, filterValues)
-  // Pre-fetch map data in parallel so Location tab can show map without fetching again
+
+  profileLoading.value = true
+  try {
+    await getFilteredData(filters, filterValues)
+  } finally {
+    profileLoading.value = false
+  }
+
   const mapDataPromise = getSettlementMapData({ settlementId: route.params.id })
     .then((res: any) => { initialMapData.value = res?.data ?? null })
     .catch(() => { initialMapData.value = null })
@@ -655,7 +662,6 @@ onMounted(async () => {
     climatePromise,
     loadVulnerabilityInlineSelectOptions()
   ])
-  console.log(settlement)
 })
 
 const router = useRouter()
@@ -1118,14 +1124,27 @@ const prefixCls = getPrefixCls('descriptions')
 
 const collapsedSections = reactive({
   location: false,
-  description: false,
-  populationHistory: false,
-  landParcel: false,
-  builtEnvironment: false,
-  utilities: false,
-  vulnerabilityRecord: false,
-  status: false
+  description: true,
+  populationHistory: true,
+  landParcel: true,
+  builtEnvironment: true,
+  utilities: true,
+  vulnerabilityRecord: true,
+  status: true,
 })
+
+const resetProfileCollapsedSections = () => {
+  collapsedSections.location = false
+  collapsedSections.description = true
+  collapsedSections.populationHistory = true
+  collapsedSections.landParcel = true
+  collapsedSections.builtEnvironment = true
+  collapsedSections.utilities = true
+  collapsedSections.vulnerabilityRecord = true
+  collapsedSections.status = true
+}
+
+const profileLoading = ref(true)
 
 const populationHistoryRows = ref<any[]>([])
 const populationHistoryLoading = ref(false)
@@ -1468,6 +1487,10 @@ const filteredGroupedDocuments = computed(() => {
 
   return filteredDocs;
 });
+
+const hasVisibleDocuments = computed(() =>
+  photos.value.length > 0 || Object.keys(filteredGroupedDocuments.value).length > 0,
+)
 
 // Watch for changes in groupedDocuments and initialize sections
 watch(groupedDocuments, () => {
@@ -3229,6 +3252,14 @@ const updateDocumentCategory = async () => {
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
+        <div class="profile-tab-panel">
+          <div v-if="profileLoading" class="profile-tab-panel__loading">
+            <div class="profile-tab-panel__spinner">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              <p>Loading settlement profile...</p>
+            </div>
+          </div>
+          <div v-show="!profileLoading" class="profile-tab-panel__content">
         <!-- Location Section -->
         <div class="flex justify-end mb-4">
           <el-button type="primary" @click="generatePDFReport" :loading="pdfLoading" :disabled="pdfLoading">
@@ -3524,6 +3555,8 @@ const updateDocumentCategory = async () => {
             </div>
           </ElCollapseTransition>
         </div>
+          </div>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="Location" name="map">
@@ -3573,6 +3606,14 @@ const updateDocumentCategory = async () => {
                 </el-button>
               </el-col>
             </el-row>
+
+           <el-table
+             v-if="!hasVisibleDocuments"
+             :data="[]"
+             border
+             style="width: 100%"
+             empty-text="No data"
+           />
 
            <!-- Photos Section (Collapsible) -->
            <div v-if="photos.length > 0" :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px) mb-4']">
@@ -3704,7 +3745,7 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
          </div>
        </el-tab-pane>
 
-      <el-tab-pane label="Projects" name="Projects">
+      <el-tab-pane label="Interventions" name="Projects">
         <el-card>
           <el-table :data="projects" border :row-class-name="projectStatus">
             <el-table-column type="index" width="50" />
@@ -3796,7 +3837,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
       </el-tab-pane>
 
-      <el-tab-pane label="Vulnerability" name="vulnerability">
+      <el-tab-pane label="Climate" name="vulnerability">
         <div :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
           <div class="p-4">
             <!-- KISIP Tool A (GIS-based) -->
@@ -3954,14 +3995,14 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
         </el-drawer>
       </el-tab-pane>
 
-      <el-tab-pane label="Indicators" name="Indicator">
+      <el-tab-pane label="M&E" name="Indicator">
         <el-card>
 
           <el-button v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" /> File Report
           </el-button>
 
-          <el-table :data="indicatorReports" border :row-class-name="tableRowClassName" ref="tableRef">
+          <el-table :data="indicatorReports" border :row-class-name="tableRowClassName" ref="tableRef" empty-text="No data">
 
 
             <el-table-column label="#" width="80" prop="id" sortable>
@@ -4218,6 +4259,38 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 </template>
 
 <style lang="less" scoped>
+.profile-tab-panel {
+  position: relative;
+  min-height: 320px;
+}
+
+.profile-tab-panel__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 48px 16px;
+}
+
+.profile-tab-panel__spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--el-text-color-regular);
+}
+
+.profile-tab-panel__spinner .el-icon {
+  font-size: 48px;
+  color: var(--el-color-primary);
+}
+
+.profile-tab-panel__spinner p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
 .is-required--item {
   position: relative;
 
