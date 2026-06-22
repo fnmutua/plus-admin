@@ -33,17 +33,20 @@ import {
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import { listAssessments } from '@/api/climate-assessment'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
+import { resolvePlanningSurveyFromRecord, surveyStatusOptionsForPlanning, normalizePlanningSurveyPair } from '@/utils/validateSettlementAttributes'
 import {
   buildVulnerabilitySelectFallback,
   CLIMATE_VULN_ATTR_FIELDS,
   coerceSettlementValueForApi,
   formatBoolLabel,
+  getDerivedSettlementFields,
   inlineMultiselectFields,
   inlineNumberFields,
   inlineProfileBooleanFields,
   inlineSelectOptionsBase,
   inlineTextareaFields,
   inlineUtilitiesBooleanFields,
+  readonlyInlineDerived,
   readonlyInlineLocation,
   readonlyInlineSummary,
   readonlyInlineStatus,
@@ -200,6 +203,8 @@ const profile = reactive({
   num_households: '',
   avg_household_size: '',
   land_status: '',
+  planning_status: '',
+  survey_status: '',
   parcel_no: '',
   parcel_owner: '',
   parcel_owner_type: '',
@@ -353,7 +358,8 @@ const schemaLandParcel = reactive<DescriptionsSchema[]>([
   { field: 'parcel_no', label: t('Parcel No.') },
   { field: 'parcel_owner', label: t('Parcel Owner') },
   { field: 'parcel_owner_type', label: t('Parcel Owner Type') },
-  { field: 'land_status', label: t('Land Status') },
+  { field: 'planning_status', label: t('Planning Status') },
+  { field: 'survey_status', label: t('Survey Status') },
   { field: 'landuse', label: t('Land Use') },
   { field: 'surveyed', label: t('Surveyed') },
   { field: 'rim_no', label: t('RIM No.') }
@@ -522,6 +528,9 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.general_location = settlementData.general_location || '';
     profile.num_households = dashDisplay(settlementData.num_households);
     profile.avg_household_size = dashDisplay(settlementData.avg_household_size);
+    const resolved = resolvePlanningSurveyFromRecord(settlementData)
+    profile.planning_status = resolved.planning ?? '—'
+    profile.survey_status = resolved.survey ?? '—'
     profile.land_status = settlementData.land_status ?? '';
     profile.parcel_no = settlementData.parcel_no ?? '';
     profile.parcel_owner = settlementData.parcel_owner ?? '';
@@ -1232,7 +1241,10 @@ async function loadVulnerabilityInlineSelectOptions() {
 
 const mergedInlineSelectOptions = computed(() => ({
   ...inlineSelectOptionsBase,
-  ...vulnerabilityInlineSelectOptions.value
+  ...vulnerabilityInlineSelectOptions.value,
+  survey_status: surveyStatusOptionsForPlanning(
+    profile.planning_status === '—' ? null : profile.planning_status
+  ),
 }))
 
 const SETTLEMENT_BOOLEAN_FIELDS = new Set(settlementBooleanFields)
@@ -1318,10 +1330,35 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
   try {
     inlineSavingField.value = field
     const apiValue = coerceSettlementValueForApi(field, value)
+
+    if (field === 'planning_status' || field === 'survey_status') {
+      const nextPlanning =
+        field === 'planning_status'
+          ? apiValue
+          : profile.planning_status === '—'
+            ? null
+            : profile.planning_status
+      const nextSurvey =
+        field === 'survey_status'
+          ? apiValue
+          : profile.survey_status === '—'
+            ? null
+            : profile.survey_status
+      const pairCheck = normalizePlanningSurveyPair(nextPlanning as any, nextSurvey as any)
+      if (pairCheck.error) {
+        ElMessage.error(pairCheck.error)
+        return
+      }
+    }
+
+    const derivedFields = getDerivedSettlementFields(field, value, profile as Record<string, unknown>)
     const updatePayload: Record<string, unknown> = {
       model: 'settlement',
       id: Number(route.params.id),
-      [field]: apiValue
+      [field]: apiValue,
+      ...Object.fromEntries(
+        Object.entries(derivedFields).map(([k, v]) => [k, coerceSettlementValueForApi(k, v)])
+      ),
     }
 
     // Keep pop_density computed from population and area(ha -> sq.km).
@@ -1382,6 +1419,23 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
       }
       if (field in vulnerability) {
         ;(vulnerability as any)[field] = apiValue
+      }
+    }
+
+    for (const [derivedField, derivedValue] of Object.entries(derivedFields)) {
+      const coerced = coerceSettlementValueForApi(derivedField, derivedValue)
+      if (derivedField in profile) {
+        ;(profile as any)[derivedField] =
+          coerced === null || coerced === undefined || coerced === '' ? '—' : coerced
+      }
+      if (derivedField in utilities) {
+        const labelVal =
+          SETTLEMENT_BOOLEAN_FIELDS.has(derivedField)
+            ? formatBoolLabel(coerced)
+            : coerced === null || coerced === undefined || coerced === ''
+              ? '—'
+              : coerced
+        ;(utilities as any)[derivedField] = labelVal
       }
     }
 
@@ -2779,7 +2833,8 @@ const generatePDFReport = async () => {
       head: [['Field', 'Value']],
       body: [
         ['Type', profile.settlement_type],
-        ['Land Status', profile.land_status],
+        ['Planning Status', profile.planning_status],
+        ['Survey Status', profile.survey_status],
         ['Owner', profile.parcel_owner],
         ['Owner Type', profile.parcel_owner_type],
         ['Land Use', profile.landuse],
@@ -3413,7 +3468,7 @@ const updateDocumentCategory = async () => {
                 :data="profile"
                 :schema="schemaLandParcel"
                 :editable="canEditSettlementInline"
-                :readonly-fields="[]"
+                :readonly-fields="readonlyInlineDerived"
                 :textarea-fields="inlineTextareaFields"
                 :clamp-fields="inlineTextareaFields"
                 :number-fields="inlineNumberFields"

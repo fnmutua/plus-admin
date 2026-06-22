@@ -166,6 +166,14 @@ module.exports = function (sequelize, DataTypes) {
       land_status: {
         type: DataTypes.STRING,
        },
+      planning_status: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      survey_status: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       parcel_owner_type: {
         type: DataTypes.STRING,
        },

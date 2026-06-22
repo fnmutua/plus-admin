@@ -329,8 +329,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
-
-    
     ]
   },
   {

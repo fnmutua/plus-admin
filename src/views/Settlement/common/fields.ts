@@ -57,9 +57,9 @@ const parcel_ownership = ref([
 ]);
 
 const structureTypes = ref([
-  { label: "Temporary", value: "temporary" },
-  { label: "Semi Permanent", value: "semi_permanent" },
-  { label: "Permanent", value: "permanent" },
+  { label: "Permanent", value: "Permanent" },
+  { label: "Semi-permanent", value: "Semi-permanent" },
+  { label: "Temporary", value: "Temporary" },
 ]);
 
 const levelDevt = ref([
@@ -75,16 +75,22 @@ const buildingMaterials = ref([
 ]);
 
 const landStatusOptions = ref([
-  { label: "Registered", value: "registered" },
-  { label: "Unregistered", value: "unregistered" },
-  { label: "Disputed", value: "disputed" },
+  { label: "Planned", value: "Planned" },
+  { label: "Unplanned", value: "Unplanned" },
+]);
+
+const surveyStatusOptions = ref([
+  { label: "Surveyed", value: "Surveyed" },
+  { label: "Unsurveyed", value: "Unsurveyed" },
 ]);
 
 const parcelOwnerTypeOptions = ref([
-  { label: "Individual", value: "individual" },
-  { label: "Government", value: "government" },
-  { label: "Community", value: "community" },
-  { label: "Corporate", value: "corporate" },
+  { label: 'Private', value: 'Private' },
+  { label: 'Public', value: 'Public' },
+  { label: 'Community', value: 'Community' },
+  { label: 'Communal', value: 'Communal' },
+  { label: 'Mixed', value: 'Mixed' },
+  { label: 'Unknown', value: 'Unknown' },
 ]);
 
 const approvalStatusOptions = ref([
@@ -129,15 +135,23 @@ const formFields: Field[][] = [
       options: parcel_ownership.value,
     },
     { id: "btn8", name: "rim_no", label: "RIM/Survey Plan", type: "text", multiselect: "false", adminUnit: false, options: [] },
-    { id: "btn9", name: "surveyed", label: "Is Parcel Surveyed?", type: "select", multiselect: "false", adminUnit: false, options: yesNoUnknown.value },
-     {
-      id: "btn11",
-      name: "land_status",
-      label: "Land Status",
+    {
+      id: "btn10",
+      name: "planning_status",
+      label: "Planning Status",
       type: "select",
       multiselect: "false",
       adminUnit: false,
       options: landStatusOptions.value,
+    },
+    {
+      id: "btn11",
+      name: "survey_status",
+      label: "Survey Status",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: surveyStatusOptions.value,
     },
     {
       id: "btn12",

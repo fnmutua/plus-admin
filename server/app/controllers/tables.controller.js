@@ -15268,6 +15268,56 @@ exports.getSubcountiesList = async (req, res) => {
 };
 
 /**
+ * Get wards list for a county (optimized, no geometry)
+ */
+exports.getWardsList = async (req, res) => {
+  try {
+    const { county_id } = req.query;
+
+    if (!county_id) {
+      return res.status(400).send({
+        error: 'county_id parameter is required',
+        code: 'MISSING_COUNTY_ID'
+      });
+    }
+
+    const countyId = parseInt(county_id, 10);
+    if (!Number.isFinite(countyId)) {
+      return res.status(400).send({
+        error: 'county_id must be a valid number',
+        code: 'INVALID_COUNTY_ID'
+      });
+    }
+
+    const qry = `
+      SELECT id, name, code, county_id, subcounty_id
+      FROM ward
+      WHERE county_id = :county_id
+      ORDER BY name ASC
+    `;
+
+    const results = await db.sequelize.query(qry, {
+      replacements: { county_id: countyId },
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+
+    res.status(200).send({
+      data: results,
+      code: '0000',
+      message: 'Success'
+    });
+  } catch (error) {
+    console.error('Error in getWardsList:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get optimized project locations with pre-computed centroids and server-side filtering
  */
 exports.getOptimizedProjectLocations = async (req, res) => {

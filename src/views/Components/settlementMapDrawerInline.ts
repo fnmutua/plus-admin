@@ -1,4 +1,4 @@
-import type { FeatureKind } from './settlementMapDrawer'
+import { resolvePlanningSurveyFromRecord } from '@/utils/validateSettlementAttributes'
 import { settlementDetailsMutationAccessForRole, type ProcessedSettlementRole } from '@/utils/roleScope'
 import {
   buildFacilitySelectOptions,
@@ -10,6 +10,7 @@ import {
   CLIMATE_VULN_ATTR_FIELDS,
   coerceSettlementValueForApi,
   formatBoolLabel,
+  getDerivedSettlementFields,
   inlineMultiselectFields,
   inlineNumberFields,
   inlineSelectOptionsBase,
@@ -29,7 +30,7 @@ export type DrawerRecordMeta = {
   featureId?: string
 }
 
-export { CLIMATE_VULN_ATTR_FIELDS, buildVulnerabilitySelectFallback, VULNERABILITY_FALLBACK }
+export { CLIMATE_VULN_ATTR_FIELDS, buildVulnerabilitySelectFallback, VULNERABILITY_FALLBACK, getDerivedSettlementFields }
 
 export const SETTLEMENT_INLINE_SELECT_OPTIONS = inlineSelectOptionsBase
 
@@ -37,6 +38,7 @@ const READONLY_BY_SECTION: Record<string, Record<string, string[]>> = {
   settlement: {
     Location: ['county', 'subcounty', 'ward'],
     Summary: ['id', 'code', 'pop_density', 'area', 'avg_household_size', 'geom_label'],
+    'Land & tenure': ['surveyed', 'land_status'],
     Vulnerability: ['vulnerability_total_score_display', 'vulnerability_rating'],
     Status: ['isApproved', 'isActive', 'createdBy', 'createdAt', 'updatedAt'],
   },
@@ -287,6 +289,14 @@ export function enrichSettlementDrawerRecordData(
 
   const vulnRating = properties.vulnerability_rating ?? data.vulnerability_rating
   data.vulnerability_rating = formatVulnerabilityRatingDisplay(vulnRating)
+
+  const resolved = resolvePlanningSurveyFromRecord({
+    planning_status: data.planning_status ?? properties.planning_status,
+    survey_status: data.survey_status ?? properties.survey_status,
+    land_status: data.land_status ?? properties.land_status,
+  })
+  if (resolved.planning) data.planning_status = resolved.planning
+  if (resolved.survey) data.survey_status = resolved.survey
 
   return data
 }

@@ -8,9 +8,9 @@ declare global {
 
 let loadPromise: Promise<void> | null = null
 
-/** Load Google Maps JS API once (drawing, geometry, places). */
+/** Load Google Maps JS API once (geometry + places; drawing library removed in API 3.65+). */
 export function loadGoogleMapsApi(): Promise<void> {
-  if (typeof window !== 'undefined' && window.google?.maps?.drawing) {
+  if (typeof window !== 'undefined' && window.google?.maps) {
     return Promise.resolve()
   }
 
@@ -20,7 +20,7 @@ export function loadGoogleMapsApi(): Promise<void> {
       const loader = new Loader({
         apiKey: googleMapsApiKey,
         version: 'weekly',
-        libraries: ['drawing', 'geometry', 'places'],
+        libraries: ['geometry', 'places'],
         region: 'KE',
         language: 'en'
       })
@@ -38,5 +38,5 @@ export function loadGoogleMapsApi(): Promise<void> {
 }
 
 export function isGoogleMapsReady(): boolean {
-  return typeof window !== 'undefined' && !!window.google?.maps?.drawing
+  return typeof window !== 'undefined' && !!window.google?.maps
 }

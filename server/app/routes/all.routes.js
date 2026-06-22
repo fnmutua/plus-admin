@@ -1215,6 +1215,8 @@ module.exports = function (app) {
    */
   app.get('/api/v1/data/optimized/subcounties', [authJwt.verifyToken], controller.getSubcountiesList)
 
+  app.get('/api/v1/data/optimized/wards', [authJwt.verifyToken], controller.getWardsList)
+
   /**
    * @swagger
    * /api/v1/data/optimized/project-locations:

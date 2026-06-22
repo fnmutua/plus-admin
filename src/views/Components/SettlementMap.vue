@@ -32,6 +32,7 @@ import {
   computePopulationDensity,
   displayValueAfterSave,
   enrichSettlementDrawerRecordData,
+  getDerivedSettlementFields,
   getDrawerClimateVulnCellTextClass,
   getDrawerReadonlyFields,
   getFacilitySelectFields,
@@ -40,6 +41,7 @@ import {
   type DrawerRecordMeta,
 } from './settlementMapDrawerInline'
 import { inlineSelectOptionsBase } from '@/views/Settlement/settlementInlineEditConfig'
+import { surveyStatusOptionsForPlanning } from '@/utils/validateSettlementAttributes'
 import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
 import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers, updateOneRecord } from '@/api/settlements'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
@@ -1631,6 +1633,9 @@ const syncDrawerSelectOptions = (kind: FeatureKind, featureType?: string) => {
     drawerSelectOptions.value = {
       ...inlineSelectOptionsBase,
       ...drawerVulnerabilitySelectOptions.value,
+      survey_status: surveyStatusOptionsForPlanning(
+        drawerRecordData.planning_status === '\u2014' ? null : drawerRecordData.planning_status
+      ),
     }
   } else if (kind === 'facility' && featureType) {
     drawerSelectOptions.value = buildFacilitySelectOptions(featureType)
@@ -1914,10 +1919,20 @@ async function saveDrawerInline(payload: { field: string; value: unknown }) {
     drawerInlineSavingField.value = field
     const kind = drawerFeatureKind.value
     const apiValue = coerceDrawerValueForApi(kind, field, value)
+    const derivedFields =
+      kind === 'settlement'
+        ? getDerivedSettlementFields(field, value, drawerRecordData as Record<string, unknown>)
+        : {}
     const updatePayload: Record<string, unknown> = {
       model,
       id: Number(drawerRecordMeta.value.id),
       [field]: apiValue,
+      ...Object.fromEntries(
+        Object.entries(derivedFields).map(([k, v]) => [
+          k,
+          coerceDrawerValueForApi(kind, k, v),
+        ])
+      ),
     }
 
     let computedDensity: number | null = null
@@ -1948,6 +1963,16 @@ async function saveDrawerInline(payload: { field: string; value: unknown }) {
     const displayVal = displayValueAfterSave(field, apiValue, kind)
     drawerRecordData[field] = displayVal
     syncMapFeatureProperty(field, apiValue)
+
+    for (const [derivedField, derivedValue] of Object.entries(derivedFields)) {
+      const coercedDerived = coerceDrawerValueForApi(kind, derivedField, derivedValue)
+      drawerRecordData[derivedField] = displayValueAfterSave(
+        derivedField,
+        coercedDerived,
+        kind
+      )
+      syncMapFeatureProperty(derivedField, coercedDerived)
+    }
 
     if (kind === 'settlement' && (field === 'population' || field === 'area')) {
       drawerRecordData.pop_density =

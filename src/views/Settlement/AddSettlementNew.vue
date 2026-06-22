@@ -29,6 +29,8 @@ import {
   ElAlert,
   ElCheckbox,
   ElCheckboxGroup,
+  ElRadio,
+  ElRadioGroup,
   ElPopover,
   ElCollapse,
   ElCollapseItem,
@@ -36,13 +38,13 @@ import {
 } from 'element-plus'
 import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit,ArrowRight, QuestionFilled } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
-import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
-import { countyOptions, countyRefList, wardOptions, subcountyOptions } from './common/index'
-import { getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { useSettlementLocation } from '@/composables/useSettlementLocation'
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
+import { useGoogleMapsPolygonDraw } from '@/composables/useGoogleMapsPolygonDraw'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
@@ -50,6 +52,13 @@ import type { FormInstance } from 'element-plus'
 import shortid from 'shortid'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4'
+import {
+  booleanToYesNo,
+  resolvePlanningSurveyFromRecord,
+  prepareSettlementFormForApi,
+  surveyStatusOptionsForPlanning,
+  validateSettlementAttributes,
+} from '@/utils/validateSettlementAttributes'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -58,6 +67,39 @@ const isMobile = computed(() => appStore.getMobile)
 
 const router = useRouter()
 const route = useRoute()
+
+const LOCATION_FETCH_TIMEOUT_MS = 15000
+
+const withTimeout = (promise, ms, label) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`${label} timed out — please retry`)), ms)
+    })
+  ])
+
+const {
+  countyOptions,
+  countyRefList,
+  subcountyOptions,
+  countiesLoading,
+  countiesError,
+  wardsLoading,
+  wardsError,
+  loadCounties,
+  loadSubcounties,
+  loadWardsForCounty,
+  peekWardsCache,
+  loadSubcountiesForCounty
+} = useSettlementLocation()
+
+let countyWardLoadSeq = 0
+let wardGeoLoadSeq = 0
+
+const abortWardGeoLoad = () => {
+  wardGeoLoadSeq++
+  wardGeoLoading.value = false
+}
 
 // User location-based filtering
 const isSuperAdmin = computed(() => {
@@ -100,7 +142,7 @@ const currentStep = ref(route.query.id ? 1 : 0)
 const selectedCounty = ref<any>(null)
 const selectedWard = ref<any>(null)
 const filteredWards = ref<any[]>([])
-const wardsLoading = ref(false)
+const wardGeoLoading = ref(false)
 const wardAvgHouseholdSize = ref<number | null>(null)
 const checkingGeometry = ref(false)
 
@@ -112,12 +154,16 @@ const settlementMarker = ref<any>(null)
 const wardGeo = ref<any>(null)
 const settlementGeometry = ref<any>(null)
 const mapContainer = ref<HTMLDivElement | null>(null)
-const drawingManager = ref<any>(null)
 const drawnPolygons = ref<any[]>([])
+const polygonDraw = useGoogleMapsPolygonDraw()
+const drawPointCount = polygonDraw.pointCount
 const isEditMode = ref(!!route.query.id)
 const editingSettlementId = ref<number | null>(null)
 const isDrawingMode = ref(false)
 const flyMarker = ref<any>(null)
+const mapLoading = ref(false)
+const mapError = ref<string | null>(null)
+const drawReady = ref(false)
 
 // Neighboring settlements
 const neighboringSettlements = ref<any[]>([])
@@ -153,8 +199,8 @@ const settlementForm = reactive({
   code: '',
   surveyed: null,
   land_status: null,
-  land_status_planning: [],
-  land_status_survey: [],
+  planning_status: null as string | null,
+  survey_status: null as string | null,
   parcel_owner_type: null,
   pop_density: null,
   landuse: [],
@@ -198,11 +244,10 @@ type SectionKey = 'basic' | 'location' | 'parcel' | 'physical' | 'socio' | 'vuln
 const sectionFields: Record<SectionKey, (keyof typeof settlementForm)[]> = {
   basic: ['name', 'settlement_type', 'area', 'population', 'pop_male', 'pop_female', 'description'],
   location: ['county_id', 'ward_id'],
-  parcel: ['parcel_no', 'parcel_owner', 'parcel_owner_type', 'rim_no', 'surveyed', 'land_status'],
+  parcel: ['parcel_no', 'parcel_owner', 'parcel_owner_type', 'rim_no', 'planning_status', 'survey_status'],
   physical: [
     'landuse',
     'density_typology',
-    'near_river',
     'on_wayleave',
     'on_road_reserve',
     'structure_types',
@@ -309,15 +354,10 @@ const parcelOwnershipOptions = [
   { label: 'Community', value: 'community' }
 ]
 
-// Land status options - split into planning and survey components for multiple selection
+// Land status — one choice per axis (planning + survey)
 const planningStatusOptions = [
   { label: 'Planned', value: 'Planned' },
   { label: 'Unplanned', value: 'Unplanned' }
-]
-
-const surveyStatusOptions = [
-  { label: 'Surveyed', value: 'Surveyed' },
-  { label: 'Unsurveyed', value: 'Unsurveyed' }
 ]
 
 // Landuse options matching SQL normalized values (supports multiple selection)
@@ -340,6 +380,8 @@ const parcelOwnerTypeOptions = [
   { label: 'Private', value: 'Private' },
   { label: 'Public', value: 'Public' },
   { label: 'Community', value: 'Community' },
+  { label: 'Communal', value: 'Communal' },
+  { label: 'Mixed', value: 'Mixed' },
   { label: 'Unknown', value: 'Unknown' }
 ]
 
@@ -404,27 +446,32 @@ const buildingMaterialsOptions = [
   { label: 'Other', value: 'Other' }
 ]
 
-// Watch land_status_planning and land_status_survey to combine into land_status
+// Enforce planning/survey rules; sync legacy land_status + surveyed
 watch(
-  [() => settlementForm.land_status_planning, () => settlementForm.land_status_survey],
+  [() => settlementForm.planning_status, () => settlementForm.survey_status],
   () => {
-    if (settlementForm.land_status_planning.length === 0 && settlementForm.land_status_survey.length === 0) {
+    if (settlementForm.planning_status === 'Unplanned') {
+      settlementForm.survey_status = 'Unsurveyed'
+    }
+    const planning = settlementForm.planning_status
+    const survey = settlementForm.survey_status
+    if (!planning && !survey) {
       settlementForm.land_status = null
+      settlementForm.surveyed = null
       return
     }
-    
-    const planning = settlementForm.land_status_planning.join(', ')
-    const survey = settlementForm.land_status_survey.join(', ')
-    
     if (planning && survey) {
       settlementForm.land_status = `${planning}, ${survey}`
-    } else if (planning) {
-      settlementForm.land_status = planning
-    } else if (survey) {
-      settlementForm.land_status = survey
+      settlementForm.surveyed = survey === 'Surveyed' ? 'Yes' : 'No'
+    } else {
+      settlementForm.land_status = null
+      settlementForm.surveyed = null
     }
-  },
-  { deep: true }
+  }
+)
+
+const availableSurveyStatusOptions = computed(() =>
+  surveyStatusOptionsForPlanning(settlementForm.planning_status)
 )
 
 // Computed subcounty display name (inferred from ward)
@@ -466,88 +513,278 @@ const handleDrawerWardChange = async (wardId: any) => {
   settlementForm.ward_id = wardId
   selectedWard.value = wardId
 
-  // Find the ward to get its subcounty_id
-  const ward = filteredWards.value.find((w: any) => w.value === wardId) ||
-               (wardOptions.value || []).find((w: any) => w.value === wardId)
+  const ward = filteredWards.value.find((w: any) => w.value === wardId)
+  applyWardSubcountyToForm(ward)
+  loadWardAvgHouseholdSizeDeferred(wardId)
+}
 
-  // Fetch ward-level avg household size from households data
-  wardAvgHouseholdSize.value = await fetchWardAvgHouseholdSize(wardId)
-
-  if (ward && ward.subcounty_id) {
+const applyWardSubcountyToForm = (ward: any) => {
+  if (ward?.subcounty_id) {
     settlementForm.subcounty_id = ward.subcounty_id
-    console.log('Inferred subcounty_id from ward:', ward.subcounty_id)
-  } else {
-    // Fallback: try subcountyOptions
-    const subcounty = (subcountyOptions.value || []).find((sc: any) => {
-      return sc.county_id === selectedCounty.value
-    })
-    if (subcounty) {
-      settlementForm.subcounty_id = subcounty.value
-      console.log('Fallback subcounty_id:', subcounty.value)
+    return
+  }
+  const subcounty = (subcountyOptions.value || []).find(
+    (sc: any) => String(sc.county_id) === String(selectedCounty.value)
+  )
+  if (subcounty) {
+    settlementForm.subcounty_id = subcounty.value
+  }
+}
+
+const loadWardAvgHouseholdSizeDeferred = (wardId: any) => {
+  void fetchWardAvgHouseholdSize(wardId).then((avg) => {
+    if (String(settlementForm.ward_id) === String(wardId) || String(selectedWard.value) === String(wardId)) {
+      wardAvgHouseholdSize.value = avg
+      if (avg != null && settlementForm.avg_household_size == null) {
+        settlementForm.avg_household_size = avg
+      }
+    }
+  })
+}
+
+const retryLoadCounties = async () => {
+  try {
+    await loadCounties(true)
+    ElMessage.success('Counties loaded')
+  } catch {
+    ElMessage.error(countiesError.value || 'Failed to load counties')
+  }
+}
+
+const retryLoadWards = async () => {
+  if (!selectedCounty.value) return
+  const loadSeq = ++countyWardLoadSeq
+  try {
+    const wards = await loadWardsForCounty(selectedCounty.value, true)
+    if (loadSeq !== countyWardLoadSeq) return
+    filteredWards.value = wards
+    if (!wards.length) {
+      ElMessage.warning('No wards found for this county')
+    }
+  } catch {
+    if (loadSeq !== countyWardLoadSeq) return
+    ElMessage.error(wardsError.value || 'Failed to load wards')
+  }
+}
+
+const retryMapLoad = async () => {
+  drawReady.value = false
+  await initializeMap()
+}
+
+const onSettlementPolygonComplete = (polygon: any) => {
+  if (!isEditMode.value && wardPolygon.value && wardPolygon.value.length > 0) {
+    const isWithin = checkPolygonWithinWard(polygon)
+    if (!isWithin) {
+      polygon.setMap(null)
+      ElMessage.error('Settlement must be drawn within the ward boundary!')
+      return
     }
   }
+
+  drawnPolygons.value.forEach(p => p.setMap(null))
+  drawnPolygons.value = []
+  drawnPolygons.value.push(polygon)
+  polygon.setOptions({ zIndex: 1000000 })
+  polygon.setEditable(true)
+
+  const paths = polygon.getPath()
+  const coordinates: number[][] = []
+  paths.forEach((latLng: any) => {
+    coordinates.push([latLng.lng(), latLng.lat()])
+  })
+
+  if (coordinates.length > 0) {
+    const firstCoord = coordinates[0]
+    if (coordinates[coordinates.length - 1][0] !== firstCoord[0] ||
+        coordinates[coordinates.length - 1][1] !== firstCoord[1]) {
+      coordinates.push([firstCoord[0], firstCoord[1]])
+    }
+  }
+
+  const geom = {
+    type: 'Polygon',
+    coordinates: [coordinates]
+  }
+
+  settlementGeometry.value = geom
+  settlementForm.geom = geom
+
+  const areaHectares = calculateAreaInHectares(geom)
+  if (areaHectares !== null) {
+    settlementForm.area = areaHectares
+  }
+
+  polygon.getPath().addListener('set_at', () => updatePolygonGeometry(polygon))
+  polygon.getPath().addListener('insert_at', () => updatePolygonGeometry(polygon))
+  polygon.getPath().addListener('remove_at', () => updatePolygonGeometry(polygon))
+  polygon.addListener('click', () => {
+    drawerVisible.value = true
+  })
+
+  ElMessage.success('Settlement boundary drawn successfully!')
+  fetchClimateData(geom)
+  fetchPopulationEstimate(geom)
+  scheduleNeighboringSettlementsRefresh()
+
+  stopPolygonDrawing()
+
+  nextTick(() => {
+    if (isMobile.value) {
+      setTimeout(() => {
+        drawerVisible.value = true
+      }, 300)
+    } else {
+      drawerVisible.value = true
+    }
+  })
+}
+
+const enableDrawTools = () => {
+  if (!map.value || !window.google?.maps) return false
+  drawReady.value = true
+  return true
+}
+
+const startPolygonDrawing = () => {
+  if (!map.value || !drawReady.value) return false
+  const started = polygonDraw.startDrawing(map.value, onSettlementPolygonComplete)
+  if (started) isDrawingMode.value = true
+  return started
+}
+
+const stopPolygonDrawing = () => {
+  polygonDraw.stopDrawing()
+  isDrawingMode.value = false
+}
+
+const finishPolygonDrawing = () => {
+  if (!polygonDraw.finishDrawing()) {
+    ElMessage.warning('Add at least 3 points on the map, then finish the polygon')
+  }
+}
+
+const waitForMapIdle = (mapInstance: any, maxMs = 6000) =>
+  new Promise<void>((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    const timeoutId = setTimeout(finish, maxMs)
+    window.google.maps.event.addListenerOnce(mapInstance, 'idle', () => {
+      clearTimeout(timeoutId)
+      finish()
+    })
+    requestAnimationFrame(() => {
+      window.google.maps.event.trigger(mapInstance, 'resize')
+    })
+  })
+
+const destroyMapInstance = () => {
+  stopPolygonDrawing()
+  wardPolygon.value.forEach(p => { if (p) p.setMap(null) })
+  wardPolygon.value = []
+  drawnPolygons.value.forEach(p => { if (p) p.setMap(null) })
+  drawnPolygons.value = []
+  if (settlementPolygon.value) {
+    settlementPolygon.value.setMap(null)
+    settlementPolygon.value = null
+  }
+  if (settlementMarker.value) {
+    settlementMarker.value.setMap(null)
+    settlementMarker.value = null
+  }
+  if (map.value) {
+    window.google?.maps?.event?.clearInstanceListeners(map.value)
+    map.value = null
+  }
+  drawReady.value = false
 }
 
 // Handle county selection
 const handleCountyChange = async (countyId: any) => {
+  const loadSeq = ++countyWardLoadSeq
+  abortWardGeoLoad()
+
   selectedWard.value = null
+  settlementForm.ward_id = ''
+  settlementForm.subcounty_id = ''
   filteredWards.value = []
-  
+  wardsError.value = null
+  wardGeo.value = null
+
+  if (currentStep.value !== 0) {
+    currentStep.value = 0
+    mapLoading.value = false
+    mapError.value = null
+    drawReady.value = false
+  }
+
   if (!countyId) return
 
   // Enforce county restriction
-  if (isCountyRestricted.value && userCountyId.value && countyId !== userCountyId.value) {
+  if (isCountyRestricted.value && userCountyId.value && String(countyId) !== String(userCountyId.value)) {
     ElMessage.error('You can only select settlements in your assigned county')
     selectedCounty.value = userCountyId.value
     return
   }
 
-  wardsLoading.value = true
+  // Show cached wards immediately when switching back to a county
+  const cachedWards = peekWardsCache(countyId)
+  if (cachedWards.length) {
+    filteredWards.value = cachedWards
+  }
+
+  void loadGoogleMapsApi().catch(() => {})
+  void loadSubcountiesForCounty(countyId)
+
   try {
-    // Fetch wards for this county from API
-    const res = await getListWithoutGeo({
-      params: {
-        pageIndex: 1,
-        limit: 1000, // Get all wards for the county
-        curUser: 1,
-        model: 'ward',
-        searchField: 'county_id',
-        searchKeyword: countyId,
-        sort: 'ASC'
-      }
-    })
-    
-    const ret = res.data || []
-    filteredWards.value = ret.map((item: any) => ({
-      value: item.id,
-      label: item.name,
-      county_id: item.county_id,
-      subcounty_id: item.subcounty_id,
-      avg_household_size: item.avg_household_size ?? null
-    }))
-    
-    if (filteredWards.value.length === 0) {
+    const wards = await loadWardsForCounty(countyId)
+    if (loadSeq !== countyWardLoadSeq) return
+
+    filteredWards.value = wards
+    if (wards.length === 0) {
       ElMessage.warning('No wards found for this county')
     }
   } catch (error) {
+    if (loadSeq !== countyWardLoadSeq) return
     console.error('Error fetching wards:', error)
-    ElMessage.error('Failed to load wards for this county')
-  } finally {
-    wardsLoading.value = false
+    if (!filteredWards.value.length) {
+      ElMessage.error(wardsError.value || 'Failed to load wards for this county')
+    }
   }
 }
 
 // Handle ward selection and proceed to map
 const handleWardChange = async (wardId: any) => {
-  if (!wardId) return
+  if (!wardId) {
+    abortWardGeoLoad()
+    wardGeo.value = null
+    settlementForm.ward_id = ''
+    return
+  }
 
-  // Get ward geometry
+  const loadSeq = ++wardGeoLoadSeq
+  wardGeoLoading.value = true
+  let readyForMap = false
+
   try {
-    const formData = {
-      model: 'ward',
-      id: wardId
+    const res = await withTimeout(
+      getOneGeo({ model: 'ward', id: wardId, silent: true }),
+      LOCATION_FETCH_TIMEOUT_MS,
+      'Ward boundary'
+    )
+
+    if (loadSeq !== wardGeoLoadSeq) return
+
+    const ward = filteredWards.value.find((w: any) => String(w.value) === String(wardId))
+    if (!ward) {
+      selectedWard.value = null
+      ElMessage.warning('Selected ward is not available for this county')
+      return
     }
-    const res = await getOneGeo(formData)
 
     if (res.data[0]?.json_build_object?.features) {
       const feature = res.data[0].json_build_object.features[0]
@@ -555,86 +792,86 @@ const handleWardChange = async (wardId: any) => {
 
       if (geometryType === 'Point' || geometryType === 'MultiPoint') {
         ElMessage.error('This ward has point geometry. Please select a ward with boundary geometry (Polygon).')
+        selectedWard.value = null
         return
       }
 
       wardGeo.value = res.data[0].json_build_object
-      
-      // Update form with selected values
-      const ward = filteredWards.value.find((w: any) => w.value === wardId) ||
-                   (wardOptions.value || []).find((w: any) => w.value === wardId)
-      // Fetch ward-level avg household size from households data
-      wardAvgHouseholdSize.value = await fetchWardAvgHouseholdSize(wardId)
-      if (ward) {
-        settlementForm.ward_id = wardId
-        settlementForm.county_id = selectedCounty.value
-        // Set subcounty_id from ward data
-        if (ward.subcounty_id) {
-          settlementForm.subcounty_id = ward.subcounty_id
-        } else {
-          // Fallback: find subcounty from subcountyOptions if not in ward data
-          const subcounty = (subcountyOptions.value || []).find((sc: any) => {
-            // Try to find by matching subcounty that belongs to this county
-            return sc.county_id === selectedCounty.value
-          })
-          if (subcounty) {
-            settlementForm.subcounty_id = subcounty.value
-          }
-        }
-      }
-
-      // Move to step 2: Map
-      currentStep.value = 1
-      await nextTick()
-      await initializeMap()
+      settlementForm.ward_id = wardId
+      settlementForm.county_id = selectedCounty.value
+      applyWardSubcountyToForm(ward)
+      loadWardAvgHouseholdSizeDeferred(wardId)
+      readyForMap = true
     } else {
       ElMessage.error('Ward has no boundary geometry')
+      selectedWard.value = null
     }
   } catch (error) {
+    if (loadSeq !== wardGeoLoadSeq) return
     console.error('Error loading ward geometry:', error)
-    ElMessage.error('Failed to load ward boundary')
+    ElMessage.error(error?.message || 'Failed to load ward boundary')
+    selectedWard.value = null
+    wardGeo.value = null
+  } finally {
+    if (loadSeq === wardGeoLoadSeq) {
+      wardGeoLoading.value = false
+    }
+  }
+
+  if (!readyForMap || loadSeq !== wardGeoLoadSeq) return
+
+  currentStep.value = 1
+  await nextTick()
+
+  if (loadSeq !== wardGeoLoadSeq) {
+    currentStep.value = 0
+    return
+  }
+
+  await initializeMap(() => loadSeq !== wardGeoLoadSeq)
+
+  if (loadSeq !== wardGeoLoadSeq) {
+    currentStep.value = 0
   }
 }
 
 // Initialize Google Maps with ward boundary (for new) or settlement boundary (for edit)
-const initializeMap = async () => {
-  if (!mapContainer.value) return
+const initializeMap = async (isStale = () => false) => {
+  if (isStale()) return
+
+  mapLoading.value = true
+  mapError.value = null
+  drawReady.value = false
+  destroyMapInstance()
 
   await nextTick()
+  await nextTick()
+
+  if (isStale()) return
+  if (!mapContainer.value) {
+    mapError.value = 'Map container is not ready'
+    return
+  }
 
   try {
-    // Load Google Maps API
-    const { Loader } = await import('@googlemaps/js-api-loader')
-    
-    const loader = new Loader({
-      apiKey: googleMapsApiKey,
-      version: 'weekly',
-      libraries: ['drawing', 'geometry', 'places'],
-      region: 'KE',
-      language: 'en'
-    })
+    await withTimeout(loadGoogleMapsApi(), LOCATION_FETCH_TIMEOUT_MS, 'Google Maps')
+    if (isStale()) return
 
-    await loader.load()
-
-    if (!window.google || !window.google.maps) {
+    if (!window.google?.maps) {
       throw new Error('Google Maps API not loaded properly')
     }
 
-    // Get bounds or default center
     let center = { lat: 1.137451, lng: 37.137343 }
     let zoom = 8
 
     if (isEditMode.value && settlementGeometry.value) {
-      // For edit mode, use settlement geometry
       if (settlementGeometry.value.type === 'Point') {
-        // For Point geometry, center on the point
         center = {
           lat: settlementGeometry.value.coordinates[1],
           lng: settlementGeometry.value.coordinates[0]
         }
         zoom = 15
       } else {
-        // For Polygon/MultiPolygon, use bounds
         const bounds = turf.bbox(settlementGeometry.value)
         center = {
           lat: (bounds[1] + bounds[3]) / 2,
@@ -642,8 +879,7 @@ const initializeMap = async () => {
         }
         zoom = 15
       }
-    } else if (wardGeo.value) {
-      // For new mode, use ward geometry
+    } else if (wardGeo.value?.features?.length) {
       const bounds = turf.bbox(wardGeo.value)
       center = {
         lat: (bounds[1] + bounds[3]) / 2,
@@ -652,95 +888,25 @@ const initializeMap = async () => {
       zoom = 13
     }
 
-    // Initialize map with satellite as default
     map.value = new window.google.maps.Map(mapContainer.value, {
-      center: center,
-      zoom: zoom,
+      center,
+      zoom,
       mapTypeId: window.google.maps.MapTypeId.SATELLITE,
       mapTypeControl: true,
       streetViewControl: true,
       fullscreenControl: true,
       disableDoubleClickZoom: true
     })
-    
-    // Ensure base map layers have lowest z-index
-    nextTick(() => {
-      const mapDiv = mapContainer.value
-      if (mapDiv) {
-        // Target the map tile layers (base map)
-        const tileLayers = mapDiv.querySelectorAll('div[style*="position: absolute"]')
-        tileLayers.forEach((layer: any) => {
-          if (layer.style && !layer.classList.contains('gmnoprint')) {
-            const zIndex = parseInt(layer.style.zIndex || '0')
-            // Only modify base tile layers (typically have lower z-index)
-            if (zIndex < 1000) {
-              layer.style.zIndex = '1'
-            }
-          }
-        })
-        
-        // Ensure overlay layers (where polygons render) have higher z-index
-        const overlayLayers = mapDiv.querySelectorAll('div[style*="z-index"]')
-        overlayLayers.forEach((layer: any) => {
-          if (layer.style) {
-            const zIndex = parseInt(layer.style.zIndex || '0')
-            // If it's an overlay layer (higher z-index), ensure it's above base
-            if (zIndex >= 100) {
-              layer.style.zIndex = Math.max(zIndex, 1000).toString()
-            }
-          }
-        })
-      }
-    })
 
-    // Ensure polygons stay above base layers when map type changes
     window.google.maps.event.addListener(map.value, 'maptypeid_changed', () => {
-      // Ensure base layers stay at lowest z-index
       setTimeout(() => {
-        const mapDiv = mapContainer.value
-        if (mapDiv) {
-          // Set base tile layers to lowest z-index
-          const tileLayers = mapDiv.querySelectorAll('div[style*="position: absolute"]')
-          tileLayers.forEach((layer: any) => {
-            if (layer.style && !layer.classList.contains('gmnoprint')) {
-              const zIndex = parseInt(layer.style.zIndex || '0')
-              // Base tile layers should be at z-index 1
-              if (zIndex < 100) {
-                layer.style.zIndex = '1'
-              }
-            }
-          })
-        }
-        
-        // Update z-index for all polygons and markers to ensure they're above base layers
-        if (settlementPolygon.value) {
-          settlementPolygon.value.setOptions({ zIndex: 1000000 })
-        }
-        if (settlementMarker.value) {
-          settlementMarker.value.setOptions({ zIndex: 2000 })
-        }
-        wardPolygon.value.forEach(poly => {
-          poly.setOptions({ zIndex: 1000000 })
-        })
-        drawnPolygons.value.forEach(poly => {
-          poly.setOptions({ zIndex: 1000000 })
-        })
+        if (settlementPolygon.value) settlementPolygon.value.setOptions({ zIndex: 1000000 })
+        if (settlementMarker.value) settlementMarker.value.setOptions({ zIndex: 2000 })
+        wardPolygon.value.forEach(poly => poly?.setOptions({ zIndex: 1000000 }))
+        drawnPolygons.value.forEach(poly => poly?.setOptions({ zIndex: 1000000 }))
       }, 150)
     })
 
-    // Add ward boundary (for new records) or settlement boundary/marker (for edit)
-    if (isEditMode.value && settlementGeometry.value) {
-      // Load existing settlement boundary or marker
-      loadSettlementBoundary()
-    } else if (wardGeo.value) {
-      // Load ward boundary as guide
-      loadWardBoundary()
-    }
-
-    // Update current zoom level
-    currentZoom.value = map.value.getZoom() || 8
-    
-    // Listen to zoom changes - update labels immediately
     window.google.maps.event.addListener(map.value, 'zoom_changed', () => {
       if (map.value) {
         currentZoom.value = map.value.getZoom() || 8
@@ -748,120 +914,37 @@ const initializeMap = async () => {
       }
     })
 
-    // Initialize drawing manager after map is ready
-    window.google.maps.event.addListenerOnce(map.value, 'idle', () => {
-      if (window.google.maps.drawing) {
-        drawingManager.value = new window.google.maps.drawing.DrawingManager({
-          drawingMode: null,
-          drawingControl: false, // Disable default controls - we'll use custom buttons
-          polygonOptions: {
-            fillColor: '#FF0000',
-            fillOpacity: 0.2,
-            strokeWeight: 2,
-            strokeColor: '#FF0000',
-            clickable: true,
-            editable: true,
-            draggable: false,
-            zIndex: 1000000
-          }
-        })
+    await waitForMapIdle(map.value)
+    if (isStale()) return
 
-        drawingManager.value.setMap(map.value)
-        
-        // Listen for polygon completion
-        window.google.maps.event.addListener(drawingManager.value, 'polygoncomplete', (polygon: any) => {
-          // Check if polygon is within ward boundary (for new records)
-          if (!isEditMode.value && wardPolygon.value && wardPolygon.value.length > 0) {
-            const isWithin = checkPolygonWithinWard(polygon)
-            if (!isWithin) {
-              polygon.setMap(null)
-              ElMessage.error('Settlement must be drawn within the ward boundary!')
-              return
-            }
-          }
+    if (!enableDrawTools()) {
+      throw new Error('Map failed to initialize drawing tools')
+    }
 
-          // Remove previous polygons
-          drawnPolygons.value.forEach(p => p.setMap(null))
-          drawnPolygons.value = []
+    if (isEditMode.value && settlementGeometry.value) {
+      if (wardGeo.value) {
+        loadWardBoundary()
+      }
+      loadSettlementBoundary()
+    } else if (wardGeo.value) {
+      loadWardBoundary()
+    }
 
-          drawnPolygons.value.push(polygon)
-          
-          // Set z-index to appear above base layers
-          polygon.setOptions({ zIndex: 1000000 })
-          
-          // Make polygon editable
-          polygon.setEditable(true)
-          
-          // Convert to GeoJSON
-          const paths = polygon.getPath()
-          const coordinates: number[][] = []
-          
-          paths.forEach((latLng: any) => {
-            coordinates.push([latLng.lng(), latLng.lat()])
-          })
+    currentZoom.value = map.value.getZoom() || 8
 
-          // Close the polygon
-          if (coordinates.length > 0) {
-            const firstCoord = coordinates[0]
-            if (coordinates[coordinates.length - 1][0] !== firstCoord[0] || 
-                coordinates[coordinates.length - 1][1] !== firstCoord[1]) {
-              coordinates.push([firstCoord[0], firstCoord[1]])
-            }
-          }
-
-          const geom = {
-            type: 'Polygon',
-            coordinates: [coordinates]
-          }
-
-          settlementGeometry.value = geom
-          settlementForm.geom = geom
-
-          // Calculate area in hectares
-          const areaHectares = calculateAreaInHectares(geom)
-          if (areaHectares !== null) {
-            settlementForm.area = areaHectares
-          }
-
-          // Listen for geometry changes
-          polygon.getPath().addListener('set_at', () => updatePolygonGeometry(polygon))
-          polygon.getPath().addListener('insert_at', () => updatePolygonGeometry(polygon))
-          polygon.getPath().addListener('remove_at', () => updatePolygonGeometry(polygon))
-
-          // Add click listener to open drawer when polygon is clicked
-          polygon.addListener('click', () => {
-            drawerVisible.value = true
-          })
-
-          ElMessage.success('Settlement boundary drawn successfully!')
-          fetchClimateData(geom)
-          fetchPopulationEstimate(geom)
-
-          // Exit drawing mode after completion
-          drawingManager.value.setDrawingMode(null)
-          isDrawingMode.value = false
-          
-          // Open drawer to fill in details (same as edit mode)
-          // Use nextTick and additional delay for mobile to ensure drawer opens properly
-          nextTick(() => {
-            if (isMobile.value) {
-              // On mobile, add a slight delay to ensure drawer opens properly
-              setTimeout(() => {
-                drawerVisible.value = true
-              }, 300)
-            } else {
-              drawerVisible.value = true
-            }
-          })
-        })
-      } else {
-        console.error('Google Maps Drawing library not loaded')
-        ElMessage.error('Drawing tools are not available. Please refresh the page.')
+    requestAnimationFrame(() => {
+      if (map.value && window.google?.maps) {
+        window.google.maps.event.trigger(map.value, 'resize')
       }
     })
   } catch (error: any) {
+    if (isStale()) return
     console.error('Error initializing Google Maps:', error)
-    ElMessage.error('Failed to load map')
+    mapError.value = error?.message || 'Failed to load map'
+    drawReady.value = false
+    ElMessage.error(mapError.value)
+  } finally {
+    mapLoading.value = false
   }
 }
 
@@ -945,10 +1028,8 @@ const loadWardBoundary = () => {
           map.value.fitBounds(bounds)
         }
         
-        // Load neighboring settlements after ward boundary is loaded
-        setTimeout(() => {
-          fetchNeighboringSettlementsForWard()
-        }, 500)
+        // Load neighboring settlements after ward boundary is loaded (non-blocking)
+        scheduleNeighboringSettlementsRefresh(800)
       }
     }
   } catch (error) {
@@ -957,8 +1038,23 @@ const loadWardBoundary = () => {
 }
 
 // Fetch neighboring settlements for the ward - simplified: just get all settlements in the ward
+const getNeighborWardId = () => selectedWard.value || settlementForm.ward_id || null
+
+const scheduleNeighboringSettlementsRefresh = (delayMs = 400) => {
+  window.setTimeout(async () => {
+    if (!map.value || !window.google?.maps) return
+    try {
+      await waitForMapIdle(map.value, 5000)
+    } catch {
+      // still attempt fetch if idle wait fails
+    }
+    await fetchNeighboringSettlementsForWard(true)
+  }, delayMs)
+}
+
 const fetchNeighboringSettlementsForWard = async (silent = false) => {
-  if (!selectedWard.value || !map.value || !window.google?.maps) {
+  const wardId = getNeighborWardId()
+  if (!wardId || !map.value || !window.google?.maps) {
     if (!silent) {
       console.log('⚠️ No ward selected or map not ready for neighboring settlements')
     }
@@ -977,7 +1073,7 @@ const fetchNeighboringSettlementsForWard = async (silent = false) => {
       curUser: 1,
       model: 'settlement',
       filters: ['ward_id'],
-      filterValues: [[selectedWard.value]],
+      filterValues: [[wardId]],
       returnAll: true // Get all results, not just one page
     }
     
@@ -992,8 +1088,16 @@ const fetchNeighboringSettlementsForWard = async (silent = false) => {
       return 0
     }
     
-    // Get geometries for all settlements
-    const settlementIds = settlements.map((s: any) => s.id).filter((id: any) => id != null)
+    // Get geometries for all settlements (exclude the one currently being edited)
+    const settlementIds = settlements
+      .map((s: any) => s.id)
+      .filter((id: any) => {
+        if (id == null) return false
+        if (editingSettlementId.value != null && Number(id) === Number(editingSettlementId.value)) {
+          return false
+        }
+        return true
+      })
     
     if (settlementIds.length === 0) {
       if (!silent) {
@@ -1261,10 +1365,7 @@ const loadSettlementBoundary = () => {
       // Open drawer
       drawerVisible.value = true
       
-      // Load neighboring settlements for context
-      setTimeout(() => {
-        fetchNeighboringSettlementsForWard()
-      }, 500)
+      scheduleNeighboringSettlementsRefresh()
     } 
     // Handle Polygon and MultiPolygon geometry
     else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
@@ -1312,10 +1413,7 @@ const loadSettlementBoundary = () => {
       // Open drawer
       drawerVisible.value = true
       
-      // Load neighboring settlements for context
-      setTimeout(() => {
-        fetchNeighboringSettlementsForWard()
-      }, 500)
+      scheduleNeighboringSettlementsRefresh()
     }
   } catch (error) {
     console.error('Error loading settlement boundary:', error)
@@ -1392,16 +1490,20 @@ const updatePolygonGeometry = (polygon: any) => {
 
 // Toggle drawing mode
 const toggleDrawingMode = () => {
-  if (!drawingManager.value) return
-  
+  if (mapLoading.value) {
+    ElMessage.info('Map is still loading — please wait')
+    return
+  }
+  if (!drawReady.value || !map.value) {
+    ElMessage.warning(mapError.value || 'Drawing tools are not ready. Use Retry on the map panel.')
+    return
+  }
+
   if (isDrawingMode.value) {
-    // Exit drawing mode
-    drawingManager.value.setDrawingMode(null)
-    isDrawingMode.value = false
+    stopPolygonDrawing()
   } else {
-    // Enter drawing mode
-    drawingManager.value.setDrawingMode(window.google.maps.drawing.OverlayType.POLYGON)
-    isDrawingMode.value = true
+    startPolygonDrawing()
+    ElMessage.info('Click to add points. Double-click anywhere on the map to finish.')
   }
 }
 
@@ -1410,9 +1512,8 @@ const deleteDrawnShape = () => {
   let hasDeleted = false
   
   // Exit drawing mode if active
-  if (isDrawingMode.value && drawingManager.value) {
-    drawingManager.value.setDrawingMode(null)
-    isDrawingMode.value = false
+  if (isDrawingMode.value) {
+    stopPolygonDrawing()
   }
   
   // Delete drawn polygons
@@ -1545,6 +1646,27 @@ const submitForm = async () => {
         }
       }
 
+      const attrCheck = validateSettlementAttributes(settlementForm)
+      if (!attrCheck.valid) {
+        ElMessage.error(attrCheck.errors.join(' '))
+        return
+      }
+      if (attrCheck.warnings.length > 0) {
+        try {
+          await ElMessageBox.confirm(
+            `${attrCheck.warnings.join('\n\n')}\n\nSave anyway?`,
+            'Data warnings',
+            {
+              confirmButtonText: 'Save anyway',
+              cancelButtonText: 'Go back',
+              type: 'warning'
+            }
+          )
+        } catch {
+          return
+        }
+      }
+
       // Use settlementGeometry if form doesn't have it
       if (!settlementForm.geom && settlementGeometry.value) {
         settlementForm.geom = settlementGeometry.value
@@ -1558,7 +1680,7 @@ const submitForm = async () => {
         }
 
         // Convert array fields to comma-separated strings for backend
-        const formDataToSubmit = {
+        const formDataToSubmit = prepareSettlementFormForApi({
           ...settlementForm,
           structure_types: Array.isArray(settlementForm.structure_types) 
             ? settlementForm.structure_types.join(', ') 
@@ -1582,7 +1704,7 @@ const submitForm = async () => {
           // Send computed score/rating as fallback (backend recomputes and overwrites)
           vulnerability_total_score: (computedScore.value?.total_score ?? settlementForm.vulnerability_total_score) ?? null,
           vulnerability_rating: (computedScore.value?.rating ?? settlementForm.vulnerability_rating) || null
-        }
+        })
 
         if (isEditMode.value && editingSettlementId.value) {
           // Update existing settlement
@@ -1681,6 +1803,7 @@ const submitForm = async () => {
 // Go back to previous step
 const goBack = () => {
   if (currentStep.value > 0) {
+    abortWardGeoLoad()
     currentStep.value--
     if (currentStep.value === 0) {
       // Clean up map
@@ -1711,14 +1834,14 @@ const goBack = () => {
       })
       neighboringSettlementLabels.value = []
       
-      if (drawingManager.value) {
-        drawingManager.value.setMap(null)
-        drawingManager.value = null
-      }
+      stopPolygonDrawing()
       map.value = null
       wardGeo.value = null
       settlementGeometry.value = null
       settlementForm.geom = null
+      mapLoading.value = false
+      mapError.value = null
+      drawReady.value = false
     }
   } else {
     router.back()
@@ -1928,8 +2051,8 @@ const clearFormAndGeometry = () => {
     code: '',
     surveyed: null,
     land_status: null,
-    land_status_planning: [],
-    land_status_survey: [],
+    planning_status: null,
+    survey_status: null,
     parcel_owner_type: null,
     pop_density: null,
     landuse: [],
@@ -2005,7 +2128,7 @@ const clearFormAndGeometry = () => {
   // Clear location selections
   selectedCounty.value = null
   selectedWard.value = null
-  wardOptions.value = []
+  filteredWards.value = []
   wardGeo.value = null
   wardAvgHouseholdSize.value = null
   
@@ -2285,6 +2408,12 @@ const loadVulnerabilityOptions = async () => {
 
 // Initialize on mount
 onMounted(async () => {
+  try {
+    await Promise.all([loadCounties(), loadSubcounties()])
+  } catch {
+    ElMessage.error(countiesError.value || 'Failed to load counties')
+  }
+
   await loadVulnerabilityOptions()
   // Check if editing (route has id)
   const settlementId = route.query.id
@@ -2303,6 +2432,13 @@ onMounted(async () => {
       
       // Populate form
       Object.assign(settlementForm, curData)
+
+      // Boolean DB fields -> yes/no for form selects
+      settlementForm.near_river = booleanToYesNo(curData.near_river)
+      settlementForm.on_wayleave = booleanToYesNo(curData.on_wayleave)
+      settlementForm.on_road_reserve = booleanToYesNo(curData.on_road_reserve)
+      settlementForm.electricity_availability = booleanToYesNo(curData.electricity_availability)
+      settlementForm.piped_water_availability = booleanToYesNo(curData.piped_water_availability)
       
       // Convert comma-separated strings back to arrays for checkbox groups
       if (curData.structure_types && typeof curData.structure_types === 'string') {
@@ -2323,28 +2459,9 @@ onMounted(async () => {
         settlementForm.typical_building_materials = []
       }
       
-      // Parse land_status into planning and survey components
-      if (curData.land_status && typeof curData.land_status === 'string') {
-        const landStatus = curData.land_status
-        settlementForm.land_status_planning = []
-        settlementForm.land_status_survey = []
-        
-        if (landStatus.includes('Planned')) {
-          settlementForm.land_status_planning.push('Planned')
-        }
-        if (landStatus.includes('Unplanned')) {
-          settlementForm.land_status_planning.push('Unplanned')
-        }
-        if (landStatus.includes('Surveyed')) {
-          settlementForm.land_status_survey.push('Surveyed')
-        }
-        if (landStatus.includes('Unsurveyed')) {
-          settlementForm.land_status_survey.push('Unsurveyed')
-        }
-      } else {
-        settlementForm.land_status_planning = []
-        settlementForm.land_status_survey = []
-      }
+      const parsed = resolvePlanningSurveyFromRecord(curData)
+      settlementForm.planning_status = parsed.planning
+      settlementForm.survey_status = parsed.survey
       
       // Parse landuse from string to array
       if (curData.landuse && typeof curData.landuse === 'string') {
@@ -2370,24 +2487,26 @@ onMounted(async () => {
         }
       }
       
-      // Get ward geometry for context and capture avg_household_size
+      // Get ward geometry for context
       if (curData.ward_id) {
-        const wardForm = {
-          model: 'ward',
-          id: String(curData.ward_id)
-        }
-        const wardRes = await getOneGeo(wardForm)
+        const wardRes = await withTimeout(
+          getOneGeo({ model: 'ward', id: String(curData.ward_id) }),
+          LOCATION_FETCH_TIMEOUT_MS,
+          'Ward boundary'
+        )
         if (wardRes.data[0]?.json_build_object?.features) {
           wardGeo.value = wardRes.data[0].json_build_object
         }
-        // Fetch ward-level avg household size from households data
-        wardAvgHouseholdSize.value = await fetchWardAvgHouseholdSize(curData.ward_id)
       }
-      
+
       // Move directly to map step
       currentStep.value = 1
       await nextTick()
       await initializeMap()
+
+      if (curData.ward_id) {
+        loadWardAvgHouseholdSizeDeferred(curData.ward_id)
+      }
     } catch (error) {
       console.error('Error loading settlement:', error)
       ElMessage.error('Failed to load settlement data')
@@ -2420,12 +2539,25 @@ onMounted(async () => {
           <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
           <div class="header-actions">
             <el-button 
+              v-if="currentStep === 1 && isDrawingMode" 
+              type="success"
+              :icon="Check" 
+              @click="finishPolygonDrawing" 
+              size="small"
+              :circle="isMobile"
+              class="draw-button"
+            >
+              <span class="draw-text">Finish</span>
+            </el-button>
+            <el-button 
               v-if="currentStep === 1" 
               :type="isDrawingMode ? 'success' : 'default'"
               :icon="Edit" 
               @click="toggleDrawingMode" 
               size="small"
               :circle="isMobile"
+              :disabled="mapLoading || !drawReady"
+              :loading="mapLoading"
               class="draw-button"
             >
               <span class="draw-text">Draw</span>
@@ -2469,16 +2601,37 @@ onMounted(async () => {
 
       <!-- Step 1: Location Selection - County and Ward (skip in edit mode) -->
       <div v-if="currentStep === 0 && !isEditMode" class="step-content">
+        <el-alert
+          v-if="countiesError"
+          type="error"
+          :title="countiesError"
+          show-icon
+          :closable="false"
+          class="mb-12px"
+        >
+          <el-button size="small" type="primary" plain @click="retryLoadCounties">Retry counties</el-button>
+        </el-alert>
+        <el-alert
+          v-if="wardsError"
+          type="warning"
+          :title="wardsError"
+          show-icon
+          :closable="false"
+          class="mb-12px"
+        >
+          <el-button size="small" type="primary" plain @click="retryLoadWards">Retry wards</el-button>
+        </el-alert>
         <el-form label-width="150px" label-position="left">
           <el-row :gutter="20">
             <el-col :span="24" :md="12">
               <el-form-item label="County" required>
                 <el-select
                   v-model="selectedCounty"
-                  placeholder="Select County"
+                  :placeholder="countiesLoading ? 'Loading counties...' : 'Select County'"
                   filterable
                   clearable
-                  :disabled="isCountyRestricted"
+                  :loading="countiesLoading"
+                  :disabled="isCountyRestricted || countiesLoading"
                   @change="handleCountyChange"
                   style="width: 100%"
                 >
@@ -2499,10 +2652,11 @@ onMounted(async () => {
               <el-form-item label="Ward" required>
                 <el-select
                   v-model="selectedWard"
-                  placeholder="Select Ward"
+                  :placeholder="wardsLoading ? 'Loading wards...' : wardGeoLoading ? 'Loading ward boundary...' : !selectedCounty ? 'Select county first' : 'Select Ward'"
                   filterable
                   clearable
-                  :disabled="!selectedCounty"
+                  :loading="wardsLoading || wardGeoLoading"
+                  :disabled="!selectedCounty || wardsLoading"
                   @change="handleWardChange"
                   style="width: 100%"
                 >
@@ -2552,7 +2706,22 @@ onMounted(async () => {
       </div>
 
       <!-- Step 2: Map with Drawing Tools -->
-      <div v-if="currentStep === 1" class="step-content map-step">
+      <div v-show="currentStep === 1" class="step-content map-step">
+        <el-alert
+          v-if="mapError"
+          type="error"
+          :title="mapError"
+          show-icon
+          :closable="false"
+          class="mb-8px"
+        >
+          <el-button size="small" type="primary" plain @click="retryMapLoad">Retry map</el-button>
+        </el-alert>
+        <div v-if="mapLoading" class="map-status-banner">Loading map…</div>
+        <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
+          Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} — click to add corners, double-click to finish
+        </div>
+        <div v-else-if="drawReady" class="map-status-banner map-status-banner--ready">Map ready — click Draw, then outline the settlement on the map</div>
         <div ref="mapContainer" class="map-container"></div>
       </div>
     </el-card>
@@ -2662,10 +2831,11 @@ onMounted(async () => {
         <el-form-item label="County" prop="county_id">
           <el-select
             v-model="settlementForm.county_id"
-            :placeholder="(countyOptions && countyOptions.length) ? 'Select County' : 'Loading counties...'"
+            :placeholder="countiesLoading ? 'Loading counties...' : 'Select County'"
             filterable
             clearable
-            :disabled="isCountyRestricted || !(countyOptions && countyOptions.length)"
+            :loading="countiesLoading"
+            :disabled="isCountyRestricted || countiesLoading"
             @change="handleDrawerCountyChange"
             style="width: 100%"
           >
@@ -2741,41 +2911,42 @@ onMounted(async () => {
           <el-input v-model="settlementForm.rim_no" placeholder="Enter RIM/Survey Plan number" />
         </el-form-item>
 
-        <el-form-item label="Is Parcel Surveyed?">
-          <el-select v-model="settlementForm.surveyed" placeholder="Select" filterable style="width: 100%">
-            <el-option
-              v-for="item in yesNoUnknownOptions"
+        <el-form-item label="Planning Status">
+          <el-radio-group v-model="settlementForm.planning_status">
+            <el-radio
+              v-for="item in planningStatusOptions"
               :key="item.value"
-              :label="item.label"
               :value="item.value"
-            />
-          </el-select>
+            >
+              {{ item.label }}
+            </el-radio>
+          </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="Land Status">
-          <div style="margin-bottom: 10px;">
-            <div style="font-weight: 500; margin-bottom: 8px;">Planning Status:</div>
-            <el-checkbox-group v-model="settlementForm.land_status_planning">
-              <el-checkbox
-                v-for="item in planningStatusOptions"
-                :key="item.value"
-                :label="item.value"
-              >
-                {{ item.label }}
-              </el-checkbox>
-            </el-checkbox-group>
+        <el-form-item label="Survey Status">
+          <el-radio-group
+            v-model="settlementForm.survey_status"
+            :disabled="!settlementForm.planning_status"
+          >
+            <el-radio
+              v-for="item in availableSurveyStatusOptions"
+              :key="item.value"
+              :value="item.value"
+            >
+              {{ item.label }}
+            </el-radio>
+          </el-radio-group>
+          <div
+            v-if="settlementForm.planning_status === 'Unplanned'"
+            style="margin-top: 6px; color: var(--el-text-color-secondary); font-size: 12px;"
+          >
+            Unplanned settlements cannot be surveyed.
           </div>
-          <div>
-            <div style="font-weight: 500; margin-bottom: 8px;">Survey Status:</div>
-            <el-checkbox-group v-model="settlementForm.land_status_survey">
-              <el-checkbox
-                v-for="item in surveyStatusOptions"
-                :key="item.value"
-                :label="item.value"
-              >
-                {{ item.label }}
-              </el-checkbox>
-            </el-checkbox-group>
+          <div
+            v-else-if="!settlementForm.planning_status"
+            style="margin-top: 6px; color: var(--el-text-color-secondary); font-size: 12px;"
+          >
+            Select planning status first.
           </div>
         </el-form-item>
           </el-collapse-item>
@@ -2840,17 +3011,6 @@ onMounted(async () => {
           >
             <el-option
               v-for="item in densityTypologyOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Near River?">
-          <el-select v-model="settlementForm.near_river" placeholder="Select" filterable style="width: 100%">
-            <el-option
-              v-for="item in yesNoOptions"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -3392,6 +3552,25 @@ onMounted(async () => {
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
   position: relative;
+}
+
+.map-status-banner {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
+}
+
+.map-status-banner--ready {
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
+}
+
+.map-status-banner--drawing {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
 }
 
 /* Ensure Google Maps drawing controls are visible */

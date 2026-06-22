@@ -1,5 +1,16 @@
 /** Shared inline-edit field config for settlement profile (SettlementDetails + map drawer). */
 
+import {
+  PLANNING_STATUS_OPTIONS,
+  SURVEY_STATUS_OPTIONS,
+  PLANNING_STATUS_VALUES,
+  SURVEY_STATUS_VALUES,
+  nearRiverFromProximity,
+  normalizeSurveyed,
+  normalizePlanningSurveyPair,
+  getSyncedFieldsFromPlanningSurvey,
+} from '@/utils/validateSettlementAttributes'
+
 export const inlineTextareaFields = [
   'description',
   'main_env_hazards',
@@ -33,11 +44,13 @@ export const inlineUtilitiesBooleanFields = [
 ]
 
 export const inlineMultiselectFields = [
-  'land_status',
   'structure_types',
   'development',
   'typical_building_materials',
 ]
+
+/** Derived from survey_status — not directly editable in profile. */
+export const readonlyInlineDerived = ['surveyed', 'land_status']
 
 export const settlementBooleanFields = [
   ...inlineProfileBooleanFields,
@@ -86,18 +99,17 @@ export const inlineSelectOptionsBase: Record<
     { label: 'Private', value: 'Private' },
     { label: 'Public', value: 'Public' },
     { label: 'Community', value: 'Community' },
+    { label: 'Communal', value: 'Communal' },
+    { label: 'Mixed', value: 'Mixed' },
     { label: 'Unknown', value: 'Unknown' },
   ],
   surveyed: [
-    { label: 'Yes', value: 'yes' },
-    { label: 'No', value: 'no' },
+    { label: 'Yes', value: 'Yes' },
+    { label: 'No', value: 'No' },
+    { label: 'Unknown', value: 'Unknown' },
   ],
-  land_status: [
-    { label: 'Planned', value: 'Planned' },
-    { label: 'Unplanned', value: 'Unplanned' },
-    { label: 'Surveyed', value: 'Surveyed' },
-    { label: 'Unsurveyed', value: 'Unsurveyed' },
-  ],
+  planning_status: PLANNING_STATUS_OPTIONS,
+  survey_status: SURVEY_STATUS_OPTIONS,
   landuse: [
     { label: 'Mixed', value: 'Mixed' },
     { label: 'Residential', value: 'Residential' },
@@ -221,6 +233,19 @@ export function formatBoolLabel(v: unknown): string {
 }
 
 export function coerceSettlementValueForApi(field: string, value: unknown): unknown {
+  if (field === 'planning_status') {
+    const v = value === null || value === undefined ? '' : String(value).trim()
+    if (!v) return null
+    return (PLANNING_STATUS_VALUES as readonly string[]).includes(v) ? v : null
+  }
+  if (field === 'survey_status') {
+    const v = value === null || value === undefined ? '' : String(value).trim()
+    if (!v) return null
+    return (SURVEY_STATUS_VALUES as readonly string[]).includes(v) ? v : null
+  }
+  if (field === 'surveyed') {
+    return normalizeSurveyed(value)
+  }
   if (SETTLEMENT_BOOLEAN_FIELDS.has(field)) {
     if (value === true || value === false) return value
     if (value === 'Yes' || value === 'true' || value === 1 || value === '1') return true
@@ -240,4 +265,36 @@ export function coerceSettlementValueForApi(field: string, value: unknown): unkn
   if (value === '\u2014') return null
   if (value === '') return null
   return value
+}
+
+/** Extra fields to persist when a source field changes (inline edit). */
+export function getDerivedSettlementFields(
+  field: string,
+  value: unknown,
+  currentRecord?: Record<string, unknown>
+): Record<string, unknown> {
+  if (field === 'planning_status' || field === 'survey_status') {
+    const planning =
+      field === 'planning_status'
+        ? (coerceSettlementValueForApi('planning_status', value) as string | null)
+        : (coerceSettlementValueForApi(
+            'planning_status',
+            currentRecord?.planning_status
+          ) as string | null)
+    const survey =
+      field === 'survey_status'
+        ? (coerceSettlementValueForApi('survey_status', value) as string | null)
+        : (coerceSettlementValueForApi(
+            'survey_status',
+            currentRecord?.survey_status
+          ) as string | null)
+    const pair = normalizePlanningSurveyPair(planning as any, survey as any)
+    if (pair.error) return getSyncedFieldsFromPlanningSurvey(pair.planning, 'Unsurveyed')
+    return getSyncedFieldsFromPlanningSurvey(pair.planning, pair.survey)
+  }
+  if (field === 'proximity_to_river') {
+    const nearRiver = nearRiverFromProximity(value as string | null)
+    return nearRiver !== null ? { near_river: nearRiver } : {}
+  }
+  return {}
 }

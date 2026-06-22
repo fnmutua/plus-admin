@@ -67,3 +67,13 @@ export const getSubcountiesList = ({ params }: AxiosConfig): Promise<IResponse<a
     params
   })
 }
+
+/**
+ * Get wards list for a county (optimized, no geometry)
+ */
+export const getWardsList = ({ params }: AxiosConfig): Promise<IResponse<any>> => {
+  return request.get({
+    url: prod + '/api/v1/data/optimized/wards',
+    params
+  })
+}
