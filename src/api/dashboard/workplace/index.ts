@@ -1,11 +1,16 @@
 import request from '@/config/axios'
 import { apiOrigin as prod } from '@/config/apiBase'
 
+export type NewAccountsPeriod = 'week' | 'month' | 'year'
+
 export type WorkplaceStats = {
   totalUsers: number
   unapprovedUsers: number
   countyUsers: number
-  usersThisWeek: number
+  newAccountsCount: number
+  newAccountsPeriod: NewAccountsPeriod
+  /** @deprecated use newAccountsCount */
+  usersThisWeek?: number
   scopeLabel: string
   isNational: boolean
   countyId: number | null
@@ -50,8 +55,10 @@ export type MutationLog = {
   outcome: string
 }
 
-export const getWorkplaceStatsApi = (): Promise<IResponse<WorkplaceStats>> => {
-  return request.get({ url: prod + '/api/v1/workplace/stats' })
+export const getWorkplaceStatsApi = (
+  period: NewAccountsPeriod = 'week'
+): Promise<IResponse<WorkplaceStats>> => {
+  return request.get({ url: prod + '/api/v1/workplace/stats', params: { period } })
 }
 
 export const getActiveSessionsApi = (hoursThreshold = 24): Promise<IResponse<{ count: number; sessions: ActiveSession[] }>> => {

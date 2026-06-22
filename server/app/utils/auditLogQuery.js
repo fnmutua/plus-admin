@@ -87,33 +87,35 @@ async function queryMergedAuditLogs({
     if (to) legacyWhere.date[Op.lte] = new Date(to)
   }
 
-  const result = await db.auditLog.findAndCountAll({
-    where,
-    order: [['timestamp', 'DESC']],
-    limit: limitNum,
-    offset
-  })
+  // Merge both sources in memory, then paginate — DB-level offset on one table
+  // produces empty/wrong pages after the merge sort.
+  const MAX_MERGE_ROWS = 10000
 
-  const mergeFetchSize = offset + limitNum
-  const legacyResult = await db.models.logs.findAndCountAll({
-    where: legacyWhere,
-    order: [['date', 'DESC']],
-    limit: mergeFetchSize
-  })
+  const [auditRows, legacyRows] = await Promise.all([
+    db.auditLog.findAll({
+      where,
+      order: [['timestamp', 'DESC']],
+      limit: MAX_MERGE_ROWS
+    }),
+    db.models.logs.findAll({
+      where: legacyWhere,
+      order: [['date', 'DESC']],
+      limit: MAX_MERGE_ROWS
+    })
+  ])
 
   const combined = [
-    ...(result.rows || []).map((row) => row.toJSON()),
-    ...(legacyResult.rows || []).map(mapLegacyLogToAuditShape)
+    ...(auditRows || []).map((row) => row.toJSON()),
+    ...(legacyRows || []).map(mapLegacyLogToAuditShape)
   ].sort(
     (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
   )
 
   const pagedCombined = combined.slice(offset, offset + limitNum)
-  const combinedTotal = Number(result.count || 0) + Number(legacyResult.count || 0)
 
   return {
     data: pagedCombined,
-    total: combinedTotal,
+    total: combined.length,
     page: pageNum,
     limit: limitNum
   }

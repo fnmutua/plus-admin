@@ -106,6 +106,10 @@ const viewProfile = () => {
 
 }
 
+const goHome = () => {
+  push({ name: 'LandingPage' })
+}
+
 </script>
 
 <template>
@@ -125,6 +129,9 @@ const viewProfile = () => {
     </div>
     <template #dropdown>
       <ElDropdownMenu>
+        <ElDropdownItem>
+          <div @click="goHome">{{ t('Home') }}</div>
+        </ElDropdownItem>
         <ElDropdownItem>
           <div @click="viewProfile">{{ t('Profile') }}</div>
         </ElDropdownItem>

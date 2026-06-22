@@ -112,6 +112,32 @@ function daysAgo(n) {
   return startOfDay(d)
 }
 
+function startOfMonth(date = new Date()) {
+  const d = new Date(date)
+  d.setDate(1)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function startOfYear(date = new Date()) {
+  const d = new Date(date)
+  d.setMonth(0, 1)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function newAccountsPeriodStart(period = 'week') {
+  switch (period) {
+    case 'month':
+      return startOfMonth()
+    case 'year':
+      return startOfYear()
+    case 'week':
+    default:
+      return daysAgo(7)
+  }
+}
+
 module.exports = {
   PLATFORM_ADMIN_ROLES,
   resolveWorkplaceScope,
@@ -119,5 +145,8 @@ module.exports = {
   scopedUserWhere,
   startOfDay,
   endOfDay,
-  daysAgo
+  daysAgo,
+  startOfMonth,
+  startOfYear,
+  newAccountsPeriodStart
 }

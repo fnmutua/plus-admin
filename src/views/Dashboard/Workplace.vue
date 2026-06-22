@@ -19,7 +19,8 @@ import {
   type ActiveSession,
   type LoginAttempt,
   type MutationLog,
-  type WorkplaceStats
+  type WorkplaceStats,
+  type NewAccountsPeriod
 } from '@/api/dashboard/workplace'
 import { Icon } from '@iconify/vue'
 import { SwitchButton } from '@element-plus/icons-vue'
@@ -74,11 +75,25 @@ const stats = ref<WorkplaceStats>({
   totalUsers: 0,
   unapprovedUsers: 0,
   countyUsers: 0,
-  usersThisWeek: 0,
+  newAccountsCount: 0,
+  newAccountsPeriod: 'week',
   scopeLabel: '',
   isNational: true,
   countyId: null,
   countyName: null
+})
+
+const newAccountsPeriod = ref<NewAccountsPeriod>('week')
+
+const newAccountsLabel = computed(() => {
+  switch (newAccountsPeriod.value) {
+    case 'month':
+      return 'New Accounts This Month'
+    case 'year':
+      return 'New Accounts This Year'
+    default:
+      return 'New Accounts This Week'
+  }
 })
 
 const statCards = computed(() => [
@@ -103,10 +118,11 @@ const statCards = computed(() => [
       : { name: 'staff' }
   },
   {
-    label: 'Users This Week',
-    value: stats.value.usersThisWeek,
+    label: newAccountsLabel.value,
+    value: stats.value.newAccountsCount,
     icon: 'mdi:account-plus-outline',
-    route: { name: 'staff' }
+    route: { name: 'NewAccounts' },
+    periodSelect: true
   }
 ])
 
@@ -117,13 +133,23 @@ const handleCardClick = (card: { route: { name: string; query?: Record<string, s
 const loadStats = async () => {
   loadingStats.value = true
   try {
-    const res = await getWorkplaceStatsApi()
-    if (res.data) stats.value = res.data
+    const res = await getWorkplaceStatsApi(newAccountsPeriod.value)
+    if (res.data) {
+      stats.value = {
+        ...res.data,
+        newAccountsCount: res.data.newAccountsCount ?? res.data.usersThisWeek ?? 0,
+        newAccountsPeriod: res.data.newAccountsPeriod ?? newAccountsPeriod.value
+      }
+    }
   } catch {
     ElMessage.error('Failed to load user statistics')
   } finally {
     loadingStats.value = false
   }
+}
+
+const onNewAccountsPeriodChange = () => {
+  loadStats()
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -215,6 +241,12 @@ const loadLoginAttempts = async () => {
     const res = await getLoginAttemptsApi(payload)
     loginAttempts.value = Array.isArray(res.data) ? res.data : []
     loginTotal.value = res.total ?? loginAttempts.value.length
+
+    if (!loginAttempts.value.length && loginPage.value > 1 && loginTotal.value > 0) {
+      loginPage.value = 1
+      await loadLoginAttempts()
+      return
+    }
   } catch {
     loginAttempts.value = []
     loginTotal.value = 0
@@ -335,7 +367,21 @@ onMounted(init)
               <template #default>
                 <div class="flex items-center justify-between">
                   <div>
-                    <div class="text-13px text-gray-400 mb-8px">{{ card.label }}</div>
+                    <div class="text-13px text-gray-400 mb-8px flex items-center justify-between gap-8px">
+                      <span>{{ card.label }}</span>
+                      <el-select
+                        v-if="card.periodSelect"
+                        v-model="newAccountsPeriod"
+                        size="small"
+                        style="width:118px"
+                        @click.stop
+                        @change="onNewAccountsPeriodChange"
+                      >
+                        <el-option label="This week" value="week" />
+                        <el-option label="This month" value="month" />
+                        <el-option label="This year" value="year" />
+                      </el-select>
+                    </div>
                     <CountTo
                       class="text-28px font-bold stat-value-link"
                       :start-val="0"
@@ -346,7 +392,6 @@ onMounted(init)
                       @click="handleCardClick(card)"
                       @keydown.enter="handleCardClick(card)"
                     />
-                    <div v-if="stats.scopeLabel" class="text-11px text-gray-400 mt-4px">{{ stats.scopeLabel }}</div>
                   </div>
                   <Icon :icon="card.icon" width="40" :color="CARD_ICON_COLOR" style="opacity:0.75" />
                 </div>
@@ -386,7 +431,7 @@ onMounted(init)
                     </template>
                   </el-table-column>
                   <el-table-column prop="source" label="Source" width="120" show-overflow-tooltip />
-                  <el-table-column label="" width="120" align="right" fixed="right">
+                  <el-table-column label="" width="120" align="right">
                     <template #default="{ row }">
                       <el-button
                         type="danger"

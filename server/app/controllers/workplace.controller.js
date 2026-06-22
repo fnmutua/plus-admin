@@ -7,7 +7,8 @@ const {
   scopedUserWhere,
   startOfDay,
   endOfDay,
-  daysAgo
+  daysAgo,
+  newAccountsPeriodStart
 } = require('../utils/workplaceScope')
 const { queryMergedAuditLogs, normalizeLoginAttemptRow } = require('../utils/auditLogQuery')
 
@@ -30,9 +31,12 @@ exports.getAdminStats = async (req, res) => {
     const userIds = await getScopedUserIdList(scope)
     const baseWhere = scopedUserWhere(scope, userIds)
 
-    const weekStart = daysAgo(7)
+    const period = ['week', 'month', 'year'].includes(req.query?.period)
+      ? req.query.period
+      : 'week'
+    const periodStart = newAccountsPeriodStart(period)
 
-    const [totalUsers, unapprovedUsers, countyUsers, usersThisWeek] = await Promise.all([
+    const [totalUsers, unapprovedUsers, countyUsers, newAccountsCount] = await Promise.all([
       Users.count({ where: baseWhere, distinct: true }),
       Users.count({ where: { ...baseWhere, isactive: false }, distinct: true }),
       scope.isNational
@@ -48,7 +52,7 @@ exports.getAdminStats = async (req, res) => {
           })
         : Users.count({ where: baseWhere, distinct: true }),
       Users.count({
-        where: { ...baseWhere, createdAt: { [Op.gte]: weekStart } },
+        where: { ...baseWhere, createdAt: { [Op.gte]: periodStart } },
         distinct: true
       })
     ])
@@ -60,7 +64,9 @@ exports.getAdminStats = async (req, res) => {
         totalUsers,
         unapprovedUsers,
         countyUsers,
-        usersThisWeek,
+        newAccountsCount,
+        newAccountsPeriod: period,
+        usersThisWeek: newAccountsCount,
         scopeLabel: scope.scopeLabel,
         isNational: scope.isNational,
         countyId: scope.countyId,
