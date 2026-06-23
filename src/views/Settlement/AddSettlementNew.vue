@@ -2555,10 +2555,30 @@ const updateStructuresFromOverture = ref(false)
 
 /** Fallback when ward survey and stored avg household size are unavailable. */
 const DEFAULT_PERSONS_PER_BUILDING = 4
+/** Ward/settlement averages below this are treated as unreliable. */
+const MIN_PERSONS_PER_BUILDING = 2
 
 const hasMissingPopulation = () => {
   const p = settlementForm.population
   return p == null || p === '' || !Number.isFinite(Number(p)) || Number(p) <= 0
+}
+
+const isUsablePersonsPerBuilding = (value: unknown): value is number => {
+  const n = Number(value)
+  return Number.isFinite(n) && n >= MIN_PERSONS_PER_BUILDING
+}
+
+/** Nearest 100; small positive totals must not round down to 0 (e.g. 21 × 2 = 42). */
+const roundPopulationToNearestHundred = (total: number): number => {
+  if (!Number.isFinite(total) || total <= 0) return 0
+  const rounded = Math.round(total / 100) * 100
+  return rounded > 0 ? rounded : Math.max(100, Math.round(total))
+}
+
+const resolveOvertureBuildingCount = (res: { count?: number; geojson?: GeoJSON.FeatureCollection } | null) => {
+  const fromCount = Number(res?.count) || 0
+  const fromFeatures = res?.geojson?.features?.length ?? 0
+  return Math.max(fromCount, fromFeatures)
 }
 
 const parseSettlementGeometry = (geometry: any) => {
@@ -2595,7 +2615,9 @@ const scheduleOvertureRefreshForGeometry = (geometry: any) => {
   }
   overtureGeometryRefreshTimer = setTimeout(() => {
     overtureGeometryRefreshTimer = null
-    void refreshOvertureMapPreview(geometry, { showMessage: false })
+    void refreshOvertureMapPreview(geometry, { showMessage: false }).then(() =>
+      maybeAutoFillPopulationFromBuildings(geometry)
+    )
   }, 700)
 }
 
@@ -2644,7 +2666,7 @@ const fetchOvertureBuildingsForSettlement = async (geometry: any) => {
   try {
     const res = await fetchOvertureBuildings(normalized)
     if (String(res.code) !== '0000') return null
-    overtureBuildingCount.value = res.count ?? 0
+    overtureBuildingCount.value = resolveOvertureBuildingCount(res)
     overtureBuildingsGeojson.value =
       res.geojson?.features?.length ? res.geojson : null
     if (res.geojson?.features?.length) {
@@ -2744,16 +2766,17 @@ const applyCountySexSplit = async (total: number) => {
 }
 
 const ensureWardAvgHouseholdSize = async (): Promise<number | null> => {
-  if (wardAvgHouseholdSize.value != null && Number.isFinite(wardAvgHouseholdSize.value)) {
+  if (isUsablePersonsPerBuilding(wardAvgHouseholdSize.value)) {
     return wardAvgHouseholdSize.value
   }
   const wardId = settlementForm.ward_id || selectedWard.value
   if (!wardId) return null
   const avg = await fetchWardAvgHouseholdSize(wardId)
-  if (avg != null) {
+  if (isUsablePersonsPerBuilding(avg)) {
     wardAvgHouseholdSize.value = avg
+    return avg
   }
-  return avg
+  return null
 }
 
 type PersonsPerBuildingSource = 'ward' | 'settlement' | 'default'
@@ -2763,12 +2786,12 @@ const resolvePersonsPerBuilding = async (): Promise<{
   source: PersonsPerBuildingSource
 }> => {
   const fromWard = await ensureWardAvgHouseholdSize()
-  if (fromWard != null && Number.isFinite(fromWard) && fromWard > 0) {
+  if (fromWard != null) {
     return { ppb: fromWard, source: 'ward' }
   }
 
   const fromSettlement = Number(settlementForm.avg_household_size)
-  if (Number.isFinite(fromSettlement) && fromSettlement > 0) {
+  if (isUsablePersonsPerBuilding(fromSettlement)) {
     wardAvgHouseholdSize.value = fromSettlement
     return { ppb: fromSettlement, source: 'settlement' }
   }
@@ -2786,7 +2809,9 @@ const applyPopulationTotals = async (
   total: number,
   options?: { avgHouseholdSize?: number | null; message?: string }
 ) => {
-  const population = Math.round(total / 100) * 100
+  const population = roundPopulationToNearestHundred(total)
+  if (population <= 0) return
+
   settlementForm.population = population
   const ppb = options?.avgHouseholdSize ?? wardAvgHouseholdSize.value
   if (ppb != null && Number.isFinite(ppb)) {
@@ -2846,7 +2871,7 @@ const refreshOvertureMapPreview = async (
 ) => {
   const showMessage = options.showMessage !== false
   const overture = await fetchOvertureBuildingsForSettlement(geometry)
-  const overtureCount = Number(overture?.count) || 0
+  const overtureCount = resolveOvertureBuildingCount(overture)
   if (showMessage && overtureCount > 0) {
     ElMessage.info(`Overture: ${overtureCount} building footprint${overtureCount === 1 ? '' : 's'} shown on map (cyan).`)
   }
@@ -2865,11 +2890,15 @@ const applyPopulationEstimateFromBuildings = async (
     let overtureCount = options?.skipOvertureFetch ? Number(overtureBuildingCount.value) || 0 : 0
     if (!options?.skipOvertureFetch || overtureCount <= 0) {
       const overture = await fetchOvertureBuildingsForSettlement(geometry)
-      overtureCount = Number(overture?.count) || 0
+      overtureCount = resolveOvertureBuildingCount(overture)
     }
 
     if (overtureCount > 0) {
       const total = overtureCount * ppb
+      if (total <= 0) {
+        ElMessage.warning('Could not compute population from Overture building count.')
+        return
+      }
       await applyPopulationTotals(total, {
         avgHouseholdSize: ppb,
         message: options?.silent
@@ -3459,9 +3488,8 @@ const loadSettlementForEdit = async (
           settlementForm.area = areaHectares
         }
 
-        void refreshOvertureMapPreview(geom, { showMessage: false }).then(() =>
-          maybeAutoFillPopulationFromBuildings(geom)
-        )
+        await refreshOvertureMapPreview(geom, { showMessage: false })
+        await maybeAutoFillPopulationFromBuildings(geom)
       }
     }
 
