@@ -1,5 +1,5 @@
 import * as turf from '@turf/turf'
-import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
+import type { Feature, MultiPolygon, Polygon } from 'geojson'
 
 export type NeighborSettlementGeometry = {
   id: number | string
@@ -19,7 +19,7 @@ export type SettlementBoundaryOverlap = {
  */
 export const OVERLAP_TEST_SHRINK_METERS = 0.75
 
-/** Minimum interior overlap before save is blocked (~30 m²). */
+/** Ignore overlap when shrunk intersection is smaller than this (~30 m²). */
 export const MIN_BLOCKING_OVERLAP_AREA_SQ_M = 30
 
 function toFeature(geom: Polygon | MultiPolygon): Feature<Polygon | MultiPolygon> | null {
@@ -51,11 +51,7 @@ function intersectFeature(
   neighbor: Feature<Polygon | MultiPolygon>
 ): Feature | null {
   try {
-    const collection: FeatureCollection<Polygon | MultiPolygon> = {
-      type: 'FeatureCollection',
-      features: [drawn, neighbor],
-    }
-    return turf.intersect(collection)
+    return turf.intersect(drawn, neighbor) as Feature | null
   } catch {
     return null
   }
@@ -79,26 +75,54 @@ function shrinkForOverlapTest(
   }
 }
 
-/**
- * Detect meaningful interior overlap (not shared-boundary touch from snapping).
- */
-function measurePolygonalOverlapSqM(
+function overlapTestFeatures(
   drawn: Feature<Polygon | MultiPolygon>,
   neighbor: Feature<Polygon | MultiPolygon>
-): number | null {
+): [Feature<Polygon | MultiPolygon>, Feature<Polygon | MultiPolygon>] | null {
   const shrunkDrawn = shrinkForOverlapTest(drawn)
   const shrunkNeighbor = shrinkForOverlapTest(neighbor)
   if (!shrunkDrawn || !shrunkNeighbor) {
     return null
   }
+  return [shrunkDrawn, shrunkNeighbor]
+}
 
-  const intersection = intersectFeature(shrunkDrawn, shrunkNeighbor)
+function measurePolygonIntersectionSqM(
+  drawn: Feature<Polygon | MultiPolygon>,
+  neighbor: Feature<Polygon | MultiPolygon>
+): number {
+  const intersection = intersectFeature(drawn, neighbor)
   if (!intersection?.geometry || !isPolygonalGeometry(intersection.geometry.type)) {
-    return null
+    return 0
   }
 
-  const areaSqM = turf.area(intersection)
-  if (!Number.isFinite(areaSqM) || areaSqM < MIN_BLOCKING_OVERLAP_AREA_SQ_M) {
+  const measured = turf.area(intersection)
+  return Number.isFinite(measured) && measured > 0 ? measured : 0
+}
+
+/**
+ * True interior overlap: booleanOverlap on shrunk polygons plus meaningful
+ * shrunk intersection area (filters shared-edge / float-noise false positives).
+ */
+function measureBlockingOverlap(
+  drawn: Feature<Polygon | MultiPolygon>,
+  neighbor: Feature<Polygon | MultiPolygon>
+): number | null {
+  const testFeatures = overlapTestFeatures(drawn, neighbor)
+  if (!testFeatures) return null
+
+  const [testDrawn, testNeighbor] = testFeatures
+
+  let overlaps = false
+  try {
+    overlaps = turf.booleanOverlap(testDrawn, testNeighbor)
+  } catch {
+    return null
+  }
+  if (!overlaps) return null
+
+  const areaSqM = measurePolygonIntersectionSqM(testDrawn, testNeighbor)
+  if (areaSqM < MIN_BLOCKING_OVERLAP_AREA_SQ_M) {
     return null
   }
 
@@ -128,7 +152,7 @@ export function findSettlementBoundaryOverlaps(
     if (!neighborFeature) continue
 
     const repairedNeighbor = repairFeature(neighborFeature)
-    const areaSqM = measurePolygonalOverlapSqM(repairedDrawn, repairedNeighbor)
+    const areaSqM = measureBlockingOverlap(repairedDrawn, repairedNeighbor)
     if (areaSqM == null) {
       continue
     }
@@ -143,7 +167,7 @@ export function findSettlementBoundaryOverlaps(
   return overlaps.sort((a, b) => b.overlapAreaHa - a.overlapAreaHa)
 }
 
-function formatOverlapArea(overlapAreaHa: number): string {
+export function formatOverlapArea(overlapAreaHa: number): string {
   const sqM = overlapAreaHa * 10000
   if (overlapAreaHa < 0.01) {
     return `~${Math.round(sqM)} m²`
@@ -189,11 +213,10 @@ export function getOverlapIntersectionFeatures(
     if (!neighborFeature) continue
 
     const repairedNeighbor = repairFeature(neighborFeature)
-    const shrunkDrawn = shrinkForOverlapTest(repairedDrawn)
-    const shrunkNeighbor = shrinkForOverlapTest(repairedNeighbor)
-    if (!shrunkDrawn || !shrunkNeighbor) continue
+    const testFeatures = overlapTestFeatures(repairedDrawn, repairedNeighbor)
+    if (!testFeatures) continue
 
-    const intersection = intersectFeature(shrunkDrawn, shrunkNeighbor)
+    const intersection = intersectFeature(testFeatures[0], testFeatures[1])
     if (!intersection?.geometry || !isPolygonalGeometry(intersection.geometry.type)) {
       continue
     }

@@ -226,6 +226,38 @@ export function snapToNearestBoundary(
   return vertexDistance <= edgeDistance ? vertexSnap! : edgeSnap!
 }
 
+/** Boundary corners within snap radius of the cursor (for preview markers). */
+export function getNearbySnapVertices(
+  lat: number,
+  lng: number,
+  points: MapSnapPoint[],
+  radiusMeters: number,
+  maps: any
+): MapSnapPoint[] {
+  if (!points.length || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return []
+  }
+  if (!maps?.geometry?.spherical?.computeDistanceBetween) {
+    return []
+  }
+
+  const cursor = new maps.LatLng(lat, lng)
+  const nearby: Array<MapSnapPoint & { distance: number }> = []
+
+  for (const point of points) {
+    const candidate = new maps.LatLng(point.lat, point.lng)
+    const distance = maps.geometry.spherical.computeDistanceBetween(cursor, candidate)
+    if (distance < radiusMeters) {
+      nearby.push({ ...point, distance })
+    }
+  }
+
+  return nearby.sort((a, b) => a.distance - b.distance).map(({ lat: pLat, lng: pLng }) => ({
+    lat: pLat,
+    lng: pLng,
+  }))
+}
+
 /** @deprecated Use snapToNearestBoundary */
 export function snapToNearestVertex(
   lat: number,
@@ -261,4 +293,30 @@ export function buildBoundarySnapTargets(
     points: dedupeSnapPoints(points),
     segments,
   }
+}
+
+export function snapPointsForEditableVertex(
+  boundaryTargets: BoundarySnapTargets,
+  polygonVertices: MapSnapPoint[],
+  vertexIndex: number
+): MapSnapPoint[] {
+  const points = [...boundaryTargets.points]
+  if (polygonVertices.length > 0 && vertexIndex !== 0) {
+    points.push(polygonVertices[0])
+  }
+  return dedupeSnapPoints(points)
+}
+
+/** Snap a vertex while editing an existing polygon path. */
+export function snapEditableVertex(
+  lat: number,
+  lng: number,
+  boundaryTargets: BoundarySnapTargets,
+  polygonVertices: MapSnapPoint[],
+  vertexIndex: number,
+  radiusMeters: number = DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+  maps?: any
+): BoundarySnapResult {
+  const points = snapPointsForEditableVertex(boundaryTargets, polygonVertices, vertexIndex)
+  return snapToNearestBoundary(lat, lng, points, boundaryTargets.segments, radiusMeters, maps)
 }

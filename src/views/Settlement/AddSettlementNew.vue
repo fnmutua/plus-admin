@@ -66,13 +66,20 @@ import { getListWithoutGeo } from '@/api/counties'
 import {
   findSettlementBoundaryOverlaps,
   formatOverlapBlockedMessage,
+  formatOverlapArea,
   getOverlapIntersectionFeatures,
   type NeighborSettlementGeometry,
   type SettlementBoundaryOverlap,
 } from '@/utils/settlementBoundaryOverlap'
 import {
   buildBoundarySnapTargets,
+  DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+  getNearbySnapVertices,
+  snapEditableVertex,
+  snapPointsForEditableVertex,
+  snapToNearestBoundary,
   type BoundarySnapTargets,
+  type MapSnapPoint,
 } from '@/utils/mapVertexSnap'
 
 const { wsCache } = useCache()
@@ -192,6 +199,14 @@ const settlementBoundaryModified = ref(false)
 const hasBlockingBoundaryOverlap = computed(
   () => settlementBoundaryModified.value && settlementOverlaps.value.length > 0
 )
+const boundarySnapTargets = ref<BoundarySnapTargets>({ points: [], segments: [] })
+let isApplyingVertexSnap = false
+let editSnapMoveListener: any = null
+let editSnapMouseOutListener: any = null
+let editSnapMarker: any = null
+let editSnapCandidateMarkers: any[] = []
+const editSnapPreviewActive = ref(false)
+let polygonGeometryUpdateTimer: ReturnType<typeof setTimeout> | null = null
 const currentZoom = ref(8)
 const MIN_ZOOM_FOR_LABELS = 16 // Hide labels when zoom is below this level
 
@@ -677,12 +692,12 @@ const onSettlementPolygonComplete = async (polygon: any) => {
     settlementForm.area = areaHectares
   }
 
-  polygon.getPath().addListener('set_at', () => updatePolygonGeometry(polygon))
-  polygon.getPath().addListener('insert_at', () => updatePolygonGeometry(polygon))
-  polygon.getPath().addListener('remove_at', () => updatePolygonGeometry(polygon))
+  attachSettlementPolygonPathListeners(polygon)
   polygon.addListener('click', () => {
     drawerVisible.value = true
   })
+
+  void runBoundaryOverlapCheck(geom, { showMessage: false })
 
   ElMessage.success('Settlement boundary drawn successfully!')
   void onSettlementGeometryReady(geom)
@@ -714,7 +729,7 @@ const startPolygonDrawing = async () => {
     await fetchNeighboringSettlementsForWard(true)
   }
 
-  const snapTargets = buildBoundarySnapTargetsForWard()
+  const snapTargets = refreshBoundarySnapTargets()
   const started = polygonDraw.startDrawing(map.value, onSettlementPolygonComplete, {
     snapTargets,
   })
@@ -722,11 +737,260 @@ const startPolygonDrawing = async () => {
   return started
 }
 
-const buildBoundarySnapTargetsForWard = (): BoundarySnapTargets => {
-  return buildBoundarySnapTargets(
+const refreshBoundarySnapTargets = (): BoundarySnapTargets => {
+  const targets = buildBoundarySnapTargets(
     neighborSettlementGeometries.value.map((neighbor) => neighbor.geom),
     [wardGeo.value]
   )
+  boundarySnapTargets.value = targets
+  return targets
+}
+
+const getPolygonPathVertices = (path: any): MapSnapPoint[] => {
+  const vertices: MapSnapPoint[] = []
+  if (!path?.getLength) return vertices
+  for (let i = 0; i < path.getLength(); i++) {
+    const latLng = path.getAt(i)
+    if (!latLng) continue
+    vertices.push({ lat: latLng.lat(), lng: latLng.lng() })
+  }
+  return vertices
+}
+
+const clearEditSnapCandidateMarkers = () => {
+  editSnapCandidateMarkers.forEach((marker) => {
+    if (marker) marker.setMap(null)
+  })
+  editSnapCandidateMarkers = []
+}
+
+const clearEditSnapMarker = () => {
+  if (editSnapMarker) {
+    editSnapMarker.setMap(null)
+    editSnapMarker = null
+  }
+  editSnapPreviewActive.value = false
+}
+
+const clearEditSnapPreview = () => {
+  clearEditSnapCandidateMarkers()
+  clearEditSnapMarker()
+}
+
+const isSameSnapPoint = (
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+) => Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7
+
+const updateEditSnapPreview = (
+  lat: number,
+  lng: number,
+  vertexIndex?: number,
+  path?: any
+) => {
+  if (!map.value || !window.google?.maps || isDrawingMode.value || !getEditableSettlementPolygon()) {
+    clearEditSnapPreview()
+    return
+  }
+
+  const targets = boundarySnapTargets.value
+  const polygonVertices = path ? getPolygonPathVertices(path) : []
+  const snapPoints =
+    vertexIndex != null && path
+      ? snapPointsForEditableVertex(targets, polygonVertices, vertexIndex)
+      : targets.points
+
+  clearEditSnapCandidateMarkers()
+
+  const nearbyVertices = getNearbySnapVertices(
+    lat,
+    lng,
+    targets.points,
+    DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+    window.google.maps
+  )
+
+  for (const candidate of nearbyVertices) {
+    const marker = new window.google.maps.Marker({
+      position: { lat: candidate.lat, lng: candidate.lng },
+      map: map.value,
+      clickable: false,
+      zIndex: 1000001,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 5,
+        fillColor: '#FFFFFF',
+        fillOpacity: 0.95,
+        strokeColor: '#F57F17',
+        strokeWeight: 2,
+      },
+    })
+    editSnapCandidateMarkers.push(marker)
+  }
+
+  const snapped = snapToNearestBoundary(
+    lat,
+    lng,
+    snapPoints,
+    targets.segments,
+    DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+    window.google.maps
+  )
+
+  if (!snapped.snapped) {
+    if (editSnapMarker) {
+      editSnapMarker.setMap(null)
+      editSnapMarker = null
+    }
+    editSnapPreviewActive.value = nearbyVertices.length > 0
+    return
+  }
+
+  if (editSnapMarker) {
+    editSnapMarker.setMap(null)
+    editSnapMarker = null
+  }
+
+  const isDuplicateCandidate = nearbyVertices.some((candidate) =>
+    isSameSnapPoint(candidate, snapped)
+  )
+
+  if (!isDuplicateCandidate || snapped.kind === 'edge') {
+    editSnapMarker = new window.google.maps.Marker({
+      position: { lat: snapped.lat, lng: snapped.lng },
+      map: map.value,
+      clickable: false,
+      zIndex: 1000003,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: snapped.kind === 'edge' ? 8 : 7,
+        fillColor: snapped.kind === 'edge' ? '#00BCD4' : '#FFD600',
+        fillOpacity: 1,
+        strokeColor: snapped.kind === 'edge' ? '#00838F' : '#F57F17',
+        strokeWeight: 2,
+      },
+    })
+  }
+
+  editSnapPreviewActive.value = true
+}
+
+const getEditableSettlementPolygon = () => {
+  if (settlementPolygon.value) return settlementPolygon.value
+  if (drawnPolygons.value.length > 0) {
+    return drawnPolygons.value[drawnPolygons.value.length - 1]
+  }
+  return null
+}
+
+const detachEditSnapPreview = () => {
+  if (editSnapMoveListener) {
+    window.google.maps.event.removeListener(editSnapMoveListener)
+    editSnapMoveListener = null
+  }
+  if (editSnapMouseOutListener) {
+    window.google.maps.event.removeListener(editSnapMouseOutListener)
+    editSnapMouseOutListener = null
+  }
+  clearEditSnapPreview()
+}
+
+const attachEditSnapPreview = () => {
+  detachEditSnapPreview()
+  if (!map.value || !window.google?.maps) return
+
+  editSnapMoveListener = map.value.addListener('mousemove', (event: any) => {
+    updateEditSnapPreview(event.latLng.lat(), event.latLng.lng())
+  })
+
+  editSnapMouseOutListener = map.value.addListener('mouseout', () => {
+    clearEditSnapPreview()
+  })
+}
+
+const snapEditablePolygonVertex = (polygon: any, vertexIndex: number): boolean => {
+  if (!polygon || !window.google?.maps) return false
+
+  const path = polygon.getPath()
+  const latLng = path?.getAt(vertexIndex)
+  if (!latLng) return false
+
+  const polygonVertices = getPolygonPathVertices(path)
+  const snapped = snapEditableVertex(
+    latLng.lat(),
+    latLng.lng(),
+    boundarySnapTargets.value,
+    polygonVertices,
+    vertexIndex,
+    DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+    window.google.maps
+  )
+
+  if (!snapped.snapped) return false
+
+  const nextLatLng = new window.google.maps.LatLng(snapped.lat, snapped.lng)
+  if (
+    Math.abs(nextLatLng.lat() - latLng.lat()) < 1e-9 &&
+    Math.abs(nextLatLng.lng() - latLng.lng()) < 1e-9
+  ) {
+    return false
+  }
+
+  isApplyingVertexSnap = true
+  try {
+    path.setAt(vertexIndex, nextLatLng)
+  } finally {
+    isApplyingVertexSnap = false
+  }
+  return true
+}
+
+const schedulePolygonGeometryUpdate = (polygon: any) => {
+  if (polygonGeometryUpdateTimer) {
+    clearTimeout(polygonGeometryUpdateTimer)
+  }
+  polygonGeometryUpdateTimer = setTimeout(() => {
+    polygonGeometryUpdateTimer = null
+    updatePolygonGeometry(polygon)
+  }, 150)
+}
+
+const handlePolygonPathVertexChange = (polygon: any, vertexIndex: number) => {
+  if (isApplyingVertexSnap) return
+
+  const path = polygon?.getPath()
+  const latLng = path?.getAt(vertexIndex)
+  if (path && latLng) {
+    updateEditSnapPreview(latLng.lat(), latLng.lng(), vertexIndex, path)
+  }
+
+  snapEditablePolygonVertex(polygon, vertexIndex)
+  schedulePolygonGeometryUpdate(polygon)
+}
+
+const handlePolygonPathVertexInsert = (polygon: any, vertexIndex: number) => {
+  if (isApplyingVertexSnap) return
+
+  const path = polygon?.getPath()
+  const latLng = path?.getAt(vertexIndex)
+  if (path && latLng) {
+    updateEditSnapPreview(latLng.lat(), latLng.lng(), vertexIndex, path)
+  }
+
+  snapEditablePolygonVertex(polygon, vertexIndex)
+  updatePolygonGeometry(polygon)
+}
+
+const attachSettlementPolygonPathListeners = (polygon: any) => {
+  if (!polygon?.getPath) return
+  const path = polygon.getPath()
+  path.addListener('set_at', (index: number) => handlePolygonPathVertexChange(polygon, index))
+  path.addListener('insert_at', (index: number) => handlePolygonPathVertexInsert(polygon, index))
+  path.addListener('remove_at', () => {
+    clearEditSnapPreview()
+    updatePolygonGeometry(polygon)
+  })
+  attachEditSnapPreview()
 }
 
 const stopPolygonDrawing = () => {
@@ -760,6 +1024,7 @@ const waitForMapIdle = (mapInstance: any, maxMs = 6000) =>
 
 const destroyMapInstance = () => {
   stopPolygonDrawing()
+  detachEditSnapPreview()
   clearOvertureBuildingLayers()
   wardPolygon.value.forEach(p => { if (p) p.setMap(null) })
   wardPolygon.value = []
@@ -925,6 +1190,7 @@ const handleWardChange = async (wardId: any) => {
       }
 
       wardGeo.value = res.data[0].json_build_object
+      refreshBoundarySnapTargets()
       settlementForm.ward_id = wardId
       settlementForm.county_id = selectedCounty.value
       applyWardSubcountyToForm(ward)
@@ -1410,6 +1676,7 @@ const fetchNeighboringSettlementsForWard = async (silent = false) => {
 
     const count = neighboringSettlements.value.length
     neighborSettlementGeometries.value = settlementsWithGeo as NeighborSettlementGeometry[]
+    refreshBoundarySnapTargets()
 
     const activeGeom = settlementForm.geom || settlementGeometry.value
     if (activeGeom) {
@@ -1541,6 +1808,9 @@ const runBoundaryOverlapCheck = async (
 
 const scheduleBoundaryOverlapCheck = (geometry: any) => {
   if (!geometry) return
+
+  void runBoundaryOverlapCheck(geometry, { showMessage: false })
+
   if (overlapCheckTimer) clearTimeout(overlapCheckTimer)
   overlapCheckTimer = setTimeout(() => {
     overlapCheckTimer = null
@@ -1687,10 +1957,8 @@ const loadSettlementBoundary = () => {
       })
       map.value.fitBounds(bounds)
 
-      // Listen for geometry changes
-      settlementPolygon.value.getPath().addListener('set_at', () => updatePolygonGeometry(settlementPolygon.value))
-      settlementPolygon.value.getPath().addListener('insert_at', () => updatePolygonGeometry(settlementPolygon.value))
-      settlementPolygon.value.getPath().addListener('remove_at', () => updatePolygonGeometry(settlementPolygon.value))
+      refreshBoundarySnapTargets()
+      attachSettlementPolygonPathListeners(settlementPolygon.value)
 
       // Add click listener to open drawer when polygon is clicked
       settlementPolygon.value.addListener('click', () => {
@@ -1701,6 +1969,11 @@ const loadSettlementBoundary = () => {
       drawerVisible.value = true
       
       scheduleNeighboringSettlementsRefresh()
+
+      const loadedGeom = parseSettlementGeometry(geom)
+      if (loadedGeom) {
+        void runBoundaryOverlapCheck(loadedGeom, { showMessage: false })
+      }
     }
   } catch (error) {
     console.error('Error loading settlement boundary:', error)
@@ -1834,6 +2107,7 @@ const deleteDrawnShape = () => {
   
   // Clear geometry data
   if (hasDeleted) {
+    detachEditSnapPreview()
     settlementGeometry.value = null
     settlementForm.geom = null
     settlementForm.area = null
@@ -1969,10 +2243,7 @@ const submitForm = async () => {
     }
 
     const boundaryGeom = settlementForm.geom || settlementGeometry.value
-    const overlaps =
-      settlementOverlaps.value.length > 0
-        ? settlementOverlaps.value
-        : await runBoundaryOverlapCheck(boundaryGeom, { showMessage: false })
+    const overlaps = await runBoundaryOverlapCheck(boundaryGeom, { showMessage: false })
 
     if (overlaps.length > 0 && settlementBoundaryModified.value) {
       showBoundaryOverlapBlockedMessage(overlaps)
@@ -3251,7 +3522,7 @@ onMounted(async () => {
           <ul class="overlap-warning-list">
             <li v-for="overlap in settlementOverlaps" :key="overlap.id">
               {{ overlap.name }}
-              <span v-if="overlap.overlapAreaHa != null">({{ overlap.overlapAreaHa.toFixed(2) }} ha)</span>
+              <span v-if="overlap.overlapAreaHa != null">({{ formatOverlapArea(overlap.overlapAreaHa) }})</span>
             </li>
           </ul>
           <div class="overlap-warning-hint">
@@ -3273,7 +3544,13 @@ onMounted(async () => {
         <div v-if="mapLoading" class="map-status-banner">Loading map…</div>
         <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
           Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} —
-          click to add corners (snaps to ward/neighbor lines and corners{{ drawSnapPreviewActive ? '; yellow dot = snap target' : '' }}), double-click to finish
+          click to add corners (white = nearby corners; yellow/cyan = snap target), double-click to finish
+        </div>
+        <div
+          v-else-if="!isDrawingMode && editSnapPreviewActive && (settlementPolygon || drawnPolygons.length > 0)"
+          class="map-status-banner map-status-banner--drawing"
+        >
+          Snap preview — white dots = nearby corners; yellow = corner snap; cyan = edge snap
         </div>
         <div v-else-if="overtureBuildingCount != null && overtureBuildingCount > 0" class="map-status-banner map-status-banner--overture">
           Overture: {{ overtureBuildingCount }} building{{ overtureBuildingCount === 1 ? '' : 's' }} (cyan) · Ward neighbors in pink
@@ -3340,7 +3617,7 @@ onMounted(async () => {
                 <ul class="overlap-warning-list">
                   <li v-for="overlap in settlementOverlaps" :key="`drawer-${overlap.id}`">
                     {{ overlap.name }}
-                    <span v-if="overlap.overlapAreaHa != null">({{ overlap.overlapAreaHa.toFixed(2) }} ha)</span>
+                    <span v-if="overlap.overlapAreaHa != null">({{ formatOverlapArea(overlap.overlapAreaHa) }})</span>
                   </li>
                 </ul>
               </el-alert>

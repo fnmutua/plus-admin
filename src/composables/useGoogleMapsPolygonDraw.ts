@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import {
   DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+  getNearbySnapVertices,
   snapToNearestBoundary,
   type BoundarySnapTargets,
   type MapSnapPoint,
@@ -43,9 +44,17 @@ export function useGoogleMapsPolygonDraw() {
   const path: any[] = []
   let previewLine: any = null
   let snapMarker: any = null
+  let snapCandidateMarkers: any[] = []
   let snapPoints: MapSnapPoint[] = []
   let snapSegments: MapSnapSegment[] = []
   let snapRadiusMeters = DEFAULT_VERTEX_SNAP_RADIUS_METERS
+
+  function clearSnapCandidateMarkers() {
+    snapCandidateMarkers.forEach((marker) => {
+      if (marker) marker.setMap(null)
+    })
+    snapCandidateMarkers = []
+  }
 
   function clearSnapMarker() {
     if (snapMarker) {
@@ -53,6 +62,18 @@ export function useGoogleMapsPolygonDraw() {
       snapMarker = null
     }
     snapPreviewActive.value = false
+  }
+
+  function clearSnapPreview() {
+    clearSnapCandidateMarkers()
+    clearSnapMarker()
+  }
+
+  function isSameSnapPoint(
+    a: { lat: number; lng: number },
+    b: { lat: number; lng: number }
+  ) {
+    return Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7
   }
 
   function getSnapCandidates(includeAllPathVertices = false): MapSnapPoint[] {
@@ -85,37 +106,82 @@ export function useGoogleMapsPolygonDraw() {
   function updateSnapPreview(latLng: any) {
     if (!mapInstance || !window.google?.maps) return
 
+    const lat = latLng.lat()
+    const lng = latLng.lng()
+    const snapPointTargets = getSnapCandidates()
+
+    clearSnapCandidateMarkers()
+
+    const nearbyVertices = getNearbySnapVertices(
+      lat,
+      lng,
+      snapPoints,
+      snapRadiusMeters,
+      window.google.maps
+    )
+
+    for (const candidate of nearbyVertices) {
+      const marker = new window.google.maps.Marker({
+        position: { lat: candidate.lat, lng: candidate.lng },
+        map: mapInstance,
+        clickable: false,
+        zIndex: 1000001,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 5,
+          fillColor: '#FFFFFF',
+          fillOpacity: 0.95,
+          strokeColor: '#F57F17',
+          strokeWeight: 2,
+        },
+      })
+      snapCandidateMarkers.push(marker)
+    }
+
     const snapped = snapToNearestBoundary(
-      latLng.lat(),
-      latLng.lng(),
-      getSnapCandidates(),
+      lat,
+      lng,
+      snapPointTargets,
       snapSegments,
       snapRadiusMeters,
       window.google.maps
     )
 
     if (!snapped.snapped) {
-      clearSnapMarker()
+      if (snapMarker) {
+        snapMarker.setMap(null)
+        snapMarker = null
+      }
+      snapPreviewActive.value = nearbyVertices.length > 0
       return
     }
 
-    if (!snapMarker) {
+    if (snapMarker) {
+      snapMarker.setMap(null)
+      snapMarker = null
+    }
+
+    const isDuplicateCandidate = nearbyVertices.some((candidate) =>
+      isSameSnapPoint(candidate, snapped)
+    )
+
+    if (!isDuplicateCandidate || snapped.kind === 'edge') {
       snapMarker = new window.google.maps.Marker({
+        position: { lat: snapped.lat, lng: snapped.lng },
         map: mapInstance,
         clickable: false,
-        zIndex: 1000002,
+        zIndex: 1000003,
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 7,
-          fillColor: '#FFD600',
+          scale: snapped.kind === 'edge' ? 8 : 7,
+          fillColor: snapped.kind === 'edge' ? '#00BCD4' : '#FFD600',
           fillOpacity: 1,
-          strokeColor: '#F57F17',
+          strokeColor: snapped.kind === 'edge' ? '#00838F' : '#F57F17',
           strokeWeight: 2,
         },
       })
     }
 
-    snapMarker.setPosition({ lat: snapped.lat, lng: snapped.lng })
     snapPreviewActive.value = true
   }
 
@@ -164,7 +230,7 @@ export function useGoogleMapsPolygonDraw() {
     }
     path.length = 0
     pointCount.value = 0
-    clearSnapMarker()
+    clearSnapPreview()
   }
 
   function stopDrawing() {
