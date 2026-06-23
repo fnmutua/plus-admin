@@ -427,7 +427,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               props: true,
               icon:'bi:house-add',
               title: 'Add Settlement',
-              permissions: ['settlement:create'],
+              noCache: true,
+              permissions: ['settlement:create', 'settlement:update'],
             }
           }, 
           {

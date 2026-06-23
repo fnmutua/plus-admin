@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, reactive, nextTick, computed, onMounted, onActivated, watch } from 'vue'
+import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
 
 
 declare global {
@@ -36,7 +36,8 @@ import {
   ElCollapseItem,
   ElIcon
 } from 'element-plus'
-import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit,ArrowRight, QuestionFilled } from '@element-plus/icons-vue'
+import { Icon } from '@iconify/vue'
+import { ArrowLeft, Check, Delete, UploadFilled, Back, Edit, ArrowRight, QuestionFilled, RefreshLeft } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
 import { fetchOvertureBuildings, createOvertureStructures } from '@/api/settlements-overture'
@@ -196,8 +197,18 @@ const neighborSettlementGeometries = ref<NeighborSettlementGeometry[]>([])
 const settlementOverlaps = ref<SettlementBoundaryOverlap[]>([])
 const overlapHighlightLayers = ref<any[]>([])
 const settlementBoundaryModified = ref(false)
+const originalSettlementGeometry = ref<any>(null)
 const hasBlockingBoundaryOverlap = computed(
   () => settlementBoundaryModified.value && settlementOverlaps.value.length > 0
+)
+const showUndoBoundaryButton = computed(
+  () =>
+    isEditMode.value &&
+    !!originalSettlementGeometry.value &&
+    !!(settlementPolygon.value || settlementMarker.value || settlementGeometry.value)
+)
+const canUndoBoundaryChanges = computed(
+  () => settlementBoundaryModified.value && !!originalSettlementGeometry.value
 )
 const boundarySnapTargets = ref<BoundarySnapTargets>({ points: [], segments: [] })
 let isApplyingVertexSnap = false
@@ -1230,24 +1241,33 @@ const handleWardChange = async (wardId: any) => {
 }
 
 // Initialize Google Maps with ward boundary (for new) or settlement boundary (for edit)
-const initializeMap = async (isStale = () => false) => {
-  if (isStale()) return
+const waitForMapContainer = async (isStale = () => false, maxAttempts = 20) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (isStale()) return false
+    await nextTick()
+    if (mapContainer.value) return true
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+  return !!mapContainer.value
+}
 
+const initializeMap = async (isStale = () => false) => {
   mapLoading.value = true
   mapError.value = null
   drawReady.value = false
-  destroyMapInstance()
-
-  await nextTick()
-  await nextTick()
-
-  if (isStale()) return
-  if (!mapContainer.value) {
-    mapError.value = 'Map container is not ready'
-    return
-  }
 
   try {
+    if (isStale()) return
+
+    destroyMapInstance()
+
+    const containerReady = await waitForMapContainer(isStale)
+    if (isStale()) return
+    if (!containerReady || !mapContainer.value) {
+      mapError.value = 'Map container is not ready'
+      return
+    }
+
     await withTimeout(loadGoogleMapsApi(), LOCATION_FETCH_TIMEOUT_MS, 'Google Maps')
     if (isStale()) return
 
@@ -1338,7 +1358,9 @@ const initializeMap = async (isStale = () => false) => {
     drawReady.value = false
     ElMessage.error(mapError.value)
   } finally {
-    mapLoading.value = false
+    if (!isStale()) {
+      mapLoading.value = false
+    }
   }
 }
 
@@ -1912,6 +1934,7 @@ const loadSettlementBoundary = () => {
         }
         settlementGeometry.value = newGeom
         settlementForm.geom = newGeom
+        settlementBoundaryModified.value = true
       })
       
       // Add click listener to open drawer when marker is clicked
@@ -2007,6 +2030,94 @@ const checkPolygonWithinWard = (polygon: any): boolean => {
     console.error('Error checking polygon within ward:', error)
     return true // Allow if check fails
   }
+}
+
+const cloneGeometry = (geom: any) => {
+  if (!geom) return null
+  try {
+    return JSON.parse(JSON.stringify(geom))
+  } catch {
+    return null
+  }
+}
+
+const geometryToPolygonPaths = (geom: any) => {
+  if (geom.type === 'Polygon') {
+    return geom.coordinates[0].map((coord: number[]) => ({
+      lat: coord[1],
+      lng: coord[0],
+    }))
+  }
+  if (geom.type === 'MultiPolygon') {
+    return geom.coordinates[0][0].map((coord: number[]) => ({
+      lat: coord[1],
+      lng: coord[0],
+    }))
+  }
+  return []
+}
+
+const applyGeometryToEditableBoundary = (geom: any) => {
+  if (!geom) return
+
+  isApplyingVertexSnap = true
+  try {
+    if (geom.type === 'Point') {
+      if (settlementMarker.value) {
+        const [lng, lat] = geom.coordinates
+        settlementMarker.value.setPosition({ lat, lng })
+      }
+    } else if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+      const paths = geometryToPolygonPaths(geom)
+      if (settlementPolygon.value && paths.length) {
+        settlementPolygon.value.setPaths(paths)
+      }
+    }
+  } finally {
+    isApplyingVertexSnap = false
+  }
+}
+
+const undoBoundaryChanges = async () => {
+  if (!originalSettlementGeometry.value) {
+    ElMessage.warning('No saved boundary to restore')
+    return
+  }
+  if (!settlementBoundaryModified.value) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      'Restore the boundary to how it was when you opened this settlement?',
+      'Undo boundary changes',
+      { confirmButtonText: 'Undo changes', cancelButtonText: 'Keep editing', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  const geom = cloneGeometry(originalSettlementGeometry.value)
+  if (!geom) {
+    ElMessage.error('Could not restore boundary')
+    return
+  }
+
+  clearEditSnapPreview()
+  settlementGeometry.value = geom
+  settlementForm.geom = geom
+  settlementBoundaryModified.value = false
+  applyGeometryToEditableBoundary(geom)
+
+  const areaHectares = calculateAreaInHectares(geom)
+  settlementForm.area = areaHectares != null ? areaHectares : ''
+
+  settlementOverlaps.value = []
+  clearOverlapHighlights()
+  scheduleOvertureRefreshForGeometry(geom)
+  void runBoundaryOverlapCheck(geom, { showMessage: false })
+
+  ElMessage.success('Boundary restored')
 }
 
 const updatePolygonGeometry = (polygon: any) => {
@@ -2374,6 +2485,11 @@ const submitForm = async () => {
 
 // Go back to previous step
 const goBack = () => {
+  if (isEditMode.value) {
+    router.back()
+    return
+  }
+
   if (currentStep.value > 0) {
     abortWardGeoLoad()
     currentStep.value--
@@ -2436,6 +2552,14 @@ const overtureBuildingLayers = ref<any[]>([])
 const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
 /** Edit mode only: when checked, replace all structures with Overture footprints on save. */
 const updateStructuresFromOverture = ref(false)
+
+/** Fallback when ward survey and stored avg household size are unavailable. */
+const DEFAULT_PERSONS_PER_BUILDING = 4
+
+const hasMissingPopulation = () => {
+  const p = settlementForm.population
+  return p == null || p === '' || !Number.isFinite(Number(p)) || Number(p) <= 0
+}
 
 const parseSettlementGeometry = (geometry: any) => {
   if (!geometry) return null
@@ -2632,6 +2756,32 @@ const ensureWardAvgHouseholdSize = async (): Promise<number | null> => {
   return avg
 }
 
+type PersonsPerBuildingSource = 'ward' | 'settlement' | 'default'
+
+const resolvePersonsPerBuilding = async (): Promise<{
+  ppb: number
+  source: PersonsPerBuildingSource
+}> => {
+  const fromWard = await ensureWardAvgHouseholdSize()
+  if (fromWard != null && Number.isFinite(fromWard) && fromWard > 0) {
+    return { ppb: fromWard, source: 'ward' }
+  }
+
+  const fromSettlement = Number(settlementForm.avg_household_size)
+  if (Number.isFinite(fromSettlement) && fromSettlement > 0) {
+    wardAvgHouseholdSize.value = fromSettlement
+    return { ppb: fromSettlement, source: 'settlement' }
+  }
+
+  return { ppb: DEFAULT_PERSONS_PER_BUILDING, source: 'default' }
+}
+
+const formatPpbSourceLabel = (ppb: number, source: PersonsPerBuildingSource) => {
+  if (source === 'ward') return `${ppb.toFixed(2)} ward avg HH size`
+  if (source === 'settlement') return `${ppb.toFixed(2)} stored avg HH size`
+  return `${ppb.toFixed(2)} default persons/building`
+}
+
 const applyPopulationTotals = async (
   total: number,
   options?: { avgHouseholdSize?: number | null; message?: string }
@@ -2667,7 +2817,7 @@ const fetchOpenBuildingsPopulation = async (geometry: any, ppb?: number | null) 
 // Auto-fill population from building-based population estimation service (Open Buildings)
 const fetchPopulationEstimate = async (geometry: any) => {
   try {
-    const ppb = await ensureWardAvgHouseholdSize()
+    const { ppb } = await resolvePersonsPerBuilding()
     const data = await fetchOpenBuildingsPopulation(geometry, ppb)
     if (data?.estimated_population != null) {
       const hhLabel =
@@ -2703,26 +2853,30 @@ const refreshOvertureMapPreview = async (
   return overture
 }
 
-/** Population estimate from Overture / Open Buildings — manual button or create-mode auto only. */
-const applyPopulationEstimateFromBuildings = async (geometry: any) => {
+/** Population estimate from Overture / Open Buildings — manual button or auto when population missing. */
+const applyPopulationEstimateFromBuildings = async (
+  geometry: any,
+  options?: { skipOvertureFetch?: boolean; silent?: boolean }
+) => {
   populationLoading.value = true
   try {
-    const ppb = await ensureWardAvgHouseholdSize()
+    const { ppb, source } = await resolvePersonsPerBuilding()
 
-    const overture = await fetchOvertureBuildingsForSettlement(geometry)
-    const overtureCount = Number(overture?.count) || 0
+    let overtureCount = options?.skipOvertureFetch ? Number(overtureBuildingCount.value) || 0 : 0
+    if (!options?.skipOvertureFetch || overtureCount <= 0) {
+      const overture = await fetchOvertureBuildingsForSettlement(geometry)
+      overtureCount = Number(overture?.count) || 0
+    }
 
-    if (overtureCount > 0 && ppb != null && Number.isFinite(ppb)) {
+    if (overtureCount > 0) {
       const total = overtureCount * ppb
       await applyPopulationTotals(total, {
         avgHouseholdSize: ppb,
-        message: `Population estimated from Overture: {population} (${overtureCount} buildings × ${ppb.toFixed(2)} avg HH size)`,
+        message: options?.silent
+          ? undefined
+          : `Population estimated from Overture: {population} (${overtureCount} buildings × ${formatPpbSourceLabel(ppb, source)})`,
       })
       return
-    }
-
-    if (overtureCount > 0 && ppb == null) {
-      ElMessage.info('Ward average household size unavailable — trying Open Buildings estimate.')
     }
 
     await fetchPopulationEstimate(geometry)
@@ -2731,15 +2885,25 @@ const applyPopulationEstimateFromBuildings = async (geometry: any) => {
   }
 }
 
-/** After boundary draw/upload: preview only in edit; climate + population in create. */
+const maybeAutoFillPopulationFromBuildings = async (geometry: any) => {
+  if (!hasMissingPopulation()) return
+  if ((overtureBuildingCount.value ?? 0) <= 0) return
+  await applyPopulationEstimateFromBuildings(geometry, { skipOvertureFetch: true })
+}
+
+/** After boundary draw/upload: Overture preview; auto-estimate population when missing. */
 const onSettlementGeometryReady = async (geometry: any) => {
-  if (isEditMode.value) {
-    await refreshOvertureMapPreview(geometry)
-    return
+  await refreshOvertureMapPreview(geometry, { showMessage: !isEditMode.value })
+
+  if (!isEditMode.value) {
+    fetchClimateData(geometry)
   }
 
-  fetchClimateData(geometry)
-  await applyPopulationEstimateFromBuildings(geometry)
+  if (hasMissingPopulation() && (overtureBuildingCount.value ?? 0) > 0) {
+    await applyPopulationEstimateFromBuildings(geometry, { skipOvertureFetch: true })
+  } else if (!isEditMode.value) {
+    await applyPopulationEstimateFromBuildings(geometry)
+  }
 }
 
 const resolveSettlementIdFromCreateResponse = (res: any): number | null => {
@@ -3184,8 +3348,163 @@ const loadVulnerabilityOptions = async () => {
   }
 }
 
-// Initialize on mount
-onMounted(async () => {
+let editLoadSeq = 0
+
+const getRouteSettlementId = (query: Record<string, any> = route.query): number | null => {
+  const raw = query.id
+  const id = Array.isArray(raw) ? raw[0] : raw
+  if (id == null || id === '') return null
+  const n = Number(id)
+  return Number.isFinite(n) ? n : null
+}
+
+const syncEditModeFromRoute = (query: Record<string, any> = route.query) => {
+  const settlementId = getRouteSettlementId(query)
+  isEditMode.value = settlementId != null
+  editingSettlementId.value = settlementId
+  if (settlementId != null) {
+    currentStep.value = 1
+  }
+}
+
+const loadSettlementForEdit = async (
+  settlementId: number,
+  query: Record<string, any> = route.query
+) => {
+  const loadSeq = ++editLoadSeq
+  syncEditModeFromRoute(query)
+  editingSettlementId.value = settlementId
+
+  const routeCounty = query.county_id
+  const routeSubcounty = query.subcounty_id
+  const routeWard = query.ward_id
+  if (routeCounty) {
+    await applyLocationFromRecord(routeCounty, routeWard, routeSubcounty)
+    if (loadSeq !== editLoadSeq) return
+  }
+
+  try {
+    const form = {
+      model: 'settlement',
+      id: String(settlementId)
+    }
+
+    const res = await getOneSettlement(form as any)
+    if (loadSeq !== editLoadSeq) return
+    const curData = res.data
+
+    Object.assign(settlementForm, curData)
+
+    if (curData.population != null && curData.population !== '') {
+      settlementForm.population = Number(curData.population)
+    }
+    if (curData.pop_male != null && curData.pop_male !== '') {
+      settlementForm.pop_male = Number(curData.pop_male)
+    }
+    if (curData.pop_female != null && curData.pop_female !== '') {
+      settlementForm.pop_female = Number(curData.pop_female)
+    }
+
+    settlementForm.near_river = booleanToYesNo(curData.near_river)
+    settlementForm.on_wayleave = booleanToYesNo(curData.on_wayleave)
+    settlementForm.on_road_reserve = booleanToYesNo(curData.on_road_reserve)
+    settlementForm.electricity_availability = booleanToYesNo(curData.electricity_availability)
+    settlementForm.piped_water_availability = booleanToYesNo(curData.piped_water_availability)
+
+    if (curData.structure_types && typeof curData.structure_types === 'string') {
+      settlementForm.structure_types = curData.structure_types.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+    } else if (!curData.structure_types) {
+      settlementForm.structure_types = []
+    }
+
+    if (curData.development && typeof curData.development === 'string') {
+      settlementForm.development = curData.development.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+    } else if (!curData.development) {
+      settlementForm.development = []
+    }
+
+    if (curData.typical_building_materials && typeof curData.typical_building_materials === 'string') {
+      settlementForm.typical_building_materials = curData.typical_building_materials.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+    } else if (!curData.typical_building_materials) {
+      settlementForm.typical_building_materials = []
+    }
+
+    const parsed = resolvePlanningSurveyFromRecord(curData)
+    settlementForm.planning_status = parsed.planning
+    settlementForm.survey_status = parsed.survey
+
+    if (curData.landuse && typeof curData.landuse === 'string') {
+      settlementForm.landuse = curData.landuse.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+    } else if (!curData.landuse) {
+      settlementForm.landuse = []
+    }
+
+    await applyLocationFromRecord(
+      curData.county_id,
+      curData.ward_id,
+      curData.subcounty_id
+    )
+    if (loadSeq !== editLoadSeq) return
+
+    if (curData.geom) {
+      const geom = parseSettlementGeometry(curData.geom)
+      if (geom) {
+        settlementGeometry.value = geom
+        settlementForm.geom = geom
+        settlementBoundaryModified.value = false
+        originalSettlementGeometry.value = cloneGeometry(geom)
+
+        const areaHectares = calculateAreaInHectares(geom)
+        if (areaHectares !== null) {
+          settlementForm.area = areaHectares
+        }
+
+        void refreshOvertureMapPreview(geom, { showMessage: false }).then(() =>
+          maybeAutoFillPopulationFromBuildings(geom)
+        )
+      }
+    }
+
+    if (curData.ward_id) {
+      const wardRes = await withTimeout(
+        getOneGeo({ model: 'ward', id: String(curData.ward_id) }),
+        LOCATION_FETCH_TIMEOUT_MS,
+        'Ward boundary'
+      )
+      if (loadSeq !== editLoadSeq) return
+      if (wardRes.data[0]?.json_build_object?.features) {
+        wardGeo.value = wardRes.data[0].json_build_object
+      }
+    }
+
+    currentStep.value = 1
+    await nextTick()
+    await initializeMap()
+
+    if (loadSeq !== editLoadSeq) return
+
+    if (curData.ward_id) {
+      loadWardAvgHouseholdSizeDeferred(curData.ward_id)
+    }
+  } catch (error) {
+    if (loadSeq !== editLoadSeq) return
+    console.error('Error loading settlement:', error)
+    ElMessage.error('Failed to load settlement data')
+  }
+}
+
+const initializeAddSettlementPage = async () => {
+  const routeCountyId = route.query.county_id
+  if (routeCountyId) {
+    selectedCounty.value = Array.isArray(routeCountyId) ? routeCountyId[0] : routeCountyId
+    await handleCountyChange(selectedCounty.value)
+  } else if (isCountyRestricted.value && userCountyId.value) {
+    selectedCounty.value = userCountyId.value
+    await handleCountyChange(userCountyId.value)
+  }
+}
+
+const initializePage = async (query: Record<string, any> = route.query) => {
   try {
     await Promise.all([loadCounties(), loadSubcounties()])
   } catch {
@@ -3193,138 +3512,60 @@ onMounted(async () => {
   }
 
   await loadVulnerabilityOptions()
-  // Check if editing (route has id)
-  const settlementId = route.query.id
-  
+
+  const settlementId = getRouteSettlementId(query)
   if (settlementId) {
-    editingSettlementId.value = Number(settlementId)
-
-    // Location ids from list/details edit click (immediate, before API)
-    const routeCounty = route.query.county_id
-    const routeSubcounty = route.query.subcounty_id
-    const routeWard = route.query.ward_id
-    if (routeCounty) {
-      await applyLocationFromRecord(routeCounty, routeWard, routeSubcounty)
-    }
-    
-    try {
-      const form = {
-        model: 'settlement',
-        id: String(settlementId)
-      }
-      
-      const res = await getOneSettlement(form as any)
-      const curData = res.data
-      
-      // Populate form
-      Object.assign(settlementForm, curData)
-
-      if (curData.population != null && curData.population !== '') {
-        settlementForm.population = Number(curData.population)
-      }
-      if (curData.pop_male != null && curData.pop_male !== '') {
-        settlementForm.pop_male = Number(curData.pop_male)
-      }
-      if (curData.pop_female != null && curData.pop_female !== '') {
-        settlementForm.pop_female = Number(curData.pop_female)
-      }
-
-      // Boolean DB fields -> yes/no for form selects
-      settlementForm.near_river = booleanToYesNo(curData.near_river)
-      settlementForm.on_wayleave = booleanToYesNo(curData.on_wayleave)
-      settlementForm.on_road_reserve = booleanToYesNo(curData.on_road_reserve)
-      settlementForm.electricity_availability = booleanToYesNo(curData.electricity_availability)
-      settlementForm.piped_water_availability = booleanToYesNo(curData.piped_water_availability)
-      
-      // Convert comma-separated strings back to arrays for checkbox groups
-      if (curData.structure_types && typeof curData.structure_types === 'string') {
-        settlementForm.structure_types = curData.structure_types.split(',').map((s: string) => s.trim()).filter((s: string) => s)
-      } else if (!curData.structure_types) {
-        settlementForm.structure_types = []
-      }
-      
-      if (curData.development && typeof curData.development === 'string') {
-        settlementForm.development = curData.development.split(',').map((s: string) => s.trim()).filter((s: string) => s)
-      } else if (!curData.development) {
-        settlementForm.development = []
-      }
-      
-      if (curData.typical_building_materials && typeof curData.typical_building_materials === 'string') {
-        settlementForm.typical_building_materials = curData.typical_building_materials.split(',').map((s: string) => s.trim()).filter((s: string) => s)
-      } else if (!curData.typical_building_materials) {
-        settlementForm.typical_building_materials = []
-      }
-      
-      const parsed = resolvePlanningSurveyFromRecord(curData)
-      settlementForm.planning_status = parsed.planning
-      settlementForm.survey_status = parsed.survey
-      
-      // Parse landuse from string to array
-      if (curData.landuse && typeof curData.landuse === 'string') {
-        settlementForm.landuse = curData.landuse.split(',').map((s: string) => s.trim()).filter((s: string) => s)
-      } else if (!curData.landuse) {
-        settlementForm.landuse = []
-      }
-      
-      // Set location from saved record (county, ward, subcounty)
-      await applyLocationFromRecord(
-        curData.county_id,
-        curData.ward_id,
-        curData.subcounty_id
-      )
-      
-      // Load settlement geometry
-      if (curData.geom) {
-        const geom = parseSettlementGeometry(curData.geom)
-        if (geom) {
-          settlementGeometry.value = geom
-          settlementForm.geom = geom
-          settlementBoundaryModified.value = false
-
-          // Calculate area in hectares
-          const areaHectares = calculateAreaInHectares(geom)
-          if (areaHectares !== null) {
-            settlementForm.area = areaHectares
-          }
-
-          void refreshOvertureMapPreview(geom, { showMessage: false })
-        }
-      }
-      
-      // Get ward geometry for context
-      if (curData.ward_id) {
-        const wardRes = await withTimeout(
-          getOneGeo({ model: 'ward', id: String(curData.ward_id) }),
-          LOCATION_FETCH_TIMEOUT_MS,
-          'Ward boundary'
-        )
-        if (wardRes.data[0]?.json_build_object?.features) {
-          wardGeo.value = wardRes.data[0].json_build_object
-        }
-      }
-
-      // Move directly to map step
-      currentStep.value = 1
-      await nextTick()
-      await initializeMap()
-
-      if (curData.ward_id) {
-        loadWardAvgHouseholdSizeDeferred(curData.ward_id)
-      }
-    } catch (error) {
-      console.error('Error loading settlement:', error)
-      ElMessage.error('Failed to load settlement data')
-    }
+    await loadSettlementForEdit(settlementId, query)
   } else {
-    // New settlement - check if county is pre-selected from route
-    const routeCountyId = route.query.county_id
-    if (routeCountyId) {
-      selectedCounty.value = Array.isArray(routeCountyId) ? routeCountyId[0] : routeCountyId
-      await handleCountyChange(selectedCounty.value)
-    } else if (isCountyRestricted.value && userCountyId.value) {
-      selectedCounty.value = userCountyId.value
-      await handleCountyChange(userCountyId.value)
-    }
+    syncEditModeFromRoute(query)
+    currentStep.value = 0
+    await initializeAddSettlementPage()
+  }
+}
+
+// Initialize on mount
+onMounted(() => {
+  syncEditModeFromRoute()
+  void initializePage()
+})
+
+onBeforeRouteUpdate(async (to) => {
+  const nextId = getRouteSettlementId(to.query)
+  const currentId = editingSettlementId.value
+
+  if (nextId === currentId && drawReady.value) {
+    syncEditModeFromRoute(to.query)
+    return
+  }
+
+  editLoadSeq++
+  destroyMapInstance()
+  settlementGeometry.value = null
+  settlementBoundaryModified.value = false
+  originalSettlementGeometry.value = null
+  drawerVisible.value = false
+
+  if (nextId) {
+    await initializePage(to.query)
+  } else {
+    syncEditModeFromRoute(to.query)
+    currentStep.value = 0
+    clearFormAndGeometry()
+    await initializePage(to.query)
+  }
+})
+
+onActivated(() => {
+  syncEditModeFromRoute()
+  const settlementId = getRouteSettlementId()
+  if (!settlementId) return
+
+  if (currentStep.value !== 1) {
+    currentStep.value = 1
+  }
+
+  if (editingSettlementId.value !== settlementId || !drawReady.value) {
+    void loadSettlementForEdit(settlementId)
   }
 })
 </script>
@@ -3342,63 +3583,71 @@ onMounted(async () => {
 
           <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
           <div class="header-actions">
-            <el-button 
-              v-if="currentStep === 1 && isDrawingMode" 
+            <el-button
+              v-if="currentStep === 1 && showUndoBoundaryButton"
+              type="warning"
+              plain
+              :icon="RefreshLeft"
+              title="Undo boundary changes"
+              @click="undoBoundaryChanges"
+              size="small"
+              circle
+              :disabled="!canUndoBoundaryChanges"
+              class="map-toolbar-btn undo-button"
+            />
+            <el-button
+              v-if="currentStep === 1 && isDrawingMode"
               type="success"
-              :icon="Check" 
-              @click="finishPolygonDrawing" 
+              :icon="Check"
+              title="Finish polygon"
+              @click="finishPolygonDrawing"
               size="small"
-              :circle="isMobile"
-              class="draw-button"
-            >
-              <span class="draw-text">Finish</span>
-            </el-button>
-            <el-button 
-              v-if="currentStep === 1" 
+              circle
+              class="map-toolbar-btn"
+            />
+            <el-button
+              v-if="currentStep === 1"
               :type="isDrawingMode ? 'success' : 'default'"
-              :icon="Edit" 
-              @click="toggleDrawingMode" 
+              :icon="Edit"
+              title="Draw boundary"
+              @click="toggleDrawingMode"
               size="small"
-              :circle="isMobile"
+              circle
               :disabled="mapLoading || !drawReady"
               :loading="mapLoading"
-              class="draw-button"
-            >
-              <span class="draw-text">Draw</span>
-            </el-button>
-            <el-button 
-              v-if="currentStep === 1" 
-              type="info" 
-              :icon="Plus" 
-              @click="flyDialogVisible = true" 
+              class="map-toolbar-btn"
+            />
+            <el-button
+              v-if="currentStep === 1"
+              type="info"
+              title="Fly to coordinates"
+              @click="flyDialogVisible = true"
               size="small"
-              :circle="isMobile"
-              class="draw-button"
+              circle
+              class="map-toolbar-btn"
             >
-              <span class="draw-text">Fly to coords</span>
+              <Icon icon="mdi:airplane-takeoff" width="16" height="16" />
             </el-button>
-            <el-button 
-              v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon || settlementMarker)" 
-              type="danger" 
-              :icon="Delete" 
-              @click="deleteDrawnShape" 
+            <el-button
+              v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon || settlementMarker)"
+              type="danger"
+              :icon="Delete"
+              title="Delete boundary"
+              @click="deleteDrawnShape"
               size="small"
-              :circle="isMobile"
-              class="delete-button"
-            >
-              <span class="delete-text">Delete</span>
-            </el-button>
-            <el-button 
-              v-if="currentStep === 1" 
-              type="primary" 
-              :icon="UploadFilled" 
-              @click="handleUploadClick" 
+              circle
+              class="map-toolbar-btn"
+            />
+            <el-button
+              v-if="currentStep === 1"
+              type="primary"
+              :icon="UploadFilled"
+              title="Upload boundary file"
+              @click="handleUploadClick"
               size="small"
-              :circle="isMobile"
-              class="upload-button"
-            >
-              <span class="upload-text">Upload boundary file</span>
-            </el-button>
+              circle
+              class="map-toolbar-btn"
+            />
           </div>
         </div>
       </template>
@@ -3648,9 +3897,9 @@ onMounted(async () => {
                         <ul class="text-xs space-y-2">
                           <li><strong>Primary — Overture Maps</strong> — Building footprints from Overture are counted and shown in cyan on the map.</li>
                           <li><strong>Fallback — Open Buildings</strong> — If Overture finds none, point counts from Google Open Buildings are used.</li>
-                          <li><strong>Formula</strong> — <em>population = buildings × persons per building</em> (ward average household size when available).</li>
+                          <li><strong>Formula</strong> — <em>population = Overture buildings × persons per building</em> (ward survey avg, stored settlement avg, or 4.0 default).</li>
                         </ul>
-                        <p class="text-xs mt-2 text-gray-500">In edit mode, population is not auto-estimated — use the button above. After save, Overture footprints can be imported as structure records.</p>
+                        <p class="text-xs mt-2 text-gray-500">Population auto-fills when empty and Overture finds buildings. Use the button above to re-run. Open Buildings is only used when Overture finds no footprints.</p>
                       </div>
                     </template>
                     <template #reference>
@@ -4346,53 +4595,32 @@ onMounted(async () => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
   min-width: fit-content;
   position: relative;
   z-index: 1;
 }
 
-/* Desktop: button with icon and text */
+.map-toolbar-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.map-toolbar-btn.is-disabled {
+  opacity: 0.45;
+}
+
+/* Legacy class aliases — keep mobile block working if referenced elsewhere */
 .draw-button,
 .delete-button,
-.upload-button {
-  min-width: auto;
-  width: auto;
-  height: auto;
-  padding: 5px 12px;
-  border-radius: 4px;
-  position: relative;
-  z-index: 2;
-  cursor: pointer;
-}
-
-.draw-button .draw-text,
-.delete-button .delete-text,
-.upload-button .upload-text {
-  display: inline;
-  margin-left: 4px;
-  pointer-events: none;
-}
-
-/* Desktop: ensure text is visible */
-@media (min-width: 769px) {
-  .draw-button,
-  .delete-button,
-  .upload-button {
-    min-width: auto;
-    width: auto;
-    height: auto;
-    padding: 5px 12px;
-    border-radius: 4px;
-  }
-  
-  .draw-button .draw-text,
-  .delete-button .delete-text,
-  .upload-button .upload-text {
-    display: inline;
-    margin-left: 4px;
-  }
+.upload-button,
+.undo-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
 }
 
 /* Reduce el-card header padding */
@@ -4675,23 +4903,14 @@ onMounted(async () => {
     padding: 4px 8px;
   }
 
+  .map-toolbar-btn,
   .draw-button,
   .delete-button,
-  .upload-button {
-    min-width: 32px;
+  .upload-button,
+  .undo-button {
     width: 32px;
     height: 32px;
     padding: 0;
-    position: relative;
-    z-index: 2;
-    cursor: pointer;
-  }
-  
-  .draw-button .draw-text,
-  .delete-button .delete-text,
-  .upload-button .upload-text {
-    display: none;
-    pointer-events: none;
   }
 
   :deep(.el-card__header) {
