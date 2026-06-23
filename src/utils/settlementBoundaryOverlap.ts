@@ -10,8 +10,11 @@ export type NeighborSettlementGeometry = {
 export type SettlementBoundaryOverlap = {
   id: number | string
   name: string
-  overlapAreaHa: number | null
+  overlapAreaHa: number
 }
+
+/** Filter only floating-point noise; real interior overlap is detected via booleanOverlap. */
+export const MIN_NUMERIC_OVERLAP_AREA_SQ_M = 1
 
 function toFeature(geom: Polygon | MultiPolygon): Feature<Polygon | MultiPolygon> | null {
   try {
@@ -33,21 +36,57 @@ function repairFeature(feature: Feature<Polygon | MultiPolygon>): Feature<Polygo
   return feature
 }
 
-function intersectAreaHa(
+function isPolygonalGeometry(type: string): boolean {
+  return type === 'Polygon' || type === 'MultiPolygon'
+}
+
+function intersectFeature(
   drawn: Feature<Polygon | MultiPolygon>,
   neighbor: Feature<Polygon | MultiPolygon>
-): number | null {
+): Feature | null {
   try {
     const collection: FeatureCollection<Polygon | MultiPolygon> = {
       type: 'FeatureCollection',
       features: [drawn, neighbor],
     }
-    const intersection = turf.intersect(collection)
-    if (!intersection) return null
-    return turf.area(intersection) / 10000
+    return turf.intersect(collection)
   } catch {
     return null
   }
+}
+
+/**
+ * Detect interior overlap (not shared-boundary touch).
+ * Uses booleanOverlap so edge-only contact from snapping is allowed.
+ */
+function measurePolygonalOverlapSqM(
+  drawn: Feature<Polygon | MultiPolygon>,
+  neighbor: Feature<Polygon | MultiPolygon>
+): number | null {
+  try {
+    if (!turf.booleanOverlap(drawn, neighbor)) {
+      return null
+    }
+  } catch {
+    return null
+  }
+
+  const intersection = intersectFeature(drawn, neighbor)
+  if (!intersection?.geometry) {
+    return MIN_NUMERIC_OVERLAP_AREA_SQ_M
+  }
+
+  if (!isPolygonalGeometry(intersection.geometry.type)) {
+    // Topology says overlap but intersection is line/point — treat as touch only.
+    return null
+  }
+
+  const areaSqM = turf.area(intersection)
+  if (!Number.isFinite(areaSqM) || areaSqM < MIN_NUMERIC_OVERLAP_AREA_SQ_M) {
+    return null
+  }
+
+  return areaSqM
 }
 
 export function findSettlementBoundaryOverlaps(
@@ -73,30 +112,26 @@ export function findSettlementBoundaryOverlaps(
     if (!neighborFeature) continue
 
     const repairedNeighbor = repairFeature(neighborFeature)
-
-    try {
-      if (!turf.booleanIntersects(repairedDrawn, repairedNeighbor)) continue
-    } catch {
+    const areaSqM = measurePolygonalOverlapSqM(repairedDrawn, repairedNeighbor)
+    if (areaSqM == null) {
       continue
     }
 
     overlaps.push({
       id: neighbor.id,
       name: neighbor.name || 'Unnamed settlement',
-      overlapAreaHa: intersectAreaHa(repairedDrawn, repairedNeighbor),
+      overlapAreaHa: areaSqM / 10000,
     })
   }
 
-  return overlaps.sort((a, b) => (b.overlapAreaHa ?? 0) - (a.overlapAreaHa ?? 0))
+  return overlaps.sort((a, b) => b.overlapAreaHa - a.overlapAreaHa)
 }
 
 export function formatOverlapSummary(overlaps: SettlementBoundaryOverlap[]): string {
   if (!overlaps.length) return ''
 
   const lines = overlaps.map((overlap) => {
-    const area =
-      overlap.overlapAreaHa != null ? ` (~${overlap.overlapAreaHa.toFixed(2)} ha)` : ''
-    return `• ${overlap.name}${area}`
+    return `• ${overlap.name} (~${overlap.overlapAreaHa.toFixed(2)} ha)`
   })
 
   const noun = overlaps.length === 1 ? 'settlement' : 'settlements'
@@ -104,7 +139,7 @@ export function formatOverlapSummary(overlaps: SettlementBoundaryOverlap[]): str
 }
 
 export const BOUNDARY_OVERLAP_BLOCK_HINT =
-  'Adjust the boundary to remove the overlap before saving.'
+  'Adjust the boundary to remove the overlap before saving. Shared edges with neighbors are allowed.'
 
 export function formatOverlapBlockedMessage(overlaps: SettlementBoundaryOverlap[]): string {
   const summary = formatOverlapSummary(overlaps)
@@ -129,17 +164,18 @@ export function getOverlapIntersectionFeatures(
     const neighborFeature = toFeature(neighbor.geom)
     if (!neighborFeature) continue
 
-    try {
-      const intersection = turf.intersect({
-        type: 'FeatureCollection',
-        features: [repairedDrawn, repairFeature(neighborFeature)],
-      })
-      if (intersection?.geometry) {
-        features.push(intersection as Feature<Polygon | MultiPolygon>)
-      }
-    } catch {
-      // skip invalid intersection geometry
+    const repairedNeighbor = repairFeature(neighborFeature)
+    const intersection = intersectFeature(repairedDrawn, repairedNeighbor)
+    if (!intersection?.geometry || !isPolygonalGeometry(intersection.geometry.type)) {
+      continue
     }
+
+    const areaSqM = turf.area(intersection)
+    if (!Number.isFinite(areaSqM) || areaSqM < MIN_NUMERIC_OVERLAP_AREA_SQ_M) {
+      continue
+    }
+
+    features.push(intersection as Feature<Polygon | MultiPolygon>)
   }
 
   return features

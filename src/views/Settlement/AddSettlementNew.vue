@@ -70,6 +70,12 @@ import {
   type NeighborSettlementGeometry,
   type SettlementBoundaryOverlap,
 } from '@/utils/settlementBoundaryOverlap'
+import {
+  dedupeSnapPoints,
+  extractVerticesFromFeatureCollection,
+  extractVerticesFromGeometry,
+  type MapSnapPoint,
+} from '@/utils/mapVertexSnap'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -169,6 +175,7 @@ const mapContainer = ref<HTMLDivElement | null>(null)
 const drawnPolygons = ref<any[]>([])
 const polygonDraw = useGoogleMapsPolygonDraw()
 const drawPointCount = polygonDraw.pointCount
+const drawSnapPreviewActive = polygonDraw.snapPreviewActive
 const isEditMode = ref(!!route.query.id)
 const editingSettlementId = ref<number | null>(null)
 const isDrawingMode = ref(false)
@@ -702,11 +709,31 @@ const enableDrawTools = () => {
   return true
 }
 
-const startPolygonDrawing = () => {
+const startPolygonDrawing = async () => {
   if (!map.value || !drawReady.value) return false
-  const started = polygonDraw.startDrawing(map.value, onSettlementPolygonComplete)
+
+  if (!neighborSettlementGeometries.value.length && getNeighborWardId()) {
+    await fetchNeighboringSettlementsForWard(true)
+  }
+
+  const snapPoints = buildBoundarySnapPoints()
+  const started = polygonDraw.startDrawing(map.value, onSettlementPolygonComplete, {
+    snapPoints,
+  })
   if (started) isDrawingMode.value = true
   return started
+}
+
+const buildBoundarySnapPoints = (): MapSnapPoint[] => {
+  const points: MapSnapPoint[] = []
+
+  for (const neighbor of neighborSettlementGeometries.value) {
+    points.push(...extractVerticesFromGeometry(neighbor.geom))
+  }
+
+  points.push(...extractVerticesFromFeatureCollection(wardGeo.value))
+
+  return dedupeSnapPoints(points)
 }
 
 const stopPolygonDrawing = () => {
@@ -1757,7 +1784,7 @@ const updatePolygonGeometry = (polygon: any) => {
 
 
 // Toggle drawing mode
-const toggleDrawingMode = () => {
+const toggleDrawingMode = async () => {
   if (mapLoading.value) {
     ElMessage.info('Map is still loading — please wait')
     return
@@ -1770,8 +1797,10 @@ const toggleDrawingMode = () => {
   if (isDrawingMode.value) {
     stopPolygonDrawing()
   } else {
-    startPolygonDrawing()
-    ElMessage.info('Click to add points. Double-click anywhere on the map to finish.')
+    const started = await startPolygonDrawing()
+    if (started) {
+      ElMessage.info('Click to add points. Vertices snap to nearby boundaries. Double-click to finish.')
+    }
   }
 }
 
@@ -3247,7 +3276,8 @@ onMounted(async () => {
         </el-alert>
         <div v-if="mapLoading" class="map-status-banner">Loading map…</div>
         <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
-          Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} — click to add corners, double-click to finish
+          Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} —
+          click to add corners (snaps to ward/neighbor vertices{{ drawSnapPreviewActive ? '; yellow dot = snap target' : '' }}), double-click to finish
         </div>
         <div v-else-if="overtureBuildingCount != null && overtureBuildingCount > 0" class="map-status-banner map-status-banner--overture">
           Overture: {{ overtureBuildingCount }} building{{ overtureBuildingCount === 1 ? '' : 's' }} (cyan) · Ward neighbors in pink

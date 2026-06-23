@@ -1,6 +1,16 @@
 import { ref } from 'vue'
+import {
+  DEFAULT_VERTEX_SNAP_RADIUS_METERS,
+  snapToNearestVertex,
+  type MapSnapPoint,
+} from '@/utils/mapVertexSnap'
 
 export type PolygonDrawCompleteHandler = (polygon: any) => void
+
+export type PolygonDrawOptions = {
+  snapPoints?: MapSnapPoint[]
+  snapRadiusMeters?: number
+}
 
 const DEFAULT_POLYGON_OPTIONS = {
   fillColor: '#FF0000',
@@ -10,29 +20,96 @@ const DEFAULT_POLYGON_OPTIONS = {
   clickable: true,
   editable: true,
   draggable: false,
-  zIndex: 1000000
+  zIndex: 1000000,
 }
 
 /** Click-to-draw polygon replacement for deprecated DrawingManager (Maps JS API 3.65+). */
 export function useGoogleMapsPolygonDraw() {
   const isDrawing = ref(false)
   const pointCount = ref(0)
+  const snapPreviewActive = ref(false)
 
   let mapInstance: any = null
   let completeHandler: PolygonDrawCompleteHandler | null = null
   let clickListener: any = null
   let dblClickListener: any = null
+  let mouseMoveListener: any = null
   let pendingClickTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingLatLng: any = null
   const path: any[] = []
   let previewLine: any = null
+  let snapMarker: any = null
+  let snapPoints: MapSnapPoint[] = []
+  let snapRadiusMeters = DEFAULT_VERTEX_SNAP_RADIUS_METERS
 
-  function clearPreview() {
-    if (previewLine) {
-      previewLine.setMap(null)
-      previewLine = null
+  function clearSnapMarker() {
+    if (snapMarker) {
+      snapMarker.setMap(null)
+      snapMarker = null
     }
-    path.length = 0
-    pointCount.value = 0
+    snapPreviewActive.value = false
+  }
+
+  function getSnapCandidates(includeAllPathVertices = false): MapSnapPoint[] {
+    const pathPoints = path.map((latLng) => ({
+      lat: latLng.lat(),
+      lng: latLng.lng(),
+    }))
+
+    if (includeAllPathVertices) {
+      return [...snapPoints, ...pathPoints]
+    }
+
+    // Allow closing snap to the first vertex only — not to recently placed points.
+    const closingPoint = pathPoints.length > 0 ? [pathPoints[0]] : []
+    return [...snapPoints, ...closingPoint]
+  }
+
+  function snapLatLng(latLng: any) {
+    const snapped = snapToNearestVertex(
+      latLng.lat(),
+      latLng.lng(),
+      getSnapCandidates(),
+      snapRadiusMeters,
+      window.google.maps
+    )
+    return new window.google.maps.LatLng(snapped.lat, snapped.lng)
+  }
+
+  function updateSnapPreview(latLng: any) {
+    if (!mapInstance || !window.google?.maps) return
+
+    const snapped = snapToNearestVertex(
+      latLng.lat(),
+      latLng.lng(),
+      getSnapCandidates(),
+      snapRadiusMeters,
+      window.google.maps
+    )
+
+    if (!snapped.snapped) {
+      clearSnapMarker()
+      return
+    }
+
+    if (!snapMarker) {
+      snapMarker = new window.google.maps.Marker({
+        map: mapInstance,
+        clickable: false,
+        zIndex: 1000002,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 7,
+          fillColor: '#FFD600',
+          fillOpacity: 1,
+          strokeColor: '#F57F17',
+          strokeWeight: 2,
+        },
+      })
+    }
+
+    snapMarker.setPosition({ lat: snapped.lat, lng: snapped.lng })
+    snapPreviewActive.value = true
   }
 
   function updatePreview() {
@@ -44,12 +121,43 @@ export function useGoogleMapsPolygonDraw() {
         strokeWeight: 2,
         strokeOpacity: 0.9,
         map: mapInstance,
-        zIndex: 1000001
+        zIndex: 1000001,
       })
     } else {
       previewLine.setPath(path)
     }
     pointCount.value = path.length
+  }
+
+  function commitLatLng(latLng: any) {
+    if (!latLng) return
+    try {
+      path.push(snapLatLng(latLng))
+    } catch {
+      path.push(latLng)
+    }
+    updatePreview()
+  }
+
+  function flushPendingClick() {
+    if (pendingClickTimer) {
+      clearTimeout(pendingClickTimer)
+      pendingClickTimer = null
+    }
+    if (pendingLatLng) {
+      commitLatLng(pendingLatLng)
+      pendingLatLng = null
+    }
+  }
+
+  function clearPreview() {
+    if (previewLine) {
+      previewLine.setMap(null)
+      previewLine = null
+    }
+    path.length = 0
+    pointCount.value = 0
+    clearSnapMarker()
   }
 
   function stopDrawing() {
@@ -58,6 +166,7 @@ export function useGoogleMapsPolygonDraw() {
       clearTimeout(pendingClickTimer)
       pendingClickTimer = null
     }
+    pendingLatLng = null
     if (mapInstance) {
       mapInstance.setOptions({ draggableCursor: null, disableDoubleClickZoom: true })
     }
@@ -69,8 +178,14 @@ export function useGoogleMapsPolygonDraw() {
       window.google.maps.event.removeListener(dblClickListener)
       dblClickListener = null
     }
+    if (mouseMoveListener) {
+      window.google.maps.event.removeListener(mouseMoveListener)
+      mouseMoveListener = null
+    }
     clearPreview()
     completeHandler = null
+    snapPoints = []
+    snapRadiusMeters = DEFAULT_VERTEX_SNAP_RADIUS_METERS
   }
 
   function finishDrawing(): boolean {
@@ -78,6 +193,10 @@ export function useGoogleMapsPolygonDraw() {
       stopDrawing()
       return false
     }
+
+    // Commit the click still waiting in the debounce window (e.g. last vertex or first half of double-click).
+    flushPendingClick()
+
     if (path.length < 3) {
       return false
     }
@@ -85,7 +204,7 @@ export function useGoogleMapsPolygonDraw() {
     const polygon = new window.google.maps.Polygon({
       ...DEFAULT_POLYGON_OPTIONS,
       paths: [...path],
-      map: mapInstance
+      map: mapInstance,
     })
 
     const handler = completeHandler
@@ -94,30 +213,40 @@ export function useGoogleMapsPolygonDraw() {
     return true
   }
 
-  function startDrawing(map: any, onComplete: PolygonDrawCompleteHandler): boolean {
+  function startDrawing(
+    map: any,
+    onComplete: PolygonDrawCompleteHandler,
+    options: PolygonDrawOptions = {}
+  ): boolean {
     stopDrawing()
     if (!map || !window.google?.maps) return false
 
     mapInstance = map
     completeHandler = onComplete
+    snapPoints = options.snapPoints || []
+    snapRadiusMeters = options.snapRadiusMeters ?? DEFAULT_VERTEX_SNAP_RADIUS_METERS
     isDrawing.value = true
     map.setOptions({ draggableCursor: 'crosshair', disableDoubleClickZoom: true })
 
-    // Defer single clicks so double-click can finish without adding stray points
+    // Defer single clicks so double-click can finish without adding a duplicate stray point.
     clickListener = map.addListener('click', (event: any) => {
       if (pendingClickTimer) clearTimeout(pendingClickTimer)
+      pendingLatLng = event.latLng
       pendingClickTimer = setTimeout(() => {
-        path.push(event.latLng)
-        updatePreview()
+        commitLatLng(pendingLatLng)
+        pendingLatLng = null
         pendingClickTimer = null
       }, 220)
     })
 
+    mouseMoveListener = map.addListener('mousemove', (event: any) => {
+      updateSnapPreview(event.latLng)
+    })
+
     dblClickListener = map.addListener('dblclick', (event: any) => {
       event.stop()
-      if (pendingClickTimer) {
-        clearTimeout(pendingClickTimer)
-        pendingClickTimer = null
+      if (!pendingLatLng) {
+        pendingLatLng = event.latLng
       }
       finishDrawing()
     })
@@ -128,8 +257,9 @@ export function useGoogleMapsPolygonDraw() {
   return {
     isDrawing,
     pointCount,
+    snapPreviewActive,
     startDrawing,
     stopDrawing,
-    finishDrawing
+    finishDrawing,
   }
 }
