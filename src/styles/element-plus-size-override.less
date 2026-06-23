@@ -1,0 +1,211 @@
+/**
+ * Collapse Element Plus per-component size modifiers (small/default/large)
+ * onto the global size tokens set by applyElementPlusSize() on <html>.
+ * This makes hardcoded size="small" respect the header size picker.
+ */
+html[data-element-plus-size] {
+  /* Shared tokens for overrides below */
+  --app-control-height: var(--el-component-size);
+  --app-control-font: var(--el-font-size-base);
+  --app-control-font-sm: var(--el-font-size-small);
+  --app-control-pad-y: calc((var(--app-control-height) - var(--app-control-font)) / 2);
+
+  /* Buttons */
+  .el-button--small,
+  .el-button--large,
+  .el-button.el-button--default,
+  .el-button:not(.el-button--small):not(.el-button--large):not(.is-circle):not(.is-round) {
+    --el-button-size: var(--app-control-height);
+    height: var(--app-control-height);
+    font-size: var(--app-control-font);
+    padding: var(--app-control-pad-y) 15px;
+  }
+
+  .el-button--small.is-circle,
+  .el-button--small.is-round,
+  .el-button.is-circle,
+  .el-button.is-round {
+    --el-button-size: var(--app-control-height);
+    width: var(--app-control-height);
+    height: var(--app-control-height);
+    font-size: var(--app-control-font);
+  }
+
+  /* Inputs & textareas */
+  .el-input--small,
+  .el-input--large,
+  .el-input {
+    --el-input-height: var(--app-control-height);
+    font-size: var(--app-control-font);
+
+    .el-input__wrapper {
+      min-height: var(--app-control-height);
+      font-size: var(--app-control-font);
+    }
+
+    .el-input__inner {
+      font-size: var(--app-control-font);
+    }
+  }
+
+  .el-textarea--small,
+  .el-textarea {
+    font-size: var(--app-control-font);
+
+    .el-textarea__inner {
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Select */
+  .el-select--small,
+  .el-select--large,
+  .el-select {
+    font-size: var(--app-control-font);
+
+    .el-select__wrapper {
+      min-height: var(--app-control-height);
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Date / time pickers */
+  .el-date-editor--small,
+  .el-date-editor {
+    --el-component-size: var(--app-control-height);
+    height: var(--app-control-height);
+    font-size: var(--app-control-font);
+  }
+
+  /* Tables */
+  .el-table--small,
+  .el-table--large,
+  .el-table {
+    font-size: var(--app-control-font);
+
+    .el-table__cell {
+      padding: calc(var(--app-control-height) / 4) 0;
+      font-size: var(--app-control-font);
+    }
+
+    .el-table__header .el-table__cell {
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Tags */
+  .el-tag--small,
+  .el-tag--large,
+  .el-tag {
+    height: calc(var(--app-control-height) - 6px);
+    font-size: var(--app-control-font-sm);
+    padding: 0 8px;
+  }
+
+  /* Pagination */
+  .el-pagination--small,
+  .el-pagination {
+    font-size: var(--app-control-font);
+
+    .el-pager li,
+    button.btn-prev,
+    button.btn-next {
+      min-width: calc(var(--app-control-height) - 6px);
+      height: calc(var(--app-control-height) - 6px);
+      line-height: calc(var(--app-control-height) - 6px);
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Form labels */
+  .el-form-item--small,
+  .el-form-item--large,
+  .el-form-item {
+    .el-form-item__label {
+      font-size: var(--app-control-font);
+      height: var(--app-control-height);
+      line-height: var(--app-control-height);
+    }
+
+    .el-form-item__content {
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Descriptions */
+  .el-descriptions--small,
+  .el-descriptions--large,
+  .el-descriptions {
+    font-size: var(--app-control-font);
+
+    .el-descriptions__label,
+    .el-descriptions__content {
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Radio / checkbox groups */
+  .el-radio-button--small .el-radio-button__inner,
+  .el-radio-button .el-radio-button__inner,
+  .el-checkbox-button--small .el-checkbox-button__inner,
+  .el-checkbox-button .el-checkbox-button__inner {
+    font-size: var(--app-control-font);
+    padding: var(--app-control-pad-y) 12px;
+  }
+
+  .el-radio.el-radio--small,
+  .el-radio,
+  .el-checkbox.el-checkbox--small,
+  .el-checkbox {
+    height: var(--app-control-height);
+
+    .el-radio__label,
+    .el-checkbox__label {
+      font-size: var(--app-control-font);
+    }
+  }
+
+  /* Segmented */
+  .el-segmented--small,
+  .el-segmented {
+    --el-segmented-item-height: var(--app-control-height);
+    font-size: var(--app-control-font);
+  }
+
+  /* Dropdown menu items */
+  .el-dropdown-menu--small,
+  .el-dropdown-menu {
+    .el-dropdown-menu__item {
+      font-size: var(--app-control-font);
+      line-height: calc(var(--app-control-height) - 4px);
+    }
+  }
+
+  /* Tabs */
+  .el-tabs--small,
+  .el-tabs {
+    .el-tabs__item {
+      font-size: var(--app-control-font);
+      height: calc(var(--app-control-height) + 8px);
+      line-height: calc(var(--app-control-height) + 8px);
+    }
+  }
+
+  /* Alert / message */
+  .el-alert--small,
+  .el-alert {
+    .el-alert__title {
+      font-size: var(--app-control-font);
+    }
+
+    .el-alert__description {
+      font-size: var(--app-control-font-sm);
+    }
+  }
+
+  /* Drawer / dialog titles inherit base font */
+  .el-drawer__title,
+  .el-dialog__title {
+    font-size: calc(var(--app-control-font) + 2px);
+  }
+}

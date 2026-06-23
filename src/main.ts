@@ -19,6 +19,9 @@ import { setupElementPlus } from '@/plugins/elementPlus'
 // 引入全局样式
 import '@/styles/index.less'
 
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { applyElementPlusSize } from '@/utils/elementPlusSize'
+
 // 引入动画
 import '@/plugins/animate.css'
 
@@ -97,6 +100,7 @@ const setupAll = async () => {
   await setupI18n(app)
 
   setupStore(app)
+  applyElementPlusSize(useAppStoreWithOut().getCurrentSize)
   setupGlobCom(app)
   setupElementPlus(app)
   setupRouter(app)

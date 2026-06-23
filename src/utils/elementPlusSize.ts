@@ -7,21 +7,27 @@ const SIZE_CSS_VARS: Record<ElememtPlusSize, Record<string, string>> = {
     '--el-font-size-small': '11px',
     '--el-font-size-large': '13px',
     '--el-font-size-extra-large': '14px',
-    '--el-component-size': '24px'
+    '--el-component-size': '24px',
+    '--el-button-size': '24px',
+    '--el-input-height': '24px'
   },
   default: {
     '--el-font-size-base': '14px',
     '--el-font-size-small': '12px',
     '--el-font-size-large': '16px',
     '--el-font-size-extra-large': '18px',
-    '--el-component-size': '32px'
+    '--el-component-size': '32px',
+    '--el-button-size': '32px',
+    '--el-input-height': '32px'
   },
   large: {
     '--el-font-size-base': '16px',
     '--el-font-size-small': '14px',
     '--el-font-size-large': '18px',
     '--el-font-size-extra-large': '20px',
-    '--el-component-size': '40px'
+    '--el-component-size': '40px',
+    '--el-button-size': '40px',
+    '--el-input-height': '40px'
   }
 }
 
