@@ -13,8 +13,14 @@ export type SettlementBoundaryOverlap = {
   overlapAreaHa: number
 }
 
-/** Filter only floating-point noise; real interior overlap is detected via booleanOverlap. */
-export const MIN_NUMERIC_OVERLAP_AREA_SQ_M = 1
+/**
+ * Shrink polygons slightly before overlap test so shared snapped edges
+ * (touch-only contact) do not count as interior overlap.
+ */
+export const OVERLAP_TEST_SHRINK_METERS = 0.75
+
+/** Minimum interior overlap before save is blocked (~30 m²). */
+export const MIN_BLOCKING_OVERLAP_AREA_SQ_M = 30
 
 function toFeature(geom: Polygon | MultiPolygon): Feature<Polygon | MultiPolygon> | null {
   try {
@@ -55,34 +61,44 @@ function intersectFeature(
   }
 }
 
+function shrinkForOverlapTest(
+  feature: Feature<Polygon | MultiPolygon>
+): Feature<Polygon | MultiPolygon> | null {
+  try {
+    const shrunk = turf.buffer(feature, -OVERLAP_TEST_SHRINK_METERS, { units: 'meters' })
+    if (!shrunk?.geometry || !isPolygonalGeometry(shrunk.geometry.type)) {
+      return null
+    }
+    const areaSqM = turf.area(shrunk)
+    if (!Number.isFinite(areaSqM) || areaSqM <= 0) {
+      return null
+    }
+    return shrunk as Feature<Polygon | MultiPolygon>
+  } catch {
+    return null
+  }
+}
+
 /**
- * Detect interior overlap (not shared-boundary touch).
- * Uses booleanOverlap so edge-only contact from snapping is allowed.
+ * Detect meaningful interior overlap (not shared-boundary touch from snapping).
  */
 function measurePolygonalOverlapSqM(
   drawn: Feature<Polygon | MultiPolygon>,
   neighbor: Feature<Polygon | MultiPolygon>
 ): number | null {
-  try {
-    if (!turf.booleanOverlap(drawn, neighbor)) {
-      return null
-    }
-  } catch {
+  const shrunkDrawn = shrinkForOverlapTest(drawn)
+  const shrunkNeighbor = shrinkForOverlapTest(neighbor)
+  if (!shrunkDrawn || !shrunkNeighbor) {
     return null
   }
 
-  const intersection = intersectFeature(drawn, neighbor)
-  if (!intersection?.geometry) {
-    return MIN_NUMERIC_OVERLAP_AREA_SQ_M
-  }
-
-  if (!isPolygonalGeometry(intersection.geometry.type)) {
-    // Topology says overlap but intersection is line/point — treat as touch only.
+  const intersection = intersectFeature(shrunkDrawn, shrunkNeighbor)
+  if (!intersection?.geometry || !isPolygonalGeometry(intersection.geometry.type)) {
     return null
   }
 
   const areaSqM = turf.area(intersection)
-  if (!Number.isFinite(areaSqM) || areaSqM < MIN_NUMERIC_OVERLAP_AREA_SQ_M) {
+  if (!Number.isFinite(areaSqM) || areaSqM < MIN_BLOCKING_OVERLAP_AREA_SQ_M) {
     return null
   }
 
@@ -127,11 +143,19 @@ export function findSettlementBoundaryOverlaps(
   return overlaps.sort((a, b) => b.overlapAreaHa - a.overlapAreaHa)
 }
 
+function formatOverlapArea(overlapAreaHa: number): string {
+  const sqM = overlapAreaHa * 10000
+  if (overlapAreaHa < 0.01) {
+    return `~${Math.round(sqM)} m²`
+  }
+  return `~${overlapAreaHa.toFixed(2)} ha`
+}
+
 export function formatOverlapSummary(overlaps: SettlementBoundaryOverlap[]): string {
   if (!overlaps.length) return ''
 
   const lines = overlaps.map((overlap) => {
-    return `• ${overlap.name} (~${overlap.overlapAreaHa.toFixed(2)} ha)`
+    return `• ${overlap.name} (${formatOverlapArea(overlap.overlapAreaHa)})`
   })
 
   const noun = overlaps.length === 1 ? 'settlement' : 'settlements'
@@ -165,13 +189,17 @@ export function getOverlapIntersectionFeatures(
     if (!neighborFeature) continue
 
     const repairedNeighbor = repairFeature(neighborFeature)
-    const intersection = intersectFeature(repairedDrawn, repairedNeighbor)
+    const shrunkDrawn = shrinkForOverlapTest(repairedDrawn)
+    const shrunkNeighbor = shrinkForOverlapTest(repairedNeighbor)
+    if (!shrunkDrawn || !shrunkNeighbor) continue
+
+    const intersection = intersectFeature(shrunkDrawn, shrunkNeighbor)
     if (!intersection?.geometry || !isPolygonalGeometry(intersection.geometry.type)) {
       continue
     }
 
     const areaSqM = turf.area(intersection)
-    if (!Number.isFinite(areaSqM) || areaSqM < MIN_NUMERIC_OVERLAP_AREA_SQ_M) {
+    if (!Number.isFinite(areaSqM) || areaSqM < MIN_BLOCKING_OVERLAP_AREA_SQ_M) {
       continue
     }
 

@@ -1,14 +1,18 @@
 import { ref } from 'vue'
 import {
   DEFAULT_VERTEX_SNAP_RADIUS_METERS,
-  snapToNearestVertex,
+  snapToNearestBoundary,
+  type BoundarySnapTargets,
   type MapSnapPoint,
+  type MapSnapSegment,
 } from '@/utils/mapVertexSnap'
 
 export type PolygonDrawCompleteHandler = (polygon: any) => void
 
 export type PolygonDrawOptions = {
   snapPoints?: MapSnapPoint[]
+  snapSegments?: MapSnapSegment[]
+  snapTargets?: BoundarySnapTargets
   snapRadiusMeters?: number
 }
 
@@ -40,6 +44,7 @@ export function useGoogleMapsPolygonDraw() {
   let previewLine: any = null
   let snapMarker: any = null
   let snapPoints: MapSnapPoint[] = []
+  let snapSegments: MapSnapSegment[] = []
   let snapRadiusMeters = DEFAULT_VERTEX_SNAP_RADIUS_METERS
 
   function clearSnapMarker() {
@@ -66,10 +71,11 @@ export function useGoogleMapsPolygonDraw() {
   }
 
   function snapLatLng(latLng: any) {
-    const snapped = snapToNearestVertex(
+    const snapped = snapToNearestBoundary(
       latLng.lat(),
       latLng.lng(),
       getSnapCandidates(),
+      snapSegments,
       snapRadiusMeters,
       window.google.maps
     )
@@ -79,10 +85,11 @@ export function useGoogleMapsPolygonDraw() {
   function updateSnapPreview(latLng: any) {
     if (!mapInstance || !window.google?.maps) return
 
-    const snapped = snapToNearestVertex(
+    const snapped = snapToNearestBoundary(
       latLng.lat(),
       latLng.lng(),
       getSnapCandidates(),
+      snapSegments,
       snapRadiusMeters,
       window.google.maps
     )
@@ -185,6 +192,7 @@ export function useGoogleMapsPolygonDraw() {
     clearPreview()
     completeHandler = null
     snapPoints = []
+    snapSegments = []
     snapRadiusMeters = DEFAULT_VERTEX_SNAP_RADIUS_METERS
   }
 
@@ -223,7 +231,13 @@ export function useGoogleMapsPolygonDraw() {
 
     mapInstance = map
     completeHandler = onComplete
-    snapPoints = options.snapPoints || []
+    if (options.snapTargets) {
+      snapPoints = options.snapTargets.points
+      snapSegments = options.snapTargets.segments
+    } else {
+      snapPoints = options.snapPoints || []
+      snapSegments = options.snapSegments || []
+    }
     snapRadiusMeters = options.snapRadiusMeters ?? DEFAULT_VERTEX_SNAP_RADIUS_METERS
     isDrawing.value = true
     map.setOptions({ draggableCursor: 'crosshair', disableDoubleClickZoom: true })

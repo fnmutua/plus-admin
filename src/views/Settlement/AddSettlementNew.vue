@@ -71,10 +71,8 @@ import {
   type SettlementBoundaryOverlap,
 } from '@/utils/settlementBoundaryOverlap'
 import {
-  dedupeSnapPoints,
-  extractVerticesFromFeatureCollection,
-  extractVerticesFromGeometry,
-  type MapSnapPoint,
+  buildBoundarySnapTargets,
+  type BoundarySnapTargets,
 } from '@/utils/mapVertexSnap'
 
 const { wsCache } = useCache()
@@ -716,24 +714,19 @@ const startPolygonDrawing = async () => {
     await fetchNeighboringSettlementsForWard(true)
   }
 
-  const snapPoints = buildBoundarySnapPoints()
+  const snapTargets = buildBoundarySnapTargetsForWard()
   const started = polygonDraw.startDrawing(map.value, onSettlementPolygonComplete, {
-    snapPoints,
+    snapTargets,
   })
   if (started) isDrawingMode.value = true
   return started
 }
 
-const buildBoundarySnapPoints = (): MapSnapPoint[] => {
-  const points: MapSnapPoint[] = []
-
-  for (const neighbor of neighborSettlementGeometries.value) {
-    points.push(...extractVerticesFromGeometry(neighbor.geom))
-  }
-
-  points.push(...extractVerticesFromFeatureCollection(wardGeo.value))
-
-  return dedupeSnapPoints(points)
+const buildBoundarySnapTargetsForWard = (): BoundarySnapTargets => {
+  return buildBoundarySnapTargets(
+    neighborSettlementGeometries.value.map((neighbor) => neighbor.geom),
+    [wardGeo.value]
+  )
 }
 
 const stopPolygonDrawing = () => {
@@ -1464,20 +1457,23 @@ const renderOverlapHighlights = (geometry: any, overlaps: SettlementBoundaryOver
   clearOverlapHighlights()
   if (!map.value || !window.google?.maps || !geometry || !overlaps.length) return
 
+  const geom = parseSettlementGeometry(geometry)
+  if (!geom) return
+
   const intersectionFeatures = getOverlapIntersectionFeatures(
-    geometry,
+    geom,
     neighborSettlementGeometries.value,
     overlaps
   )
 
   for (const feature of intersectionFeatures) {
-    const geom = feature.geometry
-    if (!geom) continue
+    const featureGeom = feature.geometry
+    if (!featureGeom) continue
 
     const polygonSets =
-      geom.type === 'Polygon'
-        ? [geom.coordinates[0]]
-        : geom.coordinates.map((polygon: number[][][]) => polygon[0])
+      featureGeom.type === 'Polygon'
+        ? [featureGeom.coordinates[0]]
+        : featureGeom.coordinates.map((polygon: number[][][]) => polygon[0])
 
     for (const ring of polygonSets) {
       const paths = ring
@@ -1799,7 +1795,7 @@ const toggleDrawingMode = async () => {
   } else {
     const started = await startPolygonDrawing()
     if (started) {
-      ElMessage.info('Click to add points. Vertices snap to nearby boundaries. Double-click to finish.')
+      ElMessage.info('Click to add points. Snaps to ward/neighbor corners and edges. Double-click to finish.')
     }
   }
 }
@@ -3277,7 +3273,7 @@ onMounted(async () => {
         <div v-if="mapLoading" class="map-status-banner">Loading map…</div>
         <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
           Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} —
-          click to add corners (snaps to ward/neighbor vertices{{ drawSnapPreviewActive ? '; yellow dot = snap target' : '' }}), double-click to finish
+          click to add corners (snaps to ward/neighbor lines and corners{{ drawSnapPreviewActive ? '; yellow dot = snap target' : '' }}), double-click to finish
         </div>
         <div v-else-if="overtureBuildingCount != null && overtureBuildingCount > 0" class="map-status-banner map-status-banner--overture">
           Overture: {{ overtureBuildingCount }} building{{ overtureBuildingCount === 1 ? '' : 's' }} (cyan) · Ward neighbors in pink
