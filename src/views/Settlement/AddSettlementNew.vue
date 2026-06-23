@@ -61,6 +61,8 @@ import {
   validateSettlementAttributes,
 } from '@/utils/validateSettlementAttributes'
 import { normalizeLocationId } from '@/utils/settlementEditNavigation'
+import { splitPopulationByCountySex, unwrapApiRecord } from '@/utils/countySexSplit'
+import { getListWithoutGeo } from '@/api/counties'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -1942,6 +1944,21 @@ const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
 /** Edit mode only: when checked, replace all structures with Overture footprints on save. */
 const updateStructuresFromOverture = ref(false)
 
+const parseSettlementGeometry = (geometry: any) => {
+  if (!geometry) return null
+  let parsed = geometry
+  if (typeof geometry === 'string') {
+    try {
+      parsed = JSON.parse(geometry)
+    } catch {
+      return null
+    }
+  }
+  if (!parsed?.type || !parsed?.coordinates) return null
+  if (parsed.type !== 'Polygon' && parsed.type !== 'MultiPolygon') return null
+  return parsed
+}
+
 const clearOvertureBuildingLayers = () => {
   overtureBuildingLayers.value.forEach((layer) => {
     if (layer) layer.setMap(null)
@@ -2001,13 +2018,14 @@ const renderOvertureBuildingsOnMap = (geojson: GeoJSON.FeatureCollection) => {
 }
 
 const fetchOvertureBuildingsForSettlement = async (geometry: any) => {
-  if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) {
+  const normalized = parseSettlementGeometry(geometry)
+  if (!normalized) {
     clearOvertureBuildingLayers()
     return null
   }
   overtureBuildingsLoading.value = true
   try {
-    const res = await fetchOvertureBuildings(geometry)
+    const res = await fetchOvertureBuildings(normalized)
     if (String(res.code) !== '0000') return null
     overtureBuildingCount.value = res.count ?? 0
     overtureBuildingsGeojson.value =
@@ -2044,46 +2062,68 @@ const fetchWardAvgHouseholdSize = async (wardId: any): Promise<number | null> =>
   }
 }
 
-/** Split total population into male/female using the selected county's census sex ratio. */
-const applyCountySexSplit = async (total: number) => {
-  const countyId = settlementForm.county_id
-  if (!countyId || !Number.isFinite(total) || total <= 0) return
+const fetchCountyDemographics = async (countyId: unknown) => {
+  const id = normalizeLocationId(countyId)
+  if (!id) return null
 
-  let county = countyRefList.value?.find((c) => String(c.id) === String(countyId)) as {
-    id?: number | string
-    pop_male?: number
-    pop_female?: number
-    pop_total?: number
-  } | undefined
+  const cached = countyRefList.value?.find((c) => String(c.id) === String(id)) as
+    | { pop_male?: number; pop_female?: number; pop_total?: number }
+    | undefined
 
-  let refMale = Number(county?.pop_male)
-  let refFemale = Number(county?.pop_female)
-
-  if (!Number.isFinite(refMale) || !Number.isFinite(refFemale) || refMale + refFemale <= 0) {
-    try {
-      const res = await getOneSettlement({ model: 'county', id: String(countyId) } as any)
-      const row = (res as any)?.data ?? res
-      if (row) {
-        refMale = Number(row.pop_male)
-        refFemale = Number(row.pop_female)
-        if (county) {
-          county.pop_male = row.pop_male
-          county.pop_female = row.pop_female
-          county.pop_total = row.pop_total
-        }
-      }
-    } catch (e) {
-      console.warn('Could not load county sex ratio:', e)
-    }
+  if (
+    cached &&
+    Number.isFinite(Number(cached.pop_male)) &&
+    Number.isFinite(Number(cached.pop_female)) &&
+    Number(cached.pop_male) + Number(cached.pop_female) > 0
+  ) {
+    return cached
   }
 
-  const refTotal = Number(county?.pop_total) || refMale + refFemale
-  if (!Number.isFinite(refTotal) || refTotal <= 0) return
-  if (!Number.isFinite(refMale) || !Number.isFinite(refFemale)) return
+  try {
+    const res = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 1,
+        curUser: 1,
+        model: 'county',
+        searchField: 'id',
+        searchKeyword: String(id),
+        sort: 'ASC',
+      },
+    })
+    const rows = (res as { data?: unknown[] })?.data
+    const row = Array.isArray(rows) ? rows[0] : unwrapApiRecord(res)
+    if (row && typeof row === 'object') {
+      return row as { pop_male?: number; pop_female?: number; pop_total?: number }
+    }
+  } catch (e) {
+    console.warn('County demographics fetch failed:', e)
+  }
 
-  const popMale = Math.round(total * (refMale / refTotal))
-  settlementForm.pop_male = popMale
-  settlementForm.pop_female = total - popMale
+  try {
+    const res = await getOneSettlement({ model: 'county', id: id } as any)
+    const row = unwrapApiRecord(res)
+    if (row) {
+      return row as { pop_male?: number; pop_female?: number; pop_total?: number }
+    }
+  } catch (e) {
+    console.warn('County getOne fallback failed:', e)
+  }
+
+  return cached ?? null
+}
+
+/** Split total population into male/female using the selected county's census sex ratio. */
+const applyCountySexSplit = async (total: number) => {
+  const countyId = settlementForm.county_id || selectedCounty.value
+  if (!countyId || !Number.isFinite(total) || total <= 0) return
+
+  const countyRow = await fetchCountyDemographics(countyId)
+  const split = splitPopulationByCountySex(total, countyRow)
+  if (!split) return
+
+  settlementForm.pop_male = split.pop_male
+  settlementForm.pop_female = split.pop_female
 }
 
 const ensureWardAvgHouseholdSize = async (): Promise<number | null> => {
@@ -2256,6 +2296,9 @@ const onManualPopulationFetch = async () => {
   }
   if (!settlementForm.ward_id && !selectedWard.value) {
     ElMessage.warning('Select a ward first — average household size is needed for the estimate.')
+  }
+  if (!settlementForm.county_id && !selectedCounty.value) {
+    ElMessage.warning('Select a county first — needed for male/female population split.')
   }
   await applyPopulationEstimateFromBuildings(geom)
 }
@@ -2811,16 +2854,19 @@ onMounted(async () => {
       
       // Load settlement geometry
       if (curData.geom) {
-        settlementGeometry.value = curData.geom
-        settlementForm.geom = curData.geom
-        
-        // Calculate area in hectares
-        const areaHectares = calculateAreaInHectares(curData.geom)
-        if (areaHectares !== null) {
-          settlementForm.area = areaHectares
-        }
+        const geom = parseSettlementGeometry(curData.geom)
+        if (geom) {
+          settlementGeometry.value = geom
+          settlementForm.geom = geom
 
-        void refreshOvertureMapPreview(curData.geom, { showMessage: false })
+          // Calculate area in hectares
+          const areaHectares = calculateAreaInHectares(geom)
+          if (areaHectares !== null) {
+            settlementForm.area = areaHectares
+          }
+
+          void refreshOvertureMapPreview(geom, { showMessage: false })
+        }
       }
       
       // Get ward geometry for context

@@ -5,6 +5,56 @@ const OVERTURE_SERVICE_URL = (
 const TIMEOUT_MS = Number(process.env.OVERTURE_FETCH_TIMEOUT_MS || 120000)
 const db = require('../models')
 
+function toFiniteNumber(value) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
+function dropZFromCoords(coords) {
+  if (!Array.isArray(coords)) return coords
+  if (
+    coords.length >= 2 &&
+    (typeof coords[0] === 'number' || typeof coords[0] === 'string') &&
+    (typeof coords[1] === 'number' || typeof coords[1] === 'string')
+  ) {
+    const lng = toFiniteNumber(coords[0])
+    const lat = toFiniteNumber(coords[1])
+    if (lng === null || lat === null) {
+      throw new Error('Invalid coordinate values in settlement geometry')
+    }
+    return [lng, lat]
+  }
+  return coords.map(dropZFromCoords)
+}
+
+function parseGeoJsonGeometry(geometry) {
+  if (!geometry) return null
+  if (typeof geometry === 'string') {
+    try {
+      return JSON.parse(geometry)
+    } catch {
+      throw new Error('Settlement geometry string is not valid JSON')
+    }
+  }
+  return geometry
+}
+
+function normalizeGeometryForOverture(geometry) {
+  const parsed = parseGeoJsonGeometry(geometry)
+  if (!parsed?.type || !parsed.coordinates) {
+    throw new Error('Valid GeoJSON geometry is required')
+  }
+
+  if (parsed.type !== 'Polygon' && parsed.type !== 'MultiPolygon') {
+    throw new Error('Only Polygon or MultiPolygon geometry is supported')
+  }
+
+  return {
+    type: parsed.type,
+    coordinates: dropZFromCoords(parsed.coordinates),
+  }
+}
+
 /**
  * Fetch Overture building footprints clipped to a settlement geometry.
  * Calls the standalone FastAPI service (overture_buildings_service.py).
@@ -207,4 +257,6 @@ module.exports = {
   fetchOvertureBuildingsForGeometry,
   createStructuresFromOvertureGeojson,
   importOvertureStructuresForSettlement,
+  normalizeGeometryForOverture,
+  parseGeoJsonGeometry,
 }
