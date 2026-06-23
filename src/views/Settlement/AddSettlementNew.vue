@@ -63,6 +63,13 @@ import {
 import { normalizeLocationId } from '@/utils/settlementEditNavigation'
 import { splitPopulationByCountySex, unwrapApiRecord } from '@/utils/countySexSplit'
 import { getListWithoutGeo } from '@/api/counties'
+import {
+  findSettlementBoundaryOverlaps,
+  formatOverlapBlockedMessage,
+  getOverlapIntersectionFeatures,
+  type NeighborSettlementGeometry,
+  type SettlementBoundaryOverlap,
+} from '@/utils/settlementBoundaryOverlap'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -173,6 +180,13 @@ const drawReady = ref(false)
 // Neighboring settlements
 const neighboringSettlements = ref<any[]>([])
 const neighboringSettlementLabels = ref<any[]>([])
+const neighborSettlementGeometries = ref<NeighborSettlementGeometry[]>([])
+const settlementOverlaps = ref<SettlementBoundaryOverlap[]>([])
+const overlapHighlightLayers = ref<any[]>([])
+const settlementBoundaryModified = ref(false)
+const hasBlockingBoundaryOverlap = computed(
+  () => settlementBoundaryModified.value && settlementOverlaps.value.length > 0
+)
 const currentZoom = ref(8)
 const MIN_ZOOM_FOR_LABELS = 16 // Hide labels when zoom is below this level
 
@@ -607,7 +621,7 @@ const retryMapLoad = async () => {
   await initializeMap()
 }
 
-const onSettlementPolygonComplete = (polygon: any) => {
+const onSettlementPolygonComplete = async (polygon: any) => {
   if (!isEditMode.value && wardPolygon.value && wardPolygon.value.length > 0) {
     const isWithin = checkPolygonWithinWard(polygon)
     if (!isWithin) {
@@ -616,12 +630,6 @@ const onSettlementPolygonComplete = (polygon: any) => {
       return
     }
   }
-
-  drawnPolygons.value.forEach(p => p.setMap(null))
-  drawnPolygons.value = []
-  drawnPolygons.value.push(polygon)
-  polygon.setOptions({ zIndex: 1000000 })
-  polygon.setEditable(true)
 
   const paths = polygon.getPath()
   const coordinates: number[][] = []
@@ -642,8 +650,22 @@ const onSettlementPolygonComplete = (polygon: any) => {
     coordinates: [coordinates]
   }
 
+  const overlaps = await runBoundaryOverlapCheck(geom, { showMessage: false })
+  if (overlaps.length > 0) {
+    polygon.setMap(null)
+    showBoundaryOverlapBlockedMessage(overlaps)
+    return
+  }
+
+  drawnPolygons.value.forEach(p => p.setMap(null))
+  drawnPolygons.value = []
+  drawnPolygons.value.push(polygon)
+  polygon.setOptions({ zIndex: 1000000 })
+  polygon.setEditable(true)
+
   settlementGeometry.value = geom
   settlementForm.geom = geom
+  settlementBoundaryModified.value = true
 
   const areaHectares = calculateAreaInHectares(geom)
   if (areaHectares !== null) {
@@ -1367,6 +1389,13 @@ const fetchNeighboringSettlementsForWard = async (silent = false) => {
     }
 
     const count = neighboringSettlements.value.length
+    neighborSettlementGeometries.value = settlementsWithGeo as NeighborSettlementGeometry[]
+
+    const activeGeom = settlementForm.geom || settlementGeometry.value
+    if (activeGeom) {
+      void runBoundaryOverlapCheck(activeGeom, { showMessage: false })
+    }
+
     if (!silent) {
       console.log(`✅ Loaded ${count} settlements from ward`)
     }
@@ -1395,6 +1424,155 @@ const updateNeighborLabelVisibility = () => {
       marker.setMap(shouldShow ? map.value : null)
     }
   })
+}
+
+const clearOverlapHighlights = () => {
+  overlapHighlightLayers.value.forEach((layer) => {
+    if (layer) layer.setMap(null)
+  })
+  overlapHighlightLayers.value = []
+}
+
+const renderOverlapHighlights = (geometry: any, overlaps: SettlementBoundaryOverlap[]) => {
+  clearOverlapHighlights()
+  if (!map.value || !window.google?.maps || !geometry || !overlaps.length) return
+
+  const intersectionFeatures = getOverlapIntersectionFeatures(
+    geometry,
+    neighborSettlementGeometries.value,
+    overlaps
+  )
+
+  for (const feature of intersectionFeatures) {
+    const geom = feature.geometry
+    if (!geom) continue
+
+    const polygonSets =
+      geom.type === 'Polygon'
+        ? [geom.coordinates[0]]
+        : geom.coordinates.map((polygon: number[][][]) => polygon[0])
+
+    for (const ring of polygonSets) {
+      const paths = ring
+        .map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
+        .filter((path: { lat: number; lng: number }) => Number.isFinite(path.lat) && Number.isFinite(path.lng))
+
+      if (paths.length < 3) continue
+
+      const highlight = new window.google.maps.Polygon({
+        paths,
+        strokeColor: '#FF6F00',
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        fillColor: '#FF6F00',
+        fillOpacity: 0.35,
+        map: map.value,
+        clickable: false,
+        zIndex: 1500,
+      })
+      overlapHighlightLayers.value.push(highlight)
+    }
+  }
+}
+
+let overlapCheckTimer: ReturnType<typeof setTimeout> | null = null
+
+const showBoundaryOverlapBlockedMessage = (overlaps: SettlementBoundaryOverlap[]) => {
+  ElMessage.error({
+    message: formatOverlapBlockedMessage(overlaps),
+    duration: 10000,
+    showClose: true,
+  })
+}
+
+const runBoundaryOverlapCheck = async (
+  geometry: any,
+  { showMessage = true }: { showMessage?: boolean } = {}
+) => {
+  const geom = parseSettlementGeometry(geometry)
+  if (!geom) {
+    settlementOverlaps.value = []
+    clearOverlapHighlights()
+    return []
+  }
+
+  if (!neighborSettlementGeometries.value.length && getNeighborWardId()) {
+    await fetchNeighboringSettlementsForWard(true)
+  }
+
+  const overlaps = findSettlementBoundaryOverlaps(
+    geom,
+    neighborSettlementGeometries.value,
+    editingSettlementId.value
+  )
+
+  settlementOverlaps.value = overlaps
+  renderOverlapHighlights(geom, overlaps)
+
+  if (showMessage && overlaps.length > 0) {
+    showBoundaryOverlapBlockedMessage(overlaps)
+  }
+
+  return overlaps
+}
+
+const scheduleBoundaryOverlapCheck = (geometry: any) => {
+  if (!geometry) return
+  if (overlapCheckTimer) clearTimeout(overlapCheckTimer)
+  overlapCheckTimer = setTimeout(() => {
+    overlapCheckTimer = null
+    void runBoundaryOverlapCheck(geometry, { showMessage: true })
+  }, 500)
+}
+
+const applySettlementBoundaryToForm = async (geom: any) => {
+  const overlaps = await runBoundaryOverlapCheck(geom, { showMessage: false })
+  if (overlaps.length > 0) {
+    showBoundaryOverlapBlockedMessage(overlaps)
+    return false
+  }
+
+  settlementGeometry.value = geom
+  settlementForm.geom = geom
+  settlementBoundaryModified.value = true
+  void onSettlementGeometryReady(geom)
+
+  const areaHectares = calculateAreaInHectares(geom)
+  if (areaHectares !== null) {
+    settlementForm.area = areaHectares
+  } else {
+    try {
+      const areaSquareMeters = turf.area(geom)
+      settlementForm.area = parseFloat((areaSquareMeters / 10000).toFixed(4))
+    } catch (error) {
+      console.error('Error calculating area:', error)
+    }
+  }
+
+  if (!map.value) return true
+
+  if (settlementPolygon.value) {
+    settlementPolygon.value.setMap(null)
+    settlementPolygon.value = null
+  }
+  if (settlementMarker.value) {
+    settlementMarker.value.setMap(null)
+    settlementMarker.value = null
+  }
+  drawnPolygons.value.forEach((p) => p.setMap(null))
+  drawnPolygons.value = []
+
+  loadSettlementBoundary()
+
+  if (!isEditMode.value) {
+    nextTick(() => {
+      drawerVisible.value = true
+    })
+  }
+
+  showUploadDialog.value = false
+  ElMessage.success('Boundary loaded successfully')
+  return true
 }
 
 const loadSettlementBoundary = () => {
@@ -1562,6 +1740,7 @@ const updatePolygonGeometry = (polygon: any) => {
 
     settlementGeometry.value = geom
     settlementForm.geom = geom
+    settlementBoundaryModified.value = true
 
     // Calculate area in hectares
     const areaHectares = calculateAreaInHectares(geom)
@@ -1570,6 +1749,7 @@ const updatePolygonGeometry = (polygon: any) => {
     }
 
     scheduleOvertureRefreshForGeometry(geom)
+    scheduleBoundaryOverlapCheck(geom)
   } catch (error) {
     console.error('Error updating polygon geometry:', error)
   }
@@ -1632,6 +1812,9 @@ const deleteDrawnShape = () => {
     settlementGeometry.value = null
     settlementForm.geom = null
     settlementForm.area = null
+    settlementBoundaryModified.value = false
+    settlementOverlaps.value = []
+    clearOverlapHighlights()
     clearOvertureBuildingLayers()
     drawerVisible.value = false
     ElMessage.success('Settlement boundary deleted')
@@ -1758,6 +1941,17 @@ const submitForm = async () => {
       } catch {
         return
       }
+    }
+
+    const boundaryGeom = settlementForm.geom || settlementGeometry.value
+    const overlaps =
+      settlementOverlaps.value.length > 0
+        ? settlementOverlaps.value
+        : await runBoundaryOverlapCheck(boundaryGeom, { showMessage: false })
+
+    if (overlaps.length > 0 && settlementBoundaryModified.value) {
+      showBoundaryOverlapBlockedMessage(overlaps)
+      return
     }
 
     if (!settlementForm.geom && settlementGeometry.value) {
@@ -1915,6 +2109,9 @@ const goBack = () => {
         if (marker) marker.setMap(null)
       })
       neighboringSettlementLabels.value = []
+      neighborSettlementGeometries.value = []
+      settlementOverlaps.value = []
+      clearOverlapHighlights()
       
       stopPolygonDrawing()
       map.value = null
@@ -2477,6 +2674,9 @@ const clearFormAndGeometry = () => {
     if (marker) marker.setMap(null)
   })
   neighboringSettlementLabels.value = []
+  neighborSettlementGeometries.value = []
+  settlementOverlaps.value = []
+  clearOverlapHighlights()
   
   // Close drawer
   drawerVisible.value = false
@@ -2584,48 +2784,8 @@ const readJsonFile = (event: any) => {
     type: geometry.type,
     coordinates: geometry.coordinates
   }
-  
-  settlementGeometry.value = geom
-  settlementForm.geom = geom
-  void onSettlementGeometryReady(geom)
 
-  // Calculate area
-  try {
-    const areaSquareMeters = turf.area(geom)
-    const areaHectares = areaSquareMeters / 10000
-    settlementForm.area = parseFloat(areaHectares.toFixed(4))
-  } catch (error) {
-    console.error('Error calculating area:', error)
-  }
-  
-  // Update map
-  if (map.value) {
-    // Remove existing polygons and markers
-    if (settlementPolygon.value) {
-      settlementPolygon.value.setMap(null)
-      settlementPolygon.value = null
-    }
-    if (settlementMarker.value) {
-      settlementMarker.value.setMap(null)
-      settlementMarker.value = null
-    }
-    drawnPolygons.value.forEach(p => p.setMap(null))
-    drawnPolygons.value = []
-    
-    // Load new geometry
-    loadSettlementBoundary()
-    
-    // Open drawer to fill in details (for create mode)
-    if (!isEditMode.value) {
-      nextTick(() => {
-        drawerVisible.value = true
-      })
-    }
-    
-    // Close upload dialog on successful load
-    showUploadDialog.value = false
-    ElMessage.success('Boundary loaded successfully')
-  }
+  void applySettlementBoundaryToForm(geom)
 }
 
 const readShapefile = async (file: File) => {
@@ -2647,43 +2807,8 @@ const readShapefile = async (file: File) => {
         type: geometryType,
         coordinates: geojson[0].geometry.coordinates,
       }
-      
-      settlementGeometry.value = geomX
-      settlementForm.geom = geomX
-      void onSettlementGeometryReady(geomX)
 
-      // Calculate area in hectares
-      const areaHectares = calculateAreaInHectares(geomX)
-      if (areaHectares !== null) {
-        settlementForm.area = areaHectares
-      }
-
-      // Update map
-      if (map.value) {
-        if (settlementPolygon.value) {
-          settlementPolygon.value.setMap(null)
-          settlementPolygon.value = null
-        }
-        if (settlementMarker.value) {
-          settlementMarker.value.setMap(null)
-          settlementMarker.value = null
-        }
-        drawnPolygons.value.forEach(p => p.setMap(null))
-        drawnPolygons.value = []
-        loadSettlementBoundary()
-        
-        // Update delete button state
-        // Open drawer to fill in details (for create mode)
-        if (!isEditMode.value) {
-          nextTick(() => {
-            drawerVisible.value = true
-          })
-        }
-        
-        // Close upload dialog on successful load
-        showUploadDialog.value = false
-        ElMessage.success('Boundary loaded successfully')
-      }
+      void applySettlementBoundaryToForm(geomX)
     })
     .catch((error) => {
       console.error(error)
@@ -2858,6 +2983,7 @@ onMounted(async () => {
         if (geom) {
           settlementGeometry.value = geom
           settlementForm.geom = geom
+          settlementBoundaryModified.value = false
 
           // Calculate area in hectares
           const areaHectares = calculateAreaInHectares(geom)
@@ -3090,6 +3216,26 @@ onMounted(async () => {
       <!-- Step 2: Map with Drawing Tools -->
       <div v-show="currentStep === 1" class="step-content map-step">
         <el-alert
+          v-if="settlementOverlaps.length > 0"
+          type="error"
+          :title="hasBlockingBoundaryOverlap ? 'Save blocked — boundary overlaps nearby settlements' : 'Boundary overlaps nearby settlements'"
+          show-icon
+          :closable="false"
+          class="mb-8px"
+        >
+          <ul class="overlap-warning-list">
+            <li v-for="overlap in settlementOverlaps" :key="overlap.id">
+              {{ overlap.name }}
+              <span v-if="overlap.overlapAreaHa != null">({{ overlap.overlapAreaHa.toFixed(2) }} ha)</span>
+            </li>
+          </ul>
+          <div class="overlap-warning-hint">
+            {{ hasBlockingBoundaryOverlap
+              ? 'Adjust the boundary to remove overlap before saving. Overlapping areas are highlighted in orange.'
+              : 'Overlapping areas are highlighted in orange on the map.' }}
+          </div>
+        </el-alert>
+        <el-alert
           v-if="mapError"
           type="error"
           :title="mapError"
@@ -3157,6 +3303,21 @@ onMounted(async () => {
               <div style="font-size: 12px; color: #909399; margin-top: 5px;">
                 Area is automatically calculated from the drawn boundary
               </div>
+              <el-alert
+                v-if="settlementOverlaps.length > 0"
+                :type="hasBlockingBoundaryOverlap ? 'error' : 'warning'"
+                :closable="false"
+                show-icon
+                class="overlap-drawer-alert"
+                :title="hasBlockingBoundaryOverlap ? 'Save blocked — overlaps nearby settlements' : 'Overlaps with nearby settlements'"
+              >
+                <ul class="overlap-warning-list">
+                  <li v-for="overlap in settlementOverlaps" :key="`drawer-${overlap.id}`">
+                    {{ overlap.name }}
+                    <span v-if="overlap.overlapAreaHa != null">({{ overlap.overlapAreaHa.toFixed(2) }} ha)</span>
+                  </li>
+                </ul>
+              </el-alert>
             </el-form-item>
 
             <el-form-item label="Population">
@@ -3735,12 +3896,15 @@ onMounted(async () => {
             </div>
           </div>
           <div class="drawer-footer-actions">
+            <p v-if="hasBlockingBoundaryOverlap" class="drawer-footer-blocked-hint">
+              Save is blocked until the boundary no longer overlaps nearby settlements.
+            </p>
             <el-button @click="closeDrawer" :disabled="isSaving">Cancel</el-button>
             <el-button
               type="primary"
               native-type="button"
               :loading="isSaving"
-              :disabled="isSaving"
+              :disabled="isSaving || hasBlockingBoundaryOverlap"
               @click="submitForm"
               :icon="Check"
             >
@@ -3981,6 +4145,28 @@ onMounted(async () => {
 .map-status-banner--drawing {
   color: var(--el-color-primary);
   background: var(--el-color-primary-light-9);
+}
+
+.overlap-warning-list {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.overlap-warning-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.overlap-drawer-alert {
+  margin-top: 10px;
+}
+
+.drawer-footer-blocked-hint {
+  flex: 1 1 100%;
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--el-color-danger);
 }
 
 /* Ensure Google Maps drawing controls are visible */
