@@ -39,6 +39,7 @@ import {
 import { ArrowLeft, Check, Plus, Delete, UploadFilled, Back, Edit,ArrowRight, QuestionFilled } from '@element-plus/icons-vue'
 import * as turf from '@turf/turf'
 import { getOneGeo, getSettlementListByCounty, getOneSettlement } from '@/api/settlements'
+import { fetchOvertureBuildings, createOvertureStructures } from '@/api/settlements-overture'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { CreateRecord, updateOneRecord, duplicatePreCheck } from '@/api/settlements'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
@@ -59,6 +60,7 @@ import {
   surveyStatusOptionsForPlanning,
   validateSettlementAttributes,
 } from '@/utils/validateSettlementAttributes'
+import { normalizeLocationId } from '@/utils/settlementEditNavigation'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -145,6 +147,7 @@ const filteredWards = ref<any[]>([])
 const wardGeoLoading = ref(false)
 const wardAvgHouseholdSize = ref<number | null>(null)
 const checkingGeometry = ref(false)
+const isSaving = ref(false)
 
 // Step 2: Map
 const map = ref<any>(null)
@@ -317,18 +320,48 @@ const getSectionStatusClass = (section: SectionKey) => {
   return 'section-header--none'
 }
 
-const formRules = reactive({
-  name: [{ required: true, message: 'Settlement name is required', trigger: 'blur' }],
-  county_id: [{ required: true, message: 'County is required', trigger: 'blur' }],
-  ward_id: [{ required: true, message: 'Ward is required', trigger: 'blur' }],
-  settlement_type: [{ required: true, message: 'Settlement type is required', trigger: 'change' }],
-  climate_region: [{ required: true, message: 'Region (climate) is required', trigger: 'change' }],
-  soil_type: [{ required: true, message: 'Soil type is required', trigger: 'change' }],
-  land_cover: [{ required: true, message: 'Land cover is required', trigger: 'change' }],
-  altitude_range: [{ required: true, message: 'Altitude range is required', trigger: 'change' }],
-  proximity_to_river: [{ required: true, message: 'Proximity to river is required', trigger: 'change' }],
-  proximity_to_flood_plain: [{ required: true, message: 'Proximity to flood plain is required', trigger: 'change' }]
+const formRules = computed(() => {
+  const core = {
+    name: [{ required: true, message: 'Settlement name is required', trigger: 'blur' }],
+    county_id: [{ required: true, message: 'County is required', trigger: 'blur' }],
+    ward_id: [{ required: true, message: 'Ward is required', trigger: 'blur' }],
+    settlement_type: [{ required: true, message: 'Settlement type is required', trigger: 'change' }],
+  }
+  if (isEditMode.value) {
+    return core
+  }
+  return {
+    ...core,
+    climate_region: [{ required: true, message: 'Region (climate) is required', trigger: 'change' }],
+    soil_type: [{ required: true, message: 'Soil type is required', trigger: 'change' }],
+    land_cover: [{ required: true, message: 'Land cover is required', trigger: 'change' }],
+    altitude_range: [{ required: true, message: 'Altitude range is required', trigger: 'change' }],
+    proximity_to_river: [{ required: true, message: 'Proximity to river is required', trigger: 'change' }],
+    proximity_to_flood_plain: [{ required: true, message: 'Proximity to flood plain is required', trigger: 'change' }],
+  }
 })
+
+const validationFieldSection: Partial<Record<string, SectionKey>> = {
+  name: 'basic',
+  settlement_type: 'basic',
+  county_id: 'location',
+  ward_id: 'location',
+  climate_region: 'vulnerability',
+  soil_type: 'vulnerability',
+  land_cover: 'vulnerability',
+  altitude_range: 'vulnerability',
+  proximity_to_river: 'vulnerability',
+  proximity_to_flood_plain: 'vulnerability',
+}
+
+const focusFirstValidationError = (fields: Record<string, unknown> | undefined) => {
+  if (!fields) return
+  const firstKey = Object.keys(fields)[0]
+  const section = firstKey ? validationFieldSection[firstKey] : undefined
+  if (section) {
+    activeFormSection.value = section
+  }
+}
 
 // Settlement type options
 const settlementTypeOptions = [
@@ -497,8 +530,8 @@ const handleDrawerCountyChange = async (countyId: any) => {
   settlementForm.county_id = countyId
   selectedCounty.value = countyId
   
-  // Load wards for this county
-  await handleCountyChange(countyId)
+  // Load wards for this county (keep step on drawer-only county edits)
+  await handleCountyChange(countyId, { resetStep: false })
 }
 
 // Handle ward change in the drawer form (infers subcounty, doesn't navigate)
@@ -513,7 +546,7 @@ const handleDrawerWardChange = async (wardId: any) => {
   settlementForm.ward_id = wardId
   selectedWard.value = wardId
 
-  const ward = filteredWards.value.find((w: any) => w.value === wardId)
+  const ward = filteredWards.value.find((w: any) => String(w.value) === String(wardId))
   applyWardSubcountyToForm(ward)
   loadWardAvgHouseholdSizeDeferred(wardId)
 }
@@ -623,8 +656,7 @@ const onSettlementPolygonComplete = (polygon: any) => {
   })
 
   ElMessage.success('Settlement boundary drawn successfully!')
-  fetchClimateData(geom)
-  fetchPopulationEstimate(geom)
+  void onSettlementGeometryReady(geom)
   scheduleNeighboringSettlementsRefresh()
 
   stopPolygonDrawing()
@@ -684,6 +716,7 @@ const waitForMapIdle = (mapInstance: any, maxMs = 6000) =>
 
 const destroyMapInstance = () => {
   stopPolygonDrawing()
+  clearOvertureBuildingLayers()
   wardPolygon.value.forEach(p => { if (p) p.setMap(null) })
   wardPolygon.value = []
   drawnPolygons.value.forEach(p => { if (p) p.setMap(null) })
@@ -703,8 +736,59 @@ const destroyMapInstance = () => {
   drawReady.value = false
 }
 
+// Restore county, ward, subcounty on edit load without clearing drawer fields.
+const applyLocationFromRecord = async (
+  countyId: unknown,
+  wardId?: unknown,
+  subcountyId?: unknown
+) => {
+  const county = normalizeLocationId(countyId)
+  if (!county) return
+
+  const ward = normalizeLocationId(wardId)
+  const subcounty = normalizeLocationId(subcountyId)
+
+  selectedCounty.value = county
+  settlementForm.county_id = county
+
+  if (subcounty) {
+    settlementForm.subcounty_id = subcounty
+  }
+
+  const loadSeq = ++countyWardLoadSeq
+  wardsError.value = null
+
+  const cachedWards = peekWardsCache(county)
+  filteredWards.value = cachedWards.length ? cachedWards : []
+
+  void loadSubcountiesForCounty(county)
+
+  try {
+    const wards = await loadWardsForCounty(county)
+    if (loadSeq !== countyWardLoadSeq) return
+    filteredWards.value = wards
+  } catch (error) {
+    if (loadSeq !== countyWardLoadSeq) return
+    console.error('Error fetching wards:', error)
+    if (!filteredWards.value.length) {
+      ElMessage.error(wardsError.value || 'Failed to load wards for this county')
+    }
+  }
+
+  if (ward) {
+    settlementForm.ward_id = ward
+    selectedWard.value = ward
+    const wardRow = filteredWards.value.find((w: any) => String(w.value) === String(ward))
+    if (wardRow) {
+      applyWardSubcountyToForm(wardRow)
+    } else if (subcounty) {
+      settlementForm.subcounty_id = subcounty
+    }
+  }
+}
+
 // Handle county selection
-const handleCountyChange = async (countyId: any) => {
+const handleCountyChange = async (countyId: any, options?: { resetStep?: boolean }) => {
   const loadSeq = ++countyWardLoadSeq
   abortWardGeoLoad()
 
@@ -715,7 +799,7 @@ const handleCountyChange = async (countyId: any) => {
   wardsError.value = null
   wardGeo.value = null
 
-  if (currentStep.value !== 0) {
+  if (options?.resetStep !== false && currentStep.value !== 0) {
     currentStep.value = 0
     mapLoading.value = false
     mapError.value = null
@@ -1544,6 +1628,7 @@ const deleteDrawnShape = () => {
     settlementGeometry.value = null
     settlementForm.geom = null
     settlementForm.area = null
+    clearOvertureBuildingLayers()
     drawerVisible.value = false
     ElMessage.success('Settlement boundary deleted')
   } else {
@@ -1613,191 +1698,184 @@ const flyToCoordinates = () => {
 
 // Submit form
 const submitForm = async () => {
-  if (!formRef.value) return
+  if (!formRef.value || isSaving.value) return
 
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      // Check if geometry exists
-      if (!settlementForm.geom && !settlementGeometry.value) {
-        ElMessage.error('Please draw the settlement boundary or place a marker on the map')
+  try {
+    await formRef.value.validate()
+  } catch (fields) {
+    focusFirstValidationError(fields as Record<string, unknown>)
+    ElMessage.error('Please complete all required fields before saving.')
+    return
+  }
+
+  isSaving.value = true
+  try {
+    if (!settlementForm.geom && !settlementGeometry.value) {
+      ElMessage.error('Please draw the settlement boundary or place a marker on the map')
+      return
+    }
+
+    const allSections: SectionKey[] = ['basic', 'location', 'parcel', 'physical', 'socio', 'vulnerability']
+    const incompleteSections = allSections.filter((s) => getSectionCompletion(s) !== 'full')
+
+    if (incompleteSections.length > 0) {
+      const names = incompleteSections.map((s) => `• ${sectionLabels[s]}`).join('\n')
+      try {
+        await ElMessageBox.confirm(
+          `Some sections are not fully filled:\n\n${names}\n\nYou can still save now, or click Cancel to go back and complete more details.`,
+          'Incomplete sections',
+          {
+            confirmButtonText: 'Save anyway',
+            cancelButtonText: 'Cancel',
+            type: 'warning'
+          }
+        )
+      } catch {
         return
       }
+    }
 
-      // Warn if some sections are not fully filled in and let user confirm save
-      const allSections: SectionKey[] = ['basic', 'location', 'parcel', 'physical', 'socio', 'vulnerability']
-      const incompleteSections = allSections.filter((s) => getSectionCompletion(s) !== 'full')
-      console.log('Settlement save – section completion:', allSections.map(s => ({ section: s, status: getSectionCompletion(s) })))
-
-      if (incompleteSections.length > 0) {
-        const names = incompleteSections.map((s) => `• ${sectionLabels[s]}`).join('\n')
-        try {
-          await ElMessageBox.confirm(
-            `Some sections are not fully filled:\n\n${names}\n\nYou can still save now, or click Cancel to go back and complete more details.`,
-            'Incomplete sections',
-            {
-              confirmButtonText: 'Save anyway',
-              cancelButtonText: 'Cancel',
-              type: 'warning'
-            }
-          )
-        } catch {
-          // User cancelled save to complete more fields
-          return
-        }
-      }
-
-      const attrCheck = validateSettlementAttributes(settlementForm)
-      if (!attrCheck.valid) {
-        ElMessage.error(attrCheck.errors.join(' '))
+    const attrCheck = validateSettlementAttributes(settlementForm)
+    if (!attrCheck.valid) {
+      ElMessage.error(attrCheck.errors.join(' '))
+      return
+    }
+    if (attrCheck.warnings.length > 0) {
+      try {
+        await ElMessageBox.confirm(
+          `${attrCheck.warnings.join('\n\n')}\n\nSave anyway?`,
+          'Data warnings',
+          {
+            confirmButtonText: 'Save anyway',
+            cancelButtonText: 'Go back',
+            type: 'warning'
+          }
+        )
+      } catch {
         return
       }
-      if (attrCheck.warnings.length > 0) {
-        try {
-          await ElMessageBox.confirm(
-            `${attrCheck.warnings.join('\n\n')}\n\nSave anyway?`,
-            'Data warnings',
-            {
-              confirmButtonText: 'Save anyway',
-              cancelButtonText: 'Go back',
-              type: 'warning'
-            }
-          )
-        } catch {
-          return
-        }
+    }
+
+    if (!settlementForm.geom && settlementGeometry.value) {
+      settlementForm.geom = settlementGeometry.value
+    }
+
+    settlementForm.model = 'settlement'
+    if (route.params.domain) {
+      settlementForm.component_id = route.params.domain
+    }
+
+    const formDataToSubmit = prepareSettlementFormForApi({
+      ...settlementForm,
+      structure_types: Array.isArray(settlementForm.structure_types)
+        ? settlementForm.structure_types.join(', ')
+        : settlementForm.structure_types || '',
+      development: Array.isArray(settlementForm.development)
+        ? settlementForm.development.join(', ')
+        : settlementForm.development || '',
+      typical_building_materials: Array.isArray(settlementForm.typical_building_materials)
+        ? settlementForm.typical_building_materials.join(', ')
+        : settlementForm.typical_building_materials || '',
+      landuse: Array.isArray(settlementForm.landuse)
+        ? settlementForm.landuse.join(', ')
+        : settlementForm.landuse || '',
+      climate_region: settlementForm.climate_region || null,
+      soil_type: settlementForm.soil_type || null,
+      land_cover: settlementForm.land_cover || null,
+      altitude_range: settlementForm.altitude_range || null,
+      proximity_to_river: settlementForm.proximity_to_river || null,
+      proximity_to_flood_plain: settlementForm.proximity_to_flood_plain || null,
+      vulnerability_total_score: (computedScore.value?.total_score ?? settlementForm.vulnerability_total_score) ?? null,
+      vulnerability_rating: (computedScore.value?.rating ?? settlementForm.vulnerability_rating) || null
+    })
+
+    if (isEditMode.value && editingSettlementId.value) {
+      const formData = {
+        ...formDataToSubmit,
+        id: editingSettlementId.value,
+        model: 'settlement'
       }
 
-      // Use settlementGeometry if form doesn't have it
-      if (!settlementForm.geom && settlementGeometry.value) {
-        settlementForm.geom = settlementGeometry.value
+      const res = await updateOneRecord(formData, { silent: true })
+      const ok = String(res?.code ?? '') === '0000'
+
+      if (ok) {
+        const settlementId = editingSettlementId.value
+        const shouldImportStructures = updateStructuresFromOverture.value
+
+        ElMessage.success('Settlement updated successfully')
+        clearFormAndGeometry()
+        sessionStorage.setItem('navigatingFromEdit', 'true')
+        router.push({ name: 'List' })
+
+        if (shouldImportStructures) {
+          void importOvertureStructuresAfterSave(settlementId, { replaceAll: true })
+        }
+      } else {
+        ElMessage.error(res?.message || 'Failed to update settlement')
       }
+    } else {
+      formDataToSubmit.isApproved = 'Pending'
+      formDataToSubmit.createdBy = userInfo.id
+      formDataToSubmit.code = shortid.generate()
+      formDataToSubmit.checkFields = ['name', 'county_id']
 
       try {
-        settlementForm.model = 'settlement'
-        // component_id is optional, only set if route has domain param
-        if (route.params.domain) {
-          settlementForm.component_id = route.params.domain
-        }
+        await duplicatePreCheck(formDataToSubmit)
 
-        // Convert array fields to comma-separated strings for backend
-        const formDataToSubmit = prepareSettlementFormForApi({
-          ...settlementForm,
-          structure_types: Array.isArray(settlementForm.structure_types) 
-            ? settlementForm.structure_types.join(', ') 
-            : settlementForm.structure_types || '',
-          development: Array.isArray(settlementForm.development) 
-            ? settlementForm.development.join(', ') 
-            : settlementForm.development || '',
-          typical_building_materials: Array.isArray(settlementForm.typical_building_materials) 
-            ? settlementForm.typical_building_materials.join(', ') 
-            : settlementForm.typical_building_materials || '',
-          landuse: Array.isArray(settlementForm.landuse) 
-            ? settlementForm.landuse.join(', ') 
-            : settlementForm.landuse || '',
-          // Explicitly include vulnerability fields so backend receives them for score computation
-          climate_region: settlementForm.climate_region || null,
-          soil_type: settlementForm.soil_type || null,
-          land_cover: settlementForm.land_cover || null,
-          altitude_range: settlementForm.altitude_range || null,
-          proximity_to_river: settlementForm.proximity_to_river || null,
-          proximity_to_flood_plain: settlementForm.proximity_to_flood_plain || null,
-          // Send computed score/rating as fallback (backend recomputes and overwrites)
-          vulnerability_total_score: (computedScore.value?.total_score ?? settlementForm.vulnerability_total_score) ?? null,
-          vulnerability_rating: (computedScore.value?.rating ?? settlementForm.vulnerability_rating) || null
-        })
+        const res = await CreateRecord(formDataToSubmit)
 
-        if (isEditMode.value && editingSettlementId.value) {
-          // Update existing settlement
-          const formData = {
-            ...formDataToSubmit,
-            id: editingSettlementId.value,
-            model: 'settlement'
-          }
-
-          const res = await updateOneRecord(formData)
-          
-          if (res.code === '0000') {
-            ElMessage.success('Settlement updated successfully')
-            clearFormAndGeometry()
-            
-            // Mark that we're navigating from edit page
-            sessionStorage.setItem('navigatingFromEdit', 'true')
-            
-            // Navigate back to settlement list; let the list screen decide filters
-            router.push({
-              name: 'List'
-            })
-          } else {
-            ElMessage.error('Failed to update settlement')
-          }
+        if (String(res?.code ?? '') === '0000') {
+          await importOvertureStructuresAfterSave(resolveSettlementIdFromCreateResponse(res))
+          ElMessage.success('Settlement created successfully')
+          clearFormAndGeometry()
+          router.push({ name: 'List' })
         } else {
-          // Create new settlement
-          formDataToSubmit.isApproved = 'Pending'
-          formDataToSubmit.createdBy = userInfo.id
-          formDataToSubmit.code = shortid.generate()
-          formDataToSubmit.checkFields = ['name', 'county_id']
+          ElMessage.error('Failed to create settlement')
+        }
+      } catch (error: any) {
+        if (error.response?.data?.duplicates) {
+          const duplicates = error.response.data.duplicates
+          const duplicateMsg = duplicates.map((dup: any, idx: number) =>
+            `${idx + 1}. ${Object.entries(dup).map(([k, v]) => `${k}: ${v || 'N/A'}`).join(', ')}`
+          ).join('\n')
 
-          // Perform duplicate check
           try {
-            await duplicatePreCheck(formDataToSubmit)
-            
-            const res = await CreateRecord(formDataToSubmit)
-            
-            if (res.code === '0000') {
+            await ElMessageBox.confirm(
+              `${error.response.data.message}\n\nDuplicates found:\n${duplicateMsg}`,
+              'Warning',
+              {
+                confirmButtonText: 'Proceed to Create',
+                cancelButtonText: 'Cancel',
+                type: 'warning',
+                dangerouslyUseHTMLString: false
+              }
+            )
+            const createRes = await CreateRecord(formDataToSubmit)
+            if (String(createRes?.code ?? '') === '0000') {
+              await importOvertureStructuresAfterSave(
+                resolveSettlementIdFromCreateResponse(createRes)
+              )
               ElMessage.success('Settlement created successfully')
               clearFormAndGeometry()
-              
-              // Redirect to settlement list after successful creation; let the list screen decide filters
-              router.push({
-                name: 'List'
-              })
+              router.push({ name: 'List' })
             } else {
               ElMessage.error('Failed to create settlement')
             }
-          } catch (error: any) {
-            if (error.response?.data?.duplicates) {
-              // Show duplicate warning dialog
-              const duplicates = error.response.data.duplicates
-              const duplicateMsg = duplicates.map((dup: any, idx: number) => 
-                `${idx + 1}. ${Object.entries(dup).map(([k, v]) => `${k}: ${v || 'N/A'}`).join(', ')}`
-              ).join('\n')
-              
-              ElMessageBox.confirm(
-                `${error.response.data.message}\n\nDuplicates found:\n${duplicateMsg}`,
-                'Warning',
-                {
-                  confirmButtonText: 'Proceed to Create',
-                  cancelButtonText: 'Cancel',
-                  type: 'warning',
-                  dangerouslyUseHTMLString: false
-                }
-              ).then(() => {
-                CreateRecord(formDataToSubmit).then(() => {
-                  ElMessage.success('Settlement created successfully')
-                  clearFormAndGeometry()
-                  
-                  // Redirect to settlement list after successful creation; let the list screen decide filters
-                  router.push({
-                    name: 'List'
-                  })
-                }).catch((err) => {
-                  console.error('Error creating record:', err)
-                  ElMessage.error('Failed to create settlement')
-                })
-              }).catch(() => {
-                // User cancelled
-              })
-            } else {
-              throw error
-            }
+          } catch {
+            // User cancelled duplicate override
           }
+        } else {
+          throw error
         }
-      } catch (error: any) {
-        console.error('Error saving settlement:', error)
-        ElMessage.error(error?.response?.data?.message || 'Failed to save settlement')
       }
     }
-  })
+  } catch (error: any) {
+    console.error('Error saving settlement:', error)
+    ElMessage.error(error?.response?.data?.message || 'Failed to save settlement')
+  } finally {
+    isSaving.value = false
+  }
 }
 
 // Go back to previous step
@@ -1855,6 +1933,80 @@ const closeDrawer = () => {
 
 const populationLoading = ref(false)
 const climateLoading = ref(false)
+const overtureBuildingsLoading = ref(false)
+const overtureBuildingCount = ref<number | null>(null)
+const overtureBuildingLayers = ref<any[]>([])
+const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
+/** Edit mode only: when checked, replace all structures with Overture footprints on save. */
+const updateStructuresFromOverture = ref(true)
+
+const clearOvertureBuildingLayers = () => {
+  overtureBuildingLayers.value.forEach((layer) => {
+    if (layer) layer.setMap(null)
+  })
+  overtureBuildingLayers.value = []
+  overtureBuildingCount.value = null
+  overtureBuildingsGeojson.value = null
+}
+
+const renderOvertureBuildingsOnMap = (geojson: GeoJSON.FeatureCollection) => {
+  overtureBuildingLayers.value.forEach((layer) => {
+    if (layer) layer.setMap(null)
+  })
+  overtureBuildingLayers.value = []
+  if (!map.value || !window.google?.maps || !geojson?.features?.length) return
+
+  const addPolygonPaths = (paths: Array<{ lat: number; lng: number }>) => {
+    const poly = new window.google.maps.Polygon({
+      paths,
+      strokeColor: '#00ACC1',
+      strokeOpacity: 0.85,
+      strokeWeight: 1,
+      fillColor: '#00ACC1',
+      fillOpacity: 0.3,
+      map: map.value,
+      clickable: false,
+      zIndex: 600,
+    })
+    overtureBuildingLayers.value.push(poly)
+  }
+
+  for (const feature of geojson.features) {
+    const geom = feature.geometry
+    if (!geom) continue
+    if (geom.type === 'Polygon') {
+      addPolygonPaths(geom.coordinates[0].map(([lng, lat]) => ({ lat, lng })))
+    } else if (geom.type === 'MultiPolygon') {
+      for (const polygon of geom.coordinates) {
+        addPolygonPaths(polygon[0].map(([lng, lat]) => ({ lat, lng })))
+      }
+    }
+  }
+}
+
+const fetchOvertureBuildingsForSettlement = async (geometry: any) => {
+  if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) {
+    clearOvertureBuildingLayers()
+    return null
+  }
+  overtureBuildingsLoading.value = true
+  try {
+    const res = await fetchOvertureBuildings(geometry)
+    if (String(res.code) !== '0000') return null
+    overtureBuildingCount.value = res.count ?? 0
+    overtureBuildingsGeojson.value =
+      res.geojson?.features?.length ? res.geojson : null
+    if (res.geojson?.features?.length) {
+      renderOvertureBuildingsOnMap(res.geojson)
+    }
+    return res
+  } catch (e) {
+    console.warn('Overture buildings unavailable:', e)
+    return null
+  } finally {
+    overtureBuildingsLoading.value = false
+  }
+}
 
 // Fetch average household size for a ward from the households dataset
 const fetchWardAvgHouseholdSize = async (wardId: any): Promise<number | null> => {
@@ -1915,7 +2067,7 @@ const fetchPopulationEstimate = async (geometry: any) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(feature)
     })
-    if (!res.ok) return
+    if (!res.ok) return null
 
     const data = await res.json()
     if (data?.estimated_population != null) {
@@ -1926,12 +2078,109 @@ const fetchPopulationEstimate = async (geometry: any) => {
         settlementForm.avg_household_size = wardAvgHouseholdSize.value
       }
       const hhLabel = data.persons_per_building != null ? ` × ${data.persons_per_building.toFixed(2)} avg HH size` : ''
-      ElMessage.success(`Population estimated: ${population.toLocaleString()} (${data.buildings} buildings${hhLabel})`)
+      ElMessage.success(`Population estimated (Open Buildings fallback): ${population.toLocaleString()} (${data.buildings} buildings${hhLabel})`)
+      return data
     }
+    return data
   } catch (e) {
     console.warn('Population estimation service unavailable:', e)
+    return null
   } finally {
     populationLoading.value = false
+  }
+}
+
+/** Overture map preview only — never changes population. */
+const refreshOvertureMapPreview = async (
+  geometry: any,
+  options: { showMessage?: boolean } = {}
+) => {
+  const showMessage = options.showMessage !== false
+  const overture = await fetchOvertureBuildingsForSettlement(geometry)
+  const overtureCount = Number(overture?.count) || 0
+  if (showMessage && overtureCount > 0) {
+    ElMessage.info(`Overture: ${overtureCount} building footprint${overtureCount === 1 ? '' : 's'} shown on map (cyan).`)
+  }
+  return overture
+}
+
+/** Manual or new-settlement population estimate from Overture / Open Buildings. */
+const applyPopulationEstimateFromBuildings = async (geometry: any) => {
+  populationLoading.value = true
+  try {
+    const overture = await fetchOvertureBuildingsForSettlement(geometry)
+    const overtureCount = Number(overture?.count) || 0
+    const ppb = wardAvgHouseholdSize.value
+
+    if (overtureCount > 0 && ppb != null && Number.isFinite(ppb)) {
+      const population = Math.round((overtureCount * ppb) / 100) * 100
+      settlementForm.population = population
+      applyCountySexSplit(population)
+      settlementForm.avg_household_size = ppb
+      ElMessage.success(
+        `Population estimated from Overture: ${population.toLocaleString()} (${overtureCount} buildings × ${ppb.toFixed(2)} avg HH size)`
+      )
+      return
+    }
+
+    if (overtureCount > 0) {
+      ElMessage.warning('Ward average household size is not available — cannot estimate population from Overture.')
+      return
+    }
+
+    await fetchPopulationEstimate(geometry)
+  } finally {
+    populationLoading.value = false
+  }
+}
+
+/** After boundary draw/upload: preview only in edit; climate + population in create. */
+const onSettlementGeometryReady = async (geometry: any) => {
+  if (isEditMode.value) {
+    await refreshOvertureMapPreview(geometry)
+    return
+  }
+
+  fetchClimateData(geometry)
+  await applyPopulationEstimateFromBuildings(geometry)
+}
+
+const resolveSettlementIdFromCreateResponse = (res: any): number | null => {
+  const raw = res?.data?.id ?? res?.data?.dataValues?.id ?? res?.id
+  const id = Number(raw)
+  return Number.isFinite(id) && id > 0 ? id : null
+}
+
+const importOvertureStructuresAfterSave = async (
+  settlementId: number | string | null | undefined,
+  options?: { replaceAll?: boolean }
+) => {
+  const id = Number(settlementId)
+  if (!Number.isFinite(id) || id <= 0) {
+    console.warn('[Overture structures] skipped import: invalid settlement id', settlementId)
+    return
+  }
+
+  try {
+    const res = await createOvertureStructures(
+      id,
+      overtureBuildingsGeojson.value,
+      { replaceAll: options?.replaceAll === true }
+    )
+    if (String(res.code) !== '0000') return
+
+    if ((res.created ?? 0) > 0) {
+      ElMessage.success(
+        `Created ${res.created} structure record${res.created === 1 ? '' : 's'} from Overture footprints`
+      )
+    } else if ((res.total ?? 0) > 0) {
+      ElMessage.info('Overture footprints found but no new structure records were created.')
+    } else {
+      ElMessage.info('No Overture building footprints found for this settlement boundary.')
+    }
+  } catch (e) {
+    console.warn('Overture structure import failed:', e)
+    ElMessage.warning('Settlement saved, but structure import from Overture failed.')
   }
 }
 
@@ -1941,7 +2190,7 @@ const onManualPopulationFetch = async () => {
     ElMessage.error('Please draw or select settlement geometry before estimating population')
     return
   }
-  await fetchPopulationEstimate(geom)
+  await applyPopulationEstimateFromBuildings(geom)
 }
 
 // Auto-fill vulnerability fields from climate service using geometry centroid
@@ -2228,8 +2477,7 @@ const readJsonFile = (event: any) => {
   
   settlementGeometry.value = geom
   settlementForm.geom = geom
-  fetchClimateData(geom)
-  fetchPopulationEstimate(geom)
+  void onSettlementGeometryReady(geom)
 
   // Calculate area
   try {
@@ -2292,8 +2540,7 @@ const readShapefile = async (file: File) => {
       
       settlementGeometry.value = geomX
       settlementForm.geom = geomX
-      fetchClimateData(geomX)
-      fetchPopulationEstimate(geomX)
+      void onSettlementGeometryReady(geomX)
 
       // Calculate area in hectares
       const areaHectares = calculateAreaInHectares(geomX)
@@ -2420,6 +2667,14 @@ onMounted(async () => {
   
   if (settlementId) {
     editingSettlementId.value = Number(settlementId)
+
+    // Location ids from list/details edit click (immediate, before API)
+    const routeCounty = route.query.county_id
+    const routeSubcounty = route.query.subcounty_id
+    const routeWard = route.query.ward_id
+    if (routeCounty) {
+      await applyLocationFromRecord(routeCounty, routeWard, routeSubcounty)
+    }
     
     try {
       const form = {
@@ -2470,10 +2725,12 @@ onMounted(async () => {
         settlementForm.landuse = []
       }
       
-      // Set location
-      selectedCounty.value = curData.county_id
-      await handleCountyChange(curData.county_id)
-      selectedWard.value = curData.ward_id
+      // Set location from saved record (county, ward, subcounty)
+      await applyLocationFromRecord(
+        curData.county_id,
+        curData.ward_id,
+        curData.subcounty_id
+      )
       
       // Load settlement geometry
       if (curData.geom) {
@@ -2485,6 +2742,8 @@ onMounted(async () => {
         if (areaHectares !== null) {
           settlementForm.area = areaHectares
         }
+
+        void refreshOvertureMapPreview(curData.geom, { showMessage: false })
       }
       
       // Get ward geometry for context
@@ -2721,6 +2980,9 @@ onMounted(async () => {
         <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
           Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} — click to add corners, double-click to finish
         </div>
+        <div v-else-if="overtureBuildingCount != null && overtureBuildingCount > 0" class="map-status-banner map-status-banner--overture">
+          Overture: {{ overtureBuildingCount }} building{{ overtureBuildingCount === 1 ? '' : 's' }} (cyan) · Ward neighbors in pink
+        </div>
         <div v-else-if="drawReady" class="map-status-banner map-status-banner--ready">Map ready — click Draw, then outline the settlement on the map</div>
         <div ref="mapContainer" class="map-container"></div>
       </div>
@@ -2733,6 +2995,8 @@ onMounted(async () => {
       :size="isMobile ? '100%' : '720px'"
       direction="rtl"
       :before-close="closeDrawer"
+      :append-to-body="true"
+      class="settlement-form-drawer"
     >
       <el-form
         ref="formRef"
@@ -2774,33 +3038,39 @@ onMounted(async () => {
 
             <el-form-item label="Population">
               <el-input-number v-model="settlementForm.population" :min="0" style="width: 100%" />
-              <div class="mb-3" style="margin-top: 6px">
+              <div class="population-estimate-block">
                 <el-button
                   type="primary"
                   plain
-                  size="small"
+                  class="population-estimate-btn"
                   @click.stop="onManualPopulationFetch"
-                  :loading="populationLoading"
-                  :disabled="(!settlementForm.geom && !settlementGeometry) || populationLoading"
+                  :loading="populationLoading || overtureBuildingsLoading"
+                  :disabled="(!settlementForm.geom && !settlementGeometry) || populationLoading || overtureBuildingsLoading"
                 >
                   Click to estimate population
                 </el-button>
-                <el-popover placement="right" :width="360" trigger="hover">
-                  <template #default>
-                    <div class="vulnerability-help-popover">
-                      <p class="text-sm font-medium mb-2">Population is estimated from the drawn boundary using the Open Buildings dataset.</p>
-                      <ul class="text-xs space-y-2">
-                        <li><strong>Step 1 — Count buildings</strong> — All Open Buildings points that fall inside the settlement boundary are counted.</li>
-                        <li><strong>Step 2 — Apply persons-per-building factor</strong> — A county-level average derived from census data is applied: <em>population = buildings × persons per building</em>.</li>
-                        <li><strong>Step 3 — Round to nearest whole number</strong> — The result is rounded and filled into this field automatically.</li>
-                      </ul>
-                      <p class="text-xs mt-2 text-gray-500">The estimate is a guide. You can override it by typing a value directly. The service requires a drawn boundary to function.</p>
-                    </div>
-                  </template>
-                  <template #reference>
-                    <el-icon class="cursor-help text-gray-500" style="margin-left: 6px; vertical-align: middle;" :size="16"><QuestionFilled /></el-icon>
-                  </template>
-                </el-popover>
+                <div v-if="overtureBuildingCount != null" class="population-overture-hint">
+                  Overture building footprints: {{ overtureBuildingCount }}
+                  <span v-if="overtureBuildingsLoading"> (loading…)</span>
+                </div>
+                <div class="population-help-row">
+                  <el-popover placement="right" :width="360" trigger="hover">
+                    <template #default>
+                      <div class="vulnerability-help-popover">
+                        <p class="text-sm font-medium mb-2">Population is estimated from buildings inside the boundary.</p>
+                        <ul class="text-xs space-y-2">
+                          <li><strong>Primary — Overture Maps</strong> — Building footprints from Overture are counted and shown in cyan on the map.</li>
+                          <li><strong>Fallback — Open Buildings</strong> — If Overture finds none, point counts from Google Open Buildings are used.</li>
+                          <li><strong>Formula</strong> — <em>population = buildings × persons per building</em> (ward average household size when available).</li>
+                        </ul>
+                        <p class="text-xs mt-2 text-gray-500">In edit mode, population is not auto-estimated — use the button above. After save, Overture footprints can be imported as structure records.</p>
+                      </div>
+                    </template>
+                    <template #reference>
+                      <el-icon class="cursor-help text-gray-500" :size="16"><QuestionFilled /></el-icon>
+                    </template>
+                  </el-popover>
+                </div>
               </div>
             </el-form-item>
 
@@ -3333,10 +3603,27 @@ onMounted(async () => {
 
       <template #footer>
         <div class="drawer-footer">
-          <el-button @click="closeDrawer">Cancel</el-button>
-          <el-button type="primary" @click="submitForm" :icon="Check">
-            {{ isEditMode ? 'Update Settlement' : 'Save Settlement' }}
-          </el-button>
+          <div v-if="isEditMode" class="drawer-footer-options">
+            <el-checkbox v-model="updateStructuresFromOverture">
+              Replace all structures with Overture building footprints
+            </el-checkbox>
+            <div class="drawer-footer-hint">
+              When checked, existing structures for this settlement are removed and replaced from the current boundary.
+            </div>
+          </div>
+          <div class="drawer-footer-actions">
+            <el-button @click="closeDrawer" :disabled="isSaving">Cancel</el-button>
+            <el-button
+              type="primary"
+              native-type="button"
+              :loading="isSaving"
+              :disabled="isSaving"
+              @click="submitForm"
+              :icon="Check"
+            >
+              {{ isSaving ? (isEditMode ? 'Updating…' : 'Saving…') : (isEditMode ? 'Update Settlement' : 'Save Settlement') }}
+            </el-button>
+          </div>
         </div>
       </template>
     </el-drawer>
@@ -3634,10 +3921,64 @@ onMounted(async () => {
 
 .drawer-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
   padding: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
+  pointer-events: auto;
+}
+
+:deep(.settlement-form-drawer .el-drawer__footer) {
+  padding: 0;
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+:deep(.settlement-form-drawer .el-drawer__body) {
+  overflow-y: auto;
+}
+
+.drawer-footer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.drawer-footer-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+.drawer-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.population-estimate-block {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.population-estimate-btn {
+  width: 100%;
+}
+
+.population-overture-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+.population-help-row {
+  margin-top: 4px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .section-header {

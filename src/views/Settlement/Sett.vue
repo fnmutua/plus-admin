@@ -29,6 +29,7 @@ import { defineAsyncComponent, onMounted, onActivated, onUnmounted } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+import { buildSettlementEditQuery } from '@/utils/settlementEditNavigation'
 import * as turf from '@turf/turf'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
@@ -2314,7 +2315,7 @@ const formHeader = ref('Edit Settlement')
 const editSettlement = (data: TableSlotDefault) => {
   push({
     name: 'AddSettlementNew',
-    query: { id: data.row.id }
+    query: buildSettlementEditQuery(data.row),
   });
   showEditSaveButton.value = true
   ruleForm.id = data.row.id
@@ -2358,7 +2359,7 @@ const handleEdit = (data) => {
 
   push({
     name: 'AddSettlementNew',
-    query: { id: data.id }
+    query: buildSettlementEditQuery(data),
   });
   showEditSaveButton.value = true
   ruleForm.id = data.id

@@ -36,6 +36,10 @@ if (typeof globalThis.fetch === 'undefined') {
 const db = require('../models')
 const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
 const { computeSettlementVulnerability } = require('../utils/vulnerability')
+const {
+  fetchOvertureBuildingsForGeometry,
+  importOvertureStructuresForSettlement,
+} = require('../utils/overtureBuildings')
 const settlementPopulationGeo = require('../services/settlementPopulationGeo')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
@@ -1724,6 +1728,15 @@ exports.modelCreateOneRecord = async (req, res) => {
     if (reg_model === 'settlement') {
       // send the ouput to be put send to ODK central
       sendSettDataToODK([item])
+
+      const settlementId = item.id
+      const userId = req.thisUser?.id
+      void importOvertureStructuresForSettlement(settlementId, userId).catch((err) => {
+        console.error(
+          `[Overture structures] auto-import failed for settlement ${settlementId}:`,
+          err
+        )
+      })
      }
     
     
@@ -2364,6 +2377,90 @@ exports.getSettlementsWithBoundaryGeometry = async (req, res) => {
       message: 'Failed to fetch settlements with boundary geometry',
       error: error.message,
       code: 'SERVER_ERROR',
+    })
+  }
+}
+
+/** Create structure records from Overture building footprints for a saved settlement. */
+exports.createOvertureStructuresForSettlement = async (req, res) => {
+  try {
+    const settlementId = parseInt(
+      req.params.settlementId || req.body?.settlement_id,
+      10
+    )
+    if (!Number.isFinite(settlementId)) {
+      return res.status(400).json({
+        message: 'settlementId is required',
+        code: 'MISSING_PARAMETER',
+      })
+    }
+
+    const settlement = await db.models.settlement.findByPk(settlementId)
+    if (!settlement) {
+      return res.status(404).json({
+        message: 'Settlement not found',
+        code: 'NOT_FOUND',
+      })
+    }
+
+    console.log(
+      `[Overture structures] import requested for settlement ${settlementId} by user ${req.thisUser?.id}`
+    )
+
+    const replaceExisting = req.body?.replaceExisting !== false
+    const replaceAll = req.body?.replaceAll === true
+    const result = await importOvertureStructuresForSettlement(
+      settlementId,
+      req.thisUser?.id,
+      req.body?.geojson,
+      { replaceExisting, replaceAll }
+    )
+
+    return res.status(200).json({
+      code: '0000',
+      message:
+        result.created > 0
+          ? `Created ${result.created} structure record(s) from Overture footprints`
+          : 'No Overture structure records were created',
+      ...result,
+    })
+  } catch (error) {
+    console.error('createOvertureStructuresForSettlement error:', error)
+    return res.status(500).json({
+      message: error.message || 'Failed to create structures from Overture footprints',
+      code: 'SERVER_ERROR',
+    })
+  }
+}
+
+/** Overture Maps building footprints clipped to a settlement boundary (for add/edit settlement). */
+exports.fetchOvertureBuildings = async (req, res) => {
+  try {
+    const geometry = req.body?.geometry
+    if (!geometry || !geometry.type) {
+      return res.status(400).json({
+        message: 'geometry is required (GeoJSON Polygon or MultiPolygon)',
+        code: 'MISSING_PARAMETER',
+      })
+    }
+    if (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') {
+      return res.status(400).json({
+        message: 'Only Polygon or MultiPolygon geometry is supported',
+        code: 'INVALID_GEOMETRY',
+      })
+    }
+
+    const result = await fetchOvertureBuildingsForGeometry(geometry)
+    return res.status(200).json({
+      code: '0000',
+      count: result.count,
+      geojson: result.geojson,
+    })
+  } catch (error) {
+    console.error('fetchOvertureBuildings error:', error)
+    return res.status(503).json({
+      message: error.message || 'Overture building fetch failed',
+      code: 'OVERTURE_UNAVAILABLE',
     })
   }
 }

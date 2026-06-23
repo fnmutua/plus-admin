@@ -8,6 +8,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { getOneSettlement } from '@/api/settlements'
+import { buildSettlementEditQuery } from '@/utils/settlementEditNavigation'
 
 const appStore = useAppStore()
 const { wsCache } = useCache()
@@ -19,6 +20,8 @@ const route = useRoute()
 const router = useRouter()
 const title = ref('')
 const countyId = ref<number | null>(null)
+const subcountyId = ref<number | null>(null)
+const wardId = ref<number | null>(null)
 
 // Get settlement ID from route params
 const settlementId = computed(() => route.params.id as string)
@@ -34,6 +37,8 @@ onMounted(async () => {
   console.log('res >>', res)
   title.value = res.data.name
   countyId.value = res.data.county_id || res.data.county?.id || null
+  subcountyId.value = res.data.subcounty_id || res.data.subcounty?.id || null
+  wardId.value = res.data.ward_id || res.data.ward?.id || null
 
 })
 
@@ -45,7 +50,12 @@ const goBack = () => {
 const editSettlement = () => {
   router.push({
     name: 'AddSettlementNew',
-    query: { id: settlementId.value }
+    query: buildSettlementEditQuery({
+      id: settlementId.value,
+      county_id: countyId.value,
+      subcounty_id: subcountyId.value,
+      ward_id: wardId.value,
+    }),
   })
 }
 

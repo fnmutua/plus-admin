@@ -34,6 +34,7 @@ import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import { listAssessments } from '@/api/climate-assessment'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { resolvePlanningSurveyFromRecord, surveyStatusOptionsForPlanning, normalizePlanningSurveyPair } from '@/utils/validateSettlementAttributes'
+import { buildSettlementEditQuery } from '@/utils/settlementEditNavigation'
 import {
   buildVulnerabilitySelectFallback,
   CLIMATE_VULN_ATTR_FIELDS,
@@ -192,7 +193,9 @@ const profile = reactive({
   county: '',
   county_id: null as number | null,
   subcounty: '',
+  subcounty_id: null as number | null,
   ward: '',
+  ward_id: null as number | null,
   population: '',
   pop_male: '',
   pop_female: '',
@@ -518,7 +521,9 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.county = settlementData.county?.name || '';
     profile.county_id = settlementData.county_id || settlementData.county?.id || null;
     profile.subcounty = settlementData.subcounty?.name || '';
+    profile.subcounty_id = settlementData.subcounty_id || settlementData.subcounty?.id || null;
     profile.ward = settlementData.ward?.name || '';
+    profile.ward_id = settlementData.ward_id || settlementData.ward?.id || null;
     profile.population = dashDisplay(settlementData.population);
     profile.pop_male = dashDisplay(settlementData.pop_male);
     profile.pop_female = dashDisplay(settlementData.pop_female);
@@ -2164,7 +2169,12 @@ const editSettlement = () => {
 
   push({
     name: 'AddSettlementNew',
-    query: { id: route.params.id }
+    query: buildSettlementEditQuery({
+      id: route.params.id as string,
+      county_id: profile.county_id,
+      subcounty_id: profile.subcounty_id,
+      ward_id: profile.ward_id,
+    }),
   });
 
 

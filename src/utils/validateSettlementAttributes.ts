@@ -40,24 +40,23 @@ export function normalizePlanningSurveyPair(
   survey: SurveyStatus | null | undefined
 ): { planning: PlanningStatus | null; survey: SurveyStatus | null; error: string | null } {
   const p = planning ?? null
-  let s = survey ?? null
+  const rawSurvey = survey ?? null
 
-  if (!p && !s) return { planning: null, survey: null, error: null }
+  if (!p && !rawSurvey) return { planning: null, survey: null, error: null }
 
   if (p === 'Unplanned') {
-    s = 'Unsurveyed'
-    return { planning: p, survey: s, error: null }
+    return { planning: p, survey: 'Unsurveyed', error: null }
   }
 
-  if (s === 'Surveyed' && p !== 'Planned') {
+  if (rawSurvey === 'Surveyed' && p !== 'Planned') {
     return {
       planning: p,
-      survey: s,
+      survey: rawSurvey,
       error: 'A settlement can only be Surveyed if it is Planned.',
     }
   }
 
-  return { planning: p, survey: s, error: null }
+  return { planning: p, survey: rawSurvey, error: null }
 }
 
 export function composeLandStatus(
