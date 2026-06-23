@@ -185,7 +185,7 @@ const settlementForm = reactive({
   subcounty_id: '',
   ward_id: '',
   settlement_type: '',
-  population: '',
+  population: null as number | null,
   pop_male: null as number | null,
   pop_female: null as number | null,
   area: '',
@@ -1566,6 +1566,8 @@ const updatePolygonGeometry = (polygon: any) => {
     if (areaHectares !== null) {
       settlementForm.area = areaHectares
     }
+
+    scheduleOvertureRefreshForGeometry(geom)
   } catch (error) {
     console.error('Error updating polygon geometry:', error)
   }
@@ -1938,7 +1940,7 @@ const overtureBuildingCount = ref<number | null>(null)
 const overtureBuildingLayers = ref<any[]>([])
 const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
 /** Edit mode only: when checked, replace all structures with Overture footprints on save. */
-const updateStructuresFromOverture = ref(true)
+const updateStructuresFromOverture = ref(false)
 
 const clearOvertureBuildingLayers = () => {
   overtureBuildingLayers.value.forEach((layer) => {
@@ -1947,6 +1949,20 @@ const clearOvertureBuildingLayers = () => {
   overtureBuildingLayers.value = []
   overtureBuildingCount.value = null
   overtureBuildingsGeojson.value = null
+}
+
+let overtureGeometryRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Re-fetch Overture footprints when settlement boundary changes (debounced). */
+const scheduleOvertureRefreshForGeometry = (geometry: any) => {
+  if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return
+  if (overtureGeometryRefreshTimer) {
+    clearTimeout(overtureGeometryRefreshTimer)
+  }
+  overtureGeometryRefreshTimer = setTimeout(() => {
+    overtureGeometryRefreshTimer = null
+    void refreshOvertureMapPreview(geometry, { showMessage: false })
+  }, 700)
 }
 
 const renderOvertureBuildingsOnMap = (geojson: GeoJSON.FeatureCollection) => {
@@ -2029,22 +2045,39 @@ const fetchWardAvgHouseholdSize = async (wardId: any): Promise<number | null> =>
 }
 
 /** Split total population into male/female using the selected county's census sex ratio. */
-const applyCountySexSplit = (total: number) => {
+const applyCountySexSplit = async (total: number) => {
   const countyId = settlementForm.county_id
-  const counties = countyRefList?.value as Array<{
-    id: number | string
+  if (!countyId || !Number.isFinite(total) || total <= 0) return
+
+  let county = countyRefList.value?.find((c) => String(c.id) === String(countyId)) as {
+    id?: number | string
     pop_male?: number
     pop_female?: number
     pop_total?: number
-  }> | undefined
-  if (!countyId || !counties?.length) return
+  } | undefined
 
-  const county = counties.find((c) => String(c.id) === String(countyId))
-  if (!county) return
+  let refMale = Number(county?.pop_male)
+  let refFemale = Number(county?.pop_female)
 
-  const refMale = Number(county.pop_male)
-  const refFemale = Number(county.pop_female)
-  const refTotal = Number(county.pop_total) || refMale + refFemale
+  if (!Number.isFinite(refMale) || !Number.isFinite(refFemale) || refMale + refFemale <= 0) {
+    try {
+      const res = await getOneSettlement({ model: 'county', id: String(countyId) } as any)
+      const row = (res as any)?.data ?? res
+      if (row) {
+        refMale = Number(row.pop_male)
+        refFemale = Number(row.pop_female)
+        if (county) {
+          county.pop_male = row.pop_male
+          county.pop_female = row.pop_female
+          county.pop_total = row.pop_total
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load county sex ratio:', e)
+    }
+  }
+
+  const refTotal = Number(county?.pop_total) || refMale + refFemale
   if (!Number.isFinite(refTotal) || refTotal <= 0) return
   if (!Number.isFinite(refMale) || !Number.isFinite(refFemale)) return
 
@@ -2053,40 +2086,73 @@ const applyCountySexSplit = (total: number) => {
   settlementForm.pop_female = total - popMale
 }
 
-// Auto-fill population from building-based population estimation service
-const fetchPopulationEstimate = async (geometry: any) => {
-  populationLoading.value = true
-  try {
-    const feature: any = { type: 'Feature', geometry }
-    const url = new URL('https://kesmis.go.ke/estimate_population')
-    if (wardAvgHouseholdSize.value != null) {
-      url.searchParams.set('persons_per_building', String(wardAvgHouseholdSize.value))
-    }
-    const res = await fetch(url.toString(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(feature)
-    })
-    if (!res.ok) return null
+const ensureWardAvgHouseholdSize = async (): Promise<number | null> => {
+  if (wardAvgHouseholdSize.value != null && Number.isFinite(wardAvgHouseholdSize.value)) {
+    return wardAvgHouseholdSize.value
+  }
+  const wardId = settlementForm.ward_id || selectedWard.value
+  if (!wardId) return null
+  const avg = await fetchWardAvgHouseholdSize(wardId)
+  if (avg != null) {
+    wardAvgHouseholdSize.value = avg
+  }
+  return avg
+}
 
-    const data = await res.json()
+const applyPopulationTotals = async (
+  total: number,
+  options?: { avgHouseholdSize?: number | null; message?: string }
+) => {
+  const population = Math.round(total / 100) * 100
+  settlementForm.population = population
+  const ppb = options?.avgHouseholdSize ?? wardAvgHouseholdSize.value
+  if (ppb != null && Number.isFinite(ppb)) {
+    settlementForm.avg_household_size = ppb
+  }
+  await applyCountySexSplit(population)
+  if (options?.message) {
+    ElMessage.success(options.message.replace('{population}', population.toLocaleString()))
+  }
+}
+
+const fetchOpenBuildingsPopulation = async (geometry: any, ppb?: number | null) => {
+  const feature: any = { type: 'Feature', geometry }
+  const url = new URL('https://kesmis.go.ke/estimate_population')
+  const personsPerBuilding = ppb ?? wardAvgHouseholdSize.value
+  if (personsPerBuilding != null && Number.isFinite(personsPerBuilding)) {
+    url.searchParams.set('persons_per_building', String(personsPerBuilding))
+  }
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(feature),
+  })
+  if (!res.ok) return null
+  return res.json()
+}
+
+// Auto-fill population from building-based population estimation service (Open Buildings)
+const fetchPopulationEstimate = async (geometry: any) => {
+  try {
+    const ppb = await ensureWardAvgHouseholdSize()
+    const data = await fetchOpenBuildingsPopulation(geometry, ppb)
     if (data?.estimated_population != null) {
-      const population = Math.round(data.estimated_population / 100) * 100
-      settlementForm.population = population
-      applyCountySexSplit(population)
-      if (wardAvgHouseholdSize.value != null) {
-        settlementForm.avg_household_size = wardAvgHouseholdSize.value
-      }
-      const hhLabel = data.persons_per_building != null ? ` × ${data.persons_per_building.toFixed(2)} avg HH size` : ''
-      ElMessage.success(`Population estimated (Open Buildings fallback): ${population.toLocaleString()} (${data.buildings} buildings${hhLabel})`)
+      const hhLabel =
+        data.persons_per_building != null
+          ? ` × ${Number(data.persons_per_building).toFixed(2)} avg HH size`
+          : ''
+      await applyPopulationTotals(data.estimated_population, {
+        avgHouseholdSize: data.persons_per_building ?? ppb,
+        message: `Population estimated (Open Buildings fallback): {population} (${data.buildings} buildings${hhLabel})`,
+      })
       return data
     }
+    ElMessage.warning('Open Buildings could not estimate population for this boundary.')
     return data
   } catch (e) {
     console.warn('Population estimation service unavailable:', e)
+    ElMessage.error('Population estimation service unavailable.')
     return null
-  } finally {
-    populationLoading.value = false
   }
 }
 
@@ -2104,28 +2170,26 @@ const refreshOvertureMapPreview = async (
   return overture
 }
 
-/** Manual or new-settlement population estimate from Overture / Open Buildings. */
+/** Population estimate from Overture / Open Buildings — manual button or create-mode auto only. */
 const applyPopulationEstimateFromBuildings = async (geometry: any) => {
   populationLoading.value = true
   try {
+    const ppb = await ensureWardAvgHouseholdSize()
+
     const overture = await fetchOvertureBuildingsForSettlement(geometry)
     const overtureCount = Number(overture?.count) || 0
-    const ppb = wardAvgHouseholdSize.value
 
     if (overtureCount > 0 && ppb != null && Number.isFinite(ppb)) {
-      const population = Math.round((overtureCount * ppb) / 100) * 100
-      settlementForm.population = population
-      applyCountySexSplit(population)
-      settlementForm.avg_household_size = ppb
-      ElMessage.success(
-        `Population estimated from Overture: ${population.toLocaleString()} (${overtureCount} buildings × ${ppb.toFixed(2)} avg HH size)`
-      )
+      const total = overtureCount * ppb
+      await applyPopulationTotals(total, {
+        avgHouseholdSize: ppb,
+        message: `Population estimated from Overture: {population} (${overtureCount} buildings × ${ppb.toFixed(2)} avg HH size)`,
+      })
       return
     }
 
-    if (overtureCount > 0) {
-      ElMessage.warning('Ward average household size is not available — cannot estimate population from Overture.')
-      return
+    if (overtureCount > 0 && ppb == null) {
+      ElMessage.info('Ward average household size unavailable — trying Open Buildings estimate.')
     }
 
     await fetchPopulationEstimate(geometry)
@@ -2189,6 +2253,9 @@ const onManualPopulationFetch = async () => {
   if (!geom) {
     ElMessage.error('Please draw or select settlement geometry before estimating population')
     return
+  }
+  if (!settlementForm.ward_id && !selectedWard.value) {
+    ElMessage.warning('Select a ward first — average household size is needed for the estimate.')
   }
   await applyPopulationEstimateFromBuildings(geom)
 }
@@ -2283,7 +2350,7 @@ const clearFormAndGeometry = () => {
     subcounty_id: '',
     ward_id: '',
     settlement_type: '',
-    population: '',
+    population: null,
     pop_male: null,
     pop_female: null,
     area: '',
@@ -2687,6 +2754,16 @@ onMounted(async () => {
       
       // Populate form
       Object.assign(settlementForm, curData)
+
+      if (curData.population != null && curData.population !== '') {
+        settlementForm.population = Number(curData.population)
+      }
+      if (curData.pop_male != null && curData.pop_male !== '') {
+        settlementForm.pop_male = Number(curData.pop_male)
+      }
+      if (curData.pop_female != null && curData.pop_female !== '') {
+        settlementForm.pop_female = Number(curData.pop_female)
+      }
 
       // Boolean DB fields -> yes/no for form selects
       settlementForm.near_river = booleanToYesNo(curData.near_river)
