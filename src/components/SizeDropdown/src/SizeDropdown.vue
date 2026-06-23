@@ -19,6 +19,7 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const sizeMap = computed(() => appStore.sizeMap)
+const currentSize = computed(() => appStore.getCurrentSize)
 
 const setCurrentSize = (size: ElememtPlusSize) => {
   appStore.setCurrentSize(size)
@@ -30,10 +31,22 @@ const setCurrentSize = (size: ElememtPlusSize) => {
     <Icon :size="18" icon="mdi:format-size" :color="color" class="cursor-pointer" />
     <template #dropdown>
       <ElDropdownMenu>
-        <ElDropdownItem v-for="item in sizeMap" :key="item" :command="item">
+        <ElDropdownItem
+          v-for="item in sizeMap"
+          :key="item"
+          :command="item"
+          :class="{ 'is-active': item === currentSize }"
+        >
           {{ t(`size.${item}`) }}
         </ElDropdownItem>
       </ElDropdownMenu>
     </template>
   </ElDropdown>
 </template>
+
+<style scoped>
+.is-active {
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+</style>

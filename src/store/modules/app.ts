@@ -4,6 +4,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { appModules } from '@/config/app'
 import type { AppState, LayoutType, ThemeTypes } from '@/config/app'
 import { setCssVar, humpToUnderline } from '@/utils'
+import { applyElementPlusSize } from '@/utils/elementPlusSize'
 import { ElMessage } from 'element-plus'
 import { useCssVar } from '@vueuse/core'
 const { wsCache } = useCache()
@@ -237,6 +238,7 @@ export const useAppStore = defineStore({
     setCurrentSize(currentSize: ElememtPlusSize) {
       this.currentSize = currentSize
       wsCache.set('currentSize', this.currentSize)
+      applyElementPlusSize(currentSize)
     },
     setMobile(mobile: boolean) {
       this.mobile = mobile

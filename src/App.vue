@@ -15,8 +15,6 @@ const prefixCls = getPrefixCls('app')
 
 const appStore = useAppStore()
 
-const currentSize = computed(() => appStore.getCurrentSize)
-
 const greyMode = computed(() => appStore.getGreyMode)
 
 const { wsCache } = useCache()
@@ -35,7 +33,7 @@ setDefaultTheme()
 </script>
 
 <template>
-  <ConfigGlobal :size="currentSize">
+  <ConfigGlobal>
     <RouterView :class="greyMode ? `${prefixCls}-grey-mode` : ''" />
   </ConfigGlobal>
 </template>
