@@ -92,7 +92,7 @@ const newAccountsLabel = computed(() => {
     case 'year':
       return 'New Accounts This Year'
     default:
-      return 'New Accounts This Week'
+      return 'New Accounts'
   }
 })
 
