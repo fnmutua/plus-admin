@@ -1990,6 +1990,7 @@ async function seedPermissions() {
     "road_asset:delete",
     "road_asset:read",
     "road_asset:update",
+    "settings:read",
     "settlement:approve",
     "settlement:archive",
     "settlement:create",

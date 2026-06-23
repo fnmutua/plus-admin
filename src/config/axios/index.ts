@@ -30,8 +30,10 @@ const request = (option: any) => {
   const contentType = headersType || (isForm || isBlob ? undefined : default_headers || 'multipart/form-data')
 
   const finalHeaders: Record<string, string> = {
-    'x-access-token': `${token.value}`,
     ...(headers || {})
+  }
+  if (token.value) {
+    finalHeaders['x-access-token'] = String(token.value)
   }
   if (contentType) {
     finalHeaders['Content-Type'] = contentType

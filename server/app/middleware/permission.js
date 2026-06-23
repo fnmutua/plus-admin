@@ -124,6 +124,30 @@ const hasPermission = (permissionName) => {
   };
 };
 
+/** Allow if the user has any one of the listed permissions (or is root/super admin). */
+const hasAnyPermission = (permissionNames) => {
+  const names = Array.isArray(permissionNames) ? permissionNames : [permissionNames];
+  return async (req, res, next) => {
+    try {
+      for (const permissionName of names) {
+        const result = await evaluatePermission(req, permissionName);
+        if (result.allowed) {
+          return next();
+        }
+      }
+
+      console.log(
+        'hasAnyPermission: Access denied — user lacks all of:',
+        names.join(', ')
+      );
+      return res.status(403).json({ message: 'Forbidden: insufficient permissions' });
+    } catch (error) {
+      console.error('Error in hasAnyPermission middleware:', error);
+      return res.status(500).json({ message: 'Error checking permissions', error: error.message });
+    }
+  };
+};
+
 const hasDynamicPermission = (action) => {
   return async (req, res, next) => {
     try {
@@ -160,6 +184,7 @@ const hasDynamicPermission = (action) => {
 
 module.exports = {
   hasPermission,
+  hasAnyPermission,
   hasDynamicPermission,
   REFERENCE_DATA_MODELS,
   CONTEXT_READ_PERMISSIONS,

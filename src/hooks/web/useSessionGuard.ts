@@ -16,7 +16,10 @@ export function useSessionGuard() {
     const userInfo = wsCache.get(appStore.getUserInfo)
     if (!userInfo?.id) return
     try {
-      await request.get({ url: prod + '/api/v1/auth/session-check', silent: true })
+      const res: any = await request.get({ url: prod + '/api/v1/auth/session-check', silent: true })
+      if (res?.accessToken) {
+        wsCache.set(appStore.getUserInfo, { ...userInfo, data: res.accessToken })
+      }
     } catch {
       // axios interceptor handles logout UI
     }

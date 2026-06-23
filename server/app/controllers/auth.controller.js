@@ -2992,6 +2992,33 @@ async function sendDeactivationEmail(userEmail, userName, username) {
 
 
 
+exports.sessionCheck = async (req, res) => {
+  try {
+    if (req.sessionId) {
+      await userSessionManager.touchSession(req.sessionId, JWT_EXPIRES_IN_SECONDS);
+    }
+
+    let accessToken = null;
+    if (req.userid && req.sessionId) {
+      accessToken = jwt.sign(
+        { id: req.userid, sid: req.sessionId },
+        config.secret,
+        { expiresIn: JWT_EXPIRES_IN_SECONDS }
+      );
+    }
+
+    res.status(200).send({
+      code: '0000',
+      valid: true,
+      userId: req.userid,
+      ...(accessToken ? { accessToken } : {}),
+    });
+  } catch (err) {
+    console.error('Session check failed:', err);
+    res.status(500).send({ code: '9999', valid: false, message: 'Session check failed' });
+  }
+};
+
 exports.Logout = async (req, res) => {
   console.log('logging off >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
   

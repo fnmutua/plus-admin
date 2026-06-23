@@ -1,6 +1,14 @@
 const controller = require('../controllers/settings.controller')
 const { authJwt } = require('../middleware')
-const { hasPermission } = require('../middleware/permission')
+const { hasPermission, hasAnyPermission } = require('../middleware/permission')
+
+// Reference data for settlement vulnerability scoring — not full module settings.
+const VULNERABILITY_READ_PERMISSIONS = [
+  'settings:read',
+  'settlement:read',
+  'settlement:create',
+  'settlement:update',
+]
 const { requireRootAdmin } = require('../middleware/requireRootAdmin')
 
 module.exports = function (app) {
@@ -26,9 +34,9 @@ module.exports = function (app) {
     controller.bulkUpdateSystemSettings
   )
 
-  app.get('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:read')], controller.getVulnerabilityMatrix)
+  app.get('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasAnyPermission(VULNERABILITY_READ_PERMISSIONS)], controller.getVulnerabilityMatrix)
   app.post('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityMatrix)
-  app.get('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasPermission('settings:read')], controller.getVulnerabilityRatingThresholds)
+  app.get('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasAnyPermission(VULNERABILITY_READ_PERMISSIONS)], controller.getVulnerabilityRatingThresholds)
   app.post('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityRatingThresholds)
   app.post('/api/v1/settings/vulnerability-compute', [authJwt.verifyToken], controller.computeVulnerabilityScore)
 

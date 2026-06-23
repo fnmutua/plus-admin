@@ -235,15 +235,19 @@ async function validateSession(userId, sessionId) {
   return rows.length > 0;
 }
 
-async function touchSession(sessionId) {
+async function touchSession(sessionId, expiresInSec = 86400) {
   if (!sessionId) return;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + expiresInSec * 1000);
   await db.sequelize.query(
     `
       UPDATE ${TABLE}
-      SET last_seen_at = NOW(), updated_at = NOW()
+      SET last_seen_at = NOW(),
+          updated_at = NOW(),
+          expires_at = :expiresAt
       WHERE id = :sessionId AND revoked_at IS NULL
     `,
-    { replacements: { sessionId } }
+    { replacements: { sessionId, expiresAt } }
   );
 }
 

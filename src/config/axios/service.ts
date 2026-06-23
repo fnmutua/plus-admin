@@ -16,6 +16,20 @@ export const PATH_URL = base_url[apiBasePath] ?? ''
 // Only one dialog, one redirect — however many requests fail simultaneously.
 let isHandlingExpiry = false
 
+function isValidAccessToken(token: unknown): boolean {
+  if (!token || typeof token !== 'string') return false
+  const trimmed = token.trim()
+  return trimmed.length > 0 && trimmed !== 'null' && trimmed !== 'undefined'
+}
+
+/** True only for auth/session failures — not permission-denied 403s. */
+function isSessionAuthFailure(status: number | undefined, message: string, code: string): boolean {
+  if (status === 401) return true
+  if (code === 'SESSION_TERMINATED') return true
+  if (status === 403 && /session has expired|signed out|no token provided/i.test(message)) return true
+  return false
+}
+
 function handleSessionExpired(customMessage?: string) {
   if (isHandlingExpiry) return
   isHandlingExpiry = true
@@ -127,18 +141,17 @@ service.interceptors.response.use(
     const status = error?.response?.status
     const message = (error?.response?.data as any)?.message || ''
     const code = (error?.response?.data as any)?.code || ''
-    const hadToken = Boolean(
+    const rawToken =
       (error?.config?.headers as any)?.['x-access-token']
       || (error?.config?.headers as any)?.['X-Access-Token']
-    )
+    const hadToken = isValidAccessToken(rawToken)
 
-    // 401/403 with an existing token = expired/invalid session (not login failures)
-    if ((status === 401 || status === 403) && hadToken) {
+    // Auth/session failure with a token — not permission-denied 403s
+    if (hadToken && isSessionAuthFailure(status, message, code)) {
       const terminated = code === 'SESSION_TERMINATED' || message.includes('terminated')
       handleSessionExpired(
         terminated ? 'You have been logged out by an administrator.' : undefined
       )
-      // Swallow the error — the dialog + redirect is the UX, not a toast
       return Promise.reject(error)
     }
 

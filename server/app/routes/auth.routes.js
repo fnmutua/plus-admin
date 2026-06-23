@@ -1143,15 +1143,5 @@ module.exports = function (app) {
    */
   app.post('/api/auth/signout', [authJwt.verifyToken], controller.Logout)
 
-  app.get('/api/v1/auth/session-check', [authJwt.verifyToken], async (req, res) => {
-    try {
-      if (req.sessionId) {
-        const userSessionManager = require('../utils/userSessionManager');
-        await userSessionManager.touchSession(req.sessionId);
-      }
-      res.status(200).send({ code: '0000', valid: true, userId: req.userid });
-    } catch (err) {
-      res.status(500).send({ code: '9999', valid: false, message: 'Session check failed' });
-    }
-  })
+  app.get('/api/v1/auth/session-check', [authJwt.verifyToken], controller.sessionCheck)
 }
