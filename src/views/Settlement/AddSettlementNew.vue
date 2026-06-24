@@ -3634,9 +3634,9 @@ onActivated(() => {
           </el-button>
 
           <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
-          <div class="header-actions">
+          <div v-if="isMapStepActive" class="header-actions">
             <el-button
-              v-if="isMapStepActive && showUndoBoundaryButton"
+              v-if="showUndoBoundaryButton"
               type="warning"
               plain
               :icon="RefreshLeft"
@@ -3648,7 +3648,7 @@ onActivated(() => {
               class="map-toolbar-btn undo-button"
             />
             <el-button
-              v-if="isMapStepActive && isDrawingMode"
+              v-if="isDrawingMode"
               type="success"
               :icon="Check"
               title="Finish polygon"
@@ -3658,7 +3658,6 @@ onActivated(() => {
               class="map-toolbar-btn"
             />
             <el-button
-              v-if="isMapStepActive"
               :type="isDrawingMode ? 'success' : 'default'"
               :icon="Edit"
               title="Draw boundary"
@@ -3670,7 +3669,6 @@ onActivated(() => {
               class="map-toolbar-btn"
             />
             <el-button
-              v-if="isMapStepActive"
               type="info"
               title="Fly to coordinates"
               @click="flyDialogVisible = true"
@@ -3681,7 +3679,7 @@ onActivated(() => {
               <Icon icon="mdi:airplane-takeoff" width="16" height="16" />
             </el-button>
             <el-button
-              v-if="isMapStepActive && (drawnPolygons.length > 0 || settlementPolygon || settlementMarker || settlementGeometry || settlementForm.geom)"
+              v-if="drawnPolygons.length > 0 || settlementPolygon || settlementMarker || settlementGeometry || settlementForm.geom"
               type="danger"
               :icon="Delete"
               title="Delete boundary"
@@ -3691,7 +3689,6 @@ onActivated(() => {
               class="map-toolbar-btn"
             />
             <el-button
-              v-if="isMapStepActive"
               type="primary"
               :icon="UploadFilled"
               title="Upload boundary file"
@@ -3868,7 +3865,9 @@ onActivated(() => {
         <div v-else-if="overtureBuildingCount != null && overtureBuildingCount > 0" class="map-status-banner map-status-banner--overture">
           Overture: {{ overtureBuildingCount }} building{{ overtureBuildingCount === 1 ? '' : 's' }} (cyan) · Ward neighbors in pink
         </div>
-        <div v-else-if="drawReady" class="map-status-banner map-status-banner--ready">Map ready — click Draw, then outline the settlement on the map</div>
+        <div v-else-if="drawReady" class="map-status-banner map-status-banner--ready">
+          Map ready — click Draw, then outline the settlement on the map
+        </div>
         <div ref="mapContainer" class="map-container"></div>
       </div>
     </el-card>
@@ -4705,16 +4704,6 @@ onActivated(() => {
   margin: 0;
 }
 
-/* Card body padding */
-:deep(.el-card__body) {
-  padding: 16px;
-}
-
-/* When map step is active, set body padding to 8px */
-.add-settlement-container:has(.map-step) :deep(.el-card__body) {
-  padding: 8px;
-}
-
 .map-container {
   width: 100%;
   height: calc(67vh);
@@ -4723,6 +4712,16 @@ onActivated(() => {
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
   position: relative;
+}
+
+/* Card body padding */
+:deep(.el-card__body) {
+  padding: 16px;
+}
+
+/* When map step is active, set body padding to 8px */
+.add-settlement-container:has(.map-step) :deep(.el-card__body) {
+  padding: 8px;
 }
 
 .map-status-banner {

@@ -41,6 +41,7 @@ const {
   importOvertureStructuresForSettlement,
 } = require('../utils/overtureBuildings')
 const settlementPopulationGeo = require('../services/settlementPopulationGeo')
+const { normalizeSettlementGeom } = require('../utils/settlementGeometry')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -1699,6 +1700,14 @@ exports.modelCreateOneRecord = async (req, res) => {
       if (rating) obj.vulnerability_rating = rating;
     } catch (err) {
       console.warn('Vulnerability score computation failed:', err.message);
+    }
+
+    if (obj.geom) {
+      try {
+        obj.geom = normalizeSettlementGeom(obj.geom)
+      } catch (err) {
+        return res.status(400).json({ message: err.message })
+      }
     }
   }
 
@@ -4797,6 +4806,14 @@ exports.modelEditOneRecord = (req, res) => {
           if (rating) updateObj.vulnerability_rating = rating;
         } catch (err) {
           console.warn('Vulnerability score computation failed:', err.message);
+        }
+
+        if (updateObj.geom) {
+          try {
+            updateObj.geom = normalizeSettlementGeom(updateObj.geom)
+          } catch (err) {
+            return res.status(400).json({ message: err.message })
+          }
         }
       }
 
@@ -11016,8 +11033,11 @@ exports.checkPotentialDuplicates = async (req, res) => {
     let potentialDuplicates = []; // To store potential duplicate records
 
     if (Array.isArray(checkFields) && checkFields.length > 0) {
-      // Retrieve all records of the model
-      const existingRecords = await db.models[reg_model].findAll();
+      // Only fetch duplicate-check fields — loading geom can fail on legacy/unsupported WKB types.
+      const existingRecords = await db.models[reg_model].findAll({
+        attributes: checkFields,
+        raw: true,
+      });
 
       for (const record of existingRecords) {
         let matchCount = 0;
@@ -11082,7 +11102,7 @@ exports.checkPotentialDuplicates = async (req, res) => {
       });
     } else {
       return res.status(500).json({
-        message: 'An unexpected error occurred while checking for duplicates.',
+        message: error.message || 'An unexpected error occurred while checking for duplicates.',
       });
     }
   }
