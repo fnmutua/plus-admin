@@ -3,7 +3,8 @@ import {
   ElRow, ElCol, ElCard, ElSkeleton, ElAlert,
   ElTable, ElTableColumn, ElTabs, ElTabPane,
   ElTag, ElButton, ElEmpty, ElMessage, ElMessageBox,
-  ElPagination, ElSelect, ElOption, ElDatePicker
+  ElPagination, ElSelect, ElOption, ElDatePicker,
+  ElDropdown, ElDropdownMenu, ElDropdownItem
 } from 'element-plus'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -85,14 +86,14 @@ const stats = ref<WorkplaceStats>({
 
 const newAccountsPeriod = ref<NewAccountsPeriod>('week')
 
-const newAccountsLabel = computed(() => {
+const newAccountsPeriodLabel = computed(() => {
   switch (newAccountsPeriod.value) {
     case 'month':
-      return 'New Accounts This Month'
+      return 'This month'
     case 'year':
-      return 'New Accounts This Year'
+      return 'This year'
     default:
-      return 'New Accounts'
+      return 'This week'
   }
 })
 
@@ -118,7 +119,7 @@ const statCards = computed(() => [
       : { name: 'staff' }
   },
   {
-    label: newAccountsLabel.value,
+    label: 'New Accounts',
     value: stats.value.newAccountsCount,
     icon: 'mdi:account-plus-outline',
     route: { name: 'NewAccounts' },
@@ -150,6 +151,12 @@ const loadStats = async () => {
 
 const onNewAccountsPeriodChange = () => {
   loadStats()
+}
+
+const onNewAccountsPeriodSelect = (period: NewAccountsPeriod) => {
+  if (newAccountsPeriod.value === period) return
+  newAccountsPeriod.value = period
+  onNewAccountsPeriodChange()
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -365,22 +372,27 @@ onMounted(init)
           <el-card shadow="hover" class="stat-card">
             <el-skeleton :loading="loadingStats" animated :rows="1">
               <template #default>
-                <div class="flex items-center justify-between">
+                <div class="stat-card-body">
                   <div>
-                    <div class="text-13px text-gray-400 mb-8px flex items-center justify-between gap-8px">
+                    <div class="stat-card-label-row">
                       <span>{{ card.label }}</span>
-                      <el-select
+                      <el-dropdown
                         v-if="card.periodSelect"
-                        v-model="newAccountsPeriod"
-                        size="small"
-                        style="width:118px"
-                        @click.stop
-                        @change="onNewAccountsPeriodChange"
+                        trigger="click"
+                        @command="onNewAccountsPeriodSelect"
                       >
-                        <el-option label="This week" value="week" />
-                        <el-option label="This month" value="month" />
-                        <el-option label="This year" value="year" />
-                      </el-select>
+                        <span class="stat-period-trigger" @click.stop>
+                          {{ newAccountsPeriodLabel }}
+                          <Icon icon="mdi:chevron-down" width="14" />
+                        </span>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item command="week">This week</el-dropdown-item>
+                            <el-dropdown-item command="month">This month</el-dropdown-item>
+                            <el-dropdown-item command="year">This year</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
                     </div>
                     <CountTo
                       class="text-28px font-bold stat-value-link"
@@ -393,7 +405,7 @@ onMounted(init)
                       @keydown.enter="handleCardClick(card)"
                     />
                   </div>
-                  <Icon :icon="card.icon" width="40" :color="CARD_ICON_COLOR" style="opacity:0.75" />
+                  <Icon :icon="card.icon" width="40" :color="CARD_ICON_COLOR" class="stat-card-icon" />
                 </div>
               </template>
             </el-skeleton>
@@ -409,7 +421,8 @@ onMounted(init)
             <el-skeleton :loading="loadingSessions" animated :rows="6">
               <template #default>
                 <el-empty v-if="!sessions.length" description="No users online" :image-size="64" />
-                <el-table v-else :data="sessions" size="small" style="width:100%">
+                <div v-else class="table-scroll">
+                <el-table :data="sessions" size="small" style="width:100%">
                   <el-table-column type="index" width="42" />
                   <el-table-column label="User" min-width="160">
                     <template #default="{ row }">
@@ -431,13 +444,14 @@ onMounted(init)
                     </template>
                   </el-table-column>
                   <el-table-column prop="source" label="Source" width="120" show-overflow-tooltip />
-                  <el-table-column label="" width="120" align="right">
+                  <el-table-column label="Actions" min-width="138" align="right" fixed="right">
                     <template #default="{ row }">
                       <el-button
                         type="danger"
                         size="small"
                         plain
                         :icon="SwitchButton"
+                        class="force-logout-btn"
                         @click="handleForceLogout(row)"
                       >
                         Force logout
@@ -445,6 +459,7 @@ onMounted(init)
                     </template>
                   </el-table-column>
                 </el-table>
+                </div>
               </template>
             </el-skeleton>
           </el-tab-pane>
@@ -584,7 +599,51 @@ onMounted(init)
   color: var(--el-text-color-secondary);
   margin-top: 4px;
 }
-.stat-card :deep(.el-card__body) { padding: 18px 20px; }
+.stat-card {
+  width: 100%;
+  height: 100%;
+}
+.stat-card :deep(.el-card__body) {
+  padding: 18px 20px;
+  height: 100%;
+}
+.stat-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 72px;
+}
+.stat-card-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.stat-period-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stat-period-trigger:hover {
+  color: var(--el-color-primary);
+}
+.stat-card-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.mb-16px > :deep(.el-col) {
+  display: flex;
+}
 .stat-value-link {
   cursor: pointer;
   color: var(--el-color-primary);
@@ -597,5 +656,12 @@ onMounted(init)
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+.force-logout-btn {
+  white-space: nowrap;
 }
 </style>

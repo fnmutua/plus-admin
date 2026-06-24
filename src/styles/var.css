@@ -95,3 +95,18 @@
   --disabled-bg: #2c2c2c;
   --disabled-text: #666666;
 }
+
+/* App shell dark mode (html.dark from app store) */
+html.dark {
+  --app-content-bg-color: var(--el-bg-color);
+  --top-header-bg-color: var(--el-bg-color);
+  --top-header-hover-color: var(--el-fill-color-light);
+  --top-tool-border-color: var(--el-border-color);
+  --tags-view-border-color: var(--el-border-color);
+}
+
+html.dark,
+html.dark body,
+html.dark #app {
+  background-color: var(--el-bg-color);
+}

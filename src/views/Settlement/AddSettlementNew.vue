@@ -2392,10 +2392,14 @@ const submitForm = async () => {
     })
 
     if (isEditMode.value && editingSettlementId.value) {
-      const formData = {
+      let formData = {
         ...formDataToSubmit,
         id: editingSettlementId.value,
         model: 'settlement'
+      }
+
+      if (!updatePopulationOnEdit.value) {
+        formData = omitPopulationFieldsForEditSave(formData)
       }
 
       const res = await updateOneRecord(formData, { silent: true })
@@ -2543,11 +2547,23 @@ const overtureBuildingLayers = ref<any[]>([])
 const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
 /** Edit mode only: when checked, replace all structures with Overture footprints on save. */
 const updateStructuresFromOverture = ref(false)
+/** Edit mode only: when checked, population estimate and save include population fields. */
+const updatePopulationOnEdit = ref(false)
 
 /** Fallback when ward survey and stored avg household size are unavailable. */
 const DEFAULT_PERSONS_PER_BUILDING = 4
 /** Ward/settlement averages below this are treated as unreliable. */
 const MIN_PERSONS_PER_BUILDING = 2
+
+const POPULATION_UPDATE_FIELDS = ['population', 'pop_male', 'pop_female', 'avg_household_size'] as const
+
+const omitPopulationFieldsForEditSave = (payload: Record<string, unknown>) => {
+  const next = { ...payload }
+  for (const field of POPULATION_UPDATE_FIELDS) {
+    delete next[field]
+  }
+  return next
+}
 
 const hasMissingPopulation = () => {
   const p = settlementForm.population
@@ -2994,6 +3010,10 @@ const importOvertureStructuresAfterSave = async (
 }
 
 const onManualPopulationFetch = async () => {
+  if (isEditMode.value && !updatePopulationOnEdit.value) {
+    ElMessage.info('Check "Update population" first to re-estimate population when editing.')
+    return
+  }
   const geom = getActiveSettlementGeometry()
   if (!geom) {
     ElMessage.error('Please draw or select settlement geometry before estimating population')
@@ -3195,8 +3215,8 @@ const clearFormAndGeometry = () => {
   isEditMode.value = false
   editingSettlementId.value = null
   editLoading.value = false
-  
-  
+  updateStructuresFromOverture.value = false
+  updatePopulationOnEdit.value = false
   // Reset form validation
   if (formRef.value) {
     formRef.value.resetFields()
@@ -3936,15 +3956,28 @@ onActivated(() => {
             </el-form-item>
 
             <el-form-item label="Population">
-              <el-input-number v-model="settlementForm.population" :min="0" style="width: 100%" />
+              <el-input-number
+                v-model="settlementForm.population"
+                :min="0"
+                style="width: 100%"
+                :disabled="isEditMode && !updatePopulationOnEdit"
+              />
               <div class="population-estimate-block">
+                <div v-if="isEditMode" class="population-update-option">
+                  <el-checkbox v-model="updatePopulationOnEdit">
+                    Update population
+                  </el-checkbox>
+                  <div class="population-update-hint">
+                    When unchecked, existing population values are kept on save. Check to re-estimate or edit population.
+                  </div>
+                </div>
                 <el-button
                   type="primary"
                   plain
                   class="population-estimate-btn"
                   @click.stop="onManualPopulationFetch"
                   :loading="populationLoading || overtureBuildingsLoading"
-                  :disabled="(!settlementForm.geom && !settlementGeometry) || populationLoading || overtureBuildingsLoading"
+                  :disabled="(!settlementForm.geom && !settlementGeometry) || populationLoading || overtureBuildingsLoading || (isEditMode && !updatePopulationOnEdit)"
                 >
                   Click to estimate population
                 </el-button>
@@ -3975,11 +4008,21 @@ onActivated(() => {
             </el-form-item>
 
             <el-form-item label="Male population">
-              <el-input-number v-model="settlementForm.pop_male" :min="0" style="width: 100%" />
+              <el-input-number
+                v-model="settlementForm.pop_male"
+                :min="0"
+                style="width: 100%"
+                :disabled="isEditMode && !updatePopulationOnEdit"
+              />
             </el-form-item>
 
             <el-form-item label="Female population">
-              <el-input-number v-model="settlementForm.pop_female" :min="0" style="width: 100%" />
+              <el-input-number
+                v-model="settlementForm.pop_female"
+                :min="0"
+                style="width: 100%"
+                :disabled="isEditMode && !updatePopulationOnEdit"
+              />
               <div style="font-size: 12px; color: #909399; margin-top: 5px;">
                 Optional. When population is estimated, male and female are split using the selected county's census sex ratio.
               </div>
@@ -4867,6 +4910,17 @@ onActivated(() => {
 .population-estimate-block {
   margin-top: 8px;
   width: 100%;
+}
+
+.population-update-option {
+  margin-bottom: 8px;
+}
+
+.population-update-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 .population-estimate-btn {

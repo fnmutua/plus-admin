@@ -33,6 +33,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue'
+import UserTableActions from '@/views/Components/UserTableActions.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
@@ -47,17 +48,8 @@ const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
 
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
-} else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
-
-}
+const dialogWidth = ref(isMobile.value ? '90%' : '25%')
+const actionColumnWidth = computed(() => (isMobile.value ? '80px' : '100px'))
 
 
 
@@ -354,9 +346,13 @@ const makeSettlementOptions = (list) => {
 }
 
 const activateDeactivate = (data: TableSlotDefault) => {
+  data.row.isactive = !data.row.isactive
   console.log('Activating user.....', data.row)
-  // data.mode = 'users'
-  activateUserApi(data.row, { model: 'users' }).then(() => { })
+  activateUserApi(data.row, { model: 'users' })
+    .then(() => {})
+    .catch(() => {
+      data.row.isactive = !data.row.isactive
+    })
 }
 
 
@@ -676,48 +672,16 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
-      <!-- <el-table-column fixed="right" label="Operations" :width="actionColumnWidth"> -->
-        <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
-
+      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
-
-          <el-dropdown v-if="isMobile">
-            <span class="el-dropdown-link">
-              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showAdminButtons"  
-                 >
-                  <el-switch v-model="scope.row.isactive"   @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
-
-                
-                </el-dropdown-item>
-
-                <el-dropdown-item/>
-                <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
-
-
-          <div v-else>
-
-            <el-tooltip content="Activate" placement="top">
-              <el-switch
-v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
-                class="my-switch" />
-            </el-tooltip>
-            <el-tooltip content="Edit" placement="top">
-              <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
-            </el-tooltip>
-
-
-
-          </div>
-
+          <UserTableActions
+            :row="scope.row"
+            :show-admin-buttons="showAdminButtons"
+            :show-force-logout="false"
+            :show-reset-password="false"
+            @activate="activateDeactivate(scope as TableSlotDefault)"
+            @edit="EditUser(scope as TableSlotDefault)"
+          />
         </template>
       </el-table-column>
 

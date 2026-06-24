@@ -20,3 +20,11 @@ html {
   right: auto !important;
   transform: translateX(-50%) !important;
 }
+
+/* Prevent light scrollbar/page gap below footer in dark mode */
+html.dark .v-layout-content,
+html.dark .v-layout-content-scrollbar,
+html.dark .v-layout-content-scrollbar .el-scrollbar__wrap,
+html.dark .v-layout-content-scrollbar .el-scrollbar__view {
+  background-color: var(--el-bg-color);
+}

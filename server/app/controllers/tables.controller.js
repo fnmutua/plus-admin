@@ -63,6 +63,30 @@ const axios = require('axios');
 
 const fuzzball = require('fuzzball'); // Make sure to install this with `npm install fuzzball`
 
+const USER_SENSITIVE_FIELDS = ['password', 'resetPasswordExpires', 'resetPasswordToken']
+
+/** Avoid Sequelize/wkx parsing geom on list endpoints (legacy WKB types can crash the process). */
+function applyListQueryAttributes(query, reg_model) {
+  if (reg_model === 'users') {
+    query.attributes = { exclude: USER_SENSITIVE_FIELDS }
+    return query
+  }
+  if (db.models[reg_model]?.rawAttributes?.geom) {
+    query.attributes = { exclude: ['geom'] }
+  }
+  return query
+}
+
+function applyAssocInclude(query, ass_model) {
+  if (!ass_model) return query
+  const assoc = { model: ass_model }
+  if (ass_model.rawAttributes?.geom) {
+    assoc.attributes = { exclude: ['geom'] }
+  }
+  query.include = [assoc]
+  return query
+}
+
 var request = require('request');
 
 // Document AI imports
@@ -581,32 +605,32 @@ exports.modelData = (req, res) => {
 
 exports.modelAllData = (req, res) => {
   var reg_model = req.query.model
-  // var ass_model = req.query.assocModel
-  // console.log("All Data----->")
+  if (!reg_model || !db.models[reg_model]) {
+    return res.status(400).send({ message: 'Invalid model', code: 'MODEL_NOT_FOUND' })
+  }
+
   var ass_model = db.models[req.query.assocModel]
+  var includeQuerry = {}
 
-  //console.log('All Model Data-----> 30/10', req)
-
-  if (ass_model) {
-    var includeQuerry = {
-      include: [{ model: ass_model }]
-    }
-  } else {
-    var includeQuerry = {}
+  applyAssocInclude(includeQuerry, ass_model)
+  if (!ass_model) {
     console.log('No Associated Model')
   }
+  applyListQueryAttributes(includeQuerry, reg_model)
   console.log('the Querry', includeQuerry)
 
-  db.models[reg_model].findAndCountAll(includeQuerry).then((list) => {
-    //db.models[reg_model].findAndCountAll({}).then(list => {
-
-    //console.log(list.rows)
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000'
+  db.models[reg_model].findAndCountAll(includeQuerry)
+    .then((list) => {
+      res.status(200).send({
+        data: list.rows,
+        total: list.count,
+        code: '0000'
+      })
     })
-  })
+    .catch((err) => {
+      console.error('modelAllData error:', reg_model, err)
+      res.status(500).send({ message: 'Unable to load data', code: 'SERVER_ERROR' })
+    })
 }
 
 
@@ -946,33 +970,35 @@ exports.xmodelAllDatafilter = (req, res) => {
 
 exports.modelAllDatafilter = (req, res) => {
   var reg_model = req.query.model
+  if (!reg_model || !db.models[reg_model]) {
+    return res.status(400).send({ message: 'Invalid model', code: 'MODEL_NOT_FOUND' })
+  }
+
   var field = req.query.searchField
   var searchKeyword = req.query.searchKeyword
 
   console.log('modelPaginatedData Data----->')
   var ass_model = db.models[req.query.assocModel]
+  var qry = {}
 
-  if (ass_model) {
-    var qry = {
-      include: [{ model: ass_model }]
-    }
-  } else {
-    var qry = {}
+  applyAssocInclude(qry, ass_model)
+  applyListQueryAttributes(qry, reg_model)
+
+  qry.where = {
+    [field]: { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
   }
 
-  ; (qry.where = {
-  //   [field]: { [op.iLike]: '%' + searchKeyword + '%' }
-     [field]: { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
-
-
-  }),
-    db.models[reg_model].findAndCountAll(qry).then((list) => {
-      //console.log(list.rows)
+  db.models[reg_model].findAndCountAll(qry)
+    .then((list) => {
       res.status(200).send({
         data: list.rows,
         total: list.count,
         code: 20000
       })
+    })
+    .catch((err) => {
+      console.error('modelAllDatafilter error:', reg_model, err)
+      res.status(500).send({ message: 'Unable to load data', code: 'SERVER_ERROR' })
     })
 }
  

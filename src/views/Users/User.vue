@@ -6,6 +6,7 @@ import { getUserRoles, getByName } from '@/api/users'
 import { getCountyListApi } from '@/api/counties'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import UserTableActions from '@/views/Components/UserTableActions.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,ElDivider,
@@ -24,6 +25,7 @@ import {
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { getAssignableLocationOptions } from '@/utils/userRoleLocationOptions'
 import { activateUserApi, updateUserApi, getCountyStaff, resetUserPassword, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -45,17 +47,8 @@ const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
 
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
-} else {
-  dialogWidth.value = "60vw"
-  actionColumnWidth.value = "160px"
-
-}
+const dialogWidth = ref(isMobile.value ? '90%' : '60vw')
+const actionColumnWidth = computed(() => (isMobile.value ? '80px' : '100px'))
 
 
 
@@ -409,6 +402,7 @@ const makeSettlementOptions = (list) => {
 
 const activateDeactivate = async (data: TableSlotDefault) => {
   const userId = data.row.id
+  data.row.isactive = !data.row.isactive
   
   // Check if user has permission to activate/deactivate
   const currentUserInfo = wsCache.get(appStore.getUserInfo)
@@ -685,20 +679,9 @@ const goBack = () => {
   }
 }
 
-const locationOptions = [
-  {
-    value: 'national',
-    label: 'National',
-  },
-  {
-    value: 'county',
-    label: 'County',
-  },
-  {
-    value: 'settlement',
-    label: 'Settlement',
-  }
-]
+const availableLocationOptions = computed(() =>
+  getAssignableLocationOptions(isCountyRestricted.value)
+)
 
 const showSettlement = ref(false)
 const showCounty = ref(false)
@@ -1078,93 +1061,18 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           <span v-else style="color: #999;">Never</span>
         </template>
       </el-table-column>
-      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+            <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
-
-          <el-dropdown v-if="isMobile" trigger="click">
-            <el-button type="primary" size="small" circle>
-              <el-icon><ArrowDown /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons">
-                  <PermissionWrapper :permissions="['user:activate']">
-                    <el-switch
-                      v-model="scope.row.isactive" 
-                      @click="activateDeactivate(scope as TableSlotDefault)"
-                      :loading="userLoadingStates[scope.row.id]"
-                      :disabled="userLoadingStates[scope.row.id]" />
-                    <span style="margin-left: 8px;">Activate/Deactivate</span>
-                  </PermissionWrapper>
-                </el-dropdown-item>
-                <el-dropdown-item v-else>
-                  <el-switch
-                    v-model="scope.row.isactive" 
-                    disabled />
-                  <span style="margin-left: 8px;">Activate/Deactivate</span>
-                </el-dropdown-item>
-                <PermissionWrapper :permissions="['user:update']">
-                  <el-dropdown-item @click="EditUser(scope as TableSlotDefault)">
-                    <el-icon><Edit /></el-icon>
-                    <span style="margin-left: 8px;">Edit</span>
-                  </el-dropdown-item>
-                </PermissionWrapper>
-                <PermissionWrapper  :permissions="['user:update']">
-                  <el-dropdown-item @click="handleForceLogout(scope as TableSlotDefault)">
-                    <el-icon><SwitchButton /></el-icon>
-                    <span style="margin-left: 8px;">Force Logout</span>
-                  </el-dropdown-item>
-                </PermissionWrapper>
-                <el-dropdown-item
-                  :disabled="(!scope.row.email && !scope.row.phone) || resetPasswordLoadingStates[scope.row.id]"
-                  @click="handleRowPasswordReset(scope.row)"
-                >
-                  <Icon icon="material-symbols:lock-reset" />
-                  <span style="margin-left: 8px;">Reset Password</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
-
-          <div v-else class="operations-row">
-            <PermissionWrapper :permissions="['user:activate']">
-              <el-tooltip content="Activate" placement="top">
-                <el-switch
-v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
-                  class="my-switch" />
-              </el-tooltip>
-            </PermissionWrapper>
-            <PermissionWrapper :permissions="['user:update']">
-              <el-tooltip content="Edit" placement="top">
-                <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
-              </el-tooltip>
-            </PermissionWrapper>
-            <PermissionWrapper  :permissions="['user:update']">
-              <el-tooltip content="Force Logout" placement="top">
-                <ElButton type="danger" :icon="SwitchButton" size="small" @click="handleForceLogout(scope as TableSlotDefault)" circle />
-              </el-tooltip>
-            </PermissionWrapper>
-            <el-tooltip
-              :content="(!scope.row.email && !scope.row.phone) ? 'No email or phone on file' : 'Reset password'"
-              placement="top"
-            >
-              <span>
-                <ElButton
-                  type="warning"
-                  size="small"
-                  circle
-                  :loading="resetPasswordLoadingStates[scope.row.id]"
-                  :disabled="!scope.row.email && !scope.row.phone"
-                  @click="handleRowPasswordReset(scope.row)"
-                >
-                  <Icon icon="material-symbols:lock-reset" />
-                </ElButton>
-              </span>
-            </el-tooltip>
-
-          </div>
-
+          <UserTableActions
+            :row="scope.row"
+            :show-admin-buttons="showAdminButtons"
+            :activate-loading="userLoadingStates[scope.row.id]"
+            :reset-password-loading="resetPasswordLoadingStates[scope.row.id]"
+            @activate="activateDeactivate(scope as TableSlotDefault)"
+            @edit="EditUser(scope as TableSlotDefault)"
+            @force-logout="handleForceLogout(scope as TableSlotDefault)"
+            @reset-password="handleRowPasswordReset(scope.row)"
+          />
         </template>
       </el-table-column>
 
@@ -1293,7 +1201,7 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
               <el-select
 v-model="row.location_level" placeholder="Select level" size="small" filterable
                 @change="handleChangeLevel(row.location_level)" :style="{ width: '100%' }">
-                <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
+                <el-option v-for="item in availableLocationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
