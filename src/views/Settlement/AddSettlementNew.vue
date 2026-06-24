@@ -68,7 +68,6 @@ import {
   findSettlementBoundaryOverlaps,
   formatOverlapBlockedMessage,
   formatOverlapArea,
-  getOverlapIntersectionFeatures,
   type NeighborSettlementGeometry,
   type SettlementBoundaryOverlap,
 } from '@/utils/settlementBoundaryOverlap'
@@ -184,10 +183,16 @@ const drawPointCount = polygonDraw.pointCount
 const drawSnapPreviewActive = polygonDraw.snapPreviewActive
 const isEditMode = ref(!!route.query.id)
 const editingSettlementId = ref<number | null>(null)
+/** Edit mode skips county/ward step 0 and lands on the map. */
+const isMapStepActive = computed(() => isEditMode.value || currentStep.value === 1)
+const hasEditableSettlementBoundary = computed(
+  () => !!(settlementPolygon.value || drawnPolygons.value.length > 0)
+)
 const isDrawingMode = ref(false)
 const flyMarker = ref<any>(null)
 const mapLoading = ref(false)
 const mapError = ref<string | null>(null)
+const editLoading = ref(false)
 const drawReady = ref(false)
 
 // Neighboring settlements
@@ -195,7 +200,6 @@ const neighboringSettlements = ref<any[]>([])
 const neighboringSettlementLabels = ref<any[]>([])
 const neighborSettlementGeometries = ref<NeighborSettlementGeometry[]>([])
 const settlementOverlaps = ref<SettlementBoundaryOverlap[]>([])
-const overlapHighlightLayers = ref<any[]>([])
 const settlementBoundaryModified = ref(false)
 const originalSettlementGeometry = ref<any>(null)
 const hasBlockingBoundaryOverlap = computed(
@@ -688,7 +692,9 @@ const onSettlementPolygonComplete = async (polygon: any) => {
     return
   }
 
-  drawnPolygons.value.forEach(p => p.setMap(null))
+  removeGoogleMapOverlay(settlementPolygon.value)
+  settlementPolygon.value = null
+  drawnPolygons.value.forEach(removeGoogleMapOverlay)
   drawnPolygons.value = []
   drawnPolygons.value.push(polygon)
   polygon.setOptions({ zIndex: 1000000 })
@@ -992,6 +998,29 @@ const handlePolygonPathVertexInsert = (polygon: any, vertexIndex: number) => {
   updatePolygonGeometry(polygon)
 }
 
+const handlePolygonVertexDelete = (polygon: any, event: any) => {
+  if (isApplyingVertexSnap || isDrawingMode.value) return
+
+  const vertex = event?.vertex
+  if (vertex == null) return
+
+  const path = polygon?.getPath()
+  if (!path?.getLength) return
+
+  if (path.getLength() <= 3) {
+    ElMessage.warning('A boundary must keep at least 3 corners')
+    return
+  }
+
+  if (typeof event?.stop === 'function') {
+    event.stop()
+  }
+
+  path.removeAt(vertex)
+  clearEditSnapPreview()
+  updatePolygonGeometry(polygon)
+}
+
 const attachSettlementPolygonPathListeners = (polygon: any) => {
   if (!polygon?.getPath) return
   const path = polygon.getPath()
@@ -1001,6 +1030,8 @@ const attachSettlementPolygonPathListeners = (polygon: any) => {
     clearEditSnapPreview()
     updatePolygonGeometry(polygon)
   })
+  polygon.addListener('contextmenu', (event: any) => handlePolygonVertexDelete(polygon, event))
+  polygon.addListener('rightclick', (event: any) => handlePolygonVertexDelete(polygon, event))
   attachEditSnapPreview()
 }
 
@@ -1033,22 +1064,59 @@ const waitForMapIdle = (mapInstance: any, maxMs = 6000) =>
     })
   })
 
+const removeGoogleMapOverlay = (overlay: any) => {
+  if (!overlay) return
+  try {
+    if (typeof overlay.setEditable === 'function') overlay.setEditable(false)
+    if (typeof overlay.setDraggable === 'function') overlay.setDraggable(false)
+    if (typeof overlay.setVisible === 'function') overlay.setVisible(false)
+    overlay.setMap(null)
+    if (window.google?.maps?.event?.clearInstanceListeners) {
+      window.google.maps.event.clearInstanceListeners(overlay)
+    }
+  } catch {
+    try {
+      overlay.setMap(null)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+const clearSettlementShapeLayers = () => {
+  drawnPolygons.value.forEach(removeGoogleMapOverlay)
+  drawnPolygons.value = []
+  removeGoogleMapOverlay(settlementPolygon.value)
+  settlementPolygon.value = null
+  removeGoogleMapOverlay(settlementMarker.value)
+  settlementMarker.value = null
+}
+
+const cancelPendingBoundaryWork = () => {
+  if (polygonGeometryUpdateTimer) {
+    clearTimeout(polygonGeometryUpdateTimer)
+    polygonGeometryUpdateTimer = null
+  }
+  if (overlapCheckTimer) {
+    clearTimeout(overlapCheckTimer)
+    overlapCheckTimer = null
+  }
+  overlapCheckSeq++
+  if (overtureGeometryRefreshTimer) {
+    clearTimeout(overtureGeometryRefreshTimer)
+    overtureGeometryRefreshTimer = null
+  }
+  overtureFetchSeq++
+}
+
 const destroyMapInstance = () => {
   stopPolygonDrawing()
   detachEditSnapPreview()
+  cancelPendingBoundaryWork()
   clearOvertureBuildingLayers()
   wardPolygon.value.forEach(p => { if (p) p.setMap(null) })
   wardPolygon.value = []
-  drawnPolygons.value.forEach(p => { if (p) p.setMap(null) })
-  drawnPolygons.value = []
-  if (settlementPolygon.value) {
-    settlementPolygon.value.setMap(null)
-    settlementPolygon.value = null
-  }
-  if (settlementMarker.value) {
-    settlementMarker.value.setMap(null)
-    settlementMarker.value = null
-  }
+  clearSettlementShapeLayers()
   if (map.value) {
     window.google?.maps?.event?.clearInstanceListeners(map.value)
     map.value = null
@@ -1119,7 +1187,7 @@ const handleCountyChange = async (countyId: any, options?: { resetStep?: boolean
   wardsError.value = null
   wardGeo.value = null
 
-  if (options?.resetStep !== false && currentStep.value !== 0) {
+  if (options?.resetStep !== false && !isEditMode.value && currentStep.value !== 0) {
     currentStep.value = 0
     mapLoading.value = false
     mapError.value = null
@@ -1229,13 +1297,13 @@ const handleWardChange = async (wardId: any) => {
   await nextTick()
 
   if (loadSeq !== wardGeoLoadSeq) {
-    currentStep.value = 0
+    if (!isEditMode.value) currentStep.value = 0
     return
   }
 
   await initializeMap(() => loadSeq !== wardGeoLoadSeq)
 
-  if (loadSeq !== wardGeoLoadSeq) {
+  if (loadSeq !== wardGeoLoadSeq && !isEditMode.value) {
     currentStep.value = 0
   }
 }
@@ -1735,59 +1803,8 @@ const updateNeighborLabelVisibility = () => {
   })
 }
 
-const clearOverlapHighlights = () => {
-  overlapHighlightLayers.value.forEach((layer) => {
-    if (layer) layer.setMap(null)
-  })
-  overlapHighlightLayers.value = []
-}
-
-const renderOverlapHighlights = (geometry: any, overlaps: SettlementBoundaryOverlap[]) => {
-  clearOverlapHighlights()
-  if (!map.value || !window.google?.maps || !geometry || !overlaps.length) return
-
-  const geom = parseSettlementGeometry(geometry)
-  if (!geom) return
-
-  const intersectionFeatures = getOverlapIntersectionFeatures(
-    geom,
-    neighborSettlementGeometries.value,
-    overlaps
-  )
-
-  for (const feature of intersectionFeatures) {
-    const featureGeom = feature.geometry
-    if (!featureGeom) continue
-
-    const polygonSets =
-      featureGeom.type === 'Polygon'
-        ? [featureGeom.coordinates[0]]
-        : featureGeom.coordinates.map((polygon: number[][][]) => polygon[0])
-
-    for (const ring of polygonSets) {
-      const paths = ring
-        .map((coord: number[]) => ({ lat: coord[1], lng: coord[0] }))
-        .filter((path: { lat: number; lng: number }) => Number.isFinite(path.lat) && Number.isFinite(path.lng))
-
-      if (paths.length < 3) continue
-
-      const highlight = new window.google.maps.Polygon({
-        paths,
-        strokeColor: '#FF6F00',
-        strokeOpacity: 1,
-        strokeWeight: 2,
-        fillColor: '#FF6F00',
-        fillOpacity: 0.35,
-        map: map.value,
-        clickable: false,
-        zIndex: 1500,
-      })
-      overlapHighlightLayers.value.push(highlight)
-    }
-  }
-}
-
 let overlapCheckTimer: ReturnType<typeof setTimeout> | null = null
+let overlapCheckSeq = 0
 
 const showBoundaryOverlapBlockedMessage = (overlaps: SettlementBoundaryOverlap[]) => {
   ElMessage.error({
@@ -1801,16 +1818,18 @@ const runBoundaryOverlapCheck = async (
   geometry: any,
   { showMessage = true }: { showMessage?: boolean } = {}
 ) => {
+  const checkSeq = ++overlapCheckSeq
   const geom = parseSettlementGeometry(geometry)
   if (!geom) {
+    if (checkSeq !== overlapCheckSeq) return []
     settlementOverlaps.value = []
-    clearOverlapHighlights()
     return []
   }
 
   if (!neighborSettlementGeometries.value.length && getNeighborWardId()) {
     await fetchNeighboringSettlementsForWard(true)
   }
+  if (checkSeq !== overlapCheckSeq) return []
 
   const overlaps = findSettlementBoundaryOverlaps(
     geom,
@@ -1818,8 +1837,9 @@ const runBoundaryOverlapCheck = async (
     editingSettlementId.value
   )
 
+  if (checkSeq !== overlapCheckSeq) return overlaps
+
   settlementOverlaps.value = overlaps
-  renderOverlapHighlights(geom, overlaps)
 
   if (showMessage && overlaps.length > 0) {
     showBoundaryOverlapBlockedMessage(overlaps)
@@ -1828,16 +1848,18 @@ const runBoundaryOverlapCheck = async (
   return overlaps
 }
 
-const scheduleBoundaryOverlapCheck = (geometry: any) => {
-  if (!geometry) return
-
-  void runBoundaryOverlapCheck(geometry, { showMessage: false })
-
+const scheduleBoundaryOverlapCheck = (_geometry: any) => {
+  overlapCheckSeq++
   if (overlapCheckTimer) clearTimeout(overlapCheckTimer)
   overlapCheckTimer = setTimeout(() => {
     overlapCheckTimer = null
-    void runBoundaryOverlapCheck(geometry, { showMessage: true })
-  }, 500)
+    const latestGeom = settlementForm.geom || settlementGeometry.value
+    if (!latestGeom) {
+      settlementOverlaps.value = []
+      return
+    }
+    void runBoundaryOverlapCheck(latestGeom, { showMessage: true })
+  }, 400)
 }
 
 const applySettlementBoundaryToForm = async (geom: any) => {
@@ -1866,16 +1888,7 @@ const applySettlementBoundaryToForm = async (geom: any) => {
 
   if (!map.value) return true
 
-  if (settlementPolygon.value) {
-    settlementPolygon.value.setMap(null)
-    settlementPolygon.value = null
-  }
-  if (settlementMarker.value) {
-    settlementMarker.value.setMap(null)
-    settlementMarker.value = null
-  }
-  drawnPolygons.value.forEach((p) => p.setMap(null))
-  drawnPolygons.value = []
+  clearSettlementShapeLayers()
 
   loadSettlementBoundary()
 
@@ -1895,6 +1908,7 @@ const loadSettlementBoundary = () => {
 
   try {
     const geom = settlementGeometry.value
+    clearSettlementShapeLayers()
     
     // Handle Point geometry
     if (geom.type === 'Point') {
@@ -2113,7 +2127,6 @@ const undoBoundaryChanges = async () => {
   settlementForm.area = areaHectares != null ? areaHectares : ''
 
   settlementOverlaps.value = []
-  clearOverlapHighlights()
   scheduleOvertureRefreshForGeometry(geom)
   void runBoundaryOverlapCheck(geom, { showMessage: false })
 
@@ -2156,6 +2169,7 @@ const updatePolygonGeometry = (polygon: any) => {
     }
 
     scheduleOvertureRefreshForGeometry(geom)
+    settlementOverlaps.value = []
     scheduleBoundaryOverlapCheck(geom)
   } catch (error) {
     console.error('Error updating polygon geometry:', error)
@@ -2186,51 +2200,34 @@ const toggleDrawingMode = async () => {
 
 // Delete drawn shape function
 const deleteDrawnShape = () => {
-  let hasDeleted = false
-  
-  // Exit drawing mode if active
   if (isDrawingMode.value) {
     stopPolygonDrawing()
   }
-  
-  // Delete drawn polygons
-  if (drawnPolygons.value.length > 0) {
-    drawnPolygons.value.forEach(p => {
-      p.setMap(null)
-    })
-    drawnPolygons.value = []
-    hasDeleted = true
-  }
-  
-  // Delete settlement polygon (for edit mode)
-  if (settlementPolygon.value) {
-    settlementPolygon.value.setMap(null)
-    settlementPolygon.value = null
-    hasDeleted = true
-  }
-  
-  // Delete settlement marker (for point geometry)
-  if (settlementMarker.value) {
-    settlementMarker.value.setMap(null)
-    settlementMarker.value = null
-    hasDeleted = true
-  }
-  
-  // Clear geometry data
-  if (hasDeleted) {
-    detachEditSnapPreview()
-    settlementGeometry.value = null
-    settlementForm.geom = null
-    settlementForm.area = null
-    settlementBoundaryModified.value = false
-    settlementOverlaps.value = []
-    clearOverlapHighlights()
-    clearOvertureBuildingLayers()
-    drawerVisible.value = false
-    ElMessage.success('Settlement boundary deleted')
-  } else {
+
+  const hadShape =
+    drawnPolygons.value.length > 0 ||
+    settlementPolygon.value ||
+    settlementMarker.value ||
+    settlementGeometry.value ||
+    settlementForm.geom
+
+  if (!hadShape) {
     ElMessage.info('No shape to delete')
+    return
   }
+
+  cancelPendingBoundaryWork()
+  detachEditSnapPreview()
+  clearSettlementShapeLayers()
+  clearOvertureBuildingLayers()
+
+  settlementGeometry.value = null
+  settlementForm.geom = null
+  settlementForm.area = null
+  settlementBoundaryModified.value = false
+  settlementOverlaps.value = []
+  drawerVisible.value = false
+  ElMessage.success('Settlement boundary deleted')
 }
 
 // Fly to coordinates provided as "lat, lon"
@@ -2408,14 +2405,18 @@ const submitForm = async () => {
         const settlementId = editingSettlementId.value
         const shouldImportStructures = updateStructuresFromOverture.value
 
+        if (shouldImportStructures) {
+          const geom = boundaryGeom
+          if (geom) {
+            await fetchOvertureBuildingsForSettlement(geom)
+          }
+          await importOvertureStructuresAfterSave(settlementId, { replaceAll: true })
+        }
+
         ElMessage.success('Settlement updated successfully')
         clearFormAndGeometry()
         sessionStorage.setItem('navigatingFromEdit', 'true')
         router.push({ name: 'List' })
-
-        if (shouldImportStructures) {
-          void importOvertureStructuresAfterSave(settlementId, { replaceAll: true })
-        }
       } else {
         ElMessage.error(res?.message || 'Failed to update settlement')
       }
@@ -2501,16 +2502,7 @@ const goBack = () => {
         })
         wardPolygon.value = []
       }
-      if (settlementPolygon.value) {
-        settlementPolygon.value.setMap(null)
-        settlementPolygon.value = null
-      }
-      if (settlementMarker.value) {
-        settlementMarker.value.setMap(null)
-        settlementMarker.value = null
-      }
-      drawnPolygons.value.forEach(p => p.setMap(null))
-      drawnPolygons.value = []
+      clearSettlementShapeLayers()
       
       // Clean up neighboring settlements
       neighboringSettlements.value.forEach(polyline => {
@@ -2523,7 +2515,6 @@ const goBack = () => {
       neighboringSettlementLabels.value = []
       neighborSettlementGeometries.value = []
       settlementOverlaps.value = []
-      clearOverlapHighlights()
       
       stopPolygonDrawing()
       map.value = null
@@ -2606,17 +2597,21 @@ const clearOvertureBuildingLayers = () => {
 }
 
 let overtureGeometryRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let overtureFetchSeq = 0
+
+const getActiveSettlementGeometry = () => settlementForm.geom || settlementGeometry.value
 
 /** Re-fetch Overture footprints when settlement boundary changes (debounced). */
-const scheduleOvertureRefreshForGeometry = (geometry: any) => {
-  if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return
+const scheduleOvertureRefreshForGeometry = (_geometry: any) => {
   if (overtureGeometryRefreshTimer) {
     clearTimeout(overtureGeometryRefreshTimer)
   }
   overtureGeometryRefreshTimer = setTimeout(() => {
     overtureGeometryRefreshTimer = null
-    void refreshOvertureMapPreview(geometry, { showMessage: false }).then(() =>
-      maybeAutoFillPopulationFromBuildings(geometry)
+    const latestGeom = getActiveSettlementGeometry()
+    if (!latestGeom || (latestGeom.type !== 'Polygon' && latestGeom.type !== 'MultiPolygon')) return
+    void refreshOvertureMapPreview(latestGeom, { showMessage: false }).then(() =>
+      maybeAutoFillPopulationFromBuildings()
     )
   }, 700)
 }
@@ -2662,22 +2657,36 @@ const fetchOvertureBuildingsForSettlement = async (geometry: any) => {
     clearOvertureBuildingLayers()
     return null
   }
+
+  const fetchSeq = ++overtureFetchSeq
   overtureBuildingsLoading.value = true
   try {
     const res = await fetchOvertureBuildings(normalized)
-    if (String(res.code) !== '0000') return null
+    if (fetchSeq !== overtureFetchSeq) return null
+    if (String(res.code) !== '0000') {
+      clearOvertureBuildingLayers()
+      overtureBuildingCount.value = 0
+      return null
+    }
     overtureBuildingCount.value = resolveOvertureBuildingCount(res)
     overtureBuildingsGeojson.value =
       res.geojson?.features?.length ? res.geojson : null
     if (res.geojson?.features?.length) {
       renderOvertureBuildingsOnMap(res.geojson)
+    } else {
+      clearOvertureBuildingLayers()
+      overtureBuildingCount.value = 0
+      overtureBuildingsGeojson.value = null
     }
     return res
   } catch (e) {
+    if (fetchSeq !== overtureFetchSeq) return null
     console.warn('Overture buildings unavailable:', e)
     return null
   } finally {
-    overtureBuildingsLoading.value = false
+    if (fetchSeq === overtureFetchSeq) {
+      overtureBuildingsLoading.value = false
+    }
   }
 }
 
@@ -2881,16 +2890,24 @@ const refreshOvertureMapPreview = async (
 /** Population estimate from Overture / Open Buildings — manual button or auto when population missing. */
 const applyPopulationEstimateFromBuildings = async (
   geometry: any,
-  options?: { skipOvertureFetch?: boolean; silent?: boolean }
+  options?: { skipOvertureFetch?: boolean; silent?: boolean; forceOvertureRefresh?: boolean }
 ) => {
+  const normalized = parseSettlementGeometry(geometry) || geometry
   populationLoading.value = true
   try {
     const { ppb, source } = await resolvePersonsPerBuilding()
 
-    let overtureCount = options?.skipOvertureFetch ? Number(overtureBuildingCount.value) || 0 : 0
-    if (!options?.skipOvertureFetch || overtureCount <= 0) {
-      const overture = await fetchOvertureBuildingsForSettlement(geometry)
-      overtureCount = resolveOvertureBuildingCount(overture)
+    const mustRefreshOverture =
+      options?.forceOvertureRefresh === true ||
+      settlementBoundaryModified.value ||
+      !options?.skipOvertureFetch
+
+    let overtureCount = 0
+    if (mustRefreshOverture || (overtureBuildingCount.value ?? 0) <= 0) {
+      await fetchOvertureBuildingsForSettlement(normalized)
+      overtureCount = Number(overtureBuildingCount.value) || 0
+    } else {
+      overtureCount = Number(overtureBuildingCount.value) || 0
     }
 
     if (overtureCount > 0) {
@@ -2908,16 +2925,18 @@ const applyPopulationEstimateFromBuildings = async (
       return
     }
 
-    await fetchPopulationEstimate(geometry)
+    await fetchPopulationEstimate(normalized)
   } finally {
     populationLoading.value = false
   }
 }
 
-const maybeAutoFillPopulationFromBuildings = async (geometry: any) => {
+const maybeAutoFillPopulationFromBuildings = async () => {
   if (!hasMissingPopulation()) return
+  const latestGeom = getActiveSettlementGeometry()
+  if (!latestGeom) return
   if ((overtureBuildingCount.value ?? 0) <= 0) return
-  await applyPopulationEstimateFromBuildings(geometry, { skipOvertureFetch: true })
+  await applyPopulationEstimateFromBuildings(latestGeom, { skipOvertureFetch: true })
 }
 
 /** After boundary draw/upload: Overture preview; auto-estimate population when missing. */
@@ -2975,7 +2994,7 @@ const importOvertureStructuresAfterSave = async (
 }
 
 const onManualPopulationFetch = async () => {
-  const geom = settlementForm.geom || settlementGeometry.value
+  const geom = getActiveSettlementGeometry()
   if (!geom) {
     ElMessage.error('Please draw or select settlement geometry before estimating population')
     return
@@ -2986,7 +3005,11 @@ const onManualPopulationFetch = async () => {
   if (!settlementForm.county_id && !selectedCounty.value) {
     ElMessage.warning('Select a county first — needed for male/female population split.')
   }
-  await applyPopulationEstimateFromBuildings(geom)
+  if (overtureGeometryRefreshTimer) {
+    clearTimeout(overtureGeometryRefreshTimer)
+    overtureGeometryRefreshTimer = null
+  }
+  await applyPopulationEstimateFromBuildings(geom, { forceOvertureRefresh: true })
 }
 
 // Auto-fill vulnerability fields from climate service using geometry centroid
@@ -3133,18 +3156,7 @@ const clearFormAndGeometry = () => {
   
   // Clear geometry
   settlementGeometry.value = null
-  
-  // Remove polygons and markers from map
-  if (settlementPolygon.value) {
-    settlementPolygon.value.setMap(null)
-    settlementPolygon.value = null
-  }
-  if (settlementMarker.value) {
-    settlementMarker.value.setMap(null)
-    settlementMarker.value = null
-  }
-  drawnPolygons.value.forEach(p => p.setMap(null))
-  drawnPolygons.value = []
+  clearSettlementShapeLayers()
   
   // Clear ward polygons
   if (wardPolygon.value && wardPolygon.value.length > 0) {
@@ -3165,7 +3177,6 @@ const clearFormAndGeometry = () => {
   neighboringSettlementLabels.value = []
   neighborSettlementGeometries.value = []
   settlementOverlaps.value = []
-  clearOverlapHighlights()
   
   // Close drawer
   drawerVisible.value = false
@@ -3183,6 +3194,7 @@ const clearFormAndGeometry = () => {
   // Reset edit mode
   isEditMode.value = false
   editingSettlementId.value = null
+  editLoading.value = false
   
   
   // Reset form validation
@@ -3396,23 +3408,31 @@ const syncEditModeFromRoute = (query: Record<string, any> = route.query) => {
   }
 }
 
+watch([isEditMode, currentStep], () => {
+  if (isEditMode.value && currentStep.value === 0) {
+    currentStep.value = 1
+  }
+})
+
 const loadSettlementForEdit = async (
   settlementId: number,
   query: Record<string, any> = route.query
 ) => {
   const loadSeq = ++editLoadSeq
-  syncEditModeFromRoute(query)
-  editingSettlementId.value = settlementId
-
-  const routeCounty = query.county_id
-  const routeSubcounty = query.subcounty_id
-  const routeWard = query.ward_id
-  if (routeCounty) {
-    await applyLocationFromRecord(routeCounty, routeWard, routeSubcounty)
-    if (loadSeq !== editLoadSeq) return
-  }
+  editLoading.value = true
 
   try {
+    syncEditModeFromRoute(query)
+    editingSettlementId.value = settlementId
+
+    const routeCounty = query.county_id
+    const routeSubcounty = query.subcounty_id
+    const routeWard = query.ward_id
+    if (routeCounty) {
+      await applyLocationFromRecord(routeCounty, routeWard, routeSubcounty)
+      if (loadSeq !== editLoadSeq) return
+    }
+
     const form = {
       model: 'settlement',
       id: String(settlementId)
@@ -3518,6 +3538,10 @@ const loadSettlementForEdit = async (
     if (loadSeq !== editLoadSeq) return
     console.error('Error loading settlement:', error)
     ElMessage.error('Failed to load settlement data')
+  } finally {
+    if (loadSeq === editLoadSeq) {
+      editLoading.value = false
+    }
   }
 }
 
@@ -3612,7 +3636,7 @@ onActivated(() => {
           <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
           <div class="header-actions">
             <el-button
-              v-if="currentStep === 1 && showUndoBoundaryButton"
+              v-if="isMapStepActive && showUndoBoundaryButton"
               type="warning"
               plain
               :icon="RefreshLeft"
@@ -3624,7 +3648,7 @@ onActivated(() => {
               class="map-toolbar-btn undo-button"
             />
             <el-button
-              v-if="currentStep === 1 && isDrawingMode"
+              v-if="isMapStepActive && isDrawingMode"
               type="success"
               :icon="Check"
               title="Finish polygon"
@@ -3634,19 +3658,19 @@ onActivated(() => {
               class="map-toolbar-btn"
             />
             <el-button
-              v-if="currentStep === 1"
+              v-if="isMapStepActive"
               :type="isDrawingMode ? 'success' : 'default'"
               :icon="Edit"
               title="Draw boundary"
               @click="toggleDrawingMode"
               size="small"
               circle
-              :disabled="mapLoading || !drawReady"
-              :loading="mapLoading"
+              :disabled="mapLoading || editLoading || !drawReady"
+              :loading="mapLoading || editLoading"
               class="map-toolbar-btn"
             />
             <el-button
-              v-if="currentStep === 1"
+              v-if="isMapStepActive"
               type="info"
               title="Fly to coordinates"
               @click="flyDialogVisible = true"
@@ -3657,7 +3681,7 @@ onActivated(() => {
               <Icon icon="mdi:airplane-takeoff" width="16" height="16" />
             </el-button>
             <el-button
-              v-if="currentStep === 1 && (drawnPolygons.length > 0 || settlementPolygon || settlementMarker)"
+              v-if="isMapStepActive && (drawnPolygons.length > 0 || settlementPolygon || settlementMarker || settlementGeometry || settlementForm.geom)"
               type="danger"
               :icon="Delete"
               title="Delete boundary"
@@ -3667,7 +3691,7 @@ onActivated(() => {
               class="map-toolbar-btn"
             />
             <el-button
-              v-if="currentStep === 1"
+              v-if="isMapStepActive"
               type="primary"
               :icon="UploadFilled"
               title="Upload boundary file"
@@ -3787,7 +3811,13 @@ onActivated(() => {
       </div>
 
       <!-- Step 2: Map with Drawing Tools -->
-      <div v-show="currentStep === 1" class="step-content map-step">
+      <div
+        v-show="isMapStepActive"
+        v-loading="editLoading"
+        element-loading-text="Loading settlement…"
+        element-loading-background="rgba(255, 255, 255, 0.85)"
+        class="step-content map-step"
+      >
         <el-alert
           v-if="settlementOverlaps.length > 0"
           type="error"
@@ -3804,8 +3834,8 @@ onActivated(() => {
           </ul>
           <div class="overlap-warning-hint">
             {{ hasBlockingBoundaryOverlap
-              ? 'Adjust the boundary to remove overlap before saving. Overlapping areas are highlighted in orange.'
-              : 'Overlapping areas are highlighted in orange on the map.' }}
+              ? 'Adjust the boundary to remove overlap before saving.'
+              : 'Review overlapping settlements listed above before saving.' }}
           </div>
         </el-alert>
         <el-alert
@@ -3818,7 +3848,7 @@ onActivated(() => {
         >
           <el-button size="small" type="primary" plain @click="retryMapLoad">Retry map</el-button>
         </el-alert>
-        <div v-if="mapLoading" class="map-status-banner">Loading map…</div>
+        <div v-if="mapLoading && !editLoading" class="map-status-banner">Loading map…</div>
         <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
           Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} —
           click to add corners (white = nearby corners; yellow/cyan = snap target), double-click to finish
@@ -3828,6 +3858,12 @@ onActivated(() => {
           class="map-status-banner map-status-banner--drawing"
         >
           Snap preview — white dots = nearby corners; yellow = corner snap; cyan = edge snap
+        </div>
+        <div
+          v-else-if="drawReady && hasEditableSettlementBoundary && !isDrawingMode"
+          class="map-status-banner map-status-banner--ready"
+        >
+          Drag corners to move · click an edge to add a corner · right-click a corner to delete (minimum 3 corners)
         </div>
         <div v-else-if="overtureBuildingCount != null && overtureBuildingCount > 0" class="map-status-banner map-status-banner--overture">
           Overture: {{ overtureBuildingCount }} building{{ overtureBuildingCount === 1 ? '' : 's' }} (cyan) · Ward neighbors in pink
@@ -3926,6 +3962,7 @@ onActivated(() => {
                           <li><strong>Primary — Overture Maps</strong> — Building footprints from Overture are counted and shown in cyan on the map.</li>
                           <li><strong>Fallback — Open Buildings</strong> — If Overture finds none, point counts from Google Open Buildings are used.</li>
                           <li><strong>Formula</strong> — <em>population = Overture buildings × persons per building</em> (ward survey avg, stored settlement avg, or 4.0 default).</li>
+                          <li>After you change the boundary, click estimate again to re-scan building footprints inside the new shape.</li>
                         </ul>
                         <p class="text-xs mt-2 text-gray-500">Population auto-fills when empty and Overture finds buildings. Use the button above to re-run. Open Buildings is only used when Overture finds no footprints.</p>
                       </div>
@@ -4663,6 +4700,7 @@ onActivated(() => {
 
 .map-step {
   position: relative;
+  min-height: 60vh;
   padding: 0;
   margin: 0;
 }
