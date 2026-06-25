@@ -57,7 +57,16 @@
     </el-collapse>
   </div>
 
-  <div id="map" class="map"></div>
+  <div class="map-shell">
+    <div ref="mapContainerRef" class="landing-map-canvas map"></div>
+
+    <div v-if="mapInitError" class="map-webgl-error" role="alert">
+      <Icon icon="material-symbols:map-off" width="48" class="map-webgl-error__icon" />
+      <p class="map-webgl-error__title">Map unavailable</p>
+      <p class="map-webgl-error__message">{{ mapInitError }}</p>
+      <el-button type="primary" @click="retryMapInit">Retry</el-button>
+    </div>
+  </div>
 
   <!-- AI loading overlay -->
   <Transition name="ai-overlay-fade">
@@ -86,7 +95,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ref, watch, onMounted, onUnmounted, computed, type Ref } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed, nextTick, type Ref } from 'vue'
 import { ElButton, ElSelect, ElOption, ElMessage, ElCollapse, ElCollapseItem } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
@@ -103,6 +112,7 @@ import { getOneSettlement } from '@/api/settlements'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { debounce } from '@/utils/debounce'
+import { createMapboxMap, getMapboxSupportMessage } from '@/utils/mapWebgl'
 
 const { push } = useRouter()
 const appStore = useAppStoreWithOut()
@@ -133,7 +143,10 @@ const isCountyRestricted = computed(() => {
 })
 
 // Map state
+const mapContainerRef = ref<HTMLElement | null>(null)
 const map = ref<mapboxgl.Map | null>(null)
+const mapInitError = ref<string | null>(null)
+let mapResizeObserver: ResizeObserver | null = null
 const mapLoading = ref(false)
 const mapLoadingText = ref('Loading map....')
 const isDarkMode = computed(() => appStore.getIsDark)
@@ -234,12 +247,6 @@ if (typeof window !== 'undefined') {
   document.addEventListener('click', outsideClickHandler)
 }
 
-onUnmounted(() => {
-  window.removeEventListener('resize', updateMobileState)
-  document.removeEventListener('click', outsideClickHandler)
-  map.value?.remove()
-})
-
 // Data state
 const county = ref<number[]>([])
 const subcounty = ref<number[]>([])
@@ -314,48 +321,43 @@ const createFilterControl = (onClick: () => void, isVisible: Ref<boolean>) => {
   return new FilterControl()
 }
 
-// Initialize map
-onMounted(async () => {
-  const mapStyle = isDarkMode.value 
-    ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' 
-    : 'mapbox://styles/mapbox/light-v11'
+const destroyMap = () => {
+  mapResizeObserver?.disconnect()
+  mapResizeObserver = null
+  try {
+    map.value?.remove()
+  } catch {
+    /* ignore teardown errors */
+  }
+  map.value = null
+  if (mapContainerRef.value) {
+    mapContainerRef.value.replaceChildren()
+  }
+}
 
-  map.value = new mapboxgl.Map({
-    container: 'map',
-    style: mapStyle,
-    center: [36.799473, -1.264257],
-    zoom: 14
+const attachMapResizeObserver = (container: HTMLElement) => {
+  mapResizeObserver?.disconnect()
+  mapResizeObserver = new ResizeObserver(() => {
+    map.value?.resize()
   })
+  mapResizeObserver.observe(container)
+}
+
+const setupMapControls = () => {
+  if (!map.value) return
 
   map.value.addControl(new mapboxgl.NavigationControl())
   map.value.addControl(
     new mapboxgl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
-      showUserHeading: true
+      showUserHeading: true,
     })
   )
 
-  // Add custom filter control (works for both desktop and mobile)
   const filterControl = createFilterControl(toggleFilters, filtersVisible)
   map.value.addControl(filterControl, 'top-right')
   filterControlRef.value = filterControl
-
-  // Watch for dark mode changes
-  watch(
-    () => appStore.getIsDark,
-    async (newVal) => {
-      if (!map.value) return
-      const newStyle = newVal
-        ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
-        : 'mapbox://styles/mapbox/light-v11'
-      
-      map.value.setStyle(newStyle)
-      map.value.once('styledata', async () => {
-        await addSettlementLayers()
-      })
-    }
-  )
 
   map.value.on('load', async () => {
     await initializeMap()
@@ -368,7 +370,7 @@ onMounted(async () => {
 
   map.value.on('click', 'clusters', (e: any) => {
     const features = map.value!.queryRenderedFeatures(e.point, {
-      layers: ['clusters']
+      layers: ['clusters'],
     })
     const clusterId = features[0].properties.cluster_id
     const source = map.value!.getSource('settlements') as mapboxgl.GeoJSONSource
@@ -376,10 +378,86 @@ onMounted(async () => {
       if (err) return
       map.value!.easeTo({
         center: features[0].geometry.coordinates as [number, number],
-        zoom: zoom
+        zoom: zoom,
       })
     })
   })
+}
+
+const initMap = async () => {
+  mapInitError.value = null
+  destroyMap()
+  await nextTick()
+
+  const container = mapContainerRef.value
+  if (!container) {
+    mapInitError.value = 'Map container not found.'
+    mapLoading.value = false
+    return
+  }
+
+  const mapStyle = isDarkMode.value
+    ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
+    : 'mapbox://styles/mapbox/light-v11'
+
+  try {
+    map.value = await createMapboxMap(container, {
+      style: mapStyle,
+      center: [36.799473, -1.264257],
+      zoom: 14,
+      failIfMajorPerformanceCaveat: false,
+    })
+    attachMapResizeObserver(container)
+  } catch (error: any) {
+    console.error('Mapbox map initialization failed:', error)
+    map.value = null
+    mapInitError.value =
+      error?.message?.includes('WebGL') || error?.message?.includes('webgl')
+        ? getMapboxSupportMessage() || 'Failed to initialize WebGL.'
+        : error?.message || 'Failed to initialize the map.'
+    mapLoading.value = false
+    return
+  }
+
+  map.value.on('error', (event: any) => {
+    const message = String(event?.error?.message || '')
+    if (!message.includes('WebGL') && !message.includes('webgl')) return
+    console.error('Mapbox WebGL error:', event?.error || event)
+    mapInitError.value = getMapboxSupportMessage() || 'Failed to initialize WebGL.'
+    mapLoading.value = false
+    destroyMap()
+  })
+
+  setupMapControls()
+}
+
+const retryMapInit = () => {
+  void initMap()
+}
+
+onMounted(() => {
+  void initMap()
+
+  watch(
+    () => appStore.getIsDark,
+    async (newVal) => {
+      if (!map.value || mapInitError.value) return
+      const newStyle = newVal
+        ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
+        : 'mapbox://styles/mapbox/light-v11'
+
+      map.value.setStyle(newStyle)
+      map.value.once('styledata', async () => {
+        await addSettlementLayers()
+      })
+    }
+  )
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileState)
+  document.removeEventListener('click', outsideClickHandler)
+  destroyMap()
 })
 
 // Initialize map data
@@ -1097,11 +1175,49 @@ const getClickedSettlement = async (id: number) => {
   margin-top: 8px;
 }
 
-#map {
+.map-shell {
+  position: relative;
+  width: 100%;
   height: 95vh;
+}
+
+.landing-map-canvas {
+  height: 100%;
   width: 100%;
   position: relative;
   z-index: 1;
+}
+
+.map-webgl-error {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+.map-webgl-error__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.map-webgl-error__message {
+  margin: 0;
+  max-width: 520px;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+}
+
+.map-webgl-error__icon {
+  color: var(--el-color-warning);
 }
 
 /* Tablet styles */
@@ -1188,7 +1304,7 @@ const getClickedSettlement = async (id: number) => {
     gap: 12px;
   }
 
-  #map {
+  .landing-map-canvas {
     height: calc(100vh - 60px);
     min-height: 400px;
   }
@@ -1207,7 +1323,7 @@ const getClickedSettlement = async (id: number) => {
     padding: 12px;
   }
 
-  #map {
+  .landing-map-canvas {
     height: calc(100vh - 50px);
   }
 }
