@@ -10,7 +10,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 
 import { Icon } from '@/components/Icon'
 
-import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
+import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions, mergeEchartsOptionForTheme, mergeEchartsMapOptionForTheme } from './chart-types'
 import type { EChartsOption } from 'echarts'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -22,6 +22,7 @@ import {   getfilteredGeo } from '@/api/settlements'
 
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
 import { formatDashboardNumberCompact, dashboardNumberTooltip } from '@/utils/formatDashboardNumber'
+import { dashboardChartTitleSize } from '@/utils/dashboardTypography'
  
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
@@ -67,6 +68,37 @@ const cardLoading = ref(true)
 
 const cards = ref([])
 const tabs = ref([])
+
+function refreshDashboardChartThemes() {
+  for (const tab of (tabs.value as any[]) || []) {
+    for (const card of (tab.cards as any[]) || []) {
+      if (!card.chart) continue
+      try {
+        const series = (card.chart as Record<string, unknown>).series
+        const isMap = Array.isArray(series) && series.some((s: { type?: string }) => s?.type === 'map')
+        card.chart = isMap
+          ? mergeEchartsMapOptionForTheme(card.chart as Record<string, unknown>)
+          : mergeEchartsOptionForTheme(card.chart as Record<string, unknown>)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+watch(
+  () => appStore.getCurrentSize,
+  () => {
+    refreshDashboardChartThemes()
+  },
+)
+
+watch(
+  () => appStore.getIsDark,
+  () => {
+    refreshDashboardChartThemes()
+  },
+)
 
 const filterLevel = ref('national')
 const selectedCounties = ref([])
@@ -719,7 +751,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -788,7 +820,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -854,7 +886,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -924,7 +956,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -988,7 +1020,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -1061,7 +1093,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -1176,7 +1208,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: 'red',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -1580,7 +1612,7 @@ const formatNumber = formatDashboardNumberCompact
               <el-card>
 
                 <ElSkeleton :loading="loading" animated>
-                  <v-chart :key="`chart-${card.id}-${appStore.getIsDark}`" :id="card.id" class="chart" :option="card.chart" autoresize />
+                  <v-chart :key="`chart-${card.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`" :id="card.id" class="chart" :option="card.chart" autoresize />
                 </ElSkeleton>
 
               </el-card>
@@ -1619,12 +1651,10 @@ const formatNumber = formatDashboardNumberCompact
 }
 
 .value-text {
-  font-size: 24px;
   font-weight: bold;
 }
 
 .value-label {
-  font-size: 14px;
   color: #999999;
 }
 

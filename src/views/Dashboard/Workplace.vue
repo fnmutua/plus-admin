@@ -395,7 +395,7 @@ onMounted(init)
                       </el-dropdown>
                     </div>
                     <CountTo
-                      class="text-28px font-bold stat-value-link"
+                      class="font-bold stat-value-link"
                       :start-val="0"
                       :end-val="card.value"
                       :duration="1200"

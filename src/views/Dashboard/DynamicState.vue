@@ -6,6 +6,11 @@ import {
 import { Loading } from '@element-plus/icons-vue'
 import { geoCache as _geoCache, indicatorConfigCache as _indicatorConfigCache } from '@/utils/dashboardCache'
 import { formatDashboardNumberCompact, dashboardNumberTooltip } from '@/utils/formatDashboardNumber'
+import {
+  dashboardChartTitleSize,
+  dashboardChartTitleEmphasisSize,
+  dashboardChartAxisPx,
+} from '@/utils/dashboardTypography'
 
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
@@ -163,6 +168,15 @@ function refreshDashboardChartThemes() {
     }
   }
 }
+
+watch(
+  () => appStore.getCurrentSize,
+  async () => {
+    await nextTick()
+    refreshDashboardChartThemes()
+  },
+  { flush: 'post' },
+)
 
 watch(
   () => appStore.getIsDark,
@@ -1550,7 +1564,7 @@ const getCharts = async (section_id) => {
           style: {
             text: 'No data available',
             fill: '#999',
-            fontSize: 16
+            fontSize: dashboardChartTitleSize()
           },
           z: 100
         }];
@@ -1583,11 +1597,11 @@ const getCharts = async (section_id) => {
             subtitle: { ...scatterOptions.subtitle, text: subtitleWithSource },
             xaxis: {
               ...scatterOptions.xaxis,
-              title: { text: xLabel, style: { color: '#909399', fontSize: '12px' } },
+              title: { text: xLabel, style: { color: '#909399', fontSize: dashboardChartAxisPx() } },
             },
             yaxis: {
               ...scatterOptions.yaxis,
-              title: { text: yLabel, style: { color: '#909399', fontSize: '12px' } },
+              title: { text: yLabel, style: { color: '#909399', fontSize: dashboardChartAxisPx() } },
             },
             series,
           }
@@ -1768,7 +1782,7 @@ const getCharts = async (section_id) => {
             if (allCats.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text', left: 'center', top: 'middle',
-                style: { text: 'No data available', fill: '#999', fontSize: 16 },
+                style: { text: 'No data available', fill: '#999', fontSize: dashboardChartTitleSize() },
                 z: 100
               }];
             }
@@ -1873,7 +1887,7 @@ const getCharts = async (section_id) => {
             if (allCats.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text', left: 'center', top: 'middle',
-                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                style: { text: 'No data  available', fill: '#999', fontSize: dashboardChartTitleSize() },
                 z: 100
               }]
             }
@@ -1942,7 +1956,7 @@ const getCharts = async (section_id) => {
             if (allCats.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text', left: 'center', top: 'middle',
-                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                style: { text: 'No data  available', fill: '#999', fontSize: dashboardChartTitleSize() },
                 z: 100
               }]
             }
@@ -2085,7 +2099,7 @@ const getCharts = async (section_id) => {
                 style: {
                   text: 'No data  available',
                   fill: '#999',
-                  fontSize: 16
+                  fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -2239,7 +2253,7 @@ const getCharts = async (section_id) => {
                 style: {
                   text: 'No data available',
                   fill: mapChartNoDataFill(),
-                  fontSize: 17,
+                  fontSize: dashboardChartTitleEmphasisSize(),
                   fontWeight: 600,
                 },
               })
@@ -2523,7 +2537,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -2601,7 +2615,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -2667,7 +2681,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -2742,7 +2756,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -2815,7 +2829,7 @@ const getCharts = async (section_id) => {
                 style: {
                   text: 'No data  available',
                   fill: '#999',
-                  fontSize: 16
+                  fontSize: dashboardChartTitleSize()
                 },
                 z: 100
               }]
@@ -2894,7 +2908,7 @@ const getCharts = async (section_id) => {
             style: {
               text: 'No data  available',
               fill: '#999',
-              fontSize: 16
+              fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -3046,7 +3060,7 @@ const getCharts = async (section_id) => {
                 style: {
                   text: 'No data available',
                   fill: mapChartNoDataFill(),
-                  fontSize: 17,
+                  fontSize: dashboardChartTitleEmphasisSize(),
                   fontWeight: 600,
                 },
               })
@@ -4006,11 +4020,11 @@ onBeforeUnmount(() => {
                       </template>
                       <template v-if="chart.chart">
                         <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
-                          <v-chart :key="`map-${chart.id}-${appStore.getIsDark}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                          <v-chart :key="`map-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
                         </div> 
                         <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
                           <apexchart
-                            :key="`apex-${chart.id}-${appStore.getIsDark}-${(chart.apexSeries || chart.chart?.series || []).length}`"
+                            :key="`apex-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}-${(chart.apexSeries || chart.chart?.series || []).length}`"
                             :options="chart.chart"
                             :series="Array.isArray(chart.apexSeries) ? chart.apexSeries : (Array.isArray(chart.chart?.series) ? chart.chart.series : [])"
                             :type="getChartType(chart.type)"
@@ -4026,7 +4040,7 @@ onBeforeUnmount(() => {
                             </el-button>
                           </div>
                         </div>
-                        <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${appStore.getIsDark}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
+                        <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
                       </template>
                       <template v-else>
                         <div class="empty-state-content">
@@ -4304,7 +4318,6 @@ onBeforeUnmount(() => {
 }
 
 .value-text {
-  font-size: 28px;
   font-weight: 700;
   color: #d61515;
   margin: 0;
@@ -4321,7 +4334,6 @@ onBeforeUnmount(() => {
 }
 
 .value-label {
-  font-size: 14px;
   color: #606266;
   margin: 8px 0 0 0;
   line-height: 1.4;
@@ -4331,7 +4343,6 @@ onBeforeUnmount(() => {
 }
 
 .stat-card-filter-scope {
-  font-size: 12px;
   color: var(--el-text-color-secondary);
   margin: 6px 0 0 0;
   line-height: 1.35;

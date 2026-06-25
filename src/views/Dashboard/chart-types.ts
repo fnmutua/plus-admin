@@ -2,6 +2,17 @@ import { EChartsOption } from 'echarts'
 import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
 import { useAppStore } from '@/store/modules/app'
+import {
+  dashboardChartTitleSize,
+  dashboardChartTitleEmphasisSize,
+  dashboardChartSubtitleSize,
+  dashboardChartAxisSize,
+  dashboardChartTitlePx,
+  dashboardChartAxisPx,
+  dashboardChartLegendPx,
+  dashboardChartDataLabelPx,
+  dashboardStatValuePx,
+} from '@/utils/dashboardTypography'
 
 // Import the 100-color palette (assumed to be in src/charts/colorPalette.ts)
 import customColorPalette from './colors'
@@ -186,10 +197,10 @@ export const stacklineOptions: EChartsOption = {
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'left',
     get textStyle() {
-      return { fontSize: 14, color: echartsTitleColor() }
+      return { fontSize: dashboardChartTitleSize(), color: echartsTitleColor() }
     },
     get subtextStyle() {
-      return { fontSize: 12, color: echartsSubtextColor() }
+      return { fontSize: dashboardChartAxisSize(), color: echartsSubtextColor() }
     },
   },
   legend: {
@@ -217,7 +228,7 @@ export const stacklineOptions: EChartsOption = {
     formatter: '{a} <br/>{b} : {c} ({d}%)',
     get backgroundColor() { return echartsTooltipBg() },
     get borderColor() { return echartsTooltipBorder() },
-    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: dashboardChartSubtitleSize() } },
   },
   xAxis: {
     type: 'category',
@@ -339,7 +350,7 @@ export const simpleBarChart = {
     text: '',
     align: 'left',
     get style() {
-      return { fontSize: '14px', fontWeight: '600', color: apexTitleColor() }
+      return { fontSize: dashboardChartTitlePx(), fontWeight: '600', color: apexTitleColor() }
     },
   },
   colors: romaColors,
@@ -354,7 +365,7 @@ export const simpleBarChart = {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     get style() {
-      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+      return { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   chart: {
@@ -407,7 +418,7 @@ export const simpleBarChart = {
   yaxis: {
     labels: {
       maxWidth: 180,
-      get style() { return { colors: apexLegendLabelColor(), fontSize: '12px' } },
+      get style() { return { colors: apexLegendLabelColor(), fontSize: dashboardChartAxisPx() } },
     },
   },
   fill: { opacity: 1 }
@@ -421,7 +432,7 @@ export const stackedbarOptions = {
     text: '',
     align: 'left',
     get style() {
-      return { fontSize: '14px', fontWeight: '600', color: apexTitleColor() }
+      return { fontSize: dashboardChartTitlePx(), fontWeight: '600', color: apexTitleColor() }
     },
   },
   colors: romaColors,
@@ -436,7 +447,7 @@ export const stackedbarOptions = {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     get style() {
-      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+      return { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   chart: {
@@ -493,7 +504,7 @@ export const stackedbarOptions = {
   yaxis: {
     labels: {
       maxWidth: 180,
-      get style() { return { colors: apexLegendLabelColor(), fontSize: '12px' } },
+      get style() { return { colors: apexLegendLabelColor(), fontSize: dashboardChartAxisPx() } },
     },
   },
   fill: { opacity: 1 }
@@ -507,7 +518,7 @@ export const stackedbarOptionsAbs = {
     text: '',
     align: 'left',
     get style() {
-      return { fontSize: '14px', fontWeight: '600', color: apexTitleColor() }
+      return { fontSize: dashboardChartTitlePx(), fontWeight: '600', color: apexTitleColor() }
     },
   },
   colors: romaColors,
@@ -522,7 +533,7 @@ export const stackedbarOptionsAbs = {
     text: `National Slum Database, ${new Date().getFullYear()}`,
     align: 'left',
     get style() {
-      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+      return { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   chart: {
@@ -573,7 +584,7 @@ export const stackedbarOptionsAbs = {
   yaxis: {
     labels: {
       maxWidth: 180,
-      get style() { return { colors: apexLegendLabelColor(), fontSize: '12px' } },
+      get style() { return { colors: apexLegendLabelColor(), fontSize: dashboardChartAxisPx() } },
     },
   },
   fill: { opacity: 1 }
@@ -588,12 +599,12 @@ export const multipleBarChart = {
     align: 'left',
     get textStyle() {
       return {
-        fontSize: 14,
+        fontSize: dashboardChartTitleSize(),
         color: apexTitleColor(),
       }
     },
     get subtextStyle() {
-      return { fontSize: 12, color: apexSubtitleColor() }
+      return { fontSize: dashboardChartAxisSize(), color: apexSubtitleColor() }
     },
   },
   colors: romaColors, // Use Roma theme colors
@@ -612,7 +623,7 @@ export const multipleBarChart = {
     align: 'left',
     get style() {
       return {
-        fontSize: '12px',
+        fontSize: dashboardChartAxisPx(),
         fontWeight: 'normal',
         color: apexSubtitleColor(),
       }
@@ -653,7 +664,7 @@ export const multipleBarChart = {
             hideOverlappingLabels: true,
             style: {
              // colors: [],
-              fontSize: '8px',
+              fontSize: dashboardChartDataLabelPx(),
               fontFamily: 'Helvetica, Arial, sans-serif',
               fontWeight: 400,
               cssClass: 'apexcharts-xaxis-label'
@@ -777,7 +788,7 @@ export const lineOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '12px',
+        fontSize: dashboardChartAxisPx(),
         fontWeight: 'normal',
         color: apexSubtitleColor(),
       }
@@ -831,7 +842,7 @@ export const pieDonutOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '16px',
+        fontSize: dashboardChartTitlePx(),
         fontWeight: 'bold',
         color: apexTitleColor(),
       }
@@ -848,7 +859,7 @@ export const pieDonutOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '12px',
+        fontSize: dashboardChartAxisPx(),
         fontWeight: 'normal',
         color: apexSubtitleColor(),
       }
@@ -913,7 +924,7 @@ export const pieOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '16px',
+        fontSize: dashboardChartTitlePx(),
         fontWeight: 'bold',
         color: apexTitleColor(),
       }
@@ -931,7 +942,7 @@ export const pieOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '12px',
+        fontSize: dashboardChartAxisPx(),
         fontWeight: 'normal',
         color: apexSubtitleColor(),
       }
@@ -986,20 +997,20 @@ export const treemapOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '16px',
+        fontSize: dashboardChartTitlePx(),
         fontWeight: 'bold',
         color: apexTitleColor(),
       }
     },
     get textStyle() {
       return {
-        fontSize: 14,
+        fontSize: dashboardChartTitleSize(),
         color: echartsTitleColor(),
       }
     },
     get subtextStyle() {
       return {
-        fontSize: 12,
+        fontSize: dashboardChartAxisSize(),
         color: echartsSubtextColor(),
       }
     },
@@ -1009,7 +1020,7 @@ export const treemapOptions = {
     align: 'left',
     get style() {
       return {
-        fontSize: '12px',
+        fontSize: dashboardChartAxisPx(),
         fontWeight: 'normal',
         color: apexSubtitleColor(),
       }
@@ -1030,7 +1041,7 @@ export const treemapOptions = {
         format: 'scale',
         get style() {
           return {
-            fontSize: '12px',
+            fontSize: dashboardChartAxisPx(),
             fontWeight: 600,
             colors: [getAppDark() ? '#f8fafc' : '#0f172a'],
           }
@@ -1060,7 +1071,7 @@ export const barOptions: EChartsOption = {
     axisPointer: { type: 'shadow' },
     get backgroundColor() { return echartsTooltipBg() },
     get borderColor() { return echartsTooltipBorder() },
-    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: dashboardChartSubtitleSize() } },
   },
   grid: {
     left: 50,
@@ -1121,10 +1132,10 @@ export const xmultipleBarChart: EChartsOption = {
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
     get textStyle() {
-      return { fontSize: 14, color: echartsTitleColor() }
+      return { fontSize: dashboardChartTitleSize(), color: echartsTitleColor() }
     },
     get subtextStyle() {
-      return { fontSize: 12, color: echartsSubtextColor() }
+      return { fontSize: dashboardChartAxisSize(), color: echartsSubtextColor() }
     },
   },
   toolbox: {
@@ -1141,7 +1152,7 @@ export const xmultipleBarChart: EChartsOption = {
     axisPointer: { type: 'shadow' },
     get backgroundColor() { return echartsTooltipBg() },
     get borderColor() { return echartsTooltipBorder() },
-    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: dashboardChartSubtitleSize() } },
   },
   legend: {
     top: 'bottom',
@@ -1208,7 +1219,7 @@ export const barOptionsMultiple: EChartsOption = {
     axisPointer: { type: 'shadow' },
     get backgroundColor() { return echartsTooltipBg() },
     get borderColor() { return echartsTooltipBorder() },
-    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: dashboardChartSubtitleSize() } },
   },
   colors: romaColors, // Use Roma theme colors
 
@@ -1274,10 +1285,10 @@ export const barMaleFemaleOptions: EChartsOption = {
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
     get textStyle() {
-      return { fontSize: 14, color: echartsTitleColor() }
+      return { fontSize: dashboardChartTitleSize(), color: echartsTitleColor() }
     },
     get subtextStyle() {
-      return { fontSize: 12, color: echartsSubtextColor() }
+      return { fontSize: dashboardChartAxisSize(), color: echartsSubtextColor() }
     },
   },
   colors: romaColors, // Use Roma theme colors
@@ -1385,10 +1396,10 @@ export const xstackedbarOptions: EChartsOption = {
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'center',
     get textStyle() {
-      return { fontSize: 14, color: echartsTitleColor() }
+      return { fontSize: dashboardChartTitleSize(), color: echartsTitleColor() }
     },
     get subtextStyle() {
-      return { fontSize: 12, color: echartsSubtextColor() }
+      return { fontSize: dashboardChartAxisSize(), color: echartsSubtextColor() }
     },
   },
   colors: romaColors, // Use Roma theme colors
@@ -1456,7 +1467,7 @@ export const xstackedbarOptions: EChartsOption = {
     axisPointer: { type: 'shadow' },
     get backgroundColor() { return echartsTooltipBg() },
     get borderColor() { return echartsTooltipBorder() },
-    get textStyle() { return { color: echartsTitleColor(), fontSize: 13 } },
+    get textStyle() { return { color: echartsTitleColor(), fontSize: dashboardChartSubtitleSize() } },
   },
   series: []
 }
@@ -1486,11 +1497,11 @@ export function getApexReactiveThemePatch(): Record<string, unknown> {
     darkMode: dark,
     chart: { foreColor: fc },
     title: {
-      style: { fontSize: '16px', fontWeight: 'bold', color: tc },
-      textStyle: { fontSize: 14, color: tc },
+      style: { fontSize: dashboardChartTitlePx(), fontWeight: 'bold', color: tc },
+      textStyle: { fontSize: dashboardChartTitleSize(), color: tc },
     },
     subtitle: {
-      style: { fontSize: '12px', fontWeight: 'normal', color: sc },
+      style: { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: sc },
     },
     legend: { labels: { colors: fc } },
     tooltip: { theme: dark ? 'dark' : 'light' },
@@ -1500,7 +1511,7 @@ export function getApexReactiveThemePatch(): Record<string, unknown> {
       treemap: {
         dataLabels: {
           style: {
-            fontSize: '12px',
+            fontSize: dashboardChartAxisPx(),
             fontWeight: 600,
             colors: [dark ? '#f8fafc' : '#0f172a'],
           },
@@ -1509,11 +1520,13 @@ export function getApexReactiveThemePatch(): Record<string, unknown> {
     },
     xaxis: {
       labels: { style: { colors: fc } },
+      title: { style: { fontSize: dashboardChartAxisPx(), color: fc } },
       axisBorder: { color: gc },
       axisTicks: { color: gc },
     },
     yaxis: {
       labels: { style: { colors: fc } },
+      title: { style: { fontSize: dashboardChartAxisPx(), color: fc } },
       axisBorder: { color: gc },
       axisTicks: { color: gc },
     },
@@ -1532,6 +1545,14 @@ function mergeApexXAxisLike(ex: unknown, patch: unknown): Record<string, unknown
       style: {
         ...((e.labels as any)?.style),
         ...((pa.labels as any)?.style),
+      },
+    },
+    title: {
+      ...(e.title as Record<string, unknown>),
+      ...(pa.title as Record<string, unknown>),
+      style: {
+        ...((e.title as any)?.style),
+        ...((pa.title as any)?.style),
       },
     },
     axisBorder: { ...(e.axisBorder as object), ...(pa.axisBorder as object) },
@@ -1581,7 +1602,7 @@ export function mergeApexChartOptionsWithTheme(existing: Record<string, unknown>
         typeof text === 'string' &&
         (text.includes('No data') || text.toLowerCase().includes('no data'))
       if (isLegacyNoDataFill || isNoDataCopy) {
-        return { ...item, style: { ...st, fill: noDataFill } }
+        return { ...item, style: { ...st, fill: noDataFill, fontSize: dashboardChartTitleSize() } }
       }
       return item
     })
@@ -1692,27 +1713,82 @@ export function buildApexGroupedBarChart(
   return { options, series }
 }
 
+/** Re-apply dashboard typography + theme colors to a generic ECharts option object. */
+export function mergeEchartsOptionForTheme(option: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...option }
+  const title = option.title as Record<string, unknown> | undefined
+  if (title) {
+    out.title = {
+      ...title,
+      textStyle: {
+        ...((title.textStyle as object) || {}),
+        fontSize: dashboardChartTitleSize(),
+        color: echartsTitleColor(),
+      },
+      subtextStyle: {
+        ...((title.subtextStyle as object) || {}),
+        fontSize: dashboardChartAxisSize(),
+        color: echartsSubtextColor(),
+      },
+    }
+  }
+  const legend = option.legend as Record<string, unknown> | undefined
+  if (legend) {
+    out.legend = {
+      ...legend,
+      textStyle: {
+        ...((legend.textStyle as object) || {}),
+        color: echartsSubtextColor(),
+        fontSize: dashboardChartAxisSize(),
+      },
+    }
+  }
+  const tooltip = option.tooltip as Record<string, unknown> | undefined
+  if (tooltip) {
+    out.tooltip = {
+      ...tooltip,
+      backgroundColor: echartsTooltipBg(),
+      borderColor: echartsTooltipBorder(),
+      textStyle: {
+        ...((tooltip.textStyle as object) || {}),
+        color: echartsTitleColor(),
+        fontSize: dashboardChartSubtitleSize(),
+      },
+    }
+  }
+  if (Array.isArray(option.graphic)) {
+    out.graphic = option.graphic.map((g: { type?: string; style?: { text?: string; fill?: string; fontSize?: number } }) => {
+      if (g.type !== 'text' || !g.style) return g
+      const t = String(g.style.text || '')
+      if (t.includes('Source:')) {
+        return { ...g, style: { ...g.style, fill: mapChartSourceFooterFill() } }
+      }
+      if (t.includes('No data')) {
+        return {
+          ...g,
+          style: {
+            ...g.style,
+            fill: mapChartNoDataFill(),
+            fontSize: dashboardChartTitleEmphasisSize(),
+          },
+        }
+      }
+      return g
+    })
+  }
+  return out
+}
+
 /** Re-apply ECharts map tooltip / visualMap / toolbox / region chrome after dark toggle. */
 export function mergeEchartsMapOptionForTheme(option: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...option }
-  out.title = {
-    ...(option.title as object),
-    textStyle: { fontSize: 14, color: echartsTitleColor() },
-    subtextStyle: { fontSize: 12, color: echartsSubtextColor() },
-  }
-  out.tooltip = {
-    ...(option.tooltip as object),
-    backgroundColor: echartsTooltipBg(),
-    borderColor: echartsTooltipBorder(),
-    textStyle: { color: echartsTitleColor(), fontSize: 13 },
-  }
+  const out = mergeEchartsOptionForTheme(option)
   const vm = option.visualMap as Record<string, unknown> | undefined
   if (vm && vm.show === false) {
     out.visualMap = { ...vm }
   } else if (vm) {
     out.visualMap = {
       ...vm,
-      textStyle: { color: echartsSubtextColor(), fontSize: 12 },
+      textStyle: { color: echartsSubtextColor(), fontSize: dashboardChartAxisSize() },
       handleStyle: {
         borderColor: echartsAxisLineColor(),
         color: getAppDark() ? '#475569' : '#f1f5f9',
@@ -1750,19 +1826,6 @@ export function mergeEchartsMapOptionForTheme(option: Record<string, unknown>): 
       }
     })
   }
-  if (Array.isArray(option.graphic)) {
-    out.graphic = option.graphic.map((g: { type?: string; style?: { text?: string; fill?: string } }) => {
-      if (g.type !== 'text' || !g.style) return g
-      const t = String(g.style.text || '')
-      if (t.includes('Source:')) {
-        return { ...g, style: { ...g.style, fill: mapChartSourceFooterFill() } }
-      }
-      if (t.includes('No data')) {
-        return { ...g, style: { ...g.style, fill: mapChartNoDataFill() } }
-      }
-      return g
-    })
-  }
   return out
 }
 
@@ -1776,10 +1839,10 @@ export const mapChartOptions: EChartsOption = {
     subtext: `National Slum Database, ${new Date().getFullYear()}`,
     left: 'left',
     get textStyle() {
-      return { fontSize: 14, color: echartsTitleColor() }
+      return { fontSize: dashboardChartTitleSize(), color: echartsTitleColor() }
     },
     get subtextStyle() {
-      return { fontSize: 12, color: echartsSubtextColor() }
+      return { fontSize: dashboardChartAxisSize(), color: echartsSubtextColor() }
     },
   },
   colors: romaColors, // Use Roma theme colors
@@ -1795,7 +1858,7 @@ export const mapChartOptions: EChartsOption = {
       return echartsTooltipBorder()
     },
     get textStyle() {
-      return { color: echartsTitleColor(), fontSize: 13 }
+      return { color: echartsTitleColor(), fontSize: dashboardChartSubtitleSize() }
     },
   },
   visualMap: {
@@ -1820,7 +1883,7 @@ export const mapChartOptions: EChartsOption = {
     text: ['High', 'Low'],
     calculable: true,
     get textStyle() {
-      return { color: echartsSubtextColor(), fontSize: 12 }
+      return { color: echartsSubtextColor(), fontSize: dashboardChartAxisSize() }
     },
     get handleStyle() {
       return {
@@ -2062,7 +2125,7 @@ export const pyramidOptions  = {
       align: 'left',
       get style() {
         return {
-          fontSize: '12px',
+          fontSize: dashboardChartAxisPx(),
           fontWeight: 'normal',
           color: apexSubtitleColor(),
         }
@@ -2107,12 +2170,12 @@ export const scatterOptions = {
   title: {
     text: '',
     align: 'left' as const,
-    get style() { return { fontSize: '16px', fontWeight: 'bold', color: apexTitleColor() } },
+    get style() { return { fontSize: dashboardChartTitlePx(), fontWeight: 'bold', color: apexTitleColor() } },
   },
   subtitle: {
     text: '',
     align: 'left' as const,
-    get style() { return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() } },
+    get style() { return { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: apexSubtitleColor() } },
   },
   colors: romaColors,
   markers: { size: 6, strokeWidth: 0, hover: { sizeOffset: 2 } },
@@ -2121,7 +2184,7 @@ export const scatterOptions = {
     type: 'numeric' as const,
     tickAmount: 8,
     labels: {
-      get style() { return { colors: apexLegendLabelColor(), fontSize: '11px' } },
+      get style() { return { colors: apexLegendLabelColor(), fontSize: dashboardChartLegendPx() } },
       formatter: (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(1),
     },
     get axisBorder() { return { color: apexGridBorderColor() } },
@@ -2130,7 +2193,7 @@ export const scatterOptions = {
   yaxis: {
     tickAmount: 7,
     labels: {
-      get style() { return { colors: apexLegendLabelColor(), fontSize: '11px' } },
+      get style() { return { colors: apexLegendLabelColor(), fontSize: dashboardChartLegendPx() } },
       formatter: (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(1),
     },
   },
@@ -2169,14 +2232,14 @@ export const heatmapOptions = {
     text: '',
     align: 'left' as const,
     get style() {
-      return { fontSize: '16px', fontWeight: 'bold', color: apexTitleColor() }
+      return { fontSize: dashboardChartTitlePx(), fontWeight: 'bold', color: apexTitleColor() }
     },
   },
   subtitle: {
     text: '',
     align: 'left' as const,
     get style() {
-      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+      return { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   dataLabels: { enabled: false },
@@ -2206,7 +2269,7 @@ export const heatmapOptions = {
     type: 'category' as const,
     labels: {
       rotate: -30,
-      get style() { return { colors: apexLegendLabelColor(), fontSize: '11px' } },
+      get style() { return { colors: apexLegendLabelColor(), fontSize: dashboardChartLegendPx() } },
     },
     get axisBorder() { return { color: apexGridBorderColor() } },
     get axisTicks() { return { color: apexGridBorderColor() } },
@@ -2240,14 +2303,14 @@ export const gaugeOptions = {
     text: '',
     align: 'center' as const,
     get style() {
-      return { fontSize: '16px', fontWeight: 'bold', color: apexTitleColor() }
+      return { fontSize: dashboardChartTitlePx(), fontWeight: 'bold', color: apexTitleColor() }
     },
   },
   subtitle: {
     text: '',
     align: 'center' as const,
     get style() {
-      return { fontSize: '12px', fontWeight: 'normal', color: apexSubtitleColor() }
+      return { fontSize: dashboardChartAxisPx(), fontWeight: 'normal', color: apexSubtitleColor() }
     },
   },
   plotOptions: {
@@ -2268,11 +2331,11 @@ export const gaugeOptions = {
         name: {
           offsetY: -10,
           get color() { return apexSubtitleColor() },
-          fontSize: '14px',
+          fontSize: dashboardChartTitlePx(),
         },
         value: {
           get color() { return apexTitleColor() },
-          fontSize: '36px',
+          fontSize: dashboardStatValuePx(),
           fontWeight: 'bold',
           formatter: (val: number) => val + '%',
         },

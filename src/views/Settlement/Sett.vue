@@ -17,7 +17,7 @@ import {
   ElRadio, ElRadioGroup, ElAlert, ElDivider, ElDrawer,
 } from 'element-plus'
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location, List, Document } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch, watchEffect } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -30,6 +30,11 @@ import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import { buildSettlementEditQuery } from '@/utils/settlementEditNavigation'
+import {
+  canDownloadSettlementDeletedScope,
+  canDownloadSettlementGeo,
+  canSettlementDownloadAllScope,
+} from '@/utils/settlementDownloadAccess'
 import * as turf from '@turf/turf'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
@@ -283,6 +288,31 @@ const isCountyAdmin = computed(() => {
     (role.name === "admin" || role.name === "staff") && 
     role.user_roles?.location_level === "county"
   )
+})
+
+const canDownloadSettlementGeoData = computed(() =>
+  canDownloadSettlementGeo(userInfo, showEditButtons.value)
+)
+
+const canSettlementGeoDownloadAll = computed(() =>
+  canSettlementDownloadAllScope({
+    userInfo,
+    isSuperAdmin: isSuperAdmin.value,
+    isNationalStaff: isNationalStaff.value,
+    isCountyAdmin: isCountyAdmin.value,
+  })
+)
+
+const canSettlementExcelDownloadAll = computed(() => canSettlementGeoDownloadAll.value)
+
+const geoDownloadAllScopeHint = computed(() => {
+  if (isSuperAdmin.value || isNationalStaff.value) {
+    return 'All ignores tab status filters.'
+  }
+  if (isCountyAdmin.value) {
+    return 'All exports settlements in your assigned county(ies), ignoring tab status filters.'
+  }
+  return ''
 })
 
 const availableCountyOptions = computed(() => {
@@ -3915,133 +3945,226 @@ const mergeLoading = ref(false);
 const decommissionBatchLoading = ref(false);
 const BatchDecommissionDialog = ref(false);
 const batchDecommissionReason = ref('');
+const showGeoDownloadDialog = ref(false);
+const geoDownloadScopeLoading = ref<'displayed' | 'filtered' | 'all' | null>(null);
+const geoAllCount = ref<number | null>(null);
+const geoAllCountLoading = ref(false);
+const GEO_DOWNLOAD_LIMIT = 10000;
+const GEO_DOWNLOAD_CONFIRM_THRESHOLD = 1000;
 
-const handleDownloadGeoData = async () => {
+const TAB_STATUS_FIELDS = new Set(['profiling_status', 'is_qualified', 'isApproved', 'isActive']);
+
+const getDisplayedSettlementRows = (): any[] => {
+  switch (activeSegment.value) {
+    case 'New':
+      return tableDataListNew.value || [];
+    case 'Decommissioned':
+      return decommSettlements.value || [];
+    case 'Deleted':
+      return deletedPageData.value || [];
+    default:
+      return tableDataList.value || [];
+  }
+};
+
+const geoDisplayedCount = computed(() => getDisplayedSettlementRows().length);
+
+const geoFilteredCount = computed(() => {
+  switch (activeSegment.value) {
+    case 'New':
+      return totalPending.value;
+    case 'Unprofiled':
+      return totalUnprofiled.value;
+    case 'Decommissioned':
+      return decommSettlementsCount.value;
+    case 'Deleted':
+      return deletedSettlementsCount.value;
+    default:
+      return total.value || totalApproved.value;
+  }
+});
+
+const geoResolvedAllCount = computed(() => geoAllCount.value ?? 0);
+
+const canGeoDownloadDisplayed = computed(() => geoDisplayedCount.value > 0);
+const canGeoDownloadFiltered = computed(() => geoFilteredCount.value > 0);
+const canGeoDownloadAll = computed(() =>
+  canSettlementGeoDownloadAll.value && geoResolvedAllCount.value > 0
+);
+
+const applyTabStatusToFilterArrays = (f: string[], fv: any[][]) => {
+  const keptFields: string[] = [];
+  const keptValues: any[][] = [];
+  f.forEach((field, index) => {
+    if (TAB_STATUS_FIELDS.has(field)) return;
+    keptFields.push(field);
+    const value = fv[index];
+    keptValues.push(Array.isArray(value) ? [...value] : value);
+  });
+  f.length = 0;
+  fv.length = 0;
+  f.push(...keptFields);
+  fv.push(...keptValues.map((value) => (Array.isArray(value) ? [...value] : value)));
+
+  if (activeSegment.value === 'New') {
+    f.unshift('isApproved', 'isActive');
+    fv.unshift(['Pending'], ['true']);
+  } else if (activeSegment.value === 'Deleted') {
+    f.unshift('isApproved', 'isActive');
+    fv.unshift(['Rejected'], ['true']);
+  } else if (activeSegment.value === 'Decommissioned') {
+    f.unshift('isApproved', 'isActive');
+    fv.unshift(['Decommissioned'], ['true']);
+  } else if (activeSegment.value === 'Unprofiled') {
+    f.unshift('profiling_status', 'isApproved', 'isActive');
+    fv.unshift(['NOT_PROFILED', 'PARTIALLY_PROFILED'], ['Approved'], ['true']);
+  } else {
+    f.unshift('profiling_status', 'is_qualified', 'isApproved', 'isActive');
+    fv.unshift(['PROFILED'], [true], ['Approved'], ['true']);
+  }
+};
+
+const buildFilteredGeoFilterState = () => {
+  const f = [...filters.value];
+  const fv = filterValues.value.map((value) => (Array.isArray(value) ? [...value] : value));
+  applyTabStatusToFilterArrays(f, fv);
+  return { filters: f, filterValues: fv };
+};
+
+const buildAllGeoFilterState = () => ({
+  filters: [...settlementAllDownloadFilters.value.filters],
+  filterValues: settlementAllDownloadFilters.value.filterValues.map((value) =>
+    Array.isArray(value) ? [...value] : value
+  ),
+});
+
+const fetchGeoAllCount = async () => {
+  geoAllCountLoading.value = true;
   try {
-    downloadGeoLoading.value = true;
-    
-    // Set status filter based on active segment first
-    if (activeSegment.value === 'New') {
-      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      filterValues.value = [['Pending'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
-    } else if (activeSegment.value === 'Deleted') {
-      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      filterValues.value = [['Rejected'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
-    } else if (activeSegment.value === 'Decommissioned') {
-      filters.value = ['isApproved', 'isActive', ...filters.value.filter(f => f !== 'isApproved' && f !== 'isActive')];
-      filterValues.value = [['Decommissioned'], ['true'], ...filterValues.value.filter((_, i) => filters.value[i] !== 'isApproved' && filters.value[i] !== 'isActive')];
-    } else if (activeSegment.value === 'Unprofiled') {
-      filters.value = ['profiling_status', 'isApproved', 'isActive', ...filters.value.filter(f => f !== 'profiling_status' && f !== 'isApproved' && f !== 'isActive')];
-      filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED'], ['Approved'], ['true'], ...filterValues.value.filter((_, i) => {
-        const field = filters.value[i];
-        return field !== 'profiling_status' && field !== 'isApproved' && field !== 'isActive';
-      })];
-    } else {
-      // Approved
-      filters.value = ['profiling_status', 'is_qualified', 'isApproved', 'isActive', ...filters.value.filter(f => f !== 'profiling_status' && f !== 'is_qualified' && f !== 'isApproved' && f !== 'isActive')];
-      filterValues.value = [['PROFILED'], [true], ['Approved'], ['true'], ...filterValues.value.filter((_, i) => {
-        const field = filters.value[i];
-        return field !== 'profiling_status' && field !== 'is_qualified' && field !== 'isApproved' && field !== 'isActive';
-      })];
-    }
-    
-    // Apply role filters (this will update filters.value and filterValues.value)
-    pushRoleFilters();
-    
-    // Fetch ALL filtered settlements (not just current page)
+    const bundle = settlementAllDownloadFilters.value;
     const formData: any = {
-      // Keep a high cap but only fetch lightweight records (IDs only, no geom)
-      limit: 10000,
-      page: 1,
-      curUser: 1,
-      model: model,
-      searchField: 'name',
-      searchKeyword: search_string.value || '',
-      assocModel: associated_Model,
-      filters: filters.value,
-      filterValues: filterValues.value,
-      associated_multiple_models: [],      // avoid heavy joins for export lookup
-      nested_models: [],                   // no nested models needed to get IDs
-      fields: ['id'],                      // only fetch settlement IDs
-      excludeGeom: true,                   // explicitly skip geometry in this query
-      dateRange: getDateRangeForApi(),
-      returnAll: true
+      model: 'settlement',
+      summaryField: 'id',
+      summaryFunction: 'count',
     };
-    
-    ElMessage.info('Fetching filtered settlements...');
-    const res = await getSettlementListByCounty(formData);
-    
-    if (!res.data || res.data.length === 0) {
-      ElMessage.warning('No settlements found to download. Please apply filters first.');
-      return;
-    }
-    
-    // Extract settlement IDs
-    const settlementIds = res.data.map((s: any) => s.id).filter((id: any) => id != null);
-    
-    if (settlementIds.length === 0) {
-      ElMessage.warning('No valid settlement IDs found');
-      return;
-    }
-    
-    ElMessage.info(`Preparing geospatial data for ${settlementIds.length} settlement(s)...`);
-    
-    // Call the API to download geospatial data
-    const { blob, shareLink, documentId } = await downloadSettlementsGeoData({
-      settlementIds: settlementIds,
-      filters: filters.value,
-      filterValues: filterValues.value
+    applySummaryFiltersToFormData(formData, {
+      filterFields: bundle.filters,
+      filterValues: bundle.filterValues,
+      filterOperators: bundle.filterFunctions,
     });
-    
-    console.log('Share link received:', shareLink);
-    console.log('Document ID received:', documentId);
-    
-    // If share link not in header, try to get it via shareDocuments API (same pattern as DocumentsTagged.vue)
-    let finalShareLink = shareLink;
-    if (!finalShareLink && documentId) {
-      try {
-        // Create a new share link using the same API as DocumentsTagged.vue
-        const shareResponse = await shareDocuments({
-          documentIds: [documentId],
-          expiresInHours: 0 // No expiry, same as backend creates
-        });
-        const shareData = shareResponse?.data || shareResponse;
-        // Use same pattern as DocumentsTagged.vue line 774-776
-        if ((shareData?.code === '0000' && shareData?.data?.url) || (shareResponse?.code === '0000' && shareResponse?.data?.url)) {
-          const out = shareData?.data?.url ? shareData : shareResponse;
-          finalShareLink = out.data.url;
-          console.log('Share link retrieved via API (same as DocumentsTagged.vue):', finalShareLink);
-        }
-      } catch (err) {
-        console.warn('Failed to get share link via API:', err);
-      }
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    geoAllCount.value = parseSummaryTotalCount(response?.Total);
+  } catch {
+    geoAllCount.value = 0;
+  } finally {
+    geoAllCountLoading.value = false;
+  }
+};
+
+const fetchSettlementIdsByFilters = async (filterState: { filters: string[]; filterValues: any[][] }) => {
+  const formData: any = {
+    limit: GEO_DOWNLOAD_LIMIT,
+    page: 1,
+    curUser: 1,
+    model: model,
+    searchField: 'name',
+    searchKeyword: search_string.value || '',
+    assocModel: associated_Model,
+    filters: filterState.filters,
+    filterValues: filterState.filterValues,
+    associated_multiple_models: [],
+    nested_models: [],
+    fields: ['id'],
+    excludeGeom: true,
+    dateRange: getDateRangeForApi(),
+    returnAll: true,
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  if (!res.data?.length) return [];
+  return res.data.map((s: any) => s.id).filter((id: any) => id != null);
+};
+
+const openGeoDownloadDialog = () => {
+  if (!canDownloadSettlementGeoData.value) {
+    ElMessage.warning('You do not have permission to download geospatial data.');
+    return;
+  }
+  showGeoDownloadDialog.value = true;
+  if (canSettlementGeoDownloadAll.value) {
+    void fetchGeoAllCount();
+  } else {
+    geoAllCount.value = 0;
+  }
+};
+
+const confirmLargeGeoDownload = async (count: number) => {
+  if (count <= GEO_DOWNLOAD_CONFIRM_THRESHOLD) return;
+  await ElMessageBox.confirm(
+    `This will download geospatial data for ${count} settlement(s). Continue?`,
+    'Download geospatial data',
+    {
+      confirmButtonText: 'Download',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
     }
-    
-    // Create download link
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `settlements_geodata_${new Date().toISOString().split('T')[0]}.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    
-    // Show share link if available
-    if (finalShareLink) {
-      console.log('Showing dialog with share link:', finalShareLink);
-      // Copy share link to clipboard
-      let clipboardSuccess = false;
-      try {
-        await navigator.clipboard.writeText(finalShareLink);
-        clipboardSuccess = true;
-      } catch (err) {
-        console.warn('Failed to copy to clipboard:', err);
+  );
+};
+
+const executeGeoDownload = async (
+  settlementIds: number[],
+  filterState: { filters: string[]; filterValues: any[][] }
+) => {
+  ElMessage.info(`Preparing geospatial data for ${settlementIds.length} settlement(s)...`);
+
+  const { blob, shareLink, documentId } = await downloadSettlementsGeoData({
+    settlementIds,
+    filters: filterState.filters,
+    filterValues: filterState.filterValues,
+  });
+
+  console.log('Share link received:', shareLink);
+  console.log('Document ID received:', documentId);
+
+  let finalShareLink = shareLink;
+  if (!finalShareLink && documentId) {
+    try {
+      const shareResponse = await shareDocuments({
+        documentIds: [documentId],
+        expiresInHours: 0,
+      });
+      const shareData = shareResponse?.data || shareResponse;
+      if ((shareData?.code === '0000' && shareData?.data?.url) || (shareResponse?.code === '0000' && shareResponse?.data?.url)) {
+        const out = shareData?.data?.url ? shareData : shareResponse;
+        finalShareLink = out.data.url;
+        console.log('Share link retrieved via API (same as DocumentsTagged.vue):', finalShareLink);
       }
-      
-      // Show dialog with share link for easy copying and email sharing
-      ElMessageBox.alert(
-        `<div style="margin: 10px 0;">
+    } catch (err) {
+      console.warn('Failed to get share link via API:', err);
+    }
+  }
+
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `settlements_geodata_${new Date().toISOString().split('T')[0]}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+
+  if (finalShareLink) {
+    console.log('Showing dialog with share link:', finalShareLink);
+    let clipboardSuccess = false;
+    try {
+      await navigator.clipboard.writeText(finalShareLink);
+      clipboardSuccess = true;
+    } catch (err) {
+      console.warn('Failed to copy to clipboard:', err);
+    }
+
+    await ElMessageBox.alert(
+      `<div style="margin: 10px 0;">
           <p style="margin-bottom: 15px; font-size: 14px; color: #333;">
             <strong>Download started!</strong> Your geospatial data is being downloaded.
           </p>
@@ -4055,31 +4178,119 @@ const handleDownloadGeoData = async () => {
             <p style="margin: 0; font-size: 12px; color: #909399;">
               ${clipboardSuccess ? '✓ Link copied to clipboard. You can paste it in an email or share it with others.' : 'Click the link above to copy it, or select and copy the text.'}
             </p>
-           
           </div>
         </div>`,
-        'Geospatial Data Share Link',
-        {
-          dangerouslyUseHTMLString: true,
-          confirmButtonText: 'Got it',
-          type: 'success',
-          customClass: 'share-link-dialog'
-        }
-      ).then(() => {
-        // Show a success message after dialog is closed
-        ElMessage.success({
-          message: `Download completed! Share link: ${finalShareLink}`,
-          duration: 8000,
-          showClose: true
-        });
-      });
-    } else {
-      ElMessage.success(`Geospatial data downloaded successfully for ${settlementIds.length} settlement(s)`);
+      'Geospatial Data Share Link',
+      {
+        dangerouslyUseHTMLString: true,
+        confirmButtonText: 'Got it',
+        type: 'success',
+        customClass: 'share-link-dialog',
+      }
+    );
+
+    ElMessage.success({
+      message: `Download completed! Share link: ${finalShareLink}`,
+      duration: 8000,
+      showClose: true,
+    });
+  } else {
+    ElMessage.success(`Geospatial data downloaded successfully for ${settlementIds.length} settlement(s)`);
+  }
+};
+
+const resolveSettlementIdsForGeoScope = async (
+  scope: 'displayed' | 'filtered' | 'all'
+): Promise<{ ids: number[]; filterState: { filters: string[]; filterValues: any[][] } }> => {
+  if (scope === 'displayed') {
+    const ids = getDisplayedSettlementRows()
+      .map((row: any) => row.id)
+      .filter((id: any) => id != null);
+    return { ids, filterState: buildFilteredGeoFilterState() };
+  }
+
+  if (scope === 'filtered') {
+    if (activeSegment.value === 'Deleted') {
+      const ids = (deletedSettlements.value || [])
+        .map((row: any) => row.id)
+        .filter((id: any) => id != null);
+      return { ids, filterState: buildFilteredGeoFilterState() };
     }
+    const filterState = buildFilteredGeoFilterState();
+    const ids = await fetchSettlementIdsByFilters(filterState);
+    return { ids, filterState };
+  }
+
+  const filterState = buildAllGeoFilterState();
+  const ids = await fetchSettlementIdsByFilters(filterState);
+  return { ids, filterState };
+};
+
+const handleGeoDownloadScope = async (scope: 'displayed' | 'filtered' | 'all') => {
+  if (geoDownloadScopeLoading.value) return;
+
+  if (!canDownloadSettlementGeoData.value) {
+    ElMessage.warning('You do not have permission to download geospatial data.');
+    return;
+  }
+
+  if (scope === 'all' && !canSettlementGeoDownloadAll.value) {
+    ElMessage.warning('Download all is not available for your role.');
+    return;
+  }
+
+  if (
+    activeSegment.value === 'Deleted' &&
+    scope !== 'displayed' &&
+    !canDownloadSettlementDeletedScope(userInfo)
+  ) {
+    ElMessage.warning('You do not have permission to export deleted settlements.');
+    return;
+  }
+
+  const expectedCount =
+    scope === 'displayed'
+      ? geoDisplayedCount.value
+      : scope === 'filtered'
+        ? geoFilteredCount.value
+        : geoResolvedAllCount.value;
+
+  if (expectedCount <= 0) {
+    ElMessage.warning('No settlements found to download.');
+    return;
+  }
+
+  geoDownloadScopeLoading.value = scope;
+  downloadGeoLoading.value = true;
+  try {
+    if (scope !== 'displayed') {
+      await confirmLargeGeoDownload(expectedCount);
+    }
+
+    if (scope === 'filtered' || scope === 'all') {
+      ElMessage.info(
+        scope === 'filtered' ? 'Fetching filtered settlements...' : 'Fetching all settlements...'
+      );
+    }
+
+    const { ids, filterState } = await resolveSettlementIdsForGeoScope(scope);
+    if (!ids.length) {
+      ElMessage.warning('No settlements found to download.');
+      return;
+    }
+
+    if (ids.length >= GEO_DOWNLOAD_LIMIT) {
+      ElMessage.warning(`Download capped at ${GEO_DOWNLOAD_LIMIT} settlements. Narrow your filters to export a smaller set.`);
+    }
+
+    await executeGeoDownload(ids.slice(0, GEO_DOWNLOAD_LIMIT), filterState);
+    showGeoDownloadDialog.value = false;
   } catch (error: any) {
+    if (error === 'cancel' || error?.message === 'cancel') return;
     console.error('Error downloading geospatial data:', error);
     ElMessage.error(error?.response?.data?.message || 'Failed to download geospatial data. Please try again.');
   } finally {
+    geoDownloadScopeLoading.value = null;
     downloadGeoLoading.value = false;
   }
 };
@@ -5617,14 +5828,15 @@ v-model="search_string" clearable :onClear="handleClear"
             :all-filters="settlementAllDownloadFilters.filters"
             :all-filter-values="settlementAllDownloadFilters.filterValues"
             :all-filter-functions="settlementAllDownloadFilters.filterFunctions"
+            :allow-all-download="canSettlementExcelDownloadAll"
             @download-start="downloadLoading = true"
             @download-end="downloadLoading = false"
           />
-          <PermissionWrapper :permissions="'settlement:downloadGeo'">
+          <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
             <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
               <el-button 
                 :loading="downloadGeoLoading" 
-                @click="handleDownloadGeoData" 
+                @click="openGeoDownloadDialog" 
                 type="primary">
                 <Icon icon="gis:layer-download" style="margin-right: 4px;" />
               </el-button>
@@ -6587,6 +6799,52 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </template>
     </el-dialog>
 
+    <!-- GeoJSON download scope -->
+    <el-dialog
+      v-model="showGeoDownloadDialog"
+      title="Download Geospatial Data (GeoJSON)"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <p class="geo-download-hint">
+        Choose which settlements to include in the ZIP export. Displayed is the current page only;
+        Filtered matches your active tab and toolbar filters<span v-if="geoDownloadAllScopeHint">; {{ geoDownloadAllScopeHint }}</span>.
+      </p>
+      <div class="geo-download-actions">
+        <el-button
+          type="primary"
+          :loading="geoDownloadScopeLoading === 'displayed'"
+          :disabled="!canGeoDownloadDisplayed || !!geoDownloadScopeLoading"
+          @click="handleGeoDownloadScope('displayed')"
+        >
+          <el-icon><List /></el-icon>
+          Displayed ({{ geoDisplayedCount }})
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="geoDownloadScopeLoading === 'filtered'"
+          :disabled="!canGeoDownloadFiltered || !!geoDownloadScopeLoading"
+          @click="handleGeoDownloadScope('filtered')"
+        >
+          <el-icon><Filter /></el-icon>
+          Filtered ({{ geoFilteredCount }})
+        </el-button>
+        <el-button
+          v-if="canSettlementGeoDownloadAll"
+          type="primary"
+          :loading="geoDownloadScopeLoading === 'all' || geoAllCountLoading"
+          :disabled="!canGeoDownloadAll || !!geoDownloadScopeLoading"
+          @click="handleGeoDownloadScope('all')"
+        >
+          <el-icon><Document /></el-icon>
+          All ({{ geoAllCountLoading ? '…' : geoResolvedAllCount }})
+        </el-button>
+      </div>
+      <template #footer>
+        <el-button :disabled="!!geoDownloadScopeLoading" @click="showGeoDownloadDialog = false">Cancel</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Batch Decommission Dialog -->
     <el-dialog v-model="BatchDecommissionDialog" title="Batch Decommission Settlements" width="500px" :close-on-click-modal="false">
       <el-alert
@@ -7405,6 +7663,23 @@ html.dark .gm-style .gm-ui-hover-effect:hover,
 </style>
 
 <style scoped>
+.geo-download-hint {
+  margin: 0 0 16px;
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
+}
+
+.geo-download-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.geo-download-actions .el-button {
+  margin-left: 0;
+  justify-content: flex-start;
+}
+
 .item {
   margin-top: 10px;
   margin-right: 40px;

@@ -36,6 +36,11 @@ import { useRouter } from 'vue-router'
 import { Loading, Download } from '@element-plus/icons-vue'
 import { geoCache as _geoCache } from '@/utils/dashboardCache'
 import { formatDashboardNumberCompact, dashboardNumberTooltip } from '@/utils/formatDashboardNumber'
+import {
+  dashboardChartTitleSize,
+  dashboardChartTitleEmphasisSize,
+  dashboardChartAxisPx,
+} from '@/utils/dashboardTypography'
 import { useAppStore } from '@/store/modules/app'
 
 const { push } = useRouter()
@@ -273,6 +278,13 @@ function refreshDashboardChartThemes() {
     }
   }
 }
+
+watch(
+  () => appStore.getCurrentSize,
+  () => {
+    refreshDashboardChartThemes()
+  },
+)
 
 watch(
   () => appStore.getIsDark,
@@ -1118,7 +1130,7 @@ const getCharts = async (section_id) => {
           style: {
             text: 'No data available',
             fill: '#999',
-            fontSize: 16
+            fontSize: dashboardChartTitleSize()
           },
           z: 100
         }];
@@ -1251,7 +1263,7 @@ async function processTreemapChart() {
             if (allCats.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text', left: 'center', top: 'middle',
-                style: { text: 'No data available', fill: '#999', fontSize: 16 },
+                style: { text: 'No data available', fill: '#999', fontSize: dashboardChartTitleSize() },
                 z: 100
               }];
             }
@@ -1355,7 +1367,7 @@ async function processTreemapChart() {
             if (allCats.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text', left: 'center', top: 'middle',
-                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                style: { text: 'No data  available', fill: '#999', fontSize: dashboardChartTitleSize() },
                 z: 100
               }]
             }
@@ -1430,7 +1442,7 @@ async function processTreemapChart() {
             if (allCats.length === 0) {
               thisChart.chart.graphic = [{
                 type: 'text', left: 'center', top: 'middle',
-                style: { text: 'No data  available', fill: '#999', fontSize: 16 },
+                style: { text: 'No data  available', fill: '#999', fontSize: dashboardChartTitleSize() },
                 z: 100
               }]
             }
@@ -1569,7 +1581,7 @@ async function processTreemapChart() {
                 style: {
                   text: 'No data  available',
                   fill: '#999',
-                  fontSize: 16
+                  fontSize: dashboardChartTitleSize()
                 },
                 z: 100 // Higher z value to place it on top
 
@@ -1707,7 +1719,7 @@ async function processTreemapChart() {
                 style: {
                   text: 'No data available',
                   fill: mapChartNoDataFill(),
-                  fontSize: 17,
+                  fontSize: dashboardChartTitleEmphasisSize(),
                   fontWeight: 600,
                 },
               })
@@ -1965,11 +1977,11 @@ async function processTreemapChart() {
             subtitle: { ...scatterOptions.subtitle, text: subtitleWithSource },
             xaxis: {
               ...scatterOptions.xaxis,
-              title: { text: xLabel, style: { color: '#909399', fontSize: '12px' } },
+              title: { text: xLabel, style: { color: '#909399', fontSize: dashboardChartAxisPx() } },
             },
             yaxis: {
               ...scatterOptions.yaxis,
-              title: { text: yLabel, style: { color: '#909399', fontSize: '12px' } },
+              title: { text: yLabel, style: { color: '#909399', fontSize: dashboardChartAxisPx() } },
             },
             series,
           }
@@ -2834,7 +2846,7 @@ const downloadSettlementData = async () => {
                         <template v-if="chart.chart">
                           <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px; position: relative;">
                             <v-chart 
-                              :key="`map-${chart.id}-${appStore.getIsDark}`"
+                              :key="`map-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`"
                               :id="chart.id" 
                               class="chart" 
                               :option="chart.chart" 
@@ -2858,7 +2870,7 @@ const downloadSettlementData = async () => {
                           </div> 
                           <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
                             <apexchart 
-                              :key="`apex-${chart.id}-${appStore.getIsDark}-${(chart.apexSeries || chart.chart?.series || []).length}`"
+                              :key="`apex-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}-${(chart.apexSeries || chart.chart?.series || []).length}`"
                               :id="chart.id"
                               :options="chart.chart" 
                               :series="Array.isArray(chart.apexSeries) ? chart.apexSeries : (Array.isArray(chart.chart.series) ? chart.chart.series : [])" 
@@ -2877,7 +2889,7 @@ const downloadSettlementData = async () => {
                           </div>
                           <div v-if="chart.type==8" class="chart-wrapper">
                             <apexchart 
-                              :key="`pyr-${chart.id}-${appStore.getIsDark}`"
+                              :key="`pyr-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`"
                               :id="chart.id"
                               type="bar" 
                               :options="chart.chart.chartOptions" 
@@ -3224,7 +3236,6 @@ const downloadSettlementData = async () => {
 }
 
 .value-text {
-  font-size: 28px;
   font-weight: 700;
   color: #d61515;
   margin: 0;
@@ -3241,7 +3252,6 @@ const downloadSettlementData = async () => {
 }
 
 .value-label {
-  font-size: 14px;
   color: #606266;
   margin: 8px 0 0 0;
   line-height: 1.4;
@@ -3251,7 +3261,6 @@ const downloadSettlementData = async () => {
 }
 
 .stat-card-filter-scope {
-  font-size: 12px;
   color: var(--el-text-color-secondary);
   margin: 6px 0 0 0;
   line-height: 1.35;
