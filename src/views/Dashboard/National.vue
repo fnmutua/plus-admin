@@ -35,6 +35,7 @@ import { getRoutesList } from '@/api/settlements'
 import { useRouter } from 'vue-router'
 import { Loading, Download } from '@element-plus/icons-vue'
 import { geoCache as _geoCache } from '@/utils/dashboardCache'
+import { formatDashboardNumberCompact, dashboardNumberTooltip } from '@/utils/formatDashboardNumber'
 import { useAppStore } from '@/store/modules/app'
 
 const { push } = useRouter()
@@ -2361,14 +2362,7 @@ selectedSubCounties.value = subcountyId;
 }
 
 
-const formatNumber =   (value) => {
-     if (value >= 1000000) {
-      return (value / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
-    } else if (value >= 1000) {
-      return (value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'K';
-    }
-    return value.toLocaleString('en-US');
-}
+const formatNumber = formatDashboardNumberCompact
 
 const STACKED_PAGE = 10
 
@@ -2757,7 +2751,7 @@ const downloadSettlementData = async () => {
                   <Icon :icon="card.icon" :size="32" :color="card.iconColor" />
                 </div>
                 <div class="card-value">
-                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)" :title="formatNumber(card.value) + card.symbol">
+                  <p class="value-text" @click="handleCardClick(card)" role="link" tabindex="0" @keydown.enter="handleCardClick(card)" :title="dashboardNumberTooltip(card.value, card.symbol)">
                     {{ formatNumber(card.value) }}{{ card.symbol }}
                   </p>
                   <p class="value-label" :title="card.title">{{ card.title }}</p>

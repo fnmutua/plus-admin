@@ -14,7 +14,13 @@ const appStore = useAppStore()
 
 const size = computed(() => appStore.getCurrentSize)
 
-const configGlobal = computed(() => ({ size: size.value }))
+/** Element Plus only accepts large | default | small — map extraSmall to small. */
+const elConfigSize = computed(() => {
+  const current = size.value
+  return current === 'extraSmall' ? 'small' : current
+})
+
+const configGlobal = computed(() => ({ size: elConfigSize.value }))
 
 provide('configGlobal', configGlobal)
 
@@ -60,7 +66,7 @@ const currentLocale = computed(() => localeStore.currentLocale)
     :namespace="variables.elNamespace"
     :locale="currentLocale.elLocale"
     :message="{ max: 1 }"
-    :size="size"
+    :size="elConfigSize"
   >
     <slot></slot>
   </ElConfigProvider>

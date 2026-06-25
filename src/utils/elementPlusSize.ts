@@ -2,6 +2,15 @@ import { setCssVar } from '@/utils'
 
 /** Element Plus global size tokens — applied to :root so the size picker affects the whole app. */
 const SIZE_CSS_VARS: Record<ElememtPlusSize, Record<string, string>> = {
+  extraSmall: {
+    '--el-font-size-base': '12px',
+    '--el-font-size-small': '11px',
+    '--el-font-size-large': '13px',
+    '--el-font-size-extra-large': '14px',
+    '--el-component-size': '22px',
+    '--el-button-size': '22px',
+    '--el-input-height': '22px'
+  },
   small: {
     '--el-font-size-base': '12px',
     '--el-font-size-small': '11px',

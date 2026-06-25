@@ -79,6 +79,7 @@ export default {
     reExperienced: 'Please exit the login experience again'
   },
   size: {
+    extraSmall: 'Extra Small',
     default: 'Default',
     large: 'Large',
     small: 'Small'

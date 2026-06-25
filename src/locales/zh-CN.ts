@@ -79,6 +79,7 @@ export default {
     reExperienced: '请重新退出登录体验'
   },
   size: {
+    extraSmall: '特小',
     default: '默认',
     large: '大',
     small: '小'

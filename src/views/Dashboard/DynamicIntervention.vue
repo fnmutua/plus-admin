@@ -21,6 +21,7 @@ import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
 import {   getfilteredGeo } from '@/api/settlements'
 
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
+import { formatDashboardNumberCompact, dashboardNumberTooltip } from '@/utils/formatDashboardNumber'
  
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
@@ -1518,14 +1519,7 @@ getCards()
 
 
 
-const formatNumber =   (value) => {
-     if (value >= 1000000) {
-      return (value / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
-    } else if (value >= 1000) {
-      return (value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'K';
-    }
-    return value.toLocaleString('en-US');
-}
+const formatNumber = formatDashboardNumberCompact
 
 </script>
 
@@ -1564,7 +1558,7 @@ const formatNumber =   (value) => {
 
               <el-divider direction="vertical" />
               <div class="card-value">
-                <p class="value-text">{{ formatNumber(card.value) }}</p>
+                <p class="value-text" :title="dashboardNumberTooltip(card.value)">{{ formatNumber(card.value) }}</p>
                 <p class="value-label" :title="card.title">{{ card.title }}</p>
               </div>
 
