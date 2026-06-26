@@ -2501,6 +2501,69 @@ exports.fetchOvertureBuildings = async (req, res) => {
 }
 
 // Get neighboring settlements - returns only id, name, and boundary geometry for fast loading
+const parseNeighborCoord = (value) => {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+const normalizeNeighborBounds = (row) => ({
+  minLng: row?.minLng ?? row?.minlng,
+  minLat: row?.minLat ?? row?.minlat,
+  maxLng: row?.maxLng ?? row?.maxlng,
+  maxLat: row?.maxLat ?? row?.maxlat,
+  centerLng: row?.centerLng ?? row?.centerlng,
+  centerLat: row?.centerLat ?? row?.centerlat,
+})
+
+const buildExpandedNeighborBbox = (bounds, expansionFactor = 0.2) => {
+  const normalized = normalizeNeighborBounds(bounds)
+  const DEFAULT_BUFFER_DEG = 0.05 // ~5.5 km; used for points/degenerate envelopes
+
+  let minLng = parseNeighborCoord(normalized.minLng)
+  let minLat = parseNeighborCoord(normalized.minLat)
+  let maxLng = parseNeighborCoord(normalized.maxLng)
+  let maxLat = parseNeighborCoord(normalized.maxLat)
+  const centerLng = parseNeighborCoord(normalized.centerLng)
+  const centerLat = parseNeighborCoord(normalized.centerLat)
+
+  if ([minLng, minLat, maxLng, maxLat].some((v) => v === null)) {
+    if (centerLng === null || centerLat === null) return null
+    minLng = centerLng - DEFAULT_BUFFER_DEG
+    maxLng = centerLng + DEFAULT_BUFFER_DEG
+    minLat = centerLat - DEFAULT_BUFFER_DEG
+    maxLat = centerLat + DEFAULT_BUFFER_DEG
+  }
+
+  let lngRange = maxLng - minLng
+  let latRange = maxLat - minLat
+
+  if (!Number.isFinite(lngRange) || lngRange <= 0) {
+    const midLng = Number.isFinite((minLng + maxLng) / 2) ? (minLng + maxLng) / 2 : centerLng
+    if (midLng === null) return null
+    minLng = midLng - DEFAULT_BUFFER_DEG
+    maxLng = midLng + DEFAULT_BUFFER_DEG
+    lngRange = DEFAULT_BUFFER_DEG * 2
+  }
+
+  if (!Number.isFinite(latRange) || latRange <= 0) {
+    const midLat = Number.isFinite((minLat + maxLat) / 2) ? (minLat + maxLat) / 2 : centerLat
+    if (midLat === null) return null
+    minLat = midLat - DEFAULT_BUFFER_DEG
+    maxLat = midLat + DEFAULT_BUFFER_DEG
+    latRange = DEFAULT_BUFFER_DEG * 2
+  }
+
+  const factor = Number.isFinite(Number(expansionFactor)) ? Number(expansionFactor) : 0.2
+
+  return {
+    minLng: minLng - lngRange * factor,
+    minLat: minLat - latRange * factor,
+    maxLng: maxLng + lngRange * factor,
+    maxLat: maxLat + latRange * factor,
+  }
+}
+
 exports.getNeighboringSettlements = async (req, res) => {
   try {
     const { settlementId, bbox, expansionFactor = 0.2 } = req.body
@@ -2518,10 +2581,12 @@ exports.getNeighboringSettlements = async (req, res) => {
         id,
         county_id,
         ST_AsGeoJSON(geom)::json as geom,
-        ST_XMin(ST_Envelope(geom)) as minLng,
-        ST_YMin(ST_Envelope(geom)) as minLat,
-        ST_XMax(ST_Envelope(geom)) as maxLng,
-        ST_YMax(ST_Envelope(geom)) as maxLat
+        ST_X(ST_Centroid(geom)) as "centerLng",
+        ST_Y(ST_Centroid(geom)) as "centerLat",
+        ST_XMin(ST_Envelope(geom)) as "minLng",
+        ST_YMin(ST_Envelope(geom)) as "minLat",
+        ST_XMax(ST_Envelope(geom)) as "maxLng",
+        ST_YMax(ST_Envelope(geom)) as "maxLat"
       FROM settlement 
       WHERE id = :settlementId AND geom IS NOT NULL
     `
@@ -2549,15 +2614,21 @@ exports.getNeighboringSettlements = async (req, res) => {
     // Calculate expanded bbox if not provided
     let expandedBbox = bbox
     if (!expandedBbox) {
-      const b = currentSettlement[0]
-      const lngRange = b.maxLng - b.minLng
-      const latRange = b.maxLat - b.minLat
-      expandedBbox = {
-        minLng: b.minLng - (lngRange * expansionFactor),
-        minLat: b.minLat - (latRange * expansionFactor),
-        maxLng: b.maxLng + (lngRange * expansionFactor),
-        maxLat: b.maxLat + (latRange * expansionFactor),
-      }
+      expandedBbox = buildExpandedNeighborBbox(currentSettlement[0], expansionFactor)
+    } else {
+      expandedBbox = buildExpandedNeighborBbox(bbox, expansionFactor)
+    }
+
+    if (
+      !expandedBbox ||
+      [expandedBbox.minLng, expandedBbox.minLat, expandedBbox.maxLng, expandedBbox.maxLat].some(
+        (v) => !Number.isFinite(v)
+      )
+    ) {
+      return res.status(400).json({
+        message: 'Unable to derive a valid search area from settlement geometry',
+        code: 'INVALID_GEOMETRY',
+      })
     }
 
     // Query neighboring settlements - only return id, name, and geom
@@ -11495,7 +11566,13 @@ exports.mergeDuplicates = async (req, res) => {
         const extraProjectLocationAttrs = hasProjectLocationFields
           ? ['project_id', 'ward_id', 'subcounty_id', 'county_id', 'location_type']
           : [];
-        const attributes = Array.from(new Set([...baseAttributes, ...extraProjectLocationAttrs]));
+        const isSettlementPopulation = associatedModel.tableName === 'settlement_population';
+        const extraSettlementPopulationAttrs = isSettlementPopulation ? ['year'] : [];
+        const attributes = Array.from(new Set([
+          ...baseAttributes,
+          ...extraProjectLocationAttrs,
+          ...extraSettlementPopulationAttrs
+        ]));
 
         // Track records we should skip updating (to avoid unique violations), per association
         const skipRecordIds = [];
@@ -11515,6 +11592,19 @@ exports.mergeDuplicates = async (req, res) => {
             )
           );
           batchKeys = new Set();
+        }
+
+        // settlement_population: unique (settlement_id, year)
+        let existingYears = null;
+        let batchYears = null;
+        if (isSettlementPopulation) {
+          const primaryExisting = await associatedModel.findAll({
+            where: { [association.foreignKey]: primaryId },
+            attributes,
+            raw: true
+          });
+          existingYears = new Set(primaryExisting.map(r => String(r.year)));
+          batchYears = new Set();
         }
 
         for (const duplicateId of duplicateIds) {
@@ -11560,13 +11650,33 @@ exports.mergeDuplicates = async (req, res) => {
                 }
               }
             }
+
+            // settlement_population: skip rows whose year already exists on primary or another duplicate
+            if (isSettlementPopulation) {
+              for (const row of affectedRecords) {
+                const yearKey = String(row.year);
+                if (
+                  (existingYears && existingYears.has(yearKey)) ||
+                  (batchYears && batchYears.has(yearKey))
+                ) {
+                  const deleteId = row[primaryKeyField];
+                  if (deleteId !== undefined && deleteId !== null) {
+                    skipRecordIds.push(deleteId);
+                  }
+                  continue;
+                }
+                if (batchYears) {
+                  batchYears.add(yearKey);
+                }
+              }
+            }
           }
         }
 
         // Update the foreign key in the associated model to point to the primary record
         // This changes settlement_id from duplicateIds to primaryId in all related tables
         const updateWhere = { [association.foreignKey]: duplicateIds };
-        // If we have skipRecordIds (for project_location conflicts), exclude them from update
+        // If we have skipRecordIds (unique constraint conflicts), exclude them from update
         if (skipRecordIds.length > 0) {
           updateWhere[primaryKeyField] = { [op.notIn]: skipRecordIds };
         }

@@ -8,6 +8,7 @@ import {
   shareDocuments,
   getSettlementsInBbox,
   getAdminUnitsFromCoordinates,
+  getNeighboringSettlements,
 } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 import {
@@ -116,16 +117,6 @@ const disableSettlementFilterDate = (time: Date) => {
   return time.getTime() > endOfDay(new Date()).getTime()
 }
 
-/** True when stored filter keys are non-empty and aligned (ignores lingering [] from partial saves). */
-const isValidStoredFilterPair = (storedFilters: unknown, storedValues: unknown) => {
-  return (
-    Array.isArray(storedFilters) &&
-    Array.isArray(storedValues) &&
-    storedFilters.length > 0 &&
-    storedFilters.length === storedValues.length
-  )
-}
-
 const toIdArray = (value: unknown): any[] => {
   if (Array.isArray(value)) return value.filter((id) => id !== null && id !== undefined)
   if (value !== null && value !== undefined) return [value]
@@ -159,24 +150,44 @@ const syncLocationFilterRefs = () => {
   }
 }
 
-// Save filters to localStorage
+/** Drop orphaned location selections and align v-models after storage restore. */
+const sanitizeLocationFiltersAfterRestore = () => {
+  selectedCounty.value = toIdArray(selectedCounty.value)
+  selectedSubCounty.value = toIdArray(selectedSubCounty.value)
+  selectedWard.value = toIdArray(selectedWard.value)
+  value4.value = toIdArray(value4.value)
+  value5.value = toIdArray(value5.value)
+  value6.value = toIdArray(value6.value)
+
+  if (!isCountyStaff.value && selectedCounty.value.length === 0 && value4.value.length === 0) {
+    selectedSubCounty.value = []
+    selectedWard.value = []
+    value5.value = []
+    value6.value = []
+  }
+  if (selectedSubCounty.value.length === 0 && value5.value.length === 0) {
+    selectedWard.value = []
+    value6.value = []
+  }
+
+  syncLocationFilterRefs()
+}
+
+/** Persist only toolbar UI state — tab/status filters are rebuilt on load. */
 const saveFiltersToStorage = () => {
+  sanitizeLocationFiltersAfterRestore()
+
   const filterState: Record<string, any> = {
-    selectedCounty: selectedCounty.value,
-    selectedSubCounty: selectedSubCounty.value,
-    selectedWard: selectedWard.value,
-    search_string: search_string.value,
-    value4: value4.value,
-    value5: value5.value,
-    value6: value6.value,
+    selectedCounty: toIdArray(selectedCounty.value),
+    selectedSubCounty: toIdArray(selectedSubCounty.value),
+    selectedWard: toIdArray(selectedWard.value),
+    search_string: (search_string.value || '').trim(),
+    value4: toIdArray(value4.value),
+    value5: toIdArray(value5.value),
+    value6: toIdArray(value6.value),
     page: page.value,
     pageSize: pageSize.value,
     activeSegment: activeSegment.value,
-  }
-
-  if (isValidStoredFilterPair(filters.value, filterValues.value)) {
-    filterState.filters = filters.value
-    filterState.filterValues = filterValues.value
   }
 
   const dateRangeApi = getDateRangeForApi()
@@ -224,18 +235,12 @@ const loadFiltersFromStorage = () => {
     value4.value = filterState.value4 || []
   }
 
-  selectedSubCounty.value = filterState.selectedSubCounty || []
-  selectedWard.value = filterState.selectedWard || []
+  selectedSubCounty.value = toIdArray(filterState.selectedSubCounty)
+  selectedWard.value = toIdArray(filterState.selectedWard)
   search_string.value = (filterState.search_string || '').trim()
 
-  // Do not restore empty filter arrays — they wipe role/status filters set in getUserRoles().
-  if (isValidStoredFilterPair(filterState.filters, filterState.filterValues)) {
-    filters.value = filterState.filters
-    filterValues.value = filterState.filterValues
-  }
-
-  value5.value = filterState.value5 || []
-  value6.value = filterState.value6 || []
+  value5.value = toIdArray(filterState.value5)
+  value6.value = toIdArray(filterState.value6)
   if (filterState.pageSize) pageSize.value = filterState.pageSize
   if (filterState.page) page.value = filterState.page
   if (filterState.activeSegment) activeSegment.value = filterState.activeSegment
@@ -246,7 +251,8 @@ const loadFiltersFromStorage = () => {
   } else if (Array.isArray(filterState.dateRange) && filterState.dateRange.length === 2) {
     dateRange.value = normalizeDateRange(filterState.dateRange)
   } else if (!Object.prototype.hasOwnProperty.call(filterState, 'dateRange')) {
-    dateRange.value = defaultSettlementDateRange()
+    // Legacy saves without dateRange should not silently apply a create-date window.
+    dateRange.value = null
   }
 
   // Normalize to arrays so .length checks work even if a primitive id was stored
@@ -257,7 +263,15 @@ const loadFiltersFromStorage = () => {
     value4.value = [value4.value]
   }
 
-  syncLocationFilterRefs()
+  sanitizeLocationFiltersAfterRestore()
+
+  // Migrate away from old saves that stored internal filter arrays (can desync tab/status).
+  if (
+    Object.prototype.hasOwnProperty.call(filterState, 'filters') ||
+    Object.prototype.hasOwnProperty.call(filterState, 'filterValues')
+  ) {
+    saveFiltersToStorage()
+  }
 }
 
 // User and role setup
@@ -875,28 +889,27 @@ const applyUnprofiledTabFilters = () => {
   filterValues.value = [['NOT_PROFILED', 'PARTIALLY_PROFILED'], ['Approved'], ['true']]
 }
 
-/** Re-apply role + tab defaults after storage restore (guards against stale/empty saved filter arrays). */
+/** Re-apply role + tab defaults after storage restore (ignores stale saved internal filter arrays). */
 const reconcileFiltersAfterStorageLoad = () => {
-  syncLocationFilterRefs()
-  pushRoleFilters()
+  sanitizeLocationFiltersAfterRestore()
 
-  const statusFields = ['profiling_status', 'is_qualified', 'isApproved', 'isActive']
-  const hasStatusFilter = filters.value.some((field) => statusFields.includes(field))
-
-  if (!hasStatusFilter && activeSegment.value !== 'Deleted') {
-    if (activeSegment.value === 'Unprofiled') {
-      applyUnprofiledTabFilters()
-    } else if (activeSegment.value === 'New') {
-      filters.value = ['isApproved', 'isActive']
-      filterValues.value = [['Pending'], ['true']]
-    } else if (activeSegment.value === 'Decommissioned') {
-      filters.value = ['isApproved', 'isActive']
-      filterValues.value = [['Decommissioned'], ['true']]
-    } else {
-      applyProfiledTabFilters()
-    }
+  if (activeSegment.value === 'Deleted') {
     pushRoleFilters()
+    return
   }
+
+  if (activeSegment.value === 'Unprofiled') {
+    applyUnprofiledTabFilters()
+  } else if (activeSegment.value === 'New') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Pending'], ['true']]
+  } else if (activeSegment.value === 'Decommissioned') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Decommissioned'], ['true']]
+  } else {
+    applyProfiledTabFilters()
+  }
+  pushRoleFilters()
 }
 
 const getCounts = async () => {
@@ -996,12 +1009,7 @@ const loadDataWithCurrentFilters = async () => {
     }
   }
 
-  const hasSavedSearch = !!search_string.value
-  const hasRestoredFilters =
-    selectedCounty.value.length > 0 ||
-    selectedSubCounty.value.length > 0 ||
-    selectedWard.value.length > 0 ||
-    filters.value.length > 0
+  const hasSavedSearch = !!search_string.value?.trim()
 
   if (selectedCounty.value.length > 0) {
     await getSubCountyNames()
@@ -1012,14 +1020,10 @@ const loadDataWithCurrentFilters = async () => {
 
   if (hasSavedSearch) {
     await searchByNewName(true)
-  } else if (hasRestoredFilters) {
-    if (activeSegment.value === 'Deleted') {
-      await loadDeletedSegment()
-    } else {
-      await getNewOrRejectedSettlements(activeSegment.value)
-    }
+  } else if (activeSegment.value === 'Deleted') {
+    await loadDeletedSegment()
   } else {
-    await getAllSetllementsInitially(activeSegment.value)
+    await getNewOrRejectedSettlements(activeSegment.value)
   }
 }
 
@@ -1410,8 +1414,13 @@ const getNewOrRejectedSettlements = async (tab) => {
   formData.dateRange = getDateRangeForApi()
   formData.excludeGeom = true // Exclude geometry for table performance
 
+  let res = await getSettlementListByCounty(formData)
+  if (res.total > 0 && page.value > 1 && (page.value - 1) * pageSize.value >= res.total) {
+    page.value = 1
+    formData.page = 1
+    res = await getSettlementListByCounty(formData)
+  }
 
-  const res = await getSettlementListByCounty(formData)
   loadingGetData.value = false
   total.value = res.total
   if (tab == 'New') {
@@ -1879,6 +1888,11 @@ const currentSettlementForMerge = ref<any>(null)
 const mergeSearchQuery = ref('')
 const mergeSearchResults = ref<any[]>([])
 const mergeSearchLoading = ref(false)
+const mergeNearestSettlements = ref<any[]>([])
+const mergeNearestLoading = ref(false)
+const mergeNearestUnavailable = ref(false)
+const MERGE_NEAREST_COUNT = 5
+const MERGE_NEAREST_CANDIDATE_POOL = 30
 const selectedSettlementForMerge = ref<any>(null)
 const mergePrimaryId = ref<number | null>(null)
 const selectedSettlements = ref<any[]>([])
@@ -2946,11 +2960,158 @@ const handleMerge = async (data: any) => {
   }
   
   currentSettlementForMerge.value = data
-  mergePrimaryId.value = data.id
+  mergePrimaryId.value = Number(data.id)
   selectedSettlementForMerge.value = null
   mergeSearchQuery.value = ''
   mergeSearchResults.value = []
+  mergeNearestSettlements.value = []
+  mergeNearestUnavailable.value = false
   MergeDialog.value = true
+  void loadNearestSettlementsForMerge(data)
+}
+
+const getSettlementCentroid = (geom: unknown): [number, number] | null => {
+  if (!geom || typeof geom !== 'object') return null
+  try {
+    const centroid = turf.centroid(turf.feature(geom as turf.helpers.Feature<turf.helpers.Geometry>))
+    const coords = centroid.geometry?.coordinates
+    if (!Array.isArray(coords) || coords.length < 2) return null
+    return [Number(coords[0]), Number(coords[1])]
+  } catch {
+    return null
+  }
+}
+
+const buildMergeSearchFilters = () => {
+  const mergeFilters: string[] = ['isActive']
+  const mergeFilterValues: any[][] = [['true']]
+
+  if (roles_filters.length > 0) {
+    roles_filters.forEach((rf) => {
+      if (rf.field && rf.value !== null && rf.value !== undefined) {
+        const existingIndex = mergeFilters.indexOf(rf.field)
+        if (existingIndex === -1) {
+          mergeFilters.push(rf.field)
+          mergeFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value])
+        } else {
+          mergeFilterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value]
+        }
+      }
+    })
+  }
+
+  return { mergeFilters, mergeFilterValues }
+}
+
+const fetchMergeSettlementDetails = async (ids: number[]) => {
+  if (!ids.length) return []
+
+  const { mergeFilters, mergeFilterValues } = buildMergeSearchFilters()
+  mergeFilters.push('id')
+  mergeFilterValues.push(ids)
+
+  const formData: any = {
+    curUser: 1,
+    model: 'settlement',
+    searchField: 'name',
+    searchKeyword: '',
+    excludeGeom: true,
+    excludeGeomAssoc: true,
+    associated_multiple_models: ['county', 'subcounty', 'ward'],
+    filters: mergeFilters,
+    filterValues: mergeFilterValues,
+    returnAll: true,
+  }
+
+  const res = await searchByKeyWord(formData)
+  return res.data || []
+}
+
+const formatMergeDistance = (km: number | undefined) => {
+  if (km == null || Number.isNaN(km)) return ''
+  if (km < 1) return `${Math.round(km * 1000)} m away`
+  return `${km.toFixed(1)} km away`
+}
+
+const loadNearestSettlementsForMerge = async (settlement: any) => {
+  mergeNearestSettlements.value = []
+  mergeNearestUnavailable.value = false
+  mergeNearestLoading.value = true
+
+  try {
+    const settlementId = Number(settlement.id)
+    const neighborsRes = await getNeighboringSettlements({
+      settlementId,
+      expansionFactor: 0.75,
+    })
+    const neighbors = (neighborsRes as any)?.data || []
+
+    if (!neighbors.length) {
+      mergeNearestUnavailable.value = true
+      return
+    }
+
+    let origin = getSettlementCentroid(settlement.geom)
+    if (!origin) {
+      const detailRes = await getSettlementListByCounty({
+        limit: 1,
+        page: 1,
+        curUser: 1,
+        model: 'settlement',
+        filters: ['id'],
+        filterValues: [[settlementId]],
+        excludeGeom: false,
+      } as any)
+      origin = getSettlementCentroid(detailRes.data?.[0]?.geom)
+    }
+
+    if (!origin) {
+      mergeNearestUnavailable.value = true
+      return
+    }
+
+    const ranked = neighbors
+      .map((neighbor: any) => {
+        const target = getSettlementCentroid(neighbor.geom)
+        if (!target) return null
+        const distanceKm = turf.distance(turf.point(origin!), turf.point(target), { units: 'kilometers' })
+        return { id: Number(neighbor.id), distanceKm }
+      })
+      .filter((item: { id: number; distanceKm: number } | null): item is { id: number; distanceKm: number } => !!item)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, MERGE_NEAREST_CANDIDATE_POOL)
+
+    if (!ranked.length) {
+      mergeNearestUnavailable.value = true
+      return
+    }
+
+    const distanceById = new Map(ranked.map((item) => [item.id, item.distanceKm]))
+    const details = await fetchMergeSettlementDetails(ranked.map((item) => item.id))
+
+    mergeNearestSettlements.value = details
+      .filter((item: any) => Number(item.id) !== settlementId)
+      .map((item: any) => ({
+        ...item,
+        _distanceKm: distanceById.get(Number(item.id)),
+      }))
+      .sort((a: any, b: any) => (a._distanceKm ?? 0) - (b._distanceKm ?? 0))
+      .slice(0, MERGE_NEAREST_COUNT)
+
+    if (!mergeNearestSettlements.value.length) {
+      mergeNearestUnavailable.value = true
+    }
+  } catch (error) {
+    console.error('Error loading nearest settlements for merge:', error)
+    mergeNearestUnavailable.value = true
+    mergeNearestSettlements.value = []
+  } finally {
+    mergeNearestLoading.value = false
+  }
+}
+
+const selectNearestSettlementForMerge = (settlement: any) => {
+  selectedSettlementForMerge.value = settlement
 }
 
 const locationUpdateDrawer = ref(false)
@@ -3653,7 +3814,8 @@ const handleMergeFromSelection = async () => {
 }
 
 const searchSettlementsForMerge = async (keyword = '') => {
-  const query = keyword || mergeSearchQuery.value?.trim()
+  const query = String(keyword ?? mergeSearchQuery.value ?? '').trim()
+  mergeSearchQuery.value = query
   
   if (!query || query.length < 2) {
     mergeSearchResults.value = []
@@ -3662,25 +3824,8 @@ const searchSettlementsForMerge = async (keyword = '') => {
   
   mergeSearchLoading.value = true
   try {
-    // Build filters with role-based filters
-    const mergeFilters: string[] = ['isActive']
-    const mergeFilterValues: any[][] = [['true']]
-    
-    // Apply role-based filters
-    if (roles_filters.length > 0) {
-      roles_filters.forEach(rf => {
-        if (rf.field && rf.value !== null && rf.value !== undefined) {
-          const existingIndex = mergeFilters.indexOf(rf.field)
-          if (existingIndex === -1) {
-            mergeFilters.push(rf.field)
-            mergeFilterValues.push(Array.isArray(rf.value) ? rf.value : [rf.value])
-          } else {
-            mergeFilterValues[existingIndex] = Array.isArray(rf.value) ? rf.value : [rf.value]
-          }
-        }
-      })
-    }
-    
+    const { mergeFilters, mergeFilterValues } = buildMergeSearchFilters()
+
     const formData: any = {
       curUser: 1,
       model: 'settlement',
@@ -3706,11 +3851,10 @@ const searchSettlementsForMerge = async (keyword = '') => {
   }
 }
 
-// Watch for settlement selection to set default primary
-watch(selectedSettlementForMerge, (newValue) => {
-  if (newValue && currentSettlementForMerge.value) {
-    // Default to current settlement as primary when a settlement is selected
-    mergePrimaryId.value = currentSettlementForMerge.value.id
+// Watch for settlement selection to set default primary only when first picking a merge target
+watch(selectedSettlementForMerge, (newValue, oldValue) => {
+  if (newValue && !oldValue && currentSettlementForMerge.value) {
+    mergePrimaryId.value = Number(currentSettlementForMerge.value.id)
   }
 })
 
@@ -3728,11 +3872,20 @@ const showMergeConfirmation = () => {
   MergeConfirmDialog.value = true
 }
 
+const clearMergeSearchSelection = () => {
+  mergeSearchResults.value = []
+  selectedSettlementForMerge.value = null
+  mergeSearchQuery.value = ''
+  if (currentSettlementForMerge.value) {
+    mergePrimaryId.value = Number(currentSettlementForMerge.value.id)
+  }
+}
+
 const confirmMerge = async () => {
   mergeLoading.value = true
   try {
     const primaryId = mergePrimaryId.value
-    const duplicateId = mergePrimaryId.value === currentSettlementForMerge.value.id 
+    const duplicateId = mergePrimaryId.value === Number(currentSettlementForMerge.value.id) 
       ? selectedSettlementForMerge.value.id 
       : currentSettlementForMerge.value.id
     
@@ -3771,6 +3924,8 @@ const confirmMerge = async () => {
       selectedSettlementForMerge.value = null
       mergeSearchQuery.value = ''
       mergeSearchResults.value = []
+      mergeNearestSettlements.value = []
+      mergeNearestUnavailable.value = false
       mergePrimaryId.value = null
       
       // Clear selected settlements
@@ -4658,6 +4813,18 @@ const locateDrawerSize = computed(() => {
   if (w <= 1024) return '70%'
   if (w <= 1440) return '50%'
   return '42%'
+})
+
+const mergeDrawerSize = computed(() => {
+  if (isMobile.value) return '100%'
+  if (windowWidth.value <= 768) return '100%'
+  return '45%'
+})
+
+const mergeConfirmDrawerSize = computed(() => {
+  if (isMobile.value) return '100%'
+  if (windowWidth.value <= 768) return '100%'
+  return '45%'
 })
 
 const openLocateOnMap = async () => {
@@ -6224,8 +6391,16 @@ v-model="search_string" clearable :onClear="handleClear"
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
             <TableActions
-:item="row" :buttons="getSettlementActionButtons(row)" @edit="handleEdit" @review="Review"
-              @delete="handleDelete" @view-on-map="handleViewOnMap" @decommission="handleDecommission" @update-location="handleUpdateLocation" />
+              :item="row"
+              :buttons="getSettlementActionButtons(row)"
+              @edit="handleEdit"
+              @review="Review"
+              @delete="handleDelete"
+              @view-on-map="handleViewOnMap"
+              @decommission="handleDecommission"
+              @merge="handleMerge"
+              @update-location="handleUpdateLocation"
+            />
 
           </template>
         </el-table-column>
@@ -6888,17 +7063,28 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </template>
     </el-dialog>
 
-    <!-- Merge Settlement Dialog -->
-    <el-dialog v-model="MergeDialog" title="Merge Settlement" width="90%" :close-on-click-modal="false">
+    <!-- Merge Settlement Drawer -->
+    <el-drawer
+      v-model="MergeDialog"
+      title="Merge Settlement"
+      direction="rtl"
+      :size="mergeDrawerSize"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
       <div v-if="currentSettlementForMerge">
+        <el-radio-group v-model="mergePrimaryId" class="merge-primary-group">
         <el-row :gutter="20">
           <!-- Current Settlement Details -->
-          <el-col :span="12">
-            <el-card shadow="hover">
+          <el-col :xs="24" :sm="24" :md="12" :lg="12">
+            <el-card
+              shadow="hover"
+              :class="{ 'merge-primary-card': mergePrimaryId === Number(currentSettlementForMerge.id) }"
+            >
               <template #header>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                   <span><strong>Current Settlement</strong></span>
-                  <el-radio v-model="mergePrimaryId" :label="currentSettlementForMerge.id">
+                  <el-radio :value="Number(currentSettlementForMerge.id)">
                     Set as Primary
                   </el-radio>
                 </div>
@@ -6922,20 +7108,90 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           </el-col>
 
           <!-- Search and Selected Settlement -->
-          <el-col :span="12">
-            <el-card shadow="hover">
+          <el-col :xs="24" :sm="24" :md="12" :lg="12">
+            <el-card
+              shadow="hover"
+              :class="{ 'merge-primary-card': selectedSettlementForMerge && mergePrimaryId === Number(selectedSettlementForMerge.id) }"
+            >
               <template #header>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                   <span><strong>Merge With</strong></span>
-                  <el-radio 
-                    v-if="selectedSettlementForMerge" 
-                    v-model="mergePrimaryId" 
-                    :label="selectedSettlementForMerge.id">
+                  <el-radio
+                    v-if="selectedSettlementForMerge"
+                    :value="Number(selectedSettlementForMerge.id)">
                     Set as Primary
                   </el-radio>
                 </div>
               </template>
               
+              <!-- Nearest settlements -->
+              <div v-loading="mergeNearestLoading" class="merge-nearest-section">
+                <p class="merge-nearest-heading">Nearest 5 settlements</p>
+                <div v-if="mergeNearestSettlements.length" class="merge-nearest-list">
+                  <button
+                    v-for="item in mergeNearestSettlements"
+                    :key="item.id"
+                    type="button"
+                    class="merge-nearest-item"
+                    :class="{ 'is-selected': selectedSettlementForMerge?.id === item.id }"
+                    @click="selectNearestSettlementForMerge(item)"
+                  >
+                    <span class="merge-nearest-item__name">{{ item.name }}</span>
+                    <span class="merge-nearest-item__meta">
+                      <span v-if="item.ward && item.subcounty && item.county">
+                        {{ item.ward.name }}, {{ item.county.name }}
+                      </span>
+                      <span v-else>ID: {{ item.id }}</span>
+                      <span v-if="item._distanceKm != null"> · {{ formatMergeDistance(item._distanceKm) }}</span>
+                    </span>
+                  </button>
+                </div>
+                <p
+                  v-else-if="!mergeNearestLoading && mergeNearestUnavailable"
+                  class="merge-nearest-empty"
+                >
+                  No nearby settlements with boundaries found. Use search below.
+                </p>
+              </div>
+
+              <!-- Search for settlement to merge with -->
+              <div style="margin-bottom: 15px;">
+                <p class="merge-nearest-heading">Or search by name</p>
+                <el-select
+                  v-model="selectedSettlementForMerge"
+                  filterable
+                  remote
+                  :remote-method="searchSettlementsForMerge"
+                  :loading="mergeSearchLoading"
+                  placeholder="Search for settlement to merge with..."
+                  clearable
+                  @clear="clearMergeSearchSelection"
+                  style="width: 100%"
+                  value-key="id"
+                >
+                  <el-option
+                    v-for="item in mergeSearchResults"
+                    :key="item.id"
+                    :label="item.name"
+                    :value="item"
+                  >
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="flex: 1; text-align: left;">{{ item.name }}</span>
+                      <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                        <span v-if="item.ward && item.subcounty && item.county">
+                          {{ item.ward.name }}, {{ item.subcounty.name }}, {{ item.county.name }}
+                        </span>
+                        <span v-else-if="item.county?.name">{{ item.county.name }}</span>
+                        <span v-else>ID: {{ item.id }}</span>
+                      </span>
+                    </div>
+                  </el-option>
+                </el-select>
+                <p v-if="!selectedSettlementForMerge" style="margin: 8px 0 0; font-size: 12px; color: var(--el-text-color-secondary);">
+                  Type at least 2 characters to search active settlements.
+                </p>
+              </div>
+
               <!-- Selected Settlement Details -->
               <div v-if="selectedSettlementForMerge" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e4e7ed;">
                 <el-descriptions :column="1" border size="small" title="Selected Settlement">
@@ -6957,11 +7213,12 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
             </el-card>
           </el-col>
         </el-row>
+        </el-radio-group>
 
         <!-- Warning Message -->
         <el-alert
           v-if="selectedSettlementForMerge && mergePrimaryId"
-          :title="`Merging: Settlement ID ${mergePrimaryId === currentSettlementForMerge.id ? selectedSettlementForMerge.id : currentSettlementForMerge.id} will be merged into Settlement ID ${mergePrimaryId}`"
+          :title="`Merging: Settlement ID ${mergePrimaryId === Number(currentSettlementForMerge.id) ? selectedSettlementForMerge.id : currentSettlementForMerge.id} will be merged into Settlement ID ${mergePrimaryId}`"
           type="warning"
           :closable="false"
           style="margin-top: 20px;">
@@ -6975,7 +7232,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <el-button :disabled="mergeLoading" @click="MergeDialog = false">Cancel</el-button>
           <el-button 
             type="primary" 
@@ -6984,16 +7241,19 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
             @click="showMergeConfirmation">
             Merge Settlements
           </el-button>
-        </span>
+        </div>
       </template>
-    </el-dialog>
+    </el-drawer>
 
-    <!-- Merge Confirmation Dialog -->
-    <el-dialog 
-      v-model="MergeConfirmDialog" 
-      title="Confirm Merge Settlement" 
-      width="600px"
-      :close-on-click-modal="false">
+    <!-- Merge Confirmation Drawer -->
+    <el-drawer
+      v-model="MergeConfirmDialog"
+      title="Confirm Merge Settlement"
+      direction="rtl"
+      :size="mergeConfirmDrawerSize"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
       <div v-if="currentSettlementForMerge && selectedSettlementForMerge && mergePrimaryId">
         <!-- <el-alert
           type="warning"
@@ -7008,15 +7268,15 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           <p><strong>Primary Settlement (will be kept):</strong></p>
           <p style="padding-left: 20px; color: #409EFF;">
             ID: {{ mergePrimaryId }} - 
-            {{ mergePrimaryId === currentSettlementForMerge.id ? currentSettlementForMerge.name : selectedSettlementForMerge.name }}
+            {{ mergePrimaryId === Number(currentSettlementForMerge.id) ? currentSettlementForMerge.name : selectedSettlementForMerge.name }}
           </p>
         </div>
 
         <div style="margin-bottom: 20px;">
           <p><strong>Settlement to be merged (will be deleted):</strong></p>
           <p style="padding-left: 20px; color: #F56C6C;">
-            ID: {{ mergePrimaryId === currentSettlementForMerge.id ? selectedSettlementForMerge.id : currentSettlementForMerge.id }} - 
-            {{ mergePrimaryId === currentSettlementForMerge.id ? selectedSettlementForMerge.name : currentSettlementForMerge.name }}
+            ID: {{ mergePrimaryId === Number(currentSettlementForMerge.id) ? selectedSettlementForMerge.id : currentSettlementForMerge.id }} - 
+            {{ mergePrimaryId === Number(currentSettlementForMerge.id) ? selectedSettlementForMerge.name : currentSettlementForMerge.name }}
           </p>
         </div>
 
@@ -7026,21 +7286,15 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
           type="info"
           :closable="false">
           <template #default>
-            <p style="margin: 0 0 10px 0;">
-              <strong>All associated data will be automatically updated:</strong> All references (documents, roads, projects, facilities, and any other entities linked to the settlement being merged) will be automatically updated to point to the primary settlement.
-            </p>
-            <p style="margin: 0 0 10px 0;">
-              The merged settlement record will be permanently deleted, but this operation is tracked in history, allowing you to restore the merged settlement and all its associations if needed.
-            </p>
             <p style="margin: 0;">
-              <strong>Note:</strong> This action cannot be undone, but you can restore it from the Deleted tab if needed.
+              <strong>All associated data will be automatically updated:</strong> All references (documents, roads, projects, facilities, and any other entities linked to the settlement being merged) will be automatically updated to point to the primary settlement.
             </p>
           </template>
         </el-alert>
       </div>
 
       <template #footer>
-        <span class="dialog-footer">
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <el-button :disabled="mergeLoading" @click="MergeConfirmDialog = false">Cancel</el-button>
           <el-button 
             type="primary" 
@@ -7049,9 +7303,9 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
             @click="confirmMerge">
             Confirm Merge
           </el-button>
-        </span>
+        </div>
       </template>
-    </el-dialog>
+    </el-drawer>
 
   </el-card>
 
@@ -7361,6 +7615,73 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 
 .custom-tab.is-active {
   color: red;
+}
+
+.merge-primary-group {
+  width: 100%;
+}
+
+.merge-primary-card {
+  border: 1px solid var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary-light-7);
+}
+
+.merge-nearest-section {
+  margin-bottom: 16px;
+}
+
+.merge-nearest-heading {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.merge-nearest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.merge-nearest-item {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.merge-nearest-item:hover {
+  border-color: var(--el-color-primary-light-5);
+  background: var(--el-color-primary-light-9);
+}
+
+.merge-nearest-item.is-selected {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.merge-nearest-item__name {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.merge-nearest-item__meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.merge-nearest-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
 
