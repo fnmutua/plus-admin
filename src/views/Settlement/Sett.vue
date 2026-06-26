@@ -2756,6 +2756,10 @@ const handleDeleteCascade = async () => {
     return
   }
 
+  deleteCascadeLoading.value = true
+  await nextTick()
+
+  try {
   const dependencySummary: Record<string, number> = {}
   for (const settlement of deletableSettlements) {
     try {
@@ -2833,9 +2837,6 @@ const handleDeleteCascade = async () => {
     return
   }
 
-  try {
-    deleteCascadeLoading.value = true
-    await nextTick() // Ensure Vue updates the reactive state
     const deletePromises = deletableSettlements.map(async (settlement) => {
       const formData: any = {
         id: settlement.id,
@@ -2958,7 +2959,8 @@ const handleMerge = async (data: any) => {
     });
     return;
   }
-  
+
+  mergeOpenLoading.value = true
   currentSettlementForMerge.value = data
   mergePrimaryId.value = Number(data.id)
   selectedSettlementForMerge.value = null
@@ -2967,7 +2969,12 @@ const handleMerge = async (data: any) => {
   mergeNearestSettlements.value = []
   mergeNearestUnavailable.value = false
   MergeDialog.value = true
-  void loadNearestSettlementsForMerge(data)
+  await nextTick()
+  try {
+    await loadNearestSettlementsForMerge(data)
+  } finally {
+    mergeOpenLoading.value = false
+  }
 }
 
 const getSettlementCentroid = (geom: unknown): [number, number] | null => {
@@ -3945,6 +3952,7 @@ const confirmMerge = async () => {
 }
 
 const confirmDecommission = async () => {
+  decommissionLoading.value = true
   try {
     const formData = {
       id: ruleForm.id,
@@ -3978,6 +3986,8 @@ const confirmDecommission = async () => {
       message: 'Failed to decommission settlement. Please try again.',
       type: 'error'
     });
+  } finally {
+    decommissionLoading.value = false
   }
 }
 
@@ -4097,6 +4107,8 @@ const downloadLoading = ref(false);
 const downloadGeoLoading = ref(false);
 const deleteCascadeLoading = ref(false);
 const mergeLoading = ref(false);
+const mergeOpenLoading = ref(false);
+const decommissionLoading = ref(false);
 const decommissionBatchLoading = ref(false);
 const BatchDecommissionDialog = ref(false);
 const batchDecommissionReason = ref('');
@@ -6966,8 +6978,8 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="DecommissionDialog = false">Cancel</el-button>
-          <el-button type="warning" @click="confirmDecommission">
+          <el-button @click="DecommissionDialog = false" :disabled="decommissionLoading">Cancel</el-button>
+          <el-button type="warning" :loading="decommissionLoading" :disabled="decommissionLoading" @click="confirmDecommission">
             Decommission
           </el-button>
         </span>
@@ -7072,7 +7084,7 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
       :close-on-click-modal="false"
       destroy-on-close
     >
-      <div v-if="currentSettlementForMerge">
+      <div v-if="currentSettlementForMerge" v-loading="mergeOpenLoading">
         <el-radio-group v-model="mergePrimaryId" class="merge-primary-group">
         <el-row :gutter="20">
           <!-- Current Settlement Details -->
@@ -7233,10 +7245,10 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
-          <el-button :disabled="mergeLoading" @click="MergeDialog = false">Cancel</el-button>
+          <el-button :disabled="mergeLoading || mergeOpenLoading" @click="MergeDialog = false">Cancel</el-button>
           <el-button 
             type="primary" 
-            :disabled="!selectedSettlementForMerge || !mergePrimaryId || mergeLoading"
+            :disabled="!selectedSettlementForMerge || !mergePrimaryId || mergeLoading || mergeOpenLoading"
             :loading="mergeLoading"
             @click="showMergeConfirmation">
             Merge Settlements
