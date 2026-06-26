@@ -471,6 +471,8 @@ const parcelOwnerTypeOptions = [
 
 // Density-based slum typology (National Slum Upgrading and Prevention Strategy 2024-2034).
 // Categorisation is informed by the built-up ratio (built-up area / total settlement area).
+const DENSITY_TYPOLOGY_LOW_MAX = 60
+const DENSITY_TYPOLOGY_MEDIUM_MAX = 80
 const densityTypologyOptions = [
   { label: 'Low Density', value: 'LOW DENSITY' },
   { label: 'Medium Density', value: 'MEDIUM DENSITY' },
@@ -2545,6 +2547,16 @@ const overtureBuildingsLoading = ref(false)
 const overtureBuildingCount = ref<number | null>(null)
 const overtureBuildingLayers = ref<any[]>([])
 const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
+const densityTypologyPreview = ref<{
+  typology: string
+  builtUpRatio: number
+  builtUpAreaHa: number
+  settlementAreaHa: number
+} | null>(null)
+/** True when density typology was last set from Overture built-up ratio. */
+const densityTypologyFromOverture = ref(false)
+let applyingDensityTypology = false
+let lastOvertureDensitySyncKey = ''
 /** Edit mode only: when checked, replace all structures with Overture footprints on save. */
 const updateStructuresFromOverture = ref(false)
 /** Edit mode only: when checked, population estimate and save include population fields. */
@@ -2598,10 +2610,210 @@ const parseSettlementGeometry = (geometry: any) => {
       return null
     }
   }
+  if (parsed?.type === 'Feature' && parsed.geometry) {
+    parsed = parsed.geometry
+  }
   if (!parsed?.type || !parsed?.coordinates) return null
   if (parsed.type !== 'Polygon' && parsed.type !== 'MultiPolygon') return null
   return parsed
 }
+
+const normalizeOvertureGeojson = (raw: unknown): GeoJSON.FeatureCollection | null => {
+  if (!raw) return null
+  let geojson: any = raw
+  if (typeof raw === 'string') {
+    try {
+      geojson = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (geojson?.type === 'FeatureCollection' && Array.isArray(geojson.features)) {
+    return geojson as GeoJSON.FeatureCollection
+  }
+  return null
+}
+
+const unwrapOvertureBuildingsResponse = (res: any) => {
+  if (!res || typeof res !== 'object') return null
+  if (res.geojson || res.count != null) return res
+  if (res.data && typeof res.data === 'object' && (res.data.geojson || res.data.count != null)) {
+    return res.data
+  }
+  return res
+}
+
+type DensityTypologyValue = 'LOW DENSITY' | 'MEDIUM DENSITY' | 'HIGH DENSITY'
+
+const densityTypologyLabel = (value: string) =>
+  densityTypologyOptions.find((option) => option.value === value)?.label ?? value
+
+const deriveDensityTypologyFromBuiltUpRatio = (builtUpRatio: number): DensityTypologyValue => {
+  if (builtUpRatio < DENSITY_TYPOLOGY_LOW_MAX) return 'LOW DENSITY'
+  if (builtUpRatio <= DENSITY_TYPOLOGY_MEDIUM_MAX) return 'MEDIUM DENSITY'
+  return 'HIGH DENSITY'
+}
+
+const sumOvertureBuiltUpAreaSqM = (geojson: GeoJSON.FeatureCollection | null): number => {
+  if (!geojson?.features?.length) return 0
+  let total = 0
+  for (const feature of geojson.features) {
+    let geometry = feature?.geometry as any
+    if (typeof geometry === 'string') {
+      try {
+        geometry = JSON.parse(geometry)
+      } catch {
+        continue
+      }
+    }
+    if (!geometry?.type || !geometry?.coordinates) continue
+    if (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') continue
+    try {
+      total += turf.area(turf.feature(geometry))
+    } catch {
+      /* skip invalid footprint */
+    }
+  }
+  return total
+}
+
+const computeDensityTypologyFromOverture = (
+  geometry: any,
+  overtureGeojson: GeoJSON.FeatureCollection | null
+): {
+  typology: DensityTypologyValue
+  builtUpRatio: number
+  builtUpAreaHa: number
+  settlementAreaHa: number
+} | null => {
+  const normalized = parseSettlementGeometry(geometry)
+  const geojson = normalizeOvertureGeojson(overtureGeojson)
+  if (!normalized || !geojson?.features?.length) return null
+
+  let settlementAreaSqM = 0
+  try {
+    settlementAreaSqM = turf.area(turf.feature(normalized))
+  } catch {
+    return null
+  }
+  if (!Number.isFinite(settlementAreaSqM) || settlementAreaSqM <= 0) return null
+
+  const builtUpAreaSqM = sumOvertureBuiltUpAreaSqM(geojson)
+  if (!Number.isFinite(builtUpAreaSqM) || builtUpAreaSqM <= 0) return null
+
+  const builtUpRatio = Math.round((builtUpAreaSqM / settlementAreaSqM) * 10000) / 100
+  return {
+    typology: deriveDensityTypologyFromBuiltUpRatio(builtUpRatio),
+    builtUpRatio,
+    builtUpAreaHa: builtUpAreaSqM / 10000,
+    settlementAreaHa: settlementAreaSqM / 10000,
+  }
+}
+
+const hasMissingDensityTypology = () => {
+  const value = settlementForm.density_typology
+  return value == null || String(value).trim() === ''
+}
+
+const buildOvertureDensitySyncKey = (
+  geometry: any,
+  geojson: GeoJSON.FeatureCollection | null | undefined
+) => {
+  const normalized = parseSettlementGeometry(geometry)
+  const buildingCount = geojson?.features?.length ?? 0
+  const coordKey = normalized?.coordinates ? JSON.stringify(normalized.coordinates) : ''
+  return `${buildingCount}:${coordKey}`
+}
+
+const clearAutoDensityTypologyFromOverture = () => {
+  applyingDensityTypology = true
+  if (densityTypologyFromOverture.value || hasMissingDensityTypology()) {
+    settlementForm.density_typology = null
+  }
+  densityTypologyFromOverture.value = false
+  densityTypologyPreview.value = null
+  lastOvertureDensitySyncKey = ''
+  applyingDensityTypology = false
+}
+
+const shouldSyncDensityTypologyFromOverture = (syncKey: string) => {
+  const syncKeyChanged = syncKey !== lastOvertureDensitySyncKey
+  if (!syncKeyChanged) {
+    return hasMissingDensityTypology()
+  }
+  return (
+    hasMissingDensityTypology() ||
+    densityTypologyFromOverture.value ||
+    settlementBoundaryModified.value
+  )
+}
+
+const applyDensityTypologyFromOverture = (
+  geometry?: any,
+  geojson?: GeoJSON.FeatureCollection | null,
+  options?: { silent?: boolean; force?: boolean }
+) => {
+  const activeGeometry = geometry ?? getActiveSettlementGeometry()
+  const activeGeojson = geojson ?? overtureBuildingsGeojson.value
+  const syncKey = buildOvertureDensitySyncKey(activeGeometry, activeGeojson)
+
+  if (!options?.force && !shouldSyncDensityTypologyFromOverture(syncKey)) {
+    return null
+  }
+
+  const result = computeDensityTypologyFromOverture(activeGeometry, activeGeojson)
+  if (!result) {
+    if (densityTypologyFromOverture.value) {
+      clearAutoDensityTypologyFromOverture()
+    }
+    return null
+  }
+
+  applyingDensityTypology = true
+  settlementForm.density_typology = result.typology
+  densityTypologyPreview.value = result
+  densityTypologyFromOverture.value = true
+  lastOvertureDensitySyncKey = syncKey
+  applyingDensityTypology = false
+
+  if (!options?.silent) {
+    ElMessage.info(
+      `Density typology set to ${densityTypologyLabel(result.typology)} (built-up ratio ${result.builtUpRatio.toFixed(1)}%).`
+    )
+  }
+  return result
+}
+
+const syncDensityTypologyFromOverture = (
+  geometry?: any,
+  geojson?: GeoJSON.FeatureCollection | null,
+  options?: { silent?: boolean; force?: boolean }
+) => {
+  return applyDensityTypologyFromOverture(geometry, geojson, {
+    silent: options?.silent ?? true,
+    force: options?.force,
+  })
+}
+
+const onDensityTypologyManualChange = () => {
+  if (applyingDensityTypology) return
+  densityTypologyFromOverture.value = false
+  densityTypologyPreview.value = null
+  lastOvertureDensitySyncKey = buildOvertureDensitySyncKey(
+    getActiveSettlementGeometry(),
+    overtureBuildingsGeojson.value
+  )
+}
+
+watch(overtureBuildingsGeojson, (geojson) => {
+  if (!geojson?.features?.length) {
+    if (densityTypologyFromOverture.value) {
+      clearAutoDensityTypologyFromOverture()
+    }
+    return
+  }
+  syncDensityTypologyFromOverture(getActiveSettlementGeometry(), geojson)
+})
 
 const clearOvertureBuildingLayers = () => {
   overtureBuildingLayers.value.forEach((layer) => {
@@ -2610,6 +2822,9 @@ const clearOvertureBuildingLayers = () => {
   overtureBuildingLayers.value = []
   overtureBuildingCount.value = null
   overtureBuildingsGeojson.value = null
+  densityTypologyPreview.value = null
+  densityTypologyFromOverture.value = false
+  lastOvertureDensitySyncKey = ''
 }
 
 let overtureGeometryRefreshTimer: ReturnType<typeof setTimeout> | null = null
@@ -2626,9 +2841,9 @@ const scheduleOvertureRefreshForGeometry = (_geometry: any) => {
     overtureGeometryRefreshTimer = null
     const latestGeom = getActiveSettlementGeometry()
     if (!latestGeom || (latestGeom.type !== 'Polygon' && latestGeom.type !== 'MultiPolygon')) return
-    void refreshOvertureMapPreview(latestGeom, { showMessage: false }).then(() =>
+    void refreshOvertureMapPreview(latestGeom, { showMessage: false }).then(() => {
       maybeAutoFillPopulationFromBuildings()
-    )
+    })
   }, 700)
 }
 
@@ -2677,24 +2892,28 @@ const fetchOvertureBuildingsForSettlement = async (geometry: any) => {
   const fetchSeq = ++overtureFetchSeq
   overtureBuildingsLoading.value = true
   try {
-    const res = await fetchOvertureBuildings(normalized)
+    const res = unwrapOvertureBuildingsResponse(await fetchOvertureBuildings(normalized))
     if (fetchSeq !== overtureFetchSeq) return null
-    if (String(res.code) !== '0000') {
+    if (!res || String(res.code) !== '0000') {
       clearOvertureBuildingLayers()
       overtureBuildingCount.value = 0
       return null
     }
-    overtureBuildingCount.value = resolveOvertureBuildingCount(res)
-    overtureBuildingsGeojson.value =
-      res.geojson?.features?.length ? res.geojson : null
-    if (res.geojson?.features?.length) {
-      renderOvertureBuildingsOnMap(res.geojson)
+    const geojson = normalizeOvertureGeojson(res.geojson)
+    overtureBuildingCount.value = resolveOvertureBuildingCount({ count: res.count, geojson })
+    overtureBuildingsGeojson.value = geojson?.features?.length ? geojson : null
+    if (geojson?.features?.length) {
+      renderOvertureBuildingsOnMap(geojson)
+      syncDensityTypologyFromOverture(normalized, geojson, { force: settlementBoundaryModified.value })
     } else {
+      if (densityTypologyFromOverture.value) {
+        clearAutoDensityTypologyFromOverture()
+      }
       clearOvertureBuildingLayers()
       overtureBuildingCount.value = 0
       overtureBuildingsGeojson.value = null
     }
-    return res
+    return { ...res, geojson: geojson ?? { type: 'FeatureCollection', features: [] } }
   } catch (e) {
     if (fetchSeq !== overtureFetchSeq) return null
     console.warn('Overture buildings unavailable:', e)
@@ -3217,6 +3436,9 @@ const clearFormAndGeometry = () => {
   editLoading.value = false
   updateStructuresFromOverture.value = false
   updatePopulationOnEdit.value = false
+  densityTypologyFromOverture.value = false
+  lastOvertureDensitySyncKey = ''
+  densityTypologyPreview.value = null
   // Reset form validation
   if (formRef.value) {
     formRef.value.resetFields()
@@ -3529,7 +3751,7 @@ const loadSettlementForEdit = async (
         }
 
         await refreshOvertureMapPreview(geom, { showMessage: false })
-        await maybeAutoFillPopulationFromBuildings(geom)
+        await maybeAutoFillPopulationFromBuildings()
       }
     }
 
@@ -4221,6 +4443,7 @@ onActivated(() => {
             clearable
             filterable
             style="width: 100%"
+            @change="onDensityTypologyManualChange"
           >
             <el-option
               v-for="item in densityTypologyOptions"
@@ -4229,6 +4452,11 @@ onActivated(() => {
               :value="item.value"
             />
           </el-select>
+          <div v-if="densityTypologyPreview" class="population-overture-hint">
+            From Overture footprints (updates when the boundary or buildings change):
+            {{ densityTypologyLabel(densityTypologyPreview.typology) }}
+            (built-up ratio {{ densityTypologyPreview.builtUpRatio.toFixed(1) }}%)
+          </div>
         </el-form-item>
 
         <el-form-item label="On Utility Way-leave?">

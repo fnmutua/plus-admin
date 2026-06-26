@@ -15,8 +15,14 @@ export const fetchOvertureBuildings = async (
   const response = await request.post<OvertureBuildingsResponse>({
     url: `${prod}/api/v1/data/settlements/overture-buildings`,
     data: { geometry },
+    silent: true,
   })
-  return (response as any)?.data ?? response
+  const payload = (response as any)?.data ?? response
+  if (payload?.geojson || payload?.count != null) return payload as OvertureBuildingsResponse
+  if (payload?.data?.geojson || payload?.data?.count != null) {
+    return payload.data as OvertureBuildingsResponse
+  }
+  return payload as OvertureBuildingsResponse
 }
 
 export type OvertureStructuresResponse = {
