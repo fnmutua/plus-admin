@@ -495,11 +495,29 @@ exports.getDataRequestById = async (req, res) => {
     const { id } = req.params
     const record = await db.models.data_request.findByPk(id)
     if (!record) return res.status(404).json({ code: '4004', message: 'Not found' })
-    return res.status(200).json({ code: '0000', results: record })
+    const results = await enrichDataRequestRecord(record)
+    return res.status(200).json({ code: '0000', results })
   } catch (err) {
     console.error('[DataRequest] getDataRequestById error:', err)
     return res.status(500).json({ code: '5000', message: err.message })
   }
+}
+
+const enrichDataRequestRecord = async (record) => {
+  const plain = record.toJSON ? record.toJSON() : { ...record }
+  const reviewerIds = [plain.dpo_reviewed_by, plain.coordinator_approved_by].filter(Boolean)
+  if (reviewerIds.length) {
+    const reviewers = await db.user.findAll({
+      where: { id: reviewerIds },
+      attributes: ['id', 'name']
+    })
+    const byId = Object.fromEntries(reviewers.map((u) => [u.id, u.name]))
+    plain.dpo_reviewer_name = plain.dpo_reviewed_by ? (byId[plain.dpo_reviewed_by] || null) : null
+    plain.coordinator_reviewer_name = plain.coordinator_approved_by
+      ? (byId[plain.coordinator_approved_by] || null)
+      : null
+  }
+  return plain
 }
 
 exports.updateDataRequestStatus = async (req, res) => {
@@ -520,43 +538,86 @@ exports.updateDataRequestStatus = async (req, res) => {
     const userId = req.thisUser?.id || null
     const now = new Date()
     const updates = {}
+    const previousCoordinatorStatus = record.coordinator_approval_status
 
-    // Backward-compatible payload support
     if (status !== undefined) updates.status = status
     if (review_notes !== undefined) updates.review_notes = review_notes
 
-    // New workflow fields
     if (dpo_recommendation !== undefined) {
       updates.dpo_recommendation = dpo_recommendation
-      updates.dpo_reviewed_by = userId
-      updates.dpo_reviewed_at = now
+      if (dpo_recommendation !== record.dpo_recommendation && dpo_recommendation !== 'Pending') {
+        updates.dpo_reviewed_by = userId
+        updates.dpo_reviewed_at = now
+      }
     }
     if (dpo_review_notes !== undefined) updates.dpo_review_notes = dpo_review_notes
 
-    if (coordinator_approval_status !== undefined) {
-      updates.coordinator_approval_status = coordinator_approval_status
-      updates.coordinator_approved_by = userId
-      updates.coordinator_approved_at = now
-    }
-    if (coordinator_approval_notes !== undefined) updates.coordinator_approval_notes = coordinator_approval_notes
+    const effectiveDpo = updates.dpo_recommendation ?? record.dpo_recommendation
 
-    // Canonical top-level status for list/search compatibility.
-    // Coordinator decision is authoritative; otherwise keep pending.
+    if (coordinator_approval_status !== undefined) {
+      if (coordinator_approval_status === 'Approved' && effectiveDpo !== 'Approved') {
+        return res.status(400).json({
+          code: '4000',
+          message: effectiveDpo === 'Rejected'
+            ? 'Coordinator cannot approve: the DPO has rejected this request.'
+            : 'Coordinator cannot approve until the DPO recommendation is Approved.'
+        })
+      }
+
+      updates.coordinator_approval_status = coordinator_approval_status
+      if (
+        coordinator_approval_status !== record.coordinator_approval_status &&
+        coordinator_approval_status !== 'Pending'
+      ) {
+        updates.coordinator_approved_by = userId
+        updates.coordinator_approved_at = now
+      }
+    }
+    if (coordinator_approval_notes !== undefined) {
+      updates.coordinator_approval_notes = coordinator_approval_notes
+    }
+
     if (updates.coordinator_approval_status) {
       updates.status = updates.coordinator_approval_status
     } else if (!updates.status) {
-      updates.status = 'Pending'
+      updates.status = record.status || 'Pending'
     }
 
-    // Preserve legacy review fields as mirrors of the latest meaningful notes.
-    if (!updates.review_notes) {
-      updates.review_notes = updates.coordinator_approval_notes || updates.dpo_review_notes || record.review_notes
+    if (review_notes !== undefined) {
+      updates.review_notes = review_notes
+    } else if (updates.coordinator_approval_notes !== undefined || updates.dpo_review_notes !== undefined) {
+      updates.review_notes =
+        updates.coordinator_approval_notes ??
+        updates.dpo_review_notes ??
+        record.coordinator_approval_notes ??
+        record.dpo_review_notes ??
+        record.review_notes
     }
-    updates.reviewed_by = userId
+
+    if (
+      updates.dpo_recommendation !== undefined ||
+      updates.coordinator_approval_status !== undefined
+    ) {
+      updates.reviewed_by = userId
+    }
 
     await record.update(updates)
+    await record.reload()
 
-    return res.status(200).json({ code: '0000', message: 'Updated', results: record })
+    const becameRejected =
+      updates.coordinator_approval_status === 'Rejected' &&
+      previousCoordinatorStatus !== 'Rejected'
+
+    if (becameRejected) {
+      try {
+        await sendRequesterRejectionEmail(req, record)
+      } catch (emailErr) {
+        console.error('[DataRequest] requester rejection email failed:', emailErr)
+      }
+    }
+
+    const results = await enrichDataRequestRecord(record)
+    return res.status(200).json({ code: '0000', message: 'Updated', results })
   } catch (err) {
     console.error('[DataRequest] updateDataRequestStatus error:', err)
     return res.status(500).json({ code: '5000', message: err.message })
@@ -761,6 +822,51 @@ const sendRequesterAcknowledgmentEmail = async (req, requestRecord) => {
   })
 }
 
+/** Notify requester when coordinator rejects their data request. */
+const sendRequesterRejectionEmail = async (req, requestRecord) => {
+  const to = String(requestRecord?.email || '').trim()
+  if (!to || !emailRegex.test(to)) return
+
+  const code = requestRecord.code || ''
+  const displayName = requestRecord.name || 'Applicant'
+  const notes = String(
+    requestRecord.coordinator_approval_notes ||
+    requestRecord.dpo_review_notes ||
+    ''
+  ).trim()
+  const landingBase = publicFrontendBaseUrl(req)
+  const landingLink = landingBase ? `${landingBase}/#/landing` : ''
+
+  const subject = `Data request update — ${code}`
+  const html = `
+    <p>Dear ${displayName},</p>
+    <p>Thank you for your data access request to KeSMIS (<strong>${code}</strong>).</p>
+    <p>After review, we are unable to approve your request at this time.</p>
+    ${notes ? `<p><strong>Notes from the review team:</strong><br/>${notes.replace(/\n/g, '<br/>')}</p>` : ''}
+    <p>If you believe this decision was made in error or you have additional information, please contact the KeSMIS support team.</p>
+    ${landingLink ? `<p>For general information, visit <a href="${landingLink}">${landingLink}</a>.</p>` : ''}
+    <br/><p>Kenya Slum Information Management System (KeSMIS)</p>
+  `
+  const text = [
+    `Dear ${displayName},`,
+    '',
+    `Your data request ${code} was not approved after review.`,
+    notes ? `\nNotes: ${notes}` : '',
+    '',
+    'Contact the KeSMIS support team if you need further assistance.',
+    '',
+    'KeSMIS'
+  ].join('\n')
+
+  await buildTransporter().sendMail({
+    from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+    to,
+    subject,
+    text,
+    html
+  })
+}
+
 const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
   const supportUsers = await getSupportUsers()
 
@@ -813,6 +919,20 @@ exports.shareDataRequest = async (req, res) => {
       return res.status(400).json({
         code: '4000',
         message: 'Coordinator approval is required before emailing the download link'
+      })
+    }
+
+    if (request.dpo_recommendation !== 'Approved') {
+      return res.status(400).json({
+        code: '4000',
+        message: 'DPO approval is required before sharing data with the requester'
+      })
+    }
+
+    if (request.clarification_status === 'awaiting_requester') {
+      return res.status(400).json({
+        code: '4000',
+        message: 'Resolve clarifications with the requester before sharing data'
       })
     }
 

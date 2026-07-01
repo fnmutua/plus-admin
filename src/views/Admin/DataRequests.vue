@@ -60,10 +60,18 @@
       <el-table-column prop="organization" label="Organization" min-width="150" show-overflow-tooltip sortable />
       <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
       <el-table-column prop="geographic_scope" label="Scope" width="120" />
-      <el-table-column label="Status" width="180" sortable :sort-method="(a, b) => a.status.localeCompare(b.status)">
+      <el-table-column label="Status" width="200" sortable :sort-method="(a, b) => a.status.localeCompare(b.status)">
         <template #default="{ row }">
           <div class="status-cell">
             <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
+            <el-tag
+              v-if="workflowStageLabel(row)"
+              size="small"
+              effect="plain"
+              :type="workflowStageType(row)"
+            >
+              {{ workflowStageLabel(row) }}
+            </el-tag>
             <el-tag
               v-if="clarificationLabel(row.clarification_status)"
               size="small"
@@ -168,6 +176,23 @@ const openDetail = (row: any) => router.push(`/admin/data-requests/${row.id}`)
 
 const statusTag = (s: string) =>
   s === 'Approved' ? 'success' : s === 'Rejected' ? 'danger' : 'warning'
+
+const workflowStageLabel = (row: any) => {
+  const status = row?.status
+  const dpo = row?.dpo_recommendation
+  const coord = row?.coordinator_approval_status
+  if (status === 'Approved' || status === 'Rejected') return ''
+  if (dpo === 'Pending') return 'Awaiting DPO'
+  if (dpo === 'Rejected') return 'DPO rejected'
+  if (coord === 'Pending') return 'Awaiting coordinator'
+  return ''
+}
+
+const workflowStageType = (row: any) => {
+  const label = workflowStageLabel(row)
+  if (label === 'DPO rejected') return 'danger'
+  return 'warning'
+}
 
 const clarificationLabel = (s: string | undefined) => {
   const map: Record<string, string> = {

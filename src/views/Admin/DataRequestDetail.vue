@@ -219,11 +219,35 @@
               <div class="card-title card-title-toggle" @click="toggleSection('review')">
                 <Icon icon="mdi:gavel" width="18" />
                 Review & Approval
+                <el-tag v-if="workflowStageLabel" size="small" effect="plain" :type="workflowStageType" style="margin-left:8px">
+                  {{ workflowStageLabel }}
+                </el-tag>
+                <span v-if="saving" class="drd-save-hint">Saving…</span>
+                <span v-else-if="reviewSaved" class="drd-save-hint drd-save-hint--ok">Saved</span>
                 <Icon :icon="sectionsOpen.review ? 'mdi:chevron-up' : 'mdi:chevron-down'" width="16" class="card-chevron" />
               </div>
             </template>
 
             <el-form v-show="sectionsOpen.review" label-position="top" size="small">
+              <el-alert
+                v-if="dpoRecommendation === 'Rejected'"
+                type="error"
+                :closable="false"
+                show-icon
+                title="DPO rejected"
+                description="Coordinator cannot approve this request. Confirm rejection or ask for clarifications."
+                style="margin-bottom: 12px"
+              />
+              <el-alert
+                v-else-if="dpoRecommendation === 'Pending'"
+                type="info"
+                :closable="false"
+                show-icon
+                title="Awaiting DPO review"
+                description="The Data Protection Officer must approve before the coordinator can approve."
+                style="margin-bottom: 12px"
+              />
+
               <el-row :gutter="16">
                 <el-col :xs="24" :md="12">
                   <el-form-item label="Data Protection Officer Recommendation">
@@ -233,6 +257,10 @@
                       <el-radio-button value="Pending">Pending</el-radio-button>
                     </el-radio-group>
                   </el-form-item>
+                  <p v-if="request?.dpo_reviewed_at" class="drd-reviewer-meta">
+                    Reviewed by {{ request.dpo_reviewer_name || '—' }}
+                    · {{ formatDateTime(request.dpo_reviewed_at) }}
+                  </p>
                   <el-form-item label="DPO Review Notes">
                     <el-input
                       v-model="dpoReviewNotes"
@@ -245,11 +273,17 @@
                 <el-col :xs="24" :md="12">
                   <el-form-item label="Coordinator Approval">
                     <el-radio-group v-model="coordinatorApprovalStatus">
-                      <el-radio-button value="Approved">Approve</el-radio-button>
+                      <el-radio-button value="Approved" :disabled="!dpoApprovedForCoordinator">
+                        Approve
+                      </el-radio-button>
                       <el-radio-button value="Rejected">Reject</el-radio-button>
                       <el-radio-button value="Pending">Pending</el-radio-button>
                     </el-radio-group>
                   </el-form-item>
+                  <p v-if="request?.coordinator_approved_at" class="drd-reviewer-meta">
+                    Decided by {{ request.coordinator_reviewer_name || '—' }}
+                    · {{ formatDateTime(request.coordinator_approved_at) }}
+                  </p>
                   <el-form-item label="Coordinator Notes">
                     <el-input
                       v-model="coordinatorApprovalNotes"
@@ -358,7 +392,7 @@
             <el-button
               type="success"
               :loading="sharing"
-              :disabled="!shareableDocuments.length || docsLoading || !coordinatorApprovedForShare"
+              :disabled="!shareableDocuments.length || docsLoading || saving || !coordinatorApprovedForShare || clarificationBlocksShare"
               style="width:100%; margin-top:12px"
               :title="emailShareButtonTitle"
               @click="shareWithRequester"
@@ -448,6 +482,8 @@ const dpoReviewNotes = ref('')
 const coordinatorApprovalStatus = ref('Pending')
 const coordinatorApprovalNotes = ref('')
 const saving = ref(false)
+const reviewSaved = ref(false)
+let reviewSavedTimer: ReturnType<typeof setTimeout> | null = null
 /** Skip debounced persist while hydrating the form from the server (avoids duplicate PUTs). */
 const reviewSuppressPersist = ref(true)
 let persistDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -564,8 +600,9 @@ const schedulePersistReview = () => {
 
 const persistReview = async () => {
   saving.value = true
+  reviewSaved.value = false
   try {
-    await axios.put(
+    const res = await axios.put(
       `${base}/api/v1/data-requests/${requestId}/status`,
       {
         dpo_recommendation: dpoRecommendation.value,
@@ -575,18 +612,38 @@ const persistReview = async () => {
       },
       { headers: authHeaders() }
     )
-    request.value.dpo_recommendation = dpoRecommendation.value
-    request.value.dpo_review_notes = dpoReviewNotes.value
-    request.value.coordinator_approval_status = coordinatorApprovalStatus.value
-    request.value.coordinator_approval_notes = coordinatorApprovalNotes.value
-    request.value.status = coordinatorApprovalStatus.value
+    const found = res.data.results
+    if (found) {
+      request.value = { ...request.value, ...found }
+      dpoRecommendation.value = found.dpo_recommendation || 'Pending'
+      dpoReviewNotes.value = found.dpo_review_notes || ''
+      coordinatorApprovalStatus.value = found.coordinator_approval_status || found.status || 'Pending'
+      coordinatorApprovalNotes.value = found.coordinator_approval_notes || ''
+    } else {
+      request.value.dpo_recommendation = dpoRecommendation.value
+      request.value.dpo_review_notes = dpoReviewNotes.value
+      request.value.coordinator_approval_status = coordinatorApprovalStatus.value
+      request.value.coordinator_approval_notes = coordinatorApprovalNotes.value
+      request.value.status = coordinatorApprovalStatus.value
+    }
     request.value.review_notes = coordinatorApprovalNotes.value || dpoReviewNotes.value
-  } catch {
-    ElMessage.error('Failed to save review')
+    reviewSaved.value = true
+    if (reviewSavedTimer) clearTimeout(reviewSavedTimer)
+    reviewSavedTimer = setTimeout(() => { reviewSaved.value = false }, 2500)
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || 'Failed to save review'
+    ElMessage.error(msg)
+    await loadRequest()
   } finally {
     saving.value = false
   }
 }
+
+watch(dpoRecommendation, (dpo) => {
+  if (dpo !== 'Approved' && coordinatorApprovalStatus.value === 'Approved') {
+    coordinatorApprovalStatus.value = 'Pending'
+  }
+})
 
 watch(
   () => [
@@ -602,6 +659,7 @@ watch(
 
 onBeforeUnmount(() => {
   clearPersistDebounce()
+  if (reviewSavedTimer) clearTimeout(reviewSavedTimer)
 })
 
 // ── clarifications ────────────────────────────────────────────────────────────
@@ -849,6 +907,31 @@ const copyLink = async () => {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+const dpoApprovedForCoordinator = computed(() => dpoRecommendation.value === 'Approved')
+
+const clarificationBlocksShare = computed(
+  () => clarificationStatus.value === 'awaiting_requester'
+)
+
+const workflowStageLabel = computed(() => {
+  const status = request.value?.status || coordinatorApprovalStatus.value
+  const dpo = request.value?.dpo_recommendation ?? dpoRecommendation.value
+  const coord = request.value?.coordinator_approval_status ?? coordinatorApprovalStatus.value
+  if (status === 'Approved') return 'Approved'
+  if (status === 'Rejected') return 'Rejected'
+  if (dpo === 'Pending') return 'Awaiting DPO'
+  if (dpo === 'Rejected') return 'DPO rejected'
+  if (coord === 'Pending') return 'Awaiting coordinator'
+  return 'In review'
+})
+
+const workflowStageType = computed(() => {
+  const label = workflowStageLabel.value
+  if (label === 'Approved') return 'success'
+  if (label === 'Rejected' || label === 'DPO rejected') return 'danger'
+  return 'warning'
+})
+
 const overallStatus = computed(() => request.value?.coordinator_approval_status || request.value?.status || 'Pending')
 
 /** Persisted coordinator decision only (not draft radios) — share/email must match server. */
@@ -857,6 +940,13 @@ const coordinatorApprovedForShare = computed(
 )
 
 const emailShareButtonTitle = computed(() => {
+  if (saving.value) return 'Wait for review changes to finish saving.'
+  if (clarificationBlocksShare.value) {
+    return 'Resolve clarifications with the requester before sharing data.'
+  }
+  if ((request.value?.dpo_recommendation || dpoRecommendation.value) !== 'Approved') {
+    return 'DPO must approve before you can share data.'
+  }
   if (!coordinatorApprovedForShare.value) {
     return 'Set coordinator approval to Approve and wait for changes to save before emailing the link.'
   }
@@ -1171,5 +1261,22 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.drd-save-hint {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--el-text-color-secondary);
+}
+
+.drd-save-hint--ok {
+  color: var(--el-color-success);
+}
+
+.drd-reviewer-meta {
+  margin: -4px 0 10px;
+  font-size: 0.75rem;
+  color: var(--el-text-color-secondary);
 }
 </style>
