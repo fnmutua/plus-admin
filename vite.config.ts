@@ -31,25 +31,33 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       Vue(),
       VueJsx(),
       WindiCSS(),
-      nodePolyfills({
-        include: ['buffer', 'process', 'stream', 'util', 'path'],
-        globals: {
-          Buffer: true,
-          global: true,
-          process: true
-        },
-        protocolImports: true
-      }),
-      createStyleImportPlugin({
-        resolves: [ElementPlusResolve()],
-        libs: [{
-          libraryName: 'element-plus',
-          esModule: true,
-          resolveStyle: (name) => {
-            return `element-plus/es/components/${name.substring(3)}/style/css`
-          }
-        }]
-      }),
+      ...(isBuild
+        ? []
+        : [
+            nodePolyfills({
+              include: ['buffer', 'process', 'stream', 'util', 'path'],
+              globals: {
+                Buffer: true,
+                global: true,
+                process: true
+              },
+              protocolImports: true
+            })
+          ]),
+      ...(isBuild
+        ? []
+        : [
+            createStyleImportPlugin({
+              resolves: [ElementPlusResolve()],
+              libs: [{
+                libraryName: 'element-plus',
+                esModule: true,
+                resolveStyle: (name) => {
+                  return `element-plus/es/components/${name.substring(3)}/style/css`
+                }
+              }]
+            })
+          ]),
       ...(isBuild
         ? []
         : [
@@ -65,39 +73,51 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       createSvgIconsPlugin({
         iconDirs: [pathResolve('src/assets/svgs')],
         symbolId: 'icon-[dir]-[name]',
-        svgoOptions: true
+        svgoOptions: !isBuild
       }),
-      PurgeIcons({
-        content: [
-          'src/**/*.{vue,js,ts,jsx,tsx}',
-          'index.html'
-        ],
-        exclude: [
-          'node_modules/**',
-          'dist/**',
-          'build/**',
-          '**/pgdata/**',
-          '**/data/**',
-          'tools/**',
-          'server/**'
-        ]
-      }),
-      viteMockServe({
-        ignore: /^\_/,
-        mockPath: 'mock',
-        localEnabled: !isBuild,
-        prodEnabled: isBuild,
-        injectCode: `
+      ...(isBuild
+        ? []
+        : [
+            PurgeIcons({
+              content: [
+                'src/**/*.{vue,js,ts,jsx,tsx}',
+                'index.html'
+              ],
+              exclude: [
+                'node_modules/**',
+                'dist/**',
+                'build/**',
+                '**/pgdata/**',
+                '**/data/**',
+                'tools/**',
+                'server/**'
+              ]
+            })
+          ]),
+      ...(isBuild
+        ? []
+        : [
+            viteMockServe({
+              ignore: /^\_/,
+              mockPath: 'mock',
+              localEnabled: true,
+              prodEnabled: false,
+              injectCode: `
           import { setupProdMockServer } from '../mock/_createProductionServer'
 
           setupProdMockServer()
           `
-      }),
-      VueMarcos({
-        setupComponent: {
-          exclude: [/src\/locales\//]
-        }
-      }),
+            })
+          ]),
+      ...(isBuild
+        ? []
+        : [
+            VueMarcos({
+              setupComponent: {
+                exclude: [/\/src\/locales\//]
+              }
+            })
+          ]),
       createHtmlPlugin({
         inject: {
           data: {
@@ -130,7 +150,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           replacement: 'vue-i18n/dist/vue-i18n.cjs.js'
         },
         {
-          find: /\@\//,
+          find: '@/',
           replacement: `${pathResolve('src')}/`
         }
       ]
@@ -140,16 +160,25 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       minify: 'esbuild',
       outDir: env.VITE_OUT_DIR || 'dist',
       sourcemap: false,
+      reportCompressedSize: false,
       target: 'es2015',
       esbuild: {
         drop: ['console', 'debugger']
       },
       rollupOptions: {
-        maxParallelFileOps: 2,
+        maxParallelFileOps: 1,
         output: {
-          manualChunks: {
-            vendor: ['vue', 'vue-router', 'element-plus'],
-            utils: ['axios', 'lodash-es']
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+            if (id.includes('element-plus')) return 'element-plus'
+            if (id.includes('echarts')) return 'echarts'
+            if (id.includes('mapbox') || id.includes('@mapbox')) return 'mapbox'
+            if (id.includes('@turf')) return 'turf'
+            if (id.includes('langchain') || id.includes('@langchain')) return 'langchain'
+            if (id.includes('lodash')) return 'lodash'
+            if (id.includes('@vue') || id.includes('vue-router') || id.includes('pinia')) {
+              return 'vue-vendor'
+            }
           }
         }
       },

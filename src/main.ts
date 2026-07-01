@@ -15,6 +15,7 @@ import { setupGlobCom } from '@/components'
 
 // 引入element-plus
 import { setupElementPlus } from '@/plugins/elementPlus'
+import 'element-plus/dist/index.css'
 
 // 引入全局样式
 import '@/styles/index.less'
