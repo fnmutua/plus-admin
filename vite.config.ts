@@ -27,13 +27,19 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
   // `development` for dev, `production` for build). Keep shared vars in `.env` only.
   const env = loadEnv(mode, root) as Record<string, string>
 
-  return {
-    base: env.VITE_BASE_PATH,
-    plugins: [
+  const plugins = [
       Vue(),
       VueJsx(),
       WindiCSS(),
-      nodePolyfills(),
+      nodePolyfills({
+        include: ['buffer', 'process', 'stream', 'util', 'path'],
+        globals: {
+          Buffer: true,
+          global: true,
+          process: true
+        },
+        protocolImports: true
+      }),
       createStyleImportPlugin({
         resolves: [ElementPlusResolve()],
         libs: [{
@@ -44,10 +50,14 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           }
         }]
       }),
-      EslintPlugin({
-        cache: false,
-        include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx'] // 检查的文件
-      }),
+      ...(isBuild
+        ? []
+        : [
+            EslintPlugin({
+              cache: false,
+              include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx']
+            })
+          ]),
       VueI18n({
         runtimeOnly: true,
         compositionOnly: true
@@ -96,7 +106,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           }
         }
       })
-    ],
+    ]
+
+  return {
+    base: env.VITE_BASE_PATH,
+    plugins,
 
     css: {
       preprocessorOptions: {
@@ -122,34 +136,23 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       ]
     },
     build: {
-      minify: 'terser',
-       outDir: env.VITE_OUT_DIR || 'dist',
+      // esbuild uses far less RAM than terser on large apps (important for server builds)
+      minify: 'esbuild',
+      outDir: env.VITE_OUT_DIR || 'dist',
       sourcemap: false,
-      // brotliSize: false,
-      terserOptions: {
-        compress: {
-          drop_debugger: true,
-          drop_console: true,
-          pure_funcs: ['console.log', 'console.info'],
-          dead_code: true
-        },
-        format: {
-          comments: false
-        }
+      target: 'es2015',
+      esbuild: {
+        drop: ['console', 'debugger']
       },
       rollupOptions: {
+        maxParallelFileOps: 2,
         output: {
           manualChunks: {
             vendor: ['vue', 'vue-router', 'element-plus'],
-            utils: ['axios', 'lodash']
+            utils: ['axios', 'lodash-es']
           }
         }
       },
-      // rollupOptions: {
-      //   external: ['@watergis/mapbox-gl-export'], // Add the external module here
-      // },
-
-
 
     }, 
     server: {
