@@ -141,6 +141,17 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noCache: true
     }
   },
+  {
+    path: '/dr-clarify/:token',
+    component: () => import('@/views/Landing/DataRequestClarifyPublic.vue'),
+    name: 'DataRequestClarify',
+    meta: {
+      hidden: true,
+      title: 'Data Request Clarifications',
+      noCache: true,
+      public: true
+    }
+  },
 
   {
     path: '/privacy',
@@ -1778,7 +1789,8 @@ router.beforeEach((to, from, next) => {
 
 export const resetRouter = (): void => {
   const resetWhiteNameList = ['Redirect', 'Login', 'Register', 'NoFind', 'Root', 'Reset', 'Logoff', 
-    'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount','docs']
+    'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount','docs',
+    'DataRequest', 'DataRequestShare', 'DataRequestClarify', 'SharedDocuments']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {

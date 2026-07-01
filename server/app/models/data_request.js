@@ -149,6 +149,19 @@ module.exports = function (sequelize, DataTypes) {
     coordinator_approved_at: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    clarification_status: {
+      type: DataTypes.STRING(30),
+      allowNull: false,
+      defaultValue: 'none'
+    },
+    clarification_token: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    clarification_token_expires_at: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,

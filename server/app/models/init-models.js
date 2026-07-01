@@ -125,6 +125,7 @@ var _role= require('./role')
 var _data_request= require('./data_request')
 var _data_request_document = require('./DataRequestDocument')
 var _data_request_share = require('./DataRequestShare')
+var _data_request_message = require('./DataRequestMessage')
 var _communication = require('./communication')
 var _communication_recipient = require('./communication_recipient')
 
@@ -260,6 +261,7 @@ var role = _role(sequelize, DataTypes)
 var data_request = _data_request(sequelize, DataTypes)
 var data_request_document = _data_request_document(sequelize, DataTypes)
 var data_request_share = _data_request_share(sequelize, DataTypes)
+var data_request_message = _data_request_message(sequelize, DataTypes)
 var communication = _communication(sequelize, DataTypes)
 var communication_recipient = _communication_recipient(sequelize, DataTypes)
 
@@ -281,6 +283,7 @@ communication_recipient.belongsTo(communication, {
     data_request,
     data_request_document,
     data_request_share,
+    data_request_message,
     communication,
     communication_recipient,
     beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,

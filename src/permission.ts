@@ -17,11 +17,30 @@ const { wsCache } = useCache();
 const { start, done } = useNProgress();
 const { loadStart, loadDone } = usePageLoading();
 
-const whiteList = [ '/api-docs', '/login', '/register', '/logoff', '/privacy','/status','/status/:id',  '/grm', '/incidents',  '/landing', '/about', '/contact',  '/faqs','/delete','/docs', '/data-request', '/dr-share']; // Whitelisted routes
+const whiteList = [
+  '/api-docs', '/login', '/register', '/logoff', '/privacy', '/status', '/status/:id',
+  '/grm', '/incidents', '/landing', '/about', '/contact', '/faqs', '/delete', '/docs',
+  '/data-request', '/dr-share', '/dr-clarify'
+]
+
+/** Public routes — no login required (anonymous or logged-in). */
+const isPublicPath = (path: string): boolean =>
+  whiteList.indexOf(path) !== -1 ||
+  path.startsWith('/reset') ||
+  path.startsWith('/status') ||
+  path.startsWith('/incidents/') ||
+  path.startsWith('/share/') ||
+  path.startsWith('/dr-share/') ||
+  path.startsWith('/dr-clarify/')
 
 router.beforeEach(async (to, from, next) => {
   start();
   loadStart();
+
+  if (isPublicPath(to.path)) {
+    next();
+    return;
+  }
 
   const userInfo = wsCache.get(appStore.getUserInfo);
   console.log(userInfo)
@@ -105,29 +124,7 @@ router.beforeEach(async (to, from, next) => {
     }
   } 
   else {
-    if (whiteList.indexOf(to.path) !== -1) {
-      next();
-    } else if (to.path.startsWith('/reset')) {
-
-      
-
-      next(); // For reset, do not redirect
-    } 
-    else if (to.path.startsWith('/status')) {
-      next(); // For reset, do not redirect
-    }
-    else if (to.path.startsWith('/incidents/')) {
-      next(); // For public incident details, do not redirect
-    }
-    else if (to.path.startsWith('/share/')) {
-      next(); // For public shared documents, do not redirect
-    }
-    else if (to.path.startsWith('/dr-share/')) {
-      next(); // For public data request share links, do not redirect
-    }
-    else {
-      next(`/login?redirect=${to.path}`); // Otherwise, redirect to the login page
-    }
+    next(`/login?redirect=${to.path}`);
   }
 });
 

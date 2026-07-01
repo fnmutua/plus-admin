@@ -9,6 +9,7 @@ const shortid = require('shortid')
 const nodemailer = require('nodemailer')
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib')
 const QRCode = require('qrcode')
+const { getFrontendBaseUrl } = require('../utils/frontend-url')
 
 const generateDRCode = async () => {
   const prefix = 'DR'
@@ -89,11 +90,133 @@ const isRequesterVisibleDocument = (doc) => {
   return true
 }
 
-/** Same base as admin UI / share email: FRONTEND_URL or request host (port stripped). */
-const publicFrontendBaseUrl = (req) => {
-  if (process.env.FRONTEND_URL) return String(process.env.FRONTEND_URL).trim().replace(/\/$/, '')
-  if (req) return `${req.protocol}://${req.get('host')}`.replace(/:\d+$/, '')
-  return ''
+/** Public frontend origin — aligned with VITE_APP_HOST / FRONTEND_URL (see utils/frontend-url). */
+const publicFrontendBaseUrl = (req) => getFrontendBaseUrl(req)
+
+/** Public clarify page — matches admin UI: `origin + '/#/dr-clarify/' + token` */
+const buildDrClarifyPublicUrl = (token, req) => {
+  const base = publicFrontendBaseUrl(req)
+  if (!base || !token) return ''
+  return `${base}/#/dr-clarify/${token}`
+}
+
+const CLARIFICATION_TOKEN_DAYS = 90
+
+const ensureClarificationToken = async (record) => {
+  const updates = {}
+  if (!record.clarification_token) {
+    updates.clarification_token = crypto.randomUUID()
+    updates.clarification_token_expires_at = new Date(
+      Date.now() + CLARIFICATION_TOKEN_DAYS * 24 * 60 * 60 * 1000
+    )
+  } else if (
+    record.clarification_token_expires_at &&
+    new Date(record.clarification_token_expires_at).getTime() < Date.now()
+  ) {
+    updates.clarification_token = crypto.randomUUID()
+    updates.clarification_token_expires_at = new Date(
+      Date.now() + CLARIFICATION_TOKEN_DAYS * 24 * 60 * 60 * 1000
+    )
+  }
+  if (Object.keys(updates).length) {
+    await record.update(updates)
+  }
+  return record.clarification_token
+}
+
+const findDataRequestByClarificationToken = async (token) => {
+  if (!token) return null
+  const record = await db.models.data_request.findOne({ where: { clarification_token: token } })
+  if (!record) return null
+  if (
+    record.clarification_token_expires_at &&
+    new Date(record.clarification_token_expires_at).getTime() < Date.now()
+  ) {
+    return { expired: true, record }
+  }
+  return { expired: false, record }
+}
+
+const sendClarificationQuestionEmail = async (req, record, messageBody) => {
+  const to = String(record?.email || '').trim()
+  if (!to || !emailRegex.test(to)) return
+
+  const clarifyUrl = buildDrClarifyPublicUrl(record.clarification_token, req)
+  if (!clarifyUrl) return
+
+  const subject = `Clarification needed — Data request ${record.code}`
+  const html = `
+    <p>Dear ${record.name || 'Applicant'},</p>
+    <p>The KeSMIS team needs additional information regarding your data request <strong>${record.code}</strong>.</p>
+    <blockquote style="margin:12px 0;padding:12px 16px;border-left:4px solid #409eff;background:#f5f7fa;">
+      ${String(messageBody || '').replace(/\n/g, '<br/>')}
+    </blockquote>
+    <p>Please use the link below to view the full conversation and submit your response:</p>
+    <p><a href="${clarifyUrl}" style="font-size:16px">${clarifyUrl}</a></p>
+    <p>This link is valid until ${record.clarification_token_expires_at ? new Date(record.clarification_token_expires_at).toDateString() : 'expiry'}.</p>
+    <br/><p>Kenya Slum Information Management System (KeSMIS)</p>
+  `
+  const text = [
+    `Dear ${record.name || 'Applicant'},`,
+    '',
+    `We need clarification on your data request ${record.code}:`,
+    '',
+    messageBody,
+    '',
+    `Respond here: ${clarifyUrl}`,
+    '',
+    'KeSMIS'
+  ].join('\n')
+
+  await buildTransporter().sendMail({
+    from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+    to,
+    subject,
+    text,
+    html
+  })
+}
+
+const notifySupportClarificationReply = async (req, record, messageBody) => {
+  const supportUsers = await db.user.findAll({
+    attributes: ['id', 'name', 'email', 'isactive'],
+    include: [{
+      model: db.role,
+      attributes: ['name'],
+      where: { name: 'support' },
+      through: { attributes: [] }
+    }]
+  })
+
+  const recipients = supportUsers
+    .filter((u) => u?.isactive && emailRegex.test(u?.email || ''))
+    .map((u) => ({ name: u.name || 'Support', email: u.email }))
+
+  if (!recipients.length) return
+
+  const frontendUrl = publicFrontendBaseUrl(req)
+  const adminUrl = `${frontendUrl}/#/admin/data-requests/${record.id}`
+  const subject = `Clarification reply — ${record.code}`
+  const html = `
+    <p>Hello Support Team,</p>
+    <p><strong>${record.name}</strong> replied to a clarification request on data request <strong>${record.code}</strong>.</p>
+    <blockquote style="margin:12px 0;padding:12px 16px;border-left:4px solid #67c23a;background:#f5f7fa;">
+      ${String(messageBody || '').replace(/\n/g, '<br/>')}
+    </blockquote>
+    <p><a href="${adminUrl}">Open request in admin</a></p>
+    <p>KeSMIS</p>
+  `
+
+  const transporter = buildTransporter()
+  await Promise.all(recipients.map((r) =>
+    transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+      to: r.email,
+      subject,
+      text: `${record.name} replied on ${record.code}:\n\n${messageBody}\n\nOpen: ${adminUrl}`,
+      html
+    })
+  ))
 }
 
 /** Public download page — matches `DataRequestDetail.vue`: `origin + '/#/dr-share/' + token` */
@@ -622,7 +745,7 @@ const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
 
   if (!recipients.length) return
 
-  const frontendUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`.replace(/:\d+$/, '')
+  const frontendUrl = publicFrontendBaseUrl(req)
   const adminUrl = `${frontendUrl}/#/admin/data-requests/${requestRecord.id}`
   const submittedOn = new Date(requestRecord.createdAt).toLocaleString('en-KE')
   const subject = `New Data Request Submitted: ${requestRecord.code}`
@@ -786,6 +909,198 @@ exports.downloadPublicDataRequestDocument = async (req, res) => {
     return res.download(doc.location, doc.name)
   } catch (err) {
     console.error('[DataRequest] downloadPublicDataRequestDocument error:', err)
+    return res.status(500).json({ code: '5000', message: err.message })
+  }
+}
+
+// ── Clarifications ─────────────────────────────────────────────────────────────
+
+const formatMessage = (m) => ({
+  id: m.id,
+  data_request_id: m.data_request_id,
+  author_type: m.author_type,
+  author_user_id: m.author_user_id,
+  author_name: m.author_name,
+  body: m.body,
+  createdAt: m.createdAt,
+  updatedAt: m.updatedAt
+})
+
+exports.getDataRequestMessages = async (req, res) => {
+  try {
+    const { id } = req.params
+    const record = await db.models.data_request.findByPk(id)
+    if (!record) return res.status(404).json({ code: '4004', message: 'Not found' })
+
+    const messages = await db.models.data_request_message.findAll({
+      where: { data_request_id: id },
+      order: [['createdAt', 'ASC']]
+    })
+
+    const clarifyUrl = record.clarification_token
+      ? buildDrClarifyPublicUrl(record.clarification_token, req)
+      : ''
+
+    return res.status(200).json({
+      code: '0000',
+      results: {
+        messages: messages.map(formatMessage),
+        clarification_status: record.clarification_status || 'none',
+        clarify_url: clarifyUrl,
+        clarification_token_expires_at: record.clarification_token_expires_at
+      }
+    })
+  } catch (err) {
+    console.error('[DataRequest] getDataRequestMessages error:', err)
+    return res.status(500).json({ code: '5000', message: err.message })
+  }
+}
+
+exports.postDataRequestMessage = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { body } = req.body
+    const text = String(body || '').trim()
+    if (!text) {
+      return res.status(400).json({ code: '4000', message: 'Message body is required' })
+    }
+
+    const record = await db.models.data_request.findByPk(id)
+    if (!record) return res.status(404).json({ code: '4004', message: 'Not found' })
+
+    const userId = req.thisUser?.id || null
+    const authorName = req.thisUser?.name || req.thisUser?.username || 'Reviewer'
+
+    await ensureClarificationToken(record)
+    await record.reload()
+
+    const message = await db.models.data_request_message.create({
+      data_request_id: parseInt(id, 10),
+      author_type: 'reviewer',
+      author_user_id: userId,
+      author_name: authorName,
+      body: text
+    })
+
+    await record.update({ clarification_status: 'awaiting_requester' })
+
+    try {
+      await sendClarificationQuestionEmail(req, record, text)
+    } catch (emailErr) {
+      console.error('[DataRequest] clarification question email failed:', emailErr)
+    }
+
+    return res.status(200).json({
+      code: '0000',
+      message: 'Clarification sent',
+      results: {
+        message: formatMessage(message),
+        clarification_status: 'awaiting_requester',
+        clarify_url: buildDrClarifyPublicUrl(record.clarification_token, req)
+      }
+    })
+  } catch (err) {
+    console.error('[DataRequest] postDataRequestMessage error:', err)
+    return res.status(500).json({ code: '5000', message: err.message })
+  }
+}
+
+exports.updateClarificationStatus = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { clarification_status } = req.body
+    const allowed = ['none', 'awaiting_requester', 'awaiting_reviewer', 'resolved']
+    if (!allowed.includes(clarification_status)) {
+      return res.status(400).json({ code: '4000', message: 'Invalid clarification status' })
+    }
+
+    const record = await db.models.data_request.findByPk(id)
+    if (!record) return res.status(404).json({ code: '4004', message: 'Not found' })
+
+    await record.update({ clarification_status })
+
+    return res.status(200).json({
+      code: '0000',
+      message: 'Updated',
+      results: { clarification_status: record.clarification_status }
+    })
+  } catch (err) {
+    console.error('[DataRequest] updateClarificationStatus error:', err)
+    return res.status(500).json({ code: '5000', message: err.message })
+  }
+}
+
+exports.getPublicDataRequestClarify = async (req, res) => {
+  try {
+    const { token } = req.params
+    const found = await findDataRequestByClarificationToken(token)
+    if (!found) return res.status(404).json({ code: '4004', message: 'Link not found' })
+    if (found.expired) {
+      return res.status(410).json({ code: '4010', message: 'Link expired' })
+    }
+
+    const { record } = found
+    const messages = await db.models.data_request_message.findAll({
+      where: { data_request_id: record.id },
+      order: [['createdAt', 'ASC']]
+    })
+
+    return res.status(200).json({
+      code: '0000',
+      results: {
+        code: record.code,
+        name: record.name,
+        clarification_status: record.clarification_status || 'none',
+        expires_at: record.clarification_token_expires_at,
+        messages: messages.map(formatMessage)
+      }
+    })
+  } catch (err) {
+    console.error('[DataRequest] getPublicDataRequestClarify error:', err)
+    return res.status(500).json({ code: '5000', message: err.message })
+  }
+}
+
+exports.postPublicDataRequestClarifyReply = async (req, res) => {
+  try {
+    const { token } = req.params
+    const { body } = req.body
+    const text = String(body || '').trim()
+    if (!text) {
+      return res.status(400).json({ code: '4000', message: 'Reply is required' })
+    }
+
+    const found = await findDataRequestByClarificationToken(token)
+    if (!found) return res.status(404).json({ code: '4004', message: 'Link not found' })
+    if (found.expired) {
+      return res.status(410).json({ code: '4010', message: 'Link expired' })
+    }
+
+    const { record } = found
+
+    const message = await db.models.data_request_message.create({
+      data_request_id: record.id,
+      author_type: 'requester',
+      author_user_id: null,
+      author_name: record.name,
+      body: text
+    })
+
+    await record.update({ clarification_status: 'awaiting_reviewer' })
+
+    try {
+      await notifySupportClarificationReply(req, record, text)
+    } catch (emailErr) {
+      console.error('[DataRequest] clarification reply notify failed:', emailErr)
+    }
+
+    return res.status(200).json({
+      code: '0000',
+      message: 'Reply submitted',
+      results: { message: formatMessage(message), clarification_status: 'awaiting_reviewer' }
+    })
+  } catch (err) {
+    console.error('[DataRequest] postPublicDataRequestClarifyReply error:', err)
     return res.status(500).json({ code: '5000', message: err.message })
   }
 }

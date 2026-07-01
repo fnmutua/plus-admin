@@ -2583,6 +2583,15 @@ module.exports = function (app) {
   app.get('/api/public/data-request/share/:token', dataRequestController.getPublicDataRequestShare)
   app.get('/api/public/data-request/share/:token/download/:docId', dataRequestController.downloadPublicDataRequestDocument)
 
+  // Public: requester clarification thread (no auth)
+  app.get('/api/public/data-request/clarify/:token', dataRequestController.getPublicDataRequestClarify)
+  app.post('/api/public/data-request/clarify/:token', dataRequestController.postPublicDataRequestClarifyReply)
+
+  // Data request clarifications (auth required)
+  app.get('/api/v1/data-requests/:id/messages', [authJwt.verifyToken], dataRequestController.getDataRequestMessages)
+  app.post('/api/v1/data-requests/:id/messages', [authJwt.verifyToken], dataRequestController.postDataRequestMessage)
+  app.put('/api/v1/data-requests/:id/clarification-status', [authJwt.verifyToken], dataRequestController.updateClarificationStatus)
+
   // Public settlement register (no auth) – landing page
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
   app.get('/api/public/register/subcounties', controller.getPublicRegisterSubcounties)

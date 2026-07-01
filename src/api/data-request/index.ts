@@ -101,3 +101,59 @@ export const shareDataRequest = (requestId: number, token: string) =>
       { headers: { 'x-access-token': token, 'Content-Type': 'application/json' } }
     )
     .then((res) => res.data)
+
+// ── Clarifications ───────────────────────────────────────────────────────────
+
+export interface DataRequestMessage {
+  id: number
+  data_request_id: number
+  author_type: 'reviewer' | 'requester'
+  author_user_id?: number | null
+  author_name?: string
+  body: string
+  createdAt: string
+  updatedAt: string
+}
+
+export const getDataRequestMessages = (requestId: number, token: string) =>
+  axios
+    .get(`${base}/api/v1/data-requests/${requestId}/messages`, {
+      headers: { 'x-access-token': token }
+    })
+    .then((res) => res.data)
+
+export const postDataRequestMessage = (requestId: number, body: string, token: string) =>
+  axios
+    .post(
+      `${base}/api/v1/data-requests/${requestId}/messages`,
+      { body },
+      { headers: { 'x-access-token': token, 'Content-Type': 'application/json' } }
+    )
+    .then((res) => res.data)
+
+export const updateClarificationStatus = (
+  requestId: number,
+  clarification_status: string,
+  token: string
+) =>
+  axios
+    .put(
+      `${base}/api/v1/data-requests/${requestId}/clarification-status`,
+      { clarification_status },
+      { headers: { 'x-access-token': token, 'Content-Type': 'application/json' } }
+    )
+    .then((res) => res.data)
+
+// Public: view clarification thread (no auth)
+export const getPublicClarification = (clarifyToken: string) =>
+  axios
+    .get(`${base}/api/public/data-request/clarify/${clarifyToken}`)
+    .then((res) => res.data)
+
+// Public: submit clarification reply (no auth)
+export const postPublicClarificationReply = (clarifyToken: string, body: string) =>
+  axios
+    .post(`${base}/api/public/data-request/clarify/${clarifyToken}`, { body }, {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then((res) => res.data)

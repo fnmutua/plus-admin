@@ -60,9 +60,19 @@
       <el-table-column prop="organization" label="Organization" min-width="150" show-overflow-tooltip sortable />
       <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
       <el-table-column prop="geographic_scope" label="Scope" width="120" />
-      <el-table-column label="Status" width="110" sortable :sort-method="(a, b) => a.status.localeCompare(b.status)">
+      <el-table-column label="Status" width="180" sortable :sort-method="(a, b) => a.status.localeCompare(b.status)">
         <template #default="{ row }">
-          <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
+          <div class="status-cell">
+            <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
+            <el-tag
+              v-if="clarificationLabel(row.clarification_status)"
+              size="small"
+              effect="plain"
+              :type="clarificationTag(row.clarification_status)"
+            >
+              {{ clarificationLabel(row.clarification_status) }}
+            </el-tag>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="Submitted" width="130" sortable :sort-method="(a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)">
@@ -159,6 +169,18 @@ const openDetail = (row: any) => router.push(`/admin/data-requests/${row.id}`)
 const statusTag = (s: string) =>
   s === 'Approved' ? 'success' : s === 'Rejected' ? 'danger' : 'warning'
 
+const clarificationLabel = (s: string | undefined) => {
+  const map: Record<string, string> = {
+    awaiting_requester: 'Awaiting requester',
+    awaiting_reviewer: 'Needs review',
+    resolved: 'Clarified'
+  }
+  return s && map[s] ? map[s] : ''
+}
+
+const clarificationTag = (s: string) =>
+  s === 'awaiting_reviewer' ? 'danger' : s === 'awaiting_requester' ? 'warning' : 'info'
+
 const formatDate = (d: string) =>
   d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
@@ -185,5 +207,12 @@ onMounted(loadRequests)
 }
 :deep(.clickable-row:hover > td) {
   background: var(--el-fill-color-light) !important;
+}
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
 }
 </style>

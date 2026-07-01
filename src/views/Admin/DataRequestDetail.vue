@@ -98,6 +98,102 @@
             </div>
           </el-tab-pane>
 
+          <el-tab-pane name="clarifications">
+            <template #label>
+              <span class="drd-tab-label">
+                <Icon icon="mdi:forum-outline" width="18" class="drd-tab-label-icon" />
+                Clarifications
+                <el-badge
+                  v-if="clarificationAwaitingReviewer"
+                  is-dot
+                  type="danger"
+                  style="margin-left: 6px"
+                />
+              </span>
+            </template>
+            <div class="drd-tab-panel">
+
+          <el-alert
+            v-if="clarificationStatus === 'awaiting_requester'"
+            type="warning"
+            :closable="false"
+            show-icon
+            title="Awaiting requester response"
+            description="A clarification question has been sent. The requester has not replied yet."
+            style="margin-bottom: 10px"
+          />
+
+          <el-card class="drd-card" shadow="never">
+            <template #header>
+              <div class="card-title">
+                <Icon icon="mdi:forum-outline" width="18" />
+                Clarification thread
+                <el-tag v-if="clarificationStatusLabel" size="small" effect="plain" style="margin-left: 8px">
+                  {{ clarificationStatusLabel }}
+                </el-tag>
+              </div>
+            </template>
+
+            <div ref="clarifyThreadRef" class="clarify-thread">
+              <el-skeleton v-if="messagesLoading" :rows="3" animated />
+              <el-empty v-else-if="!messages.length" description="No clarifications yet" :image-size="52" />
+              <div
+                v-for="msg in messages"
+                v-else
+                :key="msg.id"
+                class="clarify-msg"
+                :class="msg.author_type === 'requester' ? 'clarify-msg--requester' : 'clarify-msg--reviewer'"
+              >
+                <div class="clarify-msg-meta">
+                  <span class="clarify-msg-author">{{ msg.author_name || (msg.author_type === 'requester' ? 'Requester' : 'Reviewer') }}</span>
+                  <span class="clarify-msg-time">{{ formatDateTime(msg.createdAt) }}</span>
+                </div>
+                <div class="clarify-msg-body">{{ msg.body }}</div>
+              </div>
+            </div>
+
+            <el-divider style="margin: 14px 0" />
+
+            <el-input
+              v-model="newClarification"
+              type="textarea"
+              :rows="3"
+              placeholder="Ask the requester for clarification…"
+              maxlength="4000"
+              show-word-limit
+            />
+            <div class="clarify-actions">
+              <div class="clarify-actions-primary">
+                <el-button
+                  type="primary"
+                  :loading="sendingClarification"
+                  :disabled="!newClarification.trim()"
+                  @click="sendClarification"
+                >
+                  Send to requester
+                </el-button>
+                <el-button
+                  v-if="clarifyLink"
+                  plain
+                  @click="copyClarifyLink"
+                >
+                  Copy link to clipboard
+                </el-button>
+              </div>
+              <el-button
+                v-if="clarificationStatus !== 'none' && clarificationStatus !== 'resolved'"
+                plain
+                :loading="resolvingClarifications"
+                @click="markClarificationsResolved"
+              >
+                Mark resolved
+              </el-button>
+            </div>
+          </el-card>
+
+            </div>
+          </el-tab-pane>
+
           <el-tab-pane name="review">
             <template #label>
               <span class="drd-tab-label">
@@ -106,6 +202,16 @@
               </span>
             </template>
             <div class="drd-tab-panel">
+
+          <el-alert
+            v-if="clarificationStatus === 'awaiting_requester'"
+            type="warning"
+            :closable="false"
+            show-icon
+            title="Clarification pending"
+            description="Waiting for the requester to respond before proceeding may be advisable."
+            style="margin-bottom: 10px"
+          />
 
           <!-- Review card -->
           <el-card class="drd-card" shadow="never">
@@ -309,9 +415,14 @@ import {
   deleteDataRequestDocument,
   downloadDataRequestDocument,
   generateDataRequestFormDocument,
-  shareDataRequest
+  shareDataRequest,
+  getDataRequestMessages,
+  postDataRequestMessage,
+  updateClarificationStatus,
+  type DataRequestMessage
 } from '@/api/data-request'
 import axios from 'axios'
+import { publicAppHashUrl } from '@/config/apiBase'
 import { getCountyListApi } from '@/api/counties'
 import { getSubCountyAuth } from '@/api/register'
 
@@ -325,7 +436,7 @@ const getToken = () => wsCache.get(appStore.getUserInfo)?.data || ''
 const authHeaders = () => ({ 'x-access-token': getToken(), 'Content-Type': 'application/json' })
 
 const requestId = Number(route.params.id)
-const activeTab = ref<'details' | 'review'>('details')
+const activeTab = ref<'details' | 'clarifications' | 'review'>('details')
 
 // ── request ───────────────────────────────────────────────────────────────────
 const pageLoading = ref(true)
@@ -493,6 +604,106 @@ onBeforeUnmount(() => {
   clearPersistDebounce()
 })
 
+// ── clarifications ────────────────────────────────────────────────────────────
+const messages = ref<DataRequestMessage[]>([])
+const messagesLoading = ref(false)
+const clarificationStatus = ref('none')
+const clarifyLink = ref('')
+const newClarification = ref('')
+const sendingClarification = ref(false)
+const resolvingClarifications = ref(false)
+const clarifyThreadRef = ref<HTMLElement | null>(null)
+
+const clarificationAwaitingReviewer = computed(() => clarificationStatus.value === 'awaiting_reviewer')
+
+const clarificationStatusLabel = computed(() => {
+  const map: Record<string, string> = {
+    none: '',
+    awaiting_requester: 'Awaiting requester',
+    awaiting_reviewer: 'Awaiting reviewer',
+    resolved: 'Resolved'
+  }
+  return map[clarificationStatus.value] || clarificationStatus.value
+})
+
+const scrollClarifyThread = async () => {
+  await nextTick()
+  if (clarifyThreadRef.value) {
+    clarifyThreadRef.value.scrollTop = clarifyThreadRef.value.scrollHeight
+  }
+}
+
+const loadMessages = async () => {
+  messagesLoading.value = true
+  try {
+    const res = await getDataRequestMessages(requestId, getToken())
+    messages.value = res.results?.messages || []
+    clarificationStatus.value = res.results?.clarification_status || 'none'
+    clarifyLink.value = res.results?.clarify_url || ''
+    if (request.value) request.value.clarification_status = clarificationStatus.value
+    await scrollClarifyThread()
+  } catch {
+    ElMessage.error('Failed to load clarifications')
+  } finally {
+    messagesLoading.value = false
+  }
+}
+
+const sendClarification = async () => {
+  const body = newClarification.value.trim()
+  if (!body) return
+  sendingClarification.value = true
+  try {
+    const res = await postDataRequestMessage(requestId, body, getToken())
+    if (res.results?.message) messages.value.push(res.results.message)
+    clarificationStatus.value = res.results?.clarification_status || 'awaiting_requester'
+    clarifyLink.value = res.results?.clarify_url || clarifyLink.value
+    if (request.value) request.value.clarification_status = clarificationStatus.value
+    newClarification.value = ''
+    ElMessage.success('Clarification sent to requester')
+    await scrollClarifyThread()
+  } catch {
+    ElMessage.error('Failed to send clarification')
+  } finally {
+    sendingClarification.value = false
+  }
+}
+
+const markClarificationsResolved = async () => {
+  resolvingClarifications.value = true
+  try {
+    await updateClarificationStatus(requestId, 'resolved', getToken())
+    clarificationStatus.value = 'resolved'
+    if (request.value) request.value.clarification_status = 'resolved'
+    ElMessage.success('Clarifications marked as resolved')
+  } catch {
+    ElMessage.error('Failed to update status')
+  } finally {
+    resolvingClarifications.value = false
+  }
+}
+
+const copyClarifyLink = async () => {
+  if (!clarifyLink.value) return
+  try {
+    await navigator.clipboard.writeText(clarifyLink.value)
+    ElMessage.success('Link copied')
+  } catch {
+    ElMessage.error('Failed to copy')
+  }
+}
+
+const formatDateTime = (d: string) =>
+  d
+    ? new Date(d).toLocaleString('en-KE', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : '—'
+
 // ── documents ─────────────────────────────────────────────────────────────────
 const docs = ref<any[]>([])
 const docsLoading = ref(false)
@@ -614,8 +825,9 @@ const shareWithRequester = async () => {
   try {
     const res = await shareDataRequest(requestId, getToken())
     const token = res.results?.token || res.data?.token || res.token
-    if (token) {
-      shareLink.value = `${window.location.origin}/#/dr-share/${token}`
+    if (token || res.results?.url) {
+      shareLink.value =
+        res.results?.url || (token ? publicAppHashUrl(`/dr-share/${token}`) : '')
       ElMessage.success('Email sent to ' + request.value?.email)
     } else {
       ElMessage.warning('Share created but no token returned')
@@ -680,6 +892,7 @@ const fileIcon = (format: string | undefined) => {
 onMounted(() => {
   loadRequest()
   loadDocuments()
+  loadMessages()
 })
 </script>
 
@@ -894,5 +1107,69 @@ onMounted(() => {
   max-width: 100%;
   margin-top: 6px;
   box-sizing: border-box;
+}
+
+/* Clarifications */
+.clarify-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.clarify-msg {
+  max-width: 90%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.clarify-msg--reviewer {
+  align-self: flex-start;
+  background: #ecf5ff;
+}
+
+.clarify-msg--requester {
+  align-self: flex-end;
+  background: #f0f9eb;
+}
+
+.clarify-msg-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  color: var(--el-text-color-secondary);
+}
+
+.clarify-msg-author {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.clarify-msg-body {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.clarify-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.clarify-actions-primary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 </style>
