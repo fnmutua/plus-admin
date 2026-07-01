@@ -8,12 +8,14 @@ const GEO_USERNAME = process.env.GEOSERVER_USERNAME || 'admin';
 const GEO_PASSWORD = process.env.GEOSERVER_PASSWORD || 'Admin@2011';
 const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
 
-const uploadDir = '/data/imagery';
+const { IMAGERY_DIR, ensureDir } = require('../config/paths.config');
+
+const uploadDir = IMAGERY_DIR;
 
 // Ensure the directory exists
 if (!fs.existsSync(uploadDir)) {
   console.log('Create Folder if not esists ')
-  fs.mkdirSync(uploadDir, { recursive: true });
+  ensureDir(uploadDir);
 } else {
   console.log('Folder exists. Skipping ')
 }
@@ -64,7 +66,7 @@ async function getResourceUrl(GEO_SERVER_URL,layerName, workspace, username, pas
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, '/data/imagery'); // Define the directory where uploaded files will be stored
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname); // Keep the original file name

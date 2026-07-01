@@ -4946,8 +4946,8 @@ exports.modelEditOneRecord = (req, res) => {
           oldFileName = pathParts[pathParts.length - 1];
         }
         
-        const oldFilePath = `/data/uploads/${oldFileName}`;
-        const newFilePath = `/data/uploads/${req.body.edited_name}`;
+        const oldFilePath = path.join(uploadDir, oldFileName);
+        const newFilePath = path.join(uploadDir, req.body.edited_name);
         
         // Only rename if the file name actually changed
         if (oldFileName && oldFileName !== req.body.edited_name) {
@@ -4969,7 +4969,7 @@ exports.modelEditOneRecord = (req, res) => {
               } else {
                 // Try to find file by searching in uploads directory (last resort)
                 try {
-                  const uploadsDir = '/data/uploads';
+                  const uploadsDir = uploadDir;
                   const files = await fs.promises.readdir(uploadsDir);
                   const matchingFile = files.find(f => f === oldFileName || f.startsWith(oldFileName.split('.')[0]));
                   
@@ -6974,14 +6974,14 @@ exports.getFieldQUnique = async (req, res) => {
 
 const multer = require('multer');
 const settlement_history = require('../models/settlement_history')
+const { UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
-const uploadDir = '/data/uploads';
-
+const uploadDir = UPLOAD_DIR;
 
 // Ensure the directory exists
 if (!fs.existsSync(uploadDir)) {
   console.log('Create Folder if not esists ')
-  fs.mkdirSync(uploadDir, { recursive: true });
+  ensureDir(uploadDir);
 } else {
   console.log('Folder exists. Skipping ')
 }
@@ -6989,7 +6989,7 @@ if (!fs.existsSync(uploadDir)) {
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, '/data/uploads'); // Define the directory where uploaded files will be stored
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname); // Keep the original file name
@@ -7982,7 +7982,7 @@ exports.modelUpload = (req, res) => {
 exports.xdownloadFile = (req, res) => {
   console.log("Received files:", req.body);
 
-  const uploadedFile = path.join('/data/uploads' , req.body.filename);
+  const uploadedFile = path.join(uploadDir , req.body.filename);
 
   console.log(uploadedFile);
 
@@ -8031,7 +8031,7 @@ exports.xdownloadFile = (req, res) => {
 exports.downloadFile = (req, res) => {
   console.log("Received files:", req.body);
 
-  const uploadedFile = path.join('/data/uploads' , req.body.filename);
+  const uploadedFile = path.join(uploadDir , req.body.filename);
 
   console.log(uploadedFile);
 
@@ -8130,12 +8130,12 @@ exports.getPhoto = async (req, res) => {
           console.log(`Constructed filename with format: ${fileName}`);
         }
         
-        filePath = path.join('/data/uploads', fileName);
+        filePath = path.join(uploadDir, fileName);
         console.log(`Constructed file path: ${filePath}`);
       }
     } else {
       // Use filename directly
-      filePath = path.join('/data/uploads', filename);
+      filePath = path.join(uploadDir, filename);
     }
 
     // Check if file exists, try alternative paths if not found
@@ -8144,13 +8144,13 @@ exports.getPhoto = async (req, res) => {
       // Try alternative paths if doc was loaded
       if (doc) {
         // Try with just the name (if we added format, try without)
-        const altPath1 = path.join('/data/uploads', doc.name);
+        const altPath1 = path.join(uploadDir, doc.name);
         if (fs.existsSync(altPath1)) {
           filePath = altPath1;
           console.log(`Found photo at alternative path: ${altPath1}`);
         } else if (doc.format && !altPath1.includes('.')) {
           // Try name + format if name doesn't have extension
-          const altPath2 = path.join('/data/uploads', doc.name + '.' + doc.format);
+          const altPath2 = path.join(uploadDir, doc.name + '.' + doc.format);
           if (fs.existsSync(altPath2)) {
             filePath = altPath2;
             console.log(`Found photo at alternative path: ${altPath2}`);
@@ -8403,7 +8403,7 @@ exports.downloadSharedFile = async (req, res) => {
     const doc = await db.models.document.findByPk(documentId)
     if (!doc) return res.status(404).send('File not found')
 
-    const filePath = path.isAbsolute(doc.location) ? doc.location : path.join('/data/uploads', doc.name)
+    const filePath = path.isAbsolute(doc.location) ? doc.location : path.join(uploadDir, doc.name)
     if (!fs.existsSync(filePath)) return res.status(404).send('File not found')
 
     // increment download count
@@ -8473,7 +8473,7 @@ exports.downloadSharedZip = async (req, res) => {
         return res.status(404).json({ code: '4040', message: `Document ${id} not found` })
       }
       const row = doc.get ? doc.get({ plain: true }) : doc
-      const filePath = path.isAbsolute(row.location) ? row.location : path.join('/data/uploads', row.name)
+      const filePath = path.isAbsolute(row.location) ? row.location : path.join(uploadDir, row.name)
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ code: '4040', message: `File missing on server: ${row.name}` })
       }
@@ -8661,7 +8661,7 @@ exports.RemoveDocument = (req, res) => {
 
     //  var filePath = './public/' + req.body.filesToDelete[i].name;
 
-    const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i].name );
+    const filePath = path.join(uploadDir, req.body.filesToDelete[i].name );
 
       // Try to delete the file, but don't fail if it doesn't exist
       try {
@@ -8684,7 +8684,7 @@ exports.RemoveDocument = (req, res) => {
     } else {
 
      // var filePath = './public/' + req.body.filesToDelete[i];
-      const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i]);
+      const filePath = path.join(uploadDir, req.body.filesToDelete[i]);
 
       // Try to delete the file, but don't fail if it doesn't exist
       try {
@@ -10460,7 +10460,7 @@ exports.filterRepository = async (req, res) => {
 
 
 exports.getRawDocuments = async (req, res) => {
-  const folderPath = '/data/uploads';
+  const folderPath = uploadDir;
 
   console.log('req.body.params',req.body.params)
   // Parse query parameters for pagination
@@ -10495,7 +10495,7 @@ exports.getRawDocuments = async (req, res) => {
 
 
 exports.DeleteRawDocuments = async (req, res) => {
-  const folderPath = '/data/uploads';
+  const folderPath = uploadDir;
 
   const fileName = req.body.fileName;
   const filePath = `${folderPath}/${fileName}`;
@@ -12989,10 +12989,9 @@ exports.downloadSettlementsGeoDataZip = async (req, res) => {
       compressionOptions: { level: 6 }
     });
 
-    // Save zip file to /data/uploads directory (same as other documents)
+    // Save zip file to upload directory (same as other documents)
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `settlements_geodata_${timestamp}_${Date.now()}.zip`;
-    const uploadDir = '/data/uploads';
     
     // Ensure upload directory exists
     if (!fs.existsSync(uploadDir)) {

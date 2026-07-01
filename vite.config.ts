@@ -5,7 +5,7 @@ import Vue from '@vitejs/plugin-vue'
 import WindiCSS from 'vite-plugin-windicss'
 import VueJsx from '@vitejs/plugin-vue-jsx'
 import EslintPlugin from 'vite-plugin-eslint'
-import VueI18n from '@intlify/vite-plugin-vue-i18n'
+import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import { createStyleImportPlugin, ElementPlusResolve } from 'vite-plugin-style-import'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import PurgeIcons from 'vite-plugin-purge-icons'
@@ -50,9 +50,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }),
       VueI18n({
         runtimeOnly: true,
-        compositionOnly: true,
-         include: [resolve(__dirname, 'src/locales/**')]
-        // include: [pathResolve('src/locales/**') ]
+        compositionOnly: true
       }),
       createSvgIconsPlugin({
         iconDirs: [pathResolve('src/assets/svgs')],
@@ -85,7 +83,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           setupProdMockServer()
           `
       }),
-      VueMarcos(),
+      VueMarcos({
+        setupComponent: {
+          exclude: [/src\/locales\//]
+        }
+      }),
       createHtmlPlugin({
         inject: {
           data: {

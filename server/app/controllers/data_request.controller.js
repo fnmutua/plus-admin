@@ -409,9 +409,11 @@ exports.updateDataRequestStatus = async (req, res) => {
 
 // ── Document management ────────────────────────────────────────────────────────
 
-const DR_UPLOAD_DIR = '/data/data-requests'
+const { DATA_REQUEST_UPLOAD_DIR, ensureDir } = require('../config/paths.config')
+
+const DR_UPLOAD_DIR = DATA_REQUEST_UPLOAD_DIR
 if (!fs.existsSync(DR_UPLOAD_DIR)) {
-  try { fs.mkdirSync(DR_UPLOAD_DIR, { recursive: true }) } catch {}
+  try { ensureDir(DR_UPLOAD_DIR) } catch {}
 }
 
 const ensureDataRequestFormDocument = async (record, createdBy = null, force = false, req = null) => {

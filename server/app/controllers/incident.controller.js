@@ -438,9 +438,11 @@ exports.sendIncidentEmail = async (req, res) => {
 }
 
 // --- Documents ---
-const incUploadDir = '/data/incidents'
+const { INCIDENT_UPLOAD_DIR, ensureDir } = require('../config/paths.config')
+
+const incUploadDir = INCIDENT_UPLOAD_DIR
 if (!fs.existsSync(incUploadDir)) {
-  try { fs.mkdirSync(incUploadDir, { recursive: true }) } catch {}
+  try { ensureDir(incUploadDir) } catch {}
 }
 
 const incStorage = multer.diskStorage({

@@ -1,0 +1,13 @@
+diff --git a/index.js b/index.js
+index 5462c1f..f2a8b91 100644
+--- a/index.js
++++ b/index.js
+@@ -2,6 +2,8 @@
+ 'use strict';
+ var Buffer = require('buffer').Buffer; // browserify
+ var SlowBuffer = require('buffer').SlowBuffer;
++// Node.js 21+ removed SlowBuffer; Buffer is a compatible fallback.
++if (!SlowBuffer) SlowBuffer = Buffer;
+ 
+ module.exports = bufferEq;
+ 

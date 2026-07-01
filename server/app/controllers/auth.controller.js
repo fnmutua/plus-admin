@@ -853,11 +853,14 @@ exports.modelActivateUser = async (req, res) => {
 
 
 const multer = require('multer');
+const { UPLOAD_DIR, ensureDir } = require('../config/paths.config');
+
+ensureDir(UPLOAD_DIR);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, '/data/uploads'); // Define the directory where uploaded files will be stored
+    cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname); // Keep the original file name

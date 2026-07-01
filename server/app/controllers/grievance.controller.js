@@ -1101,17 +1101,16 @@ exports.getGrievances = async (req, res) => {
 
 
 const multer = require('multer');
- 
+const { GRIEVANCE_UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
-// Production layout: same root as pdf.controller (`/data/grievances`), not under repo cwd (e.g. `/data/plus-admin/data/grievances`).
-const uploadDir = process.env.GRIEVANCE_UPLOAD_DIR || '/data/grievances';
+const uploadDir = GRIEVANCE_UPLOAD_DIR;
 /** Previous default when cwd was the app folder — used only as a download fallback for unmigrated files. */
 const grievanceUploadDirLegacy = path.resolve(process.cwd(), 'data', 'grievances');
 
 // Ensure the directory exists
 if (!fs.existsSync(uploadDir)) {
   console.log('Create Folder if not esists ')
-  fs.mkdirSync(uploadDir, { recursive: true });
+  ensureDir(uploadDir);
 } else {
   console.log('Grievances Folder exists. Skipping ')
 }

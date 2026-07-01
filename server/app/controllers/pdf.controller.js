@@ -5,6 +5,9 @@ const shortid = require('shortid');
 const QRCode = require('qrcode')
 const db = require('../models')
 const Sequelize = require('sequelize')
+const { GRIEVANCE_UPLOAD_DIR, ensureDir } = require('../config/paths.config');
+
+ensureDir(GRIEVANCE_UPLOAD_DIR);
 
 
 exports.generatePDF = async (req, res) => {
@@ -92,7 +95,7 @@ exports.generatePDF = async (req, res) => {
     // Handle duplicate filenames by appending a number if file already exists
     let uniqueFilename = baseFilename;
     let counter = 1;
-    const uploadDir = '/data/grievances';
+    const uploadDir = GRIEVANCE_UPLOAD_DIR;
     while (fs.existsSync(path.join(uploadDir, uniqueFilename))) {
       const nameWithoutExt = baseFilename.replace('.pdf', '');
       uniqueFilename = `${nameWithoutExt}-${counter}.pdf`;
