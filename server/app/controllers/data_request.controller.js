@@ -10,6 +10,8 @@ const nodemailer = require('nodemailer')
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib')
 const QRCode = require('qrcode')
 const { getFrontendBaseUrl } = require('../utils/frontend-url')
+const { sendSMS, formatPhoneNumber } = require('../utils/sms')
+const { isDataRequestSMSEnabled } = require('../utils/smsSettings')
 
 const generateDRCode = async () => {
   const prefix = 'DR'
@@ -178,21 +180,11 @@ const sendClarificationQuestionEmail = async (req, record, messageBody) => {
 }
 
 const notifySupportClarificationReply = async (req, record, messageBody) => {
-  const supportUsers = await db.user.findAll({
-    attributes: ['id', 'name', 'email', 'isactive'],
-    include: [{
-      model: db.role,
-      attributes: ['name'],
-      where: { name: 'support' },
-      through: { attributes: [] }
-    }]
-  })
+  const supportUsers = await getSupportUsers()
 
   const recipients = supportUsers
     .filter((u) => u?.isactive && emailRegex.test(u?.email || ''))
     .map((u) => ({ name: u.name || 'Support', email: u.email }))
-
-  if (!recipients.length) return
 
   const frontendUrl = publicFrontendBaseUrl(req)
   const adminUrl = `${frontendUrl}/#/admin/data-requests/${record.id}`
@@ -207,16 +199,57 @@ const notifySupportClarificationReply = async (req, record, messageBody) => {
     <p>KeSMIS</p>
   `
 
-  const transporter = buildTransporter()
-  await Promise.all(recipients.map((r) =>
-    transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
-      to: r.email,
-      subject,
-      text: `${record.name} replied on ${record.code}:\n\n${messageBody}\n\nOpen: ${adminUrl}`,
-      html
-    })
-  ))
+  if (recipients.length) {
+    const transporter = buildTransporter()
+    await Promise.all(recipients.map((r) =>
+      transporter.sendMail({
+        from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+        to: r.email,
+        subject,
+        text: `${record.name} replied on ${record.code}:\n\n${messageBody}\n\nOpen: ${adminUrl}`,
+        html
+      })
+    ))
+  }
+
+  const smsMessage = `KeSMIS: ${record.name} replied on data request ${record.code}. Please review in admin.`
+  await notifySupportUsersBySms(supportUsers, smsMessage)
+}
+
+const getSupportUsers = async () =>
+  db.user.findAll({
+    attributes: ['id', 'name', 'email', 'phone', 'isactive'],
+    include: [{
+      model: db.role,
+      attributes: ['name'],
+      where: { name: 'support' },
+      through: { attributes: [] }
+    }]
+  })
+
+const notifySupportUsersBySms = async (supportUsers, message) => {
+  const smsEnabled = await isDataRequestSMSEnabled()
+  if (!smsEnabled) {
+    console.log('[DataRequest] SMS disabled for data request module — skipping officer SMS')
+    return
+  }
+
+  const recipients = (supportUsers || []).filter(
+    (u) => u?.isactive && formatPhoneNumber(u?.phone)
+  )
+  if (!recipients.length) {
+    console.log('[DataRequest] No support officers with valid phone numbers for SMS')
+    return
+  }
+
+  await Promise.allSettled(recipients.map(async (u) => {
+    try {
+      await sendSMS(u.phone, message)
+      console.log(`[DataRequest] SMS sent to ${u.name} (${u.phone})`)
+    } catch (err) {
+      console.error(`[DataRequest] SMS failed for ${u.name} (${u.phone}):`, err.message || err)
+    }
+  }))
 }
 
 /** Public download page — matches `DataRequestDetail.vue`: `origin + '/#/dr-share/' + token` */
@@ -729,21 +762,11 @@ const sendRequesterAcknowledgmentEmail = async (req, requestRecord) => {
 }
 
 const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
-  const supportUsers = await db.user.findAll({
-    attributes: ['id', 'name', 'email', 'isactive'],
-    include: [{
-      model: db.role,
-      attributes: ['name'],
-      where: { name: 'support' },
-      through: { attributes: [] }
-    }]
-  })
+  const supportUsers = await getSupportUsers()
 
   const recipients = supportUsers
     .filter((u) => u?.isactive && emailRegex.test(u?.email || ''))
     .map((u) => ({ name: u.name || 'Support', email: u.email }))
-
-  if (!recipients.length) return
 
   const frontendUrl = publicFrontendBaseUrl(req)
   const adminUrl = `${frontendUrl}/#/admin/data-requests/${requestRecord.id}`
@@ -762,16 +785,21 @@ const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
     <p>Kenya Slum Information Management System (KeSMIS)</p>
   `
 
-  const transporter = buildTransporter()
-  await Promise.all(recipients.map((r) =>
-    transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
-      to: r.email,
-      subject,
-      text: `Hello ${r.name},\n\nA new data request (${requestRecord.code}) has been submitted by ${requestRecord.name} (${requestRecord.email}).\nOpen request: ${adminUrl}\n\nKeSMIS`,
-      html
-    })
-  ))
+  if (recipients.length) {
+    const transporter = buildTransporter()
+    await Promise.all(recipients.map((r) =>
+      transporter.sendMail({
+        from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+        to: r.email,
+        subject,
+        text: `Hello ${r.name},\n\nA new data request (${requestRecord.code}) has been submitted by ${requestRecord.name} (${requestRecord.email}).\nOpen request: ${adminUrl}\n\nKeSMIS`,
+        html
+      })
+    ))
+  }
+
+  const smsMessage = `KeSMIS: New data request ${requestRecord.code} from ${requestRecord.name}. Please review in admin.`
+  await notifySupportUsersBySms(supportUsers, smsMessage)
 }
 
 exports.shareDataRequest = async (req, res) => {

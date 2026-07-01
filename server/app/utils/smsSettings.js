@@ -153,6 +153,20 @@ async function getFeedbackSMSStatus() {
   return await getSMSStatus('sms_feedback')
 }
 
+/**
+ * Check if SMS sending is enabled for data request module
+ */
+async function isDataRequestSMSEnabled() {
+  return await isSMSEnabled('sms_data_request')
+}
+
+/**
+ * Get SMS status for data request module
+ */
+async function getDataRequestSMSStatus() {
+  return await getSMSStatus('sms_data_request')
+}
+
 module.exports = {
   isSMSEnabled,
   getSMSStatus,
@@ -165,6 +179,8 @@ module.exports = {
   isUserSMSEnabled,
   getUserSMSStatus,
   isFeedbackSMSEnabled,
-  getFeedbackSMSStatus
+  getFeedbackSMSStatus,
+  isDataRequestSMSEnabled,
+  getDataRequestSMSStatus
 }
 

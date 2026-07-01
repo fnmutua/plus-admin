@@ -559,6 +559,11 @@ exports.initializeDefaultSettings = async () => {
         module: 'sms_feedback',
         enabled: true,
         description: 'Enable/disable SMS notifications for feedback module'
+      },
+      {
+        module: 'sms_data_request',
+        enabled: true,
+        description: 'Enable/disable SMS notifications to support officers for new data requests'
       }
     ]
     
