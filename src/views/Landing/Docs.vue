@@ -2861,39 +2861,47 @@ const allNavGroups: NavGroup[] = [
         id: 'repo-imagery',
         label: 'Drone Imagery',
         content: `
-          <p>The <strong>Drone Imagery</strong> module stores and serves high-resolution ECW raster layers (drone surveys, aerial photography, satellite imagery) published through GeoServer. Layers are spatially indexed so they can be filtered by county and previewed directly on an interactive map. Navigate here via <strong>Repository &rarr; Drone Imagery</strong>.</p>
+          <p>The <strong>Drone Imagery</strong> module manages high-resolution ECW and GeoTIFF raster layers (drone surveys, aerial photography and satellite imagery) published through GeoServer. The layer catalogue is stored locally in the KeSMIS database for fast listing, filtering and reporting; GeoServer is contacted only when imagery is uploaded, edited, deleted, synced or downloaded. Navigate here via <strong>Repository &rarr; Drone Imagery</strong>.</p>
 
           <h2>Listing</h2>
           <img src="${imageryListingImg}" alt="Imagery listing" class="docs-screenshot" />
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Name</strong></td><td>Unique technical identifier for the layer as stored in GeoServer (e.g. <code>sample_imagery_1</code>)</td></tr>
-            <tr><td><strong>Title</strong></td><td>Human-readable display name for the layer</td></tr>
+            <tr><td><strong>Format</strong></td><td>Source raster format such as <strong>ECW</strong>, <strong>TIF</strong> or <strong>TIFF</strong></td></tr>
+            <tr><td><strong>County</strong></td><td>County linked to the imagery layer through the stored <code>county_id</code></td></tr>
+            <tr><td><strong>Settlement</strong></td><td>Settlement linked to the imagery layer through the stored <code>settlement_id</code></td></tr>
+            <tr><td><strong>Size (MB)</strong></td><td>Original image size in megabytes for each imagery layer</td></tr>
             <tr><td><strong>CRS</strong></td><td>Coordinate Reference System of the layer, displayed as the full label (e.g. <em>Arc 1960 / UTM Zone 37S (EPSG:21037)</em>)</td></tr>
-            <tr><td><strong>Actions</strong></td><td>View, Edit, Download, Delete</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Compact icon buttons: go to settlement, view, edit, download and delete</td></tr>
           </tbody></table>
 
-          <h2>Filtering by county</h2>
-          <p>Use the <strong>County</strong> dropdown in the toolbar to restrict the listing to layers whose bounding box spatially intersects with the selected county boundary. The toolbar also shows <em>"Showing X of Y imagery layers"</em> when a county filter is active.</p>
+          <h2>Filtering by county and settlement</h2>
+          <p>Use the <strong>County</strong> and <strong>Settlement</strong> dropdowns in the toolbar to filter imagery using the stored <code>county_id</code> and <code>settlement_id</code> links. The system no longer relies on live GeoServer layer scans or bounding-box guesses for normal listing filters.</p>
           <ul>
             <li>Users with a county-level role have their county pre-selected and the dropdown is disabled — they only ever see layers relevant to their county.</li>
             <li>National and super-admin users can freely switch between counties or clear the filter to see all layers.</li>
+            <li>Settlement filters are available after a county is selected and only return layers explicitly linked to that settlement.</li>
           </ul>
 
           <h2>Selecting a layer</h2>
-          <p>Use the <strong>Imagery</strong> dropdown in the toolbar (or double-click any table row) to open the map preview drawer for that layer. The map auto-fits to the layer's extent.</p>
+          <p>Use the <strong>Imagery</strong> dropdown in the toolbar (or double-click any table row) to open the map preview drawer for that layer. The drawer opens from the right and uses a compact width to keep the listing visible.</p>
 
           <h2>Viewing on the map</h2>
           <img src="${imageryView1Img}" alt="Imagery map view 1" class="docs-screenshot" />
           <img src="${imageryView2Img}" alt="Imagery map view 2" class="docs-screenshot" />
-          <p>Clicking <strong>View</strong> in the Actions column (or selecting a layer from the dropdown) opens a right-hand drawer containing a Mapbox map. The layer is served as a WMS tile overlay from the KeSMIS GeoServer workspace. Use the navigation controls in the top-right corner of the map to zoom and pan. The map automatically flies to the layer's bounding box on load.</p>
+          <p>Clicking the <strong>View</strong> icon in the Actions column (or selecting a layer from the dropdown) opens a right-hand drawer. If the layer is linked to a settlement, KeSMIS reuses the shared <strong>SettlementMap</strong> component so the boundary, available imagery and existing map tools load consistently with the settlement Location tab. Unlinked layers fall back to a direct WMS preview.</p>
+          <p>The <strong>arrow</strong> action opens the linked settlement details page and lands directly on the <strong>Location</strong> tab.</p>
 
           <h2>Uploading imagery</h2>
           <img src="${imageryAddImg}" alt="Upload imagery dialog" class="docs-screenshot" />
-          <p>Click the <strong>+ Upload</strong> button (requires <em>geoserver:create</em> permission) to open the upload dialog. Only <strong>ECW</strong> files are accepted.</p>
+          <p>Click the <strong>+ Upload</strong> button (requires <em>geoserver:create</em> permission) to open the upload drawer. Supported source formats are <strong>ECW</strong>, <strong>TIF</strong> and <strong>TIFF</strong>, with a maximum file size of <strong>200 MB</strong> per file.</p>
           <table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody>
-            <tr><td><strong>Coordinate System</strong></td><td>Required. Select the CRS that matches the projection of your ECW file.</td></tr>
-            <tr><td><strong>Select Files</strong></td><td>Drag-and-drop or browse. Multiple ECW files may be selected for batch upload.</td></tr>
+            <tr><td><strong>Coordinate System</strong></td><td>Required. Select the CRS that matches the projection of your ECW or TIFF file.</td></tr>
+            <tr><td><strong>County</strong></td><td>Optional linkage field. Defaults from the active county filter when available.</td></tr>
+            <tr><td><strong>Settlement</strong></td><td>Optional linkage field. Defaults from the active settlement filter when available.</td></tr>
+            <tr><td><strong>Select Files</strong></td><td>Drag-and-drop or browse. Multiple ECW/TIF/TIFF files may be selected for batch upload.</td></tr>
           </tbody></table>
+          <blockquote>Files larger than 200 MB are rejected. Users should compress large TIFF imagery to ECW using Global Mapper before uploading.</blockquote>
           <p>Supported coordinate systems:</p>
           <table><thead><tr><th>EPSG Code</th><th>Name</th></tr></thead><tbody>
             <tr><td>EPSG:21036</td><td>Arc 1960 / UTM Zone 36S</td></tr>
@@ -2907,25 +2915,30 @@ const allNavGroups: NavGroup[] = [
             <tr><td>EPSG:4326</td><td>WGS 84 (geographic)</td></tr>
             <tr><td>EPSG:3857</td><td>WGS 84 / Web Mercator</td></tr>
           </tbody></table>
-          <p>After clicking <strong>Confirm</strong>, each selected file is published as a separate coverage store in the <em>kisip</em> GeoServer workspace. The layer name is derived from the filename (spaces replaced with underscores, extension removed).</p>
+          <p>After clicking <strong>Confirm</strong>, each selected file is streamed to GeoServer and published as a separate coverage store in the <em>kisip</em> workspace. Uploads are staged under unique temporary names to avoid filename collisions, then the temporary file is deleted after GeoServer receives it. The authoritative imagery file lives in GeoServer's data directory.</p>
+          <p>If the reverse proxy times out while GeoServer is still ingesting a large raster, KeSMIS polls GeoServer to confirm whether the coverage store was created before reporting failure.</p>
 
           <h2>Editing a layer</h2>
           <img src="${imageryEditImg}" alt="Edit imagery dialog" class="docs-screenshot" />
-          <p>Click <strong>Edit</strong> in the Actions column (requires <em>geoserver:update</em> permission) to update the layer's <strong>Name</strong> and <strong>Coordinate System</strong>. The workspace field is read-only. Changes are applied to the live GeoServer layer immediately.</p>
+          <p>Click the <strong>Edit</strong> icon in the Actions column (requires <em>geoserver:update</em> permission) to update the layer's <strong>Name</strong>, <strong>Coordinate System</strong>, <strong>County</strong> and <strong>Settlement</strong>. Changes are applied to GeoServer and the local imagery catalogue.</p>
 
           <h2>Downloading a layer</h2>
-          <p>Click <strong>Download</strong> in the Actions column (requires <em>geoserver:read</em> permission) to export the layer as a GeoTIFF file via WCS GetCoverage. The downloaded file is named <code>{layerName}.tif</code>.</p>
-          <blockquote>Note &mdash; Very large imagery layers may be too big to download directly. If this occurs, consult the System Administrator for an offline transfer.</blockquote>
+          <p>Click the <strong>Download</strong> icon in the Actions column (requires <em>geoserver:read</em> permission) to download the original source file directly from GeoServer's data directory. Downloads do not use WCS export, so ECW and TIFF files are served in their original format and large files do not need to be re-rendered by GeoServer.</p>
+          <blockquote>If the source file is missing from the GeoServer data directory, KeSMIS shows a friendly message instead of a raw server error.</blockquote>
 
           <h2>Deleting a layer</h2>
-          <p>Click <strong>Delete</strong> in the Actions column (requires <em>geoserver:delete</em> permission) to permanently remove the layer from GeoServer. The layer is immediately removed from the listing and the imagery dropdown.</p>
+          <p>Click the <strong>Delete</strong> icon in the Actions column (requires <em>geoserver:delete</em> permission) to remove the layer from GeoServer and mark the local catalogue record as deleted. Delete operations are idempotent, so a layer already missing from GeoServer is handled gracefully.</p>
+
+          <h2>Database-backed catalogue</h2>
+          <p>The local <code>imagery_layer</code> table stores the layer name, coverage store name, CRS, bounding box, county/settlement links, source format, file size, status and timestamps. This keeps the imagery page fast because normal listing and filtering are database queries rather than repeated GeoServer REST calls.</p>
 
           <h2>Permissions summary</h2>
           <table><thead><tr><th>Action</th><th>Required permission</th></tr></thead><tbody>
             <tr><td>View layer on map</td><td>geoserver:read</td></tr>
-            <tr><td>Download layer</td><td>geoserver:read</td></tr>
+            <tr><td>Open linked settlement</td><td>Authenticated user with settlement access</td></tr>
+            <tr><td>Download layer source file</td><td>geoserver:read</td></tr>
             <tr><td>Upload new layer</td><td>geoserver:create</td></tr>
-            <tr><td>Edit layer details</td><td>geoserver:update</td></tr>
+            <tr><td>Edit layer details and linkage</td><td>geoserver:update</td></tr>
             <tr><td>Delete layer</td><td>geoserver:delete</td></tr>
           </tbody></table>
         `

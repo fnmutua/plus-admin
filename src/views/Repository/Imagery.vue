@@ -65,6 +65,7 @@ interface Layer {
   countyId?: number | null;
   settlementId?: number | null;
   fileSizeMb?: number | null;
+  format?: string | null;
 }
 
 interface FormData {
@@ -1020,7 +1021,11 @@ const downloadImagery = async (layer: Layer) => {
       @row-dblclick="handleRowDblClick"
     >
       <el-table-column label="Name" prop="name" sortable />
-      <el-table-column label="Title" prop="title" sortable />
+      <el-table-column label="Format" prop="format" sortable width="90" align="center">
+        <template #default="scope">
+          {{ scope.row.format || '—' }}
+        </template>
+      </el-table-column>
       <el-table-column label="County" prop="countyId" sortable width="140">
         <template #default="scope">
           {{ getCountyLabel(scope.row.countyId) }}

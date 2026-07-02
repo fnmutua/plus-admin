@@ -48,6 +48,7 @@ function rowToApiLayer(row) {
     fileSizeMb: row.file_size_bytes
       ? Number((Number(row.file_size_bytes) / (1024 * 1024)).toFixed(2))
       : null,
+    format: row.file_format ? String(row.file_format).toUpperCase() : null,
   };
 }
 
@@ -202,7 +203,7 @@ async function createFromUpload(payload) {
     crs: payload.crs || metadata.crs || 'EPSG:4326',
     original_filename: payload.originalFilename || null,
     file_path: payload.filePath || null,
-    file_format: payload.fileFormat || null,
+    file_format: payload.fileFormat ? String(payload.fileFormat).toUpperCase() : null,
     file_size_bytes: payload.fileSizeBytes || null,
     county_id: payload.countyId ? Number(payload.countyId) : null,
     settlement_id: payload.settlementId ? Number(payload.settlementId) : null,
