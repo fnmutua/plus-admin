@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ElDropdown, ElDropdownMenu, ElDropdownItem, ElMessageBox,ElAvatar, ElBadge, ElButton } from 'element-plus'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useCache } from '@/hooks/web/useCache'
@@ -39,6 +40,12 @@ const permissionStore = usePermissionStoreWithOut()
 const dictStore = useDictStoreWithOut()
 const localeStore = useLocaleStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+
+const canViewWorkplaceHome = computed(() =>
+  userInfo?.roles?.some((r: any) =>
+    ['admin', 'root_admin', 'super_admin'].includes(r.name)
+  ) ?? false
+)
 
 console.log('Profile-Pic',userInfo )
 
@@ -129,7 +136,7 @@ const goHome = () => {
     </div>
     <template #dropdown>
       <ElDropdownMenu>
-        <ElDropdownItem>
+        <ElDropdownItem v-if="canViewWorkplaceHome">
           <div @click="goHome">{{ t('Home') }}</div>
         </ElDropdownItem>
         <ElDropdownItem>

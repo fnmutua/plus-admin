@@ -6872,6 +6872,9 @@ exports.batchDocumentsUpload = (req, res) => {
       myFiles = [myFiles];
     }
 
+    const canMarkProtected = await canUserSeeProtectedDocuments(req.thisUser)
+    const toProtected = (value) => (canMarkProtected ? normalizeProtectedInput(value) : false)
+
     for (let i = 0; i < myFiles.length; i++) {
       var obj = {};
       
@@ -6883,7 +6886,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj.format = req.body.format[i];
           obj.size = req.body.size[i];
           obj.createdBy = req.thisUser?.id;
-          obj.protectedFile = req.body.protected[i];
+          obj.protectedFile = toProtected(Array.isArray(req.body.protected) ? req.body.protected[i] : req.body.protected);
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
           obj.code = crypto.randomUUID();
@@ -6892,7 +6895,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj.format = req.body.format;
           obj.size = req.body.size;
           obj.createdBy = req.thisUser?.id;
-          obj.protectedFile = req.body.protected[i];
+          obj.protectedFile = toProtected(Array.isArray(req.body.protected) ? req.body.protected[i] : req.body.protected);
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
           obj.code = crypto.randomUUID();
@@ -6904,7 +6907,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj.format = req.body.format[i];
           obj.size = req.body.size[i];
           obj.createdBy = req.thisUser?.id;
-          obj.protectedFile = req.body.protected[i];
+          obj.protectedFile = toProtected(Array.isArray(req.body.protected) ? req.body.protected[i] : req.body.protected);
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
           obj.code = crypto.randomUUID();
@@ -6912,7 +6915,7 @@ exports.batchDocumentsUpload = (req, res) => {
           obj.format = req.body.format;
           obj.size = req.body.size;
           obj.createdBy = req.thisUser?.id;
-          obj.protectedFile = req.body.protected[i];
+          obj.protectedFile = toProtected(Array.isArray(req.body.protected) ? req.body.protected[i] : req.body.protected);
           obj.name = myFiles[i].originalname;
           obj.location = myFiles[i].path;
           obj.code = crypto.randomUUID();
@@ -7608,6 +7611,8 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
       console.log('Found records with IDs:', recordIds);
 
       // Process each file
+      const canMarkProtected = await canUserSeeProtectedDocuments(req.thisUser)
+      const toProtected = (value) => (canMarkProtected ? normalizeProtectedInput(value) : false)
       for (let i = 0; i < myFiles.length; i++) {
         var obj = {
           type: req.body.type || 'Document',
@@ -7615,7 +7620,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
           size: req.body.size || myFiles[i].size,
           createdBy: req.thisUser?.id,
           category: req.body.category || '10',
-          protectedFile: req.body.protected === 'true',
+          protectedFile: toProtected(req.body.protected),
           public: req.body.public === 'true',
           name: myFiles[i].originalname,
           location: myFiles[i].path,
@@ -7860,64 +7865,70 @@ exports.xdownloadFile = (req, res) => {
   });
 };
 
-exports.downloadFile = (req, res) => {
-  console.log("Received files:", req.body);
-
-  const uploadedFile = path.join(uploadDir , req.body.filename);
-
-  console.log(uploadedFile);
-
-  // Check if the file exists
-  fs.access(uploadedFile, fs.constants.F_OK, (err) => {
-    if (err) {
-      console.log(err);
-
-      destroyDocumentsWithDependencies({ name: req.body.filename })
-        .then(() => {
-          console.log('Stale document row(s) removed after missing file')
-          res.status(500).send({
-            message: 'File not found.',
-            code: '0000'
-          })
-        })
-        .catch((delErr) => {
-          console.error('Could not remove document after missing file:', delErr)
-          res.status(500).send({
-            message: 'File not found.',
-            code: '0000'
-          })
-        })
-    } else {
-      // File exists, send it
-    //  res.sendFile(path.resolve(filePath));
-
-      res.sendFile(path.resolve(uploadedFile), function(err) {
-        if (err) {
-          console.log(err);
-          res.status(500).send({
-            message: 'Download failed. Error occurred.',
-            code: '0000'
-          });
-        } else {
-          // File sent successfully
-          // Increment download count for the document
-          db.models.document.increment('downloadCount', {
-            where: { name: req.body.filename }
-          }).then(() => {
-            console.log('Download count incremented for:', req.body.filename);
-          }).catch(error => {
-            console.error('Error incrementing download count:', error);
-          });
-          
-          // Handle success logic here if needed
-          // res.status(200).send({
-          //   message: 'File Found. Downloading...',
-          //   code: '0000'
-          // });
-        }
-      });
+exports.downloadFile = async (req, res) => {
+  try {
+    console.log("Received files:", req.body);
+    const filename = req.body.filename
+    if (!filename) {
+      return res.status(400).send({
+        message: 'filename is required.',
+        code: '0000'
+      })
     }
-  });
+
+    // Enforce protected-file visibility before serving from disk
+    const doc = await db.models.document.findOne({
+      where: { name: filename },
+      order: [['id', 'DESC']],
+    })
+    if (doc?.protectedFile) {
+      const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
+      if (!canSeeProtected) {
+        return res.status(403).send({
+          message: 'You are not allowed to download this protected file.',
+          code: '0000'
+        })
+      }
+    }
+
+    const uploadedFile = path.join(uploadDir, filename);
+    console.log(uploadedFile);
+
+    if (!fs.existsSync(uploadedFile)) {
+      await destroyDocumentsWithDependencies({ name: filename }).catch((delErr) => {
+        console.error('Could not remove document after missing file:', delErr)
+      })
+      return res.status(500).send({
+        message: 'File not found.',
+        code: '0000'
+      })
+    }
+
+    return res.sendFile(path.resolve(uploadedFile), function(err) {
+      if (err) {
+        console.log(err);
+        return res.status(500).send({
+          message: 'Download failed. Error occurred.',
+          code: '0000'
+        });
+      }
+
+      // Increment download count for the specific row when available
+      const whereClause = doc?.id ? { id: doc.id } : { name: filename }
+      db.models.document.increment('downloadCount', { where: whereClause })
+        .then(() => {
+          console.log('Download count incremented for:', filename);
+        }).catch(error => {
+          console.error('Error incrementing download count:', error);
+        });
+    });
+  } catch (error) {
+    console.error('downloadFile error:', error)
+    return res.status(500).send({
+      message: 'Download failed. Error occurred.',
+      code: '0000'
+    })
+  }
 };
 
 // Get photo/image file for display (not download)
@@ -8062,6 +8073,16 @@ exports.createDocumentShare = async (req, res) => {
     if (!docs || docs.length === 0) {
       return res.status(404).send({ code: '1002', message: 'No matching documents found' })
     }
+    const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
+    const visibleDocs = canSeeProtected
+      ? docs
+      : docs.filter((doc) => !doc.protectedFile)
+    if (visibleDocs.length !== docs.length) {
+      return res.status(403).send({
+        code: '1004',
+        message: 'One or more selected documents are protected and cannot be shared by your account.'
+      })
+    }
 
     const token = crypto.randomUUID()
     const hours = Number(expiresInHours)
@@ -8076,7 +8097,7 @@ exports.createDocumentShare = async (req, res) => {
       isRevoked: false
     })
 
-    const items = docs.map(d => ({ share_id: share.id, document_id: d.id }))
+    const items = visibleDocs.map(d => ({ share_id: share.id, document_id: d.id }))
     if (items.length) await db.models.document_share_item.bulkCreate(items)
 
     // Generate frontend URL for better UX (hash route for SPA)
@@ -9187,12 +9208,12 @@ async function updateSettlementDataInODK(settToUpdate) {
 }
 
 /**
- * Documents with protectedFile=true: super/root admin; national or county scope only for admin/super_admin/root_admin (not staff).
+ * Documents with protectedFile=true: super/root admin; national or county scope for admin/staff/super_admin/root_admin.
  * Settlement / ward / subcounty-only users do not see them.
  */
 async function canUserSeeProtectedDocuments(user) {
   if (!user || typeof user.getRoles !== 'function') return false
-  const elevatedRoleNames = ['admin', 'super_admin', 'root_admin']
+  const elevatedRoleNames = ['admin', 'staff', 'super_admin', 'root_admin']
   try {
     const roles = await user.getRoles(getActiveRolesGetOptions())
     return roles.some((role) => {
@@ -9216,6 +9237,16 @@ async function canUserSeeProtectedDocuments(user) {
     console.error('canUserSeeProtectedDocuments:', e && e.message)
     return false
   }
+}
+
+function normalizeProtectedInput(value) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase()
+    return v === 'true' || v === '1' || v === 'yes' || v === 'on'
+  }
+  return false
 }
 
 /**
@@ -9254,7 +9285,8 @@ exports.getDocumentRepository = async (req, res) => {
       uploaderFilter = null,
       dateFilter = null,
       settlementFilter = null,
-      projectFilter = null
+      projectFilter = null,
+      protectedOnly = false
     } = req.body;
 
     const documentIdList = (() => {
@@ -9265,9 +9297,10 @@ exports.getDocumentRepository = async (req, res) => {
     })()
 
     const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
-    const excludeProtectedWhere = canSeeProtected
-      ? null
-      : { [Op.or]: [{ protectedFile: false }, { protectedFile: null }] }
+    const nonProtectedWhere = { [Op.or]: [{ protectedFile: false }, { protectedFile: null }] }
+    const protectedOnlyFlag = normalizeProtectedInput(protectedOnly)
+    // Protected documents belong on the Protected tab only — never mix into the main list.
+    const repositoryScopeWhere = protectedOnlyFlag ? { protectedFile: true } : nonProtectedWhere
 
     console.log('getDocumentRepository - Request body:', req.body);
     console.log('getDocumentRepository - categoryFilter:', categoryFilter);
@@ -9380,6 +9413,30 @@ exports.getDocumentRepository = async (req, res) => {
       offset: offset,
       distinct: true
     };
+
+    // Optional protected-only mode (used by the Protected tab in repository UI)
+    if (protectedOnlyFlag) {
+      if (!canSeeProtected) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            documents: [],
+            categoryCounts: {},
+            uploaderCounts: {},
+            pagination: {
+              totalItems: 0,
+              currentPage: page,
+              totalPages: 0,
+              itemsPerPage: limit
+            }
+          },
+          code: '0000'
+        });
+      }
+      baseQuery.where = baseQuery.where
+        ? { [Op.and]: [baseQuery.where, { protectedFile: true }] }
+        : { protectedFile: true };
+    }
 
     // Add search conditions
     const searchConditions = [];
@@ -9667,13 +9724,13 @@ exports.getDocumentRepository = async (req, res) => {
       }
     }
 
-    if (excludeProtectedWhere) {
+    if (!protectedOnlyFlag) {
       if (baseQuery.where) {
-        baseQuery.where = { [Op.and]: [baseQuery.where, excludeProtectedWhere] }
+        baseQuery.where = { [Op.and]: [baseQuery.where, nonProtectedWhere] }
       } else {
-        baseQuery.where = excludeProtectedWhere
+        baseQuery.where = nonProtectedWhere
       }
-      console.log('getDocumentRepository - Excluding protectedFile rows for non-national/county user')
+      console.log('getDocumentRepository - Excluding protectedFile rows from main documents list')
     }
 
     if (documentIdList.length > 0) {
@@ -9748,11 +9805,11 @@ exports.getDocumentRepository = async (req, res) => {
       if (searchConditions.length > 0) {
         simpleQuery.where = { [Op.or]: searchConditions };
       }
-      if (excludeProtectedWhere) {
+      if (!protectedOnlyFlag) {
         if (simpleQuery.where) {
-          simpleQuery.where = { [Op.and]: [simpleQuery.where, excludeProtectedWhere] }
+          simpleQuery.where = { [Op.and]: [simpleQuery.where, nonProtectedWhere] }
         } else {
-          simpleQuery.where = excludeProtectedWhere
+          simpleQuery.where = nonProtectedWhere
         }
       }
       if (documentIdList.length > 0) {
@@ -9808,7 +9865,7 @@ exports.getDocumentRepository = async (req, res) => {
           [db.sequelize.col('document_type.id'), 'document_type_id']
         ],
         group: ['document_type.group', 'document_type.type', 'document_type.id'],
-        where: excludeProtectedWhere || {},
+        where: repositoryScopeWhere,
         raw: true,
         nest: false
       });
@@ -9847,7 +9904,7 @@ exports.getDocumentRepository = async (req, res) => {
           as: 'document_type',
           attributes: ['id', 'type', 'group']
         }],
-        where: excludeProtectedWhere || {},
+        where: repositoryScopeWhere,
         raw: true,
         nest: false
       });
@@ -9895,7 +9952,7 @@ exports.getDocumentRepository = async (req, res) => {
           [db.sequelize.col('document_type.group'), 'group']
         ],
         group: ['document_type.group'],
-        where: excludeProtectedWhere || {},
+        where: repositoryScopeWhere,
         raw: true,
         nest: false
       });
@@ -10053,7 +10110,7 @@ exports.getDocumentRepository = async (req, res) => {
           [db.sequelize.fn('COUNT', db.sequelize.col('document.id')), 'count']
         ],
         group: ['document.createdBy', 'user.id', 'user.name'],
-        ...(excludeProtectedWhere ? { where: excludeProtectedWhere } : {}),
+        ...(repositoryScopeWhere ? { where: repositoryScopeWhere } : {}),
         raw: true,
         nest: false
       });
@@ -10117,14 +10174,9 @@ exports.getDocumentUploaders = async (req, res) => {
   try {
     // Exclude photo formats - same list as in getDocumentRepository
     const photoFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'tif'];
-    const canSeeProtectedUp = await canUserSeeProtectedDocuments(req.thisUser)
-    const excludeProtectedUp = canSeeProtectedUp
-      ? null
-      : { [Op.or]: [{ protectedFile: false }, { protectedFile: null }] }
+    const nonProtectedWhereUp = { [Op.or]: [{ protectedFile: false }, { protectedFile: null }] }
     const formatWhereUp = { format: { [Op.notIn]: photoFormats } }
-    const uploadersWhere = excludeProtectedUp
-      ? { [Op.and]: [formatWhereUp, excludeProtectedUp] }
-      : formatWhereUp
+    const uploadersWhere = { [Op.and]: [formatWhereUp, nonProtectedWhereUp] }
 
     const uploaders = await db.models.document.findAll({
       include: [{

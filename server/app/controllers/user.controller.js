@@ -2074,28 +2074,38 @@ exports.getUsersLastLogin = async (req, res) => {
   }
 };
 
-exports.rolesController = (req, res) => {
- 
-  var qry = {}
-  //qry['id'] != 0
-  //qry.where = [['id'] != 0]
+exports.rolesController = async (req, res) => {
+  try {
+    const currentUserRoles = Array.isArray(req.roles) ? req.roles : []
+    const isRootAdmin = currentUserRoles.some((roleName) => roleName === 'root_admin')
 
-  // remove super admin from the roles querry 
-  qry.where =  {
-    id: { [op.notIn]: [0] }
-  }
+    // Root admin can manage super_admin role assignments/removals.
+    // Non-root users should not see protected top-level roles.
+    const excludedRoleNames = isRootAdmin
+      ? ['root_admin']
+      : ['root_admin', 'super_admin']
 
+    const qry = {
+      where: {
+        name: {
+          [op.notIn]: excludedRoleNames
+        }
+      }
+    }
 
- 
-   Role
-    .findAndCountAll(qry)
-    .then((list) => {
-       res.status(200).send({
-        data: list.rows,
-        total: list.count,
-        code: '0000'
-      })
+    const list = await Role.findAndCountAll(qry)
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000'
     })
+  } catch (error) {
+    console.error('rolesController error:', error)
+    res.status(500).send({
+      message: 'Failed to load roles',
+      error: error.message
+    })
+  }
 }
 
 

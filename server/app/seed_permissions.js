@@ -41,9 +41,14 @@ async function seedPermissions() {
     await db.sequelize.authenticate();
     console.log('✅ Database connection successful');
     
-    console.log('🔄 Syncing database...');
-    await db.sequelize.sync(); // Ensure tables exist
-    console.log('✅ Database synced successfully');
+    console.log('🔄 Syncing role/permission tables...');
+    // Avoid full sequelize.sync() here because unrelated legacy tables
+    // (e.g. page_visit) can block seeding with existing bad data/index states.
+    await db.role.sync()
+    await db.permission.sync()
+    await db.role_permission.sync()
+    await db.models.user_roles.sync()
+    console.log('✅ Role/permission tables synced successfully');
 
     // Remove all existing ':manage' permissions from the database
     await db.permission.destroy({ where: { name: { [db.Sequelize.Op.like]: '%:manage' } } });
@@ -223,6 +228,8 @@ async function seedPermissions() {
       { name: 'communication:send_county', description: 'Send communications only within own county scope' },
 
       // Documents
+      // Note: Protected-document visibility is further scoped in controller logic
+      // to national/county admin/staff and super/root admins.
       { name: 'document:upload', description: 'Upload documents' },
       { name: 'document:delete', description: 'Delete documents' },
       { name: 'document:create', description: 'Create documents' },

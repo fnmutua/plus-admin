@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElSkeleton, ElAlert,
+  ElRow, ElCol, ElCard, ElSkeleton,
   ElTable, ElTableColumn, ElTabs, ElTabPane,
   ElTag, ElButton, ElEmpty, ElMessage, ElMessageBox,
   ElPagination, ElSelect, ElOption, ElDatePicker,
   ElDropdown, ElDropdownMenu, ElDropdownItem
 } from 'element-plus'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeMount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { CountTo } from '@/components/CountTo'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -324,24 +324,19 @@ const init = async () => {
   await loadSessions()
 }
 
+onBeforeMount(() => {
+  if (!isPlatformAdmin.value) {
+    push({ name: 'National', replace: true })
+  }
+})
+
 onMounted(init)
 </script>
 
 <template>
   <div class="dashboard">
 
-    <!-- Access denied -->
-    <el-alert
-      v-if="!isPlatformAdmin"
-      title="Access restricted"
-      type="warning"
-      show-icon
-      :closable="false"
-      description="This dashboard is available to administrators only (admin, root admin, and super admin roles)."
-      class="mb-16px"
-    />
-
-    <template v-else>
+    <template v-if="isPlatformAdmin">
       <!-- Header -->
       <el-card shadow="never" class="mb-16px">
         <div class="header-row">

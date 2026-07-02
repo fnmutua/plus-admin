@@ -11,7 +11,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, shall
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
 import moment from "moment"
-import { getFile, getPhoto } from '@/api/summary'
+import { getFile } from '@/api/summary'
 import { getAIProviders, getAIModels } from '@/api/ai'
 import { useAppStore } from '@/store/modules/app'
 import { userHasPrivilegedNationalLocation, isPublicOrGuestRole } from '@/utils/roleScope'
@@ -533,7 +533,6 @@ const drawerSearchTerm = ref('')
 const uploaderCounts = ref<{ [key: string]: { id: number, name: string, count: number } }>({})
 const activeFilterTab = ref('category')
 const uploadersLoading = ref(false)
-const photosLoading = ref(false)
 
 // Tab management
 const activeTab = ref('documents')
@@ -575,7 +574,15 @@ const handleResize = () => {
   if (newPageSize !== pageSize.value) {
     pageSize.value = newPageSize
     currentPage.value = 1 // Reset to first page when changing page size
-    loadDocumentRepository()
+    reloadCurrentTab()
+  }
+}
+
+const reloadCurrentTab = async () => {
+  if (activeTab.value === 'protected') {
+    await loadProtectedDocuments()
+  } else {
+    await loadDocumentRepository()
   }
 }
 
@@ -818,7 +825,7 @@ const loadDocumentRepository = async (params: any = {}) => {
     const requestData = {
       page: currentPage.value,
       limit: pageSize.value,
-      searchTerm: searchTerm.value || undefined,
+      searchTerm: getSearchTermForRequest(),
       categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
       uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
       settlementFilter: selectedSettlements.value.size > 0 ? Array.from(selectedSettlements.value) : undefined,
@@ -936,8 +943,10 @@ const loadDocumentRepository = async (params: any = {}) => {
       // Update action buttons after documents are loaded
       setActionButtons()
 
-      // Load documents based on current tab
-      await loadDocumentsByTab()
+      // Refresh visible tab data after repository load
+      if (activeTab.value === 'documents') {
+        await loadDocumentsByTab()
+      }
 
       // Ensure pagination is valid
       if (totalDocs.value < pageSize.value) {
@@ -965,11 +974,31 @@ const loadDocumentRepository = async (params: any = {}) => {
   }
 }
 
+const getSearchTermForRequest = () => {
+  const term = searchTerm.value?.trim()
+  return term || undefined
+}
+
+const hasActiveFilters = () =>
+  !!getSearchTermForRequest() ||
+  selectedCategories.value.size > 0 ||
+  selectedUploaders.value.size > 0 ||
+  selectedSettlements.value.size > 0 ||
+  selectedProjects.value.size > 0 ||
+  !!dateRange.value
+
 // Search handler
 const handleSearch = async () => {
   currentPage.value = 1
-  currentlyFiltered.value = !!searchTerm.value || selectedCategories.value.size > 0
-  await loadDocumentRepository()
+  currentlyFiltered.value = hasActiveFilters()
+  await reloadCurrentTab()
+}
+
+const handleSearchClear = async () => {
+  searchTerm.value = ''
+  currentPage.value = 1
+  currentlyFiltered.value = hasActiveFilters()
+  await reloadCurrentTab()
 }
 
 // Category filter handlers
@@ -1102,8 +1131,8 @@ const applyFilters = async () => {
     console.log('applyFilters - dateRange ISO strings:', df)
   }
   currentPage.value = 1
-  currentlyFiltered.value = selectedCategories.value.size > 0 || selectedUploaders.value.size > 0 || selectedSettlements.value.size > 0 || selectedProjects.value.size > 0 || !!dateRange.value || !!searchTerm.value
-  await loadDocumentRepository()
+  currentlyFiltered.value = hasActiveFilters()
+  await reloadCurrentTab()
   filterDrawer.value = false
 }
 
@@ -1117,27 +1146,27 @@ const clearFilters = async () => {
   clearDateFilter()
   currentPage.value = 1
   currentlyFiltered.value = false
-  await loadDocumentRepository()
+  await reloadCurrentTab()
 }
 
 // Pagination handler
 const handlePageChange = async (newPage: number) => {
   currentPage.value = newPage
-  await loadDocumentRepository()
+  await reloadCurrentTab()
 }
 
 // Page size handler
 const handlePageSizeChange = async (newPageSize: number) => {
   pageSize.value = newPageSize
   currentPage.value = 1 // Reset to first page when changing page size
-  await loadDocumentRepository()
+  await reloadCurrentTab()
 }
 
 // Sort handler
 const handleSortChange = async (newSortOption: string) => {
   sortOption.value = newSortOption
   currentPage.value = 1 // Reset to first page when changing sort
-  await loadDocumentRepository()
+  await reloadCurrentTab()
 }
 
 // File operations
@@ -1245,15 +1274,19 @@ const removeDocument = async (data: Document) => {
       documents.value.splice(index, 1)
     }
     
-    // Also remove from filtered documents/photos if they exist
+    // Also remove from filtered documents/protected if they exist
     const filteredIndex = filteredDocuments.value.findIndex(doc => doc.id === data.id)
     if (filteredIndex !== -1) {
       filteredDocuments.value.splice(filteredIndex, 1)
     }
     
-    const photoIndex = filteredPhotos.value.findIndex(doc => doc.id === data.id)
-    if (photoIndex !== -1) {
-      filteredPhotos.value.splice(photoIndex, 1)
+    const protectedIndex = filteredProtected.value.findIndex(doc => doc.id === data.id)
+    if (protectedIndex !== -1) {
+      filteredProtected.value.splice(protectedIndex, 1)
+      totalProtectedDocs.value = Math.max(0, totalProtectedDocs.value - 1)
+      if (activeTab.value === 'protected') {
+        totalDocs.value = totalProtectedDocs.value
+      }
     }
     
     // Update total count
@@ -1506,8 +1539,7 @@ const doLinkDocument = async () => {
     else if (ok) ElMessage.warning(`Saved ${ok}; ${fail} failed`)
     else ElMessage.error('Failed to save changes')
     originalLinkedIds.value = [...linkEntityIds.value]
-    await loadDocumentRepository()
-    await loadDocumentsByTab()
+    await reloadCurrentTab()
     refreshLinkingDocFromRepo()
   } finally {
     linkLoading.value = false
@@ -2237,7 +2269,7 @@ const handleSubmitData = async () => {
     ElMessage.success('Document updated successfully' + (hasNameChanged ? ' and file renamed' : ''));
     
     // Reload the documents to reflect changes
-    await loadDocumentRepository();
+    await reloadCurrentTab();
   } catch (error) {
     console.error('Error updating document:', error);
     ElMessage.error('Failed to update document');
@@ -3010,8 +3042,7 @@ const importFiles = async () => {
     if (resData.code === '0000') {
       ElMessage.success(`Files imported successfully! ${importFileList.value.length} files imported.`);
       importDrawerVisible.value = false;
-      await loadDocumentRepository();
-      await loadDocumentsByTab();
+      await reloadCurrentTab();
 
       // Link extra parent IDs (indices 1+) via document_link, matched by file name
       let extraLinksCreated = false
@@ -3033,8 +3064,7 @@ const importFiles = async () => {
       }
       // Reload to reflect extra links in the table
       if (extraLinksCreated) {
-        await loadDocumentRepository()
-        await loadDocumentsByTab()
+        await reloadCurrentTab()
       }
     } else {
       ElMessage.warning(`Imported ${importFileList.value.length - (resData.failedCount || 0)} of ${importFileList.value.length} files successfully.`);
@@ -3085,11 +3115,26 @@ const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
 // Tab filtering properties
 const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'tif']
 const filteredDocuments = ref<Document[]>([])
-const filteredPhotos = ref<Document[]>([])
-const photoPreviewUrls = ref<Map<number, string>>(new Map())
+const filteredProtected = ref<Document[]>([])
+const protectedLoading = ref(false)
+const totalProtectedDocs = ref(0)
 
 const documentsCount = computed(() => filteredDocuments.value.length)
-const photosCount = computed(() => filteredPhotos.value.length)
+const protectedCount = computed(() => totalProtectedDocs.value)
+
+const canViewProtectedTab = computed(() => {
+  const elevatedRoleNames = ['admin', 'staff', 'super_admin', 'root_admin']
+  return (userInfo?.roles || []).some((role: UserRole) => {
+    if (!role) return false
+    if (role.name === 'super_admin' || role.name === 'root_admin') return true
+    const level = role.user_roles?.location_level
+    if (level === 'national' || level === 'county') {
+      return elevatedRoleNames.includes(role.name)
+    }
+    if ((level == null || level === '') && role.name === 'admin') return true
+    return false
+  })
+})
 
 watch(
   () => [filteredDocuments.value, loading.value, activeTab.value] as const,
@@ -3101,10 +3146,95 @@ watch(
 )
 
 // Function to load documents based on tab
+const loadProtectedDocuments = async () => {
+  try {
+    protectedLoading.value = true
+    const requestData = {
+      page: currentPage.value,
+      limit: pageSize.value,
+      searchTerm: getSearchTermForRequest(),
+      categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
+      uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
+      settlementFilter: selectedSettlements.value.size > 0 ? Array.from(selectedSettlements.value) : undefined,
+      projectFilter: selectedProjects.value.size > 0 ? Array.from(selectedProjects.value) : undefined,
+      dateFilter: buildDateFilterPayload(),
+      userFilters: roles_filters.length > 0 ? roles_filters : undefined,
+      sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
+      sortOrder: 'DESC',
+      protectedOnly: true
+    }
+
+    const response: any = await getDocumentRepository(requestData)
+    let responseData: any
+    let success = false
+
+    if (response && typeof response === 'object') {
+      if ('success' in response) {
+        success = Boolean(response.success)
+        responseData = response.data || response.results || response
+      } else if ('data' in response) {
+        success = true
+        responseData = response.data
+      } else if (Array.isArray(response)) {
+        success = true
+        responseData = { documents: response }
+      } else {
+        success = true
+        responseData = response
+      }
+    }
+
+    if (success && responseData) {
+      const docs = Array.isArray(responseData?.documents)
+        ? responseData.documents
+        : Array.isArray(responseData?.data)
+          ? responseData.data
+          : Array.isArray(responseData)
+            ? responseData
+            : []
+
+      filteredProtected.value = docs
+      filteredProtected.value.forEach(doc => {
+        doc.deletable = canUserDeleteDocument(doc)
+      })
+
+      totalProtectedDocs.value =
+        responseData.pagination?.totalItems ||
+        responseData.totalDocuments ||
+        responseData.total ||
+        docs.length
+      totalDocs.value = totalProtectedDocs.value
+
+      if (totalDocs.value < pageSize.value) {
+        currentPage.value = 1
+      }
+
+      const maxPage = Math.ceil(totalDocs.value / pageSize.value)
+      if (currentPage.value > maxPage && maxPage > 0) {
+        currentPage.value = 1
+      }
+    } else {
+      filteredProtected.value = []
+      totalProtectedDocs.value = 0
+      totalDocs.value = 0
+    }
+  } catch (error) {
+    console.error('Error loading protected documents:', error)
+    ElMessage.error('Failed to load protected documents')
+    filteredProtected.value = []
+    totalProtectedDocs.value = 0
+    totalDocs.value = 0
+  } finally {
+    protectedLoading.value = false
+  }
+}
+
 const loadDocumentsByTab = async () => {
   if (activeTab.value === 'documents') {
     // For documents tab, use the already loaded documents and filter client-side
     filteredDocuments.value = documents.value.filter(doc => {
+      if (doc.protectedFile || (doc as any).protected) return false
+
       let format = doc.format
       if (!format && doc.name) {
         const match = doc.name.match(/\.([^.]+)$/)
@@ -3116,7 +3246,7 @@ const loadDocumentsByTab = async () => {
       }
       
       const formatLower = format.toLowerCase()
-      return !imageFormats.includes(formatLower)
+      return true
     })
     
     // Ensure deletable property is set for all filtered documents
@@ -3125,170 +3255,16 @@ const loadDocumentsByTab = async () => {
         doc.deletable = canUserDeleteDocument(doc)
       }
     })
-} else if (activeTab.value === 'photos') {
-    // For photos tab, make a server request to get only photo documents (non-blocking)
-    try {
-      photosLoading.value = true
-
-      const requestData = {
-        page: currentPage.value,
-        limit: pageSize.value,
-        searchTerm: searchTerm.value || undefined,
-        categoryFilter: selectedCategories.value.size > 0 ? Array.from(selectedCategories.value) : undefined,
-        uploaderFilter: selectedUploaders.value.size > 0 ? Array.from(selectedUploaders.value) : undefined,
-        dateFilter: buildDateFilterPayload(),
-        userFilters: roles_filters.length > 0 ? roles_filters : undefined,
-        sortBy: sortOption.value === 'popularity' ? 'downloadCount' : 'createdAt',
-        sortOrder: 'DESC',
-        includeFormats: imageFormats // Include only image formats for photos tab
-      }
-
-      console.log('Loading photos with requestData:', requestData)
-      const response = await getDocumentRepository(requestData)
-      
-      // Handle response similar to main loadDocumentRepository function
-      let responseData: any
-      let success = false
-      
-      if (response && typeof response === 'object') {
-        if ('success' in response) {
-          success = Boolean((response as any).success)
-          responseData = (response as any).data || (response as any).results || response
-        } else if ('data' in response) {
-          success = true
-          responseData = (response as any).data
-        } else if (Array.isArray(response)) {
-          success = true
-          responseData = { documents: response }
-        } else {
-          success = true
-          responseData = response
-        }
-      }
-      
-      if (success && responseData) {
-        let allDocuments: Document[] = []
-        
-        if (responseData.documents && Array.isArray(responseData.documents)) {
-          allDocuments = responseData.documents as Document[]
-        } else if (responseData.data && Array.isArray(responseData.data)) {
-          allDocuments = responseData.data as Document[]
-        } else if (Array.isArray(responseData)) {
-          allDocuments = responseData as Document[]
-        } else if (responseData.results && Array.isArray(responseData.results)) {
-          allDocuments = responseData.results as Document[]
-        }
-        
-        filteredPhotos.value = allDocuments
-        
-        // Add deletable property based on permissions
-        filteredPhotos.value.forEach(doc => {
-          doc.deletable = canUserDeleteDocument(doc)
-        })
-        
-        // Load photo preview URLs
-        await loadPhotoPreviews(allDocuments)
-        
-        console.log('Photos loaded from server:', filteredPhotos.value.length)
-        console.log('Photo documents:', filteredPhotos.value)
-      } else {
-        ElMessage.error('Failed to load photos')
-        filteredPhotos.value = []
-      }
-    } catch (error) {
-      console.error('Error loading photos:', error)
-      ElMessage.error('Failed to load photos')
-      filteredPhotos.value = []
-    } finally {
-      photosLoading.value = false
-    }
+} else if (activeTab.value === 'protected') {
+    await loadProtectedDocuments()
   }
-}
-
-// Load photo previews for all photos using the new photo endpoint
-const loadPhotoPreviews = async (photos: Document[]) => {
-  const placeholder = `data:image/svg+xml;base64,${btoa(`
-    <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="150" fill="#f0f0f0"/>
-      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
-        Loading...
-      </text>
-    </svg>
-  `)}`
-  
-  // Set placeholder for all photos first
-  photos.forEach(photo => {
-    if (!photoPreviewUrls.value.has(photo.id)) {
-      photoPreviewUrls.value.set(photo.id, placeholder)
-    }
-  })
-  
-  // Load actual images in parallel using the new photo endpoint
-  const loadPromises = photos.map(async (photo) => {
-    try {
-      // Use the new photo endpoint with doc_id
-      const response = await getPhoto({ doc_id: photo.id })
-      
-      // Create blob URL from response
-      const blobData = new Blob([response.data], { 
-        type: response.headers['content-type'] || `image/${photo.format}` 
-      })
-      const url = window.URL.createObjectURL(blobData)
-      
-      // Update the URL in the reactive map
-      photoPreviewUrls.value.set(photo.id, url)
-    } catch (error) {
-      console.error('Error loading photo preview for', photo.id, error)
-      // Keep placeholder on error
-      const errorPlaceholder = `data:image/svg+xml;base64,${btoa(`
-        <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
-          <rect width="200" height="150" fill="#f0f0f0"/>
-          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
-            Image not available
-          </text>
-        </svg>
-      `)}`
-      photoPreviewUrls.value.set(photo.id, errorPlaceholder)
-    }
-  })
-  
-  await Promise.all(loadPromises)
-}
-
-// Photo handling functions - returns cached URL synchronously
-const getPhotoPreview = (photo: Document): string => {
-  return photoPreviewUrls.value.get(photo.id) || `data:image/svg+xml;base64,${btoa(`
-    <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="150" fill="#f0f0f0"/>
-      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
-        Loading...
-      </text>
-    </svg>
-  `)}`
-}
-
-const formatFileSize = (size: number) => {
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
-}
-
-const handleImageError = (event: Event) => {
-  const img = event.target as HTMLImageElement
-  img.src = `data:image/svg+xml;base64,${btoa(`
-    <svg width="200" height="150" xmlns="http://www.w3.org/2000/svg">
-      <rect width="200" height="150" fill="#f0f0f0"/>
-      <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#999" font-family="Arial" font-size="12">
-        Image not available
-      </text>
-    </svg>
-  `)}`
 }
 
 const handleTabChange = async (tabName: string) => {
   activeTab.value = tabName
   clearDocumentSelection()
-  await loadDocumentsByTab()
+  currentPage.value = 1
+  await reloadCurrentTab()
 }
 
  
@@ -3296,7 +3272,7 @@ const handleTabChange = async (tabName: string) => {
 </script>
 
 <template>
-  <el-card v-loading="loading && activeTab !== 'photos'" :element-loading-text="loadingText">
+  <el-card v-loading="loading && activeTab !== 'protected'" :element-loading-text="loadingText">
     <template #header>
       <div class="controls-container controls-container--in-header">
         <el-row :gutter="16" class="controls-row">
@@ -3306,7 +3282,8 @@ const handleTabChange = async (tabName: string) => {
               placeholder="Search documents by name, settlement, county, format, or uploader..."
               clearable
               @change="handleSearch"
-              @clear="clearFilters"
+              @clear="handleSearchClear"
+              @keyup.enter="handleSearch"
               size="default"
               class="search-input"
             >
@@ -3314,7 +3291,7 @@ const handleTabChange = async (tabName: string) => {
                 <Icon icon="material-symbols:search" width="16" />
               </template>
               <template #append>
-                <el-button @click="handleSearch" type="primary" :loading="loading || photosLoading">
+                <el-button @click="handleSearch" type="primary" :loading="loading || protectedLoading">
                   Search
                 </el-button>
               </template>
@@ -3427,7 +3404,7 @@ const handleTabChange = async (tabName: string) => {
     </div>
  
 
-     <!-- Tabs for Documents and Photos -->
+     <!-- Tabs -->
      <el-tabs v-model="activeTab" class="documents-tabs" @tab-change="handleTabChange">
        <!-- Documents Tab -->
        <el-tab-pane label="Documents" name="documents">
@@ -3520,70 +3497,90 @@ const handleTabChange = async (tabName: string) => {
     </el-table>
        </el-tab-pane>
 
-       <!-- Photos Tab -->
-       <el-tab-pane label="Photos" name="photos">
+       <!-- Protected Tab -->
+       <el-tab-pane v-if="canViewProtectedTab" label="Protected" name="protected">
          <template #label>
            <span class="tab-label">
-             <Icon icon="material-symbols:photo" width="16" style="margin-right: 6px;" />
-             Photos
-             <el-badge v-if="photosCount > 0" :value="photosCount" class="tab-badge" />
+             <el-icon style="margin-right: 6px;"><Lock /></el-icon>
+             Protected
+             <el-badge v-if="protectedCount > 0" :value="protectedCount" class="tab-badge" />
            </span>
          </template>
-         
-         <!-- Photos: non-blocking loading (no full-screen spinner) -->
-         <div v-if="photosLoading && filteredPhotos.length === 0" style="text-align: center; padding: 24px; color: #909399;">
-           <span style="font-size: 14px;">Loading photos...</span>
+
+         <div v-if="protectedLoading && filteredProtected.length === 0" style="text-align: center; padding: 24px; color: #909399;">
+           <span style="font-size: 14px;">Loading protected documents...</span>
          </div>
-         <div v-else-if="filteredPhotos.length === 0" style="text-align: center; padding: 40px; color: #909399;">
-           <Icon icon="material-symbols:photo" width="48" style="margin-bottom: 16px; opacity: 0.5;" />
-           <p>No photos found</p>
+         <div v-else-if="filteredProtected.length === 0" style="text-align: center; padding: 40px; color: #909399;">
+           <el-icon style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"><Lock /></el-icon>
+           <p>No protected documents found</p>
          </div>
-         
-         <div v-if="filteredPhotos.length > 0" class="photos-grid">
-           <div 
-             v-for="photo in filteredPhotos" 
-             :key="photo.id" 
-             class="photo-card"
-             @click="viewDocument(photo)"
-           >
-             <div class="photo-preview">
-               <img 
-                 :src="getPhotoPreview(photo)" 
-                 :alt="photo.name"
-                 class="photo-image"
-                 @error="handleImageError"
-               />
-               <div class="photo-overlay">
-                 <Icon icon="material-symbols:visibility" width="20" />
+
+         <el-table
+           v-if="filteredProtected.length > 0"
+           :data="filteredProtected"
+           style="width: 100%"
+           size="small"
+           class="thin-rows-table"
+           border
+         >
+           <el-table-column label="#" type="index" width="50">
+             <template #default="{ $index }">
+               <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
+             </template>
+           </el-table-column>
+           <el-table-column prop="name" label="Title" min-width="300" show-overflow-tooltip>
+             <template #default="{ row }">
+               <div class="file-icon clickable-file" @click="downloadFile(row)">
+                 <Icon :icon="getFileIcon(row.format)" width="20" />
+                 <el-tooltip content="Protected file" placement="top">
+                   <el-icon style="color: var(--el-color-warning); margin-right: 3px; flex-shrink: 0;"><Lock /></el-icon>
+                 </el-tooltip>
+                 <span class="file-link document-title">{{ row.name }}</span>
                </div>
-             </div>
-             <div class="photo-info">
-               <div class="photo-name" :title="photo.name">{{ photo.name }}</div>
-               <div class="photo-meta">
-                 <span class="photo-size">{{ formatFileSize(photo.size) }}</span>
-                 <span class="photo-date">{{ formatEndDate(photo) }}</span>
-               </div>
-               <div class="photo-actions">
-                 <el-button size="small" type="primary" plain @click.stop="downloadFile(photo)">
-                   <Icon icon="material-symbols:download" width="14" />
-                 </el-button>
-                 <el-button size="small" type="success" plain @click.stop="viewDocument(photo)">
-                   <Icon icon="material-symbols:visibility" width="14" />
-                 </el-button>
-                    <el-button 
-                     v-if="canUserDeleteDocument(photo)"
-                     size="small" 
-                     type="danger" 
-                     plain 
-                     @click.stop="removeDocument(photo)"
-                   >
-                     <Icon icon="material-symbols:delete" width="14" />
-                   </el-button>
-                </div>
-             </div>
-           </div>
-         </div>
+             </template>
+           </el-table-column>
+           <el-table-column label="Type" min-width="200" show-overflow-tooltip>
+             <template #default="{ row }">
+               <span>{{ getRowDocumentTypeLabel(row) }}</span>
+             </template>
+           </el-table-column>
+           <el-table-column label="Association" min-width="220">
+             <template #default="{ row }">
+               <span v-if="getAssociations(row).length === 0" style="color: var(--el-text-color-secondary);">—</span>
+               <span v-else v-for="(assoc, idx) in getAssociations(row)" :key="assoc.key || idx">
+                 <a
+                   v-if="assoc.route"
+                   style="color: var(--el-color-primary); cursor: pointer; text-decoration: none;"
+                   @click.stop="router.push(assoc.route)"
+                 >{{ assoc.label }}</a>
+                 <span v-else>{{ assoc.label }}</span>
+                 <span v-if="idx < getAssociations(row).length - 1" style="color: #909399;">, </span>
+               </span>
+             </template>
+           </el-table-column>
+           <el-table-column prop="createdAt" label="Date Uploaded" :formatter="formatEndDate" min-width="120" />
+           <el-table-column prop="user.name" label="Uploaded By" min-width="100" show-overflow-tooltip />
+           <el-table-column prop="size" label="Size(Mb)" min-width="80" />
+           <el-table-column label="Downloads" prop="downloadCount" min-width="70" align="center" />
+           <el-table-column label="Actions" :width="actionColumnWidth">
+             <template #default="{ row }">
+               <PermissionWrapper :permissions="['document:read', 'document:delete', 'document:create']">
+                 <TableActions
+                   :item="row"
+                   :buttons="getDocumentActionButtons(row)"
+                   @edit="editDocument"
+                   @delete="removeDocument"
+                   @preview="viewDocument"
+                   @download="downloadFile(row)"
+                   @share="onShareDocument(row)"
+                   @link-to-settlement="onLinkToSettlement(row)"
+                 />
+               </PermissionWrapper>
+             </template>
+           </el-table-column>
+         </el-table>
        </el-tab-pane>
+
      </el-tabs>
 
     <!-- Pagination -->
@@ -4794,145 +4791,4 @@ const handleTabChange = async (tabName: string) => {
   margin-left: 8px;
 }
 
-/* Photos Grid Styles */
-.photos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-  padding: 20px 0;
-}
-
-.photo-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  border: 1px solid #e4e7ed;
-}
-
-.photo-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  border-color: #409eff;
-}
-
-.photo-preview {
-  position: relative;
-  width: 100%;
-  height: 180px;
-  overflow: hidden;
-  background: #f5f7fa;
-}
-
-.photo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.photo-card:hover .photo-image {
-  transform: scale(1.05);
-}
-
-.photo-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  color: white;
-}
-
-.photo-card:hover .photo-overlay {
-  opacity: 1;
-}
-
-.photo-info {
-  padding: 16px;
-}
-
-.photo-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.photo-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 12px;
-  color: #909399;
-}
-
-.photo-size {
-  font-weight: 500;
-}
-
-.photo-date {
-  color: #c0c4cc;
-}
-
-.photo-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.photo-actions .el-button {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 12px;
-}
-
-/* Mobile responsive adjustments for photos */
-@media (max-width: 768px) {
-  .photos-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-    padding: 16px 0;
-  }
-  
-  .photo-preview {
-    height: 150px;
-  }
-  
-  .photo-info {
-    padding: 12px;
-  }
-  
-  .photo-actions {
-    flex-direction: column;
-    gap: 6px;
-  }
-  
-  .photo-actions .el-button {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .photos-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
-  }
-  
-  .photo-preview {
-    height: 120px;
-  }
-}
 </style>

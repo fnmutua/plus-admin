@@ -654,12 +654,43 @@ exports.updateUser = async (req, res) => {
     console.log("Roles Length:", req.body.roles);
 
     if (req.body.roles && req.body.roles.length > 0) {
-      // Step 1: Delete existing user roles except roleid == 0
-      await db.models.user_roles.destroy({
-        where: { userid: user.id, roleid: { [Op.ne]: 0 } },
-      });
+      // Step 1: Delete existing user roles with protected-role guard.
+      // - root_admin can remove super_admin from users
+      // - non-root users cannot remove super_admin/root_admin assignments
+      const protectedRoles = await Role.findAll({
+        where: { name: { [Op.in]: ['super_admin', 'root_admin'] } },
+        attributes: ['id', 'name']
+      })
+      const protectedRoleIdByName = protectedRoles.reduce((acc, role) => {
+        acc[role.name] = role.id
+        return acc
+      }, {})
 
-      console.log("Existing roles deleted, excluding roleid == 0.");
+      const currentUserRolesRaw = Array.isArray(req.roles) ? req.roles : []
+      const currentUserRolesAsStrings = currentUserRolesRaw.map((r) => String(r))
+      const rootRoleId = protectedRoleIdByName.root_admin
+      const isRootAdminActor =
+        currentUserRolesAsStrings.includes('root_admin') ||
+        (rootRoleId != null && currentUserRolesRaw.some((r) => Number(r) === Number(rootRoleId)))
+
+      const protectedRoleIds = []
+      if (protectedRoleIdByName.root_admin != null) {
+        protectedRoleIds.push(protectedRoleIdByName.root_admin)
+      }
+      if (!isRootAdminActor && protectedRoleIdByName.super_admin != null) {
+        protectedRoleIds.push(protectedRoleIdByName.super_admin)
+      }
+
+      const destroyWhere = protectedRoleIds.length > 0
+        ? { userid: user.id, roleid: { [Op.notIn]: protectedRoleIds } }
+        : { userid: user.id }
+
+      await db.models.user_roles.destroy({ where: destroyWhere })
+
+      console.log("Existing roles deleted with protected-role guard:", {
+        isRootAdminActor,
+        preservedRoleIds: protectedRoleIds
+      });
 
       // Step 2: Insert new roles
       const rolesToInsert = req.body.roles.map((role) => ({
