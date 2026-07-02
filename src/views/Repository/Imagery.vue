@@ -48,6 +48,9 @@ import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
+// Imagery uploads above this size must be compressed to ECW first
+const MAX_UPLOAD_MB = 200;
+
 // Interfaces for type safety
 interface Layer {
   name: string;
@@ -61,6 +64,7 @@ interface Layer {
   };
   countyId?: number | null;
   settlementId?: number | null;
+  fileSizeMb?: number | null;
 }
 
 interface FormData {
@@ -569,8 +573,16 @@ const uploadFiles = async () => {
     }
     loadingUploads.value = true;
     for (const file of selectedFiles.value) {
-      if (!file.name.endsWith('.ecw')) {
-        ElMessage.error('Only ECW files are supported');
+      const lowerName = file.name.toLowerCase();
+      if (!lowerName.endsWith('.ecw') && !lowerName.endsWith('.tif') && !lowerName.endsWith('.tiff')) {
+        ElMessage.error(`${file.name}: only ECW and TIFF files are supported`);
+        continue;
+      }
+      const sizeBytes = file.size ?? file.raw?.size ?? 0;
+      if (sizeBytes > MAX_UPLOAD_MB * 1024 * 1024) {
+        ElMessage.error(
+          `${file.name} is ${(sizeBytes / (1024 * 1024)).toFixed(0)} MB, above the ${MAX_UPLOAD_MB} MB limit. Please compress it to ECW using Global Mapper and try again.`
+        );
         continue;
       }
       try {
@@ -1019,6 +1031,11 @@ const downloadImagery = async (layer: Layer) => {
           {{ getSettlementLabel(scope.row.settlementId) }}
         </template>
       </el-table-column>
+      <el-table-column label="Size (MB)" prop="fileSizeMb" sortable width="120" align="right">
+        <template #default="scope">
+          {{ scope.row.fileSizeMb != null ? scope.row.fileSizeMb.toLocaleString() : '—' }}
+        </template>
+      </el-table-column>
       <el-table-column label="CRS" prop="crs" sortable width="350">
         <template #default="scope">
           {{ getCrsLabel(scope.row.crs[0]) }}
@@ -1089,7 +1106,7 @@ const downloadImagery = async (layer: Layer) => {
     </div>
   </el-card>
 
-  <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="75%" direction="rtl">
+  <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="45%" direction="rtl">
     <div v-if="viewSettlementId" class="basemap">
       <SettlementMap :settlement-id="viewSettlementId" />
     </div>
@@ -1151,12 +1168,15 @@ const downloadImagery = async (layer: Layer) => {
             drag
             :auto-upload="false"
             :on-change="handleFiles"
-            accept=".ecw"
+            accept=".ecw,.tif,.tiff"
             action=""
             style="width: 100%"
           >
             <i class="el-icon-upload"></i>
-            <div class="el-upload__text">Drop ECW files here or click to upload</div>
+            <div class="el-upload__text">Drop ECW or TIFF files here or click to upload</div>
+            <div class="el-upload__tip">
+              Max {{ MAX_UPLOAD_MB }} MB per file — compress larger imagery to ECW using Global Mapper
+            </div>
           </el-upload>
         </el-form-item>
       </el-form>

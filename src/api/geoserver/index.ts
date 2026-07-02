@@ -26,8 +26,9 @@ export const downloadGeoServerLayerFile = (layerName: string): Promise<any> => {
   })
 }
 
+// timeout 0: large imagery can take several minutes to upload and ingest
 export const uploadToGeoServer = (data: any): Promise<IResponse> => {
-  return request.post({ url: prod + '/api/v1/geoserver/upload', data })
+  return request.post({ url: prod + '/api/v1/geoserver/upload', data, timeout: 0 })
 }
 
  

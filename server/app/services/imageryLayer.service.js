@@ -45,6 +45,9 @@ function rowToApiLayer(row) {
     settlementId: row.settlement_id,
     workspace: row.workspace,
     coverageStoreName: row.coverage_store_name,
+    fileSizeMb: row.file_size_bytes
+      ? Number((Number(row.file_size_bytes) / (1024 * 1024)).toFixed(2))
+      : null,
   };
 }
 

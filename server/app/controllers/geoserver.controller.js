@@ -228,14 +228,43 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname); // Keep the original file name
+    // Unique temp name: files are only staged here briefly before streaming to
+    // GeoServer, and reusing original names collides with locked/read-only leftovers
+    cb(null, `${Date.now()}-${shortid.generate()}-${file.originalname}`);
   },
 });
+
+const MAX_IMAGERY_UPLOAD_MB = 200;
+
+/**
+ * After a gateway timeout the proxy has given up, but GeoServer usually keeps
+ * ingesting the file. Poll for the coverage store to learn the real outcome.
+ */
+async function waitForCoverageStore(workspace, storeName, auth, { attempts = 18, intervalMs = 10000 } = {}) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    try {
+      const response = await axios.get(
+        `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${encodeURIComponent(storeName)}.json`,
+        { auth, headers: { Accept: 'application/json' }, timeout: 15000 },
+      );
+      if (response.data?.coverageStore) {
+        console.log(`Coverage store ${storeName} appeared after ${attempt} poll(s).`);
+        return true;
+      }
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        console.warn(`Polling coverage store ${storeName}:`, error.message);
+      }
+    }
+  }
+  return false;
+}
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 250 * 1024 * 1024, // 250MB limit (adjust as needed)
+    fileSize: MAX_IMAGERY_UPLOAD_MB * 1024 * 1024,
   },
 });
 
@@ -343,7 +372,13 @@ exports.uploadToGeoserver = async (req, res) => {
   upload.array('files')(req, res, async (err) => {
     if (err) {
       console.log(err);
-        return res.status(500).send({
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).send({
+          message: `File exceeds the ${MAX_IMAGERY_UPLOAD_MB} MB limit. Please compress the imagery to ECW using Global Mapper and upload again.`,
+          code: '0002',
+        });
+      }
+      return res.status(500).send({
         message: 'Upload failed.',
         code: '0000'
       })
@@ -369,17 +404,23 @@ exports.uploadToGeoserver = async (req, res) => {
         const extname = path.extname(file.originalname).toLowerCase();
         
         console.log('file',file)
-        if (extname !== '.ecw' && extname !== '.tiff') {
-          return res.status(400).json({ error: 'Invalid file type, only ECW and TIFF files are supported' });
+        if (!['.ecw', '.tif', '.tiff'].includes(extname)) {
+          return res.status(400).json({
+            message: 'Invalid file type, only ECW and TIFF files are supported',
+            code: '0002',
+          });
         }
 
         const WORKSPACE = 'kisip';
         const coverageStoreName = path.parse(file.originalname).name;
-        const geoserverUrl = `${GEO_SERVER_URL}/rest/workspaces/${WORKSPACE}/coveragestores/${coverageStoreName}/file${extname}`;
+        // GeoServer's REST upload endpoint keys on the coverage format, not the raw extension
+        const uploadFormat = extname === '.ecw' ? 'ecw' : 'geotiff';
+        const geoserverUrl = `${GEO_SERVER_URL}/rest/workspaces/${WORKSPACE}/coveragestores/${coverageStoreName}/file.${uploadFormat}`;
 
         const fileStream = fs.createReadStream(file.path);
 
-           const response = await axios.put(
+        try {
+          const response = await axios.put(
             geoserverUrl,
             fileStream,
             {
@@ -399,14 +440,35 @@ exports.uploadToGeoserver = async (req, res) => {
             }
           );
 
-        if (response.status !== 201 && response.status !== 200) {
-          return res.status(response.status).json({
-            error: 'GeoServer upload failed',
-            details: response.data,
-          });
+          if (response.status !== 201 && response.status !== 200) {
+            return res.status(response.status).json({
+              error: 'GeoServer upload failed',
+              details: response.data,
+            });
+          }
+        } catch (uploadError) {
+          // The proxy in front of GeoServer times out on big files while GeoServer
+          // keeps ingesting in the background; poll to learn the real outcome.
+          const gatewayTimedOut =
+            uploadError.response?.status === 504 || uploadError.code === 'ECONNABORTED';
+          if (!gatewayTimedOut) throw uploadError;
+
+          console.warn(
+            `Gateway timeout while uploading ${file.originalname}; polling GeoServer for the result...`,
+          );
+          const ingested = await waitForCoverageStore(
+            WORKSPACE,
+            coverageStoreName,
+            { username, password },
+          );
+          if (!ingested) {
+            return res.status(504).send({
+              message: `GeoServer is taking too long to process "${file.originalname}". It may still complete in the background — refresh the layer list in a few minutes before uploading again.`,
+              code: '0002',
+            });
+          }
         }
 
-        
         const resource  =  await getResourceUrl(GEO_SERVER_URL, coverageStoreName,WORKSPACE,username,password) 
  
         const resourceUrl  =resource [0]
@@ -446,7 +508,8 @@ exports.uploadToGeoserver = async (req, res) => {
           layerName: coverageStoreName,
           crs: (resource_srs && resource_srs !== 'EPSG:404000') ? resource_srs : req.body.crs,
           originalFilename: file.originalname,
-          filePath: file.path,
+          // The staged temp file is deleted below; the source of truth lives in GeoServer's data_dir
+          filePath: null,
           fileFormat: extname.replace('.', ''),
           fileSizeBytes: file.size,
           countyId: req.body.county_id || req.body.countyId,
@@ -454,14 +517,6 @@ exports.uploadToGeoserver = async (req, res) => {
           createdBy: req.userid,
         });
       }
-
-
-    // Step 2 Update the layer details
-
- 
-   
-
-
 
       res.status(200).send({
         message: 'Imagery Upload Successful',
@@ -473,10 +528,16 @@ exports.uploadToGeoserver = async (req, res) => {
         message: 'Upload failed. ' + error.message,
         code: '0000',
       });
+    } finally {
+      // Remove staged temp files; GeoServer holds its own copy in the data_dir
+      for (const file of myFiles) {
+        fs.unlink(file.path, (unlinkError) => {
+          if (unlinkError) {
+            console.warn(`Could not remove temp upload ${file.path}:`, unlinkError.message);
+          }
+        });
+      }
     }
- 
-    
- 
   })
 }
 

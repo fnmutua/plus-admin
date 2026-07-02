@@ -28,6 +28,8 @@
     "prepare": "husky install",
     "install-all": "node install-dependencies.js",
     "p": "plop",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:status": "sequelize-cli db:migrate:status",
     "swagger:generate": "node swagger-generate.js",
     "chat:server": "node server/websocket-chat.js",
     "chat:server-production": "node server/websocket-chat-https.js",
