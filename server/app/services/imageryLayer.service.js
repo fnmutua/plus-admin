@@ -157,7 +157,8 @@ async function fetchLayerMetadataFromGeoServer(layerName, workspace = WORKSPACE)
     let coverageStoreName = layerName;
     if (storeHref) {
       const match = String(storeHref).match(/coveragestores\/([^/?#]+)/i);
-      if (match) coverageStoreName = decodeURIComponent(match[1]);
+      // Href ends with a format extension, e.g. ".../coveragestores/KAGUMO.json" — strip it
+      if (match) coverageStoreName = decodeURIComponent(match[1]).replace(/\.(json|xml|html)$/i, '');
     }
 
     let bbox = null;

@@ -33,7 +33,7 @@ import { Icon } from '@iconify/vue';
 // import { useAppStoreWithOut } from '@/store/modules/app';
 // import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope';
-import { uploadToGeoServer, deleteLayer, EditLayerDetails, getGeoServerLayers } from '@/api/geoserver';
+import { uploadToGeoServer, deleteLayer, EditLayerDetails, getGeoServerLayers, downloadGeoServerLayerFile } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
@@ -848,10 +848,6 @@ const goToSettlement = async (layer: Layer) => {
   }
 };
 
-const selectDownload = () => {
-  ElMessage.info('Download functionality not implemented');
-};
-
 onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize();
@@ -876,112 +872,47 @@ onMounted(async () => {
 
 const loadingStates = ref({});
 
-// Download raw imagery for a selected layer
-const downloadImagery = (layerName) => {
+// Download the original imagery file (ECW/TIFF) streamed from GeoServer's data_dir
+const downloadImagery = async (layer: Layer) => {
+  loadingStates.value[layer.name] = true;
+  try {
+    const response: any = await downloadGeoServerLayerFile(layer.name);
+    const disposition = response?.headers?.['content-disposition'] || '';
+    const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = filenameMatch?.[1] || `${layer.name}.ecw`;
 
-  console.log(layerName)
- 
-  loadingStates.value[layerName.name] = true;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
 
+    ElMessage.success('Imagery downloaded successfully');
+  } catch (error: any) {
+    console.error('Download error:', error);
 
-  // Construct WCS GetCoverage URL
-  const wcsUrl = `${serverUrl}/wcs?` +
-    `SERVICE=WCS&` +
-    `VERSION=2.0.1&` +
-    `REQUEST=GetCoverage&` +
-    `COVERAGEID=${layerName.name}&` +
-    `FORMAT=image/tiff&`; // West, East
+    // Error bodies arrive as blobs; extract the server's message when present
+    let serverMessage = '';
+    try {
+      const errorBody = error?.response?.data;
+      if (errorBody instanceof Blob) {
+        serverMessage = JSON.parse(await errorBody.text())?.message || '';
+      }
+    } catch {
+      // fall through to the generic message
+    }
 
-  axios({
-    method: 'get',
-    url: wcsUrl,
-    responseType: 'blob', // Important for handling binary data (e.g., GeoTIFF)
-  })
-    .then((response) => {
-      // Create a temporary link to trigger download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${layerName.name}.tif`); // Set filename
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-        loadingStates.value[layerName.name] = false;
-
-      ElMessage.success('Imagery downloaded successfully');
-    })
-    .catch((error) => {
-      console.log(error)
-      ElMessage.error('Imagery is too big for download. Consult Systems admin');
-       loadingStates.value[layerName.name] = false;
-
-    });
-};
-
-
-const xdownloadImagery = (layerName) => {
-  console.log(layerName);
-  loadingStates.value[layerName.name] = true;
-
-  // Optional: Fetch layer metadata to check size
-  const describeCoverageUrl =
-    `${serverUrl}/wcs?` +
-    `SERVICE=WCS&` +
-    `VERSION=2.0.1&` +
-    `REQUEST=DescribeCoverage&` +
-    `COVERAGEID=${layerName.name}`;
-
-  axios
-    .get(describeCoverageUrl)
-    .then((response) => {
-      // Parse raster size from DescribeCoverage response
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(response.data, 'text/xml');
-      // const width = parseInt(xmlDoc.querySelector('domainSet > RectifiedGrid > limits > GridEnvelope > high > *[1]')?.textContent);
-      // const height = parseInt(xmlDoc.querySelector('domainSet > RectifiedGrid > limits > GridEnvelope > high > *[2]')?.textContent);
-
-      // if (width * height > 100000000) { // Threshold: 100M pixels
-      //   ElMessage.error('Raster too large. Please select a smaller region or reduce resolution.');
-      //   loadingStates.value[layerName.name] = false;
-      //   return;
-      // }
-
-      // Construct WCS GetCoverage URL with optimizations
-      const wcsUrl =
-        `${serverUrl}/wcs?` +
-        `SERVICE=WCS&` +
-        `VERSION=2.0.1&` +
-        `REQUEST=GetCoverage&` +
-        `COVERAGEID=${layerName.name}&` +
-        `FORMAT=application/tiff&`  ; // Downsample to 1000x1000
-
-      return axios({
-        method: 'get',
-        url: wcsUrl,
-        responseType: 'blob',
-      });
-    })
-    .then((response) => {
-      if (!response) return;
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${layerName.name}.tif`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      loadingStates.value[layerName.name] = false;
-      ElMessage.success('Imagery downloaded successfully');
-    })
-    .catch((error) => {
-      console.error('Download error:', error);
-      ElMessage.error('Error downloading geoserver: ' + (error.response?.statusText || error.message));
-      loadingStates.value[layerName.name] = false;
-    });
+    const fallback =
+      error?.response?.status === 404
+        ? `The source file for "${layer.title || layer.name}" is not available for download.`
+        : 'Could not download this imagery right now. Please try again or contact the systems admin.';
+    ElMessage.error(serverMessage || fallback);
+  } finally {
+    loadingStates.value[layer.name] = false;
+  }
 };
 
 </script>
@@ -1059,9 +990,6 @@ const xdownloadImagery = (layerName) => {
             <el-button @click="openUploadDialog" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
-        <el-tooltip content="Download" placement="top">
-          <el-button @click="selectDownload" type="primary" :icon="Download" />
-        </el-tooltip>
         <PermissionWrapper :permissions="['geoserver:read']">
           <DownloadCustom
             :data="tableDataList"
@@ -1124,7 +1052,7 @@ const xdownloadImagery = (layerName) => {
             </el-button>
           </PermissionWrapper>
           <PermissionWrapper :permissions="['geoserver:read']">
-            <el-button  v-loading="loadingStates[scope.row.name]" disabled size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
+            <el-button :loading="loadingStates[scope.row.name]" size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
               Download
             </el-button>
           </PermissionWrapper>

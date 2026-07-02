@@ -501,7 +501,9 @@ async function resolveCoverageStoreName(workspace, layerName, username, password
     if (!storeHref) return layerName;
 
     const match = String(storeHref).match(/coveragestores\/([^/?#]+)/i);
-    return match ? decodeURIComponent(match[1]) : layerName;
+    if (!match) return layerName;
+    // Href ends with a format extension, e.g. ".../coveragestores/KAGUMO.json" — strip it
+    return decodeURIComponent(match[1]).replace(/\.(json|xml|html)$/i, '');
   } catch (error) {
     return layerName;
   }
@@ -623,6 +625,89 @@ exports.getLayers = async (req, res) => {
     res.status(500).send({
       message: `Failed to fetch layers: ${error.message}`,
       code: '0001',
+    });
+  }
+};
+
+// GeoServer's data directory on this server; store URLs are relative to it.
+// Named GEOSERVER_DATA_ROOT because the GeoServer installer sets a machine-level
+// GEOSERVER_DATA_DIR variable that would shadow a .env value of the same name.
+const GEOSERVER_DATA_ROOT = process.env.GEOSERVER_DATA_ROOT || '/data/data_dir';
+
+// Stream the original imagery file straight from GeoServer's data_dir on the local filesystem
+exports.downloadLayerFile = async (req, res) => {
+  const layerName = req.params.layerName;
+  const auth = geoAuth();
+
+  try {
+    const workspace = req.query.workspace || WORKSPACE;
+    const storeName = await resolveCoverageStoreName(
+      workspace,
+      layerName,
+      auth.username,
+      auth.password,
+    );
+
+    // The coverage store's url points at the file inside the data_dir, e.g. "file:data/kisip/burat/burat.ecw"
+    const storeResponse = await axios.get(
+      `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${encodeURIComponent(storeName)}.json`,
+      { auth, headers: { Accept: 'application/json' }, timeout: 15000 },
+    );
+    const storeUrl = storeResponse.data?.coverageStore?.url;
+    if (!storeUrl) {
+      return res.status(404).json({
+        code: '0001',
+        message: `No source file is registered on GeoServer for "${layerName}", so it cannot be downloaded.`,
+      });
+    }
+
+    // Resolve to an absolute path inside the data_dir.
+    // Store urls look like "file:data/kisip/x/x.ecw" (relative) or "file:///data/..." (absolute).
+    const relPath = String(storeUrl)
+      .replace(/^file:/, '')
+      .replace(/\/{2,}/g, '/');
+    const filePath = path.isAbsolute(relPath)
+      ? relPath
+      : path.join(GEOSERVER_DATA_ROOT, relPath);
+
+    // Guard against escaping the data_dir via a crafted store url
+    const resolvedPath = path.resolve(filePath);
+    const resolvedRoot = path.resolve(GEOSERVER_DATA_ROOT);
+    if (!resolvedPath.startsWith(resolvedRoot)) {
+      return res.status(400).json({
+        code: '0001',
+        message: 'Invalid file location for this layer.',
+      });
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
+      return res.status(404).json({
+        code: '0001',
+        message: `The source file for "${layerName}" is no longer on the server, so it cannot be downloaded.`,
+      });
+    }
+
+    const stat = fs.statSync(resolvedPath);
+    const filename = path.basename(resolvedPath);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', stat.size);
+
+    const stream = fs.createReadStream(resolvedPath);
+    stream.pipe(res);
+    stream.on('error', (streamError) => {
+      console.error(`Download stream error for ${layerName}:`, streamError.message);
+      res.destroy(streamError);
+    });
+  } catch (error) {
+    const status = error.response?.status === 404 ? 404 : 500;
+    console.error(`Failed to download layer ${layerName}:`, error.message);
+    return res.status(status).json({
+      code: '0001',
+      message:
+        status === 404
+          ? `"${layerName}" could not be found on GeoServer. It may have been renamed or removed.`
+          : `The download for "${layerName}" failed because GeoServer did not respond as expected. Please try again or contact the systems admin.`,
     });
   }
 };
