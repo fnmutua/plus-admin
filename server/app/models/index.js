@@ -461,6 +461,25 @@ db.models.settlement_uploads.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
 
+db.models.settlement.hasMany(db.models.imagery_layer, {
+  foreignKey: 'settlement_id',
+})
+db.models.imagery_layer.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id',
+})
+db.models.county.hasMany(db.models.imagery_layer, {
+  foreignKey: 'county_id',
+})
+db.models.imagery_layer.belongsTo(db.models.county, {
+  foreignKey: 'county_id',
+})
+db.models.users.hasMany(db.models.imagery_layer, {
+  foreignKey: 'created_by',
+})
+db.models.imagery_layer.belongsTo(db.models.users, {
+  foreignKey: 'created_by',
+})
+
 // intervention and settlements associations
 db.models.settlement.hasMany(db.models.intervention, {
   foreignKey: 'settlement_id'

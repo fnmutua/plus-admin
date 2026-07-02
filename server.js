@@ -154,11 +154,6 @@ const PORT = process.env.PORT || 80
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`)
-  try {
-    require('./server/app/services/geoserverLayerCatalog.service').warmLayerCatalogCache()
-  } catch (err) {
-    console.warn('GeoServer catalog warmup skipped:', err.message)
-  }
 })
 
 console.log('Port-Env.:', process.env.PORT)

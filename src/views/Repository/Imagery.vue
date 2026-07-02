@@ -9,7 +9,6 @@ ElButton,
   ElPagination,
   ElTooltip,
   ElOption,
-  ElDialog,
   ElDrawer,
   ElForm,
   ElUpload,
@@ -37,7 +36,8 @@ import { userHasPrivilegedNationalLocation } from '@/utils/roleScope';
 import { uploadToGeoServer, deleteLayer, EditLayerDetails, getGeoServerLayers } from '@/api/geoserver';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
-import { countyOptions } from '@/views/Facilities/common/index';
+import SettlementMap from '@/views/Components/SettlementMap.vue';
+import { countyOptions, settlementOptionsV2 } from '@/views/Facilities/common/index';
 import { getOneGeo, searchByKeyWord } from '@/api/settlements';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { useCache } from '@/hooks/web/useCache';
@@ -59,6 +59,8 @@ interface Layer {
     southBoundLatitude: number;
     northBoundLatitude: number;
   };
+  countyId?: number | null;
+  settlementId?: number | null;
 }
 
 interface FormData {
@@ -73,6 +75,8 @@ interface FormData {
   newLayerName?: string;
   newCrs?: string;
   layer?: Layer;
+  county_id?: number | null;
+  settlement_id?: number | null;
 }
 
 interface SelectOption {
@@ -122,22 +126,36 @@ const isCountyRestricted = computed(() => {
   return !isSuperAdmin.value && !hasNationalAccess.value && !!userCountyId.value;
 });
 
+const settlementFilterOptions = computed(() => {
+  if (!selectedCounty.value) return [];
+  return settlementOptionsV2.value.filter(
+    (item: { county_id?: number }) => Number(item.county_id) === Number(selectedCounty.value),
+  );
+});
+
 // Reactive refs
 const selOptions = ref<SelectOption[]>([]);
 const tableDataList = ref<Layer[]>([]);
 const selectedCounty = ref<number | undefined>(undefined);
+const selectedSettlement = ref<number | undefined>(undefined);
 const countyGeometry = ref<any>(null); // Store county geometry for spatial filtering
 const layerName = ref<string>();
 const bounds = ref<Layer['bbox']>();
 const AddDialogVisible = ref(false);
 const UploadDialogVisible = ref(false);
 const EditDialogVisible = ref(false);
+// Settlement-linked layers render through the shared SettlementMap component
+const viewSettlementId = ref<string | null>(null);
 
-// Watch for dialog close to cleanup map
+// Watch for drawer close to cleanup map state
 watch(AddDialogVisible, (newValue) => {
-  if (!newValue && map.value) {
-    // Clear layers when dialog closes
-    clearMapLayers();
+  if (!newValue) {
+    viewSettlementId.value = null;
+    // Destroy the raw WMS preview map; its container is conditionally rendered
+    if (map.value) {
+      map.value.remove();
+      map.value = null;
+    }
   }
 });
 const DialogTitle = ref('Imagery');
@@ -175,7 +193,21 @@ const form = ref<FormData>({
   
   crs: 'EPSG:21037',
   name: undefined,
+  county_id: null,
+  settlement_id: null,
 });
+
+// Settlement options for the county chosen inside the upload/edit dialog
+const formSettlementOptions = computed(() => {
+  if (!form.value.county_id) return [];
+  return settlementOptionsV2.value.filter(
+    (item: { county_id?: number }) => Number(item.county_id) === Number(form.value.county_id),
+  );
+});
+
+const handleFormCountyChange = () => {
+  form.value.settlement_id = null;
+};
 
 // Form validation rules
 const formRules = {
@@ -313,30 +345,73 @@ const updateMapLayer = () => {
 
 
 // Handle layer selection
+const fetchLayerBbox = async (name: string) => {
+  const geoAuth = { username: form.value.username, password: form.value.password };
+  const layerResponse = await axios.get(`/geoserver/rest/layers/kisip:${name}.json`, {
+    timeout: 10000,
+    headers: { Accept: 'application/json, */*' },
+    auth: geoAuth,
+  });
+
+  if (layerResponse.status !== 200 || !layerResponse.data.layer?.resource?.href) {
+    return null;
+  }
+
+  let resourceUrl = layerResponse.data.layer.resource.href.replace(/^https?:\/\/[^/]+/, '');
+  const resourceResponse = await axios.get(resourceUrl, {
+    timeout: 10000,
+    headers: { Accept: 'application/json, */*' },
+    auth: geoAuth,
+  });
+
+  const dataSource = resourceResponse.data?.coverage || resourceResponse.data?.featureType;
+  const latLon = dataSource?.latLonBoundingBox;
+  const nativeB = dataSource?.nativeBoundingBox;
+  const source = latLon || nativeB;
+  if (!source) return null;
+
+  return {
+    westBoundLongitude: source.minx ?? -180,
+    eastBoundLongitude: source.maxx ?? 180,
+    southBoundLatitude: source.miny ?? -90,
+    northBoundLatitude: source.maxy ?? 90,
+  };
+};
+
 const handleSelectLayer = async (lyr: string) => {
+  if (!lyr) return;
   try {
-    AddDialogVisible.value = true;
     layerName.value = lyr;
     DialogTitle.value = lyr;
 
-    // Get layer information from the already loaded table data (check both filtered and all layers)
-    const matchingLayers = tableDataList.value.filter((layer) => layer.name === lyr);
-    const optionMatch = selOptions.value.find((option) => option.value === lyr);
-    bounds.value = matchingLayers[0]?.bbox || optionMatch?.bbox;
-    
-    if (!bounds.value) {
-      ElMessage.error('No bounds found for this layer');
+    const matchingLayer = tableDataList.value.find((layer) => layer.name === lyr);
+
+    // Linked layer: reuse SettlementMap (it loads boundary + imagery itself)
+    if (matchingLayer?.settlementId) {
+      viewSettlementId.value = String(matchingLayer.settlementId);
+      AddDialogVisible.value = true;
       return;
     }
 
-    console.log('Using cached layer bounds:', bounds.value);
+    // Unlinked layer: fall back to raw WMS preview
+    viewSettlementId.value = null;
+    AddDialogVisible.value = true;
+
+    const optionMatch = selOptions.value.find((option) => option.value === lyr);
+    bounds.value = matchingLayer?.bbox || optionMatch?.bbox || undefined;
+
+    if (!bounds.value) {
+      bounds.value = await fetchLayerBbox(lyr) || undefined;
+    }
+
+    if (!bounds.value) {
+      ElMessage.error('No bounds found for this layer');
+      AddDialogVisible.value = false;
+      return;
+    }
 
     await nextTick();
-    
-    // Initialize map if not already done
     loadMap();
-    
-    // Wait a bit for the dialog to fully open before updating the map
     setTimeout(() => {
       updateMapLayer();
     }, 200);
@@ -472,6 +547,13 @@ const updatePageSize = () => {
   }
 };
 
+// Open upload dialog, prefilling location from the active filters
+const openUploadDialog = () => {
+  form.value.county_id = selectedCounty.value || null;
+  form.value.settlement_id = selectedSettlement.value || null;
+  UploadDialogVisible.value = true;
+};
+
 // Handle file uploads
 const selectedFiles = ref<any[]>([]);
 const handleFiles = (file: any, fileList: any[]) => {
@@ -492,8 +574,7 @@ const uploadFiles = async () => {
         continue;
       }
       try {
-        const store = file.name.replace(/ /g, '_').replace(/\.[^/.]+$/, '');
-        await uploadImageToGeoServer(file, store);
+        await uploadImageToGeoServer(file);
       } catch (error) {
         ElMessage.error(`Error processing ${file.name}`);
       }
@@ -502,12 +583,20 @@ const uploadFiles = async () => {
   });
 };
 
-const uploadImageToGeoServer = async (file: any, store: string) => {
-  const url = `${serverUrl}/rest/workspaces/${form.value.workspace}/coveragestores/${store}/file.ecw`;
+const uploadImageToGeoServer = async (file: any) => {
+  // Workspace and GeoServer credentials are supplied server-side
   const sanitizedFileName = file.name.replace(/\s+/g, '_');
   const formData = new FormData();
   formData.append('files', file.raw, sanitizedFileName);
   formData.append('crs', form.value.crs);
+  const uploadCountyId = form.value.county_id || selectedCounty.value;
+  const uploadSettlementId = form.value.settlement_id || selectedSettlement.value;
+  if (uploadCountyId) {
+    formData.append('county_id', String(uploadCountyId));
+  }
+  if (uploadSettlementId) {
+    formData.append('settlement_id', String(uploadSettlementId));
+  }
 
   try {
     const res = await uploadToGeoServer(formData);
@@ -548,6 +637,8 @@ const editLayer = async (lyr: Layer) => {
   oldLayer.value = lyr;
   EditDialogVisible.value = true;
   form.value.name = lyr.name;
+  form.value.county_id = lyr.countyId ?? null;
+  form.value.settlement_id = lyr.settlementId ?? null;
   const selectedCrs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
   const isValidCrs = crsOptions.value.some((option) => option.value === selectedCrs);
   form.value.crs = isValidCrs ? selectedCrs : 'Invalid';
@@ -617,6 +708,22 @@ const getCrsLabel = (value: string) => {
   return crs ? crs.label : `Invalid CRS: ${value}`;
 };
 
+const getCountyLabel = (countyId: number | null | undefined) => {
+  if (!countyId) return '—';
+  const match = (countyOptions.value as any[]).find(
+    (item) => Number(item.value) === Number(countyId),
+  );
+  return match?.label || `County #${countyId}`;
+};
+
+const getSettlementLabel = (settlementId: number | null | undefined) => {
+  if (!settlementId) return '—';
+  const match = (settlementOptionsV2.value as any[]).find(
+    (item) => Number(item.value) === Number(settlementId),
+  );
+  return match?.label || `Settlement #${settlementId}`;
+};
+
 // Pagination handlers
 const handlePageChange = async (page: number) => {
   currentPage.value = page;
@@ -633,6 +740,8 @@ const loadLayersPage = async (
   page = currentPage.value,
   limit = pageSize.value,
   countyId: number | undefined = selectedCounty.value,
+  settlementId: number | undefined = selectedSettlement.value,
+  search?: string,
 ) => {
   loading.value = true;
   try {
@@ -640,11 +749,13 @@ const loadLayersPage = async (
       page,
       limit,
       countyId: countyId || undefined,
+      settlementId: settlementId || undefined,
+      search: search || undefined,
     });
     const payload = res || {};
     tableDataList.value = Array.isArray(payload.data) ? payload.data : [];
     totalItems.value = Number(payload.total) || 0;
-    if (Array.isArray(payload?.options) && payload.options.length) {
+    if (Array.isArray(payload?.options)) {
       selOptions.value = payload.options;
     }
   } catch (error) {
@@ -662,6 +773,8 @@ const loadLayersPage = async (
 // Handle county selection change
 const handleCountyChange = async (countyId: number | undefined) => {
   selectedCounty.value = countyId;
+  selectedSettlement.value = undefined;
+  layerName.value = undefined;
   currentPage.value = 1;
 
   if (countyId) {
@@ -684,6 +797,13 @@ const handleCountyChange = async (countyId: number | undefined) => {
   await loadLayersPage(1, pageSize.value, countyId);
 };
 
+const handleSettlementChange = async (settlementId: number | undefined) => {
+  selectedSettlement.value = settlementId;
+  layerName.value = undefined;
+  currentPage.value = 1;
+  await loadLayersPage(1, pageSize.value, selectedCounty.value, settlementId);
+};
+
 // Navigation
 const router = useRouter()
 
@@ -696,12 +816,18 @@ const navigatingLayer = ref<string | null>(null)
 const goToSettlement = async (layer: Layer) => {
   navigatingLayer.value = layer.name
   try {
+    // Prefer the stored settlement linkage; fall back to name search for unlinked layers
+    if (layer.settlementId) {
+      router.push({ name: 'SettlementDetails', params: { id: layer.settlementId }, query: { tab: 'map' } })
+      return
+    }
+
     const layerLabel = layer.title || layer.name
     const cleanName = layerLabel.replace(/^kisip:/i, '').replace(/_/g, ' ').trim()
 
     const res: any = await searchByKeyWord({
       name: cleanName,
-      county_id: 0,
+      county_id: selectedCounty.value || userCountyId.value || 0,
       model: 'settlement',
       searchField: 'name',
       searchKeyword: cleanName,
@@ -711,7 +837,7 @@ const goToSettlement = async (layer: Layer) => {
 
     const settlements = res?.data || []
     if (settlements.length > 0) {
-      router.push({ name: 'SettlementDetails', params: { id: settlements[0].id } })
+      router.push({ name: 'SettlementDetails', params: { id: settlements[0].id }, query: { tab: 'map' } })
     } else {
       ElMessage.warning(`No settlement found matching "${cleanName}"`)
     }
@@ -899,6 +1025,23 @@ const xdownloadImagery = (layerName) => {
       </el-select>
 
       <el-select
+        v-model="selectedSettlement"
+        @change="handleSettlementChange"
+        clearable
+        filterable
+        placeholder="Filter by Settlement"
+        style="margin-right: 5px; min-width: 220px"
+        :disabled="!selectedCounty"
+      >
+        <el-option
+          v-for="item in settlementFilterOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+
+      <el-select
         v-model="layerName"
         @change="handleSelectLayer"
         clearable
@@ -913,7 +1056,7 @@ const xdownloadImagery = (layerName) => {
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px">
         <PermissionWrapper :permissions="['geoserver:create']">
           <el-tooltip content="Upload Imagery" placement="top">
-            <el-button @click="UploadDialogVisible = true" type="primary" :icon="Plus" />
+            <el-button @click="openUploadDialog" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
         <el-tooltip content="Download" placement="top">
@@ -938,6 +1081,16 @@ const xdownloadImagery = (layerName) => {
     >
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
+      <el-table-column label="County" prop="countyId" sortable width="140">
+        <template #default="scope">
+          {{ getCountyLabel(scope.row.countyId) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Settlement" prop="settlementId" sortable width="160">
+        <template #default="scope">
+          {{ getSettlementLabel(scope.row.settlementId) }}
+        </template>
+      </el-table-column>
       <el-table-column label="CRS" prop="crs" sortable width="350">
         <template #default="scope">
           {{ getCrsLabel(scope.row.crs[0]) }}
@@ -1009,24 +1162,15 @@ const xdownloadImagery = (layerName) => {
   </el-card>
 
   <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="75%" direction="rtl">
-    <div id="mapContainer" class="basemap" v-loading="mapLoading" element-loading-text="Loading imagery..."></div>
+    <div v-if="viewSettlementId" class="basemap">
+      <SettlementMap :settlement-id="viewSettlementId" />
+    </div>
+    <div v-else id="mapContainer" class="basemap" v-loading="mapLoading" element-loading-text="Loading imagery..."></div>
   </el-drawer>
 
-  <el-dialog v-model="UploadDialogVisible" title="Upload Imagery to Geoserver" width="500">
+  <el-drawer v-model="UploadDialogVisible" title="Upload Imagery" size="480px" direction="rtl">
     <div v-loading="loadingUploads">
-      <el-form ref="ruleFormRef" :model="form" :rules="formRules" label-position="left">
-        <el-form-item label="Name">
-          <el-input disabled v-model="form.geoserverUrl" />
-        </el-form-item>
-        <el-form-item label="Username">
-          <el-input disabled v-model="form.username" type="password" />
-        </el-form-item>
-        <el-form-item label="Password">
-          <el-input disabled v-model="form.password" type="password" />
-        </el-form-item>
-        <el-form-item label="Workspace">
-          <el-input disabled v-model="form.workspace" />
-        </el-form-item>
+      <el-form ref="ruleFormRef" :model="form" :rules="formRules" label-position="top">
         <el-form-item label="Coordinate System" prop="crs">
           <el-select
             v-model="form.crs"
@@ -1037,6 +1181,40 @@ const xdownloadImagery = (layerName) => {
             style="margin-right: 5px"
           >
             <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="County">
+          <el-select
+            v-model="form.county_id"
+            clearable
+            filterable
+            placeholder="Link to County"
+            style="width: 100%"
+            @change="handleFormCountyChange"
+          >
+            <el-option
+              v-for="item in countyOptions"
+              :key="(item as any).value"
+              :label="(item as any).label"
+              :value="(item as any).value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Settlement">
+          <el-select
+            v-model="form.settlement_id"
+            clearable
+            filterable
+            placeholder="Link to Settlement"
+            style="width: 100%"
+            :disabled="!form.county_id"
+          >
+            <el-option
+              v-for="item in formSettlementOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="Select Files" style="width: 100%">
@@ -1061,16 +1239,10 @@ const xdownloadImagery = (layerName) => {
         <el-button type="primary" @click="uploadFiles">Confirm</el-button>
       </div>
     </template>
-  </el-dialog>
+  </el-drawer>
 
-  <el-dialog  v-loading="EditLoading"  v-model="EditDialogVisible" title="Edit Imagery Details" width="500">
-    <el-form ref="ruleFormRef" :model="form" label-position="left">
-      <el-form-item label="Name">
-        <el-input disabled v-model="form.geoserverUrl" />
-      </el-form-item>
-      <el-form-item label="Workspace">
-        <el-input disabled v-model="form.workspace" />
-      </el-form-item>
+  <el-drawer v-loading="EditLoading" v-model="EditDialogVisible" title="Edit Imagery Details" size="480px" direction="rtl">
+    <el-form ref="ruleFormRef" :model="form" label-position="top">
       <el-form-item label="Layer Name">
         <el-input v-model="form.name" />
       </el-form-item>
@@ -1086,6 +1258,40 @@ const xdownloadImagery = (layerName) => {
           <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
+      <el-form-item label="County">
+        <el-select
+          v-model="form.county_id"
+          clearable
+          filterable
+          placeholder="Link to County"
+          style="width: 100%"
+          @change="handleFormCountyChange"
+        >
+          <el-option
+            v-for="item in countyOptions"
+            :key="(item as any).value"
+            :label="(item as any).label"
+            :value="(item as any).value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Settlement">
+        <el-select
+          v-model="form.settlement_id"
+          clearable
+          filterable
+          placeholder="Link to Settlement"
+          style="width: 100%"
+          :disabled="!form.county_id"
+        >
+          <el-option
+            v-for="item in formSettlementOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
     </el-form>
     <template #footer>
       <div v-loading="EditLoading" class="dialog-footer">
@@ -1093,7 +1299,7 @@ const xdownloadImagery = (layerName) => {
         <el-button  type="primary" @click="saveEdits">Confirm</el-button>
       </div>
     </template>
-  </el-dialog>
+  </el-drawer>
 </template>
 
 <style scoped>

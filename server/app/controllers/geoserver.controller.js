@@ -3,7 +3,7 @@ const path = require('path');
 const shortid = require('shortid');
 const axios = require('axios');
 const multer = require('multer');
-const layerCatalog = require('../services/geoserverLayerCatalog.service');
+const imageryLayerService = require('../services/imageryLayer.service');
 
 const GEO_USERNAME = process.env.GEOSERVER_USERNAME || process.env.VITE_GEOSERVER_USERNAME || 'admin';
 const GEO_PASSWORD = process.env.GEOSERVER_PASSWORD || process.env.VITE_GEOSERVER_PASSWORD || 'Admin@2011';
@@ -328,7 +328,6 @@ exports._uploadToGeoserver = async (req, res) => {
         message: 'Imagery Upload Successful',
         code: '0000',
       });
-      layerCatalog.clearLayerCatalogCache();
     } catch (error) {
       console.error(error);
       res.status(500).send({
@@ -435,16 +434,25 @@ exports.uploadToGeoserver = async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    if (updateCoverageResponse.status !== 200 && updateCoverageResponse.status !== 204) {
-      return res.status(updateCoverageResponse.status).send({
-        message: `Failed to update coverage metdata: ${updateCoverageResponse.statusText}`,
-        code: '0002',
-      });
-    }
+        if (updateCoverageResponse.status !== 200 && updateCoverageResponse.status !== 204) {
+          return res.status(updateCoverageResponse.status).send({
+            message: `Failed to update coverage metdata: ${updateCoverageResponse.statusText}`,
+            code: '0002',
+          });
+        }
 
-
-
-
+        await imageryLayerService.createFromUpload({
+          workspace: WORKSPACE,
+          layerName: coverageStoreName,
+          crs: (resource_srs && resource_srs !== 'EPSG:404000') ? resource_srs : req.body.crs,
+          originalFilename: file.originalname,
+          filePath: file.path,
+          fileFormat: extname.replace('.', ''),
+          fileSizeBytes: file.size,
+          countyId: req.body.county_id || req.body.countyId,
+          settlementId: req.body.settlement_id || req.body.settlementId,
+          createdBy: req.userid,
+        });
       }
 
 
@@ -459,7 +467,6 @@ exports.uploadToGeoserver = async (req, res) => {
         message: 'Imagery Upload Successful',
         code: '0000',
       });
-      layerCatalog.clearLayerCatalogCache();
     } catch (error) {
       console.error(error);
       res.status(500).send({
@@ -474,54 +481,84 @@ exports.uploadToGeoserver = async (req, res) => {
 }
 
 
+async function resolveCoverageStoreName(workspace, layerName, username, password) {
+  const auth = { username, password };
+  try {
+    const layerResponse = await axios.get(
+      `${GEO_SERVER_URL}/rest/layers/${workspace}:${layerName}.json`,
+      { auth, headers: { Accept: 'application/json' } },
+    );
+    const resourceHref = layerResponse.data?.layer?.resource?.href;
+    if (!resourceHref) return layerName;
+
+    const resourceUrl = resourceHref.replace(/^http:/, 'https:');
+    const resourceResponse = await axios.get(resourceUrl, {
+      auth,
+      headers: { Accept: 'application/json' },
+    });
+    const store = resourceResponse.data?.coverage?.store;
+    const storeHref = typeof store === 'string' ? store : store?.['@href'] || store?.href;
+    if (!storeHref) return layerName;
+
+    const match = String(storeHref).match(/coveragestores\/([^/?#]+)/i);
+    return match ? decodeURIComponent(match[1]) : layerName;
+  } catch (error) {
+    return layerName;
+  }
+}
+
+async function deleteGeoServerResource(deleteFn, label) {
+  try {
+    await deleteFn();
+    console.log(`${label} deleted successfully.`);
+    return true;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      console.log(`${label} not found, skipping.`);
+      return false;
+    }
+    throw error;
+  }
+}
+
+
 exports.deleteCoverageStore =async  (req, res) => {
 
   console.log(req.body )
-//exports.deleteCoverageStore = async (storeName, workspace, uploadDir) => {
   try {
     const username = GEO_USERNAME;
     const password = GEO_PASSWORD;
     const {storeName, workspace}  =req.body 
+    const auth = { username, password };
+    const layerRef = `${workspace}:${storeName}`;
 
+    const coverageStoreName = await resolveCoverageStoreName(
+      workspace,
+      storeName,
+      username,
+      password,
+    );
 
+    // Remove store + coverage + published layer in one call when possible
+    const storeDeleted = await deleteGeoServerResource(
+      () => axios.delete(
+        `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${coverageStoreName}?recurse=true`,
+        { auth, headers: { 'Content-Type': 'application/json' } },
+      ),
+      `Coverage store ${coverageStoreName}`,
+    );
 
-
-    // Step 1: Fetch and delete all associated layers
-    const layersUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${storeName}.json`;
-    const deleteLayerUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${storeName}`;
-    const deleteLayerResponse =  await axios.get(layersUrl, {
-      auth: { username, password },
-    });
-
-    //console.log('deleteLayerResponse',deleteLayerResponse)
-
-
-    if (deleteLayerResponse.status === 200 && deleteLayerResponse.data.layer) {
-      const layers = Array.isArray(deleteLayerResponse.data.layer) ? deleteLayerResponse.data.layer : [deleteLayerResponse.data.layer];
-      for (const layer of layers) {
-        // Delete each layer
-        await axios.delete(`${deleteLayerUrl}/${layer.name}`, {
-          auth: { username, password },
+    if (!storeDeleted) {
+      await deleteGeoServerResource(
+        () => axios.delete(`${GEO_SERVER_URL}/rest/layers/${layerRef}`, {
+          auth,
           headers: { 'Content-Type': 'application/json' },
-        });
-        console.log(`Layer ${layer.name} deleted successfully.`);
-      }
+        }),
+        `Layer ${storeName}`,
+      );
     }
 
-    // Step 2: Delete the coverage store
-    const storeUrl = `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${storeName}?recurse=true`;
-    const deleteStoreResponse = await   axios.delete(storeUrl, {
-      auth: { username, password },
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (deleteStoreResponse.status === 200) {
-      console.log(`Coverage Store ${storeName} deleted successfully.`);
-    } else {
-      throw new Error(`Failed to delete store ${storeName}: ${deleteStoreResponse.status} ${deleteStoreResponse.data}`);
-    }
-
-    // Step 3: Delete uploaded files
+    // Delete uploaded files
     const filePath = path.join(uploadDir, `${storeName}.ecw`);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -530,16 +567,11 @@ exports.deleteCoverageStore =async  (req, res) => {
       console.log(`File ${filePath} not found, skipping.`);
     }
 
-    // return {
-    //   message: `Store ${storeName} and its associated layers and files have been deleted successfully.`,
-    //   code: '0000',
-    // };
-
     res.status(200).send({
       message:  `Store ${storeName} and its associated layers and files have been deleted successfully.`,
       code: '0000',
     });
-    layerCatalog.clearLayerCatalogCache();
+    await imageryLayerService.markDeleted({ workspace, layerName: storeName });
 
 
   } catch (error) {
@@ -549,12 +581,6 @@ exports.deleteCoverageStore =async  (req, res) => {
       message: `Failed to delete store and layers: ${error.message}`,
       code: '0001',
     });
-
-
-    // return {
-    //   message: `Failed to delete store and layers: ${error.message}`,
-    //   code: '0001',
-    // };
   }
 };
 
@@ -564,19 +590,25 @@ exports.getLayers = async (req, res) => {
     const page = parseInt(req.query.page, 10);
     const limit = parseInt(req.query.limit, 10);
     const countyId = req.query.countyId ? Number(req.query.countyId) : null;
-    const forceRefresh = String(req.query.refresh || '') === '1';
+    const settlementId = req.query.settlementId ? Number(req.query.settlementId) : null;
+    const search = req.query.search ? String(req.query.search).trim() : '';
     const paginated = Number.isFinite(page) && page > 0 && Number.isFinite(limit) && limit > 0;
 
     if (!paginated) {
-      const rawLayers = await fetchRawLayerList();
-      return res.status(200).json({ layers: { layer: rawLayers } });
+      const layers = await imageryLayerService.listAllPublished();
+      return res.status(200).json({
+        layers: {
+          layer: layers.map((layer) => ({ name: layer.name, title: layer.title })),
+        },
+      });
     }
 
-    const result = await layerCatalog.getPaginatedLayerCatalog({
+    const result = await imageryLayerService.getPaginatedLayers({
       page,
       limit,
       countyId,
-      forceRefresh,
+      settlementId,
+      search,
     });
 
     return res.status(200).json({
@@ -584,13 +616,30 @@ exports.getLayers = async (req, res) => {
       data: result.data,
       total: result.total,
       options: result.options,
-      cached: !!result.cachedAt,
+      source: 'database',
     });
   } catch (error) {
-    console.error('Failed to fetch GeoServer layers:', error.message);
+    console.error('Failed to fetch imagery layers:', error.message);
     res.status(500).send({
       message: `Failed to fetch layers: ${error.message}`,
       code: '0001',
+    });
+  }
+};
+
+exports.syncLayersFromGeoServer = async (req, res) => {
+  try {
+    const result = await imageryLayerService.syncFromGeoServerCatalog();
+    return res.status(200).json({
+      code: '0000',
+      message: `Synced ${result.upserted} imagery layers from GeoServer into the local catalog.`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Failed to sync imagery from GeoServer:', error.message);
+    return res.status(500).json({
+      code: '0001',
+      message: `Failed to sync imagery catalog: ${error.message}`,
     });
   }
 };
@@ -599,7 +648,7 @@ exports.editLayerDetails = async (req, res) => {
   const username = GEO_USERNAME;
   const password = GEO_PASSWORD;
 
-  const { oldLayerName, newLayerName, workspace, newCrs } = req.body;
+  const { oldLayerName, newLayerName, workspace, newCrs, county_id, settlement_id } = req.body;
 
   console.log('req.body', req.body);
 
@@ -663,6 +712,15 @@ exports.editLayerDetails = async (req, res) => {
         code: '0002',
       });
     }
+
+    await imageryLayerService.updateFromEdit({
+      workspace,
+      oldLayerName,
+      newLayerName,
+      crs: newCrs,
+      countyId: county_id,
+      settlementId: settlement_id,
+    });
 
     res.status(200).send({
       message: `Layer ${oldLayerName} updated successfully.`,

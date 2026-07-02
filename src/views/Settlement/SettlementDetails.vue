@@ -704,7 +704,8 @@ const goBack = () => {
 
 }
 
-const activeName = ref('profile')
+// Allow deep-linking to a specific tab, e.g. /settlement/123?tab=map
+const activeName = ref(typeof route.query.tab === 'string' && route.query.tab ? route.query.tab : 'profile')
 
 const viewLoading = ref(false)
 const loadingStates = ref({}) // Add this line to track loading state per document

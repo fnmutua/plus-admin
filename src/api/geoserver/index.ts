@@ -5,8 +5,14 @@ export const getGeoServerLayers = (params?: {
   page?: number
   limit?: number
   countyId?: number | null
+  settlementId?: number | null
+  search?: string
 }): Promise<IResponse> => {
   return request.get({ url: prod + '/api/v1/geoserver/layers', params })
+}
+
+export const syncGeoServerLayers = (): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/geoserver/sync' })
 }
 
 export const uploadToGeoServer = (data: any): Promise<IResponse> => {

@@ -84,6 +84,7 @@ module.exports = function(app) {
      *                   example: "0000"
      */
     app.get("/api/v1/geoserver/layers", [authJwt.verifyToken], controller.getLayers);
+    app.post("/api/v1/geoserver/sync", [authJwt.verifyToken], controller.syncLayersFromGeoServer);
     app.post("/api/v1/geoserver/upload", [authJwt.verifyToken ],controller.uploadToGeoserver);
 
     /**

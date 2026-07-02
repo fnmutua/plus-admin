@@ -69,6 +69,7 @@ var _project_location = require('./project_location')
 var _project_beneficiary = require('./project_beneficiary') 
 
 var _settlement_uploads = require('./settlement_uploads')
+var _imagery_layer = require('./imagery_layer')
 
 
 // grievances 
@@ -158,6 +159,7 @@ function initModels(sequelize) {
   var lots = _lot(sequelize, DataTypes)
   var benefit_type = _benefit_type(sequelize, DataTypes)
   var settlement_uploads = _settlement_uploads(sequelize, DataTypes)
+  var imagery_layer = _imagery_layer(sequelize, DataTypes)
   var settlement_status = _settlement_status(sequelize, DataTypes)
   var health_facility = _health_facility(sequelize, DataTypes)
   var education_facility = _education_facility(sequelize, DataTypes)
@@ -346,6 +348,7 @@ communication_recipient.belongsTo(communication, {
     chart_indicator,
     document_category,
     settlement_uploads,
+    imagery_layer,
     feedback,
     frequency,
     programme_implementation,
