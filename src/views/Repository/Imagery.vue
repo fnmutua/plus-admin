@@ -41,7 +41,6 @@ import { countyOptions } from '@/views/Facilities/common/index';
 import { getOneGeo, searchByKeyWord } from '@/api/settlements';
 import { useAppStoreWithOut } from '@/store/modules/app';
 import { useCache } from '@/hooks/web/useCache';
-import * as turf from '@turf/turf';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -126,7 +125,6 @@ const isCountyRestricted = computed(() => {
 // Reactive refs
 const selOptions = ref<SelectOption[]>([]);
 const tableDataList = ref<Layer[]>([]);
-const allLayers = ref<Layer[]>([]); // Store all layers for filtering
 const selectedCounty = ref<number | undefined>(undefined);
 const countyGeometry = ref<any>(null); // Store county geometry for spatial filtering
 const layerName = ref<string>();
@@ -155,7 +153,7 @@ const oldLayer = ref<Layer>();
 
 // Pagination
 const mobileBreakpoint = 768;
-const defaultPageSize = 10;
+const defaultPageSize = 5;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 const currentPage = ref(1);
@@ -322,9 +320,9 @@ const handleSelectLayer = async (lyr: string) => {
     DialogTitle.value = lyr;
 
     // Get layer information from the already loaded table data (check both filtered and all layers)
-    const matchingFilteredLayers = filteredLayers.value.filter((layer) => layer.name === lyr);
-    const allLayersMatch = allLayers.value.filter((layer) => layer.name === lyr);
-    bounds.value = matchingFilteredLayers[0]?.bbox || allLayersMatch[0]?.bbox;
+    const matchingLayers = tableDataList.value.filter((layer) => layer.name === lyr);
+    const optionMatch = selOptions.value.find((option) => option.value === lyr);
+    bounds.value = matchingLayers[0]?.bbox || optionMatch?.bbox;
     
     if (!bounds.value) {
       ElMessage.error('No bounds found for this layer');
@@ -466,10 +464,11 @@ const refreshLayerData = async (layerName: string) => {
 
 // Update page size based on window width
 const updatePageSize = () => {
-  if (window.innerWidth <= mobileBreakpoint) {
-    pageSize.value = mobilePageSize;
-  } else {
-    pageSize.value = defaultPageSize;
+  const nextSize = window.innerWidth <= mobileBreakpoint ? mobilePageSize : defaultPageSize;
+  if (nextSize !== pageSize.value) {
+    pageSize.value = nextSize;
+    currentPage.value = 1;
+    loadLayersPage(1, nextSize);
   }
 };
 
@@ -515,6 +514,7 @@ const uploadImageToGeoServer = async (file: any, store: string) => {
     if (res.code === '0000') {
       UploadDialogVisible.value = false;
       ElMessage.success('File uploaded successfully');
+      await loadLayersPage(1, pageSize.value);
     } else {
       ElMessage.error('Upload failed');
     }
@@ -531,10 +531,9 @@ const deleteLayerStore = async (layer: string) => {
     form.value.storeName = layer;
     const res = await deleteLayer(form.value);
     if (res && res.code === '0000') {
-      allLayers.value = allLayers.value.filter((item) => item.name !== layer);
-      tableDataList.value = tableDataList.value.filter((item) => item.name !== layer);
       selOptions.value = selOptions.value.filter((item) => item.value !== layer);
-      totalItems.value = filteredLayers.value.length;
+      totalItems.value = Math.max(0, totalItems.value - 1);
+      await loadLayersPage(currentPage.value, pageSize.value);
       ElMessage.success('Layer deleted successfully');
     } else {
       ElMessage.error('Deletion failed');
@@ -588,20 +587,6 @@ const saveEdits = async () => {
         };
         tableDataList.value = updatedLayers;
         
-        // Also update allLayers
-        const allLayersIndex = allLayers.value.findIndex(layer => layer.name === form.value.oldLayerName);
-        if (allLayersIndex !== -1) {
-          const updatedAllLayers = [...allLayers.value];
-          updatedAllLayers[allLayersIndex] = {
-            name: updatedLayerName,
-            title: updatedLayerName,
-            crs: [form.value.newCrs || 'EPSG:4326'],
-            bbox: allLayers.value[allLayersIndex].bbox,
-          };
-          allLayers.value = updatedAllLayers;
-        }
-        
-        // Also update the select options
         const optionIndex = selOptions.value.findIndex(option => option.value === form.value.oldLayerName);
         if (optionIndex !== -1) {
           const updatedOptions = [...selOptions.value];
@@ -633,106 +618,57 @@ const getCrsLabel = (value: string) => {
 };
 
 // Pagination handlers
-const handlePageChange = (page: number) => {
+const handlePageChange = async (page: number) => {
   currentPage.value = page;
+  await loadLayersPage(page, pageSize.value);
 };
 
-const handlePageSizeChange = (newSize: number) => {
+const handlePageSizeChange = async (newSize: number) => {
   pageSize.value = newSize;
   currentPage.value = 1;
+  await loadLayersPage(1, newSize);
 };
 
-// Check if imagery layer bounding box intersects with county geometry
-const bboxIntersectsCounty = (layerBbox: Layer['bbox'], countyGeo: any): boolean => {
-  if (!layerBbox || !countyGeo) return false;
-  
+const loadLayersPage = async (
+  page = currentPage.value,
+  limit = pageSize.value,
+  countyId: number | undefined = selectedCounty.value,
+) => {
+  loading.value = true;
   try {
-    // Create a bounding box polygon from the imagery layer's bbox
-    const layerBboxPolygon = turf.bboxPolygon([
-      layerBbox.westBoundLongitude,
-      layerBbox.southBoundLatitude,
-      layerBbox.eastBoundLongitude,
-      layerBbox.northBoundLatitude
-    ]);
-    
-    // Get county features (handle both FeatureCollection and single Feature)
-    const countyFeatures = countyGeo.features || [countyGeo];
-    
-    // Check if layer bbox intersects with any county feature
-    for (const feature of countyFeatures) {
-      if (feature.geometry) {
-        const countyFeature = turf.feature(feature.geometry);
-        
-        // Check for intersection
-        if (turf.intersect(layerBboxPolygon, countyFeature)) {
-          return true;
-        }
-        
-        // Also check if layer bbox is completely within county
-        if (turf.booleanContains(countyFeature, layerBboxPolygon)) {
-          return true;
-        }
-        
-        // Check if county is within layer bbox (layer covers the county)
-        if (turf.booleanContains(layerBboxPolygon, countyFeature)) {
-          return true;
-        }
-      }
+    const res: any = await getGeoServerLayers({
+      page,
+      limit,
+      countyId: countyId || undefined,
+    });
+    const payload = res || {};
+    tableDataList.value = Array.isArray(payload.data) ? payload.data : [];
+    totalItems.value = Number(payload.total) || 0;
+    if (Array.isArray(payload?.options) && payload.options.length) {
+      selOptions.value = payload.options;
     }
-    
-    return false;
   } catch (error) {
-    console.warn('Error checking bbox intersection:', error);
-    return false;
+    console.error('Failed to load imagery layers:', error);
+    tableDataList.value = [];
+    totalItems.value = 0;
+    ElMessage.error('Failed to load imagery layers');
+  } finally {
+    loading.value = false;
+    totalLayers.value = 0;
+    processedLayers.value = 0;
   }
 };
-
-// Filter layers by county based on bounding box intersection
-const filterLayersByCounty = (layers: Layer[], countyGeo: any): Layer[] => {
-  if (!countyGeo) return layers;
-  
-  return layers.filter(layer => {
-    return bboxIntersectsCounty(layer.bbox, countyGeo);
-  });
-};
-
-// Computed filtered layers
-const filteredLayers = computed(() => {
-  if (!selectedCounty.value || !countyGeometry.value) {
-    return allLayers.value;
-  }
-  return filterLayersByCounty(allLayers.value, countyGeometry.value);
-});
-
-// Computed paginated data
-const paginatedData = computed(() => {
-  if (!filteredLayers.value.length) return [];
-  const startIndex = (currentPage.value - 1) * pageSize.value;
-  const endIndex = startIndex + pageSize.value;
-  return filteredLayers.value.slice(startIndex, endIndex);
-});
-
-// Computed filtered select options
-const filteredSelOptions = computed(() => {
-  if (!selectedCounty.value) {
-    return selOptions.value;
-  }
-  const filtered = filterLayersByCounty(allLayers.value, selectedCounty.value);
-  return filtered.map((l: Layer) => ({ value: l.name, label: l.name, bbox: l.bbox }));
-});
 
 // Handle county selection change
 const handleCountyChange = async (countyId: number | undefined) => {
   selectedCounty.value = countyId;
-  currentPage.value = 1; // Reset to first page when filter changes
-  
+  currentPage.value = 1;
+
   if (countyId) {
     try {
-      // Fetch county geometry for spatial filtering
       const geoForm: any = { model: 'county', id: countyId };
       const res: any = await getOneGeo(geoForm);
       countyGeometry.value = res.data?.[0]?.json_build_object || res.data || null;
-      
       if (!countyGeometry.value) {
         ElMessage.warning('Could not load county geometry for filtering');
       }
@@ -744,6 +680,8 @@ const handleCountyChange = async (countyId: number | undefined) => {
   } else {
     countyGeometry.value = null;
   }
+
+  await loadLayersPage(1, pageSize.value, countyId);
 };
 
 // Navigation
@@ -788,44 +726,10 @@ const selectDownload = () => {
   ElMessage.info('Download functionality not implemented');
 };
 
-// Function to fetch layers from GeoServer REST API
-// Tries backend proxy first (keeps credentials server-side), then falls back to direct call
-const fetchLayersFromRestAPI = async (): Promise<any> => {
-  // Strategy 1: backend proxy (no credentials in browser)
-  try {
-    console.log('Fetching layers via backend proxy /api/v1/geoserver/layers');
-    const proxyRes: any = await getGeoServerLayers();
-    const data = proxyRes?.data || proxyRes;
-    if (data && data.layers) {
-      return { response: { status: 200, data }, serverUrl: '/geoserver/kisip' };
-    }
-  } catch (e: any) {
-    console.warn('Backend proxy failed, falling back to direct call:', e.message);
-  }
-
-  // Strategy 2: direct relative-URL call through Vite proxy / same-origin
-  const restApiUrl = '/geoserver/rest/layers.json';
-  console.log(`Fetching layers from REST API: ${restApiUrl}`);
-  try {
-    const response = await axios.get(restApiUrl, {
-      timeout: 15000,
-      headers: { 'Accept': 'application/json, */*' },
-      auth: { username: form.value.username, password: form.value.password },
-    });
-    console.log(`Success with REST API: ${restApiUrl}`);
-    return { response, serverUrl: '/geoserver/kisip' };
-  } catch (error: any) {
-    console.error(`Failed to fetch from REST API:`, error.message);
-    throw error;
-  }
-};
-
-// On mounted
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', updatePageSize);
   updatePageSize();
- 
-  // Resize observer for drawer
+
   const drawer = document.querySelector('.el-drawer');
   if (drawer) {
     const resizeObserver = new ResizeObserver(() => {
@@ -834,196 +738,13 @@ onMounted(() => {
     resizeObserver.observe(drawer);
   }
 
-  // Fetch layers from GeoServer REST API
-  loading.value = true;
-  
-  // Use async/await instead of .then() to properly handle await inside the loop
-  (async () => {
-    try {
-      const { response, serverUrl: workingUrl } = await fetchLayersFromRestAPI();
-      console.log('REST API response received:', response.status);
-      console.log('Using server URL:', workingUrl);
-      
-      const jsonData = response.data;
-      
-      if (!jsonData || typeof jsonData !== 'object') {
-        throw new Error('Invalid JSON response from GeoServer REST API');
-      }
+  if (isCountyRestricted.value && userCountyId.value) {
+    selectedCounty.value = userCountyId.value;
+    await handleCountyChange(userCountyId.value);
+    return;
+  }
 
-      console.log('REST API JSON structure:', Object.keys(jsonData));
-      
-      // Check if the structure exists before accessing it
-      if (!jsonData.layers) {
-        console.error('Missing layers in REST API response:', jsonData);
-        throw new Error('Invalid REST API structure - missing layers');
-      }
-      
-      let layers = jsonData.layers.layer;
-      
-      // Handle case where there's only one layer (not an array)
-      if (!Array.isArray(layers)) {
-        layers = layers ? [layers] : [];
-      }
-      
-      console.log(`Found ${layers.length} raw layers to process`);
-      
-      if (layers.length === 0) {
-        throw new Error('No layers found in REST API response');
-      }
-      
-      // Concurrency-limited incremental processing with progress bar
-      const glayers: Layer[] = [];
-      const inputLayers = (layers as any[]).filter((l: any) => l && l.name);
-      totalLayers.value = inputLayers.length;
-      processedLayers.value = 0;
-
-      const geoAuth = { username: form.value.username, password: form.value.password };
-      const geo = axios.create({
-        baseURL: '/geoserver',
-        timeout: 10000,
-        headers: { 'Accept': 'application/json, */*' },
-        auth: geoAuth,
-      });
-
-      const limit = 6;
-      let next = 0;
-
-      // release top-level loading so UI is interactive while we process
-      loading.value = false;
-
-      async function worker() {
-        while (next < inputLayers.length) {
-          const idx = next++;
-          const layer = inputLayers[idx];
-          try {
-            const layerResp = await geo.get(`/rest/layers/kisip:${layer.name}.json`);
-            const href = layerResp.data?.layer?.resource?.href as string | undefined;
-            if (!href) {
-              glayers.push({
-                name: layer.name,
-                title: layer.title || layer.name,
-                crs: ['EPSG:4326'],
-                bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
-              });
-            } else {
-              const resUrl = href.replace(/^https?:\/\/[^/]+/, '');
-              const resResp = await axios.get(resUrl, {
-                timeout: 10000,
-                headers: { 'Accept': 'application/json, */*' },
-                auth: geoAuth,
-              });
-              const dataSource = resResp.data.coverage || resResp.data.featureType;
-              const crs = dataSource?.srs ? [dataSource.srs] : ['EPSG:4326'];
-              let bbox = {
-                westBoundLongitude: -180,
-                eastBoundLongitude: 180,
-                southBoundLatitude: -90,
-                northBoundLatitude: 90
-              };
-              const latLon = dataSource?.latLonBoundingBox;
-              const nativeB = dataSource?.nativeBoundingBox;
-              if (latLon) {
-                bbox = {
-                  westBoundLongitude: latLon.minx || -180,
-                  eastBoundLongitude: latLon.maxx || 180,
-                  southBoundLatitude: latLon.miny || -90,
-                  northBoundLatitude: latLon.maxy || 90
-                };
-              } else if (nativeB) {
-                bbox = {
-                  westBoundLongitude: nativeB.minx || -180,
-                  eastBoundLongitude: nativeB.maxx || 180,
-                  southBoundLatitude: nativeB.miny || -90,
-                  northBoundLatitude: nativeB.maxy || 90
-                };
-              }
-              glayers.push({ name: layer.name, title: layer.title || layer.name, crs, bbox });
-            }
-          } catch (e: any) {
-            console.warn('Layer process failed', layer?.name, e?.message || e);
-            glayers.push({
-              name: layer.name,
-              title: layer.title || layer.name,
-              crs: ['EPSG:4326'],
-              bbox: { westBoundLongitude: -180, eastBoundLongitude: 180, southBoundLatitude: -90, northBoundLatitude: 90 }
-            });
-          } finally {
-            processedLayers.value += 1;
-          }
-        }
-      }
-
-      await Promise.all(new Array(Math.min(limit, inputLayers.length)).fill(0).map(() => worker()));
-
-      const skippedCount = layers.length - glayers.length;
-      console.log(`Successfully processed: ${glayers.length}, Skipped: ${skippedCount}`);
-      
-      if (glayers.length === 0) {
-        throw new Error('No valid layers could be processed');
-      }
-      
-      allLayers.value = glayers;
-      tableDataList.value = glayers;
-      totalItems.value = glayers.length;
-      loading.value = false;
-      // reset progress state
-      totalLayers.value = 0;
-      processedLayers.value = 0;
-
-      selOptions.value = glayers.map((layer: any) => ({
-        value: layer.name,
-        label: layer.name,
-        bbox: layer.bbox,
-      }));
-      
-      // Apply county filter if one is selected or if user is county-restricted
-      if (selectedCounty.value) {
-        await handleCountyChange(selectedCounty.value);
-      } else if (isCountyRestricted.value && userCountyId.value) {
-        // Auto-select user's county if they are county-restricted
-        selectedCounty.value = userCountyId.value;
-        await handleCountyChange(userCountyId.value);
-      }
-      
-      if (skippedCount > 0) {
-        ElMessage.success(`Loaded ${glayers.length} imagery layers (${skippedCount} layers skipped due to errors)`);
-      } else {
-        ElMessage.success(`Loaded ${glayers.length} imagery layers from GeoServer REST API`);
-      }
-      
-    } catch (error) {
-      console.error('Failed to fetch layers from GeoServer REST API:', error);
-      loading.value = false;
-      
-        ElMessage.error('Unable to connect to GeoServer REST API. Please check if the service is running and try again.');
-      
-      // Show mock data for development
-      const mockLayers = [
-        {
-          name: 'sample_imagery_1',
-          title: 'Sample Imagery Layer 1',
-          crs: ['EPSG:4326'],
-          bbox: {
-            westBoundLongitude: 36.0,
-            eastBoundLongitude: 38.0,
-            southBoundLatitude: -2.0,
-            northBoundLatitude: 2.0
-          }
-        }
-      ];
-      
-      allLayers.value = mockLayers;
-      tableDataList.value = mockLayers;
-      totalItems.value = mockLayers.length;
-      selOptions.value = mockLayers.map(layer => ({
-        value: layer.name,
-        label: layer.name,
-        bbox: layer.bbox,
-      }));
-      
-      ElMessage.info('Showing sample data. Please check GeoServer connection.');
-    }
-  })();
+  await loadLayersPage(1, pageSize.value);
 });
 
 
@@ -1140,7 +861,7 @@ const xdownloadImagery = (layerName) => {
 </script>
 
 <template>
-  <el-card v-loading="loading && totalLayers === 0">
+  <el-card v-loading="loading">
     <div v-if="totalLayers > 0" style="margin: 8px 0 12px 0;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span>Loading layers: {{ processedLayers }} / {{ totalLayers }}</span>
@@ -1186,7 +907,7 @@ const xdownloadImagery = (layerName) => {
         placeholder="Select Imagery"
         style="margin-right: 5px"
       >
-        <el-option v-for="item in filteredSelOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in selOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px">
@@ -1210,7 +931,7 @@ const xdownloadImagery = (layerName) => {
     </el-row>
 
     <el-table
-      :data="paginatedData"
+      :data="tableDataList"
       
       style="width: 100%"
       @row-dblclick="handleRowDblClick"
@@ -1274,7 +995,7 @@ const xdownloadImagery = (layerName) => {
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[2, 5, 10, 15, 20, 50, 100]"
-      :total="filteredLayers.length"
+      :total="totalItems"
       :background="true"
       @size-change="handlePageSizeChange"
       @current-change="handlePageChange"
@@ -1283,7 +1004,7 @@ const xdownloadImagery = (layerName) => {
       :pager-count="isMobile ? 3 : 7"
     />
     <div v-if="selectedCounty" style="margin-top: 10px; font-size: 12px; color: #909399; text-align: center;">
-      Showing {{ filteredLayers.length }} of {{ allLayers.length }} imagery layers
+      Showing page {{ currentPage }} of {{ Math.max(1, Math.ceil(totalItems / pageSize)) }} ({{ totalItems }} layers)
     </div>
   </el-card>
 

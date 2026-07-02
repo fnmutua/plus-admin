@@ -3,10 +3,169 @@ const path = require('path');
 const shortid = require('shortid');
 const axios = require('axios');
 const multer = require('multer');
+const layerCatalog = require('../services/geoserverLayerCatalog.service');
 
-const GEO_USERNAME = process.env.GEOSERVER_USERNAME || 'admin';
-const GEO_PASSWORD = process.env.GEOSERVER_PASSWORD || 'Admin@2011';
+const GEO_USERNAME = process.env.GEOSERVER_USERNAME || process.env.VITE_GEOSERVER_USERNAME || 'admin';
+const GEO_PASSWORD = process.env.GEOSERVER_PASSWORD || process.env.VITE_GEOSERVER_PASSWORD || 'Admin@2011';
 const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
+const WORKSPACE = 'kisip';
+
+const geoAuth = () => ({ username: GEO_USERNAME, password: GEO_PASSWORD });
+
+async function fetchRawLayerList() {
+  const response = await axios.get(`${GEO_SERVER_URL}/rest/layers.json`, {
+    timeout: 15000,
+    headers: { Accept: 'application/json' },
+    auth: geoAuth(),
+  });
+
+  let layers = response.data?.layers?.layer || [];
+  if (!Array.isArray(layers)) {
+    layers = layers ? [layers] : [];
+  }
+  return layers.filter((layer) => layer && layer.name);
+}
+
+async function enrichLayerSummary(layer, username = GEO_USERNAME, password = GEO_PASSWORD) {
+  const fallback = {
+    name: layer.name,
+    title: layer.title || layer.name,
+    crs: ['EPSG:4326'],
+    bbox: {
+      westBoundLongitude: -180,
+      eastBoundLongitude: 180,
+      southBoundLatitude: -90,
+      northBoundLatitude: 90,
+    },
+  };
+
+  try {
+    const layerResp = await axios.get(
+      `${GEO_SERVER_URL}/rest/layers/${WORKSPACE}:${layer.name}.json`,
+      {
+        timeout: 10000,
+        headers: { Accept: 'application/json' },
+        auth: { username, password },
+      },
+    );
+
+    const href = layerResp.data?.layer?.resource?.href;
+    if (!href) return fallback;
+
+    const resourceUrl = href.replace(/^http:/, 'https:');
+    const resResp = await axios.get(resourceUrl, {
+      timeout: 10000,
+      headers: { Accept: 'application/json' },
+      auth: { username, password },
+    });
+
+    const dataSource = resResp.data?.coverage || resResp.data?.featureType;
+    const crs = dataSource?.srs ? [dataSource.srs] : ['EPSG:4326'];
+    let bbox = { ...fallback.bbox };
+    const latLon = dataSource?.latLonBoundingBox;
+    const nativeB = dataSource?.nativeBoundingBox;
+    if (latLon) {
+      bbox = {
+        westBoundLongitude: latLon.minx ?? -180,
+        eastBoundLongitude: latLon.maxx ?? 180,
+        southBoundLatitude: latLon.miny ?? -90,
+        northBoundLatitude: latLon.maxy ?? 90,
+      };
+    } else if (nativeB) {
+      bbox = {
+        westBoundLongitude: nativeB.minx ?? -180,
+        eastBoundLongitude: nativeB.maxx ?? 180,
+        southBoundLatitude: nativeB.miny ?? -90,
+        northBoundLatitude: nativeB.maxy ?? 90,
+      };
+    }
+
+    return {
+      name: layer.name,
+      title: layerResp.data?.layer?.title || layer.title || layer.name,
+      crs,
+      bbox,
+    };
+  } catch (error) {
+    console.warn(`Failed to enrich layer ${layer.name}:`, error.message);
+    return fallback;
+  }
+}
+
+async function enrichLayersConcurrent(layers, concurrency = 6) {
+  const results = new Array(layers.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < layers.length) {
+      const idx = next++;
+      results[idx] = await enrichLayerSummary(layers[idx]);
+    }
+  }
+
+  const workers = Math.min(concurrency, layers.length);
+  await Promise.all(Array.from({ length: workers }, () => worker()));
+  return results;
+}
+
+function layerBboxIntersectsCounty(layerBbox, countyBbox) {
+  if (!layerBbox || !countyBbox) return true;
+  return (
+    layerBbox.westBoundLongitude < countyBbox.maxx &&
+    layerBbox.eastBoundLongitude > countyBbox.minx &&
+    layerBbox.southBoundLatitude < countyBbox.maxy &&
+    layerBbox.northBoundLatitude > countyBbox.miny
+  );
+}
+
+async function getCountyBbox(countyId) {
+  const db = require('../models');
+  const { QueryTypes } = require('sequelize');
+  const rows = await db.sequelize.query(
+    `SELECT
+      ST_XMin(ST_Extent(geom)) AS minx,
+      ST_YMin(ST_Extent(geom)) AS miny,
+      ST_XMax(ST_Extent(geom)) AS maxx,
+      ST_YMax(ST_Extent(geom)) AS maxy
+     FROM county
+     WHERE id = :countyId
+     GROUP BY id`,
+    {
+      replacements: { countyId: Number(countyId) },
+      type: QueryTypes.SELECT,
+    },
+  );
+  const row = rows?.[0];
+  if (!row || row.minx == null) return null;
+  return {
+    minx: Number(row.minx),
+    miny: Number(row.miny),
+    maxx: Number(row.maxx),
+    maxy: Number(row.maxy),
+  };
+}
+
+async function getCountyFilteredLayers(rawLayers, countyBbox) {
+  const matches = [];
+  const batchSize = 6;
+  for (let i = 0; i < rawLayers.length; i += batchSize) {
+    const batch = rawLayers.slice(i, i + batchSize);
+    const enriched = await enrichLayersConcurrent(batch, batchSize);
+    for (const layer of enriched) {
+      if (layerBboxIntersectsCounty(layer.bbox, countyBbox)) {
+        matches.push(layer);
+      }
+    }
+  }
+  return matches;
+}
+
+function toLayerOptions(rawLayers) {
+  return rawLayers.map((layer) => ({
+    value: layer.name,
+    label: layer.title || layer.name,
+  }));
+}
 
 const { IMAGERY_DIR, ensureDir } = require('../config/paths.config');
 
@@ -169,6 +328,7 @@ exports._uploadToGeoserver = async (req, res) => {
         message: 'Imagery Upload Successful',
         code: '0000',
       });
+      layerCatalog.clearLayerCatalogCache();
     } catch (error) {
       console.error(error);
       res.status(500).send({
@@ -176,9 +336,6 @@ exports._uploadToGeoserver = async (req, res) => {
         code: '0000',
       });
     }
- 
-    
- 
   })
 }
 exports.uploadToGeoserver = async (req, res) => {
@@ -302,6 +459,7 @@ exports.uploadToGeoserver = async (req, res) => {
         message: 'Imagery Upload Successful',
         code: '0000',
       });
+      layerCatalog.clearLayerCatalogCache();
     } catch (error) {
       console.error(error);
       res.status(500).send({
@@ -381,6 +539,7 @@ exports.deleteCoverageStore =async  (req, res) => {
       message:  `Store ${storeName} and its associated layers and files have been deleted successfully.`,
       code: '0000',
     });
+    layerCatalog.clearLayerCatalogCache();
 
 
   } catch (error) {
@@ -402,13 +561,31 @@ exports.deleteCoverageStore =async  (req, res) => {
 
 exports.getLayers = async (req, res) => {
   try {
-    const response = await axios.get(`${GEO_SERVER_URL}/rest/layers.json`, {
-      timeout: 15000,
-      headers: { 'Accept': 'application/json' },
-      auth: { username: GEO_USERNAME, password: GEO_PASSWORD },
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+    const countyId = req.query.countyId ? Number(req.query.countyId) : null;
+    const forceRefresh = String(req.query.refresh || '') === '1';
+    const paginated = Number.isFinite(page) && page > 0 && Number.isFinite(limit) && limit > 0;
+
+    if (!paginated) {
+      const rawLayers = await fetchRawLayerList();
+      return res.status(200).json({ layers: { layer: rawLayers } });
+    }
+
+    const result = await layerCatalog.getPaginatedLayerCatalog({
+      page,
+      limit,
+      countyId,
+      forceRefresh,
     });
 
-    res.status(200).json(response.data);
+    return res.status(200).json({
+      code: '0000',
+      data: result.data,
+      total: result.total,
+      options: result.options,
+      cached: !!result.cachedAt,
+    });
   } catch (error) {
     console.error('Failed to fetch GeoServer layers:', error.message);
     res.status(500).send({
