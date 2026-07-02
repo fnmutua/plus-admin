@@ -204,6 +204,22 @@ module.exports = {
       return;
     }
 
+    // Fresh deployments start with an empty catalog: import it from GeoServer first
+    const countRows = await queryInterface.sequelize.query(
+      `SELECT COUNT(*)::int AS count FROM imagery_layer WHERE deleted_at IS NULL`,
+      { type: Sequelize.QueryTypes.SELECT },
+    );
+    if (countRows[0].count === 0) {
+      console.log('imagery_layer is empty; importing the catalog from GeoServer...');
+      try {
+        const imageryLayerService = require('../app/services/imageryLayer.service');
+        const result = await imageryLayerService.syncFromGeoServerCatalog();
+        console.log(`Imported ${result.upserted} layer(s) from GeoServer.`);
+      } catch (error) {
+        console.warn('Catalog import from GeoServer failed:', error.message);
+      }
+    }
+
     await hydrateMissingBboxes(queryInterface, Sequelize);
 
     const { backfillLocationLinkage } = require('./040-create-imagery-layer');
