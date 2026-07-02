@@ -28,8 +28,8 @@ import {
   Back,
   Position,
   Delete,
+  ArrowRight,
 } from '@element-plus/icons-vue';
-import { Icon } from '@iconify/vue';
 // import { useAppStoreWithOut } from '@/store/modules/app';
 // import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope';
@@ -1041,49 +1041,69 @@ const downloadImagery = async (layer: Layer) => {
           {{ getCrsLabel(scope.row.crs[0]) }}
         </template>
       </el-table-column>
-      <el-table-column fixed="right" label="Actions" width="560">
+      <el-table-column fixed="right" label="Actions" width="200" align="center" class-name="imagery-actions-col">
         <template #default="scope">
-          <el-button
-            size="small"
-            plain
-            :loading="navigatingLayer === scope.row.name"
-            @click="goToSettlement(scope.row)"
-          >
-            <Icon icon="mdi:map-marker-outline" style="margin-right:4px;" />
-            Settlement
-          </el-button>
-          <PermissionWrapper :permissions="['geoserver:read']">
-            <el-button
-              size="small"
-              type="primary"
-              plain
-              :icon="Position"
-              @click="handleSelectLayer(scope.row.name)"
-            >
-              View
-            </el-button>
-          </PermissionWrapper>
-          <PermissionWrapper :permissions="['geoserver:update']">
-            <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
-              Edit
-            </el-button>
-          </PermissionWrapper>
-          <PermissionWrapper :permissions="['geoserver:read']">
-            <el-button :loading="loadingStates[scope.row.name]" size="small" type="success" plain :icon="Download" @click="downloadImagery(scope.row)">
-              Download
-            </el-button>
-          </PermissionWrapper>
-          <PermissionWrapper :permissions="['geoserver:delete']">
-            <el-button
-              size="small"
-              type="danger"
-              plain
-              :icon="Delete"
-              @click="deleteLayerStore(scope.row.name)"
-            >
-              Delete
-            </el-button>
-          </PermissionWrapper>
+          <div class="imagery-actions">
+            <el-tooltip content="Go to settlement" placement="top">
+              <el-button
+                size="small"
+                plain
+                circle
+                :icon="ArrowRight"
+                :loading="navigatingLayer === scope.row.name"
+                @click="goToSettlement(scope.row)"
+              />
+            </el-tooltip>
+            <PermissionWrapper :permissions="['geoserver:read']">
+              <el-tooltip content="View" placement="top">
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  circle
+                  :icon="Position"
+                  @click="handleSelectLayer(scope.row.name)"
+                />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper :permissions="['geoserver:update']">
+              <el-tooltip content="Edit" placement="top">
+                <el-button
+                  size="small"
+                  type="success"
+                  plain
+                  circle
+                  :icon="Edit"
+                  @click="editLayer(scope.row)"
+                />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper :permissions="['geoserver:read']">
+              <el-tooltip content="Download" placement="top">
+                <el-button
+                  :loading="loadingStates[scope.row.name]"
+                  size="small"
+                  type="success"
+                  plain
+                  circle
+                  :icon="Download"
+                  @click="downloadImagery(scope.row)"
+                />
+              </el-tooltip>
+            </PermissionWrapper>
+            <PermissionWrapper :permissions="['geoserver:delete']">
+              <el-tooltip content="Delete" placement="top">
+                <el-button
+                  size="small"
+                  type="danger"
+                  plain
+                  circle
+                  :icon="Delete"
+                  @click="deleteLayerStore(scope.row.name)"
+                />
+              </el-tooltip>
+            </PermissionWrapper>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -1261,6 +1281,30 @@ const downloadImagery = async (layer: Layer) => {
   margin-top: 16px;
 }
 
+.imagery-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+:deep(.imagery-actions-col .cell) {
+  overflow: visible;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+:deep(.imagery-actions-col .el-button.is-circle) {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+:deep(.el-table__fixed-right .imagery-actions-col .cell) {
+  overflow: visible;
+}
+
 .basemap {
   width: 100%;
   height: calc(100vh - 120px);
@@ -1276,7 +1320,7 @@ const downloadImagery = async (layer: Layer) => {
     align-items: stretch;
   }
   .el-select,
-  .el-button {
+  .el-row > .el-button {
     width: 100%;
     margin-bottom: 10px;
   }
