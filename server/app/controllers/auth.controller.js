@@ -242,11 +242,23 @@ function buildNewAccountAdminEmailContent(user, reviewUrl) {
   }
 }
 
-async function sendSMS(sms_obj, admins_phones) {
+async function sendSMS(sms_obj, adminRecipients) {
   const adminMessage = buildNewAccountAdminSmsMessage(sms_obj)
-  const entries = admins_phones
-    .filter((phone) => phone && typeof phone === 'string' && phone.trim() !== '')
-    .map((phone) => ({ phone, message: adminMessage }))
+  const entries = (adminRecipients || [])
+    .map((item) => {
+      if (!item) return null
+      const phone = typeof item === 'string' ? item : item.phone
+      const userId = typeof item === 'object' ? (item.userId || item.user_id || item.id) : null
+      if (!phone || typeof phone !== 'string' || phone.trim() === '') return null
+      return {
+        phone,
+        userId,
+        message: adminMessage,
+        sourceType: 'new_account_registration',
+        sourceId: sms_obj.id || sms_obj.userId || null
+      }
+    })
+    .filter(Boolean)
 
   if (!entries.length) {
     console.warn('[SMS Registration] No valid admin phone numbers for registration SMS')
@@ -273,7 +285,7 @@ function buildUserStatusChangeMessage(affectedUser, isactive, actor, { greeting 
   return capitalizedCore
 }
 
-async function getUserStatusAlertPhones() {
+async function getUserStatusAlertRecipients() {
   try {
     const alertUsers = await User.findAll({
       attributes: ['id', 'name', 'phone', 'isactive'],
@@ -285,19 +297,28 @@ async function getUserStatusAlertPhones() {
       }]
     })
 
-    const phones = []
+    const recipients = []
     for (const user of alertUsers) {
       const phone = user.phone
       if (!phone || typeof phone !== 'string' || phone.trim() === '') continue
       try {
-        phones.push(formatPhoneNumber(phone))
+        recipients.push({
+          userId: user.id,
+          phone: formatPhoneNumber(phone)
+        })
       } catch (error) {
         console.error(`[User Activation] Invalid admin phone ${phone}:`, error.message || error)
       }
     }
-    return [...new Set(phones)]
+    const seen = new Set()
+    return recipients.filter((entry) => {
+      const key = `${entry.userId}:${entry.phone}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   } catch (error) {
-    console.error('[User Activation] Failed to fetch admin alert phones:', error.message || error)
+    console.error('[User Activation] Failed to fetch admin alert recipients:', error.message || error)
     return []
   }
 }
@@ -315,9 +336,14 @@ async function sendUserStatusChangeSms({ affectedUser, isactive, actor, userPhon
     })
   }
 
-  const alertPhones = await getUserStatusAlertPhones()
-  for (const phone of alertPhones) {
-    entries.push({ phone, message: adminMessage })
+  const alertRecipients = await getUserStatusAlertRecipients()
+  for (const recipient of alertRecipients) {
+    entries.push({
+      phone: recipient.phone,
+      userId: recipient.userId,
+      message: adminMessage,
+      sourceType: 'user_status_alert'
+    })
   }
 
   if (!entries.length) {
@@ -329,7 +355,8 @@ async function sendUserStatusChangeSms({ affectedUser, isactive, actor, userPhon
   await sendBulkNotifications(entries)
 }
 
-async function sendNotification(phone_number, message) {
+async function sendNotification(phone_number, message, options = {}) {
+  const { userId = null, sourceType = 'system', sourceId = null } = options
   // Check if SMS is enabled for auth module
   const smsEnabled = await isAuthSMSEnabled()
   if (!smsEnabled) {
@@ -372,10 +399,12 @@ async function sendNotification(phone_number, message) {
     const response = await axios.post(url, requestData, { timeout: SMS_REQUEST_TIMEOUT_MS });
     console.log(`[SMS] Message sent successfully to ${phone_number}:`, response.data);
     await notificationService.recordDelivery({
+      userId,
       channel: 'sms',
       body: message,
       sourceModule: 'auth',
-      sourceType: 'system',
+      sourceType,
+      sourceId,
       status: 'sent',
       address: formattedPhone,
       sentAt: new Date()
@@ -384,10 +413,12 @@ async function sendNotification(phone_number, message) {
   } catch (error) {
     console.error(`[SMS] Error sending message to ${phone_number}:`, error.message || error);
     await notificationService.recordDelivery({
+      userId,
       channel: 'sms',
       body: message,
       sourceModule: 'auth',
-      sourceType: 'system',
+      sourceType,
+      sourceId,
       status: 'failed',
       providerMessage: error.message || String(error),
       address: formattedPhone,
@@ -501,7 +532,7 @@ function signupExpiresPatch(body) {
 exports.signup = (req, res) => {
 
   const emails = []
-  const admin_phones = []
+  const adminRecipients = []
   // Save User to Database
   console.log(req.body)
   const accessReason =
@@ -591,7 +622,9 @@ exports.signup = (req, res) => {
  
                   admins.forEach(admin => {
                     emails.push(admin.email);
-                    admin_phones.push(admin.phone)
+                    if (admin.phone) {
+                      adminRecipients.push({ phone: admin.phone, userId: admin.id })
+                    }
                   });
                   console.log(emails); // an array of email addresses
 
@@ -637,7 +670,7 @@ exports.signup = (req, res) => {
         })
 
 
-        sendSMS(user,admin_phones)
+        sendSMS(user, adminRecipients)
         
         // Send acknowledgement email to the user
         sendAcknowledgementEmail(user.email, user.name, user.username, user.id)
@@ -1146,7 +1179,10 @@ exports.reset = async (req, res) => {
     if (user.phone) {
       try {
         const smsMessage = `KeSMIS Password Reset: Hello ${username}, reset your password here (expires in 24h): ${resetLink} - KeSMIS Team`
-        await sendNotification(user.phone, smsMessage)
+        await sendNotification(user.phone, smsMessage, {
+          userId: user.id,
+          sourceType: 'password_reset'
+        })
         smsSent = true
         console.log('Password reset SMS sent to:', user.phone)
       } catch (smsError) {

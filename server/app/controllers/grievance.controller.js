@@ -241,10 +241,20 @@ async function sendNotificationSMS(sms_obj) {
   notification.sender_id = sms_obj.sender_id
   notification.status = sms_obj.status
 
+  const recipientUserId =
+    sms_obj.user_id || sms_obj.userId || sms_obj.recipient_user_id || null
+
   const persistNotification = async () => {
     try {
       const created = await db.models.grievance_notification.create(notification)
-      await notificationService.recordFromGrievanceNotification(created)
+      let resolvedRecipientUserId = recipientUserId
+      if (!resolvedRecipientUserId && sms_obj.phone) {
+        resolvedRecipientUserId = await notificationService.resolveUserId({
+          channel: 'sms',
+          address: sms_obj.phone
+        })
+      }
+      await notificationService.recordFromGrievanceNotification(created, resolvedRecipientUserId)
       return created
     } catch (err) {
       // If grievance was deleted between lookup and insert, retry without grievance_id
@@ -252,7 +262,14 @@ async function sendNotificationSMS(sms_obj) {
       if (fkViolation && notification.grievance_id) {
         notification.grievance_id = null
         const created = await db.models.grievance_notification.create(notification)
-        await notificationService.recordFromGrievanceNotification(created)
+        let resolvedRecipientUserId = recipientUserId
+        if (!resolvedRecipientUserId && sms_obj.phone) {
+          resolvedRecipientUserId = await notificationService.resolveUserId({
+            channel: 'sms',
+            address: sms_obj.phone
+          })
+        }
+        await notificationService.recordFromGrievanceNotification(created, resolvedRecipientUserId)
         return created
       }
       throw err
@@ -484,6 +501,7 @@ exports.createGrievanceRecord = async (req, res) => {
             let msg_obj={} 
             msg_obj.message = msg 
             msg_obj.phone=grm.phone
+            msg_obj.user_id = grm.id
             msg_obj.grievance_id = item.id
             msg_obj.grv_code = item.code 
             msg_obj.status = item.status 
@@ -669,6 +687,7 @@ exports.createGrievanceBatchRecords = async (req, res) => {
               let msg_obj={} 
               msg_obj.message = msg 
               msg_obj.phone=grm.phone
+            msg_obj.user_id = grm.id
               msg_obj.grievance_id = item.id
               msg_obj.grv_code = item.code 
               msg_obj.status = item.status 
@@ -2414,6 +2433,8 @@ exports.modelImportGrievances = async (req, res) => {
                 const msg_obj = {
                   message: msg,
                   phone: grm.phone,
+                user_id: grm.id,
+                  user_id: grm.id,
                   grievance_id: grievance.id,
                   grv_code: grievance.code,
                   status: grievance.status
@@ -2504,6 +2525,8 @@ exports.modelImportGrievances = async (req, res) => {
                 const msg_obj = {
                   message: msg,
                   phone: grm.phone,
+                user_id: grm.id,
+                  user_id: grm.id,
                   grievance_id: grievance.id,
                   grv_code: grievance.code,
                   status: grievance.status
@@ -2557,6 +2580,8 @@ exports.modelImportGrievances = async (req, res) => {
                 const msg_obj = {
                   message: action,
                   phone: grm.phone,
+                user_id: grm.id,
+                  user_id: grm.id,
                   grievance_id: grievance.id,
                   grv_code: grievance.code,
                   status: grievance.status
@@ -3875,6 +3900,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
               const msg_obj = {
                 message: 'The greivance has been deleted',
                 phone: grm.phone,
+                user_id: grm.id,
                 grievance_id: record.id,
                 grv_code: record.code,
                 status: record.status,
@@ -4243,6 +4269,7 @@ exports.updateGrievanceStatusByComplainant = async (req, res) => {
           const msg_obj = {
             message: msg,
             phone: grm.phone,
+            user_id: grm.id,
             grievance_id: grievance.id,
             grv_code: grievance.code,
             status: grievance.status
@@ -4375,6 +4402,7 @@ exports.sendReminder = async (req, res) => {
               const msg_obj = {
                 message: action,
                 phone: grm.phone,
+                user_id: grm.id,
                 grievance_id: grievance.id,
                 grv_code: grievance.code,
                 status: grievance.status,

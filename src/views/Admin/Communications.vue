@@ -507,7 +507,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   ElCard,
   ElTabs,
@@ -559,6 +559,7 @@ import { getCountiesApi, type County } from '@/api/adminunits'
 defineOptions({ name: 'AdminCommunications' })
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const activeTab = ref<'compose' | 'history'>('compose')
 
@@ -1079,6 +1080,22 @@ onMounted(async () => {
   loading.value = true
   try {
     await Promise.allSettled([loadRoles(), loadCounties()])
+
+    const tab = String(route.query.tab || '')
+    const communicationId = Number(route.query.communicationId)
+
+    if (tab === 'history') {
+      activeTab.value = 'history'
+      await loadHistory()
+    }
+
+    if (!Number.isNaN(communicationId) && communicationId > 0) {
+      activeTab.value = 'history'
+      if (historyRows.value.length === 0) {
+        await loadHistory()
+      }
+      await openDetailsById(communicationId)
+    }
   } finally {
     loading.value = false
   }

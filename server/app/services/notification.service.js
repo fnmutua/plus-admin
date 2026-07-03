@@ -1,4 +1,5 @@
 const db = require('../models')
+const Sequelize = require('sequelize')
 const { Op } = require('sequelize')
 const { formatPhoneNumber } = require('../utils/sms')
 
@@ -18,7 +19,7 @@ function normalizeDeliveryStatus(status) {
 function normalizePhoneDigits(value) {
   if (!value) return ''
   try {
-    return formatPhoneNumber(value)
+    return formatPhoneNumber(value) || ''
   } catch {
     let digits = String(value).replace(/\D/g, '')
     if (digits.startsWith('0')) digits = `254${digits.slice(1)}`
@@ -27,19 +28,32 @@ function normalizePhoneDigits(value) {
   }
 }
 
+// Compare on the last 9 digits (Kenyan subscriber number) so 0712..., 254712...,
+// +254712... and 712... all match regardless of how the phone was stored.
+function phoneMatchKey(value) {
+  const digits = normalizePhoneDigits(value)
+  if (!digits) return ''
+  return digits.slice(-9)
+}
+
 async function findUserIdByAddress(channel, address) {
   if (!address) return null
   const normalizedChannel = String(channel || '').toLowerCase()
 
   if (normalizedChannel === 'email') {
+    const target = String(address).trim().toLowerCase()
+    if (!target) return null
     const user = await db.user.findOne({
-      where: { email: { [Op.iLike]: String(address).trim() } },
+      where: Sequelize.where(
+        Sequelize.fn('lower', Sequelize.fn('trim', Sequelize.col('email'))),
+        target
+      ),
       attributes: ['id']
     })
     return user?.id || null
   }
 
-  const target = normalizePhoneDigits(address)
+  const target = phoneMatchKey(address)
   if (!target) return null
 
   const users = await db.user.findAll({
@@ -48,9 +62,65 @@ async function findUserIdByAddress(channel, address) {
   })
 
   for (const user of users) {
-    if (normalizePhoneDigits(user.phone) === target) return user.id
+    if (phoneMatchKey(user.phone) === target) return user.id
   }
   return null
+}
+
+async function resolveUserId({ userId = null, channel = null, address = null } = {}) {
+  if (userId != null) {
+    const id = parseInt(userId, 10)
+    if (!Number.isNaN(id) && id > 0) {
+      const user = await db.user.findByPk(id, { attributes: ['id'] })
+      if (user) return user.id
+      console.warn(`[NotificationService] userId ${id} not found — falling back to address lookup`)
+    }
+  }
+  if (channel && address) {
+    return findUserIdByAddress(channel, address)
+  }
+  return null
+}
+
+async function buildUserNotificationWhere(userId, extraWhere = {}) {
+  const user = await db.user.findByPk(userId, { attributes: ['id', 'phone', 'email'] })
+  const orClauses = [{ user_id: userId }]
+
+  if (user?.email) {
+    const email = String(user.email).trim().toLowerCase()
+    if (email) {
+      orClauses.push(
+        Sequelize.where(
+          Sequelize.fn('lower', Sequelize.fn('trim', Sequelize.col('address'))),
+          email
+        )
+      )
+    }
+  }
+
+  if (user?.phone) {
+    const phoneKey = phoneMatchKey(user.phone)
+    if (phoneKey) {
+      orClauses.push(
+        Sequelize.and(
+          { channel: 'sms' },
+          Sequelize.where(
+            Sequelize.fn(
+              'right',
+              Sequelize.fn('regexp_replace', Sequelize.col('address'), '[^0-9]', '', 'g'),
+              9
+            ),
+            phoneKey
+          )
+        )
+      )
+    }
+  }
+
+  if (orClauses.length === 1) {
+    return { ...extraWhere, user_id: userId }
+  }
+  return { ...extraWhere, [Op.or]: orClauses }
 }
 
 async function recordDelivery(payload = {}) {
@@ -73,11 +143,13 @@ async function recordDelivery(payload = {}) {
 
   if (!channel || !body || !sourceModule) return null
 
-  let resolvedUserId = userId
-  if (!resolvedUserId && address) {
-    resolvedUserId = await findUserIdByAddress(channel, address)
+  let resolvedUserId = await resolveUserId({ userId, channel, address })
+  if (!resolvedUserId) {
+    console.warn(
+      `[NotificationService] No matching user for ${channel} notification (module=${sourceModule}, address=${address || 'n/a'}) — not stored`
+    )
+    return null
   }
-  if (!resolvedUserId) return null
 
   const where = { user_id: resolvedUserId }
   if (legacyTable && legacyId != null) {
@@ -147,10 +219,11 @@ async function recordFromCommunicationRecipient(recipient, communication) {
   })
 }
 
-async function recordFromGrievanceNotification(notificationRow) {
+async function recordFromGrievanceNotification(notificationRow, recipientUserId = null) {
   if (!notificationRow) return null
   const channel = String(notificationRow.medium || '').toLowerCase().includes('mail') ? 'email' : 'sms'
   return recordDelivery({
+    userId: recipientUserId,
     channel,
     subject: notificationRow.type || 'Grievance notification',
     body: notificationRow.message,
@@ -167,7 +240,10 @@ async function recordFromGrievanceNotification(notificationRow) {
 
 module.exports = {
   normalizeDeliveryStatus,
+  phoneMatchKey,
   findUserIdByAddress,
+  resolveUserId,
+  buildUserNotificationWhere,
   recordDelivery,
   recordFromCommunicationRecipient,
   recordFromGrievanceNotification

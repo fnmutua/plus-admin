@@ -4,14 +4,28 @@ import {
   ElPagination, ElDrawer, ElTabs, ElTabPane, ElEmpty, ElMessage
 } from 'element-plus'
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import { useAppStoreWithOut } from '@/store/modules/app'
 import {
   getMyNotificationsApi,
   getMyNotificationByIdApi,
   markAllNotificationsReadApi,
   type UserNotification
 } from '@/api/notifications'
+import {
+  getNotificationRouteTarget,
+  type NotificationRouteTarget
+} from '@/utils/notificationNavigation'
+import {
+  decreaseNotificationUnreadCount,
+  clearNotificationUnreadCount,
+  refreshNotificationUnreadCount
+} from '@/hooks/web/useNotificationUnread'
 
+const router = useRouter()
+const appStore = useAppStoreWithOut()
+const isMobile = computed(() => appStore.getMobile)
 const loading = ref(false)
 const detailLoading = ref(false)
 const notifications = ref<UserNotification[]>([])
@@ -38,7 +52,46 @@ const statusTagType = (status: string) => {
 
 const formatDate = (value?: string | null) => {
   if (!value) return '—'
-  return new Date(value).toLocaleString()
+  const date = new Date(value)
+  if (isMobile.value) {
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+  return date.toLocaleString()
+}
+
+const shortGoToLabel = (row: UserNotification): string => {
+  const shortcuts: Record<string, string> = {
+    grievance: 'Grievance',
+    incident: 'Incident',
+    data_request: 'Request',
+    communication: 'Broadcast',
+    auth: 'Account',
+    feedback: 'Feedback'
+  }
+  return shortcuts[String(row.source_module || '').toLowerCase()] || 'Open'
+}
+
+const routeTargetFor = (row: UserNotification): NotificationRouteTarget | null =>
+  getNotificationRouteTarget(row)
+
+const navigateToSource = async (row: UserNotification) => {
+  const target = routeTargetFor(row)
+  if (!target) {
+    ElMessage.info('This notification is not linked to a specific record')
+    return
+  }
+
+  detailVisible.value = false
+  await router.push({
+    name: target.name,
+    params: target.params,
+    query: target.query
+  })
 }
 
 const loadNotifications = async () => {
@@ -64,12 +117,17 @@ const loadNotifications = async () => {
 }
 
 const openDetail = async (row: UserNotification) => {
+  const wasUnread = !row.is_read && !row.read_at
   detailVisible.value = true
   detailLoading.value = true
   try {
     const res: any = await getMyNotificationByIdApi(row.id)
     selected.value = res?.data || res
+    if (wasUnread) {
+      decreaseNotificationUnreadCount(1)
+    }
     await loadNotifications()
+    void refreshNotificationUnreadCount()
   } catch (error: any) {
     ElMessage.error(error?.message || 'Failed to load notification detail')
   } finally {
@@ -80,8 +138,10 @@ const openDetail = async (row: UserNotification) => {
 const markAllRead = async () => {
   try {
     await markAllNotificationsReadApi()
+    clearNotificationUnreadCount()
     ElMessage.success('All notifications marked as read')
     await loadNotifications()
+    void refreshNotificationUnreadCount()
   } catch (error: any) {
     ElMessage.error(error?.message || 'Failed to mark notifications as read')
   }
@@ -108,7 +168,10 @@ watch(activeTab, async () => {
   await loadNotifications()
 })
 
-onMounted(loadNotifications)
+onMounted(async () => {
+  await loadNotifications()
+  void refreshNotificationUnreadCount()
+})
 </script>
 
 <template>
@@ -124,11 +187,17 @@ onMounted(loadNotifications)
             v-model="searchTerm"
             placeholder="Search message, subject, or address..."
             clearable
-            style="width: 280px"
+            class="notifications-search"
             @keyup.enter="handleSearch"
             @clear="handleSearch"
           />
-          <el-select v-model="statusFilter" clearable placeholder="Status" style="width: 130px" @change="handleSearch">
+          <el-select
+            v-model="statusFilter"
+            clearable
+            placeholder="Status"
+            class="notifications-status"
+            @change="handleSearch"
+          >
             <el-option label="Sent" value="sent" />
             <el-option label="Failed" value="failed" />
             <el-option label="Pending" value="pending" />
@@ -147,36 +216,83 @@ onMounted(loadNotifications)
 
     <el-empty v-if="!loading && notifications.length === 0" description="No notifications found" />
 
-    <el-table v-else :data="notifications" size="small" border @row-click="openDetail">
-      <el-table-column label="#" width="50">
+    <el-table
+      v-else
+      :data="notifications"
+      :size="isMobile ? 'small' : 'default'"
+      border
+      class="notifications-table"
+      @row-click="openDetail"
+    >
+      <el-table-column v-if="!isMobile" label="#" width="50">
         <template #default="{ $index }">
           {{ ($index + 1) + ((currentPage - 1) * pageSize) }}
         </template>
       </el-table-column>
-      <el-table-column label="Date" width="170">
+      <el-table-column label="Date" :width="isMobile ? 108 : 170">
         <template #default="{ row }">
           {{ formatDate(row.sent_at || row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="Source" width="180" prop="source_label" show-overflow-tooltip />
-      <el-table-column label="Channel" width="90">
+      <el-table-column
+        label="Source"
+        :width="isMobile ? 100 : 180"
+        prop="source_label"
+        show-overflow-tooltip
+      />
+      <el-table-column v-if="!isMobile" label="Channel" width="90">
         <template #default="{ row }">
           <el-tag size="small" :type="row.channel === 'email' ? 'primary' : 'info'">
             {{ String(row.channel || '').toUpperCase() }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Message" min-width="280" show-overflow-tooltip>
+      <el-table-column label="Message" :min-width="isMobile ? 140 : 280" show-overflow-tooltip>
         <template #default="{ row }">
           <span :class="{ 'unread-text': !row.is_read && !row.read_at }">{{ row.body }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Status" width="100">
+      <el-table-column v-if="!isMobile" label="Status" width="100">
         <template #default="{ row }">
           <el-tag size="small" :type="statusTagType(row.status)">{{ row.status }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Address" width="180" prop="address" show-overflow-tooltip />
+      <el-table-column v-if="!isMobile" label="Address" width="180" prop="address" show-overflow-tooltip />
+      <el-table-column
+        :label="isMobile ? '' : 'Go to'"
+        :width="isMobile ? 52 : 120"
+        :min-width="isMobile ? 52 : 120"
+        align="center"
+        fixed="right"
+        class-name="go-to-column"
+      >
+        <template #header>
+          <span v-if="!isMobile">Go to</span>
+          <Icon v-else icon="mdi:open-in-new" width="16" class="go-to-header-icon" />
+        </template>
+        <template #default="{ row }">
+          <el-tooltip
+            v-if="routeTargetFor(row)"
+            :content="routeTargetFor(row)!.label"
+            placement="top"
+            :disabled="!isMobile"
+          >
+            <el-button
+              size="small"
+              type="primary"
+              :circle="isMobile"
+              :link="!isMobile"
+              class="go-to-btn"
+              :aria-label="routeTargetFor(row)!.label"
+              @click.stop="navigateToSource(row)"
+            >
+              <Icon icon="mdi:open-in-new" :width="isMobile ? 18 : 16" />
+              <span v-if="!isMobile" class="go-to-btn__label">{{ shortGoToLabel(row) }}</span>
+            </el-button>
+          </el-tooltip>
+          <span v-else class="no-link">—</span>
+        </template>
+      </el-table-column>
     </el-table>
 
     <div v-if="totalItems > 0" class="pagination-wrap">
@@ -185,16 +301,28 @@ onMounted(loadNotifications)
         :page-size="pageSize"
         :total="totalItems"
         background
-        layout="total, sizes, prev, pager, next"
+        :layout="isMobile ? 'prev, pager, next, total' : 'total, sizes, prev, pager, next'"
         :page-sizes="[10, 20, 50, 100]"
+        :small="isMobile"
+        :pager-count="isMobile ? 3 : 7"
         @current-change="handlePageChange"
         @size-change="handlePageSizeChange"
       />
     </div>
 
-    <el-drawer v-model="detailVisible" title="Notification detail" size="40%" direction="rtl">
+    <el-drawer
+      v-model="detailVisible"
+      title="Notification detail"
+      :size="isMobile ? '100%' : '40%'"
+      direction="rtl"
+    >
       <div v-loading="detailLoading">
         <template v-if="selected">
+          <div v-if="routeTargetFor(selected)" class="detail-actions">
+            <el-button type="primary" @click="navigateToSource(selected)">
+              {{ routeTargetFor(selected)?.label }}
+            </el-button>
+          </div>
           <p><strong>Source:</strong> {{ selected.source_label || selected.source_module }}</p>
           <p><strong>Channel:</strong> {{ selected.channel }}</p>
           <p><strong>Status:</strong> {{ selected.status }}</p>
@@ -235,6 +363,40 @@ onMounted(loadNotifications)
   flex-wrap: wrap;
 }
 
+.notifications-search {
+  width: 280px;
+}
+
+.notifications-status {
+  width: 130px;
+}
+
+.notifications-table {
+  width: 100%;
+}
+
+.go-to-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.go-to-btn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.go-to-header-icon {
+  color: var(--el-text-color-secondary);
+}
+
+:deep(.go-to-column .cell) {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
 .pagination-wrap {
   margin-top: 16px;
   display: flex;
@@ -250,5 +412,33 @@ onMounted(loadNotifications)
   background: var(--el-fill-color-light);
   border-radius: 8px;
   padding: 12px;
+}
+
+.detail-actions {
+  margin-bottom: 16px;
+}
+
+.no-link {
+  color: var(--el-text-color-secondary);
+}
+
+@media (max-width: 768px) {
+  .notifications-search,
+  .notifications-status {
+    width: 100%;
+  }
+
+  .notifications-actions {
+    width: 100%;
+  }
+
+  .notifications-actions .el-button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pagination-wrap {
+    justify-content: center;
+  }
 }
 </style>

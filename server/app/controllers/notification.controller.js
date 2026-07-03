@@ -1,5 +1,6 @@
 const db = require('../models')
 const { Op } = require('sequelize')
+const { buildUserNotificationWhere } = require('../services/notification.service')
 
 function parsePositiveInt(value, fallback) {
   const parsed = parseInt(value, 10)
@@ -46,17 +47,23 @@ exports.listMyNotifications = async (req, res) => {
     const sourceModule = req.query.source_module
     const searchTerm = String(req.query.q || '').trim()
 
-    const where = { user_id: userId }
-    if (channel && ['sms', 'email'].includes(channel)) where.channel = channel
-    if (status && ['pending', 'sent', 'failed'].includes(status)) where.status = status
-    if (sourceModule) where.source_module = sourceModule
+    const filters = {}
+    if (channel && ['sms', 'email'].includes(channel)) filters.channel = channel
+    if (status && ['pending', 'sent', 'failed'].includes(status)) filters.status = status
+    if (sourceModule) filters.source_module = sourceModule
     if (searchTerm) {
-      where[Op.or] = [
-        { body: { [Op.iLike]: `%${searchTerm}%` } },
-        { subject: { [Op.iLike]: `%${searchTerm}%` } },
-        { address: { [Op.iLike]: `%${searchTerm}%` } }
+      filters[Op.and] = [
+        {
+          [Op.or]: [
+            { body: { [Op.iLike]: `%${searchTerm}%` } },
+            { subject: { [Op.iLike]: `%${searchTerm}%` } },
+            { address: { [Op.iLike]: `%${searchTerm}%` } }
+          ]
+        }
       ]
     }
+
+    const where = await buildUserNotificationWhere(userId, filters)
 
     const { count, rows } = await db.models.user_notification.findAndCountAll({
       where,
@@ -95,7 +102,7 @@ exports.getMyNotificationById = async (req, res) => {
     }
 
     const row = await db.models.user_notification.findOne({
-      where: { id, user_id: userId }
+      where: await buildUserNotificationWhere(userId, { id })
     })
     if (!row) {
       return res.status(404).json({ code: '4040', message: 'Notification not found' })
@@ -127,7 +134,7 @@ exports.getUnreadCount = async (req, res) => {
     }
 
     const count = await db.models.user_notification.count({
-      where: { user_id: userId, read_at: null }
+      where: await buildUserNotificationWhere(userId, { read_at: null })
     })
 
     return res.status(200).json({
@@ -151,7 +158,7 @@ exports.markNotificationRead = async (req, res) => {
 
     const [updated] = await db.models.user_notification.update(
       { read_at: new Date(), updated_at: new Date() },
-      { where: { id, user_id: userId, read_at: null } }
+      { where: await buildUserNotificationWhere(userId, { id, read_at: null }) }
     )
 
     return res.status(200).json({
@@ -174,7 +181,7 @@ exports.markAllNotificationsRead = async (req, res) => {
 
     const [updated] = await db.models.user_notification.update(
       { read_at: new Date(), updated_at: new Date() },
-      { where: { user_id: userId, read_at: null } }
+      { where: await buildUserNotificationWhere(userId, { read_at: null }) }
     )
 
     return res.status(200).json({

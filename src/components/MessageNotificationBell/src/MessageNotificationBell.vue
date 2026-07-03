@@ -1,34 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
-import { getMyNotificationUnreadCountApi } from '@/api/notifications'
+import {
+  notificationUnreadCount,
+  refreshNotificationUnreadCount
+} from '@/hooks/web/useNotificationUnread'
 
 const { push } = useRouter()
-const unreadCount = ref(0)
+const route = useRoute()
 let pollTimer: ReturnType<typeof setInterval> | null = null
-
-const loadUnreadCount = async () => {
-  try {
-    const res: any = await getMyNotificationUnreadCountApi()
-    unreadCount.value = Number(res?.data?.unreadCount ?? res?.unreadCount ?? 0)
-  } catch {
-    unreadCount.value = 0
-  }
-}
 
 const openNotifications = () => {
   push({ path: '/me/notifications' })
 }
 
 onMounted(() => {
-  loadUnreadCount()
-  pollTimer = setInterval(loadUnreadCount, 60000)
+  void refreshNotificationUnreadCount()
+  pollTimer = setInterval(() => {
+    void refreshNotificationUnreadCount()
+  }, 60000)
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
 })
+
+// Refresh when leaving the notifications page (e.g. after reads elsewhere).
+watch(
+  () => route.path,
+  (path, prev) => {
+    if (prev?.includes('/me/notifications') && !path.includes('/me/notifications')) {
+      void refreshNotificationUnreadCount()
+    }
+  }
+)
 </script>
 
 <template>
@@ -39,10 +45,10 @@ onUnmounted(() => {
   >
     <Icon icon="mdi:bell-outline" width="18" color="var(--top-header-text-color)" />
     <span
-      v-if="unreadCount > 0"
+      v-if="notificationUnreadCount > 0"
       class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-4 h-4 flex items-center justify-center px-1"
     >
-      {{ unreadCount > 99 ? '99+' : unreadCount }}
+      {{ notificationUnreadCount > 99 ? '99+' : notificationUnreadCount }}
     </span>
   </div>
 </template>

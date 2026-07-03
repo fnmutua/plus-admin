@@ -214,7 +214,7 @@ const notifySupportClarificationReply = async (req, record, messageBody) => {
   }
 
   const smsMessage = `KeSMIS: ${record.name} replied on data request ${record.code}. Please review in admin.`
-  await notifySupportUsersBySms(supportUsers, smsMessage)
+  await notifySupportUsersBySms(supportUsers, smsMessage, record.id)
 }
 
 const getSupportUsers = async () =>
@@ -228,7 +228,7 @@ const getSupportUsers = async () =>
     }]
   })
 
-const notifySupportUsersBySms = async (supportUsers, message) => {
+const notifySupportUsersBySms = async (supportUsers, message, requestId = null) => {
   const smsEnabled = await isDataRequestSMSEnabled()
   if (!smsEnabled) {
     console.log('[DataRequest] SMS disabled for data request module — skipping officer SMS')
@@ -253,6 +253,7 @@ const notifySupportUsersBySms = async (supportUsers, message) => {
         body: message,
         sourceModule: 'data_request',
         sourceType: 'officer_alert',
+        sourceId: requestId,
         status: 'sent',
         address: u.phone,
         sentAt: new Date()
@@ -265,6 +266,7 @@ const notifySupportUsersBySms = async (supportUsers, message) => {
         body: message,
         sourceModule: 'data_request',
         sourceType: 'officer_alert',
+        sourceId: requestId,
         status: 'failed',
         providerMessage: err.message || String(err),
         address: u.phone,
@@ -927,7 +929,7 @@ const notifySupportUsersNewDataRequest = async (req, requestRecord) => {
   }
 
   const smsMessage = `KeSMIS: New data request ${requestRecord.code} from ${requestRecord.name}. Please review in admin.`
-  await notifySupportUsersBySms(supportUsers, smsMessage)
+  await notifySupportUsersBySms(supportUsers, smsMessage, requestRecord.id)
 }
 
 exports.shareDataRequest = async (req, res) => {

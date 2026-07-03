@@ -64,7 +64,7 @@ function getIncidentLevel(incident) {
   return 'county'
 }
 
-async function sendNotificationSMS(phone_number, message, incident = null) {
+async function sendNotificationSMS(phone_number, message, incident = null, userId = null) {
   // Determine the level from the incident data
   const level = getIncidentLevel(incident)
   console.log(`[SMS] Incident level determined: ${level}`, {
@@ -103,6 +103,7 @@ async function sendNotificationSMS(phone_number, message, incident = null) {
     const response = await axios.post(url, requestData);
     console.log(`SMS sent to ${phone_number}:`, response.data);
     await notificationService.recordDelivery({
+      userId,
       channel: 'sms',
       body: message,
       sourceModule: 'incident',
@@ -116,6 +117,7 @@ async function sendNotificationSMS(phone_number, message, incident = null) {
   } catch (error) {
     console.error(`Error sending SMS to ${phone_number}:`, error);
     await notificationService.recordDelivery({
+      userId,
       channel: 'sms',
       body: message,
       sourceModule: 'incident',
@@ -216,7 +218,7 @@ exports.createIncident = async (req, res) => {
       const smsPromises = safeguardsUsers.map(async (user) => {
         if (user.phone) {
           try {
-            await sendNotificationSMS(user.phone, incidentMessage, created);
+            await sendNotificationSMS(user.phone, incidentMessage, created, user.id);
             console.log(`SMS notification sent to safeguards user ${user.name} (${user.phone})`);
           } catch (error) {
             console.error(`Failed to send SMS to ${user.name}:`, error.message);
