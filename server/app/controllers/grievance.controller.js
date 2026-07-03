@@ -13,6 +13,7 @@ const Sequelize = require('sequelize')
  const axios = require('axios') ;
  const Role = db.role
  const { Op, literal } = require('sequelize');
+ const notificationService = require('../services/notification.service')
  const cron = require('node-cron'); // Scheduler
  const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
  const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
@@ -242,14 +243,17 @@ async function sendNotificationSMS(sms_obj) {
 
   const persistNotification = async () => {
     try {
-      await db.models.grievance_notification.create(notification)
+      const created = await db.models.grievance_notification.create(notification)
+      await notificationService.recordFromGrievanceNotification(created)
+      return created
     } catch (err) {
       // If grievance was deleted between lookup and insert, retry without grievance_id
       const fkViolation = err && err.original && err.original.code === '23503'
       if (fkViolation && notification.grievance_id) {
         notification.grievance_id = null
-        await db.models.grievance_notification.create(notification)
-        return
+        const created = await db.models.grievance_notification.create(notification)
+        await notificationService.recordFromGrievanceNotification(created)
+        return created
       }
       throw err
     }
@@ -3353,29 +3357,20 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
 
       // Asynchronous function to send emails
       async function sendEmail(emails, message) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        const validEmails = (emails || []).filter(
+          (email) => email && typeof email === 'string' && emailRegex.test(email)
+        )
+
         try {
-          // Validate email recipients
-
-
-           // Email validation regex
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-            // Filter out invalid email addresses
-            const validEmails = emails.filter(email => email && typeof email === 'string' && emailRegex.test(email));
-
-
-           // Filter out invalid email addresses
-         //   const validEmails = emails.filter(email => email && typeof email === 'string');
-
-            // Validate email recipients
             if (validEmails.length === 0) {
               console.log("No valid email recipients provided. Skipping email.");
-              return; // Exit the function if no valid email addresses remain
+              return;
             }
 
           if (!emails || emails.length === 0) {
             console.log("No email recipients provided. Skipping email.");
-            return; // Exit the function if the email list is empty
+            return;
           }
       
           // Log the inputs
@@ -3394,8 +3389,29 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
           // Send the email
           const info = await transporter.sendMail(mailOptions);
           console.log("Email sent successfully:", info.messageId);
+          await Promise.all(validEmails.map((email) => notificationService.recordDelivery({
+            channel: 'email',
+            subject: mailOptions.subject,
+            body: mailOptions.text || mailOptions.html || message.text || message.html || 'GRM email notification',
+            sourceModule: 'grievance',
+            sourceType: 'status_expiry',
+            status: 'sent',
+            address: email,
+            sentAt: new Date()
+          })))
         } catch (error) {
           console.error("Error sending email:", error);
+          await Promise.all((validEmails || []).map((email) => notificationService.recordDelivery({
+            channel: 'email',
+            subject: message.subject || 'Notification',
+            body: message.text || message.html || 'GRM email notification',
+            sourceModule: 'grievance',
+            sourceType: 'status_expiry',
+            status: 'failed',
+            providerMessage: error.message || String(error),
+            address: email,
+            sentAt: new Date()
+          })))
         }
       }
       

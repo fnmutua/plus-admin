@@ -1709,6 +1709,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'pajamas:profile',
           permissions: ['user:read', 'user:update']
         }
+      },
+      {
+        path: 'notifications',
+        component: () => import('@/views/Notifications/Notifications.vue'),
+        name: 'MyNotifications',
+        meta: {
+          title: 'Notifications',
+          hidden: false,
+          icon: 'mdi:bell-outline'
+        }
       }, 
 
 

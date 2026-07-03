@@ -20,6 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const requestIp = require('request-ip');
 const axios = require('axios');
+const notificationService = require('../services/notification.service')
 const UserRoles = db.models.user_roles
 const { logAudit } = require('../utils/auditTrail')
 const {
@@ -90,7 +91,13 @@ function normalizeSmsEntries(entries) {
     const message = entry?.message
     if (!phone || !message || typeof phone !== 'string' || phone.trim() === '') continue
     try {
-      normalized.push({ phone: formatPhoneNumber(phone), message })
+      normalized.push({
+        phone: formatPhoneNumber(phone),
+        message,
+        userId: entry.userId || entry.user_id || null,
+        sourceType: entry.sourceType || entry.source_type || null,
+        sourceId: entry.sourceId || entry.source_id || null
+      })
     } catch (error) {
       console.error(`[SMS] Error formatting phone number ${phone}:`, error.message || error)
     }
@@ -132,8 +139,31 @@ async function sendBulkNotifications(entries) {
         { timeout: SMS_REQUEST_TIMEOUT_MS }
       )
       console.log('[SMS] Bulk SMS sent successfully:', response.data)
+      await Promise.all(chunk.map((entry) => notificationService.recordDelivery({
+        userId: entry.userId,
+        channel: 'sms',
+        body: entry.message,
+        sourceModule: 'auth',
+        sourceType: entry.sourceType || 'system',
+        sourceId: entry.sourceId || null,
+        status: 'sent',
+        address: entry.phone,
+        sentAt: new Date()
+      })))
     } catch (error) {
       console.error('[SMS] Error sending bulk SMS:', error.message || error)
+      await Promise.all(chunk.map((entry) => notificationService.recordDelivery({
+        userId: entry.userId,
+        channel: 'sms',
+        body: entry.message,
+        sourceModule: 'auth',
+        sourceType: entry.sourceType || 'system',
+        sourceId: entry.sourceId || null,
+        status: 'failed',
+        providerMessage: error.message || String(error),
+        address: entry.phone,
+        sentAt: new Date()
+      })))
     }
   }
 }
@@ -280,6 +310,8 @@ async function sendUserStatusChangeSms({ affectedUser, isactive, actor, userPhon
     entries.push({
       phone: userPhone,
       message: `Dear ${affectedUser.name || 'User'}, your KeSMIS account has been ${isactive ? 'activated' : 'deactivated'}.`,
+      userId: affectedUser.id,
+      sourceType: isactive ? 'account_activation' : 'account_deactivation'
     })
   }
 
@@ -339,9 +371,28 @@ async function sendNotification(phone_number, message) {
     console.log(`[SMS] Attempting to send SMS to ${formattedPhone} (original: ${phone_number})`);
     const response = await axios.post(url, requestData, { timeout: SMS_REQUEST_TIMEOUT_MS });
     console.log(`[SMS] Message sent successfully to ${phone_number}:`, response.data);
+    await notificationService.recordDelivery({
+      channel: 'sms',
+      body: message,
+      sourceModule: 'auth',
+      sourceType: 'system',
+      status: 'sent',
+      address: formattedPhone,
+      sentAt: new Date()
+    })
     return response.data; // Return response for further handling if needed
   } catch (error) {
     console.error(`[SMS] Error sending message to ${phone_number}:`, error.message || error);
+    await notificationService.recordDelivery({
+      channel: 'sms',
+      body: message,
+      sourceModule: 'auth',
+      sourceType: 'system',
+      status: 'failed',
+      providerMessage: error.message || String(error),
+      address: formattedPhone,
+      sentAt: new Date()
+    })
     throw error; // Rethrow error for caller to handle
   }
 }
@@ -589,7 +640,7 @@ exports.signup = (req, res) => {
         sendSMS(user,admin_phones)
         
         // Send acknowledgement email to the user
-        sendAcknowledgementEmail(user.email, user.name, user.username)
+        sendAcknowledgementEmail(user.email, user.name, user.username, user.id)
         
         console.log(roles)
         res.send({
@@ -828,10 +879,11 @@ exports.modelActivateUser = async (req, res) => {
             user.email,
             user.name || 'User',
             user.username || user.email,
-            frontendBaseUrl
+            frontendBaseUrl,
+            user.id
           );
         } else {
-          await sendDeactivationEmail(user.email, user.name || 'User', user.username || user.email);
+          await sendDeactivationEmail(user.email, user.name || 'User', user.username || user.email, user.id);
         }
       } catch (emailError) {
         // Log email error but don't affect the response
@@ -2148,7 +2200,7 @@ exports.signupViaApp = async (req, res) => {
     
     // Send acknowledgement email to the user
     if (user && user.email) {
-      sendAcknowledgementEmail(user.email, user.name, user.username)
+      sendAcknowledgementEmail(user.email, user.name, user.username, user.id)
     }
     
     res.send({
@@ -2303,7 +2355,7 @@ exports.signupGRC = async (req, res) => {
     
     // Send acknowledgement email to the user
     if (user && user.email) {
-      sendAcknowledgementEmail(user.email, user.name, user.username)
+      sendAcknowledgementEmail(user.email, user.name, user.username, user.id)
     }
     
     res.send({
@@ -2459,7 +2511,7 @@ exports.signupGRM = async (req, res) => {
     
     // Send acknowledgement email to the user
     if (user && user.email) {
-      sendAcknowledgementEmail(user.email, user.name, user.username)
+      sendAcknowledgementEmail(user.email, user.name, user.username, user.id)
     }
     
     res.send({
@@ -2797,7 +2849,31 @@ exports.verifyCode = async (req, res) => {
 
 
 // Function to send acknowledgement email to user after successful registration
-async function sendAcknowledgementEmail(userEmail, userName, username) {
+async function recordAuthEmailNotification({
+  userId = null,
+  userEmail,
+  subject,
+  body,
+  sourceType,
+  status,
+  providerMessage = null
+}) {
+  const plainBody = String(body || subject || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  await notificationService.recordDelivery({
+    userId,
+    channel: 'email',
+    subject,
+    body: plainBody || subject || 'Email notification',
+    sourceModule: 'auth',
+    sourceType,
+    status,
+    providerMessage,
+    address: userEmail,
+    sentAt: new Date()
+  })
+}
+
+async function sendAcknowledgementEmail(userEmail, userName, username, userId = null) {
   try {
     var transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -2840,9 +2916,26 @@ async function sendAcknowledgementEmail(userEmail, userName, username) {
 
     const result = await transporter.sendMail(mailOptions);
     console.log('Acknowledgement email sent successfully to:', userEmail);
+    await recordAuthEmailNotification({
+      userId,
+      userEmail,
+      subject: mailOptions.subject,
+      body: mailOptions.html,
+      sourceType: 'registration_acknowledgement',
+      status: 'sent'
+    })
     return result;
   } catch (error) {
     console.error('Error sending acknowledgement email to:', userEmail, error);
+    await recordAuthEmailNotification({
+      userId,
+      userEmail,
+      subject: 'Welcome to KeSMIS - Registration Successful',
+      body: `Registration acknowledgement for ${userName || username || userEmail}`,
+      sourceType: 'registration_acknowledgement',
+      status: 'failed',
+      providerMessage: error.message || String(error)
+    })
     // Don't throw error - we don't want to fail registration if email fails
     return null;
   }
@@ -2890,7 +2983,7 @@ function getFrontendBaseUrl(preferredUrl, req) {
 }
 
 // Function to send activation email to user
-async function sendActivationEmail(userEmail, userName, username, baseUrl) {
+async function sendActivationEmail(userEmail, userName, username, baseUrl, userId = null) {
   try {
     var transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -2948,15 +3041,32 @@ async function sendActivationEmail(userEmail, userName, username, baseUrl) {
 
     const info = await transporter.sendMail(mailOptions);
     console.log('Activation email sent successfully to:', userEmail);
+    await recordAuthEmailNotification({
+      userId,
+      userEmail,
+      subject: mailOptions.subject,
+      body: mailOptions.html,
+      sourceType: 'account_activation',
+      status: 'sent'
+    })
     return info;
   } catch (error) {
     console.error('Error sending activation email to', userEmail, ':', error);
+    await recordAuthEmailNotification({
+      userId,
+      userEmail,
+      subject: 'Account Activated - Welcome to KeSMIS',
+      body: `Account activation notice for ${userName || username || userEmail}`,
+      sourceType: 'account_activation',
+      status: 'failed',
+      providerMessage: error.message || String(error)
+    })
     throw error;
   }
 }
 
 // Function to send deactivation email to user
-async function sendDeactivationEmail(userEmail, userName, username) {
+async function sendDeactivationEmail(userEmail, userName, username, userId = null) {
   try {
     var transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -3016,9 +3126,26 @@ async function sendDeactivationEmail(userEmail, userName, username) {
 
     const info = await transporter.sendMail(mailOptions);
     console.log('Deactivation email sent successfully to:', userEmail);
+    await recordAuthEmailNotification({
+      userId,
+      userEmail,
+      subject: mailOptions.subject,
+      body: mailOptions.html,
+      sourceType: 'account_deactivation',
+      status: 'sent'
+    })
     return info;
   } catch (error) {
     console.error('Error sending deactivation email to', userEmail, ':', error);
+    await recordAuthEmailNotification({
+      userId,
+      userEmail,
+      subject: 'Account Deactivated - KeSMIS',
+      body: `Account deactivation notice for ${userName || username || userEmail}`,
+      sourceType: 'account_deactivation',
+      status: 'failed',
+      providerMessage: error.message || String(error)
+    })
     throw error;
   }
 }

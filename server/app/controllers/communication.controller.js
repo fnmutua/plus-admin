@@ -16,6 +16,7 @@ const db = require('../models')
 const { Op } = require('sequelize')
 const axios = require('axios')
 const nodemailer = require('nodemailer')
+const notificationService = require('../services/notification.service')
 const ADMIN_SEND_ROLES = new Set(['admin', 'super_admin', 'root_admin'])
 const ROLE_RANK_FALLBACK = {
   root_admin: 100,
@@ -387,6 +388,7 @@ async function fanOutRecipients(communication, recipientRows) {
     recipient.provider_message = result.message || null
     recipient.sent_at = new Date()
     await recipient.save()
+    await notificationService.recordFromCommunicationRecipient(recipient, communication)
     if (result.ok) sent += 1
     else failed += 1
   }
@@ -673,6 +675,7 @@ exports.retryRecipient = async (req, res) => {
     recipient.provider_message = result.message || null
     recipient.sent_at = new Date()
     await recipient.save()
+    await notificationService.recordFromCommunicationRecipient(recipient, communication)
 
     if (wasFailed && result.ok) {
       communication.failed_count = Math.max(0, (communication.failed_count || 0) - 1)

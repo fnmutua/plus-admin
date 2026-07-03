@@ -12,6 +12,7 @@ const QRCode = require('qrcode')
 const { getFrontendBaseUrl } = require('../utils/frontend-url')
 const { sendSMS, formatPhoneNumber } = require('../utils/sms')
 const { isDataRequestSMSEnabled } = require('../utils/smsSettings')
+const notificationService = require('../services/notification.service')
 
 const generateDRCode = async () => {
   const prefix = 'DR'
@@ -246,8 +247,29 @@ const notifySupportUsersBySms = async (supportUsers, message) => {
     try {
       await sendSMS(u.phone, message)
       console.log(`[DataRequest] SMS sent to ${u.name} (${u.phone})`)
+      await notificationService.recordDelivery({
+        userId: u.id,
+        channel: 'sms',
+        body: message,
+        sourceModule: 'data_request',
+        sourceType: 'officer_alert',
+        status: 'sent',
+        address: u.phone,
+        sentAt: new Date()
+      })
     } catch (err) {
       console.error(`[DataRequest] SMS failed for ${u.name} (${u.phone}):`, err.message || err)
+      await notificationService.recordDelivery({
+        userId: u.id,
+        channel: 'sms',
+        body: message,
+        sourceModule: 'data_request',
+        sourceType: 'officer_alert',
+        status: 'failed',
+        providerMessage: err.message || String(err),
+        address: u.phone,
+        sentAt: new Date()
+      })
     }
   }))
 }

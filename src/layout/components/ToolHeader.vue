@@ -9,6 +9,7 @@ import { Breadcrumb } from '@/components/Breadcrumb'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { NotificationBadge } from '@/components/NotificationBadge'
+import { MessageNotificationBell } from '@/components/MessageNotificationBell'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
 import AIAssistant from '@/components/AIAssistant'
 import Chat from '@/components/Chat'
@@ -70,7 +71,8 @@ export default defineComponent({
   name: 'ToolHeader',
   components: {
     AIAssistant,
-    Chat
+    Chat,
+    MessageNotificationBell
   },
   setup() {
     return () => (
@@ -100,6 +102,7 @@ export default defineComponent({
             <SizeDropdown class="hover-tigger" color="var(--top-header-text-color)"></SizeDropdown>
           ) : undefined}
           <NotificationBadge class="hover-tigger"></NotificationBadge>
+          <MessageNotificationBell />
 
           {/* Chat Icon with Badge */}
           <div 

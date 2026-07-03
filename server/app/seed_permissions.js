@@ -227,6 +227,9 @@ async function seedPermissions() {
       { name: 'communication:send_subordinates', description: 'Send SMS only to users in subordinate roles' },
       { name: 'communication:send_county', description: 'Send communications only within own county scope' },
 
+      // Notifications (user inbox)
+      { name: 'notification:read', description: 'View own SMS and email delivery notifications' },
+
       // Documents
       // Note: Protected-document visibility is further scoped in controller logic
       // to national/county admin/staff and super/root admins.
@@ -4676,6 +4679,16 @@ async function seedPermissions() {
     }
 
     console.log('🎉 Permissions and role-permissions seeded successfully!');
+
+    const [notificationReadPerm] = await db.permission.findOrCreate({
+      where: { name: 'notification:read' },
+      defaults: { description: 'View own SMS and email delivery notifications' }
+    })
+    const allRolesForNotification = await db.role.findAll()
+    for (const role of allRolesForNotification) {
+      await role.addPermission(notificationReadPerm)
+    }
+    console.log(`✅ Granted notification:read to ${allRolesForNotification.length} roles`)
 
     // Donor is a subordinate of root_admin and super_admin only (for role hierarchy / assignment UI)
     const donorRole = await db.role.findOne({ where: { name: 'donor' } })

@@ -8,6 +8,7 @@ const shortid = require('shortid')
 const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackIncidentDeletion, trackStatusChange } = require('../utils/incidentHistoryTracker')
 const nodemailer = require('nodemailer')
 const axios = require('axios')
+const notificationService = require('../services/notification.service')
 const { isIncidentSMSEnabled } = require('../utils/smsSettings')
 // PDF generation moved to frontend using jsPDF
 
@@ -101,9 +102,30 @@ async function sendNotificationSMS(phone_number, message, incident = null) {
   try {
     const response = await axios.post(url, requestData);
     console.log(`SMS sent to ${phone_number}:`, response.data);
+    await notificationService.recordDelivery({
+      channel: 'sms',
+      body: message,
+      sourceModule: 'incident',
+      sourceType: 'alert',
+      sourceId: incident?.id || null,
+      status: 'sent',
+      address: requestData.mobile,
+      sentAt: new Date()
+    })
     return response.data;
   } catch (error) {
     console.error(`Error sending SMS to ${phone_number}:`, error);
+    await notificationService.recordDelivery({
+      channel: 'sms',
+      body: message,
+      sourceModule: 'incident',
+      sourceType: 'alert',
+      sourceId: incident?.id || null,
+      status: 'failed',
+      providerMessage: error.message || String(error),
+      address: requestData.mobile,
+      sentAt: new Date()
+    })
     throw error;
   }
 }

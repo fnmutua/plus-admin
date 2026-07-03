@@ -1466,6 +1466,17 @@ db.models.users.hasMany(db.models.document, {
   foreignKey: 'createdBy'
 })
 
+if (db.models.user_notification) {
+  db.models.user_notification.belongsTo(db.models.users, {
+    foreignKey: 'user_id',
+    as: 'user'
+  })
+  db.models.users.hasMany(db.models.user_notification, {
+    foreignKey: 'user_id',
+    as: 'notifications'
+  })
+}
+
 // Document share associations
 if (db.models.document_share && db.models.document_share_item) {
   db.models.document_share.belongsTo(db.models.users, { foreignKey: 'createdBy', as: 'creator' })

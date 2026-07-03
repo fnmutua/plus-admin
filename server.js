@@ -119,6 +119,7 @@ require('./server/app/routes/climate_assessment.routes')(app)
 require('./server/app/routes/audit.routes')(app)
 require('./server/app/routes/monitoring.routes')(app)
 require('./server/app/routes/communication.routes')(app)
+require('./server/app/routes/notification.routes')(app)
 require('./server/app/routes/workplace.routes')(app)
 
 // Static middleware should come AFTER API routes
