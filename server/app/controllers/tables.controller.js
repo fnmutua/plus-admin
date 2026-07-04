@@ -2066,7 +2066,7 @@ exports.streamMinimalGeo = async (req, res) => {
       'id',
       [db.sequelize.fn('ST_AsGeoJSON', db.sequelize.col('geom')), 'geometry']
     ];
-    const optionalFields = ['ward_id', 'subcounty_id', 'county_id'];
+    const optionalFields = ['code', 'ward_id', 'subcounty_id', 'county_id'];
     optionalFields.forEach(field => {
       if (modelAttributes[field]) {
         attributes.push([db.sequelize.col(field), field]);
