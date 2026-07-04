@@ -41,6 +41,8 @@ const {
   importOvertureStructuresForSettlement,
 } = require('../utils/overtureBuildings')
 const settlementPopulationGeo = require('../services/settlementPopulationGeo')
+const { parseDryRunFlag, executeImportUpsert } = require('../services/importUpsert.service')
+const { getRequestContext } = require('../utils/requestContext')
 const { normalizeSettlementGeom } = require('../utils/settlementGeometry')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
@@ -1083,320 +1085,36 @@ exports.getSettlementImageryLayers = async (req, res) => {
 
 exports.modelImportDataUpsert = async (req, res) => {
   try {
-    // Validate request body
-    console.log('Validate request body', req.body);
-    const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body;
-    const { model: modelName, data: rawData, forceInsert = false } = body;
+    console.log('Validate request body', req.body)
+    const body = typeof req.body === 'string' ? safeParseAndSanitize(req.body) : req.body
+    const { model: modelName, data: rawData, forceInsert = false } = body
+    const dryRun = parseDryRunFlag(body.dryRun)
 
     if (!modelName || !rawData) {
-      return res.status(400).json({ message: 'Model name and data are required' });
+      return res.status(400).json({ message: 'Model name and data are required' })
     }
 
-    // Validate model existence
-    const Model = db.models[modelName];
-    if (!Model) {
-      return res.status(400).json({ message: `Model "${modelName}" not found` });
+    const ctx = getRequestContext()
+    if (dryRun && ctx) ctx.dryRun = true
+
+    const result = await executeImportUpsert({
+      db,
+      modelName,
+      rawData,
+      forceInsert,
+      dryRun,
+      currentUser: req.thisUser?.id,
+      processRecordForAI: dryRun ? null : processRecordForAI
+    })
+
+    if (!result.ok) {
+      return res.status(result.status).json(result.body)
     }
 
-    // Parse data array
-    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ message: 'Data must be an array' });
-    }
-
-    // Prepare result containers
-    const inserted = [];
-    const updated = [];
-    const errors = [];
-    const aiProcessed = []; // Track AI processing results
-
-    // Encryption passphrase for households
-    const passphrase = '***REDACTED***';
-    const sequelizeFn = db.sequelize.fn;
-    const sequelizeCol = db.sequelize.col;
-
-    // Determine model attributes
-    const attributes = Model.rawAttributes;
-
-    // Pre-validate records: filter undefined fields & check hard type mismatches
-    const validRecords = [];
-    data.forEach((origItem, index) => {
-      if (!origItem || typeof origItem !== 'object') {
-        errors.push({ item: origItem, error: 'Invalid record format', detail: `Record at index ${index} is not an object.` });
-        return;
-      }
-      // Keep only defined attributes
-      const item = {};
-      Object.keys(origItem).forEach(key => { if (attributes[key]) item[key] = origItem[key]; });
-      
-      // Auto-convert string IDs to integers for common ID fields
-      const idFields = ['project_id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id', 'implementer'];
-      idFields.forEach(field => {
-        if (item[field] && typeof item[field] === 'string' && !isNaN(parseInt(item[field]))) {
-          item[field] = parseInt(item[field]);
-        }
-      });
-      
-      // Type checks
-      Object.entries(attributes).forEach(([key, attrDef]) => {
-        if (!(key in item)) return;
-        const val = item[key]; if (val == null) return;
-        const expType = attrDef.type.key;
-        let mismatch = false;
-        switch (expType) {
-          case 'INTEGER': case 'BIGINT': case 'FLOAT': case 'DOUBLE': case 'DECIMAL':
-            if (typeof val !== 'number') mismatch = true; break;
-          // case 'BOOLEAN':
-          //   if (typeof val !== 'boolean') mismatch = true; break;
-          case 'DATE':
-            if (isNaN(Date.parse(val))) mismatch = true; break;
-          case 'JSON':
-            if (typeof val !== 'object') mismatch = true; break;
-          default: return;
-        }
-        if (mismatch) {
-          errors.push({ item, field: key, error: 'Type mismatch', detail: `Expected ${expType} for '${key}', got ${typeof val}` });
-        }
-      });
-      if (!errors.some(e => e.item === origItem || e.item === item)) validRecords.push(item);
-    });
-
-    if (!validRecords.length) {
-      return res.status(400).json({ message: 'No valid records to process', failedCount: errors.length, errors });
-    }
-
-    // Add metadata and perform field-level encryption/sanitization for households
-    const currentUser = req.thisUser?.id;
-    const timestamp = new Date();
-    let validData = validRecords.map(item => {
-      const record = {
-        ...item,
-        createdBy: currentUser,
-        updatedAt: timestamp,
-        createdAt: item.createdAt || timestamp,
-        isApproved: 'Approved', // Add isApproved field with true value
-      };
-      if (modelName === 'households') {
-        // --- RESPONDENT NAME ---
-        let name = record.respondents_name || '';
-        name = name.trim();
-        record.respondents_name = name.length > 0 ? name : 'unspecified';
-      }
-      return record;
-    });
-
-    if (modelName === 'settlement_population') {
-      validData = await settlementPopulationGeo.enrichSettlementPopulationRecords(db, validData)
-    }
-
-    // Upsert logic with code field priority
-    for (const item of validData) {
-      try {
-        // Simple field-length check so errors mention the exact field
-        const tooLongFields = []
-        Object.entries(attributes).forEach(([key, attrDef]) => {
-          if (!(key in item)) return
-          const val = item[key]
-          if (val == null) return
-          const typeKey = attrDef?.type?.key
-          if (typeof val === 'string' && (typeKey === 'STRING' || typeKey === 'CHAR')) {
-            const configuredLen = (attrDef?.type?.options && attrDef.type.options.length) ? Number(attrDef.type.options.length) : undefined
-            const maxLen = configuredLen || 255
-            if (val.length > maxLen) {
-              tooLongFields.push({ field: key, max: maxLen, length: val.length })
-            }
-          }
-        })
-        if (tooLongFields.length) {
-          tooLongFields.forEach(f => {
-            errors.push({ item, field: f.field, error: 'too_long', detail: `Field '${f.field}' length ${f.length} exceeds maximum ${f.max}` })
-          })
-          continue
-        }
-        // First, try to find existing record by code field
-        let existing = null;
-        if (!forceInsert && item.code) {
-        //  console.log(`Checking for existing record with code: ${item.code}`);
-          existing = await Model.findOne({ where: { code: item.code } });
-          if (existing) {
-          //  console.log(`Found existing record with code: ${item.code}, ID: ${existing.id}`);
-          } else {
-          //  console.log(`No existing record found with code: ${item.code}`);
-          }
-        }
-        
-        // If no record found by code, fall back to unique constraint fields
-        if (!existing && !forceInsert) {
-          const uniqueFields = Object.keys(attributes).filter(attr =>
-            attributes[attr].unique || (attributes[attr].primaryKey && attr !== 'id')
-          );
-          const where = {};
-          uniqueFields.forEach(f => { if (item[f] != null) where[f] = item[f]; });
-          existing = Object.keys(where).length ? await Model.findOne({ where }) : null;
-          if (existing) {
-            console.log(`Found existing record by unique fields, ID: ${existing.id}`);
-          }
-        }
-        
-        if (existing) {
-          // Update existing record
-          console.log(`Updating existing record with code: ${item.code}`);
-          const updateData = { ...item };
-          // Don't update the code field if it's being used as the identifier
-          if (item.code) {
-            delete updateData.code;
-          }
-          const shouldSyncPopulationGeo =
-            modelName === 'settlement' &&
-            settlementPopulationGeo.settlementGeoChanged(existing, updateData)
-          await existing.update(updateData);
-          if (shouldSyncPopulationGeo) {
-            await settlementPopulationGeo.syncSettlementPopulationGeoFromSettlement(db, existing.id, {
-              county_id: existing.county_id,
-              subcounty_id: existing.subcounty_id,
-              ward_id: existing.ward_id,
-            })
-          }
-          updated.push(item.code || existing.id);
-          
-          // Process updated record for AI
-          try {
-            console.log(`Processing updated ${modelName} record for AI:`, existing.id);
-            const aiResult = await processRecordForAI(existing, modelName);
-            aiProcessed.push({ recordId: existing.id, action: 'updated', aiResult });
-          } catch (aiError) {
-            console.warn(`AI processing failed for updated ${modelName} record ${existing.id}:`, aiError.message);
-            aiProcessed.push({ recordId: existing.id, action: 'updated', aiResult: { success: false, error: aiError.message } });
-          }
-        } else {
-          // Create new record
-          console.log(`Creating new record with code: ${item.code}`);
-          try {
-            const rec = await Model.create(item);
-            inserted.push(rec.id);
-            
-            // Process newly created record for AI
-            try {
-              console.log(`Processing newly created ${modelName} record for AI:`, rec.id);
-              const aiResult = await processRecordForAI(rec, modelName);
-              aiProcessed.push({ recordId: rec.id, action: 'inserted', aiResult });
-            } catch (aiError) {
-              console.warn(`AI processing failed for newly created ${modelName} record ${rec.id}:`, aiError.message);
-              aiProcessed.push({ recordId: rec.id, action: 'inserted', aiResult: { success: false, error: aiError.message } });
-            }
-          } catch (createErr) {
-            if (createErr.name === 'SequelizeUniqueConstraintError') {
-              console.log(`Unique constraint violation for code: ${item.code}, fields:`, createErr.fields);
-              // Handle unique constraint violation
-              const vioWhere = {};
-              Object.keys(createErr.fields).forEach(f => vioWhere[f] = item[f]);
-              const rec = await Model.findOne({ where: vioWhere });
-              if (rec) {
-               // console.log(`Found existing record during constraint violation, ID: ${rec.id}`);
-                const upd = { ...item };
-                // Don't update the code field if it's being used as the identifier
-                if (item.code) {
-                  delete upd.code;
-                }
-                const shouldSyncPopulationGeo =
-                  modelName === 'settlement' &&
-                  settlementPopulationGeo.settlementGeoChanged(rec, upd)
-                await rec.update(upd);
-                if (shouldSyncPopulationGeo) {
-                  await settlementPopulationGeo.syncSettlementPopulationGeoFromSettlement(db, rec.id, {
-                    county_id: rec.county_id,
-                    subcounty_id: rec.subcounty_id,
-                    ward_id: rec.ward_id,
-                  })
-                }
-                updated.push(item.code || rec.id);
-                
-                // Process updated record for AI (from unique constraint handling)
-                try {
-                  console.log(`Processing updated ${modelName} record for AI (from constraint):`, rec.id);
-                  const aiResult = await processRecordForAI(rec, modelName);
-                  aiProcessed.push({ recordId: rec.id, action: 'updated', aiResult });
-                } catch (aiError) {
-                  console.warn(`AI processing failed for updated ${modelName} record ${rec.id}:`, aiError.message);
-                  aiProcessed.push({ recordId: rec.id, action: 'updated', aiResult: { success: false, error: aiError.message } });
-                }
-              } else {
-                errors.push({ item, error: createErr.name, detail: createErr.message });
-              }
-            } else throw createErr;
-          }
-        }
-      } catch (err) {
-        // Include field names in error messages when possible
-        if (Array.isArray(err?.errors) && err.errors.length) {
-          err.errors.forEach((e) => {
-            const fieldName = e?.path || e?.column || 'unknown'
-            errors.push({ item, field: fieldName, error: e?.type || (err.name || 'UpsertError'), detail: `Field '${fieldName}': ${e?.message || err.message}` })
-          })
-        } else if (err?.fields && Object.keys(err.fields).length) {
-          Object.keys(err.fields).forEach((fieldName) => {
-            errors.push({ item, field: fieldName, error: err.name || 'UpsertError', detail: `Field '${fieldName}': ${err.message}` })
-          })
-        } else if (/value too long for type character varying\((\d+)\)/i.test(String(err?.message || ''))) {
-          // Heuristic mapping for length errors
-          Object.entries(item).forEach(([k, v]) => {
-            const attr = attributes[k]
-            const typeKey = attr?.type?.key
-            const configuredLen = (attr?.type?.options && attr.type.options.length) ? Number(attr.type.options.length) : undefined
-            const maxLen = configuredLen || 255
-            if (typeof v === 'string' && (typeKey === 'STRING' || typeKey === 'CHAR') && v.length > maxLen) {
-              errors.push({ item, field: k, error: 'too_long', detail: `Field '${k}' length ${v.length} exceeds maximum ${maxLen}` })
-            }
-          })
-          if (!errors.some(e => e.item === item)) {
-            errors.push({ item, error: err.name || 'UpsertError', detail: err.message })
-          }
-        } else {
-          errors.push({ item, error: err.name || 'UpsertError', detail: err.message })
-        }
-      }
-    }
-
-    // If importing households, recategorize monthly_income via raw SQL
-    if (modelName === 'households') {
-      await db.sequelize.query(
-        `UPDATE "households"
-         SET monthly_income = CASE
-           WHEN monthly_income::int <= 5000 THEN '0_5000'
-           WHEN monthly_income::int BETWEEN 5001 AND 10000 THEN '5001_10000'
-           WHEN monthly_income::int BETWEEN 10001 AND 15000 THEN '10001_15000'
-           WHEN monthly_income::int BETWEEN 15001 AND 20000 THEN '15001_20000'
-           WHEN monthly_income::int BETWEEN 20001 AND 30000 THEN '20001_30000'
-           WHEN monthly_income::int BETWEEN 30001 AND 50000 THEN '30001_50000'
-           WHEN monthly_income::int > 50000 THEN 'above_50000'
-         END
-         WHERE monthly_income ~ '^[0-9]+$';`
-      );
-    }
-
-    // Final response
-    const hasErrors = errors.length > 0;
-    const successfulAIProcessing = aiProcessed.filter(p => p.aiResult.success).length;
-    const failedAIProcessing = aiProcessed.filter(p => !p.aiResult.success).length;
-    
-    return res.status(hasErrors ? 207 : 200).json({
-      message: hasErrors ? 'Import completed with some errors' : 'Import process completed successfully',
-      insertedCount: inserted.length,
-      updatedCount: updated.length,
-      failedCount: errors.length,
-      
-      aiProcessing: {
-        totalProcessed: aiProcessed.length,
-        successful: successfulAIProcessing,
-        failed: failedAIProcessing,
-        details: aiProcessed
-      },
-      errors,
-      code: hasErrors ? '0001' : '0000',
-    });
+    return res.status(result.status).json(result.body)
   } catch (fatalErr) {
-    console.error('Fatal upsert error:', fatalErr);
-    return res.status(500).json({ message: 'Internal Server Error', failedCount: 1, error: fatalErr.message });
+    console.error('Fatal upsert error:', fatalErr)
+    return res.status(500).json({ message: 'Internal Server Error', failedCount: 1, error: fatalErr.message })
   }
 };
 

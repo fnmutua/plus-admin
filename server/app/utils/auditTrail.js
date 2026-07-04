@@ -56,6 +56,8 @@ function getActorFromContext() {
 
 async function logAudit(payload) {
   try {
+    const ctx = getRequestContext()
+    if (ctx?.dryRun) return
     if (!db.auditLog) return
 
     const req = payload.req

@@ -1917,6 +1917,10 @@ module.exports = function (app) {
    *                   type: string
    *                 description: Array of unique key fields for upsert
    *                 example: ["email", "phone"]
+   *               dryRun:
+   *                 type: boolean
+   *                 description: When true, validate and simulate upsert without persisting changes
+   *                 example: true
    *     responses:
    *       200:
    *         description: Data imported with upsert successfully
