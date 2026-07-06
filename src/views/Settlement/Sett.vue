@@ -19,7 +19,7 @@ import {
   ElRadio, ElRadioGroup, ElAlert, ElDivider, ElDrawer,
 } from 'element-plus'
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location, List, Document } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location, List, Document, Download, ArrowDown } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
 import { ref, reactive, computed, nextTick, watch, watchEffect } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -1078,7 +1078,6 @@ const clearDateFilter = async () => {
   }
 }
 
-/** Any toolbar filter is applied (search, date, location, or narrowed county for multi-county staff). */
 const hasActiveToolbarFilters = computed(() => {
   if (search_string.value?.trim()) return true
   if (isDateRangeFilterActive.value) return true
@@ -1092,6 +1091,39 @@ const hasActiveToolbarFilters = computed(() => {
   }
   return false
 })
+
+const settlementDownloadRef = ref<{ openDownload: () => void } | null>(null)
+
+type ToolbarDropdownCommand =
+  | 'dateFilter'
+  | 'addSettlement'
+  | 'clearFilters'
+  | 'downloadExcel'
+  | 'downloadGeo'
+  | 'locateOnMap'
+
+const handleToolbarDropdownCommand = (command: ToolbarDropdownCommand) => {
+  switch (command) {
+    case 'dateFilter':
+      DateDialogVisible.value = true
+      break
+    case 'addSettlement':
+      AddSettlement()
+      break
+    case 'clearFilters':
+      void handleClear()
+      break
+    case 'downloadExcel':
+      settlementDownloadRef.value?.openDownload()
+      break
+    case 'downloadGeo':
+      openGeoDownloadDialog()
+      break
+    case 'locateOnMap':
+      void openLocateOnMap()
+      break
+  }
+}
 
 const handleClear = async () => {
   // Preserve role-based location filters before clearing
@@ -2331,7 +2363,7 @@ const handleDelete = async (data: any) => {
       // Remove from the appropriate list based on active segment
       const settlementId = settlement.id;
       
-      if (activeSegment.value === 'Approved') {
+      if (activeSegment.value === 'Approved' || activeSegment.value === 'Unprofiled') {
         const index = tableDataList.value.findIndex((item: any) => item.id === settlementId);
         if (index !== -1) {
           tableDataList.value.splice(index, 1);
@@ -2435,6 +2467,14 @@ const handleDelete = async (data: any) => {
         const cascadeResponse = await DeleteRecord(cascadeFormData, { silent: true });
         if (cascadeResponse?.code === '0000') {
           ElMessage.success(cascadeResponse.message || 'Settlement and all associated records deleted.');
+          const settlementId = settlement.id
+          if (activeSegment.value === 'Approved' || activeSegment.value === 'Unprofiled') {
+            tableDataList.value = tableDataList.value.filter((item: any) => item.id !== settlementId)
+          } else if (activeSegment.value === 'New') {
+            tableDataListNew.value = tableDataListNew.value.filter((item: any) => item.id !== settlementId)
+          } else if (activeSegment.value === 'Decommissioned') {
+            decommSettlements.value = decommSettlements.value.filter((item: any) => item.id !== settlementId)
+          }
           await getCounts();
           await refreshDeletedHistoryEntryCount();
         } else {
@@ -2599,7 +2639,7 @@ const handleDeleteCascade = async () => {
       .filter((_, index) => results[index].status === 'fulfilled' && results[index].value?.code === '0000')
       .map(s => s.id)
 
-    if (activeSegment.value === 'Approved') {
+    if (activeSegment.value === 'Approved' || activeSegment.value === 'Unprofiled') {
       tableDataList.value = tableDataList.value.filter((item: any) => !settlementIds.includes(item.id))
     } else if (activeSegment.value === 'New') {
       tableDataListNew.value = tableDataListNew.value.filter((item: any) => !settlementIds.includes(item.id))
@@ -3418,7 +3458,7 @@ const handleLocationUpdateUploadGeo = async (uploadFile: any) => {
 }
 
 const handleSelectionChange = (selection: any[]) => {
-  if (activeSegment.value === 'Approved') {
+  if (activeSegment.value === 'Approved' || activeSegment.value === 'Unprofiled') {
     selectedSettlements.value = selection
   } else if (activeSegment.value === 'New') {
     selectedSettlementsNew.value = selection
@@ -3430,7 +3470,7 @@ const handleSelectionChange = (selection: any[]) => {
 }
 
 const getSelectedSettlements = () => {
-  if (activeSegment.value === 'Approved') {
+  if (activeSegment.value === 'Approved' || activeSegment.value === 'Unprofiled') {
     return selectedSettlements.value
   } else if (activeSegment.value === 'New') {
     return selectedSettlementsNew.value
@@ -5650,35 +5690,40 @@ v-model="search_string" clearable :onClear="handleClear"
 
       <el-col :xs="24" :sm="24" :md="24" :lg="9" class="sett-toolbar-col">
 
-        <div class="sett-toolbar-actions">
+        <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
 
-          <el-tooltip
-            :content="isDateRangeFilterActive ? 'Create date filter active — click to change' : 'Filter by create date'"
-            placement="top"
-          >
-            <el-button type="primary" @click="DateDialogVisible = true">
-              <Icon
-                :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
-                width="24"
-                height="24"
-                style="margin-left: 4px;"
-              />
-            </el-button>
-          </el-tooltip>
-
-          <PermissionWrapper :permissions="['settlement:create']">
-            <el-tooltip content="Add Settlement" placement="top">
-              <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+          <template v-if="!isMobile">
+            <el-tooltip
+              :content="isDateRangeFilterActive ? 'Create date filter active — click to change' : 'Filter by create date'"
+              placement="top"
+            >
+              <el-button type="primary" @click="DateDialogVisible = true">
+                <Icon
+                  :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
+                  width="24"
+                  height="24"
+                  style="margin-left: 4px;"
+                />
+              </el-button>
             </el-tooltip>
-          </PermissionWrapper>
-          
-          <el-tooltip v-if="hasActiveToolbarFilters" content="Clear all filters" placement="top">
-            <el-button type="primary" @click="handleClear">
-              <Icon icon="mdi:filter-remove" width="22" height="22" />
-            </el-button>
-          </el-tooltip>
+
+            <PermissionWrapper :permissions="['settlement:create']">
+              <el-tooltip content="Add Settlement" placement="top">
+                <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+              </el-tooltip>
+            </PermissionWrapper>
+            
+            <el-tooltip v-if="hasActiveToolbarFilters" content="Clear all filters" placement="top">
+              <el-button type="primary" @click="handleClear">
+                <Icon icon="mdi:filter-remove" width="22" height="22" />
+              </el-button>
+            </el-tooltip>
+          </template>
+
           <DownloadCustom
             v-if="showEditButtons"
+            ref="settlementDownloadRef"
+            :hide-trigger="isMobile"
             :data="tableDataList"
             :model="model"
             :associated_models="associated_multiple_models"
@@ -5693,21 +5738,66 @@ v-model="search_string" clearable :onClear="handleClear"
             @download-start="downloadLoading = true"
             @download-end="downloadLoading = false"
           />
-          <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
-            <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
-              <el-button 
-                :loading="downloadGeoLoading" 
-                @click="openGeoDownloadDialog" 
-                type="primary">
-                <Icon icon="gis:layer-download" style="margin-right: 4px;" />
+
+          <template v-if="!isMobile">
+            <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
+              <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
+                <el-button 
+                  :loading="downloadGeoLoading" 
+                  @click="openGeoDownloadDialog" 
+                  type="primary">
+                  <Icon icon="gis:layer-download" style="margin-right: 4px;" />
+                </el-button>
+              </el-tooltip>
+            </PermissionWrapper>
+            <el-tooltip content="Locate on Map (fly to coordinates &amp; load nearby)" placement="top">
+              <el-button @click="openLocateOnMap" type="primary">
+                <Icon icon="mdi:map-search-outline" width="20" height="20" />
               </el-button>
             </el-tooltip>
-          </PermissionWrapper>
-          <el-tooltip content="Locate on Map (fly to coordinates &amp; load nearby)" placement="top">
-            <el-button @click="openLocateOnMap" type="primary">
-              <Icon icon="mdi:map-search-outline" width="20" height="20" />
-            </el-button>
-          </el-tooltip>
+          </template>
+
+          <template v-else>
+            <el-dropdown trigger="click" @command="handleToolbarDropdownCommand">
+              <el-button type="primary">
+                Actions
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="dateFilter">
+                    <span class="sett-toolbar-dropdown-item">
+                      <Icon
+                        :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
+                        width="18"
+                        height="18"
+                      />
+                      {{ isDateRangeFilterActive ? 'Change date filter' : 'Filter by create date' }}
+                    </span>
+                  </el-dropdown-item>
+                  <PermissionWrapper :permissions="['settlement:create']">
+                    <el-dropdown-item command="addSettlement" :icon="Plus">
+                      Add Settlement
+                    </el-dropdown-item>
+                  </PermissionWrapper>
+                  <el-dropdown-item v-if="hasActiveToolbarFilters" command="clearFilters" :icon="Filter" divided>
+                    Clear all filters
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="showEditButtons" command="downloadExcel" :icon="Download">
+                    Download Excel
+                  </el-dropdown-item>
+                  <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
+                    <el-dropdown-item command="downloadGeo" :icon="Document">
+                      Download GeoJSON
+                    </el-dropdown-item>
+                  </PermissionWrapper>
+                  <el-dropdown-item command="locateOnMap" :icon="Location" divided>
+                    Locate on Map
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
         </div>
 
       </el-col>
@@ -7224,8 +7314,18 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   width: 100%;
+}
+
+.sett-toolbar-actions--desktop {
+  flex-wrap: wrap;
+}
+
+.sett-toolbar-dropdown-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Space between filter toolbar columns (gutter + vertical gap when stacked) */

@@ -1,5 +1,5 @@
 <template>
-  <div style="display: inline-block; margin-left: 5px">
+  <div v-if="!hideTrigger" style="display: inline-block; margin-left: 5px">
     <el-tooltip content="Download" placement="top">
       <el-button @click="selectDownload()" type="primary" :icon="Download" :loading="loading" />
     </el-tooltip>
@@ -165,6 +165,7 @@ const props = defineProps({
   includeHistory: { type: Boolean, default: false },
   allDownloadConfirmThreshold: { type: Number, default: 1000 },
   filteredDataFetcher: { type: Function, default: null },
+  hideTrigger: { type: Boolean, default: false },
 });
 
 const tableDataList = ref([]);
@@ -838,6 +839,10 @@ const downloadAll = async () => {
     getFilteredData(selectedFields.value)
   );
 };
+
+defineExpose({
+  openDownload: selectDownload,
+});
 </script>
 
 <style scoped>
