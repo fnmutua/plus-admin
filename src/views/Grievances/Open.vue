@@ -672,8 +672,6 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const indicatorsOptions = ref([])
-const GrvOptions = ref([])
 const page = ref(1)
 
 const selCounties = []
@@ -1701,93 +1699,6 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 
 
 
-const getIndicatorOptions = async (selFilters = [], selfilterValues = []) => {
-  try {
-    const formData = {}
-    formData.limit = 1000
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
-    formData.model = model
-    //-Search field--------------------------------------------
-    formData.searchField = 'name'
-    formData.searchKeyword = ''
-    //--Single Filter -----------------------------------------
-
-    formData.assocModel = associated_Model
-
-    // - multiple filters -------------------------------------
-    formData.filters = Array.isArray(selFilters) ? selFilters : []
-    formData.filterValues = Array.isArray(selfilterValues) ? selfilterValues : []
-    formData.filterFunctions = filterFunction.value
-
-    formData.associated_multiple_models = associated_multiple_models
-
-    // Ensure filterFunctions array matches the length of filters and all values are arrays
-    formData.filterFunctions = [];
-    for (let i = 0; i < formData.filterValues.length; i++) {
-      const val = formData.filterValues[i];
-
-      // Always ensure filterValues[i] is an array
-      if (!Array.isArray(val)) {
-        formData.filterValues[i] = [val];
-      } else if (val.length === 0) {
-        // Handle empty arrays - skip this filter
-        continue;
-      }
-
-      // Always use 'in' operator for array-based filtering
-      formData.filterFunctions.push('in');
-    }
-
-    // Remove any filters that have empty arrays
-    const validIndices = [];
-    for (let i = 0; i < formData.filterValues.length; i++) {
-      if (Array.isArray(formData.filterValues[i]) && formData.filterValues[i].length > 0) {
-        validIndices.push(i);
-      }
-    }
-
-    // Rebuild arrays with only valid filters
-    formData.filters = validIndices.map(i => formData.filters[i]);
-    formData.filterValues = validIndices.map(i => formData.filterValues[i]);
-    formData.filterFunctions = validIndices.map(i => formData.filterFunctions[i]);
-
-    //-------------------------
-    //console.log(formData)
-    const res = await getGrievances(formData)
-    makeOptions(res.data)
-  } catch (error) {
-    console.error('Error fetching indicator options:', error)
-    makeOptions([])
-  }
-}
-
-
-
-
-
-
-
-const makeOptions = (list) => {
-//  console.log('making the options..............', list)
-  GrvOptions.value = []
-  if (!Array.isArray(list)) return
-  list.forEach(function (arrayItem: { id: string; type: string; code: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.code
-    //  console.log(countyOpt)
-    GrvOptions.value.push(countyOpt)
-  })
-}
-
-
-
-
-console.log('Options---->', indicatorsOptions)
-
-
-
 const DeleteIndicator = async (data: TableSlotDefault) => {
   console.log('----->', data.id)
   let formData = {}
@@ -2073,8 +1984,6 @@ console.log('grmForm.value',grmForm.value)
 
 
 
-
-getIndicatorOptions()
 
 if (userInfo) {
 //  getInterventionsAll()
