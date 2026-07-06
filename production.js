@@ -37,6 +37,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 //const cors = require('cors');
 const app = express();
+// Behind nginx/reverse proxy — required for express-rate-limit with X-Forwarded-For
+app.set('trust proxy', 1);
 const fs = require('fs');
 const https = require('https');
 
