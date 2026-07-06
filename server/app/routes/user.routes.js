@@ -686,6 +686,8 @@ module.exports = function(app) {
    */
   app.post("/api/v1/user/delete", [authJwt.verifyToken, hasPermission('user:delete')], controller.deleteUserCascade);
 
+  app.post("/api/v1/user/force-logout-others", [authJwt.verifyToken], controller.forceLogoutOthers);
+
   app.post("/api/v1/user/force-logout-all", [authJwt.verifyToken, authJwt.isSomeAdmin], controller.forceLogoutAll);
 
   app.post("/api/v1/user/:id/force-logout", [authJwt.verifyToken, authJwt.isSomeAdmin], controller.forceLogout);

@@ -255,3 +255,7 @@ export const forceLogoutAllUsersApi = (
     data: { excludeSelf }
   })
 }
+
+export const forceLogoutOtherSessionsApi = (): Promise<IResponse<{ revokedCount: number; message: string }>> => {
+  return request.post({ url: prod + `/api/v1/user/force-logout-others`, data: {} })
+}

@@ -11,7 +11,7 @@ import { useRouter } from 'vue-router'
 import { CountTo } from '@/components/CountTo'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { forceLogoutUserApi, forceLogoutAllUsersApi } from '@/api/users'
+import { forceLogoutUserApi, forceLogoutAllUsersApi, forceLogoutOtherSessionsApi } from '@/api/users'
 import {
   getWorkplaceStatsApi,
   getActiveSessionsApi,
@@ -203,11 +203,31 @@ const sessionCount = computed(() => sessions.value.length)
 
 const currentUserId = computed(() => Number(userInfo?.id ?? userInfo?.user?.id ?? NaN))
 
-const otherSessionsCount = computed(() =>
-  sessions.value.filter(s => Number(s.userId) !== currentUserId.value).length
-)
-
 const loggingOutAll = ref(false)
+const loggingOutOthers = ref(false)
+
+const handleForceLogoutOthers = async (row: ActiveSession) => {
+  const otherCount = Math.max(0, (row.activeSessionCount || 0) - 1)
+  if (otherCount === 0) {
+    ElMessage.info('You have no other active sessions.')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `Log out ${otherCount} other session(s) on other devices? This session will stay signed in.`,
+      'Logout Other Sessions',
+      { confirmButtonText: 'Logout', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+    loggingOutOthers.value = true
+    const res = await forceLogoutOtherSessionsApi()
+    ElMessage.success(res.data?.message || 'Other sessions have been logged out')
+    await loadSessions()
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error('Failed to log out other sessions')
+  } finally {
+    loggingOutOthers.value = false
+  }
+}
 
 const handleForceLogoutAll = async (excludeSelf: boolean) => {
   const targetCount = excludeSelf ? otherSessionsCount.value : sessionCount.value
@@ -446,8 +466,8 @@ onMounted(init)
       <!-- Tabs -->
       <el-card shadow="never">
         <el-tabs v-model="activeTab" @tab-change="onTabChange">
-          <!-- A: Online users (same source as chat) -->
-          <el-tab-pane label="Online Now" name="sessions">
+          <!-- A: Active auth sessions -->
+          <el-tab-pane label="Active Sessions" name="sessions">
             <el-skeleton :loading="loadingSessions" animated :rows="6">
               <template #default>
                 <div class="tab-toolbar sessions-toolbar">
@@ -455,21 +475,10 @@ onMounted(init)
                     <Icon icon="ep:user" :color="CARD_ICON_COLOR" width="18" />
                     <span class="sessions-count-num">{{ sessionCount }}</span>
                     <span class="sessions-count-label">
-                      {{ sessionCount === 1 ? 'user online' : 'users online' }}
+                      {{ sessionCount === 1 ? 'user with active sessions' : 'users with active sessions' }}
                     </span>
                   </div>
                   <div class="sessions-actions">
-                    <el-button
-                      type="warning"
-                      size="small"
-                      plain
-                      :icon="SwitchButton"
-                      :loading="loggingOutAll"
-                      :disabled="otherSessionsCount === 0"
-                      @click="handleForceLogoutAll(true)"
-                    >
-                      Logout all other sessions
-                    </el-button>
                     <el-button
                       type="danger"
                       size="small"
@@ -483,7 +492,7 @@ onMounted(init)
                     </el-button>
                   </div>
                 </div>
-                <el-empty v-if="!sessions.length" description="No users online" :image-size="64" />
+                <el-empty v-if="!sessions.length" description="No active sessions" :image-size="64" />
                 <div v-else class="table-scroll">
                 <el-table :data="sessions" size="small" style="width:100%">
                   <el-table-column type="index" width="42" />
@@ -501,15 +510,46 @@ onMounted(init)
                     <template #default="{ row }">{{ formatDateTime(row.loginTime) }}</template>
                   </el-table-column>
                   <el-table-column prop="sessionDurationFormatted" label="Duration" width="100" />
+                  <el-table-column label="Sessions" width="90" align="center">
+                    <template #default="{ row }">
+                      <el-tag
+                        :type="(row.activeSessionCount || 0) > 1 ? 'warning' : 'info'"
+                        size="small"
+                        effect="plain"
+                      >
+                        {{ row.activeSessionCount || 0 }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
                   <el-table-column label="Status" width="90">
                     <template #default="{ row }">
-                      <el-tag type="success" size="small" effect="light">{{ row.status || 'online' }}</el-tag>
+                      <el-tag
+                        :type="row.status === 'online' ? 'success' : 'info'"
+                        size="small"
+                        effect="light"
+                      >
+                        {{ row.status || 'active' }}
+                      </el-tag>
                     </template>
                   </el-table-column>
                   <el-table-column prop="source" label="Source" width="120" show-overflow-tooltip />
-                  <el-table-column label="Actions" min-width="138" align="right" fixed="right">
+                  <el-table-column label="Actions" min-width="200" align="right" fixed="right">
                     <template #default="{ row }">
                       <el-button
+                        v-if="Number(row.userId) === currentUserId"
+                        type="warning"
+                        size="small"
+                        plain
+                        :icon="SwitchButton"
+                        class="force-logout-btn"
+                        :loading="loggingOutOthers"
+                        :disabled="(row.activeSessionCount || 0) <= 1"
+                        @click="handleForceLogoutOthers(row)"
+                      >
+                        Logout other sessions
+                      </el-button>
+                      <el-button
+                        v-else
                         type="danger"
                         size="small"
                         plain

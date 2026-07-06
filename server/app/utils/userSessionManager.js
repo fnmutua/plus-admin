@@ -144,6 +144,27 @@ async function revokeAllSessionsForUser(userId) {
   );
 }
 
+async function revokeOtherSessionsForUser(userId, keepSessionId) {
+  if (!userId) return 0;
+  const replacements = { userId };
+  let keepClause = '';
+  if (keepSessionId) {
+    keepClause = 'AND id != :keepSessionId';
+    replacements.keepSessionId = keepSessionId;
+  }
+  const result = await db.sequelize.query(
+    `
+      UPDATE ${TABLE}
+      SET revoked_at = NOW(), updated_at = NOW()
+      WHERE user_id = :userId
+        AND revoked_at IS NULL
+        ${keepClause}
+    `,
+    { replacements }
+  );
+  return result?.[1]?.affectedRows ?? 0;
+}
+
 async function createSession(userId, req, expiresInSec) {
   const sessionId = uuidv4();
   const now = new Date();
@@ -283,5 +304,6 @@ module.exports = {
   touchSession,
   revokeSession,
   revokeAllSessionsForUser,
+  revokeOtherSessionsForUser,
   getActiveSessions
 };

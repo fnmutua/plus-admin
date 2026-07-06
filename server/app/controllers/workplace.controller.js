@@ -84,29 +84,68 @@ exports.getActiveSessions = async (req, res) => {
     const scope = await requireScope(req, res)
     if (!scope) return
 
-    const userWhere = {}
+    // Users with at least one active auth session (logged in), not only chat websocket presence
+    let scopedUserIds = null
     if (!scope.isNational) {
-      const userIds = await getScopedUserIdList(scope)
-      if (!userIds || userIds.length === 0) {
+      scopedUserIds = await getScopedUserIdList(scope)
+      if (!scopedUserIds || scopedUserIds.length === 0) {
         return res.status(200).send({
           code: '0000',
           message: 'Active sessions retrieved successfully',
           data: { count: 0, sessions: [] }
         })
       }
-      userWhere.id = {
-        [Op.in]: userIds.map((id) => parseInt(id, 10)).filter((n) => !isNaN(n))
-      }
+      scopedUserIds = scopedUserIds.map((id) => parseInt(id, 10)).filter((n) => !isNaN(n))
     }
 
-    // Match chat "online" — users with is_online in user_status (websocket presence)
+    const sessionWhereClause = scopedUserIds
+      ? 'AND uas.user_id IN (:scopedUserIds)'
+      : ''
+
+    const activeRows = await db.sequelize.query(
+      `
+        SELECT
+          uas.user_id,
+          COUNT(*) AS session_count,
+          MAX(uas.last_seen_at) AS last_seen_at,
+          MIN(uas.created_at) AS earliest_session_at
+        FROM user_auth_sessions uas
+        WHERE uas.revoked_at IS NULL
+          AND uas.expires_at >= NOW()
+          ${sessionWhereClause}
+        GROUP BY uas.user_id
+      `,
+      {
+        replacements: scopedUserIds ? { scopedUserIds } : {},
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    )
+
+    if (!activeRows.length) {
+      return res.status(200).send({
+        code: '0000',
+        message: 'Active sessions retrieved successfully',
+        data: { count: 0, sessions: [] }
+      })
+    }
+
+    const sessionCountMap = new Map()
+    const lastSeenMap = new Map()
+    const earliestSessionMap = new Map()
+    const userIds = activeRows.map((row) => {
+      const uid = Number(row.user_id)
+      sessionCountMap.set(uid, parseInt(row.session_count, 10) || 0)
+      lastSeenMap.set(uid, row.last_seen_at)
+      earliestSessionMap.set(uid, row.earliest_session_at)
+      return uid
+    })
+
     const onlineUsers = await db.user.findAll({
-      where: userWhere,
+      where: { id: { [Op.in]: userIds } },
       include: [{
         model: db.userStatus,
         as: 'status',
-        where: { is_online: true },
-        required: true
+        required: false
       }],
       attributes: ['id', 'name', 'email', 'username', 'last_login', 'county_id']
     })
@@ -124,12 +163,18 @@ exports.getActiveSessions = async (req, res) => {
     const sessions = await Promise.all(
       onlineUsers.map(async (user) => {
         const loginLog = await sessionTracker.getLastLoginLog(user.id)
-        const loginTime = loginLog?.loginTime || user.last_login || user.status?.last_seen
+        const earliestSession = earliestSessionMap.get(Number(user.id))
+        const loginTime =
+          loginLog?.loginTime ||
+          earliestSession ||
+          user.last_login ||
+          user.status?.last_seen
         const loginDate = loginTime ? new Date(loginTime) : new Date()
         const sessionDuration = Math.max(
           0,
           Math.floor((Date.now() - loginDate.getTime()) / 1000)
         )
+        const isChatOnline = Boolean(user.status?.is_online)
 
         return {
           userId: user.id,
@@ -142,8 +187,9 @@ exports.getActiveSessions = async (req, res) => {
           sessionDuration,
           sessionDurationFormatted: sessionTracker.formatSessionDuration(sessionDuration),
           source: loginLog?.source || '—',
-          status: user.status?.status || 'online',
-          lastSeen: user.status?.last_seen
+          status: isChatOnline ? (user.status?.status || 'online') : 'active',
+          lastSeen: lastSeenMap.get(Number(user.id)) || user.status?.last_seen,
+          activeSessionCount: sessionCountMap.get(Number(user.id)) || 0
         }
       })
     )

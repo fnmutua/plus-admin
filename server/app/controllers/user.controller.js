@@ -2505,6 +2505,38 @@ exports.forceLogout = async (req, res) => {
   }
 };
 
+exports.forceLogoutOthers = async (req, res) => {
+  try {
+    const userId = req.userid;
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated.' });
+    }
+
+    const userSessionManager = require('../utils/userSessionManager');
+    const revokedCount = await userSessionManager.revokeOtherSessionsForUser(
+      userId,
+      req.sessionId || null
+    );
+
+    if (revokedCount === 0) {
+      return res.status(200).json({
+        code: '0000',
+        message: 'No other active sessions to log out.',
+        revokedCount: 0
+      });
+    }
+
+    res.status(200).json({
+      code: '0000',
+      message: `Logged out ${revokedCount} other session(s). Your current session is still active.`,
+      revokedCount
+    });
+  } catch (error) {
+    console.error('Force logout others error:', error);
+    res.status(500).json({ message: 'Unable to log out other sessions.' });
+  }
+};
+
 exports.forceLogoutAll = async (req, res) => {
   try {
     const excludeSelf = String(req.query.excludeSelf ?? req.body?.excludeSelf ?? 'false') === 'true';
@@ -2519,10 +2551,19 @@ exports.forceLogoutAll = async (req, res) => {
       || req.connection?.remoteAddress
       || 'Admin force logout';
 
-    const activeSessions = await sessionTracker.getActiveSessions({ hoursThreshold: 24 });
+    const activeRows = await db.sequelize.query(
+      `
+        SELECT DISTINCT user_id
+        FROM user_auth_sessions
+        WHERE revoked_at IS NULL
+          AND expires_at >= NOW()
+      `,
+      { type: db.sequelize.QueryTypes.SELECT }
+    );
 
-    // Unique target user ids from currently active sessions
-    let targetUserIds = [...new Set(activeSessions.map((s) => s.userId).filter((id) => id != null))];
+    let targetUserIds = activeRows
+      .map((row) => Number(row.user_id))
+      .filter((id) => !isNaN(id));
 
     if (excludeSelf && currentUserId != null) {
       targetUserIds = targetUserIds.filter((id) => Number(id) !== Number(currentUserId));
@@ -2552,10 +2593,10 @@ exports.forceLogoutAll = async (req, res) => {
       targetUserIds.map(async (targetUserId) => {
         try {
           await userSessionManager.revokeAllSessionsForUser(targetUserId);
-          const session = activeSessions.find((s) => Number(s.userId) === Number(targetUserId));
+          const user = await Users.findByPk(targetUserId, { attributes: ['username'] });
           await sessionTracker.createLogoutLog({
             userId: targetUserId,
-            userName: session?.userName || `user_${targetUserId}`,
+            userName: user?.username || `user_${targetUserId}`,
             source
           });
           await notifyChatForceLogout(targetUserId);

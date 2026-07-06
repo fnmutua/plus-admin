@@ -30,6 +30,7 @@ export type ActiveSession = {
   source: string
   status?: string
   lastSeen?: string
+  activeSessionCount?: number
 }
 
 export type LoginAttempt = {
