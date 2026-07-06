@@ -246,3 +246,12 @@ export const getUsersLastLogin = (userIds: number[]): Promise<IResponse<Record<n
 export const forceLogoutUserApi = (userId: number): Promise<IResponse<any>> => {
   return request.post({ url: prod + `/api/v1/user/${userId}/force-logout`, data: {} })
 }
+
+export const forceLogoutAllUsersApi = (
+  excludeSelf = false
+): Promise<IResponse<{ loggedOutCount: number; message: string }>> => {
+  return request.post({
+    url: prod + `/api/v1/user/force-logout-all`,
+    data: { excludeSelf }
+  })
+}

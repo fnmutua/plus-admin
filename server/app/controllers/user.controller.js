@@ -2504,3 +2504,76 @@ exports.forceLogout = async (req, res) => {
     res.status(500).json({ message: 'Unable to force logout user.' });
   }
 };
+
+exports.forceLogoutAll = async (req, res) => {
+  try {
+    const excludeSelf = String(req.query.excludeSelf ?? req.body?.excludeSelf ?? 'false') === 'true';
+    const currentUserId = req.userid;
+
+    const sessionTracker = require('../utils/sessionTracker');
+    const userSessionManager = require('../utils/userSessionManager');
+    const { notifyChatForceLogout } = require('../utils/forceLogoutNotify');
+
+    const source = req.headers['x-forwarded-for']?.split(',')[0]
+      || req.headers['x-real-ip']
+      || req.connection?.remoteAddress
+      || 'Admin force logout';
+
+    const activeSessions = await sessionTracker.getActiveSessions({ hoursThreshold: 24 });
+
+    // Unique target user ids from currently active sessions
+    let targetUserIds = [...new Set(activeSessions.map((s) => s.userId).filter((id) => id != null))];
+
+    if (excludeSelf && currentUserId != null) {
+      targetUserIds = targetUserIds.filter((id) => Number(id) !== Number(currentUserId));
+    }
+
+    if (targetUserIds.length === 0) {
+      return res.status(200).json({
+        code: '0000',
+        message: 'No other active sessions to log out.',
+        loggedOutCount: 0
+      });
+    }
+
+    const forceLogoutAt = new Date();
+
+    await db.user.update(
+      { force_logout_at: forceLogoutAt },
+      { where: { id: targetUserIds } }
+    );
+
+    await db.userStatus.update(
+      { is_online: false, status: 'offline', last_seen: forceLogoutAt },
+      { where: { user_id: targetUserIds } }
+    );
+
+    await Promise.all(
+      targetUserIds.map(async (targetUserId) => {
+        try {
+          await userSessionManager.revokeAllSessionsForUser(targetUserId);
+          const session = activeSessions.find((s) => Number(s.userId) === Number(targetUserId));
+          await sessionTracker.createLogoutLog({
+            userId: targetUserId,
+            userName: session?.userName || `user_${targetUserId}`,
+            source
+          });
+          await notifyChatForceLogout(targetUserId);
+        } catch (innerError) {
+          console.error(`Force logout failed for user ${targetUserId}:`, innerError.message);
+        }
+      })
+    );
+
+    res.status(200).json({
+      code: '0000',
+      message: excludeSelf
+        ? `Logged out ${targetUserIds.length} other active session(s).`
+        : `Logged out ${targetUserIds.length} active session(s).`,
+      loggedOutCount: targetUserIds.length
+    });
+  } catch (error) {
+    console.error('Force logout all error:', error);
+    res.status(500).json({ message: 'Unable to force logout users.' });
+  }
+};

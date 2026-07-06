@@ -14,7 +14,7 @@ import { ElButton, ElSelect, ElCheckbox, ElCol,ElDrawer, ElIcon} from 'element-p
 import {
   Plus, 
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,Upload,
-  CircleCheck, Warning,View,
+  CircleCheck, Warning,View, Clock,
   Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter,
   Document, InfoFilled, Download} from '@element-plus/icons-vue'
 
@@ -278,6 +278,14 @@ const Statuses = ref([
     hidden: false,
     description: 'Grievance has been resolved and a corrective action recommended/implemented'
   },
+  {
+    label: 'Awaiting Confirmation',
+    value: 'AwaitingConfirmation',
+    icon: Clock,
+    count: 0,
+    hidden: false,
+    description: 'Resolved at settlement or county level, pending national GRM confirmation'
+  },
 
  
   {
@@ -467,7 +475,7 @@ const filteredDownloadFilters = computed(() => {
     searchString: search_string.value?.trim() || '',
     page: 1,
     limit: total.value > 0 ? total.value : 10000,
-    includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
+    includeHistory: ['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)
   })
 
   return {
@@ -483,11 +491,11 @@ const fetchFilteredGrievancesForDownload = async (selectedFieldsList: string[] =
     searchString: search_string.value?.trim() || '',
     page: 1,
     limit: total.value > 0 ? total.value : 10000,
-    includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
+    includeHistory: ['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)
   })
 
   formData.associated_multiple_models = [...associated_multiple_models]
-  if (activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved') {
+  if (['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)) {
     if (!formData.associated_multiple_models.includes('grievance_history')) {
       formData.associated_multiple_models.push('grievance_history')
     }
@@ -762,8 +770,11 @@ const getCounts = async () => {
       filterOperator.push('in')
     }
 
-    // Get counts for each specific status (exclude 'All' here and hidden statuses)
-    const statusesForCounts = Statuses.value.filter(s => s.value !== 'All' && !s.hidden);
+    // Get counts for each specific status (exclude pseudo-segments and hidden statuses)
+    const PSEUDO_SEGMENT_VALUES = new Set(['ReceivedAll', 'AwaitingConfirmation'])
+    const statusesForCounts = Statuses.value.filter(
+      s => s.value !== 'All' && !s.hidden && !PSEUDO_SEGMENT_VALUES.has(s.value)
+    );
     const statusCounts = await Promise.all(
       statusesForCounts.map(async (status) => {
         const formData = {
@@ -841,6 +852,31 @@ const getCounts = async () => {
     const receivedAllStatus = Statuses.value.find(s => s.value === 'ReceivedAll');
     if (receivedAllStatus) {
       receivedAllStatus.count = totalExcludingDeleted;
+    }
+
+    // Awaiting Confirmation: Resolved + not confirmed + settlement/county level
+    try {
+      const awaitingFormData: Record<string, any> = {
+        model: 'grievance',
+        summaryField: 'id',
+        summaryFunction: 'count',
+        filterField: [...filterField, 'status', 'confirmed_by_national_grm', 'current_level'],
+        filterValue: [...filterValue, ['Resolved'], [false], ['settlement', 'county']],
+        filterOperator: [...filterOperator, 'in', 'eq', 'in']
+      };
+
+      if (search_string.value && search_string.value.trim()) {
+        awaitingFormData.searchField = 'name';
+        awaitingFormData.searchString = search_string.value.trim();
+      }
+
+      const awaitingResponse = await getSummarybyFieldFromMultipleIncludes(awaitingFormData);
+      const awaitingStatus = Statuses.value.find(s => s.value === 'AwaitingConfirmation');
+      if (awaitingStatus) {
+        awaitingStatus.count = parseInt(awaitingResponse?.Total?.[0]?.count || '0', 10);
+      }
+    } catch (error) {
+      console.error('Error fetching Awaiting Confirmation count:', error);
     }
 
     console.log('Updated status counts:', statusCounts, 'All:', totalExcludingDeleted);
@@ -1406,7 +1442,8 @@ const buildGrievanceRequestFormData = (
   const shouldIncludeHistory =
     options.includeHistory ||
     activeSegment.value === 'Deleted' ||
-    activeSegment.value === 'Resolved'
+    activeSegment.value === 'Resolved' ||
+    activeSegment.value === 'AwaitingConfirmation'
   if (
     shouldIncludeHistory &&
     !formData.associated_multiple_models.includes('grievance_history')
@@ -1611,7 +1648,7 @@ const getGrievancesWithMultiCountyFallback = async (formData: any) => {
 const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
   loading.value = true
   const formData = buildGrievanceRequestFormData(selFilters, selfilterValues, {
-    includeHistory: activeSegment.value === 'Deleted' || activeSegment.value === 'Resolved'
+    includeHistory: ['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)
   })
 
   try {
@@ -3092,6 +3129,15 @@ const onSegmentClick = async (statusValue?: string) => {
     filterFunction.value.splice(statusIndex, 1)
   }
 
+  for (const field of ['confirmed_by_national_grm', 'current_level']) {
+    const fieldIndex = filters.value.indexOf(field)
+    if (fieldIndex !== -1) {
+      filters.value.splice(fieldIndex, 1)
+      filterValues.value.splice(fieldIndex, 1)
+      filterFunction.value.splice(fieldIndex, 1)
+    }
+  }
+
   if (activeSegment.value === "All") {
     // For "All" grievances, explicitly include all statuses
     var selectOption = 'status'
@@ -3144,6 +3190,33 @@ const onSegmentClick = async (statusValue?: string) => {
     }
     var index = filters.value.indexOf(selectOption)
     filterValues.value[index] = ['Resolved']
+
+  } else if (activeSegment.value === "AwaitingConfirmation") {
+    selectedConfirmationStatus.value = null
+
+    var selectOption = 'status'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+      filterFunction.value.push('in')
+    }
+    var index = filters.value.indexOf(selectOption)
+    filterValues.value[index] = ['Resolved']
+
+    var confirmationOption = 'confirmed_by_national_grm'
+    if (!filters.value.includes(confirmationOption)) {
+      filters.value.push(confirmationOption)
+      filterFunction.value.push('eq')
+    }
+    var confirmationIndex = filters.value.indexOf(confirmationOption)
+    filterValues.value[confirmationIndex] = [false]
+
+    var levelOption = 'current_level'
+    if (!filters.value.includes(levelOption)) {
+      filters.value.push(levelOption)
+      filterFunction.value.push('in')
+    }
+    var levelIndex = filters.value.indexOf(levelOption)
+    filterValues.value[levelIndex] = ['settlement', 'county']
 
   } else if (activeSegment.value === "Escalated") {
     var selectOption = 'status'
@@ -5215,8 +5288,8 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             </el-row>
  
         <!-- Header Bottom Row: Status Cards -->
-        <div class="status-cards-container" v-if="!isMobile">
-          <div class="status-cards">
+        <div class="status-cards-container" :class="{ 'status-cards-container--scroll': isMobile }">
+          <div class="status-cards" :class="{ 'status-cards--compact': isMobile }">
             <template v-for="status in visibleStatuses" :key="status.value">
               <el-tooltip
                 :content="status.description"
@@ -5297,62 +5370,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                     </div>
                   </div>
                 </el-tooltip>
-              </PermissionWrapper>
-            </template>
-          </div>
-        </div>
-
-        <div v-else class="mobile-status-scroll">
-          <div class="mobile-status-track">
-            <template v-for="status in visibleStatuses" :key="status.value">
-              <div
-                v-if="!['All', 'Deleted'].includes(status.value) && status.value !== 'Rejected'"
-                :class="['mobile-status-card', { active: activeSegment === status.value }]"
-                @click="onSegmentClick(status.value)"
-              >
-                <div class="status-icon">
-                  <el-icon :size="18">
-                    <component :is="status.icon" />
-                  </el-icon>
-                </div>
-                <div class="status-info">
-                  <div class="status-label">{{ status.label }}</div>
-                  <div class="status-count">{{ status.count }}</div>
-                </div>
-              </div>
-              <div
-                v-else-if="status.value === 'Rejected'"
-                :class="['mobile-status-card', { active: activeSegment === status.value }]"
-                @click="onSegmentClick(status.value)"
-              >
-                <div class="status-icon">
-                  <el-icon :size="18">
-                    <component :is="status.icon" />
-                  </el-icon>
-                </div>
-                <div class="status-info">
-                  <div class="status-label">{{ status.label }}</div>
-                  <div class="status-count">{{ status.count }}</div>
-                </div>
-              </div>
-              <PermissionWrapper
-                v-else-if="status.value === 'Deleted'"
-                :permissions="['grievance:viewDeleted']"
-              >
-                <div
-                  :class="['mobile-status-card', { active: activeSegment === status.value }]"
-                  @click="onSegmentClick(status.value)"
-                >
-                  <div class="status-icon">
-                    <el-icon :size="18">
-                      <component :is="status.icon" />
-                    </el-icon>
-                  </div>
-                  <div class="status-info">
-                    <div class="status-label">{{ status.label }}</div>
-                    <div class="status-count">{{ status.count }}</div>
-                  </div>
-                </div>
               </PermissionWrapper>
             </template>
           </div>
@@ -6846,16 +6863,61 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   padding: 20px;
 }
 
-/* Status Cards in Header - Optimized for older screens */
+/* Status Cards in Header */
+.status-cards-container {
+  width: 100%;
+  padding-bottom: 4px;
+}
+
+.status-cards-container--scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 4px;
+}
+
+.status-cards-container--scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.status-cards-container--scroll::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 3px;
+}
+
 .status-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
+  width: 100%;
+}
+
+.status-cards > * {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+}
+
+.status-cards :deep(.el-tooltip__trigger) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.status-cards--compact {
+  width: max-content;
+  min-width: 100%;
+}
+
+.status-cards--compact > * {
+  flex: 0 0 auto;
 }
 
 .status-card {
   display: flex;
   align-items: center;
+  width: 100%;
+  min-width: 0;
   padding: 8px;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
@@ -7885,19 +7947,20 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
   }
 
   .status-cards {
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 4px;
   }
-  
-  .status-card {
+
+  .status-cards--compact .status-card {
+    min-width: 80px;
+    width: auto;
     padding: 4px;
   }
-  
-  .status-label {
+
+  .status-cards--compact .status-label {
     font-size: 9px;
   }
-  
-  .status-count {
+
+  .status-cards--compact .status-count {
     font-size: 12px;
   }
   

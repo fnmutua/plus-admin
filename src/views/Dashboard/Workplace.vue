@@ -11,7 +11,7 @@ import { useRouter } from 'vue-router'
 import { CountTo } from '@/components/CountTo'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { forceLogoutUserApi } from '@/api/users'
+import { forceLogoutUserApi, forceLogoutAllUsersApi } from '@/api/users'
 import {
   getWorkplaceStatsApi,
   getActiveSessionsApi,
@@ -196,6 +196,41 @@ const handleForceLogout = async (row: ActiveSession) => {
     await loadSessions()
   } catch (e: any) {
     if (e !== 'cancel') ElMessage.error('Failed to force logout user')
+  }
+}
+
+const sessionCount = computed(() => sessions.value.length)
+
+const currentUserId = computed(() => Number(userInfo?.id ?? userInfo?.user?.id ?? NaN))
+
+const otherSessionsCount = computed(() =>
+  sessions.value.filter(s => Number(s.userId) !== currentUserId.value).length
+)
+
+const loggingOutAll = ref(false)
+
+const handleForceLogoutAll = async (excludeSelf: boolean) => {
+  const targetCount = excludeSelf ? otherSessionsCount.value : sessionCount.value
+  if (targetCount === 0) {
+    ElMessage.info(excludeSelf ? 'No other sessions to log out.' : 'No active sessions to log out.')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      excludeSelf
+        ? `Force logout all ${targetCount} other active session(s)? Your own session will stay signed in.`
+        : `Force logout all ${targetCount} active session(s)? Everyone (including you) will need to sign in again.`,
+      excludeSelf ? 'Logout Other Sessions' : 'Logout All Sessions',
+      { confirmButtonText: 'Logout', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+    loggingOutAll.value = true
+    const res = await forceLogoutAllUsersApi(excludeSelf)
+    ElMessage.success(res.data?.message || 'Sessions have been logged out')
+    await loadSessions()
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error('Failed to log out sessions')
+  } finally {
+    loggingOutAll.value = false
   }
 }
 
@@ -415,6 +450,39 @@ onMounted(init)
           <el-tab-pane label="Online Now" name="sessions">
             <el-skeleton :loading="loadingSessions" animated :rows="6">
               <template #default>
+                <div class="tab-toolbar sessions-toolbar">
+                  <div class="sessions-count">
+                    <Icon icon="ep:user" :color="CARD_ICON_COLOR" width="18" />
+                    <span class="sessions-count-num">{{ sessionCount }}</span>
+                    <span class="sessions-count-label">
+                      {{ sessionCount === 1 ? 'user online' : 'users online' }}
+                    </span>
+                  </div>
+                  <div class="sessions-actions">
+                    <el-button
+                      type="warning"
+                      size="small"
+                      plain
+                      :icon="SwitchButton"
+                      :loading="loggingOutAll"
+                      :disabled="otherSessionsCount === 0"
+                      @click="handleForceLogoutAll(true)"
+                    >
+                      Logout all other sessions
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      plain
+                      :icon="SwitchButton"
+                      :loading="loggingOutAll"
+                      :disabled="sessionCount === 0"
+                      @click="handleForceLogoutAll(false)"
+                    >
+                      Logout all
+                    </el-button>
+                  </div>
+                </div>
                 <el-empty v-if="!sessions.length" description="No users online" :image-size="64" />
                 <div v-else class="table-scroll">
                 <el-table :data="sessions" size="small" style="width:100%">
@@ -658,5 +726,28 @@ onMounted(init)
 }
 .force-logout-btn {
   white-space: nowrap;
+}
+.sessions-toolbar {
+  justify-content: space-between;
+}
+.sessions-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sessions-count-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: #303133;
+}
+.sessions-count-label {
+  font-size: 13px;
+  color: #909399;
+}
+.sessions-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>
