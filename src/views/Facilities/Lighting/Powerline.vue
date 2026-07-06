@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage, ElCard, ElTable, ElTableColumn, ElCol, ElPagination, ElEmpty, ElButton, ElRow, ElSelect, ElOption, ElDrawer } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -224,15 +225,7 @@ const initializeMapDrawer = async (facility: any) => {
   const settlementId = facility?.settlement_id || facility?.settlement?.id
   if (!settlementId) return
 
-  const { Loader } = await import('@googlemaps/js-api-loader')
-  const loader = new Loader({
-    apiKey: googleMapsApiKey,
-    version: 'weekly',
-    libraries: ['drawing', 'geometry', 'places'],
-    region: 'KE',
-    language: 'en'
-  })
-  await loader.load()
+  await loadGoogleMapsApi()
 
   googleMap.value = new window.google.maps.Map(mapDrawerContainer.value, {
     center: { lat: 1.137451, lng: 37.137343 },

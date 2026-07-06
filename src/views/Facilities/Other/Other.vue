@@ -1,6 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import { getSettlementListByCounty, getOneGeo, getfilteredGeo } from '@/api/settlements'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
@@ -1151,17 +1152,7 @@ const initializeMapDrawer = async (settlement: any) => {
 
   try {
     // Load Google Maps API
-    const { Loader } = await import('@googlemaps/js-api-loader')
-    
-    const loader = new Loader({
-      apiKey: googleMapsApiKey,
-      version: 'weekly',
-      libraries: ['drawing', 'geometry', 'places'],
-      region: 'KE',
-      language: 'en'
-    })
-
-    await loader.load()
+  await loadGoogleMapsApi()
 
     if (!window.google || !window.google.maps) {
       throw new Error('Google Maps API not loaded properly')

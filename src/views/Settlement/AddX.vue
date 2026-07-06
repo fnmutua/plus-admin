@@ -261,11 +261,11 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { isPublicOrGuestRole } from '@/utils/roleScope'
 
-import { Loader } from '@googlemaps/js-api-loader'
 import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck, getAdminUnitsFromCoordinates } from '@/api/settlements'
 
 import * as turf from '@turf/turf'
 import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import {
   ElButton,
   ElDivider,
@@ -547,16 +547,6 @@ watch(() => appStore.getIsDark, (isDark) => {
     googleMap.value.setOptions({ styles: mapStyles });
   }
 });
-
-
-// Initialize Google Maps loader
-const loader = new Loader({
-  apiKey: googleMapsApiKey,
-  version: 'weekly',
-  libraries: ['drawing', 'geometry', 'places'],
-  region: 'KE',
-  language: 'en'
-})
 
 
 const isMobile = computed(() => appStore.getMobile)
@@ -1200,7 +1190,7 @@ const loadMap = async () => {
     console.log('Map container dimensions:', rect.width, 'x', rect.height);
     
     // Load Google Maps API
-    await loader.load();
+    await loadGoogleMapsApi();
     
     // Check if google object is available
     if (!window.google || !window.google.maps) {

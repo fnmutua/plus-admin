@@ -1,6 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 declare global {
   interface Window {
     google: any
@@ -30,7 +31,6 @@ import { useRouter, useRoute } from 'vue-router'
   
 
 
-import { Loader } from '@googlemaps/js-api-loader'
 import * as turf from '@turf/turf'
 
 import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, HCFTypeOptions } from './../common/index'
@@ -1435,15 +1435,7 @@ const initializeMapDrawer = async (item: any) => {
 
   try {
     // Load Google Maps API
-    const loader = new Loader({
-      apiKey: googleMapsApiKey,
-      version: 'weekly',
-      libraries: ['drawing', 'geometry', 'places'],
-      region: 'KE',
-      language: 'en'
-    })
-
-    await loader.load()
+    await loadGoogleMapsApi()
 
     if (!window.google || !window.google.maps) {
       throw new Error('Google Maps API not loaded properly')

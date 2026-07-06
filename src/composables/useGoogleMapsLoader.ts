@@ -7,8 +7,14 @@ declare global {
 }
 
 let loadPromise: Promise<void> | null = null
+let optionsSet = false
 
-/** Load Google Maps JS API once (geometry + places; drawing library removed in API 3.65+). */
+/**
+ * Load the Google Maps JS API once using the v2 functional API
+ * (`setOptions()` + `importLibrary()`). The v2 loader removed the old
+ * `Loader` class. We import the core libraries used across the app so
+ * `window.google.maps` is fully populated for legacy callers.
+ */
 export function loadGoogleMapsApi(): Promise<void> {
   if (typeof window !== 'undefined' && window.google?.maps) {
     return Promise.resolve()
@@ -16,15 +22,31 @@ export function loadGoogleMapsApi(): Promise<void> {
 
   if (!loadPromise) {
     loadPromise = (async () => {
-      const { Loader } = await import('@googlemaps/js-api-loader')
-      const loader = new Loader({
-        apiKey: googleMapsApiKey,
-        version: 'weekly',
-        libraries: ['geometry', 'places'],
-        region: 'KE',
-        language: 'en'
-      })
-      await loader.load()
+      const { setOptions, importLibrary } = await import('@googlemaps/js-api-loader')
+
+      if (!optionsSet) {
+        setOptions({
+          key: googleMapsApiKey,
+          v: 'weekly',
+          region: 'KE',
+          language: 'en'
+        })
+        optionsSet = true
+      }
+
+      const coreLibraries = ['maps', 'marker', 'geometry', 'places'] as const
+      const results = await Promise.allSettled([
+        ...coreLibraries.map((name) => importLibrary(name)),
+        importLibrary('drawing')
+      ])
+
+      const failedCore = results
+        .slice(0, coreLibraries.length)
+        .find((r) => r.status === 'rejected')
+      if (failedCore) {
+        throw (failedCore as PromiseRejectedResult).reason
+      }
+
       if (!window.google?.maps) {
         throw new Error('Google Maps API failed to load')
       }

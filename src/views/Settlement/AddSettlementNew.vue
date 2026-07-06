@@ -2544,6 +2544,7 @@ const closeDrawer = () => {
 const populationLoading = ref(false)
 const climateLoading = ref(false)
 const overtureBuildingsLoading = ref(false)
+const structuresImportLoading = ref(false)
 const overtureBuildingCount = ref<number | null>(null)
 const overtureBuildingLayers = ref<any[]>([])
 const overtureBuildingsGeojson = ref<GeoJSON.FeatureCollection | null>(null)
@@ -2562,8 +2563,43 @@ const updateStructuresFromOverture = ref(false)
 /** Edit mode only: when checked, population estimate and save include population fields. */
 const updatePopulationOnEdit = ref(false)
 
+const editEstimateActionMode = computed(() => {
+  if (!isEditMode.value) return 'population' as const
+  const pop = updatePopulationOnEdit.value
+  const structures = updateStructuresFromOverture.value
+  if (pop && structures) return 'both' as const
+  if (pop) return 'population' as const
+  if (structures) return 'structures' as const
+  return 'none' as const
+})
+
+const estimateButtonLabel = computed(() => {
+  if (!isEditMode.value) return 'Click to estimate population'
+  switch (editEstimateActionMode.value) {
+    case 'both':
+      return 'Estimate population & import structures'
+    case 'population':
+      return 'Estimate population'
+    case 'structures':
+      return 'Import structures from buildings'
+    default:
+      return 'Select update option(s) above'
+  }
+})
+
+const isEstimateButtonDisabled = computed(() => {
+  if (!settlementForm.geom && !settlementGeometry.value) return true
+  if (populationLoading.value || overtureBuildingsLoading.value || structuresImportLoading.value) {
+    return true
+  }
+  if (isEditMode.value && editEstimateActionMode.value === 'none') return true
+  return false
+})
+
 /** Fallback when ward survey and stored avg household size are unavailable. */
 const DEFAULT_PERSONS_PER_BUILDING = 4
+const OVERTURE_MAPS_URL =
+  'https://docs.overturemaps.org/guides/buildings/#14/32.58453/-117.05154/0/60'
 /** Ward/settlement averages below this are treated as unreliable. */
 const MIN_PERSONS_PER_BUILDING = 2
 
@@ -3197,7 +3233,7 @@ const resolveSettlementIdFromCreateResponse = (res: any): number | null => {
 
 const importOvertureStructuresAfterSave = async (
   settlementId: number | string | null | undefined,
-  options?: { replaceAll?: boolean }
+  options?: { replaceAll?: boolean; fromManualAction?: boolean }
 ) => {
   const id = Number(settlementId)
   if (!Number.isFinite(id) || id <= 0) {
@@ -3224,31 +3260,84 @@ const importOvertureStructuresAfterSave = async (
     }
   } catch (e) {
     console.warn('Overture structure import failed:', e)
-    ElMessage.warning('Settlement saved, but structure import from Overture failed.')
+    ElMessage.warning(
+      options?.fromManualAction
+        ? 'Structure import from Overture failed.'
+        : 'Settlement saved, but structure import from Overture failed.'
+    )
   }
 }
 
 const onManualPopulationFetch = async () => {
-  if (isEditMode.value && !updatePopulationOnEdit.value) {
-    ElMessage.info('Check "Update population" first to re-estimate population when editing.')
+  const mode = editEstimateActionMode.value
+  if (isEditMode.value && mode === 'none') {
+    ElMessage.info('Check "Update population" and/or "Update structures" first.')
     return
   }
   const geom = getActiveSettlementGeometry()
   if (!geom) {
-    ElMessage.error('Please draw or select settlement geometry before estimating population')
+    ElMessage.error(
+      mode === 'structures'
+        ? 'Please draw or select settlement geometry before importing structures'
+        : 'Please draw or select settlement geometry before estimating population'
+    )
     return
   }
-  if (!settlementForm.ward_id && !selectedWard.value) {
-    ElMessage.warning('Select a ward first — average household size is needed for the estimate.')
-  }
-  if (!settlementForm.county_id && !selectedCounty.value) {
-    ElMessage.warning('Select a county first — needed for male/female population split.')
+  if (mode === 'population' || mode === 'both') {
+    if (!settlementForm.ward_id && !selectedWard.value) {
+      ElMessage.warning('Select a ward first — average household size is needed for the estimate.')
+    }
+    if (!settlementForm.county_id && !selectedCounty.value) {
+      ElMessage.warning('Select a county first — needed for male/female population split.')
+    }
   }
   if (overtureGeometryRefreshTimer) {
     clearTimeout(overtureGeometryRefreshTimer)
     overtureGeometryRefreshTimer = null
   }
-  await applyPopulationEstimateFromBuildings(geom, { forceOvertureRefresh: true })
+
+  try {
+    if (mode === 'structures') {
+      await fetchOvertureBuildingsForSettlement(geom)
+      const count = Number(overtureBuildingCount.value) || 0
+      if (count <= 0) {
+        ElMessage.warning('No Overture building footprints found for this boundary.')
+        return
+      }
+      if (isEditMode.value && editingSettlementId.value) {
+        structuresImportLoading.value = true
+        await importOvertureStructuresAfterSave(editingSettlementId.value, {
+          replaceAll: true,
+          fromManualAction: true,
+        })
+      } else {
+        ElMessage.success(
+          `${count} building footprint${count === 1 ? '' : 's'} loaded on the map.`
+        )
+      }
+      return
+    }
+
+    if (mode === 'population') {
+      await applyPopulationEstimateFromBuildings(geom, { forceOvertureRefresh: true })
+      return
+    }
+
+    if (mode === 'both') {
+      await fetchOvertureBuildingsForSettlement(geom)
+      await applyPopulationEstimateFromBuildings(geom, { skipOvertureFetch: true })
+      const count = Number(overtureBuildingCount.value) || 0
+      if (isEditMode.value && editingSettlementId.value && count > 0) {
+        structuresImportLoading.value = true
+        await importOvertureStructuresAfterSave(editingSettlementId.value, {
+          replaceAll: true,
+          fromManualAction: true,
+        })
+      }
+    }
+  } finally {
+    structuresImportLoading.value = false
+  }
 }
 
 // Auto-fill vulnerability fields from climate service using geometry centroid
@@ -3875,7 +3964,7 @@ onActivated(() => {
             Back
           </el-button>
 
-          <h2 class="header-title">{{ isEditMode ? 'EditSettlement' : 'Add Settlement' }}</h2>
+          <h2 class="header-title">{{ isEditMode ? 'Edit Settlement' : 'Add Settlement' }}</h2>
           <div v-if="isMapStepActive" class="header-actions">
             <el-button
               v-if="showUndoBoundaryButton"
@@ -4185,12 +4274,22 @@ onActivated(() => {
                 :disabled="isEditMode && !updatePopulationOnEdit"
               />
               <div class="population-estimate-block">
-                <div v-if="isEditMode" class="population-update-option">
-                  <el-checkbox v-model="updatePopulationOnEdit">
-                    Update population
-                  </el-checkbox>
-                  <div class="population-update-hint">
-                    When unchecked, existing population values are kept on save. Check to re-estimate or edit population.
+                <div v-if="isEditMode" class="edit-update-options">
+                  <div class="population-update-option">
+                    <el-checkbox v-model="updatePopulationOnEdit">
+                      Update population
+                    </el-checkbox>
+                    <div class="population-update-hint">
+                      When unchecked, existing population values are kept on save. Check to re-estimate or edit population.
+                    </div>
+                  </div>
+                  <div class="population-update-option">
+                    <el-checkbox v-model="updateStructuresFromOverture">
+                      Update structures
+                    </el-checkbox>
+                    <div class="population-update-hint">
+                      When checked, existing structures are removed and replaced with Overture building footprints from the current boundary on save.
+                    </div>
                   </div>
                 </div>
                 <el-button
@@ -4198,27 +4297,45 @@ onActivated(() => {
                   plain
                   class="population-estimate-btn"
                   @click.stop="onManualPopulationFetch"
-                  :loading="populationLoading || overtureBuildingsLoading"
-                  :disabled="(!settlementForm.geom && !settlementGeometry) || populationLoading || overtureBuildingsLoading || (isEditMode && !updatePopulationOnEdit)"
+                  :loading="populationLoading || overtureBuildingsLoading || structuresImportLoading"
+                  :disabled="isEstimateButtonDisabled"
                 >
-                  Click to estimate population
+                  {{ estimateButtonLabel }}
                 </el-button>
                 <div v-if="overtureBuildingCount != null" class="population-overture-hint">
                   Overture building footprints: {{ overtureBuildingCount }}
                   <span v-if="overtureBuildingsLoading"> (loading…)</span>
                 </div>
+                <div class="population-overture-info">
+                  Population and structure estimates use open building data from
+                  <a :href="OVERTURE_MAPS_URL" target="_blank" rel="noopener noreferrer">Overture Maps</a>.
+                  Footprints are shown in cyan on the map.
+                  <template v-if="isEditMode">
+                    Use the checkboxes above to choose population, structures, or both before running the action button.
+                  </template>
+                </div>
                 <div class="population-help-row">
-                  <el-popover placement="right" :width="360" trigger="hover">
+                  <el-popover placement="right" :width="380" trigger="hover">
                     <template #default>
                       <div class="vulnerability-help-popover">
                         <p class="text-sm font-medium mb-2">Population is estimated from buildings inside the boundary.</p>
                         <ul class="text-xs space-y-2">
-                          <li><strong>Primary — Overture Maps</strong> — Building footprints from Overture are counted and shown in cyan on the map.</li>
+                          <li>
+                            <strong>Primary — <a :href="OVERTURE_MAPS_URL" target="_blank" rel="noopener noreferrer">Overture Maps</a></strong>
+                            — Open global building footprints; counted for population and imported as structure records. Shown in cyan on the map.
+                          </li>
                           <li><strong>Fallback — Open Buildings</strong> — If Overture finds none, point counts from Google Open Buildings are used.</li>
                           <li><strong>Formula</strong> — <em>population = Overture buildings × persons per building</em> (ward survey avg, stored settlement avg, or 4.0 default).</li>
-                          <li>After you change the boundary, click estimate again to re-scan building footprints inside the new shape.</li>
+                          <li>After you change the boundary, run the action button again to re-scan footprints inside the new shape.</li>
+                          <li v-if="isEditMode">
+                            <strong>Edit mode</strong> — Check <em>Update population</em> and/or <em>Update structures</em>. The button runs population estimate, structure import, or both.
+                          </li>
                         </ul>
-                        <p class="text-xs mt-2 text-gray-500">Population auto-fills when empty and Overture finds buildings. Use the button above to re-run. Open Buildings is only used when Overture finds no footprints.</p>
+                        <p class="text-xs mt-2 text-gray-500">
+                          Population auto-fills when empty and Overture finds buildings. Open Buildings is only used when Overture finds no footprints.
+                          Learn more at
+                          <a :href="OVERTURE_MAPS_URL" target="_blank" rel="noopener noreferrer">Overture Maps buildings guide</a>.
+                        </p>
                       </div>
                     </template>
                     <template #reference>
@@ -4774,14 +4891,6 @@ onActivated(() => {
 
       <template #footer>
         <div class="drawer-footer">
-          <div v-if="isEditMode" class="drawer-footer-options">
-            <el-checkbox v-model="updateStructuresFromOverture">
-              Replace all structures with Overture building footprints
-            </el-checkbox>
-            <div class="drawer-footer-hint">
-              When checked, existing structures for this settlement are removed and replaced from the current boundary.
-            </div>
-          </div>
           <div class="drawer-footer-actions">
             <p v-if="hasBlockingBoundaryOverlap" class="drawer-footer-blocked-hint">
               Save is blocked until the boundary no longer overlaps nearby settlements.
@@ -5140,8 +5249,15 @@ onActivated(() => {
   width: 100%;
 }
 
-.population-update-option {
+.edit-update-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 8px;
+}
+
+.population-update-option {
+  margin-bottom: 0;
 }
 
 .population-update-hint {
@@ -5160,6 +5276,31 @@ onActivated(() => {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   line-height: 1.4;
+}
+
+.population-overture-info {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.45;
+}
+
+.population-overture-info a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+
+.population-overture-info a:hover {
+  text-decoration: underline;
+}
+
+.vulnerability-help-popover a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+
+.vulnerability-help-popover a:hover {
+  text-decoration: underline;
 }
 
 .population-help-row {

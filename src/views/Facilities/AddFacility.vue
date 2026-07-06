@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 // @ts-nocheck
 import { ref, reactive, nextTick, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -766,17 +767,7 @@ const initializeMap = async () => {
   await nextTick()
 
   try {
-    const { Loader } = await import('@googlemaps/js-api-loader')
-    
-    const loader = new Loader({
-      apiKey: googleMapsApiKey,
-      version: 'weekly',
-      libraries: ['drawing', 'geometry', 'places'],
-      region: 'KE',
-      language: 'en'
-    })
-
-    await loader.load()
+  await loadGoogleMapsApi()
 
     if (!window.google || !window.google.maps) {
       throw new Error('Google Maps API not loaded properly')

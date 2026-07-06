@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import { useI18n } from '@/hooks/web/useI18n'
 import {
   getSettlementListByCounty,
@@ -2884,17 +2885,7 @@ const initializeLocationUpdateMap = async () => {
 
   try {
     // Load Google Maps API
-    const { Loader } = await import('@googlemaps/js-api-loader')
-    
-    const loader = new Loader({
-      apiKey: GOOGLE_MAPS_API_KEY,
-      version: 'weekly',
-      libraries: ['drawing', 'geometry', 'places'],
-      region: 'KE',
-      language: 'en'
-    })
-
-    await loader.load()
+  await loadGoogleMapsApi()
 
     if (!window.google || !window.google.maps) {
       throw new Error('Google Maps API not loaded properly')
@@ -4576,16 +4567,7 @@ const initLocateMap = async () => {
 
   try {
     locateMapLoading.value = true
-    const { Loader } = await import('@googlemaps/js-api-loader')
-
-    const loader = new Loader({
-      apiKey: GOOGLE_MAPS_API_KEY,
-      version: 'weekly',
-      libraries: ['geometry', 'places'],
-      region: 'KE',
-      language: 'en',
-    })
-    await loader.load()
+  await loadGoogleMapsApi()
 
     if (!window.google || !window.google.maps) {
       throw new Error('Google Maps API not loaded properly')
