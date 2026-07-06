@@ -51,6 +51,21 @@ async function issueUserAccessToken(userId, req, options = {}) {
   return { ok: true, token, sessionId: sessionResult.sessionId }
 }
 
+function respondLoginSessionBlocked(tokenResult) {
+  const status = tokenResult.status || 409
+  const body =
+    userSessionManager.toDeviceLimitHttpBody(tokenResult) || {
+      success: false,
+      code: tokenResult.code || 'LOGIN_BLOCKED',
+      message: tokenResult.message || 'Sign-in was blocked.',
+      maxDevices: tokenResult.maxDevices,
+      activeSessionCount: tokenResult.activeSessionCount,
+      activeDevices: tokenResult.activeDevices || [],
+    }
+
+  return { status, body }
+}
+
  
 
  
@@ -1442,25 +1457,22 @@ exports.signin = async (req, res) => {
       const tokenResult = await issueUserAccessToken(user.id, req)
       if (!tokenResult.ok) {
         instlog.status = 'Fail. Device limit reached'
+        const blocked = respondLoginSessionBlocked(tokenResult)
         await writeLegacyAndAuditLog(instlog, {
           action: 'login',
           actorId: user.id,
           actorName: user.username,
           entityType: 'auth',
           outcome: 'failure',
-          statusCode: tokenResult.status,
+          statusCode: blocked.status,
           metadata: {
             code: tokenResult.code,
             maxDevices: tokenResult.maxDevices,
+            activeSessionCount: tokenResult.activeSessionCount,
             activeDevices: tokenResult.activeDevices
           }
         })
-        return res.status(tokenResult.status).send({
-          code: tokenResult.code,
-          message: tokenResult.message,
-          maxDevices: tokenResult.maxDevices,
-          activeDevices: tokenResult.activeDevices
-        })
+        return res.status(blocked.status).json(blocked.body)
       }
 
       var token = tokenResult.token
@@ -2789,12 +2801,8 @@ exports.verifyCode = async (req, res) => {
 
     const tokenResult = await issueUserAccessToken(user.id, req)
     if (!tokenResult.ok) {
-      return res.status(tokenResult.status).send({
-        code: tokenResult.code,
-        message: tokenResult.message,
-        maxDevices: tokenResult.maxDevices,
-        activeDevices: tokenResult.activeDevices
-      })
+      const blocked = respondLoginSessionBlocked(tokenResult)
+      return res.status(blocked.status).json(blocked.body)
     }
 
     var token = tokenResult.token

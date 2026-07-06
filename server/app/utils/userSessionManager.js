@@ -196,23 +196,45 @@ async function registerLoginSession(userId, req, expiresInSec = 86400, options =
     const activeSessions = await getActiveSessions(userId);
     const isNewDevice = !existingSameDevice;
     if (isNewDevice && activeSessions.length >= maxDevices) {
+      const activeDevices = activeSessions.map((s) => ({
+        deviceLabel: s.device_label,
+        ipAddress: s.ip_address,
+        lastSeenAt: s.last_seen_at,
+      }));
+      const deviceWord = maxDevices === 1 ? 'device' : 'devices';
+      const sessionWord = activeSessions.length === 1 ? 'session' : 'sessions';
       return {
         ok: false,
         status: 409,
         code: 'DEVICE_LIMIT_REACHED',
-        message: `You are already signed in on the maximum of ${maxDevices} device(s). Sign out on another device before logging in here.`,
+        message:
+          `Too many active sessions. This account allows sign-in on ${maxDevices} ${deviceWord} at a time. ` +
+          `You currently have ${activeSessions.length} active ${sessionWord}. ` +
+          'Sign out on another browser or device, or ask an administrator to clear your active sessions.',
         maxDevices,
-        activeDevices: activeSessions.map((s) => ({
-          deviceLabel: s.device_label,
-          ipAddress: s.ip_address,
-          lastSeenAt: s.last_seen_at
-        }))
+        activeSessionCount: activeSessions.length,
+        activeDevices,
       };
     }
   }
 
   const sessionId = await createSession(userId, req, expiresInSec);
   return { ok: true, sessionId };
+}
+
+/** JSON body for HTTP 409 when the per-user device/session limit is exceeded. */
+function toDeviceLimitHttpBody(result) {
+  if (!result || result.ok !== false || result.code !== 'DEVICE_LIMIT_REACHED') {
+    return null;
+  }
+  return {
+    success: false,
+    code: result.code,
+    message: result.message,
+    maxDevices: result.maxDevices,
+    activeSessionCount: result.activeSessionCount ?? result.activeDevices?.length ?? 0,
+    activeDevices: result.activeDevices || [],
+  };
 }
 
 async function validateSession(userId, sessionId) {
@@ -256,6 +278,7 @@ module.exports = {
   buildDeviceFingerprint,
   parseDeviceLabel,
   registerLoginSession,
+  toDeviceLimitHttpBody,
   validateSession,
   touchSession,
   revokeSession,
