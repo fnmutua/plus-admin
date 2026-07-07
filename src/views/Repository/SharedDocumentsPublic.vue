@@ -135,6 +135,7 @@ const getFileIcon = (doc: Pick<SharedDocument, 'format'>) => {
     case 'csv':
     case 'xls':
     case 'xlsx':
+    case 'xlsm':
       return 'vscode-icons:file-type-excel2'
     case 'ppt':
     case 'pptx':

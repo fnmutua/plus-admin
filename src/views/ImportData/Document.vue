@@ -320,10 +320,11 @@ const checkFilenameProtected = (filename: string): 'confident' | 'uncertain' | n
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
   // Check file type and size
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
-  const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
+  const allowedExtensions = ['xls', 'xlsx', 'xlsm', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
   const types = [
     'application/vnd.ms-excel', // .xls
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel.sheet.macroEnabled.12', // .xlsm
     'application/pdf', // .pdf
     'application/zip', // .zip
     'application/x-rar-compressed', // .rar
@@ -379,9 +380,10 @@ const handleFileUpload = async (uploadFile: any) => {
 
   // Double-check validation as safety net (in case beforeUpload didn't work)
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
-  const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
+  const allowedExtensions = ['xls', 'xlsx', 'xlsm', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
   const types = [
     'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel.sheet.macroEnabled.12',
     'application/pdf', 'application/zip', 'application/x-rar-compressed', 'application/x-zip-compressed',
     'application/vnd.rar', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'image/png', 'image/jpeg', 'image/tiff', 'image/tif', 'text/csv', 'text/plain', 'application/json',
@@ -963,7 +965,7 @@ const handleReset = () => {
             :before-upload="beforeUpload"
             :limit="20"
             :multiple="true"
-            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt,.dwg,.dxf,.dgn,.tiff"
+            accept=".xls,.xlsx,.xlsm,.pdf,.zip,.doc,.docx,.png,.jpg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.txt,.dwg,.dxf,.dgn,.tiff"
             aria-label="Upload documents"
           >
             <el-button type="primary" :loading="loading.upload">Upload Files</el-button>

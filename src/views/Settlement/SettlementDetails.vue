@@ -13,9 +13,10 @@ import {
   DeleteRecord,
   updateOneRecord,
   getNeighboringSettlements,
-  getSettlementMapData
+  getSettlementMapData,
+  getOneSettlement,
 } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus, Lightning, Location, TrendCharts, SetUp, InfoFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
@@ -35,6 +36,7 @@ import { listAssessments } from '@/api/climate-assessment'
 import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/settings'
 import { resolvePlanningSurveyFromRecord, surveyStatusOptionsForPlanning, normalizePlanningSurveyPair } from '@/utils/validateSettlementAttributes'
 import { buildSettlementEditQuery } from '@/utils/settlementEditNavigation'
+import { splitPopulationByCountySex, unwrapApiRecord } from '@/utils/countySexSplit'
 import {
   buildVulnerabilitySelectFallback,
   CLIMATE_VULN_ATTR_FIELDS,
@@ -1280,6 +1282,27 @@ function computePopulationDensity(population: unknown, areaHa: unknown): number 
   return Number.isFinite(density) ? Math.round(density) : null
 }
 
+function computePopulationFromSex(popMale: unknown, popFemale: unknown): number | null {
+  const male = parseNumberish(popMale)
+  const female = parseNumberish(popFemale)
+  if (male === null && female === null) return null
+  return (male ?? 0) + (female ?? 0)
+}
+
+function computePopulationFromHouseholds(numHouseholds: unknown, avgHouseholdSize: unknown): number | null {
+  const hh = parseNumberish(numHouseholds)
+  const avg = parseNumberish(avgHouseholdSize)
+  if (hh === null || avg === null || hh <= 0 || avg <= 0) return null
+  return Math.round(hh * avg)
+}
+
+function computeNumHouseholds(population: unknown, avgHouseholdSize: unknown): number | null {
+  const pop = parseNumberish(population)
+  const avg = parseNumberish(avgHouseholdSize)
+  if (pop === null || avg === null || avg <= 0) return null
+  return Math.round(pop / avg)
+}
+
 /** Derive avg household size = population / number of households (rounded to 1 dp). */
 function computeAvgHouseholdSize(population: unknown, numHouseholds: unknown): number | null {
   const pop = parseNumberish(population)
@@ -1287,6 +1310,51 @@ function computeAvgHouseholdSize(population: unknown, numHouseholds: unknown): n
   if (pop === null || hh === null || hh <= 0) return null
   const size = pop / hh
   return Number.isFinite(size) ? Math.round(size * 10) / 10 : null
+}
+
+async function fetchCountyDemographics(countyId: unknown) {
+  const id = countyId != null && countyId !== '' ? Number(countyId) : null
+  if (!id || !Number.isFinite(id)) return null
+
+  try {
+    const res = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 1,
+        curUser: 1,
+        model: 'county',
+        searchField: 'id',
+        searchKeyword: String(id),
+        sort: 'ASC',
+      },
+    })
+    const rows = (res as { data?: unknown[] })?.data
+    const row = Array.isArray(rows) ? rows[0] : unwrapApiRecord(res)
+    if (row && typeof row === 'object') {
+      return row as { pop_male?: number; pop_female?: number; pop_total?: number }
+    }
+  } catch (e) {
+    console.warn('County demographics fetch failed:', e)
+  }
+
+  try {
+    const res = await getOneSettlement({ model: 'county', id } as any)
+    const row = unwrapApiRecord(res)
+    if (row) {
+      return row as { pop_male?: number; pop_female?: number; pop_total?: number }
+    }
+  } catch (e) {
+    console.warn('County getOne fallback failed:', e)
+  }
+
+  return null
+}
+
+/** Split total population into male/female using the settlement county's census sex ratio. */
+async function splitPopulationSexForCounty(total: number, countyId: unknown) {
+  if (!Number.isFinite(total) || total <= 0) return null
+  const countyRow = await fetchCountyDemographics(countyId)
+  return splitPopulationByCountySex(total, countyRow)
 }
 
 /** After all six GIS attributes are set, recompute score/rating and persist (matches AddSettlementNew). */
@@ -1376,16 +1444,76 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
       updatePayload.pop_density = computedDensity
     }
 
-    // Keep avg_household_size computed from population and num_households.
+    // Keep avg_household_size computed when population changes without a full cascade.
     let computedAvgHhSize: number | null = null
     let recomputeAvgHhSize = false
-    if (field === 'population' || field === 'num_households') {
-      recomputeAvgHhSize = true
-      const nextPopulation = field === 'population' ? apiValue : profile.population
-      const nextNumHouseholds =
-        field === 'num_households' ? apiValue : profile.num_households
-      computedAvgHhSize = computeAvgHouseholdSize(nextPopulation, nextNumHouseholds)
-      updatePayload.avg_household_size = computedAvgHhSize
+
+    let computedSexSplit: { pop_male: number; pop_female: number } | null = null
+    let computedTotalFromSex: number | null = null
+    let computedPopulationFromHouseholds: number | null = null
+    let computedNumHouseholdsFromPopulation: number | null = null
+
+    const applyPopulationDerivatives = async (population: number) => {
+      computedDensity = computePopulationDensity(population, profile.area)
+      updatePayload.pop_density = computedDensity
+      computedSexSplit = await splitPopulationSexForCounty(population, profile.county_id)
+      if (computedSexSplit) {
+        updatePayload.pop_male = computedSexSplit.pop_male
+        updatePayload.pop_female = computedSexSplit.pop_female
+      }
+      const numHouseholds = parseNumberish(profile.num_households)
+      const avgHouseholdSize = parseNumberish(profile.avg_household_size)
+      if (numHouseholds != null && numHouseholds > 0) {
+        recomputeAvgHhSize = true
+        computedAvgHhSize = computeAvgHouseholdSize(population, numHouseholds)
+        updatePayload.avg_household_size = computedAvgHhSize
+      } else if (avgHouseholdSize != null && avgHouseholdSize > 0) {
+        computedNumHouseholdsFromPopulation = computeNumHouseholds(population, avgHouseholdSize)
+        if (computedNumHouseholdsFromPopulation != null) {
+          updatePayload.num_households = computedNumHouseholdsFromPopulation
+        }
+      }
+    }
+
+    if (field === 'population') {
+      const popTotal = parseNumberish(apiValue)
+      if (popTotal != null && popTotal > 0) {
+        await applyPopulationDerivatives(popTotal)
+      }
+    }
+
+    if (field === 'pop_male' || field === 'pop_female') {
+      const nextMale = field === 'pop_male' ? apiValue : profile.pop_male
+      const nextFemale = field === 'pop_female' ? apiValue : profile.pop_female
+      computedTotalFromSex = computePopulationFromSex(nextMale, nextFemale)
+      if (computedTotalFromSex != null) {
+        updatePayload.population = computedTotalFromSex
+        await applyPopulationDerivatives(computedTotalFromSex)
+      }
+    }
+
+    if (field === 'num_households') {
+      const nextHouseholds = parseNumberish(apiValue)
+      const avgHouseholdSize = parseNumberish(profile.avg_household_size)
+      if (
+        nextHouseholds != null &&
+        nextHouseholds > 0 &&
+        avgHouseholdSize != null &&
+        avgHouseholdSize > 0
+      ) {
+        computedPopulationFromHouseholds = computePopulationFromHouseholds(
+          nextHouseholds,
+          avgHouseholdSize
+        )
+        if (computedPopulationFromHouseholds != null) {
+          updatePayload.population = computedPopulationFromHouseholds
+          await applyPopulationDerivatives(computedPopulationFromHouseholds)
+        }
+      } else {
+        recomputeAvgHhSize = true
+        computedAvgHhSize = computeAvgHouseholdSize(profile.population, apiValue)
+        updatePayload.avg_household_size = computedAvgHhSize
+      }
     }
 
     const res: any = await updateOneRecord(
@@ -1445,13 +1573,30 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
       }
     }
 
-    if (field === 'population' || field === 'area') {
+    if (field === 'population' || field === 'area' || field === 'pop_male' || field === 'pop_female' || field === 'num_households') {
       profile.pop_density = computedDensity === null ? '—' : String(computedDensity)
     }
 
     if (recomputeAvgHhSize) {
       profile.avg_household_size =
         computedAvgHhSize === null ? '—' : String(computedAvgHhSize)
+    }
+
+    if (computedSexSplit) {
+      profile.pop_male = String(computedSexSplit.pop_male)
+      profile.pop_female = String(computedSexSplit.pop_female)
+    }
+
+    if (computedTotalFromSex != null) {
+      profile.population = String(computedTotalFromSex)
+    }
+
+    if (computedPopulationFromHouseholds != null) {
+      profile.population = String(computedPopulationFromHouseholds)
+    }
+
+    if (computedNumHouseholdsFromPopulation != null) {
+      profile.num_households = String(computedNumHouseholdsFromPopulation)
     }
 
     if ((CLIMATE_VULN_ATTR_FIELDS as readonly string[]).includes(field)) {

@@ -2406,6 +2406,7 @@ const getFileIcon = (format: string) => {
       case 'csv':
       case 'xls':
       case 'xlsx':
+      case 'xlsm':
       return 'vscode-icons:file-type-excel2'
     case 'ppt':
     case 'pptx':
@@ -2668,10 +2669,11 @@ const IMPORT_MODEL_MAPPINGS: Record<string, string | null> = {
 const importBeforeUpload = (file) => {
   // Check file type and size - matching ImportData/Document.vue
   const fileExtension = file.name.split('.').pop()?.toLowerCase();
-  const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
+  const allowedExtensions = ['xls', 'xlsx', 'xlsm', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn'];
   const types = [
     'application/vnd.ms-excel', // .xls
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel.sheet.macroEnabled.12', // .xlsm
     'application/pdf', // .pdf
     'application/zip', // .zip
     'application/x-rar-compressed', // .rar
@@ -4136,7 +4138,7 @@ const handleTabChange = async (tabName: string) => {
             :before-upload="importBeforeUpload"
             :limit="20"
             :multiple="true"
-            accept=".xls,.xlsx,.pdf,.zip,.doc,.docx,.png,.jpg,.jpeg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.tiff,.txt,.kml,.kmz,.dwg,.dxf,.dgn"
+            accept=".xls,.xlsx,.xlsm,.pdf,.zip,.doc,.docx,.png,.jpg,.jpeg,.csv,.json,.geojson,.ppt,.pptx,.rar,.tif,.tiff,.txt,.kml,.kmz,.dwg,.dxf,.dgn"
           >
             <el-button type="primary">Upload Files</el-button>
           </el-upload>

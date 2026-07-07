@@ -54,12 +54,13 @@ const DocTypesAll = ref([])
 // File validation
 const maxFileSize = 5 * 1024 * 1024 * 1024 // 5GB
 const maxFiles = 10
-const allowedExtensions = ['xls', 'xlsx', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn']
+const allowedExtensions = ['xls', 'xlsx', 'xlsm', 'pdf', 'zip', 'rar', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'csv', 'txt', 'json', 'geojson', 'kml', 'kmz', 'ppt', 'pptx', 'dwg', 'dxf', 'dgn']
 const allowedTypes = {
   images: ['image/png', 'image/jpeg', 'image/jpg', 'image/tiff', 'image/tif'],
   documents: [
     'application/vnd.ms-excel', // .xls
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel.sheet.macroEnabled.12', // .xlsm
     'application/pdf', // .pdf
     'application/zip', // .zip
     'application/x-rar-compressed', // .rar
