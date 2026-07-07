@@ -6,7 +6,68 @@ const Sequelize = require('sequelize')
 const FormData = require('form-data');
 
  const { XMLParser } = require('fast-xml-parser');
- 
+
+const COLLECTOR_BASE_URL = String(process.env.COLLECTOR_API_BASE || 'https://collector.kesmis.go.ke').replace(/\/$/, '')
+const COLLECTOR_REQUEST_TIMEOUT_MS = parseInt(process.env.COLLECTOR_REQUEST_TIMEOUT_MS || '120000', 10)
+const COLLECTOR_ODATA_PAGE_SIZE = parseInt(process.env.COLLECTOR_ODATA_PAGE_SIZE || '500', 10)
+
+function collectorRequest(options) {
+  return new Promise((resolve, reject) => {
+    request({
+      timeout: COLLECTOR_REQUEST_TIMEOUT_MS,
+      ...options
+    }, (error, response, body) => {
+      if (error) {
+        if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKETTIMEDOUT') {
+          return reject(new Error(
+            `Collector request timed out after ${COLLECTOR_REQUEST_TIMEOUT_MS}ms (${options.url || 'unknown url'})`
+          ))
+        }
+        return reject(error)
+      }
+      resolve({ response, body })
+    })
+  })
+}
+
+async function fetchCollectorODataPages(initialUrl, token) {
+  const all = []
+  let url = initialUrl
+
+  while (url) {
+    const { response, body } = await collectorRequest({
+      method: 'GET',
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.statusCode !== 200) {
+      throw new Error(`Collector error: HTTP ${response.statusCode} for ${url}`)
+    }
+
+    const page = JSON.parse(body)
+    all.push(...(page.value || []))
+    url = page['@odata.nextLink'] || page['odata.nextLink'] || null
+  }
+
+  return all
+}
+
+function sendCollectorError(res, error, context = 'Collector request failed') {
+  const message = error?.message || String(error)
+  const isTimeout = /timed out/i.test(message)
+  console.error(`${context}:`, message)
+  res.status(isTimeout ? 504 : 500).send({
+    code: '9999',
+    error: isTimeout
+      ? 'ODK Collector took too long to respond. Try again or narrow filters.'
+      : 'Failed to retrieve data from ODK Collector.',
+    message
+  })
+}
  
  
 exports.modelGetProjects = (req, res) => {
@@ -347,45 +408,14 @@ function flattenPlain(obj, parentKey = '') {
 
 async function getEntities(token, project, countyFilter = null) {
   console.log('getEntities', project, 'countyFilter:', countyFilter)
-  const doRequest = (url) =>
-    new Promise((resolve, reject) => {
-      request({
-        method: 'GET',
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      }, (error, response, body) => {
-        if (error) return reject(error)
-        if (response.statusCode !== 200) return reject(new Error(`Error: Status Code ${response.statusCode}`))
-        try {
-          resolve(JSON.parse(body))
-        } catch (e) {
-          reject(e)
-        }
-      })
-    })
 
-  // Use requested project; fetch ALL pages, not just first 10k.
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/datasets/settlements.svc/Entities?$top=10000`
+  let url = `${COLLECTOR_BASE_URL}/v1/projects/${project}/datasets/settlements.svc/Entities?$top=${COLLECTOR_ODATA_PAGE_SIZE}`
   if (countyFilter) {
     const countyODataFilter = `county_name eq '${countyFilter}'`
     url += `&$filter=${encodeURIComponent(countyODataFilter)}`
   }
 
-  const all = []
-  let page = await doRequest(url)
-  all.push(...(page.value || []))
-
-  // Collector OData pagination key can be @odata.nextLink
-  let next = page['@odata.nextLink'] || page['odata.nextLink'] || null
-  while (next) {
-    page = await doRequest(next)
-    all.push(...(page.value || []))
-    next = page['@odata.nextLink'] || page['odata.nextLink'] || null
-  }
-
+  const all = await fetchCollectorODataPages(url, token)
   console.log(`[getEntities] total returned across pages: ${all.length}`)
   return { value: all }
 }
@@ -843,8 +873,15 @@ exports.modelGetSubmissions = async (req, res) => {
   console.log('  - Frontend filterValues:', filterValues);
   console.log('  - Frontend filterOperator:', filterOperator);
 
-  // Build URL without OData filter - we'll filter on backend after fetching all data
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
+  if (!project || !form || !token) {
+    return res.status(400).send({
+      code: '9999',
+      error: 'Missing required fields: project, form, or token'
+    })
+  }
+
+  // Paginated OData fetch — avoids one huge response that can exceed 30s upstream timeouts
+  let url = `${COLLECTOR_BASE_URL}/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*&%24top=${COLLECTOR_ODATA_PAGE_SIZE}`;
 
   // Extract county name from request filters for backend filtering
   let countyNameToFilter = null;
@@ -857,126 +894,71 @@ exports.modelGetSubmissions = async (req, res) => {
     }
   }
   
-  console.log('modelGetSubmissions - Fetching all data from ODK Central:');
-  console.log('  - Final URL:', url);
+  console.log('modelGetSubmissions - Fetching submissions from ODK Central:');
+  console.log('  - Initial URL:', url);
 
-  //const baseUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions`;
-  //const url = `${baseUrl}?%24expand=*&%24filter=year(__system/createdAt) lt year(now())`;
+  try {
+    const tmp_objs = await fetchCollectorODataPages(url, token)
 
-
-   // Login and get a token
-    // Login and get a token 
-    request({
-      method: 'GET',
-      url: url,
-    // url: `${url}?%24expand=*&$select=sec_officials`,  // Add query parameter here
-    // url: `${url}?%24expand=*&%24count=true&%24top=1`,  // Add query parameter here
-   // http://services.odata.org/V4/OData/OData.svc/Suppliers?$select=Name, ID, &$filter=ID eq 1
-
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-  
-      },
-    }, async function (error, response, body) {
-     
-
-     // console.log('------>', error)
-  
-      if (!error && response.statusCode === 200) {
-         
-        let objResults = JSON.parse(body)
-     //   console.log(objResults.value )
-        let tmp_objs = objResults.value 
-
-        const objs = tmp_objs.filter(submission => {
-        // Handle null or undefined values for reviewState
-        const reviewState = submission.__system?.reviewState?.toLowerCase();
-        return reviewState !== 'rejected';
-      });
-
-
-          //console.log('SEC data....',objs)
-          // Retrieve entities (used as lookup table to map settlement codes to names)
-          let entities = await getEntities(token, project);
-         // console.log(entities)
-
-          // Convert entities to a lookup map for quick access
-          let entitiesMap = new Map();
-          let entitiesCountyMap = new Map(); // Map settlement code to county
-          entities.value.forEach(entity => {
-            entitiesMap.set(entity.code, entity.sett_name);
-            entitiesCountyMap.set(entity.code, entity.county_name);
-          });
-
-
-
- 
-
-        // Select only the desired fields and map settlements
-        let mappedData = objs.map(submission => {
-          return {
-            id: submission.id,
-            date: submission.today,
-            group_location: submission.group_location,
-            grp_certification: submission.grp_certification,
-            pcode: submission.group_location?.pcode,
-            sec_officials: submission.sec_officials,
-            grc_officials: submission.grc_officials,
-            // current version instanceId from submission XML metadata
-            meta_instanceID: submission.meta?.instanceID,
-            // overall submission instanceId used to address the logical submission
-            overallInstanceId: submission.__id || submission.meta?.instanceID,
-            // for GRC inline editing, expose the logical submission id from Central listing
-            grc_overallInstanceId: submission.instanceId,
-            meta : submission.__system,
-            settlement_name: entitiesMap.get(submission.group_location?.pcode) || 'Unknown', // Append settlement name
-            county_name: entitiesCountyMap.get(submission.group_location?.pcode) || 'Unknown', // Append county name
-          };
-        });
-
-        // Filter by county name if provided (backend filtering since ODK Central $filter doesn't support nested paths)
-        let filteredData = mappedData;
-        if (countyNameToFilter) {
-          filteredData = mappedData.filter(item => {
-            // Match against county_name from entities map (most reliable)
-            const matchesCountyName = item.county_name && 
-              item.county_name.toLowerCase().trim() === countyNameToFilter.toLowerCase().trim();
-            
-            // Also check group_location.county as fallback
-            const matchesGroupLocation = item.group_location?.county && 
-              item.group_location.county.toLowerCase().trim() === countyNameToFilter.toLowerCase().trim();
-            
-            return matchesCountyName || matchesGroupLocation;
-          });
-          
-          console.log('modelGetSubmissions - Backend filtering applied:');
-          console.log('  - Total submissions fetched:', mappedData.length);
-          console.log('  - Filtered by county:', countyNameToFilter);
-          console.log('  - Filtered submissions count:', filteredData.length);
-        } else {
-          console.log('modelGetSubmissions - No county filter, returning all submissions:', mappedData.length);
-        }
-
-     
-          res.status(200).send({
-            data: filteredData,
-            code: '0000',
-            token: token // Include the token in the response
-          });
-   
-  
-  
-   
-      } else {
-        // Handle errors here
-        console.error('Error:', error);
-        res.status(500).send({
-          error: 'Internal Server Error'
-        });
-      }
+    const objs = tmp_objs.filter(submission => {
+      const reviewState = submission.__system?.reviewState?.toLowerCase();
+      return reviewState !== 'rejected';
     });
- };
+
+    let entities = await getEntities(token, project);
+
+    let entitiesMap = new Map();
+    let entitiesCountyMap = new Map();
+    entities.value.forEach(entity => {
+      entitiesMap.set(entity.code, entity.sett_name);
+      entitiesCountyMap.set(entity.code, entity.county_name);
+    });
+
+    let mappedData = objs.map(submission => {
+      return {
+        id: submission.id,
+        date: submission.today,
+        group_location: submission.group_location,
+        grp_certification: submission.grp_certification,
+        pcode: submission.group_location?.pcode,
+        sec_officials: submission.sec_officials,
+        grc_officials: submission.grc_officials,
+        meta_instanceID: submission.meta?.instanceID,
+        overallInstanceId: submission.__id || submission.meta?.instanceID,
+        grc_overallInstanceId: submission.instanceId,
+        meta : submission.__system,
+        settlement_name: entitiesMap.get(submission.group_location?.pcode) || 'Unknown',
+        county_name: entitiesCountyMap.get(submission.group_location?.pcode) || 'Unknown',
+      };
+    });
+
+    let filteredData = mappedData;
+    if (countyNameToFilter) {
+      filteredData = mappedData.filter(item => {
+        const matchesCountyName = item.county_name && 
+          item.county_name.toLowerCase().trim() === countyNameToFilter.toLowerCase().trim();
+        const matchesGroupLocation = item.group_location?.county && 
+          item.group_location.county.toLowerCase().trim() === countyNameToFilter.toLowerCase().trim();
+        return matchesCountyName || matchesGroupLocation;
+      });
+      
+      console.log('modelGetSubmissions - Backend filtering applied:');
+      console.log('  - Total submissions fetched:', mappedData.length);
+      console.log('  - Filtered by county:', countyNameToFilter);
+      console.log('  - Filtered submissions count:', filteredData.length);
+    } else {
+      console.log('modelGetSubmissions - No county filter, returning all submissions:', mappedData.length);
+    }
+
+    res.status(200).send({
+      data: filteredData,
+      code: '0000',
+      token: token
+    });
+  } catch (error) {
+    sendCollectorError(res, error, 'Error fetching submissions')
+  }
+};
  
  
  /**
@@ -1406,72 +1388,35 @@ exports.modelGetCsvSubmissions = (req, res) => {
 
 
  
-exports.modelGetGeoJsonSubmissions = (req, res) => {
-  // Extract project, form, and token from req.body
+exports.modelGetGeoJsonSubmissions = async (req, res) => {
   const { project, form, token } = req.body;
 
-  // Validate required fields
   if (!project || !form || !token) {
     return res.status(400).send({
       error: 'Missing required fields: project, form, or token',
     });
   }
 
-  // Construct the OData endpoint URL for ODK Central API
-  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
+  const url = `${COLLECTOR_BASE_URL}/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*&%24top=${COLLECTOR_ODATA_PAGE_SIZE}`;
 
-  // Make the request to the OData endpoint
-  request(
-    {
-      method: 'GET',
-      url: url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    },
-    (error, response, body) => {
-      if (!error && response.statusCode === 200) {
-        try {
-          // Parse the OData JSON response
-          const data = JSON.parse(body);
-          const submissions = data.value;
+  try {
+    const submissions = await fetchCollectorODataPages(url, token);
+    const filteredSubmissions = submissions.filter(sub => {
+      const reviewState = sub.__system?.reviewState?.toLowerCase();
+      return reviewState !== 'rejected';
+    });
 
-          // Filter out rejected submissions
-          const filteredSubmissions = submissions.filter(sub => {
-            const reviewState = sub.__system?.reviewState?.toLowerCase();
-            return reviewState !== 'rejected';
-          });
-
-          console.log(submissions)
-          // Convert to GeoJSON
-          const geojsonData = convertToGeoJSON2(filteredSubmissions);
-
-          // Validate GeoJSON structure
-          if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
-            throw new Error('Failed to generate valid GeoJSON');
-          }
-
-          // Set headers for GeoJSON file download
-          res.setHeader('Content-Type', 'application/geo+json');
-          res.setHeader('Content-Disposition', `attachment; filename="submissions_${form}_${Date.now()}.geojson"`);
-
-          // Send the GeoJSON data as the response
-          res.status(200).send(geojsonData);
-        } catch (parseError) {
-          console.error('Error processing GeoJSON:', parseError);
-          res.status(500).send({
-            error: 'Failed to process GeoJSON data',
-          });
-        }
-      } else {
-        console.error('Error fetching submissions:', error || `Status code: ${response.statusCode}`);
-        res.status(500).send({
-          error: 'Failed to retrieve GeoJSON submissions',
-        });
-      }
+    const geojsonData = convertToGeoJSON2(filteredSubmissions);
+    if (!geojsonData || geojsonData.type !== 'FeatureCollection') {
+      throw new Error('Failed to generate valid GeoJSON');
     }
-  );
+
+    res.setHeader('Content-Type', 'application/geo+json');
+    res.setHeader('Content-Disposition', `attachment; filename="submissions_${form}_${Date.now()}.geojson"`);
+    res.status(200).send(geojsonData);
+  } catch (error) {
+    sendCollectorError(res, error, 'Error fetching submissions');
+  }
 };
 
 // Convert OData submissions to GeoJSON, dynamically detecting GeoJSON geometry field and type
