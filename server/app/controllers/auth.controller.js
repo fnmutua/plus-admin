@@ -823,6 +823,15 @@ exports.updateUser = async (req, res) => {
       include: [{ model: db.models.user_roles }],
     });
     const afterRoles = await getUserRoleSnapshot(user.id)
+    const roleChanges = diffRoleSnapshots(beforeRoles, afterRoles)
+
+    if (roleChanges.changed) {
+      const { forceLogoutUser } = require('../utils/forceLogoutUser')
+      await forceLogoutUser(user.id, {
+        source: 'Role assignment updated',
+        userName: user.username
+      })
+    }
 
     // Generate a token
     const token = jwt.sign({ id: user.id }, config.secret, {
@@ -843,7 +852,7 @@ exports.updateUser = async (req, res) => {
       metadata: {
         updatedFields: Object.keys(updateData),
         affectedUser: buildAffectedUserMetadata(user),
-        roleChanges: diffRoleSnapshots(beforeRoles, afterRoles)
+        roleChanges
       }
     })
 

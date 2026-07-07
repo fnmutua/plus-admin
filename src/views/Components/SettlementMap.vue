@@ -133,6 +133,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'layers-loaded': []
+  'imagery-loaded': []
   'settlement-change': [{ id: string; name: string }]
 }>()
 
@@ -2788,10 +2789,43 @@ const availableImageryLayers = ref<string[]>([])
 const selectedImageryLayers = ref<string[]>([])
 const imageryLayerObjects = ref<Record<string, google.maps.ImageMapType>>({})
 
+const preloadWmsImageryPreview = (
+  layerNames: string[],
+  bbox: { minLng: number; minLat: number; maxLng: number; maxLat: number },
+  wmsBaseUrl: string
+) => {
+  const bboxStr = `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`
+  return Promise.all(
+    layerNames.map(
+      (layerName) =>
+        new Promise<void>((resolve) => {
+          const params = new URLSearchParams({
+            service: 'WMS',
+            version: '1.1.0',
+            request: 'GetMap',
+            layers: layerName,
+            styles: '',
+            bbox: bboxStr,
+            width: '512',
+            height: '512',
+            srs: 'EPSG:4326',
+            format: 'image/png',
+            transparent: 'true',
+          })
+          const img = new Image()
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          img.src = `${wmsBaseUrl}?${params.toString()}`
+        })
+    )
+  )
+}
+
 const addWmsLayer = async () => {
   const bbox = getSettlementBbox()
   if (!bbox || !activeSettlementId.value) {
     console.log('⚠️ No bbox or settlementId available, skipping WMS layer')
+    emit('imagery-loaded')
     return
   }
   
@@ -2807,6 +2841,7 @@ const addWmsLayer = async () => {
     const layerList = response.data || response.results || []
     if (!layerList || layerList.length === 0 || !mapRef.value?.map) {
       console.log('⚠️ No imagery layers found for this settlement or map not ready')
+      emit('imagery-loaded')
       return
     }
     
@@ -2880,9 +2915,18 @@ const addWmsLayer = async () => {
     await Promise.all(layerPromises)
     
     console.log(`✅ Created ${Object.keys(imageryLayerObjects.value).length} WMS layers`)
+
+    selectedImageryLayers.value = [...availableImageryLayers.value]
+    toggleImageryGroup(selectedImageryLayers.value)
+
+    if (bbox) {
+      await preloadWmsImageryPreview(layerList, bbox, wmsBaseUrl)
+    }
+    emit('imagery-loaded')
     
   } catch (error) {
     console.error('❌ Error adding WMS layer:', error)
+    emit('imagery-loaded')
     // Don't throw error to prevent map loading failure
   }
 }
@@ -3231,10 +3275,9 @@ const loadMapData = async () => {
     setTimeout(async () => {
       try {
         await addWmsLayer()
-        selectedImageryLayers.value = [...availableImageryLayers.value]
-        toggleImageryGroup(selectedImageryLayers.value)
       } catch (error) {
         console.error('❌ Error loading satellite imagery:', error)
+        emit('imagery-loaded')
       }
     }, 50)
   } catch (error) {

@@ -156,6 +156,7 @@ const viewSettlementId = ref<string | null>(null);
 watch(AddDialogVisible, (newValue) => {
   if (!newValue) {
     viewSettlementId.value = null;
+    imageryLoading.value = false;
     // Destroy the raw WMS preview map; its container is conditionally rendered
     if (map.value) {
       map.value.remove();
@@ -167,6 +168,7 @@ const DialogTitle = ref('Imagery');
 const loading = ref(false);
 const loadingUploads = ref(false);
 const mapLoading = ref(false);
+const imageryLoading = ref(false);
 const map = ref<mapboxgl.Map | null>(null);
 const ruleFormRef = ref();
 // const showEditButtons = ref(false);
@@ -283,9 +285,15 @@ const clearMapLayers = () => {
   }
 };
 
+const finishImageryLoading = () => {
+  imageryLoading.value = false;
+  mapLoading.value = false;
+};
+
 const updateMapLayer = () => {
   if (!map.value || !layerName.value || !bounds.value) return;
 
+  imageryLoading.value = true;
   mapLoading.value = true;
 
   const addLayer = () => {
@@ -322,16 +330,22 @@ const updateMapLayer = () => {
         duration: 1000
       });
 
+      const onReady = () => {
+        finishImageryLoading();
+      };
+
+      map.value!.once('idle', onReady);
+      setTimeout(onReady, 30000);
+
       // Resize map to ensure proper rendering
       setTimeout(() => {
         map.value?.resize();
-        mapLoading.value = false;
       }, 100);
 
     } catch (error) {
       console.error('Error updating map layer:', error);
       ElMessage.error('Error loading imagery layer');
-      mapLoading.value = false;
+      finishImageryLoading();
     }
   };
 
@@ -388,6 +402,7 @@ const handleSelectLayer = async (lyr: string) => {
   try {
     layerName.value = lyr;
     DialogTitle.value = lyr;
+    imageryLoading.value = true;
 
     const matchingLayer = tableDataList.value.find((layer) => layer.name === lyr);
 
@@ -412,6 +427,7 @@ const handleSelectLayer = async (lyr: string) => {
     if (!bounds.value) {
       ElMessage.error('No bounds found for this layer');
       AddDialogVisible.value = false;
+      imageryLoading.value = false;
       return;
     }
 
@@ -424,6 +440,7 @@ const handleSelectLayer = async (lyr: string) => {
   } catch (error) {
     console.error('Error selecting layer:', error);
     ElMessage.error('Error loading layer');
+    imageryLoading.value = false;
   }
 };
 
@@ -1132,10 +1149,24 @@ const downloadImagery = async (layer: Layer) => {
   </el-card>
 
   <el-drawer v-model="AddDialogVisible" :title="DialogTitle" size="45%" direction="rtl">
-    <div v-if="viewSettlementId" class="basemap">
-      <SettlementMap :settlement-id="viewSettlementId" />
+    <div class="basemap">
+      <SettlementMap
+        v-if="viewSettlementId"
+        :settlement-id="viewSettlementId"
+        @imagery-loaded="finishImageryLoading"
+      />
+      <div v-else id="mapContainer" class="basemap-map"></div>
+      <div v-if="imageryLoading && layerName" class="imagery-progress-bar">
+        <el-progress
+          :percentage="100"
+          color="#409EFF"
+          :indeterminate="true"
+          :duration="1"
+          :show-text="false"
+          :stroke-width="4"
+        />
+      </div>
     </div>
-    <div v-else id="mapContainer" class="basemap" v-loading="mapLoading" element-loading-text="Loading imagery..."></div>
   </el-drawer>
 
   <el-drawer v-model="UploadDialogVisible" title="Upload Imagery" size="480px" direction="rtl">
@@ -1315,6 +1346,20 @@ const downloadImagery = async (layer: Layer) => {
   height: calc(100vh - 120px);
   min-height: 400px;
   position: relative;
+}
+
+.basemap-map {
+  width: 100%;
+  height: 100%;
+}
+
+.imagery-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  pointer-events: none;
 }
 
 
