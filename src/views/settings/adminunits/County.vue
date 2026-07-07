@@ -1,10 +1,9 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
-import { Table } from '@/components/Table'
-import { ElButton, ElMessage, ElUpload, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
+import { ElButton, ElMessage, ElUpload, ElDialog, ElForm, ElFormItem, ElInput, ElTable, ElTableColumn } from 'element-plus'
 import { Edit, Upload, Plus, Search } from '@element-plus/icons-vue'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElPagination } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getCountiesApi, getCountyByIdApi, updateCountyApi, createCountyApi, type County } from '@/api/adminunits'
@@ -34,38 +33,14 @@ const geometryData = ref<any>(null) // Store geometry separately to avoid Vue re
 const processingGeo = ref(false) // Disable submit while processing GeoJSON
 const uploadRef = ref()
 
-const columns = [
-  {
-    field: 'index',
-    label: '#',
-    type: 'index'
-  },
-  {
-    field: 'name',
-    label: 'Name',
-    sortable: true
-  },
-  {
-    field: 'code',
-    label: 'Code',
-    sortable: true
-  },
-  {
-    field: 'area_km2',
-    label: 'Area (km²)',
-    sortable: true,
-    formatter: (row: County) => row.area_km2 ? row.area_km2.toFixed(2) : 'N/A'
-  },
-  {
-    field: 'settlements_count',
-    label: 'Settlements',
-    sortable: true
-  },
-  {
-    field: 'action',
-    label: 'Actions'
-  }
-]
+const paginationLayout = computed(() =>
+  isMobile.value ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'
+)
+
+const tableRowIndex = (index: number) => (currentPage.value - 1) * pageSize.value + index + 1
+
+const formatAreaKm2 = (row: County) =>
+  row.area_km2 != null && row.area_km2 !== '' ? Number(row.area_km2).toFixed(2) : 'N/A'
 
 const fetchCounties = async () => {
   loading.value = true
@@ -381,10 +356,25 @@ onMounted(() => {
 </script>
 
 <template>
-  <ContentWrap>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h2>Counties</h2>
-      <div style="display: flex; gap: 10px;">
+  <ContentWrap title="Counties">
+    <div class="admin-units-toolbar">
+      <div class="admin-units-toolbar__filters">
+        <el-input
+          v-model="searchKeyword"
+          clearable
+          placeholder="Search counties by name or code..."
+          class="input-with-select admin-units-toolbar__search"
+          @clear="remoteSearch('')"
+          @input="remoteSearch"
+          @change="remoteSearch(searchKeyword)"
+        >
+          <template #append>
+            <el-button :icon="Search" @click="remoteSearch(searchKeyword)" />
+          </template>
+        </el-input>
+      </div>
+
+      <div class="admin-units-toolbar__actions">
         <DownloadCustom
           :data="filteredData"
           :full-data="tableData"
@@ -398,50 +388,49 @@ onMounted(() => {
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
         />
-        <el-button type="primary" :icon="Plus" @click="handleAdd">Add County</el-button>
+        <el-tooltip content="Add County" placement="top">
+          <el-button type="primary" :icon="Plus" @click="handleAdd" />
+        </el-tooltip>
       </div>
     </div>
 
-    <div style="margin-bottom: 20px;">
-      <el-input
-        v-model="searchKeyword"
-        placeholder="Search counties by name or code..."
-        clearable
-        @clear="remoteSearch('')"
-        @input="remoteSearch"
-        style="width: 300px;"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
-        </template>
-      </el-input>
-    </div>
-
-    <Table
-      :columns="columns"
+    <el-table
+      v-loading="loading"
+      table-layout="fixed"
       :data="displayedData"
-      :loading="loading"
+      :show-overflow-tooltip="true"
+      fit
+      border
+      row-key="id"
+      style="width: 100%; margin-top: 10px;"
+      :default-sort="{ prop: 'name', order: 'ascending' }"
     >
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button
-            type="primary"
-            :icon="Edit"
-            @click="handleEdit(data.row)"
-            circle
-          />
-        </el-tooltip>
-      </template>
-    </Table>
+      <el-table-column type="index" label="#" width="60" :index="tableRowIndex" />
+      <el-table-column label="Name" prop="name" sortable min-width="180" />
+      <el-table-column label="Code" prop="code" sortable width="120" />
+      <el-table-column label="Area (km²)" prop="area_km2" sortable width="140">
+        <template #default="{ row }">
+          {{ formatAreaKm2(row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Settlements" prop="settlements_count" sortable width="130" />
+      <el-table-column label="Actions" width="90" fixed="right">
+        <template #default="{ row }">
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="primary" :icon="Edit" circle @click="handleEdit(row)" />
+          </el-tooltip>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <ElPagination
-      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
+      :layout="paginationLayout"
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 100, 5000, 10000]"
       :total="total"
       :background="true"
-      class="mt-4"
+      class="mt-4 settlement-pagination"
       @current-change="handlePageChange"
       @size-change="handlePageSizeChange"
       :small="isMobile"
@@ -499,4 +488,51 @@ onMounted(() => {
     </ElDialog>
   </ContentWrap>
 </template>
+
+<style scoped>
+.admin-units-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.admin-units-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-units-toolbar__search {
+  width: 100%;
+  max-width: 360px;
+}
+
+.admin-units-toolbar__filter {
+  width: 180px;
+  flex-shrink: 0;
+}
+
+.admin-units-toolbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  :deep(.settlement-pagination) {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
+</style>
 

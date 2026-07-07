@@ -1,10 +1,9 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
-import { Table } from '@/components/Table'
-import { ElButton, ElMessage, ElUpload, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption } from 'element-plus'
+import { ElButton, ElMessage, ElUpload, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElTable, ElTableColumn } from 'element-plus'
 import { Edit, Upload, Plus, Search } from '@element-plus/icons-vue'
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { ElPagination } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getWardsApi, getWardByIdApi, updateWardApi, createWardApi, getSubcountiesApi, type Ward } from '@/api/adminunits'
@@ -43,48 +42,14 @@ const geometryData = ref<any>(null) // Store geometry separately to avoid Vue re
 const processingGeo = ref(false) // Disable submit while processing GeoJSON
 const uploadRef = ref()
 
-const columns = [
-  {
-    field: 'index',
-    label: '#',
-    type: 'index'
-  },
-  {
-    field: 'name',
-    label: 'Name',
-    sortable: true
-  },
-  {
-    field: 'county_name',
-    label: 'County',
-    sortable: true
-  },
-  {
-    field: 'subcounty_name',
-    label: 'Subcounty',
-    sortable: true
-  },
-  {
-    field: 'code',
-    label: 'Code',
-    sortable: true
-  },
-  {
-    field: 'area_km2',
-    label: 'Area (km²)',
-    sortable: true,
-    formatter: (row: Ward) => row.area_km2 ? row.area_km2.toFixed(2) : 'N/A'
-  },
-  {
-    field: 'settlements_count',
-    label: 'Settlements',
-    sortable: true
-  },
-  {
-    field: 'action',
-    label: 'Actions'
-  }
-]
+const paginationLayout = computed(() =>
+  isMobile.value ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'
+)
+
+const tableRowIndex = (index: number) => (currentPage.value - 1) * pageSize.value + index + 1
+
+const formatAreaKm2 = (row: Ward) =>
+  row.area_km2 != null && row.area_km2 !== '' ? Number(row.area_km2).toFixed(2) : 'N/A'
 
 const fetchWards = async () => {
   loading.value = true
@@ -469,10 +434,62 @@ onMounted(() => {
 </script>
 
 <template>
-  <ContentWrap>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h2>Wards</h2>
-      <div style="display: flex; gap: 10px;">
+  <ContentWrap title="Wards">
+    <div class="admin-units-toolbar">
+      <div class="admin-units-toolbar__filters">
+        <el-select
+          :model-value="selectedCountyFilter ?? undefined"
+          @update:model-value="selectedCountyFilter = $event ?? null"
+          placeholder="By County"
+          clearable
+          filterable
+          class="admin-units-toolbar__filter"
+          @change="handleCountyFilterChange"
+          @clear="clearCountyFilter"
+        >
+          <el-option
+            v-for="county in countyOptions"
+            :key="county.value"
+            :label="county.label"
+            :value="county.value"
+          />
+        </el-select>
+
+        <el-select
+          :model-value="selectedSubcountyFilter ?? undefined"
+          @update:model-value="selectedSubcountyFilter = $event ?? null"
+          placeholder="By Subcounty"
+          clearable
+          filterable
+          class="admin-units-toolbar__filter"
+          :disabled="!selectedCountyFilter"
+          @change="handleSubcountyFilterChange"
+          @clear="clearSubcountyFilter"
+        >
+          <el-option
+            v-for="subcounty in filterSubcountyOptions"
+            :key="subcounty.value"
+            :label="subcounty.label"
+            :value="subcounty.value"
+          />
+        </el-select>
+
+        <el-input
+          v-model="searchKeyword"
+          clearable
+          placeholder="Search wards..."
+          class="input-with-select admin-units-toolbar__search"
+          @clear="remoteSearch('')"
+          @input="remoteSearch"
+          @change="remoteSearch(searchKeyword)"
+        >
+          <template #append>
+            <el-button :icon="Search" @click="remoteSearch(searchKeyword)" />
+          </template>
+        </el-input>
+      </div>
+
+      <div class="admin-units-toolbar__actions">
         <DownloadCustom
           :data="filteredData"
           :full-data="tableData"
@@ -486,85 +503,51 @@ onMounted(() => {
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
         />
-        <el-button type="primary" :icon="Plus" @click="handleAdd">Add Ward</el-button>
+        <el-tooltip content="Add Ward" placement="top">
+          <el-button type="primary" :icon="Plus" @click="handleAdd" />
+        </el-tooltip>
       </div>
     </div>
 
-    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-      <el-input
-        v-model="searchKeyword"
-        placeholder="Search wards by name, code, county, or subcounty..."
-        clearable
-        @clear="remoteSearch('')"
-        @input="remoteSearch"
-        style="width: 300px;"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
-        </template>
-      </el-input>
-
-      <el-select
-        :model-value="selectedCountyFilter ?? undefined"
-        @update:model-value="selectedCountyFilter = $event ?? null"
-        placeholder="Filter by County"
-        clearable
-        @change="handleCountyFilterChange"
-        @clear="clearCountyFilter"
-        style="width: 200px;"
-      >
-        <el-option
-          v-for="county in countyOptions"
-          :key="county.value"
-          :label="county.label"
-          :value="county.value"
-        />
-      </el-select>
-
-      <el-select
-        :model-value="selectedSubcountyFilter ?? undefined"
-        @update:model-value="selectedSubcountyFilter = $event ?? null"
-        placeholder="Filter by Subcounty"
-        clearable
-        :disabled="!selectedCountyFilter"
-        @change="handleSubcountyFilterChange"
-        @clear="clearSubcountyFilter"
-        style="width: 200px;"
-      >
-        <el-option
-          v-for="subcounty in filterSubcountyOptions"
-          :key="subcounty.value"
-          :label="subcounty.label"
-          :value="subcounty.value"
-        />
-      </el-select>
-    </div>
-
-    <Table
-      :columns="columns"
+    <el-table
+      v-loading="loading"
+      table-layout="fixed"
       :data="displayedData"
-      :loading="loading"
+      :show-overflow-tooltip="true"
+      fit
+      border
+      row-key="id"
+      style="width: 100%; margin-top: 10px;"
+      :default-sort="{ prop: 'name', order: 'ascending' }"
     >
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button
-            type="primary"
-            :icon="Edit"
-            @click="handleEdit(data.row)"
-            circle
-          />
-        </el-tooltip>
-      </template>
-    </Table>
+      <el-table-column type="index" label="#" width="60" :index="tableRowIndex" />
+      <el-table-column label="Name" prop="name" sortable min-width="140" />
+      <el-table-column label="County" prop="county_name" sortable min-width="130" />
+      <el-table-column label="Subcounty" prop="subcounty_name" sortable min-width="130" />
+      <el-table-column label="Code" prop="code" sortable width="110" />
+      <el-table-column label="Area (km²)" prop="area_km2" sortable width="130">
+        <template #default="{ row }">
+          {{ formatAreaKm2(row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Settlements" prop="settlements_count" sortable width="120" />
+      <el-table-column label="Actions" width="90" fixed="right">
+        <template #default="{ row }">
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="primary" :icon="Edit" circle @click="handleEdit(row)" />
+          </el-tooltip>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <ElPagination
-      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
+      :layout="paginationLayout"
       v-model:current-page="currentPage"
       v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 100, 5000, 10000]"
       :total="total"
       :background="true"
-      class="mt-4"
+      class="mt-4 settlement-pagination"
       @current-change="handlePageChange"
       @size-change="handlePageSizeChange"
       :small="isMobile"
@@ -644,4 +627,51 @@ onMounted(() => {
     </ElDialog>
   </ContentWrap>
 </template>
+
+<style scoped>
+.admin-units-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.admin-units-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-units-toolbar__search {
+  width: 100%;
+  max-width: 360px;
+}
+
+.admin-units-toolbar__filter {
+  width: 180px;
+  flex-shrink: 0;
+}
+
+.admin-units-toolbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  :deep(.settlement-pagination) {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
+</style>
 
