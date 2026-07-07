@@ -284,6 +284,16 @@ exports.bulkUpdateSettings = async (req, res) => {
         })
       }
     }
+
+    const shouldRescheduleBalanceAlert = settings.some((s) => s?.module === 'sms_balance_alert')
+    if (shouldRescheduleBalanceAlert) {
+      try {
+        const { rescheduleSmsBalanceScheduler } = require('../schedulers/smsBalanceScheduler')
+        await rescheduleSmsBalanceScheduler()
+      } catch (scheduleError) {
+        console.error('[SMS Balance Alert] Failed to reschedule after settings save:', scheduleError.message || scheduleError)
+      }
+    }
     
     res.status(200).send({
       code: '0000',
@@ -564,6 +574,17 @@ exports.initializeDefaultSettings = async () => {
         module: 'sms_data_request',
         enabled: true,
         description: 'Enable/disable SMS notifications to support officers for new data requests'
+      },
+      {
+        module: 'sms_balance_alert',
+        enabled: true,
+        description: 'Daily low bulk SMS balance check — notifies support users when credits fall below threshold',
+        config_value: JSON.stringify({
+          threshold: 500,
+          hour: 8,
+          minute: 0,
+          timezone: 'Africa/Nairobi',
+        }),
       }
     ]
     
@@ -581,6 +602,105 @@ exports.initializeDefaultSettings = async () => {
     console.log('Default SMS module settings initialized')
   } catch (error) {
     console.error('Error initializing default settings:', error)
+  }
+}
+
+/** Read-only Advanta SMS credit balance (for SMS Settings UI). */
+exports.getSmsBalance = async (req, res) => {
+  try {
+    const { getAccountBalance } = require('../utils/sms')
+    const { getSmsBalanceAlertSettings } = require('../utils/smsBalanceAlertSettings')
+    const alertConfig = await getSmsBalanceAlertSettings()
+    const result = await getAccountBalance()
+
+    if (!result.ok) {
+      return res.status(502).send({
+        code: '9999',
+        message: result.error || 'Failed to fetch SMS balance',
+        data: {
+          threshold: alertConfig.threshold,
+          alertEnabled: alertConfig.enabled,
+          sendTime: `${String(alertConfig.hour).padStart(2, '0')}:${String(alertConfig.minute).padStart(2, '0')}`,
+          timezone: alertConfig.timezone,
+          error: result.error,
+          code: result.code ?? null,
+        },
+      })
+    }
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'SMS balance retrieved',
+      data: {
+        balance: result.balance,
+        threshold: alertConfig.threshold,
+        low: result.balance <= alertConfig.threshold,
+        alertEnabled: alertConfig.enabled,
+        sendTime: `${String(alertConfig.hour).padStart(2, '0')}:${String(alertConfig.minute).padStart(2, '0')}`,
+        timezone: alertConfig.timezone,
+      },
+    })
+  } catch (error) {
+    console.error('[SMS Balance] Fetch failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'Failed to fetch SMS balance',
+    })
+  }
+}
+
+/** Manual trigger for Advanta SMS balance check (scheduled job also runs daily at 8am). */
+exports.runSmsBalanceAlertTest = async (req, res) => {
+  try {
+    if (!(await userIsRootAdmin(req))) {
+      return res.status(403).send({
+        code: '9999',
+        message: 'Forbidden: root administrator access required',
+      })
+    }
+
+    const dryRun = String(req.query.dryRun ?? req.body?.dryRun ?? 'false') === 'true'
+    const { getAccountBalance } = require('../utils/sms')
+    const { getSmsBalanceAlertSettings } = require('../utils/smsBalanceAlertSettings')
+    const { runSmsBalanceAlertJob } = require('../jobs/smsBalanceAlertJob')
+    const alertConfig = await getSmsBalanceAlertSettings()
+    const threshold = alertConfig.threshold
+
+    if (dryRun) {
+      const balanceResult = await getAccountBalance()
+      return res.status(200).send({
+        code: '0000',
+        message: 'SMS balance check completed (dry run — no alerts sent)',
+        data: {
+          dryRun: true,
+          threshold,
+          alertEnabled: alertConfig.enabled,
+          sendTime: `${String(alertConfig.hour).padStart(2, '0')}:${String(alertConfig.minute).padStart(2, '0')}`,
+          timezone: alertConfig.timezone,
+          ...balanceResult,
+          wouldAlert: balanceResult.ok && balanceResult.balance <= threshold,
+        },
+      })
+    }
+
+    const result = await runSmsBalanceAlertJob()
+    return res.status(200).send({
+      code: '0000',
+      message: result.alerted
+        ? 'Low balance detected — support users notified'
+        : result.skipped
+          ? 'SMS balance alert job is disabled'
+          : result.ok
+            ? 'Balance is above threshold — no alert sent'
+            : 'Balance check failed',
+      data: { threshold, alertEnabled: alertConfig.enabled, ...result },
+    })
+  } catch (error) {
+    console.error('[SMS Balance Alert] Manual test failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'SMS balance check failed',
+    })
   }
 }
 

@@ -66,6 +66,7 @@ export const bulkUpdateSettings = (settings: Array<{
   module: string
   enabled: boolean
   description?: string
+  config_value?: string | null
 }>): Promise<SettingsResponse> => {
   return request.post({
     url: prod + '/api/v1/settings/bulk-update',
@@ -161,6 +162,28 @@ export const computeVulnerabilityScore = (attrs: {
   return request.post({
     url: prod + '/api/v1/settings/vulnerability-compute',
     data: attrs
+  })
+}
+
+export interface SmsBalanceResponse {
+  code: string
+  message: string
+  data: {
+    balance: number
+    threshold: number
+    low: boolean
+    alertEnabled?: boolean
+    sendTime?: string
+    timezone?: string
+    error?: string
+    code?: string | null
+  }
+}
+
+/** Fetch remaining Advanta bulk SMS credits. */
+export const getSmsBalance = (): Promise<SmsBalanceResponse> => {
+  return request.get({
+    url: prod + '/api/v1/settings/sms-balance'
   })
 }
 

@@ -39,7 +39,17 @@ module.exports = function (app) {
   app.get('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasAnyPermission(VULNERABILITY_READ_PERMISSIONS)], controller.getVulnerabilityRatingThresholds)
   app.post('/api/v1/settings/vulnerability-rating-thresholds', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityRatingThresholds)
   app.post('/api/v1/settings/vulnerability-compute', [authJwt.verifyToken], controller.computeVulnerabilityScore)
+  app.get(
+    '/api/v1/settings/sms-balance',
+    [authJwt.verifyToken, hasPermission('settings:read')],
+    controller.getSmsBalance
+  )
+  app.post(
+    '/api/v1/settings/sms-balance-check',
+    [authJwt.verifyToken, requireRootAdmin, hasPermission('settings:read')],
+    controller.runSmsBalanceAlertTest
+  )
 
-  console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update, /api/v1/settings/vulnerability-matrix')
+  console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update, /api/v1/settings/vulnerability-matrix, /api/v1/settings/sms-balance, /api/v1/settings/sms-balance-check')
 }
 

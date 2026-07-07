@@ -180,9 +180,11 @@ httpsServer.listen(8443, () => {
 const db = require('./server/app/models');
 const Role = db.role;
 
-db.sequelize.sync().then(() => {
+db.sequelize.sync().then(async () => {
   // db.sequelize.sync({force: true}).then(() => {
   console.log('Drop and Resync Db');
+  const { startSmsBalanceScheduler } = require('./server/app/schedulers/smsBalanceScheduler')
+  await startSmsBalanceScheduler()
   // initial();     // Run this first time only
 });
 

@@ -10,6 +10,89 @@
 
       <div v-loading="loading" class="settings-content">
         <ElTabs v-model="activeTab" class="settings-tabs">
+          <!-- SMS Balance Tab -->
+          <ElTabPane label="SMS Balance" name="balance">
+            <div class="balance-tab">
+              <div class="balance-card">
+                <div class="balance-card-header">
+                  <div>
+                    <h3 class="balance-title">Advanta bulk SMS credits</h3>
+                    <p class="balance-description">
+                      Check remaining credits and configure daily low-balance alerts for support users.
+                    </p>
+                  </div>
+                  <ElButton type="primary" :loading="smsBalanceLoading" @click="fetchSmsBalance">
+                    Check balance
+                  </ElButton>
+                </div>
+
+                <div class="balance-result">
+                  <span class="balance-result-label">Credits remaining</span>
+                  <span v-if="smsBalance != null" class="balance-result-value">
+                    {{ smsBalance.toLocaleString() }}
+                  </span>
+                  <span v-else class="balance-result-placeholder">—</span>
+                  <ElTag
+                    v-if="smsBalance != null"
+                    :type="smsBalanceLow ? 'danger' : 'success'"
+                    size="small"
+                    effect="plain"
+                  >
+                    {{ smsBalanceLow ? 'Low' : 'OK' }}
+                  </ElTag>
+                </div>
+                <p v-if="smsBalanceCheckedAt" class="balance-meta">
+                  Last checked: {{ smsBalanceCheckedAt }}
+                </p>
+              </div>
+
+              <div class="balance-card alert-settings-card">
+                <h3 class="balance-title">Low balance alerts</h3>
+                <p class="balance-description">
+                  When enabled, KeSMIS checks the balance daily and emails/SMSs support users if credits fall below the threshold.
+                </p>
+
+                <div class="alert-form">
+                  <div class="alert-form-row">
+                    <span class="alert-form-label">Enable alerts</span>
+                    <ElSwitch
+                      v-model="balanceAlertForm.enabled"
+                      active-text="ON"
+                      inactive-text="OFF"
+                    />
+                  </div>
+
+                  <div class="alert-form-row">
+                    <span class="alert-form-label">Alert threshold (credits)</span>
+                    <ElInputNumber
+                      v-model="balanceAlertForm.threshold"
+                      :min="1"
+                      :step="50"
+                      controls-position="right"
+                      style="width: 180px"
+                    />
+                  </div>
+
+                  <div class="alert-form-row">
+                    <span class="alert-form-label">Daily check time</span>
+                    <ElTimePicker
+                      v-model="balanceAlertForm.sendTime"
+                      format="HH:mm"
+                      value-format="HH:mm"
+                      placeholder="08:00"
+                      style="width: 180px"
+                    />
+                  </div>
+
+                  <div class="alert-form-row">
+                    <span class="alert-form-label">Timezone</span>
+                    <ElInput v-model="balanceAlertForm.timezone" disabled style="width: 220px" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ElTabPane>
+
           <!-- Grievances Tab -->
           <ElTabPane label="Grievances" name="grievances">
             <div class="settings-list">
@@ -148,14 +231,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { ElCard, ElSwitch, ElTag, ElButton, ElEmpty, ElMessage, ElTabs, ElTabPane } from 'element-plus'
-import { getAllSettings, bulkUpdateSettings, type ModuleSetting } from '@/api/settings'
+import { ref, reactive, onMounted, computed } from 'vue'
+import {
+  ElCard,
+  ElSwitch,
+  ElTag,
+  ElButton,
+  ElEmpty,
+  ElMessage,
+  ElTabs,
+  ElTabPane,
+  ElInputNumber,
+  ElTimePicker,
+  ElInput,
+} from 'element-plus'
+import { getAllSettings, bulkUpdateSettings, getSmsBalance, type ModuleSetting } from '@/api/settings'
+
+const SMS_BALANCE_MODULE = 'sms_balance_alert'
 
 const loading = ref(false)
 const saving = ref(false)
+const smsBalanceLoading = ref(false)
+const smsBalance = ref<number | null>(null)
+const smsBalanceLow = ref(false)
+const smsBalanceCheckedAt = ref('')
 const settings = ref<Array<ModuleSetting & { saving?: boolean }>>([])
-const activeTab = ref('grievances')
+const activeTab = ref('balance')
+
+const balanceAlertForm = reactive({
+  enabled: true,
+  threshold: 500,
+  sendTime: '08:00',
+  timezone: 'Africa/Nairobi',
+})
 
 // Default SMS module settings
 const defaultSettings = [
@@ -198,8 +306,74 @@ const defaultSettings = [
     module: 'sms_data_request',
     enabled: true,
     description: 'Enable/disable SMS notifications to support officers for new data requests'
-  }
+  },
+  {
+    module: SMS_BALANCE_MODULE,
+    enabled: true,
+    description: 'Daily low bulk SMS balance check — notifies support users when credits fall below threshold',
+    config_value: JSON.stringify({
+      threshold: 500,
+      hour: 8,
+      minute: 0,
+      timezone: 'Africa/Nairobi',
+    }),
+  },
 ]
+
+const parseBalanceAlertConfig = (configValue?: string | null) => {
+  if (!configValue) return null
+  try {
+    const parsed = JSON.parse(configValue)
+    const threshold = Number(parsed.threshold)
+    const hour = Number(parsed.hour)
+    const minute = Number(parsed.minute)
+    return {
+      threshold: Number.isFinite(threshold) && threshold > 0 ? threshold : 500,
+      sendTime: `${String(Number.isFinite(hour) ? hour : 8).padStart(2, '0')}:${String(Number.isFinite(minute) ? minute : 0).padStart(2, '0')}`,
+      timezone: parsed.timezone ? String(parsed.timezone) : 'Africa/Nairobi',
+    }
+  } catch {
+    return null
+  }
+}
+
+const syncBalanceAlertFormFromSettings = () => {
+  const row = settings.value.find((s) => s.module === SMS_BALANCE_MODULE)
+  if (!row) return
+  balanceAlertForm.enabled = row.enabled !== false
+  const parsed = parseBalanceAlertConfig(row.config_value)
+  if (parsed) {
+    balanceAlertForm.threshold = parsed.threshold
+    balanceAlertForm.sendTime = parsed.sendTime
+    balanceAlertForm.timezone = parsed.timezone
+  }
+}
+
+const applyBalanceAlertFormToSettings = () => {
+  let row = settings.value.find((s) => s.module === SMS_BALANCE_MODULE)
+  if (!row) {
+    row = {
+      module: SMS_BALANCE_MODULE,
+      enabled: true,
+      description: defaultSettings.find((s) => s.module === SMS_BALANCE_MODULE)?.description,
+      config_value: null,
+      saving: false,
+    }
+    settings.value.push(row)
+  }
+
+  const [hourStr, minuteStr] = String(balanceAlertForm.sendTime || '08:00').split(':')
+  const hour = Number.parseInt(hourStr, 10)
+  const minute = Number.parseInt(minuteStr, 10)
+
+  row.enabled = balanceAlertForm.enabled
+  row.config_value = JSON.stringify({
+    threshold: balanceAlertForm.threshold,
+    hour: Number.isFinite(hour) ? hour : 8,
+    minute: Number.isFinite(minute) ? minute : 0,
+    timezone: balanceAlertForm.timezone || 'Africa/Nairobi',
+  })
+}
 
 const formatModuleName = (module: string): string => {
   return module
@@ -228,7 +402,8 @@ const otherSettings = computed(() => {
     return !module.startsWith('sms_grievance_') && 
            !module.startsWith('sms_incident_') &&
            module !== 'sms_grievance' &&
-           module !== 'sms_incident'
+           module !== 'sms_incident' &&
+           module !== SMS_BALANCE_MODULE
   })
 })
 
@@ -249,6 +424,7 @@ const loadSettings = async () => {
           ...missingDefaults.map(s => ({ ...s, saving: false }))
         ]
       }
+      syncBalanceAlertFormFromSettings()
     } else {
       ElMessage.error(response.message || 'Failed to load settings')
     }
@@ -257,6 +433,7 @@ const loadSettings = async () => {
     ElMessage.error('Failed to load settings')
     // Show defaults on error
     settings.value = defaultSettings.map(s => ({ ...s, saving: false }))
+    syncBalanceAlertFormFromSettings()
   } finally {
     loading.value = false
   }
@@ -283,10 +460,13 @@ const handleToggle = async (setting: ModuleSetting & { saving?: boolean }) => {
 const saveAllSettings = async () => {
   saving.value = true
   try {
+    applyBalanceAlertFormToSettings()
+
     const settingsToSave = settings.value.map(s => ({
       module: s.module,
       enabled: s.enabled,
-      description: s.description
+      description: s.description,
+      ...(s.config_value != null ? { config_value: s.config_value } : {}),
     }))
     
     const response = await bulkUpdateSettings(settingsToSave)
@@ -307,6 +487,42 @@ const saveAllSettings = async () => {
 
 const refreshSettings = () => {
   loadSettings()
+}
+
+const fetchSmsBalance = async () => {
+  smsBalanceLoading.value = true
+  try {
+    const response = await getSmsBalance()
+    if (response.code === '0000' && response.data) {
+      smsBalance.value = response.data.balance
+      smsBalanceLow.value = response.data.low
+      if (response.data.threshold != null) {
+        balanceAlertForm.threshold = response.data.threshold
+      }
+      if (response.data.sendTime) {
+        balanceAlertForm.sendTime = response.data.sendTime
+      }
+      if (response.data.timezone) {
+        balanceAlertForm.timezone = response.data.timezone
+      }
+      if (typeof response.data.alertEnabled === 'boolean') {
+        balanceAlertForm.enabled = response.data.alertEnabled
+      }
+      smsBalanceCheckedAt.value = new Date().toLocaleString()
+      if (response.data.low) {
+        ElMessage.warning(`Bulk SMS credits are low (${response.data.balance.toLocaleString()} remaining)`)
+      } else {
+        ElMessage.success(`${response.data.balance.toLocaleString()} credits remaining`)
+      }
+    } else {
+      ElMessage.error(response.message || 'Failed to fetch SMS balance')
+    }
+  } catch (error: any) {
+    console.error('Error fetching SMS balance:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to fetch SMS balance')
+  } finally {
+    smsBalanceLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -336,6 +552,97 @@ onMounted(() => {
     color: #909399;
     font-size: 14px;
   }
+}
+
+.balance-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.balance-card {
+  padding: 20px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.balance-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.balance-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.balance-description {
+  margin: 0;
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.balance-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.balance-result-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.balance-result-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #303133;
+}
+
+.balance-result-placeholder {
+  font-size: 28px;
+  color: #c0c4cc;
+}
+
+.balance-meta {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #909399;
+}
+
+.alert-settings-card {
+  background: #fff;
+}
+
+.alert-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.alert-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.alert-form-label {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
+  min-width: 180px;
 }
 
 .settings-content {
@@ -430,6 +737,12 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .balance-card-header,
+  .alert-form-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .setting-item {
     flex-direction: column;
     align-items: flex-start;

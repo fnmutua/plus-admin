@@ -92,8 +92,10 @@ registerRateLimiters(app)
 const db = require('./server/app/models')
 const Role = db.role
 db.sequelize.sync()
-  .then(() => {
+  .then(async () => {
     console.log('Database sync complete')
+    const { startSmsBalanceScheduler } = require('./server/app/schedulers/smsBalanceScheduler')
+    await startSmsBalanceScheduler()
   })
   .catch((err) => {
     console.error('Database sync failed:', err.message)
