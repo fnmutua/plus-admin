@@ -249,6 +249,9 @@ import { getAllSettings, bulkUpdateSettings, getSmsBalance, type ModuleSetting }
 
 const SMS_BALANCE_MODULE = 'sms_balance_alert'
 
+/** Managed on System Settings — do not show or bulk-save from Module (SMS) settings */
+const SYSTEM_SETTINGS_MODULES = new Set(['auth_max_devices', 'rate_limit_login'])
+
 const loading = ref(false)
 const saving = ref(false)
 const smsBalanceLoading = ref(false)
@@ -394,16 +397,16 @@ const incidentSettings = computed(() => {
   return settings.value.filter(s => s.module.startsWith('sms_incident_'))
 })
 
-// Other settings (auth, user, feedback, etc.) - explicitly excludes grievances and incidents
+// Other settings (SMS auth, user, feedback, etc.) — excludes grievances, incidents, balance, system auth
 const otherSettings = computed(() => {
   return settings.value.filter(s => {
     const module = s.module || ''
-    // Exclude grievances and incidents - only include other modules
-    return !module.startsWith('sms_grievance_') && 
+    return !module.startsWith('sms_grievance_') &&
            !module.startsWith('sms_incident_') &&
            module !== 'sms_grievance' &&
            module !== 'sms_incident' &&
-           module !== SMS_BALANCE_MODULE
+           module !== SMS_BALANCE_MODULE &&
+           !SYSTEM_SETTINGS_MODULES.has(module)
   })
 })
 
@@ -416,11 +419,13 @@ const loadSettings = async () => {
       if (response.data.length === 0) {
         settings.value = defaultSettings.map(s => ({ ...s, saving: false }))
       } else {
-        // Merge with defaults to ensure all modules are shown
-        const existingModules = new Set(response.data.map(s => s.module))
+        const apiSettings = response.data.filter(
+          (s) => !SYSTEM_SETTINGS_MODULES.has(s.module)
+        )
+        const existingModules = new Set(apiSettings.map(s => s.module))
         const missingDefaults = defaultSettings.filter(s => !existingModules.has(s.module))
         settings.value = [
-          ...response.data.map(s => ({ ...s, saving: false })),
+          ...apiSettings.map(s => ({ ...s, saving: false })),
           ...missingDefaults.map(s => ({ ...s, saving: false }))
         ]
       }

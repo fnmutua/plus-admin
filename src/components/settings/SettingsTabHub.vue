@@ -70,7 +70,7 @@ watch(activeTab, (tab) => {
     <el-tabs
       v-if="visibleTabs.length"
       v-model="activeTab"
-      type="card"
+      type="border-card"
       class="settings-tab-hub__tabs"
     >
       <el-tab-pane
@@ -103,5 +103,84 @@ watch(activeTab, (tab) => {
 
 .settings-tab-hub__panel :deep(> .el-card > .el-card__body) {
   padding: 0;
+}
+
+.settings-tab-hub__panel :deep(.common-settings-toolbar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.settings-tab-hub__panel :deep(.common-settings-toolbar .common-settings-intro) {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--el-color-info);
+  background: var(--el-color-info-light-9);
+  border: 1px solid var(--el-color-info-light-7);
+  border-radius: var(--el-border-radius-base);
+}
+
+.settings-tab-hub__panel :deep(.common-settings-toolbar .el-alert.common-settings-intro) {
+  flex: 1;
+  min-width: 0;
+  width: auto !important;
+  margin: 0;
+  padding: 6px 12px;
+}
+
+.settings-tab-hub__panel :deep(.admin-units-toolbar__actions) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.settings-tab-hub__panel :deep(.admin-units-toolbar__actions > *) {
+  flex-shrink: 0;
+}
+
+.settings-tab-hub__panel :deep(.admin-units-toolbar__actions .el-tooltip__trigger) {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.settings-tab-hub__panel :deep(.admin-units-toolbar__actions > div[style*='inline-block']) {
+  display: inline-flex !important;
+  margin-left: 0 !important;
+  vertical-align: middle;
+}
+
+.settings-tab-hub__panel :deep(.table-row-actions) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.settings-tab-hub__panel :deep(.table-row-actions .el-tooltip__trigger) {
+  display: inline-flex;
+}
+
+@media (max-width: 768px) {
+  .settings-tab-hub__panel :deep(.settlement-pagination) {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
 }
 </style>

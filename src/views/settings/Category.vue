@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
@@ -21,8 +20,8 @@ Position,
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ref, reactive, computed } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm, ElTable, ElTableColumn } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -91,31 +90,15 @@ const formHeader = ref('Add Category')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
+const introText =
+  'Manage categories used to classify programmes, projects, and related records across the system.'
 
+const paginationLayout = computed(() =>
+  isMobile.value ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'
+)
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
+const tableRowIndex = (index: number) => (currentPage.value - 1) * pageSize.value + index + 1
 
-  {
-    field: 'category',
-    label: t('Title')
-  },
-
-
-  {
-    field: 'code',
-    label: t('Code')
-  },
-  {
-    field: 'action',
-    label: t('Actions')
-  }
-
-]
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -401,59 +384,81 @@ const goBack = () => {
 </script>
 
 <template>
-  <el-card >
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px;">
+  <el-card>
+    <div class="common-settings-toolbar">
+      <p class="common-settings-intro">{{ introText }}</p>
 
-
-      <div class="max-w-200px">
-    <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-      Back
-    </el-button>
-  </div>
-  <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="admin-units-toolbar__actions">
         <PermissionWrapper :permissions="['category:create']">
-          <el-tooltip content="Add Indicator" placement="top">
+          <el-tooltip content="Add category" placement="top">
             <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
         <PermissionWrapper :permissions="['category:read']">
-          <DownloadCustom :data="tableDataList" :model="model" :associated_models="associated_multiple_models"
-                      :total="total"
-                      :filters="filters"
-                      :filter-values="filterValues"
-/>
-         </PermissionWrapper>
+          <DownloadCustom
+            :data="tableDataList"
+            :model="model"
+            :associated_models="associated_multiple_models"
+            :total="total"
+            :filters="filters"
+            :filter-values="filterValues"
+          />
+        </PermissionWrapper>
       </div>
-  </div>
+    </div>
 
+    <el-table
+      v-loading="loading"
+      table-layout="fixed"
+      :data="tableDataList"
+      :show-overflow-tooltip="true"
+      fit
+      border
+      row-key="id"
+      style="width: 100%; margin-top: 10px;"
+      :default-sort="{ prop: 'category', order: 'ascending' }"
+    >
+      <el-table-column type="index" label="#" width="60" :index="tableRowIndex" />
+      <el-table-column label="Title" prop="category" sortable min-width="200" />
+      <el-table-column label="Code" prop="code" sortable width="160" />
+      <el-table-column label="Actions" width="100" fixed="right">
+        <template #default="{ row }">
+          <div class="table-row-actions">
+            <el-tooltip content="Edit" placement="top">
+              <el-button type="primary" :icon="Edit" circle @click="editIndicator({ row } as TableSlotDefault)" />
+            </el-tooltip>
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm
+                confirm-button-text="Yes"
+                cancel-button-text="No"
+                :icon="InfoFilled"
+                icon-color="#626AEF"
+                title="Are you sure to delete this category?"
+                @confirm="DeleteIndicator({ row } as TableSlotDefault)"
+              >
+                <template #reference>
+                  <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+          </div>
+        </template>
+      </el-table-column>
+    </el-table>
 
-
-    <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
-
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-
-      </template>
-    </Table>
     <ElPagination
-:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :layout="paginationLayout"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4 settlement-pagination"
       :small="isMobile"
-      :pager-count="isMobile ? 3 : 7" />
+      :pager-count="isMobile ? 3 : 7"
+    />
   </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
@@ -475,4 +480,37 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
 
 </template>
+
+<style scoped>
+.common-settings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.common-settings-intro {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--el-color-info);
+  background: var(--el-color-info-light-9);
+  border: 1px solid var(--el-color-info-light-7);
+  border-radius: var(--el-border-radius-base);
+}
+
+.admin-units-toolbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+</style>
  
