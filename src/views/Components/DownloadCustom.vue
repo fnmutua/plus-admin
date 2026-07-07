@@ -165,8 +165,12 @@ const props = defineProps({
   includeHistory: { type: Boolean, default: false },
   allDownloadConfirmThreshold: { type: Number, default: 1000 },
   filteredDataFetcher: { type: Function, default: null },
+  allDataFetcher: { type: Function, default: null },
+  fullData: { type: Array, default: null },
   hideTrigger: { type: Boolean, default: false },
 });
+
+const ADMIN_UNIT_MODELS = new Set(['county', 'subcounty', 'ward']);
 
 const tableDataList = ref([]);
 const showDownloadDialog = ref(false);
@@ -671,11 +675,14 @@ const writeSelectedFieldsToExcel = async (sourceData, selectedFieldsList) => {
     };
   });
   const rows = extractedData.map((row) =>
-    selectedFieldsList.map((field) => ({
-      type: String,
-      wrap: true,
-      value: row[field] ? String(row[field]) : '',
-    }))
+    selectedFieldsList.map((field) => {
+      const cellValue = row[field];
+      return {
+        type: String,
+        wrap: true,
+        value: cellValue === null || cellValue === undefined ? '' : String(cellValue),
+      };
+    })
   );
   rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
   const columnWidths = columns.map((col, index) => {
@@ -691,6 +698,70 @@ const writeSelectedFieldsToExcel = async (sourceData, selectedFieldsList) => {
   await writeXlsxFile(rows, {
     fileName: `${props.model}.xlsx`,
     columns: columnWidths.map((width) => ({ width })),
+  });
+};
+
+const hasServerSideFilters = computed(() => {
+  const hasFilters = Array.isArray(props.filters) && props.filters.length > 0;
+  const hasFilteredScope = Array.isArray(effectiveFilteredFilters.value) && effectiveFilteredFilters.value.length > 0;
+  const hasSearch = Boolean(props.searchKeyword?.trim());
+  return hasFilters || hasFilteredScope || hasSearch;
+});
+
+const normalizeDownloadRows = (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  return addLatLonToData([...rows]);
+};
+
+const resolveFilteredDownloadData = async () => {
+  if (typeof props.filteredDataFetcher === 'function') {
+    const fetched = await props.filteredDataFetcher(selectedFields.value);
+    const normalized = normalizeDownloadRows(fetched);
+    if (normalized.length > 0) return normalized;
+  }
+
+  if (!hasServerSideFilters.value && Array.isArray(props.data) && props.data.length > 0) {
+    return normalizeDownloadRows(props.data);
+  }
+
+  if (ADMIN_UNIT_MODELS.has(props.model)) {
+    return normalizeDownloadRows(props.data || []);
+  }
+
+  const filters = effectiveFilteredFilters.value;
+  const filterValues = effectiveFilteredFilterValues.value;
+  const filterFunctions = effectiveFilteredFilterFunctions.value;
+  return getBackendDownloadData(selectedFields.value, {
+    filters,
+    filterValues,
+    filterFunctions,
+    searchKeyword: props.searchKeyword || '',
+  });
+};
+
+const resolveAllDownloadData = async () => {
+  if (typeof props.allDataFetcher === 'function') {
+    const fetched = await props.allDataFetcher(selectedFields.value);
+    const normalized = normalizeDownloadRows(fetched);
+    if (normalized.length > 0) return normalized;
+  }
+
+  if (Array.isArray(props.fullData) && props.fullData.length > 0) {
+    return normalizeDownloadRows(props.fullData);
+  }
+
+  if (ADMIN_UNIT_MODELS.has(props.model)) {
+    return normalizeDownloadRows(props.fullData || props.data || []);
+  }
+
+  const filters = effectiveAllFilters.value;
+  const filterValues = effectiveAllFilterValues.value;
+  const filterFunctions = effectiveAllFilterFunctions.value;
+  return getBackendDownloadData(selectedFields.value, {
+    filters,
+    filterValues,
+    filterFunctions,
+    searchKeyword: '',
   });
 };
 
@@ -748,21 +819,7 @@ const downloadDisplayed = async () => {
 };
 
 const downloadFiltered = async () => {
-  await runDownload(downloadFilteredLoading, async () => {
-    if (typeof props.filteredDataFetcher === 'function') {
-      return props.filteredDataFetcher(selectedFields.value);
-    }
-
-    const filters = effectiveFilteredFilters.value;
-    const filterValues = effectiveFilteredFilterValues.value;
-    const filterFunctions = effectiveFilteredFilterFunctions.value;
-    return getBackendDownloadData(selectedFields.value, {
-      filters,
-      filterValues,
-      filterFunctions,
-      searchKeyword: props.searchKeyword || '',
-    });
-  });
+  await runDownload(downloadFilteredLoading, resolveFilteredDownloadData);
 };
 
 const confirmLargeAllDownload = async () => {
@@ -799,15 +856,7 @@ const downloadAllGuarded = async () => {
   downloadAllLoading.value = true;
   emit('download-start');
   try {
-    const filters = effectiveAllFilters.value;
-    const filterValues = effectiveAllFilterValues.value;
-    const filterFunctions = effectiveAllFilterFunctions.value;
-    const backendData = await getBackendDownloadData(selectedFields.value, {
-      filters,
-      filterValues,
-      filterFunctions,
-      searchKeyword: '',
-    });
+    const backendData = await resolveAllDownloadData();
     if (!Array.isArray(backendData) || backendData.length === 0) {
       return ElMessage.warning('No records found to download.');
     }
@@ -835,9 +884,7 @@ const getFilteredData = async (selectedFieldsList = []) => {
 };
 
 const downloadAll = async () => {
-  await runDownload(downloadAllLoading, async () =>
-    getFilteredData(selectedFields.value)
-  );
+  await runDownload(downloadAllLoading, resolveAllDownloadData);
 };
 
 defineExpose({

@@ -128,6 +128,9 @@ const handlePageSizeChange = (size: number) => {
 
 const downloadLoading = ref(false)
 
+const countyFilteredDownloadFetcher = async () => [...filteredData.value]
+const countyAllDownloadFetcher = async () => [...tableData.value]
+
 const handleAdd = () => {
   isEditMode.value = false
   formData.id = null
@@ -384,10 +387,14 @@ onMounted(() => {
       <div style="display: flex; gap: 10px;">
         <DownloadCustom
           :data="filteredData"
+          :full-data="tableData"
           model="county"
           :associated_models="[]"
           :loading="downloadLoading"
           :total="total"
+          :all-count="tableData.length"
+          :filtered-data-fetcher="countyFilteredDownloadFetcher"
+          :all-data-fetcher="countyAllDownloadFetcher"
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
         />

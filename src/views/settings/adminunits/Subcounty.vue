@@ -151,6 +151,9 @@ const clearCountyFilter = () => {
 
 const downloadLoading = ref(false)
 
+const subcountyFilteredDownloadFetcher = async () => [...filteredData.value]
+const subcountyAllDownloadFetcher = async () => [...tableData.value]
+
 const fetchCounties = async () => {
   try {
     const response = await getCountyListApi({
@@ -387,13 +390,17 @@ onMounted(() => {
       <div style="display: flex; gap: 10px;">
         <DownloadCustom
           :data="filteredData"
+          :full-data="tableData"
           model="subcounty"
           :associated_models="[]"
           :loading="downloadLoading"
+          :total="total"
+          :all-count="tableData.length"
+          :filtered-data-fetcher="subcountyFilteredDownloadFetcher"
+          :all-data-fetcher="subcountyAllDownloadFetcher"
           @download-start="downloadLoading = true"
           @download-end="downloadLoading = false"
-                      :total="total"
-/>
+        />
         <el-button type="primary" :icon="Plus" @click="handleAdd">Add Subcounty</el-button>
       </div>
     </div>
