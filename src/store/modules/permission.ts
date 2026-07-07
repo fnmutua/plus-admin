@@ -583,9 +583,16 @@ const initializeRoutes = async () => {
       await loadDashboardsImmediately();
     }
 
-    // allSettled so a transient failure of one loader doesn't poison the other.
-    // Both loaders catch their own errors internally and never reject.
-    await Promise.allSettled([loadProgrammeComponents(), loadComponents()]);
+    // Sequential, not parallel: loadComponents() attaches each component to its
+    // parent programme by reading programmeComponentOptions.value (see
+    // addComponentsToPrograms), which is only populated once loadProgrammeComponents()
+    // resolves. Running them concurrently raced the two API calls — when the
+    // "component" request won, components were attached to a still-empty array and
+    // silently dropped when loadProgrammeComponents() then replaced the array
+    // reference, leaving programmes in the menu with no children (blank page on click).
+    // Both loaders still catch their own errors internally and never reject.
+    await loadProgrammeComponents();
+    await loadComponents();
 
     // Re-attach children now that programmes/components have loaded (or stayed empty).
     ensureSubprogrammesRoute();
