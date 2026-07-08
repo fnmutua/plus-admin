@@ -91,6 +91,10 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.JSONB,
         allowNull: true,
       },
+      question_config_version: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       geom: {
         type: DataTypes.GEOMETRY('Geometry', 4326),
         allowNull: true,

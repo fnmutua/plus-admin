@@ -3,22 +3,66 @@ const { Op } = require('sequelize')
 const path = require('path')
 const fs = require('fs')
 
-let questionsConfig = null
+let questionsConfigCache = null
+// Keep short so admin edits propagate quickly.
+const QUESTIONS_CACHE_TTL_MS = 10 * 1000
 
-function getQuestionsConfig() {
-  if (questionsConfig) return questionsConfig
+function getQuestionsConfigFromFile() {
   const configPath = path.join(__dirname, '../config/climate_assessment_questions.json')
   const raw = fs.readFileSync(configPath, 'utf8')
-  questionsConfig = JSON.parse(raw)
-  return questionsConfig
+  return JSON.parse(raw)
+}
+
+async function getActiveQuestionsConfig(forceRefresh = false) {
+  const now = Date.now()
+  if (
+    !forceRefresh
+    && questionsConfigCache
+    && (now - questionsConfigCache.fetchedAt) < QUESTIONS_CACHE_TTL_MS
+  ) {
+    return questionsConfigCache
+  }
+
+  try {
+    const [row] = await db.sequelize.query(
+      `
+      SELECT version, config
+      FROM climate_assessment_question_config
+      WHERE is_active = TRUE
+      ORDER BY version DESC, id DESC
+      LIMIT 1
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT }
+    )
+
+    if (row?.config) {
+      questionsConfigCache = {
+        version: row.version || 1,
+        config: row.config,
+        source: 'database',
+        fetchedAt: now,
+      }
+      return questionsConfigCache
+    }
+  } catch (error) {
+    console.error('Error loading climate questions from DB, using file fallback:', error.message || error)
+  }
+
+  const fallbackConfig = getQuestionsConfigFromFile()
+  questionsConfigCache = {
+    version: 1,
+    config: fallbackConfig,
+    source: 'file',
+    fetchedAt: now,
+  }
+  return questionsConfigCache
 }
 
 /**
  * Compute the raw 1–3 average score for a single dimension.
  * Returns the mean of all answered question scores (1–3 scale), or null if nothing answered.
  */
-function computeDimensionScore(responses, dimension) {
-  const config = getQuestionsConfig()
+function computeDimensionScore(responses, dimension, config) {
   const dimConfig = config[dimension]
   if (!dimConfig || !dimConfig.categories) return null
 
@@ -89,10 +133,12 @@ function computeAllRatings(dimScores) {
 
 exports.getQuestions = async (req, res) => {
   try {
-    const config = getQuestionsConfig()
+    const activeConfig = await getActiveQuestionsConfig()
     return res.status(200).json({
       message: 'Climate assessment questions retrieved',
-      data: config,
+      data: activeConfig.config,
+      version: activeConfig.version,
+      source: activeConfig.source,
       code: '0000',
     })
   } catch (error) {
@@ -202,6 +248,7 @@ exports.create = async (req, res) => {
 
     // Auth middleware sets req.userid (lowercase); some code uses req.userId
     const assessorId = req.userid ?? req.userId ?? req.thisUser?.id ?? null
+    const activeConfig = await getActiveQuestionsConfig()
     const assessment = await db.models.climate_assessment.create({
       settlement_id,
       county_id: settlement.county_id || null,
@@ -212,6 +259,7 @@ exports.create = async (req, res) => {
       exposure_responses: {},
       sensitivity_responses: {},
       adaptive_capacity_responses: {},
+      question_config_version: activeConfig.version || 1,
     })
 
     // Set code for document upload lookup (batch/pcode finds by code)
@@ -269,6 +317,8 @@ exports.update = async (req, res) => {
     if (status !== undefined) updateData.status = status
     if (assessed_at !== undefined) updateData.assessed_at = assessed_at
     if (geom !== undefined && geom && geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) updateData.geom = geom
+    const activeConfig = await getActiveQuestionsConfig()
+    updateData.question_config_version = activeConfig.version || assessment.question_config_version || 1
 
     const responses = {
       hazard: assessment.hazard_responses || {},
@@ -281,10 +331,10 @@ exports.update = async (req, res) => {
     if (sensitivity_responses !== undefined) responses.sensitivity = sensitivity_responses
     if (adaptive_capacity_responses !== undefined) responses.adaptive_capacity = adaptive_capacity_responses
 
-    updateData.hazard_score = computeDimensionScore(responses.hazard, 'hazard')
-    updateData.exposure_score = computeDimensionScore(responses.exposure, 'exposure')
-    updateData.sensitivity_score = computeDimensionScore(responses.sensitivity, 'sensitivity')
-    updateData.adaptive_capacity_score = computeDimensionScore(responses.adaptive_capacity, 'adaptive_capacity')
+    updateData.hazard_score = computeDimensionScore(responses.hazard, 'hazard', activeConfig.config)
+    updateData.exposure_score = computeDimensionScore(responses.exposure, 'exposure', activeConfig.config)
+    updateData.sensitivity_score = computeDimensionScore(responses.sensitivity, 'sensitivity', activeConfig.config)
+    updateData.adaptive_capacity_score = computeDimensionScore(responses.adaptive_capacity, 'adaptive_capacity', activeConfig.config)
 
     const dimScores = {
       hazard: updateData.hazard_score ?? assessment.hazard_score,
@@ -335,11 +385,12 @@ exports.computeScores = async (req, res) => {
       })
     }
 
+    const activeConfig = await getActiveQuestionsConfig()
     const dimScores = {
-      hazard: computeDimensionScore(assessment.hazard_responses, 'hazard'),
-      exposure: computeDimensionScore(assessment.exposure_responses, 'exposure'),
-      sensitivity: computeDimensionScore(assessment.sensitivity_responses, 'sensitivity'),
-      adaptive_capacity: computeDimensionScore(assessment.adaptive_capacity_responses, 'adaptive_capacity'),
+      hazard: computeDimensionScore(assessment.hazard_responses, 'hazard', activeConfig.config),
+      exposure: computeDimensionScore(assessment.exposure_responses, 'exposure', activeConfig.config),
+      sensitivity: computeDimensionScore(assessment.sensitivity_responses, 'sensitivity', activeConfig.config),
+      adaptive_capacity: computeDimensionScore(assessment.adaptive_capacity_responses, 'adaptive_capacity', activeConfig.config),
     }
     const ratings = computeAllRatings(dimScores)
 
@@ -352,6 +403,7 @@ exports.computeScores = async (req, res) => {
       vulnerability_rating: ratings.vulnerability_rating,
       risk_score: ratings.risk_score,
       risk_rating: ratings.risk_rating,
+      question_config_version: activeConfig.version || assessment.question_config_version || 1,
     })
 
     return res.status(200).json({

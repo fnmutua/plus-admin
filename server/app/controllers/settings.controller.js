@@ -375,6 +375,292 @@ exports.bulkUpdateSystemSettings = async (req, res) => {
 }
 
 /**
+ * Get climate assessment question config
+ * - If `req.query.version` is provided: fetch that specific version.
+ * - Otherwise: fetch active version.
+ */
+exports.getClimateQuestionConfig = async (req, res) => {
+  try {
+    const rawVersion = req.query?.version
+    const requestedVersion = rawVersion !== undefined && rawVersion !== null
+      ? parseInt(String(rawVersion), 10)
+      : null
+
+    if (requestedVersion != null && Number.isNaN(requestedVersion)) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Invalid "version" query parameter',
+      })
+    }
+
+    const whereClause = requestedVersion != null
+      ? 'version = :version'
+      : 'is_active = TRUE'
+
+    const params = requestedVersion != null ? { version: requestedVersion } : {}
+
+    const [row] = await db.sequelize.query(
+      `
+      SELECT id, version, config, is_active, "createdAt", "updatedAt"
+      FROM climate_assessment_question_config
+      WHERE ${whereClause}
+      ORDER BY version DESC, id DESC
+      LIMIT 1
+      `,
+      {
+        type: db.Sequelize.QueryTypes.SELECT,
+        replacements: params,
+      }
+    )
+
+    if (!row) {
+      return res.status(404).send({
+        code: '1004',
+        message: requestedVersion != null
+          ? 'No climate assessment question config found for the requested version'
+          : 'No active climate assessment question config found',
+      })
+    }
+
+    return res.status(200).send({
+      code: '0000',
+      data: row,
+      message: 'Climate assessment question config retrieved successfully',
+    })
+  } catch (error) {
+    console.error('Error fetching climate assessment question config:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: 'Failed to retrieve climate assessment question config',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * List saved versions of the climate assessment question config.
+ */
+exports.listClimateQuestionConfigVersions = async (req, res) => {
+  try {
+    const rows = await db.sequelize.query(
+      `
+      SELECT DISTINCT ON (version)
+        id,
+        version,
+        is_active,
+        "createdAt",
+        "updatedAt"
+      FROM climate_assessment_question_config
+      ORDER BY version DESC, id DESC
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT }
+    )
+
+    return res.status(200).send({
+      code: '0000',
+      data: rows,
+      message: 'Climate question config versions retrieved successfully',
+    })
+  } catch (error) {
+    console.error('Error listing climate assessment question config versions:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: 'Failed to list climate assessment question config versions',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Create a new active climate assessment question config version
+ */
+exports.updateClimateQuestionConfig = async (req, res) => {
+  const tx = await db.sequelize.transaction()
+  try {
+    const { config } = req.body || {}
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      await tx.rollback()
+      return res.status(400).send({
+        code: '1001',
+        message: 'A valid config object is required',
+      })
+    }
+
+    const requiredDimensions = ['hazard', 'exposure', 'sensitivity', 'adaptive_capacity']
+    for (const dimension of requiredDimensions) {
+      if (!config[dimension] || !Array.isArray(config[dimension].categories)) {
+        await tx.rollback()
+        return res.status(400).send({
+          code: '1001',
+          message: `Invalid config: "${dimension}.categories" is required`,
+        })
+      }
+    }
+
+    const [latest] = await db.sequelize.query(
+      `
+      SELECT version
+      FROM climate_assessment_question_config
+      ORDER BY version DESC, id DESC
+      LIMIT 1
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT, transaction: tx }
+    )
+
+    const nextVersion = (latest?.version || 0) + 1
+    const actorId = req.thisUser?.id || req.userid || null
+
+    await db.sequelize.query(
+      `UPDATE climate_assessment_question_config SET is_active = FALSE WHERE is_active = TRUE`,
+      { type: db.Sequelize.QueryTypes.UPDATE, transaction: tx }
+    )
+
+    const [inserted] = await db.sequelize.query(
+      `
+      INSERT INTO climate_assessment_question_config
+        (version, config, is_active, created_by, updated_by, "createdAt", "updatedAt")
+      VALUES
+        (:version, :config::jsonb, TRUE, :actorId, :actorId, NOW(), NOW())
+      RETURNING id, version, config, is_active, "createdAt", "updatedAt"
+      `,
+      {
+        replacements: {
+          version: nextVersion,
+          config: JSON.stringify(config),
+          actorId,
+        },
+        type: db.Sequelize.QueryTypes.INSERT,
+        transaction: tx,
+      }
+    )
+    const insertedRow = Array.isArray(inserted) ? inserted[0] : inserted
+
+    await tx.commit()
+    return res.status(200).send({
+      code: '0000',
+      data: insertedRow || null,
+      message: 'Climate assessment question config updated successfully',
+    })
+  } catch (error) {
+    await tx.rollback()
+    console.error('Error updating climate assessment question config:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: 'Failed to update climate assessment question config',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Overwrite an existing climate assessment question config version and activate it.
+ * (No new version row is created.)
+ */
+exports.updateClimateQuestionConfigCurrentVersion = async (req, res) => {
+  const tx = await db.sequelize.transaction()
+  try {
+    const { version, config } = req.body || {}
+    const targetVersion = parseInt(String(version), 10)
+
+    if (!Number.isFinite(targetVersion) || Number.isNaN(targetVersion)) {
+      await tx.rollback()
+      return res.status(400).send({
+        code: '1001',
+        message: 'A valid "version" number is required',
+      })
+    }
+
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      await tx.rollback()
+      return res.status(400).send({
+        code: '1001',
+        message: 'A valid config object is required',
+      })
+    }
+
+    const requiredDimensions = ['hazard', 'exposure', 'sensitivity', 'adaptive_capacity']
+    for (const dimension of requiredDimensions) {
+      if (!config[dimension] || !Array.isArray(config[dimension].categories)) {
+        await tx.rollback()
+        return res.status(400).send({
+          code: '1001',
+          message: `Invalid config: "${dimension}.categories" is required`,
+        })
+      }
+    }
+
+    const actorId = req.thisUser?.id || req.userid || null
+
+    // Pick the latest row for the requested version.
+    const [existing] = await db.sequelize.query(
+      `
+      SELECT id
+      FROM climate_assessment_question_config
+      WHERE version = :version
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT, replacements: { version: targetVersion }, transaction: tx }
+    )
+
+    if (!existing?.id) {
+      await tx.rollback()
+      return res.status(404).send({
+        code: 'NOT_FOUND',
+        message: `No climate assessment question config found for version ${targetVersion}`,
+      })
+    }
+
+    // Deactivate any currently-active config, then activate the overwritten one.
+    await db.sequelize.query(
+      `UPDATE climate_assessment_question_config SET is_active = FALSE WHERE is_active = TRUE`,
+      { type: db.Sequelize.QueryTypes.UPDATE, transaction: tx }
+    )
+
+    await db.sequelize.query(
+      `
+      UPDATE climate_assessment_question_config
+      SET
+        config = :config::jsonb,
+        is_active = TRUE,
+        updated_by = :actorId,
+        "updatedAt" = NOW()
+      WHERE id = :id
+      `,
+      {
+        replacements: { id: existing.id, config: JSON.stringify(config), actorId },
+        type: db.Sequelize.QueryTypes.UPDATE,
+        transaction: tx,
+      }
+    )
+
+    const [updatedRow] = await db.sequelize.query(
+      `
+      SELECT id, version, config, is_active, "createdAt", "updatedAt"
+      FROM climate_assessment_question_config
+      WHERE id = :id
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT, replacements: { id: existing.id }, transaction: tx }
+    )
+
+    await tx.commit()
+    return res.status(200).send({
+      code: '0000',
+      data: updatedRow || null,
+      message: 'Climate question config updated for the selected version and activated',
+    })
+  } catch (error) {
+    await tx.rollback()
+    console.error('Error updating climate assessment question config current version:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: 'Failed to update climate assessment question config for the selected version',
+      error: error.message,
+    })
+  }
+}
+
+/**
  * Get vulnerability weight matrix
  */
 exports.getVulnerabilityMatrix = async (req, res) => {

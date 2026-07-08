@@ -33,6 +33,26 @@ module.exports = function (app) {
     [authJwt.verifyToken, requireRootAdmin, hasPermission('system_settings:update')],
     controller.bulkUpdateSystemSettings
   )
+  app.get(
+    '/api/v1/settings/climate-question-config',
+    [authJwt.verifyToken, hasPermission('settings:read')],
+    controller.getClimateQuestionConfig
+  )
+  app.get(
+    '/api/v1/settings/climate-question-config/versions',
+    [authJwt.verifyToken, hasPermission('settings:read')],
+    controller.listClimateQuestionConfigVersions
+  )
+  app.post(
+    '/api/v1/settings/climate-question-config',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.updateClimateQuestionConfig
+  )
+  app.post(
+    '/api/v1/settings/climate-question-config/save-current',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.updateClimateQuestionConfigCurrentVersion
+  )
 
   app.get('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasAnyPermission(VULNERABILITY_READ_PERMISSIONS)], controller.getVulnerabilityMatrix)
   app.post('/api/v1/settings/vulnerability-matrix', [authJwt.verifyToken, hasPermission('settings:update')], controller.bulkUpdateVulnerabilityMatrix)

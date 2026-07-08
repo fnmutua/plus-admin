@@ -187,3 +187,53 @@ export const getSmsBalance = (): Promise<SmsBalanceResponse> => {
   })
 }
 
+export interface ClimateQuestionConfigRecord {
+  id: number
+  version: number
+  config: Record<string, any>
+  is_active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export const getClimateQuestionConfig = (
+  version?: number
+): Promise<{ code: string; data: ClimateQuestionConfigRecord; message: string }> => {
+  return request.get({
+    url: prod + '/api/v1/settings/climate-question-config',
+    params: version != null ? { version } : undefined
+  })
+}
+
+export const updateClimateQuestionConfig = (config: Record<string, any>): Promise<{ code: string; data: ClimateQuestionConfigRecord; message: string }> => {
+  return request.post({
+    url: prod + '/api/v1/settings/climate-question-config',
+    data: { config }
+  })
+}
+
+export const saveClimateQuestionConfigCurrentVersion = (
+  version: number,
+  config: Record<string, any>
+): Promise<{ code: string; data: ClimateQuestionConfigRecord; message: string }> => {
+  return request.post({
+    url: prod + '/api/v1/settings/climate-question-config/save-current',
+    data: { version, config },
+  })
+}
+
+export type ClimateQuestionConfigVersionRecord = Pick<
+  ClimateQuestionConfigRecord,
+  'id' | 'version' | 'is_active' | 'createdAt' | 'updatedAt'
+>
+
+export const listClimateQuestionConfigVersions = (): Promise<{
+  code: string
+  data: ClimateQuestionConfigVersionRecord[]
+  message: string
+}> => {
+  return request.get({
+    url: prod + '/api/v1/settings/climate-question-config/versions'
+  })
+}
+
