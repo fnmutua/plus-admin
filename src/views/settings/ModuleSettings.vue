@@ -250,7 +250,10 @@ import { getAllSettings, bulkUpdateSettings, getSmsBalance, type ModuleSetting }
 const SMS_BALANCE_MODULE = 'sms_balance_alert'
 
 /** Managed on System Settings — do not show or bulk-save from Module (SMS) settings */
-const SYSTEM_SETTINGS_MODULES = new Set(['auth_max_devices', 'rate_limit_login'])
+const isSystemSettingModule = (module?: string | null) => {
+  if (!module || typeof module !== 'string') return false
+  return module.startsWith('rate_limit_') || module.startsWith('auth_')
+}
 
 const loading = ref(false)
 const saving = ref(false)
@@ -406,7 +409,7 @@ const otherSettings = computed(() => {
            module !== 'sms_grievance' &&
            module !== 'sms_incident' &&
            module !== SMS_BALANCE_MODULE &&
-           !SYSTEM_SETTINGS_MODULES.has(module)
+           !isSystemSettingModule(module)
   })
 })
 
@@ -420,7 +423,7 @@ const loadSettings = async () => {
         settings.value = defaultSettings.map(s => ({ ...s, saving: false }))
       } else {
         const apiSettings = response.data.filter(
-          (s) => !SYSTEM_SETTINGS_MODULES.has(s.module)
+          (s) => !isSystemSettingModule(s.module)
         )
         const existingModules = new Set(apiSettings.map(s => s.module))
         const missingDefaults = defaultSettings.filter(s => !existingModules.has(s.module))
@@ -467,7 +470,9 @@ const saveAllSettings = async () => {
   try {
     applyBalanceAlertFormToSettings()
 
-    const settingsToSave = settings.value.map(s => ({
+    const settingsToSave = settings.value
+      .filter((s) => !isSystemSettingModule(s.module))
+      .map(s => ({
       module: s.module,
       enabled: s.enabled,
       description: s.description,
