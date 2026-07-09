@@ -60,7 +60,7 @@
                   <div class="setting-header">
                     <h3 class="setting-title">Login session / token expiry</h3>
                     <ElTag type="info" size="small">
-                      {{ jwtExpiresHours }} hour{{ jwtExpiresHours === 1 ? '' : 's' }}
+                      {{ formatHoursLabel(jwtExpiresHours) }}
                     </ElTag>
                   </div>
                   <p class="setting-description">
@@ -75,9 +75,10 @@
                   />
                   <ElInputNumber
                     v-model="jwtExpiresHours"
-                    :min="1"
+                    :min="0.01"
                     :max="720"
-                    :step="1"
+                    :step="0.25"
+                    :precision="2"
                     :disabled="!jwtExpiresSetting.enabled"
                     controls-position="right"
                   />
@@ -90,7 +91,7 @@
                   <div class="setting-header">
                     <h3 class="setting-title">Guest session expiry</h3>
                     <ElTag type="info" size="small">
-                      {{ guestExpiresHours }} hour{{ guestExpiresHours === 1 ? '' : 's' }}
+                      {{ formatHoursLabel(guestExpiresHours) }}
                     </ElTag>
                   </div>
                   <p class="setting-description">
@@ -105,9 +106,10 @@
                   />
                   <ElInputNumber
                     v-model="guestExpiresHours"
-                    :min="1"
+                    :min="0.01"
                     :max="24"
-                    :step="1"
+                    :step="0.25"
+                    :precision="2"
                     :disabled="!guestExpiresSetting.enabled"
                     controls-position="right"
                   />
@@ -422,13 +424,18 @@ const idleRenewalSetting = computed(() =>
   settings.value.find((s) => s.module === AUTH_IDLE_RENEWAL_MODULE)
 )
 
+const formatHoursLabel = (hours: number) => {
+  const rounded = Math.round(hours * 100) / 100
+  return `${rounded} hour${rounded === 1 ? '' : 's'}`
+}
+
 const secondsToHours = (raw: string | null | undefined, fallbackHours: number) => {
   const parsed = parseInt(String(raw ?? ''), 10)
   if (!Number.isFinite(parsed) || parsed <= 0) return fallbackHours
-  return Math.max(1, Math.round(parsed / 3600))
+  return Math.round((parsed / 3600) * 100) / 100
 }
 
-const hoursToSeconds = (hours: number) => String(Math.max(1, Math.round(hours)) * 3600)
+const hoursToSeconds = (hours: number) => String(Math.max(1, Math.round(hours * 3600)))
 
 const secondsToMinutes = (raw: string | null | undefined, fallbackMinutes: number) => {
   const parsed = parseInt(String(raw ?? ''), 10)
