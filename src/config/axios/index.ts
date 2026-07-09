@@ -4,6 +4,7 @@ import { config } from './config'
 
 import { useAppStoreWithOut, useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { markSessionActive } from '@/hooks/web/sessionActivity'
 import { ref } from 'vue'
 
 const { wsCache } = useCache()
@@ -34,6 +35,7 @@ const request = (option: any) => {
   }
   if (token.value) {
     finalHeaders['x-access-token'] = String(token.value)
+    markSessionActive()
   }
   if (contentType) {
     finalHeaders['Content-Type'] = contentType

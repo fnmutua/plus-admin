@@ -29,11 +29,10 @@ const {
   activeGrantWhere,
 } = require('../utils/userRoleExpiry')
 const userSessionManager = require('../utils/userSessionManager')
-
-const JWT_EXPIRES_IN_SECONDS = parseInt(process.env.JWT_EXPIRES_IN_SECONDS || '86400', 10)
+const { getJwtExpiresInSeconds, getGuestExpiresInSeconds, getSessionIdleConfig } = require('../utils/authSettings')
 
 async function issueUserAccessToken(userId, req, options = {}) {
-  const expiresIn = options.expiresInSec || JWT_EXPIRES_IN_SECONDS
+  const expiresIn = options.expiresInSec || await getJwtExpiresInSeconds()
   const sessionResult = await userSessionManager.registerLoginSession(
     userId,
     req,
@@ -1542,8 +1541,7 @@ exports.guestLogin = async (req, res) => {
       return res.status(503).send({ message: 'Guest access is currently unavailable.' })
     }
 
-    // Short-lived token for guest — 2 hours
-    const guestExpiresIn = 7200
+    const guestExpiresIn = await getGuestExpiresInSeconds()
     const tokenResult = await issueUserAccessToken(user.id, req, {
       skipDeviceLimit: true,
       expiresInSec: guestExpiresIn
@@ -3208,8 +3206,9 @@ async function sendDeactivationEmail(userEmail, userName, username, userId = nul
 
 exports.sessionCheck = async (req, res) => {
   try {
+    const jwtExpiresInSeconds = await getJwtExpiresInSeconds()
     if (req.sessionId) {
-      await userSessionManager.touchSession(req.sessionId, JWT_EXPIRES_IN_SECONDS);
+      await userSessionManager.touchSession(req.sessionId, jwtExpiresInSeconds);
     }
 
     let accessToken = null;
@@ -3217,14 +3216,17 @@ exports.sessionCheck = async (req, res) => {
       accessToken = jwt.sign(
         { id: req.userid, sid: req.sessionId },
         config.secret,
-        { expiresIn: JWT_EXPIRES_IN_SECONDS }
+        { expiresIn: jwtExpiresInSeconds }
       );
     }
+
+    const sessionIdleConfig = await getSessionIdleConfig()
 
     res.status(200).send({
       code: '0000',
       valid: true,
       userId: req.userid,
+      sessionConfig: sessionIdleConfig,
       ...(accessToken ? { accessToken } : {}),
     });
   } catch (err) {

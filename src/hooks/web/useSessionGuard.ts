@@ -3,10 +3,14 @@ import request from '@/config/axios'
 import { apiOrigin as prod } from '@/config/apiBase'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
+import {
+  SESSION_CHECK_INTERVAL_MS,
+  applySessionIdleConfig,
+  shouldRenewSession,
+  updateCachedAccessToken
+} from '@/hooks/web/sessionActivity'
 
-const INTERVAL_MS = 12_000
-
-/** Poll session validity so admin force-logout takes effect without waiting for user action. */
+/** Poll session validity; extend sliding sessions only while the user is active. */
 export function useSessionGuard() {
   let timer: ReturnType<typeof setInterval> | null = null
   const { wsCache } = useCache()
@@ -15,10 +19,15 @@ export function useSessionGuard() {
   const tick = async () => {
     const userInfo = wsCache.get(appStore.getUserInfo)
     if (!userInfo?.id) return
+    if (!shouldRenewSession()) return
+
     try {
       const res: any = await request.get({ url: prod + '/api/v1/auth/session-check', silent: true })
+      if (res?.sessionConfig) {
+        applySessionIdleConfig(res.sessionConfig)
+      }
       if (res?.accessToken) {
-        wsCache.set(appStore.getUserInfo, { ...userInfo, data: res.accessToken })
+        updateCachedAccessToken(res.accessToken)
       }
     } catch {
       // axios interceptor handles logout UI
@@ -27,7 +36,7 @@ export function useSessionGuard() {
 
   onMounted(() => {
     tick()
-    timer = setInterval(tick, INTERVAL_MS)
+    timer = setInterval(tick, SESSION_CHECK_INTERVAL_MS)
   })
 
   onUnmounted(() => {
