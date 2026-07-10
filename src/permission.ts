@@ -30,6 +30,7 @@ const isPublicPath = (path: string): boolean =>
   path.startsWith('/status') ||
   path.startsWith('/incidents/') ||
   path.startsWith('/share/') ||
+  path.startsWith('/upload-share/') ||
   path.startsWith('/dr-share/') ||
   path.startsWith('/dr-clarify/')
 

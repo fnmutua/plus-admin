@@ -223,6 +223,8 @@ onMounted(loadProfile)
             :downloading-id="downloadingDocId"
             :can-unlink="canUnlinkFacilityDoc"
             :can-remove="canRemoveFacilityDoc"
+            entity-type="community_hall"
+            :entity-id="id"
             @download="downloadFile"
             @unlink="handleUnlinkDocument"
             @remove="handleRemoveDocument"

@@ -41,6 +41,7 @@ var _document= require('./document')
 var _document_link = require('./document_link')
 var _document_share = require('./document_share')
 var _document_share_item = require('./document_share_item')
+var _upload_share_link = require('./upload_share_link')
 var _component= require('./component')
 var _domain= require('./domain')
 var _project_category= require('./project_category')
@@ -178,6 +179,7 @@ function initModels(sequelize) {
   var document_link = _document_link(sequelize, DataTypes)
   var document_share = _document_share(sequelize, DataTypes)
   var document_share_item = _document_share_item(sequelize, DataTypes)
+  var upload_share_link = _upload_share_link(sequelize, DataTypes)
   var component = _component(sequelize, DataTypes)
   var domain = _domain(sequelize, DataTypes)
    
@@ -330,7 +332,7 @@ communication_recipient.belongsTo(communication, {
      indicator_category_report,
      project,
     
-    document, document_link, document_share, document_share_item,
+    document, document_link, document_share, document_share_item, upload_share_link,
     component,
     domain,
     project_category,

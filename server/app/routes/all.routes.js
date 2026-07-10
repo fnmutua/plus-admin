@@ -3108,6 +3108,17 @@ module.exports = function (app) {
   app.post('/api/v1/docs/linked', [authJwt.verifyToken, hasPermission('document:read')], controller.getLinkedDocuments)
   app.post('/api/v1/docs/association-snapshot', [authJwt.verifyToken, hasPermission('document:read')], controller.getDocumentAssociationSnapshot)
 
+  // Anonymous share-upload links (staff-side management, auth required)
+  app.post('/api/v1/upload-share/create', [authJwt.verifyToken, hasPermission('document:create')], controller.createUploadShareLink)
+  app.get('/api/v1/upload-share/meta/users', [authJwt.verifyToken, hasPermission('document:create')], controller.searchUsersForUploadShare)
+  app.get('/api/v1/upload-share/list', [authJwt.verifyToken, hasPermission('document:create')], controller.listUploadShareLinks)
+  app.post('/api/v1/upload-share/:id/revoke', [authJwt.verifyToken, hasPermission('document:create')], controller.revokeUploadShareLink)
+  app.post('/api/v1/upload-share/:id/send-email', [authJwt.verifyToken, hasPermission('document:create')], controller.sendUploadShareEmail)
+
+  // Anonymous share-upload links (public, no auth)
+  app.get('/api/public/upload-share/:token', controller.getPublicUploadShare)
+  app.post('/api/public/upload-share/:token/upload', controller.submitPublicUpload)
+
   /**
    * @swagger
    * /api/v1/fields/options:

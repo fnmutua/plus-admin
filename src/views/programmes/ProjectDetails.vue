@@ -4,7 +4,7 @@ import {
   
 ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
-  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination,
+  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
@@ -16,7 +16,7 @@ import { getOneGeo } from '@/api/settlements'
 
 import { Icon } from '@iconify/vue';
 import {
-  Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete
+  Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading
 } from '@element-plus/icons-vue'
 
 import { getCountyListApi, } from '@/api/counties'
@@ -49,13 +49,15 @@ import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 
 
-import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import { getFile } from '@/api/summary'
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import shortid from 'shortid';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+import UploadShareDialog from '@/views/Components/UploadShareDialog.vue'
 
 import type { FormInstance } from 'element-plus'
 import { getModelSpecs } from '@/api/fields'
@@ -68,14 +70,18 @@ const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : 
 
 
 
-const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
+const mapboxToken =
+  import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ||
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
+mapboxgl.accessToken = mapboxToken
 
 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 // Role checking setup
 const isSuperAdmin = ref(
@@ -188,6 +194,46 @@ const canUserDeleteDocument = (document: any): boolean => {
   // Check if user has global document:delete permission
   const userPermissions = userInfo.permissions || [];
   if (userPermissions.includes('*.*.*') || userPermissions.includes('document:delete')) {
+    // If the document has a createdBy field, check if the current user created it
+    if (document.createdBy === userInfo.id) {
+      return true;
+    }
+
+    // For county staff, check if they are a county admin and the document is in their county
+    const countyRole = userInfo.roles.find((role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin');
+    if (countyRole && countyRole.user_roles?.county_id) {
+      // If the document is associated with a settlement, check the settlement's county_id
+      if (document.settlement?.county_id === countyRole.user_roles.county_id) {
+        return true;
+      }
+      // If the document is associated with a project, check project locations
+      if (document.project?.project_locations && Array.isArray(document.project.project_locations)) {
+        return document.project.project_locations.some((loc: any) => loc.county_id === countyRole.user_roles.county_id);
+      }
+    }
+  }
+  return false;
+}
+
+const canUserUnlinkDocument = (document: any): boolean => {
+  // Return false if document is undefined or null
+  if (!document) {
+    return false;
+  }
+
+  // Super admins and root admins can unlink any linked document
+  if (isSuperAdmin.value) {
+    return true;
+  }
+
+  // National staff can unlink any linked document
+  if (isNationalStaff.value) {
+    return true;
+  }
+
+  // Check if user has permission to update/manage documents
+  const userPermissions = userInfo.permissions || [];
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('document:update') || userPermissions.includes('document:delete')) {
     // If the document has a createdBy field, check if the current user created it
     if (document.createdBy === userInfo.id) {
       return true;
@@ -393,6 +439,7 @@ const locationPageSize = ref(10)
 // Pagination state for Documentation tab
 const docsCurrentPage = ref(1)
 const docsPageSize = ref(10)
+const documentsLoading = ref(false)
 
 //// ------------------parameters -----------------------////
 
@@ -420,6 +467,43 @@ function formatSentence(text) {
   formattedText = formattedText.replace(/\s+/g, ' ');
 
   return formattedText;
+}
+
+const dashDisplay = (v: unknown) =>
+  v === null || v === undefined || v === '' ? '—' : v
+
+const formatDateDisplay = (v: unknown) => {
+  if (v === null || v === undefined || v === '') return '—'
+  const d = v instanceof Date ? v : new Date(v as string)
+  if (Number.isNaN(d.getTime())) return String(v)
+  return d.toLocaleDateString()
+}
+
+const formatCostDisplay = (v: unknown) => {
+  if (v === null || v === undefined || v === '') return '—'
+  const n = Number(v)
+  if (Number.isNaN(n)) return String(v)
+  return `KSh. ${n.toLocaleString()}`
+}
+
+const normalizeImplementationScope = (scope: unknown) =>
+  String(scope || '').trim().toLowerCase()
+
+function buildProjectDescription(data: Record<string, any> | null | undefined) {
+  if (!data) return []
+  const scopeLabel = normalizeImplementationScope(data.implementation_scope)
+  return [
+    { property: 'title', value: dashDisplay(data.title) },
+    { property: 'project_code', value: dashDisplay(data.project_code || data.code) },
+    { property: 'status', value: dashDisplay(data.status) },
+    { property: 'component', value: dashDisplay(data.component?.title || data.component?.name) },
+    { property: 'programme', value: dashDisplay(data.programme?.title) },
+    { property: 'implementation_scope', value: scopeLabel ? formatSentence(scopeLabel) : '—' },
+    { property: 'start_date', value: formatDateDisplay(data.start_date) },
+    { property: 'end_date', value: formatDateDisplay(data.end_date) },
+    { property: 'cost', value: formatCostDisplay(data.cost) },
+    { property: 'description', value: dashDisplay(data.description) },
+  ]
 }
 
 
@@ -778,6 +862,40 @@ const getProjectDocuments = async (
   }
 };
 
+const refreshProjectDocuments = async (page?: number) => {
+  documentsLoading.value = true
+  try {
+    if (page != null) {
+      docsCurrentPage.value = page
+    }
+    await getProjectDocuments(
+      'project_id',
+      [project_id.value],
+      { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
+    )
+    try {
+      const linkedRes: any = await getLinkedDocuments({
+        entity_type: 'project',
+        entity_id: Number(project_id.value),
+      })
+      if (linkedRes?.data?.length) {
+        const existingIds = new Set((projectDocuments.value as any[]).map((d: any) => d.id))
+        const extras = linkedRes.data
+          .filter((d: any) => !existingIds.has(d.id))
+          .map((d: any) => ({ ...d, _isLinked: true, deletable: false }))
+        if (extras.length) {
+          projectDocuments.value = [...(projectDocuments.value as any[]), ...extras]
+          projectDocumentsTotal.value = (projectDocumentsTotal.value || 0) + extras.length
+        }
+      }
+    } catch {
+      // non-fatal
+    }
+  } finally {
+    documentsLoading.value = false
+  }
+}
+
 
 const indicatorReports = ref([])
 const getIndicatorCategoryReports = async (projectId) => {
@@ -857,24 +975,33 @@ const AddLocation = () => {
 
 
 
-const Project = ref({})
-// Define the properties you want to map
-const propertiesToMap = [
-  'code',
-  'name',
-  'ward.name',
-  'county.name',
-  'contract',
-  'owner',
-  'type',
-  'status',
-  'number_of_units',
-  'start_date',
-  'cost',
+const projectFullData = ref<Record<string, any>>()
+const projectDescription = computed(() => buildProjectDescription(projectFullData.value))
 
-  'description',
+const projectStatusTagType = computed(() => {
+  const s = String(projectFullData.value?.status || '').toLowerCase()
+  if (s === 'completed') return 'success'
+  if (s === 'ongoing') return 'primary'
+  if (s === 'suspended') return 'warning'
+  if (s === 'planned') return 'info'
+  return 'info'
+})
 
-];
+const projectScopeTagType = computed(() => {
+  const s = normalizeImplementationScope(projectFullData.value?.implementation_scope)
+  if (s === 'national') return 'warning'
+  if (s === 'county') return 'primary'
+  return 'info'
+})
+
+const projectHeaderSubtitle = computed(() => {
+  const d = projectFullData.value
+  if (!d) return ''
+  const parts: string[] = []
+  if (d.component?.title) parts.push(d.component.title)
+  if (d.programme?.title) parts.push(d.programme.title)
+  return parts.join(' · ')
+})
 
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
@@ -921,17 +1048,6 @@ const getIndicatorNames = async () => {
 
 };
 
-
-
-
-function objectToArray(obj) {
-  return Object.entries(obj).map(([key, value]) => {
-    return {
-      property: key,
-      value: value
-    };
-  });
-}
 
 
 
@@ -1081,10 +1197,8 @@ const changeProject = async (project: any) => {
 
 
 
-const projectDescription = ref([])
 const projectGeom = ref()
 const projectScope = ref()
-const projectFullData = ref()
 const projectTeamData = ref()
 const projectContractors = ref()
 const projectLocations = ref([])
@@ -1116,24 +1230,26 @@ const implementation_scope = ref('settlement')
 const isNationalProject = ref(false)
 const programme_implementation_id = ref()
 
+const projectTabStorageKey = (id: string | string[]) => `projectActiveTab:${id}`
 
-onMounted(async () => {
+// Allow deep-linking to a specific tab, e.g. /prj/169?tab=map
+const activeName = ref(
+  typeof route.query.tab === 'string' && route.query.tab ? route.query.tab : 'details'
+)
+
+const loadProjectDetails = async (id: string | string[]) => {
   isLoading.value = true
-  const id = route.params.id
-  const formData = {}
+  project_id.value = id
+  const formData: Record<string, any> = {}
   formData.model = 'project'
-  formData.id = route.params.id
-  formData.associated_multiple_models = associated_multiple_models
   formData.id = id
+  formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-
-
 
   const res = await getOneSettlement(formData)
 
   projectFullData.value = res.data
-  project_title.value = projectFullData.value.title
-  console.log('full projec data', res.data)
+  project_title.value = projectFullData.value?.title
   projectDocuments.value = []
   projectDocumentsTotal.value =
     res.data?.total_documents ??
@@ -1141,30 +1257,29 @@ onMounted(async () => {
     projectDocuments.value.length
   projectScope.value = res.data.activities
   projectTeamData.value = res.data.project_teams
-
   projectContractors.value = res.data.project_contractors
-  implementation_scope.value = res.data.implementation_scope
 
+  const scope = normalizeImplementationScope(res.data?.implementation_scope)
+  implementation_scope.value = scope || 'settlement'
+  isNationalProject.value = scope === 'national'
 
   programme_implementation_id.value = res.data.implementation_id
 
   await getDocumentTypes()
 
-
   getActivities()
-  getContractors(route.params.id)
-  await getLocations(route.params.id, locationCurrentPage.value, locationPageSize.value)
-  getProjecteam(route.params.id)
-  getProjecContractors(route.params.id)
+  getContractors(id)
+  await getLocations(id, locationCurrentPage.value, locationPageSize.value)
+  getProjecteam(id)
+  getProjecContractors(id)
   projectDocuments.value = await getProjectDocuments(
     'project_id',
-    [route.params.id],
+    [id],
     { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
   )
 
-  // Merge additional linked documents from document_link
   try {
-    const linkedRes: any = await getLinkedDocuments({ entity_type: 'project', entity_id: Number(route.params.id) })
+    const linkedRes: any = await getLinkedDocuments({ entity_type: 'project', entity_id: Number(id) })
     if (linkedRes?.data?.length) {
       const existingIds = new Set((projectDocuments.value as any[]).map((d: any) => d.id))
       const extras = linkedRes.data
@@ -1179,73 +1294,39 @@ onMounted(async () => {
     // non-fatal
   }
 
-  getprojectDisbursements(route.params.id)
+  getprojectDisbursements(id)
+  getIndicatorCategoryReports(id)
 
+  ruleForm.subcounty_id = projectFullData.value.subcounty_id
+  ruleForm.ward_id = projectFullData.value.ward_id
+  ruleForm.county_id = projectFullData.value.county_id
 
-  // fetchNestedParentTasks(route.params.id)
-  getIndicatorCategoryReports(route.params.id)
-
-
-
-
-
-  if ( res.data &&  res.data.implementation_scope == 'National') {
-    isNationalProject.value = true
-  } 
-  console.log('isNationalProject', isNationalProject.value)
-
-
-
-
-
-
-
-  ruleForm.subcounty_id = projectFullData.value.subcounty_id,
-    ruleForm.ward_id = projectFullData.value.ward_id,
-    ruleForm.county_id = projectFullData.value.county_id,
-
-
-
-    getIndicatorNames()
+  getIndicatorNames()
   projectGeom.value = res.data
-  for (const key of propertiesToMap) {
-    // Split the key on '.' to handle nested properties
-    const keys = key.split('.');
-    let value = res.data;
-
-    // Navigate through the nested properties
-    for (const k of keys) {
-      if (value && k in value) {
-        value = value[k];
-      } else {
-        value = undefined; // If any key in the path doesn't exist, set value to undefined
-        break; // Exit if a key is missing
-      }
-    }
-
-    // Assign the found value to Project.value, if defined
-    if (value !== undefined) {
-      Project.value[key] = value;
-    }
-  }
-
-
-
-  console.log(Project.value)
-
-
-  projectDescription.value = objectToArray(Project.value);
-  console.log(projectDescription);
   isLoading.value = false
 
-  changeProject(route.params.id)
-  // get current Tab 
-  const savedTab = localStorage.getItem('activeTab');
-  if (savedTab) {
-    activeName.value = savedTab;
-  }
+  changeProject(id)
 
+  const savedTab = localStorage.getItem(projectTabStorageKey(id))
+  if (savedTab) {
+    activeName.value = savedTab
+  } else if (typeof route.query.tab === 'string' && route.query.tab) {
+    activeName.value = route.query.tab
+  }
+}
+
+onMounted(() => {
+  loadProjectDetails(route.params.id)
 })
+
+watch(
+  () => route.params.id,
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      loadProjectDetails(newId)
+    }
+  }
+)
 
 
 
@@ -1546,10 +1627,7 @@ const rowNumber = (index: number, page: number, size: number) => {
 }
 
 const handleTabClick = async (tab) => {
-  console.log('Tab clicked:', tab.props);
-  localStorage.setItem('activeTab', tab.props.name);
-
-  console.log('projectLocations.value',projectLocations.value)
+  localStorage.setItem(projectTabStorageKey(route.params.id), tab.props.name);
 
   if (tab.props.name === 'map') {
     // Delay the loadMap function
@@ -1566,12 +1644,7 @@ const handleTabClick = async (tab) => {
   }
 
   if (tab.props.name === 'documents') {
-    // Always load/refresh documents when Documentation tab is opened
-    await getProjectDocuments(
-      'project_id',
-      [project_id.value],
-      { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
-    )
+    await refreshProjectDocuments()
   }
 
   if (tab.props.name === 'clockin') {
@@ -1581,13 +1654,17 @@ const handleTabClick = async (tab) => {
 
 const addMoreDocuments = ref(false)
 
+function resetUploadDialog() {
+  morefileList.value = []
+  documentCategory.value = undefined
+  showUpload.value = false
+  protectedFile.value = false
+  loadingPosting.value = false
+}
 
-
-function toggleComponent(row) {
-
-  console.log(row)
+function toggleComponent() {
+  resetUploadDialog()
   addMoreDocuments.value = true
-
 }
 
 
@@ -1609,84 +1686,59 @@ const loadingPosting = ref(false)
 
 
 const submitMoreDocuments = async () => {
-
-  console.log('loadingPosting.value.......', morefileList.value.length)
-
-
-  if (morefileList.value.length == 0) {
-    ElMessage.error('Select at least one file!')
+  if (!documentCategory.value) {
+    ElMessage.error('Select a document type')
+    return
   }
 
+  if (morefileList.value.length === 0) {
+    ElMessage.error('Select at least one file!')
+    return
+  }
 
-  else {
-    // uploading the documents 
-    loadingPosting.value = true
+  loadingPosting.value = true
 
-    const fileTypes = []
+  try {
     const formData = new FormData()
 
-    for (var i = 0; i < morefileList.value.length; i++) {
-      console.log('------>file', morefileList.value[i])
-      var format = morefileList.value[i].name.split('.').pop() // get file extension
-
-      // formData.append('files', fileList.value[i])
-      // formData.file = fileList.value[i]
-
+    for (let i = 0; i < morefileList.value.length; i++) {
+      const file = morefileList.value[i]
       formData.append('model', 'project')
       formData.append('createdBy', userInfo.id)
-
-      formData.append('files', morefileList.value[i].raw)
-      formData.append('format', morefileList.value[i].name.split('.').pop())
+      formData.append('files', file.raw)
+      formData.append('format', file.name.split('.').pop())
       formData.append('category', documentCategory.value)
       formData.append('field_id', 'project_id')
-      formData.append('protected', protectedFile.value)
-
-      formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+      formData.append('protected', String(protectedFile.value))
+      formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2))
       formData.append('code', uuid.v4())
-      formData.append('project_id', route.params.id)
-
-
-
+      formData.append('project_id', String(route.params.id))
     }
 
     const res = await uploadFilesBatch(formData)
-       const updatedDocs = await getProjectDocuments(
-        'project_id',
-        [route.params.id],
-        { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
-      )
 
-        // Check if the documents from updatedDocs already exist in projectDocuments.value
-        const uniqueUpdatedDocs = updatedDocs.filter(doc => {
-          // Check if the document's ID already exists in projectDocuments.value
-          return !projectDocuments.value.some(existingDoc => existingDoc.id === doc.id);
-        });
-
-        // Ensure deletable property is set for newly uploaded documents
-        uniqueUpdatedDocs.forEach(doc => {
-          doc.deletable = canUserDeleteDocument(doc)
-        })
-
-        // Push only the unique documents that don't exist yet
-        if (uniqueUpdatedDocs.length > 0) {
-          projectDocuments.value.push(...uniqueUpdatedDocs);
-          console.log('Updated projectDocuments:', projectDocuments.value);
-        } else {
-          console.log('No new documents to add.');
-        }
-
-
-    if (res.code === "0000") {
-      loadingPosting.value = false
-      addMoreDocuments.value = false
-      // Clear selected files after successful upload
-      morefileList.value = []
+    if (res.code !== '0000') {
+      ElMessage.error(res.message || 'Upload failed. Please try again.')
+      return
     }
 
+    ElMessage.success(
+      morefileList.value.length > 1
+        ? `${morefileList.value.length} documents uploaded successfully`
+        : 'Document uploaded successfully'
+    )
+
+    addMoreDocuments.value = false
+    resetUploadDialog()
+
+    activeName.value = 'documents'
+    await refreshProjectDocuments(1)
+  } catch (error) {
+    console.error('Document upload failed:', error)
+    ElMessage.error('Failed to upload documents. Please try again.')
+  } finally {
+    loadingPosting.value = false
   }
-
-
-
 }
 
 
@@ -2218,15 +2270,17 @@ const RemoveDocument = async (row) => {
     return;
   }
 
+  // Use the cascading delete endpoint: it removes dependent document_link /
+  // document_share_item rows before deleting the document row itself, so it
+  // doesn't fail when the document is linked to other entities.
   let formData = {}
-  formData.id = row.id
-  formData.model = 'document'
+  formData.filesToDelete = [row]
 
-  await DeleteRecord(formData);
-
+  await deleteDocument(formData);
 
 
-  // remove the deleted object from array list 
+
+  // remove the deleted object from array list
   let index = projectDocuments.value.indexOf(row);
   if (index !== -1) {
     projectDocuments.value.splice(index, 1);
@@ -2392,25 +2446,12 @@ const createNewContractor = async () => {
 }
 
 
-const { push } = useRouter()
-
 const editProject = async () => {
-  // push({
-  //   path: '/interventions/add/:domain',
-  //   name: 'AddInterventionProjectsV2',
-  //   query: { id: projectFullData.value.id },
-  //   params: { id: projectFullData.value.id, domain: projectFullData.value.component_id }
-  // })
-
-
-  push({
-  name: 'AddProject',
-  query: { id: projectFullData.value.id },
-  params: { domain: projectFullData.value.component_id, id: projectFullData.value.id }
-})
-
-
-
+  router.push({
+    name: 'AddProject',
+    query: { id: String(projectFullData.value.id) },
+    params: { domain: String(projectFullData.value.component_id) },
+  })
 }
 
 
@@ -2834,7 +2875,6 @@ const handleDownload = async () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-const activeName = ref('details')
 
 const DeleteProject = async (id) => {
   const project = projectFullData.value;
@@ -4161,25 +4201,64 @@ function formatLocation(item) {
     <!-- Header Section -->
     <template #header>
       <div class="card-header">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-
-        <el-text tag="b" size="large"> {{ project_title }} </el-text>
+        <div class="card-header-content">
+          <el-button type="primary" plain :icon="Back" @click="goBack" class="back-button">
+            Back
+          </el-button>
+          <div class="project-title-wrap">
+            <div class="project-title">
+              {{ project_title || 'Project Details' }}
+            </div>
+            <div v-if="projectHeaderSubtitle" class="project-subtitle">
+              {{ projectHeaderSubtitle }}
+            </div>
+            <div
+              v-if="projectFullData"
+              class="project-header-tags project-header-tags--prominent"
+              role="group"
+              aria-label="Project status"
+            >
+              <el-tag v-if="projectFullData.status" :type="projectStatusTagType" effect="plain">
+                {{ projectFullData.status }}
+              </el-tag>
+              <el-tag
+                v-if="projectFullData.implementation_scope"
+                :type="projectScopeTagType"
+                effect="plain"
+              >
+                {{ formatSentence(normalizeImplementationScope(projectFullData.implementation_scope)) }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <el-button
+            v-if="showEditButtons && canEditProjectMeta"
+            type="success"
+            :icon="Edit"
+            plain
+            class="edit-button"
+            @click="editProject"
+          >
+            Edit Project
+          </el-button>
+        </div>
       </div>
     </template>
 
     <el-tabs v-model="activeName" type="border-card" class="demo-tabs" tab-position="top" @tab-click="handleTabClick">
       <el-tab-pane label="Project Details" name="details">
-
+        <div v-if="isLoading" class="profile-tab-panel__loading">
+          <div class="profile-tab-panel__spinner">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <p>Loading project profile...</p>
+          </div>
+        </div>
+        <div v-show="!isLoading" class="profile-tab-panel__content">
         <el-card>
-          <el-descriptions title="Project Information" border>
+          <el-descriptions title="Project Information" border :column="isMobile ? 1 : 2">
             <template #extra>
               <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <el-button v-if="canEditProjectMeta" type="primary" :icon="Edit" plain @click="editProject">
-                  Edit Project
-                </el-button>
-
                 <el-popconfirm
                   v-if="canUserDeleteProject(projectFullData)"
                   width="300" title="Are you sure to delete this project?"
@@ -4195,18 +4274,19 @@ function formatLocation(item) {
             </template>
 
             <el-descriptions-item
-v-for="item in projectDescription" :key="item.property"
-              :label="formatSentence(item.property)">
-              {{ formatSentence(item.value) }}
+              v-for="item in projectDescription"
+              :key="item.property"
+              :label="formatSentence(item.property)"
+            >
+              {{ item.value }}
             </el-descriptions-item>
           </el-descriptions>
-
         </el-card>
-
+        </div>
       </el-tab-pane>
 
-      <el-tab-pane v-if="implementation_scope != 'national'" label="Locations" name="Locations">
-        <el-button v-if="canCreateProjectLocation" :onClick="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
+      <el-tab-pane v-if="!isNationalProject" label="Locations" name="Locations">
+        <el-button v-if="canCreateProjectLocation" @click="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
           <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Location
         </el-button>
 
@@ -4271,7 +4351,7 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
             </el-option>
           </el-select>
           <el-tooltip content="Save" placement="top">
-            <el-button :onClick="SaveLocation" style="margin-left :10px;" type="primary">
+            <el-button @click="SaveLocation" style="margin-left :10px;" type="primary">
               <Icon icon="ic:round-save" style=" color: white" size="48" />
             </el-button>
           </el-tooltip>
@@ -4298,7 +4378,7 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
 
 
 
-      <el-tab-pane v-if="implementation_scope != 'national' && projectLocations.length > 0" label="Map" name="map">
+      <el-tab-pane v-if="!isNationalProject && projectLocations.length > 0" label="Map" name="map">
         <div id="mapContainerAll" class="basemap"></div>
       </el-tab-pane>
 
@@ -4307,7 +4387,7 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
       <el-tab-pane label="Scope" name="Scope">
         <el-card>
           <div style="display: flex; align-items: center; gap: 16px; margin-left: 5px; margin-bottom: 10px;">
-            <el-button v-if="canManageProjectScope" :onClick="updateChanges" type="success" plain>
+            <el-button v-if="canManageProjectScope" @click="updateChanges" type="success" plain>
               <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
               Save Changes
             </el-button>
@@ -4335,10 +4415,10 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
 
 
 
-      <el-tab-pane v-if="projectLocations.length > 0" label="Monitoring" name="Indicator">
+      <el-tab-pane label="Monitoring" name="Indicator">
         <el-card>
 
-          <el-button v-if="canAddMonitoringReport" :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canAddMonitoringReport" @click="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Report/Achievement
           </el-button>
 
@@ -4397,7 +4477,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       </el-tab-pane>
 
       <el-tab-pane label="Documentation" name="documents">
-        <el-card>
+        <el-card v-loading="documentsLoading">
           <el-table :data="paginatedProjectDocuments" style="width: 100%">
             <el-table-column label="#" width="70">
               <template #default="{ $index }">
@@ -4475,10 +4555,13 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       :small="isMobile"
       :pager-count="isMobile ? 3 : 7"
           />
-          <el-button v-if="canUploadProjectDocument" plain @click="toggleComponent(Project)" style=" margin-top:10px">
+          <el-button v-if="canUploadProjectDocument" plain @click="toggleComponent()" style=" margin-top:10px">
             <Icon icon="fa-solid:upload" style=" margin-right:10px" />
             Upload
           </el-button>
+          <span v-if="canUploadProjectDocument" style="display:inline-block; margin-top:10px; margin-left:8px">
+            <UploadShareDialog entity-type="project" :entity-id="project_id" />
+          </span>
         </el-card>
 
       </el-tab-pane>
@@ -4486,7 +4569,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
 
       <el-tab-pane label="Team" name="team">
         <el-card>
-          <el-button v-if="canManageProjectTeam" :onClick="AddTeam" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canManageProjectTeam" @click="AddTeam" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Team
           </el-button>
           <el-table :data="projectTeamData" style="width: 100%">
@@ -4617,7 +4700,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       <el-tab-pane label="Contractor" name="contractor">
         <el-card>
 
-          <el-button v-if="canManageProjectContractors" :onClick="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canManageProjectContractors" @click="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Contractor(s)
           </el-button>
           <el-table :data="projectContractors" style="width: 100%">
@@ -4648,7 +4731,7 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       <el-tab-pane label="Disbursements" name="disbursement">
         <el-card>
 
-          <el-button v-if="canManageDisbursements" :onClick="AddDisbursement" style="margin-left :5px;margin-bottom :5px; " plain>
+          <el-button v-if="canManageDisbursements" @click="AddDisbursement" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Disbursement(s)
           </el-button>
           <el-table :data="projectDisbursements" style="width: 100%" show-summary :summary-method="getSummaries">
@@ -4732,10 +4815,20 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 
 
-  <el-dialog v-model="addMoreDocuments" title="Upload Documents" width="25%">
+  <el-dialog
+    v-model="addMoreDocuments"
+    title="Upload Documents"
+    width="25%"
+    v-loading="loadingPosting"
+    element-loading-text="Uploading documents..."
+    :close-on-click-modal="!loadingPosting"
+    :close-on-press-escape="!loadingPosting"
+    :show-close="!loadingPosting"
+    @closed="resetUploadDialog"
+  >
     <el-select
 class="dialog-select" v-model="documentCategory" placeholder="Select Type" clearable filterable
-      style="margin-bottom:10px" :onChange="handleSelect">
+      style="margin-bottom:10px" @change="handleSelect">
       <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
         <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
       </el-option-group>
@@ -4757,20 +4850,19 @@ class="box-item" effect="dark" content="Only the Owner and Admin can view Privat
       <el-checkbox v-model="protectedFile">Private File</el-checkbox>
     </el-tooltip>
 
-    <div class="dialog-progress">
-      <el-progress
-:stroke-width="20" :show-text="false" :percentage="loadingPosting ? '50' : ''" :format="format"
-        :indeterminate="true" />
+    <div v-if="loadingPosting" class="dialog-progress">
+      <el-progress :stroke-width="20" :show-text="false" :percentage="100" :indeterminate="true" />
+      <p class="upload-status-text">
+        <el-icon class="is-loading" style="margin-right: 6px;"><Loading /></el-icon>
+        Uploading, please wait...
+      </p>
     </div>
-
-
-
 
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="addMoreDocuments">Cancel</el-button>
-        <el-button type="primary" @click="submitMoreDocuments()">
-          Confirm
+        <el-button :disabled="loadingPosting" @click="addMoreDocuments = false">Cancel</el-button>
+        <el-button type="primary" :loading="loadingPosting" :disabled="loadingPosting" @click="submitMoreDocuments()">
+          {{ loadingPosting ? 'Uploading...' : 'Confirm' }}
         </el-button>
       </div>
     </template>
@@ -4802,7 +4894,7 @@ class="box-item" effect="dark" content="Only the Owner and Admin can view Privat
       </el-form-item>
 
       <el-tooltip content="Save" placement="top">
-        <el-button :onClick="updateTeam" style="margin-left :10px;" type="primary">
+        <el-button @click="updateTeam" style="margin-left :10px;" type="primary">
           <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
         </el-button>
 
@@ -4846,7 +4938,7 @@ v-model="contractorForm.contractor_id" placeholder="Select " filterable
 
 
       <el-tooltip content="Save" placement="top">
-        <el-button :onClick="updateContractor" style="margin-left :10px;" type="primary">
+        <el-button @click="updateContractor" style="margin-left :10px;" type="primary">
           <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
         </el-button>
 
@@ -4892,7 +4984,7 @@ v-model="contractorForm.contractor_id" placeholder="Select " filterable
       </el-form-item>
 
       <el-tooltip content="Save" placement="top">
-        <el-button :onClick="createNewContractor" style="margin-left :10px;" type="primary">
+        <el-button @click="createNewContractor" style="margin-left :10px;" type="primary">
           <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
         </el-button>
 
@@ -5106,7 +5198,7 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
       </el-form-item>
 
       <el-tooltip content="Save" placement="top">
-        <el-button :onClick="updateDisbursement" style="margin-left :10px;" type="primary">
+        <el-button @click="updateDisbursement" style="margin-left :10px;" type="primary">
           <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
         </el-button>
 
@@ -5164,11 +5256,121 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
 
 .card-header {
   display: flex;
-
-
+  align-items: center;
+  justify-content: space-between;
   font-weight: bold;
   font-size: 1.2rem;
-  color: #333;
+  color: var(--card-header-color, #333);
+  background-color: var(--card-header-bg, #f9f9f9);
+  padding: 4px 10px;
+  border-radius: 5px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.card-header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.back-button {
+  flex-shrink: 0;
+}
+
+.project-title-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.project-title {
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.project-subtitle {
+  flex-basis: 100%;
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: var(--el-text-color-secondary);
+  line-height: 1.3;
+}
+
+.project-header-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.project-header-tags.project-header-tags--prominent :deep(.el-tag) {
+  --el-tag-font-size: clamp(13px, var(--el-font-size-base), 15px);
+  font-size: var(--el-tag-font-size);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.profile-tab-panel__loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.profile-tab-panel__spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+:root {
+  --card-header-color: #333;
+  --card-header-bg: #f9f9f9;
+}
+
+[data-theme="dark"] {
+  --card-header-color: #ddd;
+  --card-header-bg: #222;
+}
+
+@media (max-width: 768px) {
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    justify-content: flex-end;
+  }
+}
+
+.dialog-progress {
+  margin-top: 12px;
+}
+
+.upload-status-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--el-text-color-secondary);
 }
 
 /* Custom styling for documents container */

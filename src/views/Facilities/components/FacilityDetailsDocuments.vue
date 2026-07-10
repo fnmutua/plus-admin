@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { ElAlert, ElButton, ElCard, ElPopconfirm, ElSpace, ElTable, ElTableColumn, ElText } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { useAppStore } from '@/store/modules/app'
+import UploadShareDialog from '@/views/Components/UploadShareDialog.vue'
 
 defineProps<{
   documents: any[]
@@ -11,6 +12,8 @@ defineProps<{
   downloadingId?: number | null
   canUnlink?: boolean
   canRemove?: boolean
+  entityType?: string
+  entityId?: number | string
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +28,10 @@ const mobile = computed(() => appStore.getMobile)
 
 <template>
   <div v-loading="loading" style="min-height: 120px;">
+    <div v-if="entityType && entityId" style="margin-bottom: 12px;">
+      <UploadShareDialog :entity-type="entityType as any" :entity-id="entityId" />
+    </div>
+
     <el-alert
       v-if="!loading && !documents.length"
       title="No documents linked to this facility."

@@ -1489,6 +1489,15 @@ if (db.models.document_share && db.models.document_share_item) {
   db.models.document.hasMany(db.models.document_share_item, { foreignKey: 'document_id', as: 'shares' })
 }
 
+// Anonymous share-upload link associations
+if (db.models.upload_share_link) {
+  db.models.upload_share_link.belongsTo(db.models.users, { foreignKey: 'createdBy', as: 'creator' })
+  db.models.users.hasMany(db.models.upload_share_link, { foreignKey: 'createdBy', as: 'uploadShareLinks' })
+
+  db.models.document.belongsTo(db.models.upload_share_link, { foreignKey: 'upload_share_id', as: 'upload_share' })
+  db.models.upload_share_link.hasMany(db.models.document, { foreignKey: 'upload_share_id', as: 'uploadedDocuments' })
+}
+
 
 
 db.models.subcounty.belongsTo(db.models.county, {

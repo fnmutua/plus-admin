@@ -112,7 +112,20 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       defaultValue: 0
     },
- 
+
+    // Anonymous share-upload provenance
+    upload_share_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'upload_share_link', key: 'id' },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    },
+    uploader_name: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
   }, {
     sequelize,
     tableName: 'document',

@@ -212,6 +212,8 @@ onMounted(loadProfile)
             :downloading-id="downloadingDocId"
             :can-unlink="canUnlinkFacilityDoc"
             :can-remove="canRemoveFacilityDoc"
+            entity-type="piped_water"
+            :entity-id="id"
             @download="downloadFile"
             @unlink="handleUnlinkDocument"
             @remove="handleRemoveDocument"

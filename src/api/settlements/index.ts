@@ -503,6 +503,57 @@ export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementT
   return request.post({ url: prod + '/api/v1/documents/raw' , data})
 }
 
+// ---- Anonymous share-upload links ----------------------------------------
+
+export interface UploadShareLinkEntityType {
+  entity_type: 'settlement' | 'project' | 'health_facility' | 'education_facility'
+    | 'road' | 'water_point' | 'sewer' | 'other_facility' | 'contractor'
+    | 'piped_water' | 'community_hall' | 'police_station' | 'community_project'
+  entity_id: number | string
+}
+
+/** Staff: create an anonymous upload link for a project/settlement/facility. Blank expiresAt = never expires. */
+export const createUploadShareLink = (
+  data: UploadShareLinkEntityType & { expiresAt?: string; maxUploads?: number; label?: string }
+): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/upload-share/create', data })
+}
+
+/** Staff: search users for upload-share email picker. */
+export const searchUploadShareEmailUsers = (q = ''): Promise<IResponse<any>> => {
+  return request.get({ url: prod + '/api/v1/upload-share/meta/users', params: { q } })
+}
+
+/** Staff: list existing upload-share links for one entity (management table). */
+export const listUploadShareLinks = (params: UploadShareLinkEntityType): Promise<IResponse<any>> => {
+  return request.get({ url: prod + '/api/v1/upload-share/list', params })
+}
+
+/** Staff: revoke an upload-share link. */
+export const revokeUploadShareLink = (id: number): Promise<IResponse<any>> => {
+  return request.post({ url: prod + `/api/v1/upload-share/${id}/revoke` })
+}
+
+/** Staff: email an upload-share link to one or more recipients (existing users or typed addresses). */
+export const sendUploadShareEmail = (
+  id: number,
+  data: { to: string[]; message?: string }
+): Promise<IResponse<any>> => {
+  return request.post({ url: prod + `/api/v1/upload-share/${id}/send-email`, data })
+}
+
+/** Public (no auth): landing-page info for an upload-share token. */
+export const getPublicUploadShare = (token: string): Promise<IResponse<any>> => {
+  return axios.get(prod + `/api/public/upload-share/${token}`).then((response) => response.data)
+}
+
+/** Public (no auth): submit files against an upload-share token. */
+export const submitPublicUpload = (token: string, formData: FormData): Promise<IResponse<any>> => {
+  return axios
+    .post(prod + `/api/public/upload-share/${token}/upload`, formData)
+    .then((response) => response.data)
+}
+
 
 export const deleteRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   // console.log('....', data)

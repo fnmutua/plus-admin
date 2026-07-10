@@ -51,6 +51,7 @@ const Sequelize = require('sequelize')
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
+const shortid = require('shortid');
 const Activity = db.activity
 const {   fn, col, literal } = require("sequelize");
 
@@ -6528,6 +6529,31 @@ const { UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
 const uploadDir = UPLOAD_DIR;
 
+// Entity types whose primary association is a direct FK column on `document`
+// (see the `document.belongsTo(...)` calls in models/index.js), in addition to
+// always being mirrored into `document_link`.
+const ENTITY_FK_COLUMN = {
+  settlement: 'settlement_id',
+  project: 'project_id',
+  contractor: 'contractor_id',
+  health_facility: 'health_facility_id',
+  education_facility: 'education_facility_id',
+  road: 'road_id',
+  water_point: 'water_point_id',
+  sewer: 'sewer_id',
+  other_facility: 'other_facility_id',
+  piped_water: 'piped_water_id',
+}
+
+// All entity types documents can be tagged/linked to (superset of ENTITY_FK_COLUMN).
+// community_hall / police_station / community_project have no direct FK column on
+// `document` — they're document_link-only associations, same as most facility types.
+const SHARE_LINK_ENTITY_TYPES = [
+  'settlement', 'project', 'health_facility', 'education_facility',
+  'road', 'water_point', 'sewer', 'other_facility', 'contractor',
+  'piped_water', 'community_hall', 'police_station', 'community_project'
+]
+
 // Ensure the directory exists
 if (!fs.existsSync(uploadDir)) {
   console.log('Create Folder if not esists ')
@@ -8333,11 +8359,15 @@ exports.unlinkDocument = async (req, res) => {
     const deleted = await db.models.document_link.destroy({
       where: { document_id, entity_type, entity_id }
     })
+    // Primary FK column mirrored on the document row itself (set at upload time),
+    // separate from any document_link rows. Must be cleared too, or the document
+    // keeps showing up for this entity after "unlinking".
+    const primaryFkColumn = ENTITY_FK_COLUMN[entity_type]
     let clearedFk = false
-    if (entity_type === 'settlement') {
+    if (primaryFkColumn) {
       const doc = await db.models.document.findByPk(document_id)
-      if (doc && doc.settlement_id != null && Number(doc.settlement_id) === Number(entity_id)) {
-        await doc.update({ settlement_id: null })
+      if (doc && doc[primaryFkColumn] != null && Number(doc[primaryFkColumn]) === Number(entity_id)) {
+        await doc.update({ [primaryFkColumn]: null })
         clearedFk = true
       }
     }
@@ -8488,6 +8518,492 @@ exports.getDocumentAssociationSnapshot = async (req, res) => {
     console.error('getDocumentAssociationSnapshot error', e)
     res.status(500).send({ code: '1006', message: 'Failed to load association snapshot' })
   }
+}
+
+/* =========================================================================
+ * Anonymous share-upload links: staff generate a token-based link scoped to
+ * one entity (project/settlement/facility). Anyone with the link can upload
+ * documents without logging in; uploads land tagged to that entity, exactly
+ * like an authenticated upload (same FK column + document_link mirroring).
+ * ========================================================================= */
+
+async function isPrivilegedShareManager(user) {
+  if (!user || typeof user.getRoles !== 'function') return false
+  try {
+    const roles = await user.getRoles(getActiveRolesGetOptions())
+    return roles.some((role) => {
+      const name = role?.name
+      if (name === 'super_admin' || name === 'root_admin') return true
+      const level = role?.user_roles?.location_level
+      return level === 'national' && ['admin', 'staff'].includes(name)
+    })
+  } catch {
+    return false
+  }
+}
+
+// Display-name column per entity type, for the public landing page + link labels
+const ENTITY_DISPLAY = {
+  settlement: { model: 'settlement', column: 'name' },
+  project: { model: 'project', column: 'title' },
+  health_facility: { model: 'health_facility', column: 'name' },
+  education_facility: { model: 'education_facility', column: 'name' },
+  road: { model: 'road', column: 'name' },
+  water_point: { model: 'water_point', column: 'name' },
+  sewer: { model: 'sewer', column: 'name' },
+  other_facility: { model: 'other_facility', column: 'name' },
+  contractor: { model: 'contractor', column: 'name' },
+  piped_water: { model: 'piped_water', column: 'name' },
+  community_hall: { model: 'community_hall', column: 'community_hall_name' },
+  police_station: { model: 'police_station', column: 'PC_Name' },
+  community_project: { model: 'community_project', column: 'project_name' },
+}
+
+const ENTITY_TYPE_LABEL = {
+  settlement: 'settlement',
+  project: 'project',
+  health_facility: 'health facility',
+  education_facility: 'education facility',
+  road: 'road',
+  water_point: 'water point',
+  sewer: 'sewer',
+  other_facility: 'facility',
+  contractor: 'contractor',
+  piped_water: 'piped water scheme',
+  community_hall: 'community hall',
+  police_station: 'police station',
+  community_project: 'community project',
+}
+
+function formatEntityReference(entity_type, name) {
+  if (!name) return null
+  const kind = ENTITY_TYPE_LABEL[entity_type] || String(entity_type).replace(/_/g, ' ')
+  return `${name} ${kind}`
+}
+
+async function getGroupedDocumentTypes() {
+  const rows = await db.models.document_type.findAll({
+    attributes: ['id', 'type', 'group'],
+    order: [['group', 'ASC'], ['type', 'ASC']]
+  })
+  const byGroup = {}
+  for (const row of rows) {
+    const group = row.group || 'Other'
+    if (!byGroup[group]) byGroup[group] = []
+    byGroup[group].push({ value: row.id, label: row.type })
+  }
+  return Object.entries(byGroup).map(([label, options]) => ({ label, options }))
+}
+
+async function resolveEntityLabel(entity_type, entity_id) {
+  const conf = ENTITY_DISPLAY[entity_type]
+  if (!conf) return null
+  const row = await db.models[conf.model].findByPk(entity_id, { attributes: ['id', conf.column] })
+  return row ? row[conf.column] : null
+}
+
+// `document.category` is NOT NULL, but the anonymous uploader isn't asked to pick
+// one. Staff can set a default when creating the link; otherwise fall back to a
+// generic "other"-ish document_type, or just the first one that exists.
+async function resolveDefaultDocumentCategory(preferredId) {
+  if (preferredId) {
+    const preferred = await db.models.document_type.findByPk(preferredId)
+    if (preferred) return preferred.id
+  }
+  const generic = await db.models.document_type.findOne({
+    where: {
+      [Op.or]: [
+        { type: { [Op.iLike]: '%other%' } },
+        { group: { [Op.iLike]: '%other%' } },
+        { type: { [Op.iLike]: '%general%' } }
+      ]
+    },
+    order: [['id', 'ASC']]
+  })
+  if (generic) return generic.id
+  const fallback = await db.models.document_type.findOne({ order: [['id', 'ASC']] })
+  return fallback ? fallback.id : null
+}
+
+// Staff-side: search users for the upload-share email picker (document:create scope).
+exports.searchUsersForUploadShare = async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim()
+    const emailPresent = {
+      [op.and]: [{ email: { [op.ne]: null } }, { email: { [op.ne]: '' } }]
+    }
+    const baseAttrs = ['id', 'name', 'username', 'email', 'phone']
+
+    let users
+    if (!q) {
+      users = await db.models.users.findAll({
+        where: { isactive: true, ...emailPresent },
+        attributes: baseAttrs,
+        order: [['name', 'ASC']],
+        limit: 50
+      })
+    } else {
+      const like = `%${q}%`
+      users = await db.models.users.findAll({
+        where: {
+          isactive: true,
+          ...emailPresent,
+          [op.or]: [
+            { name: { [op.iLike]: like } },
+            { username: { [op.iLike]: like } },
+            { email: { [op.iLike]: like } },
+            { phone: { [op.iLike]: like } }
+          ]
+        },
+        attributes: baseAttrs,
+        order: [['name', 'ASC']],
+        limit: 50
+      })
+    }
+
+    res.status(200).send({ code: '0000', data: users })
+  } catch (e) {
+    console.error('searchUsersForUploadShare error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to search users' })
+  }
+}
+
+// Staff-side: create a share-upload link
+exports.createUploadShareLink = async (req, res) => {
+  try {
+    const { entity_type, entity_id, expiresAt, maxUploads, label, defaultCategory } = req.body || {}
+    if (!SHARE_LINK_ENTITY_TYPES.includes(entity_type) || !entity_id) {
+      return res.status(400).send({ code: '0001', message: 'A valid entity_type and entity_id are required' })
+    }
+    // Expiry is optional — blank/omitted means the link never expires.
+    let expiry = null
+    if (expiresAt) {
+      expiry = new Date(expiresAt)
+      if (Number.isNaN(expiry.getTime()) || expiry.getTime() <= Date.now()) {
+        return res.status(400).send({ code: '0001', message: 'expiresAt must be a valid future date/time' })
+      }
+    }
+    const entityLabel = await resolveEntityLabel(entity_type, entity_id)
+    if (!entityLabel) {
+      return res.status(404).send({ code: '0001', message: 'Entity not found' })
+    }
+
+    const resolvedCategory = await resolveDefaultDocumentCategory(defaultCategory)
+
+    const link = await db.models.upload_share_link.create({
+      token: shortid.generate(),
+      entity_type,
+      entity_id: Number(entity_id),
+      expiresAt: expiry,
+      createdBy: req?.thisUser?.id || null,
+      maxUploads: maxUploads != null && maxUploads !== '' ? Number(maxUploads) : 20,
+      label: label || null,
+      defaultCategory: resolvedCategory
+    })
+
+    const serverUrl = `${req.protocol}://${req.get('host')}`
+    const frontendUrl = process.env.FRONTEND_URL || serverUrl.replace(/:\d+$/, '')
+    const publicUrl = `${frontendUrl}/#/upload-share/${link.token}`
+
+    res.status(200).send({ code: '0000', data: { ...link.get({ plain: true }), url: publicUrl } })
+  } catch (e) {
+    console.error('createUploadShareLink error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to create upload link' })
+  }
+}
+
+// Staff-side: list share-upload links for one entity (management table + revoke)
+exports.listUploadShareLinks = async (req, res) => {
+  try {
+    const { entity_type, entity_id } = req.query
+    if (!entity_type || !entity_id) {
+      return res.status(400).send({ code: '0001', message: 'entity_type and entity_id are required' })
+    }
+    const links = await db.models.upload_share_link.findAll({
+      where: { entity_type, entity_id },
+      include: [{ model: db.models.users, as: 'creator', attributes: ['id', 'name'], required: false }],
+      order: [['createdAt', 'DESC']]
+    })
+    res.status(200).send({ code: '0000', data: links })
+  } catch (e) {
+    console.error('listUploadShareLinks error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to load upload links' })
+  }
+}
+
+// Staff-side: revoke a share-upload link (creator or a privileged admin)
+exports.revokeUploadShareLink = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    const link = await db.models.upload_share_link.findByPk(id)
+    if (!link) return res.status(404).send({ code: '0001', message: 'Link not found' })
+
+    const isCreator = link.createdBy && req?.thisUser?.id && Number(link.createdBy) === Number(req.thisUser.id)
+    if (!isCreator && !(await isPrivilegedShareManager(req.thisUser))) {
+      return res.status(403).send({ code: '0001', message: 'You do not have permission to revoke this link' })
+    }
+
+    await link.update({ isRevoked: true })
+    res.status(200).send({ code: '0000', message: 'Revoked' })
+  } catch (e) {
+    console.error('revokeUploadShareLink error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to revoke upload link' })
+  }
+}
+
+// Staff-side: email a share-upload link to one or more recipients.
+// If a recipient's email matches an existing system user, that user's name
+// becomes the link's "expected uploader" (pre-fills the public form); otherwise
+// the expected uploader defaults to the requester (the staff member sending it).
+exports.sendUploadShareEmail = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    const link = await db.models.upload_share_link.findByPk(id)
+    if (!link) return res.status(404).send({ code: '0001', message: 'Link not found' })
+
+    const { to, message } = req.body || {}
+    const recipients = Array.isArray(to) ? to : String(to || '').split(',').map((x) => x.trim())
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const validEmails = recipients.filter((e) => emailRegex.test(e))
+    if (validEmails.length === 0) {
+      return res.status(400).send({ code: '0001', message: 'At least one valid recipient email is required' })
+    }
+
+    const matchedUser = await db.models.users.findOne({ where: { email: validEmails[0] } })
+    const expectedUploaderName = matchedUser?.name || req?.thisUser?.name || null
+    await link.update({ expectedUploaderName })
+
+    const serverUrl = `${req.protocol}://${req.get('host')}`
+    const frontendUrl = process.env.FRONTEND_URL || serverUrl.replace(/:\d+$/, '')
+    const publicUrl = `${frontendUrl}/#/upload-share/${link.token}`
+    const entityName = await resolveEntityLabel(link.entity_type, link.entity_id)
+    const entityRef = formatEntityReference(link.entity_type, entityName)
+    const entityPhrase = entityRef
+      ? ` for the <strong>${entityRef}</strong>`
+      : ''
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER || 'kisip.mis@gmail.com',
+        pass: process.env.EMAIL_PASS || 'ycoxaqavmfiqljjg'
+      }
+    })
+    const html = `
+      <p>You've been invited to upload documents${entityPhrase}.</p>
+      ${entityRef ? `<p>Location / record: <strong>${entityRef}</strong></p>` : ''}
+      ${message ? `<p>${message}</p>` : ''}
+      <p>Open the link below to upload your files:</p>
+      <p><a href="${publicUrl}">${publicUrl}</a></p>
+      <p>This link ${link.expiresAt ? 'expires on ' + new Date(link.expiresAt).toUTCString() : 'does not expire'}.</p>
+    `
+    const subject = entityRef ? `Upload documents for ${entityRef}` : 'Upload documents'
+    const textEntity = entityRef ? ` for ${entityRef}` : ''
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'kisip.mis@gmail.com',
+      to: validEmails.join(','),
+      subject,
+      text: `You've been invited to upload documents${textEntity}.${message ? '\n\n' + message : ''}\n\nLink: ${publicUrl}`,
+      html
+    })
+
+    res.status(200).send({ code: '0000', message: 'Email sent' })
+  } catch (e) {
+    console.error('sendUploadShareEmail error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to send email' })
+  }
+}
+
+function shareValidationError(link) {
+  if (!link) return { status: 404, message: 'This link is invalid.' }
+  if (link.isRevoked) return { status: 410, message: 'This link has been revoked.' }
+  if (link.expiresAt && new Date(link.expiresAt).getTime() < Date.now()) {
+    return { status: 410, message: 'This link has expired.' }
+  }
+  if (link.maxUploads != null && link.uploadCount >= link.maxUploads) {
+    return { status: 410, message: 'This link has reached its upload limit.' }
+  }
+  return null
+}
+
+// Public (unauthenticated): landing-page info for a share-upload token
+exports.getPublicUploadShare = async (req, res) => {
+  try {
+    const { token } = req.params
+    const link = await db.models.upload_share_link.findOne({
+      where: { token },
+      include: [{ model: db.models.users, as: 'creator', attributes: ['id', 'name'], required: false }]
+    })
+    const err = shareValidationError(link)
+    if (err) return res.status(err.status).send({ code: '0001', message: err.message })
+
+    const entityName = await resolveEntityLabel(link.entity_type, link.entity_id)
+    const entityRef = formatEntityReference(link.entity_type, entityName)
+    const documentTypeGroups = await getGroupedDocumentTypes()
+    res.status(200).send({
+      code: '0000',
+      data: {
+        entityType: link.entity_type,
+        entityLabel: entityName,
+        entityReference: entityRef,
+        sharedBy: link.creator?.name || null,
+        label: link.label,
+        expiresAt: link.expiresAt,
+        maxUploads: link.maxUploads,
+        uploadCount: link.uploadCount,
+        expectedUploaderName: link.expectedUploaderName || null,
+        defaultCategory: link.defaultCategory || null,
+        documentTypeGroups
+      }
+    })
+  } catch (e) {
+    console.error('getPublicUploadShare error', e)
+    res.status(500).send({ code: '1006', message: 'Failed to load share link' })
+  }
+}
+
+// Separate, stricter multer instance for the unauthenticated upload endpoint:
+// same disk destination, but a tighter size cap and a blocked-extension filter
+// since this route has no auth in front of it.
+const BLOCKED_UPLOAD_EXTENSIONS = new Set([
+  '.exe', '.bat', '.cmd', '.sh', '.msi', '.php', '.jar', '.com', '.scr', '.vbs', '.ps1', '.dll', '.apk', '.js'
+])
+const publicUpload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024, files: 20 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase()
+    if (BLOCKED_UPLOAD_EXTENSIONS.has(ext)) {
+      return cb(new Error(`File type ${ext} is not allowed`))
+    }
+    cb(null, true)
+  }
+})
+
+// Public (unauthenticated): submit files against a share-upload token
+exports.submitPublicUpload = async (req, res) => {
+  const { token } = req.params
+  const link = await db.models.upload_share_link.findOne({ where: { token } })
+  const preErr = shareValidationError(link)
+  if (preErr) return res.status(preErr.status).send({ code: '0001', message: preErr.message })
+
+  publicUpload.array('files')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(400).send({ code: '0001', message: uploadErr.message || 'Upload failed' })
+    }
+
+    let myFiles = req.files || []
+    if (!Array.isArray(myFiles)) myFiles = [myFiles]
+    if (myFiles.length === 0) {
+      return res.status(400).send({ code: '0001', message: 'No files were uploaded' })
+    }
+
+    // Re-validate right before writing DB rows: the link may have expired, been
+    // revoked, or hit its cap between the pre-check above and now.
+    const fresh = await db.models.upload_share_link.findByPk(link.id)
+    const freshErr = shareValidationError(fresh)
+    if (freshErr) {
+      for (const f of myFiles) { try { fs.unlinkSync(f.path) } catch (_) {} }
+      return res.status(freshErr.status).send({ code: '0001', message: freshErr.message })
+    }
+
+    const remaining = fresh.maxUploads != null ? fresh.maxUploads - fresh.uploadCount : myFiles.length
+    if (myFiles.length > remaining) {
+      for (const f of myFiles) { try { fs.unlinkSync(f.path) } catch (_) {} }
+      return res.status(410).send({ code: '0001', message: `This link only allows ${remaining} more file(s).` })
+    }
+
+    const uploaderName = (req.body.uploaderName || '').toString().trim().slice(0, 255) || null
+
+    let categories = []
+    try {
+      const raw = req.body.categories
+      categories = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
+    } catch {
+      for (const f of myFiles) { try { fs.unlinkSync(f.path) } catch (_) {} }
+      return res.status(400).send({ code: '0001', message: 'Invalid document type data' })
+    }
+
+    if (!Array.isArray(categories) || categories.length !== myFiles.length) {
+      for (const f of myFiles) { try { fs.unlinkSync(f.path) } catch (_) {} }
+      return res.status(400).send({
+        code: '0001',
+        message: 'Select a document type for each file before uploading'
+      })
+    }
+
+    const categoryIds = categories.map((c) => Number(c)).filter((id) => Number.isInteger(id) && id > 0)
+    const validTypes = await db.models.document_type.findAll({
+      where: { id: { [op.in]: categoryIds } },
+      attributes: ['id']
+    })
+    const validTypeIds = new Set(validTypes.map((t) => t.id))
+    if (categoryIds.length !== myFiles.length || categoryIds.some((id) => !validTypeIds.has(id))) {
+      for (const f of myFiles) { try { fs.unlinkSync(f.path) } catch (_) {} }
+      return res.status(400).send({
+        code: '0001',
+        message: 'Each file must have a valid document type'
+      })
+    }
+
+    const fkColumn = ENTITY_FK_COLUMN[fresh.entity_type]
+    const created = []
+    const failed = []
+
+    for (let i = 0; i < myFiles.length; i++) {
+      const file = myFiles[i]
+      const categoryId = categoryIds[i]
+      try {
+        const existingDoc = await db.models.document.findOne({ where: { name: file.originalname } })
+        if (existingDoc) {
+          try { fs.unlinkSync(file.path) } catch (_) {}
+          await db.models.document_link.findOrCreate({
+            where: { document_id: existingDoc.id, entity_type: fresh.entity_type, entity_id: fresh.entity_id },
+            defaults: { document_id: existingDoc.id, entity_type: fresh.entity_type, entity_id: fresh.entity_id }
+          })
+          created.push({ id: existingDoc.id, name: existingDoc.name })
+          continue
+        }
+
+        const nobj = {
+          name: file.originalname,
+          location: file.path,
+          format: (file.originalname.split('.').pop() || '').toLowerCase(),
+          size: (file.size / 1024 / 1024).toFixed(2),
+          category: categoryId,
+          code: shortid.generate(),
+          createdBy: null,
+          protectedFile: false,
+          upload_share_id: fresh.id,
+          uploader_name: uploaderName
+        }
+        if (fkColumn) nobj[fkColumn] = fresh.entity_id
+
+        const savedDoc = await db.models.document.create(nobj)
+        await db.models.document_link.findOrCreate({
+          where: { document_id: savedDoc.id, entity_type: fresh.entity_type, entity_id: fresh.entity_id },
+          defaults: { document_id: savedDoc.id, entity_type: fresh.entity_type, entity_id: fresh.entity_id }
+        })
+        created.push({ id: savedDoc.id, name: savedDoc.name })
+      } catch (fileErr) {
+        console.error('submitPublicUpload file error', fileErr)
+        failed.push(file.originalname)
+      }
+    }
+
+    if (created.length > 0) {
+      await db.models.upload_share_link.update(
+        { uploadCount: fresh.uploadCount + created.length },
+        { where: { id: fresh.id } }
+      )
+    }
+
+    res.status(200).send({
+      code: '0000',
+      message: `${created.length} file(s) uploaded${failed.length ? `, ${failed.length} failed` : ''}.`,
+      data: { uploaded: created, failed }
+    })
+  })
 }
 
 /// Submit  New settlments to ODK Central

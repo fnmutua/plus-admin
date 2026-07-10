@@ -132,6 +132,17 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/upload-share/:token',
+    component: () => import('@/views/Public/UploadSharePublic.vue'),
+    name: 'UploadSharePublic',
+    meta: {
+      hidden: true,
+      title: 'Upload Documents',
+      icon:'material-symbols:upload',
+      noCache: true
+    }
+  },
+  {
     path: '/dr-share/:token',
     component: () => import('@/views/Landing/DataRequestSharePublic.vue'),
     name: 'DataRequestShare',
@@ -1800,7 +1811,7 @@ router.beforeEach((to, from, next) => {
 export const resetRouter = (): void => {
   const resetWhiteNameList = ['Redirect', 'Login', 'Register', 'NoFind', 'Root', 'Reset', 'Logoff', 
     'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount','docs',
-    'DataRequest', 'DataRequestShare', 'DataRequestClarify', 'SharedDocuments']
+    'DataRequest', 'DataRequestShare', 'DataRequestClarify', 'SharedDocuments', 'UploadSharePublic']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {

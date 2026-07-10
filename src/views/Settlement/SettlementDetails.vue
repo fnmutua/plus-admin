@@ -28,6 +28,7 @@ import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import UploadShareDialog from '@/views/Components/UploadShareDialog.vue';
 import {
   searchByKeyWord
 } from '@/api/settlements'
@@ -3796,25 +3797,28 @@ const updateDocumentCategory = async () => {
                   <div>
             <!-- Filter Input and Upload Button -->
             <el-row :gutter="10" style="margin-bottom: 10px;">
-              <el-col :span="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit') ? 20 : 24">
+              <el-col :span="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit') ? 14 : 24">
                 <el-input
-                  v-model="searchQuery" 
-                  type="text" 
-                  placeholder="Search documents..." 
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search documents..."
                   style="width: 100%"
-                  :prefix-icon="Search" 
-                  clearable 
+                  :prefix-icon="Search"
+                  clearable
                 />
               </el-col>
               <el-col v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" :span="4">
-                <el-button 
-                  type="primary" 
-                  :icon="Upload" 
+                <el-button
+                  type="primary"
+                  :icon="Upload"
                   @click="toggleComponent"
                   style="width: 100%"
                 >
                   Upload
                 </el-button>
+              </el-col>
+              <el-col v-if="canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" :span="6">
+                <UploadShareDialog entity-type="settlement" :entity-id="route.params.id" />
               </el-col>
             </el-row>
 
