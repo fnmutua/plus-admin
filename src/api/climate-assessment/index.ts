@@ -53,7 +53,13 @@ export const getAssessment = (id: number): Promise<{ code: string; data: Climate
   })
 }
 
-export const createAssessment = (data: { settlement_id: number; assessed_at?: string }): Promise<{ code: string; data: ClimateAssessment; message: string }> => {
+export const getAssessmentBySettlement = (settlementId: number): Promise<{ code: string; data: ClimateAssessment; message: string }> => {
+  return request.get({
+    url: prod + '/api/v1/climate-assessment/by-settlement/' + settlementId
+  })
+}
+
+export const createAssessment = (data: { settlement_id: number; assessed_at?: string; question_config_version?: number }): Promise<{ code: string; data: ClimateAssessment; existing?: boolean; message: string }> => {
   return request.post({
     url: prod + '/api/v1/climate-assessment',
     data

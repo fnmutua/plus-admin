@@ -10,6 +10,24 @@ const QUESTIONS_CACHE_TTL_MS = 10 * 1000
 
 const DIMENSIONS = ['hazard', 'exposure', 'sensitivity', 'adaptive_capacity']
 
+const ASSESSMENT_INCLUDES = [
+  { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
+  { model: db.models.county, attributes: ['id', 'name'] },
+  { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
+]
+
+function isUniqueSettlementViolation(error) {
+  return error?.name === 'SequelizeUniqueConstraintError'
+    || error?.original?.code === '23505'
+}
+
+async function findAssessmentWithIncludes(where) {
+  return db.models.climate_assessment.findOne({
+    where,
+    include: ASSESSMENT_INCLUDES,
+  })
+}
+
 /**
  * Merge an incoming (partial) set of answers for one dimension into the stored set
  * without clobbering answers other groups already saved.
@@ -304,11 +322,7 @@ exports.list = async (req, res) => {
     const assessments = await db.models.climate_assessment.findAll({
       where,
       order: [['assessed_at', 'DESC'], ['created_at', 'DESC']],
-      include: [
-        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
-        { model: db.models.county, attributes: ['id', 'name'] },
-        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
-      ],
+      include: ASSESSMENT_INCLUDES,
     })
 
     return res.status(200).json({
@@ -329,13 +343,7 @@ exports.list = async (req, res) => {
 exports.getOne = async (req, res) => {
   try {
     const { id } = req.params
-    const assessment = await db.models.climate_assessment.findByPk(id, {
-      include: [
-        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
-        { model: db.models.county, attributes: ['id', 'name'] },
-        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
-      ],
-    })
+    const assessment = await findAssessmentWithIncludes({ id })
 
     if (!assessment) {
       return res.status(404).json({
@@ -351,6 +359,39 @@ exports.getOne = async (req, res) => {
     })
   } catch (error) {
     console.error('Error in climate assessment getOne:', error)
+    return res.status(500).json({
+      message: 'Failed to retrieve assessment',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    })
+  }
+}
+
+exports.getBySettlement = async (req, res) => {
+  try {
+    const settlementId = parseInt(String(req.params.settlement_id), 10)
+    if (Number.isNaN(settlementId)) {
+      return res.status(400).json({
+        message: 'Invalid settlement_id',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    const assessment = await findAssessmentWithIncludes({ settlement_id: settlementId })
+    if (!assessment) {
+      return res.status(404).json({
+        message: 'No climate assessment for this settlement',
+        code: 'NOT_FOUND',
+      })
+    }
+
+    return res.status(200).json({
+      message: 'Climate assessment retrieved',
+      data: assessment,
+      code: '0000',
+    })
+  } catch (error) {
+    console.error('Error in climate assessment getBySettlement:', error)
     return res.status(500).json({
       message: 'Failed to retrieve assessment',
       error: error.message,
@@ -387,33 +428,55 @@ exports.create = async (req, res) => {
       versionNum != null && !Number.isNaN(versionNum) ? versionNum : null
     )
     const activeConfig = configMeta || (await getActiveQuestionsConfig())
-    const assessment = await db.models.climate_assessment.create({
-      settlement_id,
-      county_id: settlement.county_id || null,
-      assessor_id: assessorId,
-      assessed_at: assessed_at || new Date(),
-      status: 'draft',
-      hazard_responses: {},
-      exposure_responses: {},
-      sensitivity_responses: {},
-      adaptive_capacity_responses: {},
-      question_config_version: activeConfig.version || 1,
-    })
+
+    const existing = await findAssessmentWithIncludes({ settlement_id })
+    if (existing) {
+      return res.status(200).json({
+        message: 'Climate assessment already exists for this settlement',
+        data: existing,
+        existing: true,
+        code: '0000',
+      })
+    }
+
+    let assessment
+    try {
+      assessment = await db.models.climate_assessment.create({
+        settlement_id,
+        county_id: settlement.county_id || null,
+        assessor_id: assessorId,
+        assessed_at: assessed_at || new Date(),
+        status: 'draft',
+        hazard_responses: {},
+        exposure_responses: {},
+        sensitivity_responses: {},
+        adaptive_capacity_responses: {},
+        response_meta: {},
+        question_config_version: activeConfig.version || 1,
+      })
+    } catch (error) {
+      if (isUniqueSettlementViolation(error)) {
+        const raced = await findAssessmentWithIncludes({ settlement_id })
+        if (raced) {
+          return res.status(200).json({
+            message: 'Climate assessment already exists for this settlement',
+            data: raced,
+            existing: true,
+            code: '0000',
+          })
+        }
+      }
+      throw error
+    }
 
     // Set code for document upload lookup (batch/pcode finds by code)
     await assessment.update({ code: String(assessment.id) })
 
-    // Return with assessor loaded so client gets username
-    const withAssessor = await db.models.climate_assessment.findByPk(assessment.id, {
-      include: [
-        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
-        { model: db.models.county, attributes: ['id', 'name'] },
-        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
-      ],
-    })
+    const withAssessor = await findAssessmentWithIncludes({ id: assessment.id })
     return res.status(201).json({
       message: 'Climate assessment created',
       data: withAssessor || assessment,
+      existing: false,
       code: '0000',
     })
   } catch (error) {
@@ -524,13 +587,7 @@ exports.update = async (req, res) => {
     await assessment.update(updateData)
 
     // Reload with associations so the response includes settlement, county, assessor
-    const updated = await db.models.climate_assessment.findByPk(id, {
-      include: [
-        { model: db.models.settlement, attributes: ['id', 'name', 'code', 'county_id'] },
-        { model: db.models.county, attributes: ['id', 'name'] },
-        { model: db.models.users, as: 'assessor', attributes: ['id', 'name', 'username', 'email'] },
-      ],
-    })
+    const updated = await findAssessmentWithIncludes({ id })
 
     return res.status(200).json({
       message: 'Climate assessment updated',

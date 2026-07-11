@@ -1526,17 +1526,11 @@ const loadOrCreateAssessment = async () => {
         await loadAssessmentMapData()
       }
     } else if (settlementId.value) {
-      const listRes = await listAssessments({ settlement_id: settlementId.value })
-      if (listRes.code === '0000' && listRes.data?.length) {
-        assessment.value = listRes.data[0]
-        syncResponsesFromAssessment(listRes.data[0])
+      const createRes = await createAssessment({ settlement_id: settlementId.value })
+      if (createRes.code === '0000') {
+        assessment.value = createRes.data
+        syncResponsesFromAssessment(createRes.data)
         await loadAssessmentMapData()
-      } else {
-        const createRes = await createAssessment({ settlement_id: settlementId.value })
-        if (createRes.code === '0000') {
-          assessment.value = createRes.data
-          await loadAssessmentMapData()
-        }
       }
     } else {
       ElMessage.error('Settlement or project location required')

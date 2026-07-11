@@ -115,7 +115,7 @@ module.exports = function (sequelize, DataTypes) {
       indexes: [
         { name: 'climate_assessment_pkey', unique: true, fields: [{ name: 'id' }] },
         { name: 'climate_assessment_code_idx', unique: true, fields: ['code'] },
-        { name: 'climate_assessment_settlement_idx', fields: ['settlement_id'] },
+        { name: 'climate_assessment_settlement_uniq', unique: true, fields: ['settlement_id'] },
         { name: 'climate_assessment_county_id_idx', fields: ['county_id'] },
         { name: 'climate_assessment_status_idx', fields: ['status'] },
       ],
