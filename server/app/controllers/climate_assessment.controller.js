@@ -8,6 +8,70 @@ const questionsConfigCacheByVersion = new Map()
 // Keep short so admin edits propagate quickly.
 const QUESTIONS_CACHE_TTL_MS = 10 * 1000
 
+const DIMENSIONS = ['hazard', 'exposure', 'sensitivity', 'adaptive_capacity']
+
+/**
+ * Merge an incoming (partial) set of answers for one dimension into the stored set
+ * without clobbering answers other groups already saved.
+ *
+ * Rules:
+ *  - Only question keys present in `incoming` are touched; absent keys are preserved.
+ *  - Newest-wins per question: an incoming answer only overwrites the stored one when its
+ *    timestamp is greater than or equal to the stored answer's timestamp. This makes
+ *    delayed offline syncs safe (an old draft can't overwrite a newer answer).
+ *  - `null` clears an answer, but only if the clear is newer than the stored answer.
+ *
+ * @param {Object} existingResp  stored answers { key: value }
+ * @param {Object} existingMeta  stored per-key meta { key: { at, by, group } }
+ * @param {Object} incomingResp  incoming (partial) answers { key: value|null }
+ * @param {Object} incomingMeta  incoming per-key meta { key: { at, group } }
+ * @param {Object} actor         { by, group } identity of the caller for attribution
+ * @returns {{ merged: Object, meta: Object, changed: boolean }}
+ */
+function mergeDimensionResponses(existingResp, existingMeta, incomingResp, incomingMeta, actor) {
+  const merged = { ...(existingResp || {}) }
+  const meta = { ...(existingMeta || {}) }
+  const nowIso = new Date().toISOString()
+  let changed = false
+
+  for (const key of Object.keys(incomingResp || {})) {
+    const incomingVal = incomingResp[key]
+    const incomingAt = incomingMeta?.[key]?.at || nowIso
+    const existingAt = meta[key]?.at
+
+    const isNewer = !existingAt || incomingAt >= existingAt
+
+    // Explicit clear
+    if (incomingVal === null || incomingVal === undefined || incomingVal === '') {
+      if (key in merged && isNewer) {
+        delete merged[key]
+        delete meta[key]
+        changed = true
+      }
+      continue
+    }
+
+    if (isNewer && merged[key] !== incomingVal) {
+      merged[key] = incomingVal
+      meta[key] = {
+        at: incomingAt,
+        by: actor?.by ?? null,
+        group: incomingMeta?.[key]?.group ?? actor?.group ?? null,
+      }
+      changed = true
+    } else if (isNewer && !meta[key]) {
+      // Same value but no recorded meta yet: keep value, record meta for future comparisons.
+      meta[key] = {
+        at: incomingAt,
+        by: actor?.by ?? null,
+        group: incomingMeta?.[key]?.group ?? actor?.group ?? null,
+      }
+    }
+  }
+
+  return { merged, meta, changed }
+}
+
 function getQuestionsConfigFromFile() {
   const configPath = path.join(__dirname, '../config/climate_assessment_questions.json')
   const raw = fs.readFileSync(configPath, 'utf8')
@@ -374,7 +438,16 @@ exports.update = async (req, res) => {
       assessed_at,
       geom,
       question_config_version,
+      response_meta,
+      group_label,
     } = req.body
+
+    const incomingByDimension = {
+      hazard: hazard_responses,
+      exposure: exposure_responses,
+      sensitivity: sensitivity_responses,
+      adaptive_capacity: adaptive_capacity_responses,
+    }
 
     const assessment = await db.models.climate_assessment.findByPk(id)
     if (!assessment) {
@@ -392,26 +465,44 @@ exports.update = async (req, res) => {
     )
     const scoringConfig = configMeta || (await getActiveQuestionsConfig())
 
-    const updateData = {}
-    if (hazard_responses !== undefined) updateData.hazard_responses = hazard_responses
-    if (exposure_responses !== undefined) updateData.exposure_responses = exposure_responses
-    if (sensitivity_responses !== undefined) updateData.sensitivity_responses = sensitivity_responses
-    if (adaptive_capacity_responses !== undefined) updateData.adaptive_capacity_responses = adaptive_capacity_responses
-    if (status !== undefined) updateData.status = status
-    if (assessed_at !== undefined) updateData.assessed_at = assessed_at
-    if (geom !== undefined && geom && geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) updateData.geom = geom
-    updateData.question_config_version = scoringConfig.version || assessment.question_config_version || 1
+    const actor = {
+      by: req.userid ?? req.userId ?? req.thisUser?.id ?? null,
+      group: group_label ?? null,
+    }
+    const incomingMetaAll = response_meta && typeof response_meta === 'object' ? response_meta : {}
+    const existingMetaAll = assessment.response_meta && typeof assessment.response_meta === 'object'
+      ? assessment.response_meta
+      : {}
+    const newMetaAll = { ...existingMetaAll }
 
+    const updateData = {}
+    // Per-question deep-merge so concurrent group edits don't clobber one another.
     const responses = {
       hazard: assessment.hazard_responses || {},
       exposure: assessment.exposure_responses || {},
       sensitivity: assessment.sensitivity_responses || {},
       adaptive_capacity: assessment.adaptive_capacity_responses || {},
     }
-    if (hazard_responses !== undefined) responses.hazard = hazard_responses
-    if (exposure_responses !== undefined) responses.exposure = exposure_responses
-    if (sensitivity_responses !== undefined) responses.sensitivity = sensitivity_responses
-    if (adaptive_capacity_responses !== undefined) responses.adaptive_capacity = adaptive_capacity_responses
+    for (const dim of DIMENSIONS) {
+      const incoming = incomingByDimension[dim]
+      if (incoming === undefined) continue
+      const { merged, meta } = mergeDimensionResponses(
+        assessment[`${dim}_responses`] || {},
+        existingMetaAll[dim] || {},
+        incoming || {},
+        incomingMetaAll[dim] || {},
+        actor
+      )
+      updateData[`${dim}_responses`] = merged
+      newMetaAll[dim] = meta
+      responses[dim] = merged
+    }
+    updateData.response_meta = newMetaAll
+
+    if (status !== undefined) updateData.status = status
+    if (assessed_at !== undefined) updateData.assessed_at = assessed_at
+    if (geom !== undefined && geom && geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) updateData.geom = geom
+    updateData.question_config_version = scoringConfig.version || assessment.question_config_version || 1
 
     updateData.hazard_score = computeDimensionScore(responses.hazard, 'hazard', scoringConfig.config)
     updateData.exposure_score = computeDimensionScore(responses.exposure, 'exposure', scoringConfig.config)

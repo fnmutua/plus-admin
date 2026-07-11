@@ -95,6 +95,12 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      response_meta: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: {},
+        comment: 'Per-question merge metadata: { dimension: { question_key: { at, by, group } } }',
+      },
       geom: {
         type: DataTypes.GEOMETRY('Geometry', 4326),
         allowNull: true,
