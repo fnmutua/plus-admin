@@ -3,6 +3,7 @@ const controller = require('../controllers/climate_assessment.controller')
 const { hasPermission } = require('../middleware/permission')
 
 module.exports = function (app) {
+  app.get('/api/v1/climate-assessment/questions/versions', [authJwt.verifyToken], controller.listQuestionVersions)
   app.get('/api/v1/climate-assessment/questions', [authJwt.verifyToken], controller.getQuestions)
   app.get('/api/v1/climate-assessment', [authJwt.verifyToken, hasPermission('climate_assessment:read')], controller.list)
   app.get('/api/v1/climate-assessment/:id', [authJwt.verifyToken, hasPermission('climate_assessment:read')], controller.getOne)

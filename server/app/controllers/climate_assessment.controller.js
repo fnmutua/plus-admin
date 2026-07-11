@@ -4,6 +4,7 @@ const path = require('path')
 const fs = require('fs')
 
 let questionsConfigCache = null
+const questionsConfigCacheByVersion = new Map()
 // Keep short so admin edits propagate quickly.
 const QUESTIONS_CACHE_TTL_MS = 10 * 1000
 
@@ -13,39 +14,52 @@ function getQuestionsConfigFromFile() {
   return JSON.parse(raw)
 }
 
-async function getActiveQuestionsConfig(forceRefresh = false) {
+async function getQuestionsConfigByVersion(version = null, forceRefresh = false) {
   const now = Date.now()
-  if (
-    !forceRefresh
-    && questionsConfigCache
-    && (now - questionsConfigCache.fetchedAt) < QUESTIONS_CACHE_TTL_MS
-  ) {
-    return questionsConfigCache
+  const cacheKey = version != null ? `v${version}` : 'active'
+
+  if (!forceRefresh) {
+    if (version == null && questionsConfigCache && (now - questionsConfigCache.fetchedAt) < QUESTIONS_CACHE_TTL_MS) {
+      return questionsConfigCache
+    }
+    const cached = questionsConfigCacheByVersion.get(cacheKey)
+    if (cached && (now - cached.fetchedAt) < QUESTIONS_CACHE_TTL_MS) {
+      return cached
+    }
   }
 
   try {
+    const whereClause = version != null ? 'version = :version' : 'is_active = TRUE'
+    const replacements = version != null ? { version } : {}
     const [row] = await db.sequelize.query(
       `
-      SELECT version, config
+      SELECT version, config, is_active
       FROM climate_assessment_question_config
-      WHERE is_active = TRUE
+      WHERE ${whereClause}
       ORDER BY version DESC, id DESC
       LIMIT 1
       `,
-      { type: db.Sequelize.QueryTypes.SELECT }
+      { type: db.Sequelize.QueryTypes.SELECT, replacements }
     )
 
     if (row?.config) {
-      questionsConfigCache = {
+      const payload = {
         version: row.version || 1,
         config: row.config,
         source: 'database',
+        is_active: !!row.is_active,
         fetchedAt: now,
       }
-      return questionsConfigCache
+      questionsConfigCacheByVersion.set(cacheKey, payload)
+      if (version == null) questionsConfigCache = payload
+      return payload
     }
   } catch (error) {
     console.error('Error loading climate questions from DB, using file fallback:', error.message || error)
+  }
+
+  if (version != null) {
+    return null
   }
 
   const fallbackConfig = getQuestionsConfigFromFile()
@@ -53,9 +67,14 @@ async function getActiveQuestionsConfig(forceRefresh = false) {
     version: 1,
     config: fallbackConfig,
     source: 'file',
+    is_active: true,
     fetchedAt: now,
   }
   return questionsConfigCache
+}
+
+async function getActiveQuestionsConfig(forceRefresh = false) {
+  return getQuestionsConfigByVersion(null, forceRefresh)
 }
 
 /**
@@ -133,18 +152,69 @@ function computeAllRatings(dimScores) {
 
 exports.getQuestions = async (req, res) => {
   try {
-    const activeConfig = await getActiveQuestionsConfig()
+    const rawVersion = req.query?.version
+    const requestedVersion = rawVersion !== undefined && rawVersion !== null && rawVersion !== ''
+      ? parseInt(String(rawVersion), 10)
+      : null
+
+    if (requestedVersion != null && Number.isNaN(requestedVersion)) {
+      return res.status(400).json({
+        message: 'Invalid "version" query parameter',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    const configMeta = await getQuestionsConfigByVersion(requestedVersion)
+    if (!configMeta) {
+      return res.status(404).json({
+        message: `No climate assessment question config found for version ${requestedVersion}`,
+        code: 'NOT_FOUND',
+      })
+    }
+
     return res.status(200).json({
       message: 'Climate assessment questions retrieved',
-      data: activeConfig.config,
-      version: activeConfig.version,
-      source: activeConfig.source,
+      data: configMeta.config,
+      version: configMeta.version,
+      source: configMeta.source,
+      is_active: configMeta.is_active,
       code: '0000',
     })
   } catch (error) {
     console.error('Error in getQuestions:', error)
     return res.status(500).json({
       message: 'Failed to retrieve questions',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    })
+  }
+}
+
+exports.listQuestionVersions = async (req, res) => {
+  try {
+    const rows = await db.sequelize.query(
+      `
+      SELECT DISTINCT ON (version)
+        id,
+        version,
+        is_active,
+        "createdAt",
+        "updatedAt"
+      FROM climate_assessment_question_config
+      ORDER BY version DESC, id DESC
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT }
+    )
+
+    return res.status(200).json({
+      message: 'Climate assessment question versions retrieved',
+      data: rows,
+      code: '0000',
+    })
+  } catch (error) {
+    console.error('Error in listQuestionVersions:', error)
+    return res.status(500).json({
+      message: 'Failed to list question versions',
       error: error.message,
       code: 'SERVER_ERROR',
     })
@@ -227,7 +297,7 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { settlement_id, assessed_at } = req.body
+    const { settlement_id, assessed_at, question_config_version } = req.body
 
     if (!settlement_id) {
       return res.status(400).json({
@@ -248,7 +318,11 @@ exports.create = async (req, res) => {
 
     // Auth middleware sets req.userid (lowercase); some code uses req.userId
     const assessorId = req.userid ?? req.userId ?? req.thisUser?.id ?? null
-    const activeConfig = await getActiveQuestionsConfig()
+    const versionNum = question_config_version != null ? parseInt(String(question_config_version), 10) : null
+    const configMeta = await getQuestionsConfigByVersion(
+      versionNum != null && !Number.isNaN(versionNum) ? versionNum : null
+    )
+    const activeConfig = configMeta || (await getActiveQuestionsConfig())
     const assessment = await db.models.climate_assessment.create({
       settlement_id,
       county_id: settlement.county_id || null,
@@ -299,6 +373,7 @@ exports.update = async (req, res) => {
       status,
       assessed_at,
       geom,
+      question_config_version,
     } = req.body
 
     const assessment = await db.models.climate_assessment.findByPk(id)
@@ -309,6 +384,14 @@ exports.update = async (req, res) => {
       })
     }
 
+    const versionForScoring = question_config_version != null
+      ? parseInt(String(question_config_version), 10)
+      : assessment.question_config_version
+    const configMeta = await getQuestionsConfigByVersion(
+      versionForScoring != null && !Number.isNaN(versionForScoring) ? versionForScoring : null
+    )
+    const scoringConfig = configMeta || (await getActiveQuestionsConfig())
+
     const updateData = {}
     if (hazard_responses !== undefined) updateData.hazard_responses = hazard_responses
     if (exposure_responses !== undefined) updateData.exposure_responses = exposure_responses
@@ -317,8 +400,7 @@ exports.update = async (req, res) => {
     if (status !== undefined) updateData.status = status
     if (assessed_at !== undefined) updateData.assessed_at = assessed_at
     if (geom !== undefined && geom && geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) updateData.geom = geom
-    const activeConfig = await getActiveQuestionsConfig()
-    updateData.question_config_version = activeConfig.version || assessment.question_config_version || 1
+    updateData.question_config_version = scoringConfig.version || assessment.question_config_version || 1
 
     const responses = {
       hazard: assessment.hazard_responses || {},
@@ -331,10 +413,10 @@ exports.update = async (req, res) => {
     if (sensitivity_responses !== undefined) responses.sensitivity = sensitivity_responses
     if (adaptive_capacity_responses !== undefined) responses.adaptive_capacity = adaptive_capacity_responses
 
-    updateData.hazard_score = computeDimensionScore(responses.hazard, 'hazard', activeConfig.config)
-    updateData.exposure_score = computeDimensionScore(responses.exposure, 'exposure', activeConfig.config)
-    updateData.sensitivity_score = computeDimensionScore(responses.sensitivity, 'sensitivity', activeConfig.config)
-    updateData.adaptive_capacity_score = computeDimensionScore(responses.adaptive_capacity, 'adaptive_capacity', activeConfig.config)
+    updateData.hazard_score = computeDimensionScore(responses.hazard, 'hazard', scoringConfig.config)
+    updateData.exposure_score = computeDimensionScore(responses.exposure, 'exposure', scoringConfig.config)
+    updateData.sensitivity_score = computeDimensionScore(responses.sensitivity, 'sensitivity', scoringConfig.config)
+    updateData.adaptive_capacity_score = computeDimensionScore(responses.adaptive_capacity, 'adaptive_capacity', scoringConfig.config)
 
     const dimScores = {
       hazard: updateData.hazard_score ?? assessment.hazard_score,
@@ -385,12 +467,17 @@ exports.computeScores = async (req, res) => {
       })
     }
 
-    const activeConfig = await getActiveQuestionsConfig()
+    const versionForScoring = assessment.question_config_version
+    const configMeta = await getQuestionsConfigByVersion(
+      versionForScoring != null ? versionForScoring : null
+    )
+    const scoringConfig = configMeta || (await getActiveQuestionsConfig())
+
     const dimScores = {
-      hazard: computeDimensionScore(assessment.hazard_responses, 'hazard', activeConfig.config),
-      exposure: computeDimensionScore(assessment.exposure_responses, 'exposure', activeConfig.config),
-      sensitivity: computeDimensionScore(assessment.sensitivity_responses, 'sensitivity', activeConfig.config),
-      adaptive_capacity: computeDimensionScore(assessment.adaptive_capacity_responses, 'adaptive_capacity', activeConfig.config),
+      hazard: computeDimensionScore(assessment.hazard_responses, 'hazard', scoringConfig.config),
+      exposure: computeDimensionScore(assessment.exposure_responses, 'exposure', scoringConfig.config),
+      sensitivity: computeDimensionScore(assessment.sensitivity_responses, 'sensitivity', scoringConfig.config),
+      adaptive_capacity: computeDimensionScore(assessment.adaptive_capacity_responses, 'adaptive_capacity', scoringConfig.config),
     }
     const ratings = computeAllRatings(dimScores)
 
@@ -403,7 +490,7 @@ exports.computeScores = async (req, res) => {
       vulnerability_rating: ratings.vulnerability_rating,
       risk_score: ratings.risk_score,
       risk_rating: ratings.risk_rating,
-      question_config_version: activeConfig.version || assessment.question_config_version || 1,
+      question_config_version: scoringConfig.version || assessment.question_config_version || 1,
     })
 
     return res.status(200).json({
