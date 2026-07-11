@@ -26,6 +26,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
   // Loads `.env`, `.env.local`, then `.env.[mode]` / `.env.[mode].local` (mode is
   // `development` for dev, `production` for build). Keep shared vars in `.env` only.
   const env = loadEnv(mode, root) as Record<string, string>
+  // VITE_APP_HOST is the public frontend origin (share links, emails). The dev proxy
+  // must target the Node API on PORT, not the Vite dev server.
+  const apiProxyTarget =
+    env.VITE_DEV_API_TARGET ||
+    `http://localhost:${env.PORT || env.VUE_APP_PORT || '80'}`
 
   const plugins = [
       Vue(),
@@ -190,7 +195,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     //  port : 80,   // Production
       proxy: {
         '/api': {
-          target: env.VITE_APP_HOST || 'http://localhost',
+          target: apiProxyTarget,
           changeOrigin: true
         },
         '/imagery': {
