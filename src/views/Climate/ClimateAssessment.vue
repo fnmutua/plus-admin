@@ -565,8 +565,22 @@
             <ElButton type="primary" :loading="saving" @click="saveAssessment">
               Save & Compute Scores
             </ElButton>
-            <ElButton v-if="assessment.status === 'draft'" @click="markCompleted">
+            <ElButton
+              v-if="assessment.status === 'draft'"
+              type="success"
+              :loading="saving"
+              @click="submitCompleted"
+            >
               Mark Completed
+            </ElButton>
+            <ElButton
+              v-else-if="assessment.status === 'completed'"
+              type="success"
+              plain
+              :loading="saving"
+              @click="submitCompleted"
+            >
+              Re-submit
             </ElButton>
           </div>
         </template>
@@ -1758,16 +1772,25 @@ const saveAssessment = async () => {
   if (!assessment.value?.id) return
   saving.value = true
   try {
-    const res = await updateAssessment(assessment.value.id, {
+    const payload: Parameters<typeof updateAssessment>[1] = {
       hazard_responses: responses.value.hazard,
       exposure_responses: responses.value.exposure,
       sensitivity_responses: responses.value.sensitivity,
       adaptive_capacity_responses: responses.value.adaptive_capacity,
       question_config_version: selectedQuestionVersion.value ?? undefined,
-    })
+    }
+    // Editing a completed assessment reopens it as draft until re-submitted.
+    if (assessment.value.status === 'completed') {
+      payload.status = 'draft'
+    }
+    const res = await updateAssessment(assessment.value.id, payload)
     if (res.code === '0000') {
       assessment.value = res.data
-      ElMessage.success('Assessment saved')
+      ElMessage.success(
+        assessment.value.status === 'draft' && payload.status === 'draft'
+          ? 'Assessment saved as draft — re-submit when ready'
+          : 'Assessment saved'
+      )
     } else {
       ElMessage.error(res.message || 'Failed to save')
     }
@@ -1778,18 +1801,29 @@ const saveAssessment = async () => {
   }
 }
 
-const markCompleted = async () => {
+const submitCompleted = async () => {
   if (!assessment.value?.id) return
   saving.value = true
   try {
-    const res = await updateAssessment(assessment.value.id, { status: 'completed' })
+    const res = await updateAssessment(assessment.value.id, {
+      hazard_responses: responses.value.hazard,
+      exposure_responses: responses.value.exposure,
+      sensitivity_responses: responses.value.sensitivity,
+      adaptive_capacity_responses: responses.value.adaptive_capacity,
+      question_config_version: selectedQuestionVersion.value ?? undefined,
+      status: 'completed',
+    })
     if (res.code === '0000') {
       assessment.value = res.data
-      ElMessage.success(res.version ? `Marked as completed (saved as v${res.version.version_number})` : 'Marked as completed')
+      ElMessage.success(
+        res.version
+          ? `Submitted as v${res.version.version_number}`
+          : 'Assessment submitted'
+      )
       await loadAssessmentVersions()
     }
   } catch (e: any) {
-    ElMessage.error(e?.message || 'Failed to update')
+    ElMessage.error(e?.message || 'Failed to submit')
   } finally {
     saving.value = false
   }

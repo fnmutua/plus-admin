@@ -232,14 +232,8 @@ function computeAllRatings(dimScores) {
   }
 }
 
-function hasIncomingResponsePayload(incomingByDimension) {
-  return DIMENSIONS.some((dim) => incomingByDimension[dim] !== undefined)
-}
-
-function shouldSnapshotOnComplete(assessment, status, incomingByDimension) {
-  if (status !== 'completed') return false
-  if (assessment.status !== 'completed') return true
-  return hasIncomingResponsePayload(incomingByDimension)
+function shouldSnapshotOnComplete(status) {
+  return status === 'completed'
 }
 
 async function getNextAssessmentVersionNumber(assessmentId) {
@@ -668,12 +662,16 @@ exports.update = async (req, res) => {
     await assessment.update(updateData)
 
     let versionSnapshot = null
-    if (shouldSnapshotOnComplete(assessment, status, incomingByDimension)) {
-      await assessment.reload()
-      versionSnapshot = await createCompletedAssessmentVersion(
-        assessment,
-        req.userid ?? req.userId ?? req.thisUser?.id ?? null
-      )
+    if (shouldSnapshotOnComplete(status)) {
+      try {
+        await assessment.reload()
+        versionSnapshot = await createCompletedAssessmentVersion(
+          assessment,
+          req.userid ?? req.userId ?? req.thisUser?.id ?? null
+        )
+      } catch (versionError) {
+        console.error('Error creating climate assessment version snapshot:', versionError)
+      }
     }
 
     // Reload with associations so the response includes settlement, county, assessor
