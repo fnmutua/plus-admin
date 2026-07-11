@@ -443,7 +443,23 @@ db.models.climate_assessment.belongsTo(db.models.users, {
 db.models.users.hasMany(db.models.climate_assessment, {
   foreignKey: 'assessor_id',
   as: 'climateAssessments'
-}) 
+})
+
+db.models.climate_assessment.hasMany(db.models.climate_assessment_version, {
+  foreignKey: 'assessment_id',
+  as: 'versions',
+})
+db.models.climate_assessment_version.belongsTo(db.models.climate_assessment, {
+  foreignKey: 'assessment_id',
+})
+db.models.climate_assessment_version.belongsTo(db.models.users, {
+  foreignKey: 'created_by',
+  as: 'submitter',
+})
+db.models.users.hasMany(db.models.climate_assessment_version, {
+  foreignKey: 'created_by',
+  as: 'climateAssessmentVersions',
+})
 
 
 

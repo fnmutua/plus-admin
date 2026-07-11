@@ -95,6 +95,7 @@ var _module_settings= require('./module_settings')
 var _vulnerability_matrix= require('./vulnerability_matrix')
 var _vulnerability_rating_threshold= require('./vulnerability_rating_threshold')
 var _climate_assessment= require('./climate_assessment')
+var _climate_assessment_version= require('./climate_assessment_version')
 var _page_visit= require('./page_visit')
 
 var _disbursement= require('./disbursements')
@@ -231,6 +232,7 @@ function initModels(sequelize) {
   var vulnerability_matrix = _vulnerability_matrix(sequelize, DataTypes)
   var vulnerability_rating_threshold = _vulnerability_rating_threshold(sequelize, DataTypes)
   var climate_assessment = _climate_assessment(sequelize, DataTypes)
+  var climate_assessment_version = _climate_assessment_version(sequelize, DataTypes)
   var page_visit = _page_visit(sequelize, DataTypes)
   var disbursement = _disbursement(sequelize, DataTypes)
   var project_contractor = _project_contractor(sequelize, DataTypes)
@@ -364,7 +366,7 @@ communication_recipient.belongsTo(communication, {
     grievance_log,disbursement,project_contractor,project_team,project_clockin,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
      settlement_history,settlement_population,county_population_growth_rate,grievance_history, programme,permissions,role_permissions,role,module_settings,
-     vulnerability_matrix,vulnerability_rating_threshold,climate_assessment,page_visit
+     vulnerability_matrix,vulnerability_rating_threshold,climate_assessment,climate_assessment_version,page_visit
 
   }
 }

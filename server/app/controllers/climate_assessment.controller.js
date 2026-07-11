@@ -232,6 +232,87 @@ function computeAllRatings(dimScores) {
   }
 }
 
+function hasIncomingResponsePayload(incomingByDimension) {
+  return DIMENSIONS.some((dim) => incomingByDimension[dim] !== undefined)
+}
+
+function shouldSnapshotOnComplete(assessment, status, incomingByDimension) {
+  if (status !== 'completed') return false
+  if (assessment.status !== 'completed') return true
+  return hasIncomingResponsePayload(incomingByDimension)
+}
+
+async function getNextAssessmentVersionNumber(assessmentId) {
+  const [row] = await db.sequelize.query(
+    `
+    SELECT COALESCE(MAX(version_number), 0) AS max_version
+    FROM climate_assessment_version
+    WHERE assessment_id = :assessmentId
+    `,
+    {
+      type: db.Sequelize.QueryTypes.SELECT,
+      replacements: { assessmentId },
+    }
+  )
+  return Number(row?.max_version || 0) + 1
+}
+
+function buildAssessmentVersionPayload(record, versionNumber, createdBy, changeType = 'completed') {
+  const json = typeof record.toJSON === 'function' ? record.toJSON() : record
+  return {
+    assessment_id: json.id,
+    settlement_id: json.settlement_id,
+    version_number: versionNumber,
+    status: json.status,
+    question_config_version: json.question_config_version ?? null,
+    hazard_responses: json.hazard_responses ?? {},
+    exposure_responses: json.exposure_responses ?? {},
+    sensitivity_responses: json.sensitivity_responses ?? {},
+    adaptive_capacity_responses: json.adaptive_capacity_responses ?? {},
+    response_meta: json.response_meta ?? {},
+    geom: json.geom ?? null,
+    assessed_at: json.assessed_at ?? null,
+    hazard_score: json.hazard_score ?? null,
+    exposure_score: json.exposure_score ?? null,
+    sensitivity_score: json.sensitivity_score ?? null,
+    adaptive_capacity_score: json.adaptive_capacity_score ?? null,
+    vulnerability_score: json.vulnerability_score ?? null,
+    vulnerability_rating: json.vulnerability_rating ?? null,
+    risk_score: json.risk_score ?? null,
+    risk_rating: json.risk_rating ?? null,
+    change_type: changeType,
+    created_by: createdBy ?? null,
+  }
+}
+
+async function createCompletedAssessmentVersion(record, createdBy) {
+  const versionNumber = await getNextAssessmentVersionNumber(record.id)
+  return db.models.climate_assessment_version.create(
+    buildAssessmentVersionPayload(record, versionNumber, createdBy, 'completed')
+  )
+}
+
+const VERSION_SUMMARY_ATTRIBUTES = [
+  'id',
+  'assessment_id',
+  'settlement_id',
+  'version_number',
+  'status',
+  'question_config_version',
+  'assessed_at',
+  'hazard_score',
+  'exposure_score',
+  'sensitivity_score',
+  'adaptive_capacity_score',
+  'vulnerability_score',
+  'vulnerability_rating',
+  'risk_score',
+  'risk_rating',
+  'change_type',
+  'created_by',
+  'created_at',
+]
+
 exports.getQuestions = async (req, res) => {
   try {
     const rawVersion = req.query?.version
@@ -586,12 +667,27 @@ exports.update = async (req, res) => {
 
     await assessment.update(updateData)
 
+    let versionSnapshot = null
+    if (shouldSnapshotOnComplete(assessment, status, incomingByDimension)) {
+      await assessment.reload()
+      versionSnapshot = await createCompletedAssessmentVersion(
+        assessment,
+        req.userid ?? req.userId ?? req.thisUser?.id ?? null
+      )
+    }
+
     // Reload with associations so the response includes settlement, county, assessor
     const updated = await findAssessmentWithIncludes({ id })
 
     return res.status(200).json({
       message: 'Climate assessment updated',
       data: updated,
+      version: versionSnapshot
+        ? {
+          version_number: versionSnapshot.version_number,
+          id: versionSnapshot.id,
+        }
+        : null,
       code: '0000',
     })
   } catch (error) {
@@ -679,6 +775,101 @@ exports.delete = async (req, res) => {
     console.error('Error in climate assessment delete:', error)
     return res.status(500).json({
       message: 'Failed to delete assessment',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    })
+  }
+}
+
+exports.listVersions = async (req, res) => {
+  try {
+    const assessmentId = parseInt(String(req.params.id), 10)
+    if (Number.isNaN(assessmentId)) {
+      return res.status(400).json({
+        message: 'Invalid assessment id',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    const assessment = await db.models.climate_assessment.findByPk(assessmentId, {
+      attributes: ['id'],
+    })
+    if (!assessment) {
+      return res.status(404).json({
+        message: 'Assessment not found',
+        code: 'NOT_FOUND',
+      })
+    }
+
+    const versions = await db.models.climate_assessment_version.findAll({
+      where: { assessment_id: assessmentId },
+      attributes: VERSION_SUMMARY_ATTRIBUTES,
+      order: [['version_number', 'DESC']],
+      include: [
+        {
+          model: db.models.users,
+          as: 'submitter',
+          attributes: ['id', 'name', 'username', 'email'],
+        },
+      ],
+    })
+
+    return res.status(200).json({
+      message: 'Climate assessment versions retrieved',
+      data: versions,
+      code: '0000',
+    })
+  } catch (error) {
+    console.error('Error in climate assessment listVersions:', error)
+    return res.status(500).json({
+      message: 'Failed to list assessment versions',
+      error: error.message,
+      code: 'SERVER_ERROR',
+    })
+  }
+}
+
+exports.getVersion = async (req, res) => {
+  try {
+    const assessmentId = parseInt(String(req.params.id), 10)
+    const versionNumber = parseInt(String(req.params.version_number), 10)
+    if (Number.isNaN(assessmentId) || Number.isNaN(versionNumber)) {
+      return res.status(400).json({
+        message: 'Invalid assessment id or version number',
+        code: 'INVALID_PARAMETER',
+      })
+    }
+
+    const version = await db.models.climate_assessment_version.findOne({
+      where: {
+        assessment_id: assessmentId,
+        version_number: versionNumber,
+      },
+      include: [
+        {
+          model: db.models.users,
+          as: 'submitter',
+          attributes: ['id', 'name', 'username', 'email'],
+        },
+      ],
+    })
+
+    if (!version) {
+      return res.status(404).json({
+        message: 'Assessment version not found',
+        code: 'NOT_FOUND',
+      })
+    }
+
+    return res.status(200).json({
+      message: 'Climate assessment version retrieved',
+      data: version,
+      code: '0000',
+    })
+  } catch (error) {
+    console.error('Error in climate assessment getVersion:', error)
+    return res.status(500).json({
+      message: 'Failed to retrieve assessment version',
       error: error.message,
       code: 'SERVER_ERROR',
     })

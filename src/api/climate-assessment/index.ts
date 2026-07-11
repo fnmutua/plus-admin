@@ -25,6 +25,39 @@ export interface ClimateAssessment {
   settlement?: { id: number; name: string; code: string; county_id?: number }
   county?: { id: number; name: string }
   assessor?: { id: number; name?: string; username: string; email: string }
+  question_config_version?: number | null
+  response_meta?: Record<string, unknown>
+}
+
+export interface ClimateAssessmentVersionSummary {
+  id: number
+  assessment_id: number
+  settlement_id: number
+  version_number: number
+  status: string
+  question_config_version?: number | null
+  assessed_at?: string | null
+  hazard_score?: number | null
+  exposure_score?: number | null
+  sensitivity_score?: number | null
+  adaptive_capacity_score?: number | null
+  vulnerability_score?: number | null
+  vulnerability_rating?: string | null
+  risk_score?: number | null
+  risk_rating?: string | null
+  change_type?: string
+  created_by?: number | null
+  created_at?: string
+  submitter?: { id: number; name?: string; username: string; email: string }
+}
+
+export interface ClimateAssessmentVersion extends ClimateAssessmentVersionSummary {
+  hazard_responses?: Record<string, string>
+  exposure_responses?: Record<string, string>
+  sensitivity_responses?: Record<string, string>
+  adaptive_capacity_responses?: Record<string, string>
+  response_meta?: Record<string, unknown>
+  geom?: { type: string; coordinates: [number, number] } | null
 }
 
 export interface AssessmentQuestions {
@@ -34,9 +67,24 @@ export interface AssessmentQuestions {
   adaptive_capacity: { label: string; categories: Array<{ key: string; label: string; questions: Array<{ key: string; label: string; hint?: string; answers: Record<string, number> }> }> }
 }
 
-export const getQuestions = (): Promise<{ code: string; data: AssessmentQuestions; message: string }> => {
+export const getQuestions = (version?: number): Promise<{ code: string; data: AssessmentQuestions; version?: number; message: string }> => {
   return request.get({
-    url: prod + '/api/v1/climate-assessment/questions'
+    url: prod + '/api/v1/climate-assessment/questions',
+    params: version != null ? { version } : undefined,
+  })
+}
+
+export interface QuestionConfigVersionRecord {
+  id: number
+  version: number
+  is_active: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export const listQuestionVersions = (): Promise<{ code: string; data: QuestionConfigVersionRecord[]; message: string }> => {
+  return request.get({
+    url: prod + '/api/v1/climate-assessment/questions/versions',
   })
 }
 
@@ -73,10 +121,28 @@ export const updateAssessment = (id: number, data: Partial<{
   adaptive_capacity_responses: Record<string, string>
   status: string
   assessed_at: string
-}>): Promise<{ code: string; data: ClimateAssessment; message: string }> => {
+  question_config_version?: number
+  response_meta?: Record<string, unknown>
+  group_label?: string
+}>): Promise<{ code: string; data: ClimateAssessment; version?: { id: number; version_number: number } | null; message: string }> => {
   return request.put({
     url: prod + '/api/v1/climate-assessment/' + id,
     data
+  })
+}
+
+export const listAssessmentVersions = (id: number): Promise<{ code: string; data: ClimateAssessmentVersionSummary[]; message: string }> => {
+  return request.get({
+    url: prod + '/api/v1/climate-assessment/' + id + '/versions'
+  })
+}
+
+export const getAssessmentVersion = (
+  id: number,
+  versionNumber: number
+): Promise<{ code: string; data: ClimateAssessmentVersion; message: string }> => {
+  return request.get({
+    url: prod + '/api/v1/climate-assessment/' + id + '/versions/' + versionNumber
   })
 }
 

@@ -15,6 +15,30 @@
           <p v-if="countyName || settlementName || assessorName" class="context-name">
             County: {{ countyName || '—' }} | Settlement: {{ settlementName || '—' }} | Assessor: {{ assessorName || '—' }}
           </p>
+          <div v-if="questionVersions.length" class="header-version-row">
+            <span class="header-version-label">Tool B version</span>
+            <ElSelect
+              v-model="selectedQuestionVersion"
+              :disabled="!canSave"
+              size="small"
+              class="header-version-select"
+              placeholder="Select version"
+              @change="onQuestionVersionChange"
+            >
+              <ElOption
+                v-for="v in questionVersions"
+                :key="v.version"
+                :label="`v${v.version}${v.is_active ? ' (active)' : ''}`"
+                :value="v.version"
+              />
+            </ElSelect>
+            <ElTag v-if="assessment?.status" :type="assessment.status === 'completed' ? 'success' : 'info'" size="small">
+              {{ assessment.status }}
+            </ElTag>
+            <ElTag v-if="assessmentVersions.length" type="info" size="small" plain>
+              {{ assessmentVersions.length }} submission{{ assessmentVersions.length === 1 ? '' : 's' }}
+            </ElTag>
+          </div>
         </div>
       </template>
 
@@ -427,6 +451,62 @@
               </div>
             </ElTabPane>
 
+            <ElTabPane name="history" label="Submission History">
+              <div v-loading="versionsLoading" class="tab-content history-content">
+                <ElEmpty
+                  v-if="!versionsLoading && assessmentVersions.length === 0"
+                  description="No submitted versions yet. A snapshot is saved when the assessment is marked completed."
+                />
+                <ElCollapse v-else v-model="expandedVersion" accordion class="version-collapse">
+                  <ElCollapseItem
+                    v-for="version in assessmentVersions"
+                    :key="version.id"
+                    :name="version.version_number"
+                  >
+                    <template #title>
+                      <div class="version-collapse-title">
+                        <span class="version-label">v{{ version.version_number }}</span>
+                        <ElTag size="small" type="success">{{ version.status }}</ElTag>
+                        <span class="version-meta">{{ formatVersionDate(version.created_at) }}</span>
+                        <span v-if="versionSubmitterLabel(version)" class="version-meta">
+                          · {{ versionSubmitterLabel(version) }}
+                        </span>
+                      </div>
+                    </template>
+                    <div class="version-details">
+                      <div class="version-detail-grid">
+                        <div><strong>Tool B version:</strong> v{{ version.question_config_version ?? '—' }}</div>
+                        <div><strong>Assessed:</strong> {{ formatVersionDate(version.assessed_at) }}</div>
+                        <div><strong>Hazard:</strong> {{ formatRatingValue(version.hazard_score) }}</div>
+                        <div><strong>Exposure:</strong> {{ formatRatingValue(version.exposure_score) }}</div>
+                        <div><strong>Sensitivity:</strong> {{ formatRatingValue(version.sensitivity_score) }}</div>
+                        <div><strong>Adaptive capacity:</strong> {{ formatRatingValue(version.adaptive_capacity_score) }}</div>
+                        <div>
+                          <strong>Vulnerability:</strong>
+                          {{ formatRatingValue(version.vulnerability_score) }}
+                          <ElTag v-if="version.vulnerability_rating" :type="ratingTypeForString(version.vulnerability_rating)" size="small">
+                            {{ formatRatingLabel(version.vulnerability_rating) }}
+                          </ElTag>
+                        </div>
+                        <div>
+                          <strong>Risk:</strong>
+                          {{ formatRatingValue(version.risk_score) }}
+                          <ElTag v-if="version.risk_rating" :type="ratingTypeForString(version.risk_rating)" size="small">
+                            {{ formatRatingLabel(version.risk_rating) }}
+                          </ElTag>
+                        </div>
+                      </div>
+                      <div v-if="canSave" class="version-restore-row">
+                        <ElButton size="small" type="primary" plain @click="restoreSubmissionVersion(version.version_number)">
+                          Load into editor
+                        </ElButton>
+                      </div>
+                    </div>
+                  </ElCollapseItem>
+                </ElCollapse>
+              </div>
+            </ElTabPane>
+
             <!-- Documentation tab -->
             <ElTabPane name="docs" label="Documentation">
               <div class="tab-content">
@@ -592,7 +672,8 @@ import {
   ElMessage,
   ElStatistic,
   ElTable,
-  ElTableColumn
+  ElTableColumn,
+  ElMessageBox,
 } from 'element-plus'
 import { Back, Lightning, Location, TrendCharts, SetUp, WarningFilled, InfoFilled, Document, Loading, Download } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
@@ -603,7 +684,12 @@ import {
   createAssessment,
   updateAssessment,
   listAssessments,
+  listAssessmentVersions,
+  getAssessmentVersion,
+  listQuestionVersions,
   type ClimateAssessment,
+  type ClimateAssessmentVersionSummary,
+  type QuestionConfigVersionRecord,
   type AssessmentQuestions
 } from '@/api/climate-assessment'
 import { getSettlementListByCounty, getSettlementMapData } from '@/api/settlements'
@@ -653,6 +739,11 @@ const assessment = ref<ClimateAssessment | null>(null)
 const questionsConfig = ref<AssessmentQuestions | null>(null)
 const activeTab = ref<string>('howto')
 const infoDrawerOpen = ref(false)
+const versionsLoading = ref(false)
+const assessmentVersions = ref<ClimateAssessmentVersionSummary[]>([])
+const expandedVersion = ref<number | string>('')
+const questionVersions = ref<QuestionConfigVersionRecord[]>([])
+const selectedQuestionVersion = ref<number | null>(null)
 /** Pre-fetched settlement map data for the Map tab (same pattern as SettlementDetails) */
 const assessmentMapData = ref<Record<string, any> | null>(null)
 const activeCategoryByTab = ref<Record<string, string>>({
@@ -698,6 +789,97 @@ const ratingTypeForString = (r: string | null | undefined) => {
 
 const vulnRatingType = computed(() => ratingTypeForString(assessment.value?.vulnerability_rating))
 const riskRatingType = computed(() => ratingTypeForString(assessment.value?.risk_rating))
+
+const formatVersionDate = (value?: string | null) => {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+}
+
+const versionSubmitterLabel = (version: ClimateAssessmentVersionSummary) => {
+  const submitter = version.submitter
+  if (!submitter) return ''
+  return submitter.name || submitter.username || submitter.email || ''
+}
+
+async function loadAssessmentVersions() {
+  if (!assessment.value?.id) {
+    assessmentVersions.value = []
+    return
+  }
+  versionsLoading.value = true
+  try {
+    const res = await listAssessmentVersions(assessment.value.id)
+    if (res.code === '0000') {
+      assessmentVersions.value = res.data || []
+      if (assessmentVersions.value.length && !expandedVersion.value) {
+        expandedVersion.value = assessmentVersions.value[0].version_number
+      }
+    }
+  } catch {
+    assessmentVersions.value = []
+  } finally {
+    versionsLoading.value = false
+  }
+}
+
+async function loadQuestionVersionList() {
+  try {
+    const res = await listQuestionVersions()
+    if (res.code === '0000') {
+      questionVersions.value = (res.data || [])
+        .map((row) => ({ ...row, version: Number(row.version) }))
+        .filter((row) => Number.isFinite(row.version))
+        .sort((a, b) => b.version - a.version)
+    }
+  } catch {
+    questionVersions.value = []
+  }
+}
+
+async function restoreSubmissionVersion(versionNumber: number) {
+  if (!assessment.value?.id || !canSave.value) return
+  try {
+    await ElMessageBox.confirm(
+      `Load submission v${versionNumber} into the editor? Current unsaved answers will be replaced. The assessment will be set back to draft.`,
+      'Load submission version',
+      { type: 'warning', confirmButtonText: 'Load', cancelButtonText: 'Cancel' }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    const res = await getAssessmentVersion(assessment.value.id, versionNumber)
+    if (res.code !== '0000' || !res.data) {
+      ElMessage.error(res.message || 'Could not load submission version')
+      return
+    }
+    const snapshot = res.data
+    for (const dim of dimensions) {
+      responses.value[dim] = { ...((snapshot as any)[`${dim}_responses`] || {}) }
+    }
+    if (snapshot.question_config_version != null) {
+      selectedQuestionVersion.value = Number(snapshot.question_config_version)
+      await loadQuestions(selectedQuestionVersion.value)
+    }
+    const saveRes = await updateAssessment(assessment.value.id, {
+      hazard_responses: responses.value.hazard,
+      exposure_responses: responses.value.exposure,
+      sensitivity_responses: responses.value.sensitivity,
+      adaptive_capacity_responses: responses.value.adaptive_capacity,
+      status: 'draft',
+      question_config_version: selectedQuestionVersion.value ?? undefined,
+    })
+    if (saveRes.code === '0000') {
+      assessment.value = saveRes.data
+      ElMessage.success(`Loaded submission v${versionNumber} into the editor`)
+      activeTab.value = 'hazard'
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Failed to load submission version')
+  }
+}
 
 /** Return a severity level class based on dimension score (1-3 scale).
  *  For Adaptive Capacity the polarity is inverted (3 = good). */
@@ -1491,13 +1673,25 @@ const debouncedSave = () => {
   saveTimeout = setTimeout(() => saveAssessment(), 800)
 }
 
-const loadQuestions = async () => {
+const loadQuestions = async (version?: number | null) => {
   try {
-    const res = await getQuestions()
-    if (res.code === '0000') questionsConfig.value = res.data
+    const targetVersion = version ?? selectedQuestionVersion.value ?? undefined
+    const res = await getQuestions(targetVersion ?? undefined)
+    if (res.code === '0000') {
+      questionsConfig.value = res.data
+      if (res.version != null && Number.isFinite(Number(res.version))) {
+        selectedQuestionVersion.value = Number(res.version)
+      }
+    }
   } catch (e: any) {
     ElMessage.error(e?.message || 'Failed to load questions')
   }
+}
+
+const onQuestionVersionChange = async (version: number) => {
+  if (!Number.isFinite(version)) return
+  selectedQuestionVersion.value = version
+  await loadQuestions(version)
 }
 
 /** Load settlement map data for the Map tab when assessment has settlement_id */
@@ -1523,13 +1717,24 @@ const loadOrCreateAssessment = async () => {
       if (res.code === '0000') {
         assessment.value = res.data
         syncResponsesFromAssessment(res.data)
+        if (res.data.question_config_version != null) {
+          selectedQuestionVersion.value = Number(res.data.question_config_version)
+        }
+        await loadQuestions(selectedQuestionVersion.value)
         await loadAssessmentMapData()
       }
     } else if (settlementId.value) {
-      const createRes = await createAssessment({ settlement_id: settlementId.value })
+      const createRes = await createAssessment({
+        settlement_id: settlementId.value,
+        question_config_version: selectedQuestionVersion.value ?? undefined,
+      })
       if (createRes.code === '0000') {
         assessment.value = createRes.data
         syncResponsesFromAssessment(createRes.data)
+        if (createRes.data.question_config_version != null) {
+          selectedQuestionVersion.value = Number(createRes.data.question_config_version)
+        }
+        await loadQuestions(selectedQuestionVersion.value)
         await loadAssessmentMapData()
       }
     } else {
@@ -1557,7 +1762,8 @@ const saveAssessment = async () => {
       hazard_responses: responses.value.hazard,
       exposure_responses: responses.value.exposure,
       sensitivity_responses: responses.value.sensitivity,
-      adaptive_capacity_responses: responses.value.adaptive_capacity
+      adaptive_capacity_responses: responses.value.adaptive_capacity,
+      question_config_version: selectedQuestionVersion.value ?? undefined,
     })
     if (res.code === '0000') {
       assessment.value = res.data
@@ -1579,7 +1785,8 @@ const markCompleted = async () => {
     const res = await updateAssessment(assessment.value.id, { status: 'completed' })
     if (res.code === '0000') {
       assessment.value = res.data
-      ElMessage.success('Marked as completed')
+      ElMessage.success(res.version ? `Marked as completed (saved as v${res.version.version_number})` : 'Marked as completed')
+      await loadAssessmentVersions()
     }
   } catch (e: any) {
     ElMessage.error(e?.message || 'Failed to update')
@@ -1603,6 +1810,10 @@ watch(activeTab, async () => {
     }
     return
   }
+  if (activeTab.value === 'history' && assessment.value?.id) {
+    await loadAssessmentVersions()
+    return
+  }
   if (activeTab.value === 'howto' || activeTab.value === 'overall') return
   const cats = questionsConfig.value?.[activeTab.value]?.categories || []
   const firstKey = cats[0]?.key ?? ''
@@ -1612,14 +1823,21 @@ watch(activeTab, async () => {
 })
 
 onMounted(async () => {
-  await loadQuestions()
+  await loadQuestionVersionList()
+  if (selectedQuestionVersion.value == null && questionVersions.value.length) {
+    const active = questionVersions.value.find((v) => v.is_active)
+    selectedQuestionVersion.value = active?.version ?? questionVersions.value[0]?.version ?? null
+  }
+  await loadQuestions(selectedQuestionVersion.value)
   await loadRecommendations()
   await loadOrCreateAssessment()
+  await loadAssessmentVersions()
   for (const dim of dimensions) {
     const cats = questionsConfig.value?.[dim]?.categories || []
     activeCategoryByTab.value[dim] = cats[0]?.key ?? ''
   }
 })
+
 </script>
 
 <style scoped>
@@ -2160,5 +2378,66 @@ onMounted(async () => {
   .context-name {
     font-size: 0.75rem;
   }
+}
+
+.history-content {
+  padding: 8px 0;
+}
+
+.version-collapse :deep(.el-collapse-item__header) {
+  height: auto;
+  min-height: 44px;
+  line-height: 1.4;
+  padding: 8px 0;
+}
+
+.version-collapse-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.version-label {
+  font-weight: 700;
+  min-width: 2rem;
+}
+
+.version-meta {
+  color: var(--el-text-color-secondary);
+  font-size: 0.85rem;
+}
+
+.version-details {
+  padding: 4px 0 12px;
+}
+
+.version-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 16px;
+  font-size: 0.9rem;
+}
+
+.version-restore-row {
+  margin-top: 12px;
+}
+
+.header-version-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.header-version-label {
+  font-size: 0.85rem;
+  color: var(--el-text-color-secondary);
+}
+
+.header-version-select {
+  width: 160px;
 }
 </style>
