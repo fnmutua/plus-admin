@@ -176,7 +176,11 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return
             if (id.includes('element-plus')) return 'element-plus'
-            if (id.includes('echarts')) return 'echarts'
+            // vue-echarts depends on Vue — must not live in the echarts chunk (circular init with vue-vendor)
+            if (id.includes('node_modules/vue-echarts') || id.includes('node_modules/vue-demi')) {
+              return 'vue-vendor'
+            }
+            if (id.includes('node_modules/echarts')) return 'echarts'
             if (id.includes('mapbox') || id.includes('@mapbox')) return 'mapbox'
             if (id.includes('@turf')) return 'turf'
             if (id.includes('langchain') || id.includes('@langchain')) return 'langchain'

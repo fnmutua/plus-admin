@@ -9,7 +9,8 @@ import {
   getUserAccessSourceApi
 } from '@/api/dashboard/analysis'
 import { set } from 'lodash-es'
-import { EChartsOption, registerMap } from 'echarts'
+import { EChartsOption } from 'echarts'
+import { registerMap } from 'echarts/core'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Echart } from '@/components/Echart'
 
