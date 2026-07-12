@@ -66,6 +66,26 @@
         </template>
       </nav>
       <div class="sidebar-footer">
+        <div class="sidebar-pdf">
+          <button
+            type="button"
+            class="pdf-download-btn"
+            :disabled="pdfLoading || !allPages.length"
+            @click="downloadDocsPdf('all')"
+          >
+            <Icon :icon="pdfLoading ? 'mdi:loading' : 'mdi:file-pdf-box'" :class="{ spin: pdfLoading }" />
+            {{ pdfLoading ? pdfProgressLabel : 'Download PDF' }}
+          </button>
+          <button
+            type="button"
+            class="pdf-download-btn pdf-download-btn--secondary"
+            :disabled="pdfLoading || !currentPage"
+            @click="downloadDocsPdf('current')"
+          >
+            This page only
+          </button>
+          <p class="pdf-hint">Generated on the server — only sections your role can access.</p>
+        </div>
         <a href="/#/landing" class="sidebar-back">
           <Icon icon="mdi:arrow-left" />
           Back to KeSMIS
@@ -94,7 +114,19 @@
           <Icon icon="mdi:chevron-right" class="breadcrumb-sep" />
           <span class="breadcrumb-current">{{ currentPage?.label }}</span>
         </div>
-        <h1 class="docs-page-title">{{ currentPage?.label }}</h1>
+        <div class="docs-title-row">
+          <h1 class="docs-page-title">{{ currentPage?.label }}</h1>
+          <button
+            type="button"
+            class="pdf-page-btn"
+            :disabled="pdfLoading || !currentPage"
+            title="Download this page as PDF"
+            @click="downloadDocsPdf('current')"
+          >
+            <Icon icon="mdi:file-pdf-box" />
+            PDF
+          </button>
+        </div>
         <div class="docs-body" v-html="currentPage?.content"></div>
       </article>
 
@@ -331,6 +363,14 @@ const route = useRoute()
 const appStore = useAppStoreWithOut()
 const { wsCache } = useCache()
 
+function getToken(): string {
+  try {
+    return wsCache.get(appStore.getUserInfo)?.data ?? ''
+  } catch {
+    return ''
+  }
+}
+
 // wsCache reads from sessionStorage which is not reactive — populate via onMounted so
 // navGroups re-computes after the user info is read.
 const userRoleNames = ref<string[]>([])
@@ -388,7 +428,7 @@ const allNavGroups: NavGroup[] = [
             <li>Support <strong>evidence-based planning</strong> and decision-making for urban development interventions by national and county governments</li>
             <li>Enable the public to <strong>file grievances</strong> and <strong>report incidents</strong> related to KISIP projects through transparent, accessible channels</li>
             <li>Track <strong>project performance</strong> through a structured Monitoring &amp; Evaluation (M&amp;E) framework with indicators, activities and evaluation reports</li>
-            <li>Conduct <strong>climate risk and vulnerability assessments</strong> for informal settlements to inform resilience planning</li>
+            <li>Conduct <strong>climate risk and vulnerability assessments</strong> for informal settlements to inform resilience planning — including multi-group field filing via SlumMapper and versioned submission history on the web</li>
           </ul>
           <h2>Core modules</h2>
           <table><thead><tr><th>Module</th><th>What it does</th></tr></thead><tbody>
@@ -401,10 +441,10 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Surveys</strong></td><td>Integration with ODK Central for field data collection, with table/map views and attachment downloads.</td></tr>
             <tr><td><strong>Data requests</strong></td><td>Public application form for formal access to settlement data; internal review (DPO / coordinator), document attachments, and secure share links for approved releases.</td></tr>
             <tr><td><strong>Communications</strong></td><td>Admin tool for one-off <strong>SMS and email broadcasts</strong> to role groups, named users, or custom address lists &mdash; with delivery history, per-recipient status, and retry. Distinct from automated workflow SMS configured under Settings.</td></tr>
-            <tr><td><strong>Repository</strong></td><td>Document storage, drone imagery, and secure document sharing via token links.</td></tr>
+            <tr><td><strong>Repository</strong></td><td>Document storage, drone imagery, secure <strong>download</strong> share links, and <strong>upload share links</strong> that let external contributors submit files without a KeSMIS login.</td></tr>
             <tr><td><strong>Media</strong></td><td>Videos, live streams and articles related to programme activities.</td></tr>
             <tr><td><strong>Users &amp; Roles</strong></td><td>Role-based access control with granular permissions per module.</td></tr>
-            <tr><td><strong>Settings</strong></td><td>System configuration &mdash; admin units, programmes, dashboard builder, SMS, climate settings, and population estimation.</td></tr>
+            <tr><td><strong>Settings</strong></td><td>System configuration &mdash; platform settings, admin units, programmes, dashboard builder, SMS, climate settings, and population estimation.</td></tr>
           </tbody></table>
           <h2>Who uses KeSMIS?</h2>
           <ul>
@@ -420,7 +460,7 @@ const allNavGroups: NavGroup[] = [
           <h3>Key features</h3>
           <ul>
             <li><strong>Field mapping</strong> &mdash; use GPS to accurately map settlement locations, boundaries and infrastructure</li>
-            <li><strong>Data collection</strong> &mdash; capture information about housing conditions, services, facilities and environmental factors</li>
+            <li><strong>Data collection</strong> &mdash; capture information about housing conditions, services, facilities and environmental factors; complete <strong>KISIP Tool B</strong> climate assessments in the field (including offline drafts and multi-group contributions to the same settlement assessment)</li>
             <li><strong>Offline support</strong> &mdash; collect data without an internet connection; submissions are synchronised automatically once connectivity is restored</li>
             <li><strong>Photo capture</strong> &mdash; attach geotagged photos to submissions as evidence</li>
           </ul>
@@ -618,7 +658,8 @@ const allNavGroups: NavGroup[] = [
             <li>Scroll to the bottom and click <strong>Submit</strong></li>
             <li>Save the <strong>reference code</strong> shown on the success screen</li>
             <li>Check the email you entered for an acknowledgment message (look in spam or junk if you do not see it)</li>
-            <li>Wait while the team reviews your request. If it is approved, you may get a <strong>second email</strong> with a link to download your files</li>
+            <li>Wait while the team reviews your request. If they need more information, you may receive a <strong>clarification link</strong> by email where you can reply without signing in</li>
+            <li>If it is approved, you may get a <strong>second email</strong> with a link to download your files</li>
           </ol>
 
           <h2>What the form asks for</h2>
@@ -627,6 +668,8 @@ const allNavGroups: NavGroup[] = [
             <li><strong>Data you need</strong> &mdash; description, intended use, type of data, area (national, county, or sub-county where needed), and how you will store, share or publish it</li>
             <li><strong>Declaration</strong> &mdash; your name and date to confirm the information is correct</li>
           </ul>
+          <h2>Clarifications</h2>
+          <p>If reviewers need more detail, they can send you a secure clarification link. Open it from your email, read the question, type your reply, and submit — no KeSMIS account is required. The link expires after the period shown on the page.</p>
           <blockquote>Note &mdash; <strong>Sign Up / Get Started</strong> is for a KeSMIS <em>login account</em>. The Data Request form is only for asking for settlement data under the programme rules.</blockquote>
         `
       },
@@ -797,37 +840,39 @@ const allNavGroups: NavGroup[] = [
         id: 'dash-overview',
         label: 'Overview',
         content: `
-          <p>The <strong>Dashboard</strong> module is the authenticated user's home screen. It is accessible from the sidebar under <strong>Dashboards</strong> and contains four sub-pages:</p>
+          <p>The <strong>Dashboard</strong> module is the authenticated user's home screen. It is accessible from the sidebar under <strong>Dashboards</strong>. After login the app redirects to <strong>Home</strong> (<code>/dashboard/home</code>), but that page is <strong>hidden from the sidebar</strong> — the visible menu starts with <strong>Status</strong>.</p>
           <table><thead><tr><th>Page</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Home</strong></td><td>Personal workspace showing your own settlements, projects, documents and recent activity.</td></tr>
+            <tr><td><strong>Home</strong></td><td><strong>Admin Workplace</strong> — user oversight for platform admins: total/unapproved/county users, new accounts, active sessions, login attempts, and edit/delete audit logs. Not a personal “my work” dashboard.</td></tr>
             <tr><td><strong>Status</strong></td><td>National-level analytics dashboard with dynamic cards, charts and filterable sections.</td></tr>
             <tr><td><strong>Map</strong></td><td>Interactive Mapbox map of all informal settlements with clustering and filters.</td></tr>
             <tr><td><strong>Projects</strong></td><td>Map-based view of project locations with programme filters and a details drawer.</td></tr>
           </tbody></table>
-          <blockquote>Note &mdash; In addition to the default Status dashboard, administrators can configure <strong>custom dashboards</strong> for specific themes or use cases (e.g. a GRM-focused dashboard or a programme-specific view). These appear as additional entries under the Dashboards menu in the sidebar. Custom dashboards use the same cards, tabs and chart types as the Status dashboard but can be tailored to highlight different data sets and metrics.</blockquote>
+          <blockquote>Note &mdash; Administrators can also configure <strong>custom dashboards</strong> that appear as additional entries under Dashboards after login. Custom dashboards use the same cards, tabs and chart types as Status but can highlight different metrics. Configure them under <strong>Settings &rarr; Analytics &rarr; Dashboard</strong>.</blockquote>
         `
       },
       {
         id: 'dash-home',
         label: 'Home',
         content: `
-          <p>The <strong>Home</strong> dashboard is your personal workspace. It greets you with a time-based message (Good Morning / Afternoon / Evening) and shows a summary of your contributions.</p>
-          <img src="${homeDashboardImg}" alt="Home dashboard" class="docs-screenshot" />
+          <p>The <strong>Home</strong> page (<strong>Admin Workplace</strong>) is the default post-login route for platform administrators. It provides user and session oversight scoped to your role (national, county, or super admin).</p>
+          <img src="${homeDashboardImg}" alt="Admin Workplace dashboard" class="docs-screenshot" />
           <h2>Summary cards</h2>
-          <p>Three stat cards at the top display animated counters for:</p>
+          <p>Four stat cards at the top display animated counters for:</p>
           <ul>
-            <li><strong>Settlements created by me</strong> &mdash; number of settlements you have personally registered</li>
-            <li><strong>Projects created by me</strong> &mdash; number of projects you have created</li>
-            <li><strong>Documents uploaded by me</strong> &mdash; number of files you have uploaded to the repository</li>
+            <li><strong>Total Users</strong> &mdash; all user accounts in your scope</li>
+            <li><strong>Unapproved Users</strong> &mdash; accounts awaiting activation</li>
+            <li><strong>County Users</strong> &mdash; county-level accounts (label adapts for national vs county admins)</li>
+            <li><strong>New Accounts</strong> &mdash; registrations in the selected period (this week / month / year)</li>
           </ul>
+          <p>Click a card value to jump to the relevant <strong>Users</strong> listing (for example unapproved users or new accounts).</p>
           <h2>Tabs</h2>
-          <p>Below the cards are three tabs:</p>
+          <p>Below the cards are three oversight tabs:</p>
           <ul>
-            <li><strong>Settlements</strong> &mdash; a table of settlements you created, with a <em>View on Map</em> button that navigates to the settlement's map view</li>
-            <li><strong>Projects</strong> &mdash; a table of projects you created showing code, title and status</li>
-            <li><strong>My Recent Updates</strong> &mdash; a timeline of your recent actions in the system, with timestamps and colour-coded status indicators</li>
+            <li><strong>Active Sessions</strong> &mdash; users currently signed in, with device/session counts and <strong>Force logout</strong> actions for super/root admins</li>
+            <li><strong>Login Attempts</strong> &mdash; successful and failed sign-in events, filterable by today, yesterday, last 7/30 days, or a custom date range</li>
+            <li><strong>Edits &amp; Deletes</strong> &mdash; audit log of data mutations (create/update/delete) with user, model, action and timestamp</li>
           </ul>
-          <p>Your profile photo, name, email and "member since" date are displayed in the header area. Click your profile photo to navigate to the profile page.</p>
+          <blockquote>Note &mdash; Only users with <code>admin</code>, <code>super_admin</code>, or <code>root_admin</code> roles can access this page. It is not shown in the sidebar menu.</blockquote>
         `
       },
       {
@@ -845,7 +890,7 @@ const allNavGroups: NavGroup[] = [
             <li>Any other metric configured by the administrator</li>
           </ul>
           <p>Each card shows an icon, a value (large numbers are formatted as <strong>1.2K</strong> or <strong>3.5M</strong>), and a description. Cards are <strong>clickable</strong> &mdash; clicking a card navigates to the relevant module (e.g. clicking "Settlements" takes you to the settlement list).</p>
-          <blockquote>Tip &mdash; Cards and their values are fully configurable by administrators under Settings &rarr; Dashboards &rarr; Cards.</blockquote>
+          <blockquote>Tip &mdash; Cards and their values are fully configurable by administrators under <strong>Settings &rarr; Analytics &rarr; Dashboard &rarr; Cards</strong>.</blockquote>
 
           <h2>Filtering</h2>
           <img src="${statusFilterBtnImg}" alt="Filter button on the Status dashboard" class="docs-screenshot" />
@@ -861,7 +906,7 @@ const allNavGroups: NavGroup[] = [
           <h2>Sections (tabs)</h2>
           <img src="${statusSectionsTabsImg}" alt="Dashboard sections and tabs" class="docs-screenshot" />
           <p>Below the cards, the dashboard is organised into <strong>dynamic tabs</strong> (sections). Each tab groups related charts together. Examples might include "Settlements Overview", "GRM Summary", "Infrastructure", etc.</p>
-          <p>Tabs are configured by administrators under Settings &rarr; Dashboards &rarr; Tabs. Click a tab to switch between sections. Charts within each section are displayed in a two-column grid layout.</p>
+          <p>Tabs are configured by administrators under <strong>Settings &rarr; Analytics &rarr; Dashboard &rarr; Sections</strong>. Click a tab to switch between sections. Charts within each section are displayed in a two-column grid layout.</p>
 
           <h2>Chart types</h2>
           <p>The system supports a rich set of chart visualisations:</p>
@@ -877,7 +922,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Population pyramid</strong></td><td>Horizontal bar chart showing age-gender distribution.</td></tr>
             <tr><td><strong>Treemap</strong></td><td>Rectangular tiles sized by value for hierarchical data.</td></tr>
           </tbody></table>
-          <p>Charts are configured under Settings &rarr; Dashboards &rarr; Charts, and assigned to sections.</p>
+          <p>Charts are configured under <strong>Settings &rarr; Analytics &rarr; Dashboard &rarr; Charts</strong>, and assigned to sections.</p>
 
           <h2>Downloading and exporting</h2>
           <img src="${statusChartDownloadImg}" alt="Chart download options" class="docs-screenshot" />
@@ -981,11 +1026,12 @@ const allNavGroups: NavGroup[] = [
               <h2>Key capabilities</h2>
               <ul>
                 <li><strong>Settlement list</strong> &mdash; browse, search and filter all registered settlements across multiple status tabs</li>
-                <li><strong>Settlement details</strong> &mdash; view demographics, location map (with neighbouring settlement comparison and multi-settlement download), housing, utilities, facilities, documents, households, vulnerability scores, projects and indicator reports</li>
+                <li><strong>Settlement details</strong> &mdash; view demographics, location map (with neighbouring settlement comparison and multi-settlement download), housing, utilities, facilities, documents, households, climate assessments, interventions, and M&amp;E reports</li>
                 <li><strong>Add / Edit</strong> &mdash; register new settlements using a map-first workflow with Google Maps, or update existing records</li>
                 <li><strong>Review workflow</strong> &mdash; new settlements are submitted as <em>Pending</em> and require administrator approval before appearing in the approved list</li>
                 <li><strong>Decommission &amp; Delete</strong> &mdash; super administrators can decommission, soft-delete, cascade-delete, or merge settlements</li>
-                <li><strong>Export</strong> &mdash; download settlement data as Excel or geospatial (GeoJSON) files</li>
+                <li><strong>Export</strong> &mdash; download settlement data as Excel or geospatial (GeoJSON) files with scope options</li>
+                <li><strong>Upload share links</strong> &mdash; invite external contributors to submit documents to a settlement without logging in</li>
               </ul>
             `
           },
@@ -1000,12 +1046,11 @@ const allNavGroups: NavGroup[] = [
               <table><thead><tr><th>Tab</th><th>Description</th><th>Who can see it</th></tr></thead><tbody>
                 <tr><td><strong>Profiled</strong></td><td>Settlements that are profiled, qualified, approved and active. This is the default view.</td><td>All users</td></tr>
                 <tr><td><strong>New</strong></td><td>Pending settlements awaiting review and approval.</td><td>National staff, super admins, county admins</td></tr>
-                <tr><td><strong>Rejected</strong></td><td>Settlements that were reviewed and rejected.</td><td>National staff, super admins</td></tr>
                 <tr><td><strong>Unprofiled</strong></td><td>Settlements with a profiling status of <em>NOT_PROFILED</em> or <em>PARTIALLY_PROFILED</em>, regardless of approval status. Shows a badge with the count. Includes a <strong>Profiling Status</strong> column and an info banner reminding staff these records may have incomplete data.</td><td>All users</td></tr>
-                <tr><td><strong>Duplicates</strong></td><td>Potential duplicate records detected by the system, grouped by county.</td><td>National staff, super admins</td></tr>
                 <tr><td><strong>Decommissioned</strong></td><td>Settlements that have been decommissioned (no longer active).</td><td>National staff, super admins, county admins</td></tr>
-                <tr><td><strong>Deleted</strong></td><td>Soft-deleted or merged settlements. Can be restored.</td><td>National staff, super admins, county admins</td></tr>
+                <tr><td><strong>Deleted</strong></td><td>Combined view of <strong>rejected</strong> settlements (still in the database, can be re-reviewed) and <strong>soft-deleted / merged</strong> records from history. Can be restored where applicable.</td><td>National staff, super admins, county admins</td></tr>
               </tbody></table>
+              <blockquote>Note &mdash; There is no separate <strong>Rejected</strong> tab. Rejected settlements appear under <strong>Deleted</strong> alongside removed or merged records. A hidden <strong>Duplicates</strong> view exists for administrators but is not shown in the tab bar; use the <strong>Merge</strong> batch action on any tab when you identify duplicate records.</blockquote>
 
               <h2>Table columns</h2>
               <p>The main table displays the following columns:</p>
@@ -1032,13 +1077,15 @@ const allNavGroups: NavGroup[] = [
 
               <h2>Filters</h2>
               <img src="${settlementFilterImg}" alt="Settlement filters" class="docs-screenshot" />
-              <p>Use the location filter dropdowns to narrow the list:</p>
+              <p>On wide screens, use the inline <strong>County</strong>, <strong>Sub-county</strong> and <strong>Ward</strong> dropdowns to narrow the list. On narrower viewports (below about 1200px), location filters move into a <strong>Location filters</strong> dialog — click the filter icon in the toolbar (a badge shows how many location filters are active).</p>
               <ul>
                 <li><strong>County</strong> &mdash; multi-select; choose one or more counties</li>
                 <li><strong>Sub-county</strong> &mdash; multi-select; options appear based on selected counties</li>
                 <li><strong>Ward</strong> &mdash; multi-select; options appear based on selected sub-counties</li>
               </ul>
-              <p>A <strong>date filter</strong> (calendar icon) lets you filter by date range. Click <strong>Clear</strong> to reset all filters.</p>
+              <p>A <strong>create-date filter</strong> (calendar icon in the toolbar) opens a dialog where you pick a date range and click <strong>Confirm</strong>. The calendar icon shows an active state when a date filter is applied. Click <strong>Clear all filters</strong> (filter-remove icon) to reset location, search and date filters together.</p>
+              <p>Your toolbar filters, search text and active tab are <strong>remembered</strong> in the browser so they are restored when you return to the settlement list.</p>
+              <p>On mobile, secondary toolbar actions (date filter, add, clear, Excel, GeoJSON, locate on map) are grouped in an <strong>Actions</strong> dropdown; the location filter icon stays inline with the other primary buttons.</p>
               <blockquote>Note &mdash; County-level users only see settlements in their assigned county. The county filter is pre-set and cannot be changed.</blockquote>
 
               <h2>Pagination</h2>
@@ -1110,11 +1157,14 @@ const allNavGroups: NavGroup[] = [
               <p>Double-click any settlement in the listing table (or click the <strong>More</strong> action button) to open its <strong>Settlement Details</strong> page. This is a comprehensive profile view organised into tabbed sections.</p>
 
               <h2>Page header</h2>
-              <p>The header displays the settlement name, sub-county and county (e.g. <em>"Kibera Settlement, Langata Subcounty, Nairobi County"</em>). Two action buttons are available for authorised users:</p>
+              <p>The header displays the settlement name, sub-county and county (e.g. <em>"Kibera Settlement, Langata Subcounty, Nairobi County"</em>). <strong>Status tags</strong> under the title show approval status, profiling badge and whether the settlement is operational/active. Two action buttons are available for authorised users:</p>
               <ul>
                 <li><strong>Edit</strong> &mdash; opens the settlement editing form to update any field</li>
                 <li><strong>Add Facility</strong> &mdash; navigates to the facility creation wizard, pre-linked to this settlement</li>
               </ul>
+
+              <h2>Tabs</h2>
+              <p>The details page is organised into: <strong>Profile</strong>, <strong>Location</strong>, <strong>Documents</strong>, <strong>Interventions</strong>, <strong>Households</strong>, <strong>Climate</strong>, <strong>M&amp;E</strong>, <strong>History</strong>, and <strong>Settings</strong> (administrators only).</p>
 
               <h2>Profile tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsProfileImg}" alt="Settlement Details — Profile tab" />
@@ -1154,7 +1204,7 @@ const allNavGroups: NavGroup[] = [
               <p>Click a neighbouring settlement boundary or its label to open a dialog with two options:</p>
               <ul>
                 <li><strong>Add to Map</strong> &mdash; loads that settlement&rsquo;s boundary, parcels, structures, and facilities <em>on top of</em> the current map without leaving the Location tab. The primary settlement stays visible. Added settlements use a blue boundary outline so you can tell them apart from the primary (red) settlement.</li>
-                <li><strong>View Settlement Details</strong> &mdash; opens the full Settlement Details page for that settlement (Profile, Documents, Projects, and other tabs).</li>
+                <li><strong>View Settlement Details</strong> &mdash; opens the full Settlement Details page for that settlement (Profile, Documents, Interventions, and other tabs).</li>
               </ul>
               <p>The dialog shows how many settlements are currently on the map (for example, <em>3 of 10 settlements on map</em>).</p>
               <blockquote>Note &mdash; You can display up to <strong>10 settlements</strong> on the map at once. This limit protects browser performance when many layers are loaded. When the limit is reached, <strong>Add to Map</strong> is disabled and a warning explains that you should open the settlement&rsquo;s details page instead, or refresh the page to start over. Settlements already on the map cannot be added again.</blockquote>
@@ -1173,13 +1223,16 @@ const allNavGroups: NavGroup[] = [
               <ul>
                 <li><strong>Search</strong> &mdash; filter documents by name</li>
                 <li><strong>Upload</strong> &mdash; authorised users can upload new documents (photos, reports, PDFs, shapefiles, etc.)</li>
+                <li><strong>Share upload link</strong> &mdash; create short-lived or non-expiring links so external people can upload files without a KeSMIS login (see <strong>Repository &rarr; Upload Share Links</strong>)</li>
+                <li><strong>Edit category</strong> &mdash; change a document&rsquo;s type using the grouped document-type picker (permission-controlled)</li>
+                <li><strong>Unlink</strong> &mdash; remove a linked document from this settlement without deleting the file from the repository</li>
                 <li><strong>Photos section</strong> &mdash; a dedicated grid of photo thumbnails with click-to-preview</li>
                 <li><strong>Grouped documents</strong> &mdash; other files are grouped by category (e.g. Reports, Plans, Maps) in collapsible sections with name, format, size, upload date, and download/delete actions</li>
               </ul>
 
-              <h2>Projects tab</h2>
-              <img class="docs-screenshot" src="${settlementDetailsProjectsImg}" alt="Settlement Details — Projects tab" />
-              <p>Lists all KISIP projects linked to this settlement in a table with columns for Project Code, Project Title, and Status. Click the action button to navigate to the full project details.</p>
+              <h2>Interventions tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsProjectsImg}" alt="Settlement Details — Interventions tab" />
+              <p>Lists all KISIP intervention projects linked to this settlement in a table with columns for Project Code, Project Title, and Status. Click the action button to navigate to the full project details.</p>
 
               <h2>Households tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsHouseholdsImg}" alt="Settlement Details — Households tab" />
@@ -1190,8 +1243,8 @@ const allNavGroups: NavGroup[] = [
                 <li>Export to Excel via the download button</li>
               </ul>
 
-              <h2>Vulnerability tab</h2>
-              <img class="docs-screenshot" src="${settlementDetailsClimateImg}" alt="Settlement Details — Vulnerability tab" />
+              <h2>Climate tab</h2>
+              <img class="docs-screenshot" src="${settlementDetailsClimateImg}" alt="Settlement Details — Climate tab" />
               <p>Shows vulnerability and climate risk assessment scores for the settlement, split into two assessment tools:</p>
               <ul>
                 <li><strong>Tool A — GIS-based Vulnerability Assessment</strong> &mdash; displays attributes like Climate Region, Soil Type, Land Cover, Altitude Range, Proximity to River, and Proximity to Flood Plain, along with the computed vulnerability score and rating tag</li>
@@ -1199,7 +1252,7 @@ const allNavGroups: NavGroup[] = [
               </ul>
               <p>A <strong>Score Interpretation</strong> drawer explains how scores map to Low, Medium, High, and Very High ratings.</p>
 
-              <h2>Indicators tab</h2>
+              <h2>M&amp;E tab</h2>
               <p>Tracks M&amp;E indicator reports filed against the settlement. The table shows:</p>
               <ul>
                 <li>Indicator name and category</li>
@@ -1226,7 +1279,7 @@ const allNavGroups: NavGroup[] = [
               <p>When a new settlement is submitted, it enters a <strong>Pending</strong> state. Administrators can review it from the <strong>New</strong> tab:</p>
               <ul>
                 <li><strong>Approve</strong> &mdash; moves the settlement to the Approved list, making it visible to all users and included in dashboards and reports</li>
-                <li><strong>Reject</strong> &mdash; moves the settlement to the Rejected list with a rejection message explaining why. Rejected settlements can be reviewed again</li>
+                <li><strong>Reject</strong> &mdash; marks the settlement as rejected with a rejection message explaining why. Rejected records appear in the <strong>Deleted</strong> tab and can be reviewed again</li>
               </ul>
               <img src="${settlementApproveImg}" alt="Review and approve settlement" class="docs-screenshot" />
 
@@ -1240,11 +1293,11 @@ const allNavGroups: NavGroup[] = [
               <table><thead><tr><th>Tab</th><th>Contents</th></tr></thead><tbody>
                 <tr><td><strong>Profile</strong></td><td>Administrative location, settlement profile, housing details and utilities &mdash; displayed in collapsible sections</td></tr>
                 <tr><td><strong>Location</strong></td><td>Interactive Google Maps view with settlement boundary, parcels, structures, facilities, neighbouring settlements, layer toggles, and GeoJSON download for all settlements on the map (up to 10)</td></tr>
-                <tr><td><strong>Documents</strong></td><td>Photos in a grid view, plus other documents grouped by type (Plans, Reports, etc.). Upload and category editing available with permissions</td></tr>
-                <tr><td><strong>Projects</strong></td><td>Intervention projects linked to the settlement, with status indicators</td></tr>
+                <tr><td><strong>Documents</strong></td><td>Photos in a grid view, plus other documents grouped by type (Plans, Reports, etc.). Upload, <strong>Share upload link</strong>, edit category, unlink and delete (permission-controlled)</td></tr>
+                <tr><td><strong>Interventions</strong></td><td>Intervention projects linked to the settlement, with status indicators</td></tr>
                 <tr><td><strong>Households</strong></td><td>Household records with search, pagination and download. Requires household read permission</td></tr>
-                <tr><td><strong>Vulnerability</strong></td><td>GIS-based (Tool A) vulnerability scores and climate assessment (Tool B) hazard, exposure, sensitivity and adaptive capacity scores</td></tr>
-                <tr><td><strong>Indicators</strong></td><td>Indicator category reports with dates, amounts, cumulative values and attachments</td></tr>
+                <tr><td><strong>Climate</strong></td><td>GIS-based (Tool A) vulnerability scores and climate assessment (Tool B) hazard, exposure, sensitivity and adaptive capacity scores</td></tr>
+                <tr><td><strong>M&amp;E</strong></td><td>Indicator category reports with dates, amounts, cumulative values and attachments</td></tr>
                 <tr><td><strong>History</strong></td><td>Edit history log with timestamps. Administrators can revert specific changes</td></tr>
                 <tr><td><strong>Settings</strong></td><td>Delete settlement (non-county users with delete permission only)</td></tr>
               </tbody></table>
@@ -1259,13 +1312,7 @@ const allNavGroups: NavGroup[] = [
               <img src="${settlementDecommissionImg}" alt="Decommission settlement" class="docs-screenshot" />
 
               <h2>Merging</h2>
-              <p>When two records refer to the same settlement, they can be merged:</p>
-              <ul>
-                <li>Select exactly <strong>two settlements</strong> using the checkboxes, then click <strong>Merge</strong></li>
-                <li>Choose which record to keep as the <strong>primary</strong></li>
-                <li>The secondary record is soft-deleted and linked to the primary via a "Merged Into" reference</li>
-              </ul>
-              <p>Duplicates detected by the system are grouped by county in the <strong>Duplicates</strong> tab, where the same merge flow is available.</p>
+              <p>When two records refer to the same settlement, select exactly <strong>two settlements</strong> using the checkboxes on any tab, then click <strong>Merge</strong>. Choose which record to keep as the <strong>primary</strong>; the secondary record is soft-deleted and linked to the primary via a &ldquo;Merged Into&rdquo; reference. Merged records appear in the <strong>Deleted</strong> tab.</p>
               <img src="${settlementMergeImg}" alt="Merge settlements" class="docs-screenshot" />
 
               <h2>Deleting</h2>
@@ -1296,7 +1343,14 @@ const allNavGroups: NavGroup[] = [
               <img src="${settlementDownloadGeoImg}" alt="Geospatial data download" class="docs-screenshot" />
               <ol>
                 <li>Click the <strong>Download Geospatial Data</strong> button (requires <code>settlement:downloadGeo</code> permission)</li>
-                <li>The system packages all matching settlements (up to 10,000) into a GeoJSON file inside a ZIP archive</li>
+                <li>Choose a <strong>scope</strong> in the dialog:
+                  <ul>
+                    <li><strong>Displayed</strong> &mdash; settlements on the current page only</li>
+                    <li><strong>Filtered</strong> &mdash; all settlements matching the active tab plus toolbar filters</li>
+                    <li><strong>All</strong> &mdash; role-scoped export ignoring tab status filters (national staff see all; county admins see their county)</li>
+                  </ul>
+                </li>
+                <li>The system packages matching settlements (up to 10,000) into a GeoJSON file inside a ZIP archive</li>
                 <li>A shareable link is created and automatically copied to your clipboard</li>
                 <li>A success dialog confirms the download is ready</li>
               </ol>
@@ -1370,7 +1424,7 @@ const allNavGroups: NavGroup[] = [
           </tbody></table>
 
           <h2>Filtering</h2>
-          <p>A <strong>county filter</strong> (multi-select) is available for national-level users. County staff see only assessments for their assigned county.</p>
+          <p>Filter the list by <strong>county</strong> (multi-select, national users), <strong>status</strong> (draft / completed), <strong>vulnerability rating</strong>, <strong>risk rating</strong>, and free-text <strong>search</strong> (settlement name, assessor or ID). On narrower screens, filters open in a side drawer via the filter icon; use <strong>Clear all filters</strong> to reset. County staff see only assessments for their assigned county.</p>
 
           <h2>Starting a new assessment</h2>
           <ol>
@@ -1389,8 +1443,10 @@ const allNavGroups: NavGroup[] = [
         id: 'data-climate-questionnaire',
         label: 'The Questionnaire',
         content: `
-          <p>Each climate assessment is a multi-tab questionnaire with four scored dimensions, an overall summary, recommendations, a map view, and a documentation section.</p>
+          <p>Each climate assessment is a multi-tab questionnaire with four scored dimensions, an overall summary, recommendations, submission history, a map view, and a documentation section.</p>
           <img class="docs-screenshot" src="${climateInfoImg}" alt="Climate assessment questionnaire — Instructions tab" />
+          <h2>Assessment header</h2>
+          <p>While you work on an assessment, the card header shows county, settlement and assessor context. When questionnaire versions exist, a <strong>Tool B version</strong> selector (e.g. <em>v2 (active)</em>) lets you load the question set for that version. Status and submission-count tags appear next to the selector. <strong>Save &amp; Compute Scores</strong>, <strong>Mark Completed</strong> and <strong>Re-submit</strong> are in this same header row so they stay visible on every tab.</p>
           <h2>Questionnaire tabs</h2>
           <table><thead><tr><th>Tab</th><th>Purpose</th></tr></thead><tbody>
             <tr><td><strong>Instructions</strong></td><td>Explains the methodology, scoring rules and how to interpret results</td></tr>
@@ -1400,9 +1456,12 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Adaptive Capacity</strong></td><td>Questions about the settlement's ability to cope with and adapt to climate change</td></tr>
             <tr><td><strong>Overall Score</strong></td><td>Summary cards showing computed scores for each dimension, plus vulnerability and risk ratings</td></tr>
             <tr><td><strong>Recommendations</strong></td><td>Auto-generated planning, design and community development recommendations based on scores</td></tr>
+            <tr><td><strong>Submission History</strong></td><td>Snapshots saved each time the assessment is marked completed — review scores, submitter, Tool B version, and <strong>Load into editor</strong> to restore a past submission</td></tr>
             <tr><td><strong>Map</strong></td><td>Settlement map showing the assessment location point (if captured in the mobile app)</td></tr>
             <tr><td><strong>Documentation</strong></td><td>Upload and list supporting documents linked to this assessment</td></tr>
           </tbody></table>
+          <h2>Multi-group field filing (SlumMapper)</h2>
+          <p>There is <strong>one Tool B assessment per settlement</strong>. In the field, several groups can contribute to the same questionnaire without overwriting each other&rsquo;s answers — each group can label who they are, and the system keeps the latest answer per question. This workflow is primarily used in <strong>SlumMapper</strong>; the web editor shows submission history and supports re-submitting updated versions.</p>
 
           <h2>Answering questions</h2>
           <p>Each dimension (Hazard, Exposure, Sensitivity, Adaptive Capacity) contains multiple <strong>categories</strong>, and each category has several questions. For example, the <strong>Hazard</strong> dimension includes categories like Temperature, Intense Precipitation, Droughts, Flooding, Flash Floods, Storms, Pollution, and others.</p>
@@ -1447,7 +1506,7 @@ const allNavGroups: NavGroup[] = [
         id: 'data-climate-scoring',
         label: 'Scoring & Results',
         content: `
-          <p>Scores are computed automatically by the system each time you save. Click <strong>Save &amp; Compute Scores</strong> to trigger the calculation, or answers are auto-saved after a short delay.</p>
+          <p>Scores are computed automatically by the system each time you save. Click <strong>Save &amp; Compute Scores</strong> in the assessment header to trigger the calculation explicitly; individual answers are also auto-saved after a short delay as you work through the tabs.</p>
           <h2>Dimension scores</h2>
           <p>Each dimension score is the <strong>simple average</strong> of all answered questions in that dimension, producing a value between 1.00 and 3.00.</p>
 
@@ -1487,8 +1546,9 @@ const allNavGroups: NavGroup[] = [
           <h2>Draft vs Completed</h2>
           <ul>
             <li>New assessments start as <strong>Draft</strong> &mdash; you can save, edit and recompute scores as many times as needed</li>
-            <li>When satisfied, click <strong>Mark Completed</strong> to finalise the assessment</li>
-            <li>Completed assessments cannot be edited further</li>
+            <li>When satisfied, click <strong>Mark Completed</strong> in the header to finalise the assessment and create a submission snapshot</li>
+            <li>Completed assessments can be updated using <strong>Re-submit</strong>, which saves a new submission version while keeping earlier snapshots in <strong>Submission History</strong></li>
+            <li>Each submission records the Tool B questionnaire version, scores, date and submitter; use <strong>Load into editor</strong> to restore a past version into the draft editor</li>
             <li>Completed results feed into the settlement's vulnerability profile and the national dashboard</li>
           </ul>
           <blockquote>Tip &mdash; Use the Map tab to verify the assessment location, and the Documentation tab to upload supporting evidence such as photos, reports or field notes.</blockquote>
@@ -1619,6 +1679,7 @@ const allNavGroups: NavGroup[] = [
                 <li><strong>Profile</strong> &mdash; name, type/level, county, ownership, registration status</li>
                 <li><strong>Capacity &amp; Staffing</strong> &mdash; type-specific metrics (e.g. beds, doctors, enrolment, teachers)</li>
                 <li><strong>Location</strong> &mdash; county, sub-county, ward, settlement</li>
+                <li><strong>Documents</strong> &mdash; where available, includes <strong>Share upload link</strong> so external contributors can submit files without logging in</li>
               </ul>
 
               <h2>Deleting a facility</h2>
@@ -1659,7 +1720,7 @@ const allNavGroups: NavGroup[] = [
           <img class="docs-screenshot" src="${secListImg}" alt="SEC officials listing" />
 
           <h2>Listing</h2>
-          <p>Navigate to <strong>Community &rarr; SEC</strong> to view all SEC officials. Data is fetched from the ODK Central collector and presented in a grouped table. Each row represents a settlement with its committee, and you can expand it to see individual officials.</p>
+          <p>Navigate to <strong>Data &rarr; Settlements &rarr; Community &rarr; SEC</strong> to view all SEC officials. Data is fetched from the ODK Central collector and presented in a grouped table. Each row represents a settlement with its committee, and you can expand it to see individual officials.</p>
           <p>The main table columns are:</p>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Settlement</strong></td><td>Name of the settlement</td></tr>
@@ -1698,7 +1759,7 @@ const allNavGroups: NavGroup[] = [
           <img class="docs-screenshot" src="${grcListImg}" alt="GRC officials listing" />
 
           <h2>Listing</h2>
-          <p>Navigate to <strong>Community &rarr; GRC</strong> to view all GRC officials. The table columns are:</p>
+          <p>Navigate to <strong>Data &rarr; Settlements &rarr; Community &rarr; GRC</strong> to view all GRC officials. The table columns are:</p>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Name</strong></td><td>Official's name (sortable)</td></tr>
             <tr><td><strong>Gender</strong></td><td>Gender of the official</td></tr>
@@ -1741,10 +1802,18 @@ const allNavGroups: NavGroup[] = [
 
           <blockquote>Note &mdash; GRC data is sourced from ODK Central submissions. County-level users automatically see only GRC officials for their assigned county.</blockquote>
         `
-          }
-        ]
+      },
+      {
+        id: 'data-community-secgrc',
+        label: 'SEC/GRC (combined)',
+        content: `
+          <p>The <strong>SEC/GRC</strong> page combines settlement executive committee and grievance redress committee data in one workflow-oriented view. Navigate to <strong>Data &rarr; Settlements &rarr; Community &rarr; SEC/GRC</strong>.</p>
+          <p>Use this page when you need to review or maintain both committee structures for a settlement in a single place — for example when constituting a GRC from an existing SEC roster or checking which settlements already have both bodies in place.</p>
+          <p>Individual SEC-only and GRC-only listings remain available on the separate <strong>SEC</strong> and <strong>GRC</strong> pages under the same Community menu.</p>
+        `
       }
-      ,
+        ]
+      },
       {
         id: 'data-projects',
         label: 'Projects',
@@ -1863,12 +1932,12 @@ const allNavGroups: NavGroup[] = [
             id: 'data-projects-details',
             label: 'Project Details & Tabs',
             content: `
-              <p>Click <strong>More</strong> on any project row to open the <strong>Project Details</strong> page. The page is organised into tabs — each tab focuses on a different aspect of the project lifecycle.</p>
+              <p>Click <strong>More</strong> on any project row to open the <strong>Project Details</strong> page. The page header aligns with settlement details: <strong>Back</strong>, project title, programme/location subtitle, <strong>status tags</strong> (status and implementation scope), and <strong>Edit Project</strong> for authorised users. Content is organised into tabs.</p>
 
               <img class="docs-screenshot" src="${projectsDetailsInfoImg}" alt="Project details — Project Details tab" />
 
               <h2>Tab 1 — Project Details</h2>
-              <p>Displays a structured description card with all core project fields: title, programme, component, implementation, status, cost, start date, end date and description.</p>
+              <p>Displays a structured description card with all core project fields: title, programme, component, implementation, status, cost, start date, end date and description. A loading spinner appears while profile data is fetched.</p>
               <ul>
                 <li><strong>Edit Project</strong> — opens the multi-step form to update any field</li>
                 <li><strong>Delete Project</strong> — permanently removes the project (visible only to users with <code>project:delete</code> permission, national staff or super admins)</li>
@@ -1907,12 +1976,15 @@ const allNavGroups: NavGroup[] = [
               <p>Click <strong>Add Report / Achievement</strong> to log a new monitoring entry against a specific indicator.</p>
 
               <h2>Tab 6 — Documentation</h2>
-              <p>Lists all documents attached to the project — Name, Type, Upload date and Size (MB).</p>
+              <p>Lists all documents attached to the project — Name, Type, Upload date and Size (MB). Linked documents show a <strong>Linked</strong> tag.</p>
               <ul>
                 <li><strong>Download</strong> — fetches the file to your device</li>
-                <li><strong>Remove</strong> — deletes the document (permission-controlled)</li>
-                <li><strong>Upload</strong> button at the bottom — attaches new files to the project</li>
+                <li><strong>Unlink</strong> — removes the link from this project without deleting the file from the repository</li>
+                <li><strong>Remove</strong> — deletes the document entirely (permission-controlled)</li>
+                <li><strong>Upload</strong> — attaches new files to the project</li>
+                <li><strong>Share upload link</strong> — invite external contributors to upload files via a short public link (see <strong>Repository &rarr; Upload Share Links</strong>)</li>
               </ul>
+              <p>The documentation tab auto-refreshes after uploads complete.</p>
 
               <h2>Tab 7 — Team</h2>
               <p>Lists project team members with Name, Phone, Email and Role. Click <strong>Add Team</strong> to register a new member. Remove via the <strong>Remove</strong> button (permission-controlled).</p>
@@ -1932,6 +2004,12 @@ const allNavGroups: NavGroup[] = [
 
               <h2>Tab 9 — Contractor</h2>
               <p>Lists contractors assigned to the project — Name, Role and Phone. Click <strong>Add Contractor(s)</strong> to link a contractor. Remove via the delete button (permission-controlled).</p>
+
+              <h2>Tab 10 — Disbursements</h2>
+              <p>Tracks financial disbursements against the project. The table shows date, amount and IPC reference, with a summary row for totals. Users with <code>disbursement:create</code> permission can add or remove disbursement rows.</p>
+
+              <h2>Tab 11 — Timeline</h2>
+              <p>An action log of project milestones and updates shown as timeline cards. Each entry can include attached documents for audit and reporting.</p>
             `
           },
           {
@@ -2155,7 +2233,7 @@ const allNavGroups: NavGroup[] = [
             <li><strong>Submit Reports</strong> &mdash; periodically report actual values against configured indicators, attach supporting documents, and track progress toward targets</li>
             <li><strong>Evaluate</strong> &mdash; create formal evaluations (mid-term, end-term) that compile indicator data into structured assessment reports</li>
           </ol>
-          <p>All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>Indicators tab</strong> in the Settlement Details page.</p>
+          <p>All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>M&amp;E tab</strong> in the Settlement Details page.</p>
         `
       },
       {
@@ -2318,7 +2396,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Progress %</strong></td><td>Optional. Enter progress toward target (0–100).</td></tr>
             <tr><td><strong>Comments</strong></td><td>Optional. Free-text comments.</td></tr>
           </tbody></table>
-          <p>Click <strong>Submit</strong> to save. The report is created in <em>Pending</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>Indicators tab</strong> in Settlement Details.</p>
+          <p>Click <strong>Submit</strong> to save. The report is created in <em>Pending</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>M&amp;E tab</strong> in Settlement Details.</p>
 
           <h3>Filtering</h3>
           <p>Filter reports by <strong>county</strong> (multi-select, available to national users), <strong>settlement</strong> (searchable), or <strong>indicator</strong>. County-level users automatically see only reports for their assigned county.</p>
@@ -2384,10 +2462,10 @@ const allNavGroups: NavGroup[] = [
           <h2>Module structure</h2>
           <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
             <tr><td><strong>Grievances</strong></td><td>Master list of all public complaints &mdash; view, filter, assign, update status, add notes and communication logs, and close cases</td></tr>
+            <tr><td><strong>Referred Grievances</strong></td><td>Personal inbox for officers &mdash; cases referred to you or where you are listed as supporting staff</td></tr>
             <tr><td><strong>GBV Cases</strong></td><td>Gender-Based Violence cases handled under a restricted, high-confidentiality sub-workflow accessible only to users with the <code>gbv</code> permission</td></tr>
-            <tr><td><strong>GRC</strong></td><td>Grievance Redress Committee &mdash; the body responsible for reviewing and resolving grievances; manage committee members here</td></tr>
-            <tr><td><strong>SEC</strong></td><td>Settlement Executive Committee &mdash; community-level committees linked to settlements; used for escalation and local resolution</td></tr>
           </tbody></table>
+          <blockquote>Note &mdash; <strong>SEC</strong> and <strong>GRC</strong> committee management lives under <strong>Data &rarr; Settlements &rarr; Community</strong>, not under the GRM sidebar menu.</blockquote>
 
           <h2>Grievance lifecycle</h2>
           <p>Every grievance passes through the following stages:</p>
@@ -2415,7 +2493,7 @@ const allNavGroups: NavGroup[] = [
           <h2>Who can access the GRM module?</h2>
           <table><thead><tr><th>Role</th><th>Access level</th></tr></thead><tbody>
             <tr><td><strong>General public</strong></td><td>Can submit grievances and check status &mdash; no login required</td></tr>
-            <tr><td><strong>GRM officer / Staff</strong></td><td>Can view, filter, assign, update and resolve all grievances; manage GRC and SEC records</td></tr>
+            <tr><td><strong>GRM officer / Staff</strong></td><td>Can view, filter, assign, update and resolve grievances; community committees (SEC/GRC) are managed under <strong>Data &rarr; Settlements &rarr; Community</strong></td></tr>
             <tr><td><strong>Admin / Super admin</strong></td><td>Full access including GBV cases, reporting, and configuration</td></tr>
             <tr><td><strong>GBV role</strong></td><td>Additional access to restricted GBV case records</td></tr>
           </tbody></table>
@@ -2434,6 +2512,7 @@ const allNavGroups: NavGroup[] = [
           <img src="${grievanceListingImg}" alt="Grievances listing page" class="docs-screenshot" />
           <p>Clickable status cards at the top of the page each show a live count. Click a card to filter the table to that group:</p>
           <table><thead><tr><th>Status</th><th>Meaning</th><th>Default deadline</th></tr></thead><tbody>
+            <tr><td><strong>All Grievances</strong></td><td>Every grievance regardless of status, including deleted records where your role allows</td><td>&mdash;</td></tr>
             <tr><td><strong>Received (All)</strong></td><td>All non-deleted grievances &mdash; the default view on page load</td><td>&mdash;</td></tr>
             <tr><td><strong>Sorting</strong></td><td>Received but not yet acted on; pending triage</td><td>7 days</td></tr>
             <tr><td><strong>Under Review</strong></td><td>Actively being investigated; complainant has been notified</td><td>&mdash;</td></tr>
@@ -2442,6 +2521,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>External Referral</strong></td><td>Referred to an external agency outside KISIP for resolution</td><td>&mdash;</td></tr>
             <tr><td><strong>In Court</strong></td><td>The case is pending court determination</td><td>&mdash;</td></tr>
             <tr><td><strong>Resolved</strong></td><td>Corrective action has been recommended or implemented</td><td>21 days</td></tr>
+            <tr><td><strong>Awaiting Confirmation</strong></td><td>Resolved at settlement or county level but not yet confirmed by national GRM</td><td>&mdash;</td></tr>
             <tr><td><strong>Closed</strong></td><td>Complainant has accepted the resolution; case archived</td><td>42 days</td></tr>
             <tr><td><strong>Rejected</strong></td><td>Fake, test entry, or does not qualify</td><td>&mdash;</td></tr>
             <tr><td><strong>Deleted</strong></td><td>Soft-deleted records; visible only to national staff with <code>grievance:viewDeleted</code> permission</td><td>&mdash;</td></tr>
@@ -2521,6 +2601,20 @@ const allNavGroups: NavGroup[] = [
           <h2>Downloading</h2>
           <img src="${grievanceListDownloadImg}" alt="Grievance list download" class="docs-screenshot" />
           <p>Click the <strong>Download</strong> button to export the current view to Excel. A field selector lets you choose exactly which columns to include. The export respects all active filters and your role scope.</p>
+        `
+      },
+      {
+        id: 'grm-referred',
+        label: 'Referred Grievances',
+        content: `
+          <p>The <strong>Referred Grievances</strong> page is a personal work queue for officers who receive cases through the referral workflow. Navigate via <strong>GRM &rarr; Referred Grievances</strong>.</p>
+          <p>Unlike the main Grievances listing (which shows all cases in your scope), this page only lists grievances where:</p>
+          <ul>
+            <li>You are the <strong>referred-to officer</strong> (<code>reffered_to_officer</code>), or</li>
+            <li>You appear in the <strong>supporting staff</strong> list for that referral</li>
+          </ul>
+          <p>The table shows tracking code, category, date reported, current status, and referred officer details (including supporting staff when assigned). Click any row to open the full Grievance Details page and take workflow actions from there.</p>
+          <p>Use this inbox to focus on cases explicitly assigned to you without scanning the full national or county grievance list.</p>
         `
       },
       {
@@ -2815,12 +2909,7 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Bulk import</h2>
           <img src="${repoBulkUploadImg}" alt="Bulk document import wizard" class="docs-screenshot" />
-          <p>To upload multiple files at once, use the <strong>Bulk Import</strong> wizard (three steps):</p>
-          <ol>
-            <li><strong>Select files</strong> &mdash; choose up to 20 files in any supported format</li>
-            <li><strong>Select target model</strong> &mdash; choose the entity type to attach the documents to (e.g. Settlement, Project)</li>
-            <li><strong>Match fields</strong> &mdash; for each file, assign a <strong>Document Type</strong> and a <strong>Parent Entity</strong> from the searchable dropdown. Use the search bar to filter the file list if uploading many files at once</li>
-          </ol>
+          <p>For a dedicated multi-file import workflow, use <strong>Repository &rarr; Import</strong> (see <strong>Import</strong> below). The Documents page may also expose inline upload for single files via the <strong>+</strong> button.</p>
 
           <h2>Sharing documents</h2>
           <img src="${repoShare1Img}" alt="Share documents dialog" class="docs-screenshot" />
@@ -2828,6 +2917,20 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Deleting a document</h2>
           <p>Click the <strong>Delete</strong> action on any row and confirm the prompt. Document deletion is restricted to admin users.</p>
+        `
+      },
+      {
+        id: 'repo-import',
+        label: 'Import',
+        content: `
+          <p>The <strong>Import</strong> page (<strong>Repository &rarr; Import</strong>) is a four-step wizard for uploading many documents and linking them to settlements, projects or other parent entities in one session. Requires <code>document:upload</code> permission.</p>
+          <ol>
+            <li><strong>Upload Files</strong> &mdash; drag-and-drop or browse; select multiple files in supported formats</li>
+            <li><strong>Select Target Model</strong> &mdash; choose the entity type each file will attach to (e.g. Settlement, Project)</li>
+            <li><strong>Match Fields</strong> &mdash; for each file, assign a <strong>Document Type</strong> and <strong>Parent Entity</strong> from searchable dropdowns</li>
+            <li><strong>Review &amp; Import</strong> &mdash; confirm mappings, then import. The system checks for existing files and can link duplicates instead of re-uploading where appropriate</li>
+          </ol>
+          <p>County-scoped users are restricted to their assigned county when picking parent settlements. A progress summary reports successes, skipped files and errors per batch.</p>
         `
       },
       {
@@ -2855,6 +2958,41 @@ const allNavGroups: NavGroup[] = [
             <li><strong>Unrevoke</strong> &mdash; re-activates a previously revoked link, making it accessible again</li>
           </ul>
           <blockquote>Tip &mdash; Always set an expiry date when creating share links for external reviewers. Use the Revoke action to instantly cut off access if a link is shared in error.</blockquote>
+          <p><strong>Note:</strong> Document Shares are for letting people <em>download</em> existing files. To invite people to <em>upload</em> new files, use <strong>Share upload link</strong> on settlement, project or facility documentation tabs — see <strong>Upload Share Links</strong> below.</p>
+        `
+      },
+      {
+        id: 'repo-upload-shares',
+        label: 'Upload Share Links',
+        content: `
+          <p><strong>Upload share links</strong> let staff invite external contributors to submit files to a settlement, project or facility <em>without</em> a KeSMIS login. This is separate from <strong>Document Shares</strong>, which only provide download access to existing repository files.</p>
+
+          <h2>Where to create a link (staff)</h2>
+          <p>On the <strong>Documents</strong> tab of <strong>Settlement Details</strong>, <strong>Project Details</strong>, or a facility details page, click <strong>Share upload link</strong>. A drawer opens where you can:</p>
+          <ul>
+            <li>Set an optional <strong>expiry date</strong> (or leave blank for a non-expiring link)</li>
+            <li>Set <strong>max uploads</strong> (default 20)</li>
+            <li>Add an optional <strong>note</strong> shown to the uploader</li>
+            <li>Click <strong>Create link</strong> to generate a short URL such as <code>/#/upload-share/abc12XYZ</code></li>
+          </ul>
+          <p>Active links appear in a table with status, uploads used, and icon actions:</p>
+          <ul>
+            <li><strong>Copy</strong> &mdash; copy the public URL</li>
+            <li><strong>Email</strong> &mdash; send the link by email; search KeSMIS users or type external addresses (same pattern as Admin Communications)</li>
+            <li><strong>Revoke</strong> &mdash; deactivate the link immediately (with confirmation)</li>
+          </ul>
+
+          <h2>Public upload page</h2>
+          <p>Anyone with the link opens a public page showing the settlement/project/facility context, who shared the link, your note, and expiry or remaining upload slots. They can:</p>
+          <ul>
+            <li>Drag and drop or select multiple files in one upload area</li>
+            <li>Choose a <strong>document type</strong> for each file from grouped dropdowns (required)</li>
+            <li>Optionally enter their name as uploader</li>
+            <li>Submit and see a success or partial-failure summary</li>
+          </ul>
+          <p>The page shows clear messages if the link is invalid, expired, revoked, or has reached its upload limit.</p>
+
+          <blockquote>Tip &mdash; Use short upload links for community submissions, contractor deliverables, or partner agencies that do not have KeSMIS accounts. Revoke links as soon as the collection window closes.</blockquote>
         `
       },
       {
@@ -3322,6 +3460,9 @@ const allNavGroups: NavGroup[] = [
             <li>When coordinator approval is <strong>Approved</strong> on the server and at least one requester-ready attachment is present, click <strong>Email Download Link to Requester</strong>. The requester gets an email with a time-limited link; you can copy the same link from the green panel if you need to pass it on manually. They do not need a KeSMIS login to use that link.</li>
           </ol>
 
+          <h2>Clarifications tab</h2>
+          <p>If the application is incomplete or unclear, open the <strong>Clarifications</strong> tab on the request detail page. Post a question to the requester and click <strong>Send clarification link</strong>. The requester receives an email with a secure link (<code>/#/dr-clarify/…</code>) where they can read your message and reply without logging in. Replies appear in the threaded conversation on this tab. Use clarifications before approving or rejecting when you need more detail from the applicant.</p>
+
           <blockquote>Tip &mdash; New public submissions trigger an acknowledgment to the requester (with the reference) and an alert to <strong>support</strong> role users with a link into this admin list.</blockquote>
         `
       },
@@ -3426,10 +3567,31 @@ const allNavGroups: NavGroup[] = [
     roles: ['root_admin', 'super_admin', 'admin'],
     children: [
       {
+        id: 'settings-system',
+        label: 'System Settings',
+        content: `
+          <p><strong>System Settings</strong> (<strong>Settings &rarr; Platform &rarr; System Settings</strong>) controls platform-wide security and session behaviour. It is intended for <strong>root administrators</strong>.</p>
+          <h2>Security tab</h2>
+          <p>Toggle server-side protections on or off (rate limiting, brute-force guards, and related modules). Changes apply within about 30 seconds without restarting the server.</p>
+          <h2>Auth tab</h2>
+          <p>Configure login token lifetime and guest-session expiry. You can override environment defaults with custom hour values.</p>
+          <h2>Sessions tab</h2>
+          <p>Control concurrent device limits per user, inactivity logout, and sliding session renewal while the app stays open.</p>
+        `
+      },
+      {
+        id: 'settings-page-visits',
+        label: 'Page Visits',
+        content: `
+          <p><strong>Page Visits</strong> (<strong>Settings &rarr; Analytics &rarr; Page Visits</strong>) shows usage analytics for authenticated web sessions — which routes users visit and how often, filterable by time period.</p>
+          <p>Use this view to understand adoption of modules, spot unused features, and support security or training reviews. Requires <code>logs:read</code> permission.</p>
+        `
+      },
+      {
         id: 'settings-sms',
         label: 'SMS Settings',
         content: `
-          <p>The <strong>SMS Settings</strong> section configures the modules and features that send SMS notifications — including grievance updates, OTP verification codes, and system alerts. It is organised into three tabs:</p>
+          <p>The <strong>SMS Settings</strong> page (<strong>Settings &rarr; Platform &rarr; SMS Settings</strong>) configures the modules and features that send SMS notifications — including grievance updates, OTP verification codes, and system alerts. It is organised into three tabs:</p>
 
           <h2>Grievances tab</h2>
           <p>Enable or disable SMS notifications triggered by grievance workflow events (e.g. new grievance received, status update, resolution). Toggle the switch next to each event to turn it on or off.</p>
@@ -3451,13 +3613,13 @@ const allNavGroups: NavGroup[] = [
         id: 'settings-climate',
         label: 'Climate Settings',
         content: `
-          <p>The <strong>Climate Settings</strong> section controls the scoring matrix used by the Climate Risk Assessment module and provides a bulk tool for auto-filling vulnerability attributes. It is split into three tabs:</p>
+          <p>The <strong>Climate Settings</strong> page (<strong>Settings &rarr; Platform &rarr; Climate Settings</strong>) controls Tool A scoring, Tool B questionnaire versions, bulk vulnerability auto-fill, and matrix weights. It is organised into top-level tabs: <strong>Tool A</strong> (score bands, bulk update, matrix weights) and <strong>Tool B</strong> (questionnaire editor).</p>
 
-          <h2>Score tab</h2>
+          <h2>Tool A — Score tab</h2>
           <p>Defines the vulnerability rating bands. Each row in the table represents a rating level with editable <strong>Min Score</strong> and <strong>Max Score</strong> fields. Boundaries are synchronised — the max of one band automatically becomes the min of the next to prevent gaps or overlaps.</p>
           <img src="${climateScoreImg}" alt="Climate Settings — Score tab" class="docs-screenshot" />
 
-          <h2>Bulk Climate Update tab</h2>
+          <h2>Tool A — Bulk Climate Update tab</h2>
           <p>Fetches climate attributes from the KESMIS climate service for settlements in bulk. For each settlement the system sends its centroid coordinates to the service, which returns the relevant geographic attributes, then saves them back to the settlement record.</p>
 
           <h2>Options</h2>
@@ -3470,7 +3632,7 @@ const allNavGroups: NavGroup[] = [
           <p>A progress bar and scrolling log appear once the run starts, showing ✓ updated, – skipped (no geometry), or ✗ error for each settlement. Click <strong>Cancel</strong> to stop after the current settlement completes.</p>
           <img src="${climateToolAImg}" alt="Climate Settings — Bulk Climate Update tab" class="docs-screenshot" />
 
-          <h2>Matrix Weights tab</h2>
+          <h2>Tool A — Matrix Weights tab</h2>
           <p>Sets the weighting scores for individual hazard and vulnerability attributes used in the climate questionnaire. Attributes are grouped into collapsible sections by type:</p>
           <ul>
             <li><strong>Temperature</strong></li>
@@ -3487,6 +3649,16 @@ const allNavGroups: NavGroup[] = [
           <p>Expand any section to adjust the weight values for that hazard. Higher weights increase the contribution of that factor to the overall vulnerability score.</p>
           <img src="${climateWeightsImg}" alt="Climate Settings — Matrix Weights tab" class="docs-screenshot" />
 
+          <h2>Tool B — Questionnaire editor</h2>
+          <p>The <strong>Tool B</strong> tab is where administrators maintain the KISIP Tool B questionnaire. Select a <strong>version</strong> from the dropdown (active versions are used for new field assessments). You can:</p>
+          <ul>
+            <li>Edit questions, categories and answer options for the selected version</li>
+            <li><strong>Save to version</strong> &mdash; update the current version in place</li>
+            <li><strong>Save as new version</strong> &mdash; create a new numbered version without changing past assessments tied to older versions</li>
+            <li><strong>Preview</strong> &mdash; see how field staff will view the questionnaire (including unsaved edits)</li>
+          </ul>
+          <p>Assessments pin to the Tool B version active when they were started; the version appears in the assessment header and in submission history.</p>
+
           <h2>Saving changes</h2>
           <p>Click <strong>Save Changes</strong> to apply the updated matrix. Click <strong>Refresh</strong> to reload the last saved configuration.</p>
         `
@@ -3495,41 +3667,86 @@ const allNavGroups: NavGroup[] = [
         id: 'settings-population',
         label: 'Population Settings',
         content: `
-          <p>The <strong>Population Settings</strong> section provides tools for estimating and updating settlement population figures using a building-based population service. It is organised into two tabs:</p>
+          <p>The <strong>Population Settings</strong> page (<strong>Settings &rarr; Platform &rarr; Population Settings</strong>) groups building-based estimates, survey-derived household size, density typology, and <strong>KNBS-aligned annual projections</strong>. It has six top-level tabs:</p>
           <img src="${populationSettingsImg}" alt="Population Settings" class="docs-screenshot" />
+          <table><thead><tr><th>Tab</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><strong>Bulk Population Update</strong></td><td>Estimate settlement population from Open Buildings + ward average household size</td></tr>
+            <tr><td><strong>Household size (surveys)</strong></td><td>Derive <code>AVG(hh_size)</code> from surveyed household records (single settlement or bulk)</td></tr>
+            <tr><td><strong>Persons per Building</strong></td><td>Manual override factor (placeholder &mdash; coming soon)</td></tr>
+            <tr><td><strong>Density Typology</strong></td><td>Classify settlements as Low / Medium / High density from structure footprints</td></tr>
+            <tr><td><strong>County growth rates</strong></td><td>View and edit annual population and household growth rates by county and year</td></tr>
+            <tr><td><strong>Annual projections</strong></td><td>KNBS baseline + county rate imports, then forward projection into <code>settlement_population</code></td></tr>
+          </tbody></table>
 
-          <h2>Bulk Population Update tab</h2>
-          <p>Runs the population estimation service across multiple settlements in one operation. For each settlement, the system:</p>
+          <h2>Bulk Population Update</h2>
+          <p>Runs the building-based population service across multiple settlements. For each settlement:</p>
           <ol>
-            <li>Sends the settlement's boundary polygon to the estimation service</li>
-            <li>The service counts intersecting Open Buildings points within that boundary</li>
-            <li>Looks up the <strong>average household size</strong> for the settlement's ward from recorded household survey data</li>
-            <li>Passes that ward-level average as the <code>persons_per_building</code> factor to the service</li>
-            <li>Multiplies buildings × average household size to produce the estimated population, then <strong>rounds to the nearest 100</strong> (reflecting the secondary-source nature of the estimate)</li>
-            <li>Saves the rounded figure back to the settlement record</li>
+            <li>Sends the settlement boundary polygon to the estimation service</li>
+            <li>Counts intersecting Open Buildings points within that boundary</li>
+            <li>Uses the settlement ward&rsquo;s <strong>average household size</strong> (from survey data when available) as <code>persons_per_building</code></li>
+            <li>Multiplies buildings &times; average household size, <strong>rounds to the nearest 100</strong>, and saves to the settlement record</li>
+          </ol>
+          <table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>County</strong></td><td>Limit to one county, or leave blank for all counties</td></tr>
+            <tr><td><strong>Without population only</strong></td><td>Only settlements missing a population figure (default)</td></tr>
+            <tr><td><strong>All (overwrite existing)</strong></td><td>Re-estimate every settlement &mdash; root admins only</td></tr>
+          </tbody></table>
+          <p>A progress bar and per-settlement log show <strong>✓ updated</strong>, <strong>– skipped</strong> (no geometry / zero buildings), or <strong>✗ error</strong>. Use <strong>Download CSV</strong> to export the run log.</p>
+
+          <h2>Household size (surveys)</h2>
+          <p>Survey household lists are typically a <em>sample</em> &mdash; only <strong>average household size</strong> is written to the settlement; <strong>number of households</strong> is not changed.</p>
+          <h3>Single settlement</h3>
+          <p>Search for a settlement, click <strong>Compute from surveys</strong> to calculate <code>AVG(hh_size)</code>, then <strong>Update settlement</strong> to save the average.</p>
+          <h3>Bulk &mdash; all settlements</h3>
+          <p>Same county/scope pattern as bulk population. Updates average household size only, with a results table (survey sample size, avg before/after) and <strong>Download CSV</strong>.</p>
+
+          <h2>Persons per Building</h2>
+          <p>Reserved for configuring a default persons-per-building factor when the service has no county-level value. Currently shows a <em>Coming soon</em> placeholder.</p>
+
+          <h2>Density Typology</h2>
+          <p>Auto-populates each settlement&rsquo;s density-based slum typology by summing <strong>structure</strong> footprints and dividing by total settlement area (built-up ratio %). Categories follow the <em>National Slum Upgrading and Prevention Strategy 2024&ndash;2034</em> thresholds (Low / Medium / High, configurable).</p>
+          <ol>
+            <li>Choose county and scope (<em>Without typology only</em> or <em>All</em> for root admins)</li>
+            <li>Adjust Low/Medium/High threshold percentages if needed</li>
+            <li><strong>Compute Preview</strong> &mdash; review structure counts, built-up ratio, current vs proposed typology</li>
+            <li><strong>Apply to Settlements</strong> &mdash; write new typology values</li>
           </ol>
 
-          <h2>Options</h2>
-          <table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>County</strong></td><td>Limit the run to settlements in a specific county, or leave blank to process all counties.</td></tr>
-            <tr><td><strong>Scope — Without population only</strong></td><td>Only update settlements that currently have no population figure (default). Safe to run at any time without overwriting existing values.</td></tr>
-            <tr><td><strong>Scope — All (overwrite existing)</strong></td><td>Re-estimate and overwrite every settlement, including those that already have a population. Available to root admins only.</td></tr>
-          </tbody></table>
+          <h2>County growth rates</h2>
+          <p>Stores annual compound growth rates by county and year, separately for <strong>population (Pop)</strong> and <strong>households (HH)</strong> as percent (e.g. <code>2.8</code> = 2.8%). Male/female splits at projection time use county census ratios &mdash; they are not stored in this grid.</p>
+          <p>Filter by county and year range, edit values in the table, then <strong>Save rates</strong>. Rates can also be loaded in bulk via the <strong>Annual projections &rarr; Import growth rates</strong> sub-tab (see KNBS workflow below).</p>
 
-          <h2>Progress log</h2>
-          <p>Once the run starts, a progress bar and scrolling log appear. Each settlement shows one of three outcomes:</p>
-          <table><thead><tr><th>Icon</th><th>Status</th><th>Meaning</th></tr></thead><tbody>
-            <tr><td><strong>✓</strong></td><td>Updated</td><td>Population estimated and saved. Log shows: <em>before → after (buildings × avg HH size)</em></td></tr>
-            <tr><td><strong>–</strong></td><td>Skipped</td><td>Settlement has no geometry, invalid geometry, or zero buildings detected — no change made</td></tr>
-            <tr><td><strong>✗</strong></td><td>Error</td><td>Service call or save failed — error message shown</td></tr>
-          </tbody></table>
-          <p>Use <strong>Copy to clipboard</strong> to export the full log. Click <strong>Cancel</strong> to stop the run after the current settlement completes.</p>
+          <h2>Annual projections (KNBS workflow)</h2>
+          <p>Three-step workflow to build year-by-year settlement population facts in <code>settlement_population</code>, using a census baseline and county growth rates (typically sourced from <strong>KNBS</strong> county projections). Sub-tabs:</p>
 
-          <h2>Ward average household size</h2>
-          <p>Rather than using a fixed national default, the service uses the <strong>ward-level average household size</strong> derived from household survey records (<code>AVG(hh_size)</code> filtered by <code>ward_id</code>). This means settlements in wards with more survey data get more accurate estimates. If no household data exists for a ward, the service falls back to its own county-level or global default.</p>
+          <h3>1. Import baseline</h3>
+          <p>Upload an Excel baseline for a chosen <strong>baseline year</strong>. Required columns per row: match by <code>id</code> or <code>code</code>, plus <code>population</code>, <code>pop_male</code>, <code>pop_female</code>, <code>num_households</code>.</p>
+          <ul>
+            <li><strong>Download template</strong> &mdash; starter Excel layout</li>
+            <li><strong>Preview import</strong> &mdash; dry-run with row-level ok/error results</li>
+            <li><strong>Import baseline</strong> &mdash; write to <code>settlement_population</code> for the baseline year</li>
+            <li>Optional: <strong>Also update settlement population fields</strong> &mdash; sync the master settlement record from the baseline row</li>
+          </ul>
 
-          <h2>Persons per Building tab</h2>
-          <p>Reserved for configuring a manual override of the default persons-per-building factor used by the estimation service when no ward-level household data is available. Currently shows a <em>Coming soon</em> placeholder.</p>
+          <h3>2. Import growth rates (KNBS)</h3>
+          <p>Load county annual growth rates from KNBS-derived reference files (ready-made CSVs live under <code>tools/growth_rates/</code> in the repo). Upload <strong>population rates</strong> and/or <strong>household rates</strong> separately:</p>
+          <ul>
+            <li><strong>Population file (wide):</strong> <code>county_id</code>, <code>code</code>, <code>county</code>, <code>growth_rate_pct_YYYY</code> columns (2020&ndash;2040)</li>
+            <li><strong>Household file (wide):</strong> <code>county_id</code>, optional <code>households_YYYY</code>, <code>growth_rate_YYYY_percent</code>, <code>data_note</code></li>
+            <li><strong>Long format</strong> (either file): <code>county_id</code> or <code>code</code>, <code>year</code>, <code>rate</code> as percent</li>
+          </ul>
+          <p>Workflow: upload &rarr; <strong>Preview import</strong> &rarr; <strong>Import rates</strong>. Rows merge by <code>county_id</code> and year into the county rates store used by projection.</p>
+          <blockquote>Note &mdash; Official KNBS household projections typically cover through 2029. Years <strong>2030&ndash;2040</strong> in the bundled household rate files are <strong>modelled extensions</strong>, not official KNBS figures &mdash; check <code>data_note</code> on each county row before using projections in reports.</blockquote>
+
+          <h3>3. Project forward</h3>
+          <p>After baseline and rates are in place:</p>
+          <ol>
+            <li>Set <strong>County</strong> (optional) and <strong>Project through</strong> end year</li>
+            <li>Optional: <strong>Update settlement master to {current year}</strong> &mdash; copies the projected row for the current calendar year back to the settlement&rsquo;s population, male, female, and household fields</li>
+            <li><strong>Preview projection</strong> &mdash; see per-settlement/year population, male, female, households</li>
+            <li><strong>Run projection</strong> &mdash; write rows to <code>settlement_population</code></li>
+          </ol>
+          <p>Population and male/female totals compound using the county <strong>population</strong> rate; <strong>households</strong> use the county <strong>household</strong> rate. Missing rate years are reported in the summary before you apply.</p>
         `
       }
     ]
@@ -3544,12 +3761,13 @@ const allNavGroups: NavGroup[] = [
         id: 'config-overview',
         label: 'Overview',
         content: `
-          <p><strong>Configurations</strong> covers national-level administrative setup that underpins the entire system. These are typically configured once during system setup and updated infrequently.</p>
-          <table><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Common</strong></td><td>Document classification — document categories and types.</td></tr>
-            <tr><td><strong>Programme</strong></td><td>Defines the intervention project route — programmes, components, and project types build the URL hierarchy used to navigate intervention projects.</td></tr>
-            <tr><td><strong>Dashboards</strong></td><td>Dynamic dashboard builder — manage dashboards and their nested cards, sections, and charts.</td></tr>
-            <tr><td><strong>Admin Units</strong></td><td>Geographic hierarchy — counties, sub-counties, and wards.</td></tr>
+          <p><strong>Configurations</strong> documents the same administrative setup screens found under the sidebar <strong>Settings</strong> menu. These are typically configured once during system setup and updated infrequently.</p>
+          <table><thead><tr><th>Settings group</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Platform</strong></td><td>SMS notifications, <strong>System Settings</strong> (security/auth/session limits), Climate Settings, Population Settings</td></tr>
+            <tr><td><strong>Analytics</strong></td><td><strong>Page Visits</strong> usage stats and the <strong>Dashboard</strong> builder (dashboards, cards, sections, charts)</td></tr>
+            <tr><td><strong>Programme</strong></td><td>Programmes, components and project types that build the intervention project route tree</td></tr>
+            <tr><td><strong>Common</strong></td><td>Document categories/types, evaluation types, indicator categories, contractors, domains</td></tr>
+            <tr><td><strong>Geography</strong></td><td>Counties, sub-counties, wards and the map locator tool</td></tr>
           </tbody></table>
         `
       },
@@ -3557,7 +3775,14 @@ const allNavGroups: NavGroup[] = [
         id: 'config-common',
         label: 'Common',
         content: `
-          <p>The <strong>Common</strong> section manages document classification used across the document repository.</p>
+          <p>The <strong>Common</strong> hub (<strong>Settings &rarr; Common</strong>) manages reference data used across documents, M&amp;E, and projects. Tabs include:</p>
+          <ul>
+            <li><strong>Document Categories</strong> and <strong>Document Types</strong> &mdash; classification for the repository (documented below)</li>
+            <li><strong>Evaluation Types</strong> &mdash; templates for formal M&amp;E evaluations</li>
+            <li><strong>Categories</strong> &mdash; indicator category groupings</li>
+            <li><strong>Contractors</strong> &mdash; contractor registry for intervention projects</li>
+            <li><strong>Domains</strong> &mdash; intervention area domains linked to programme components</li>
+          </ul>
 
           <h2>Document Categories</h2>
           <p>Top-level groupings for the document repository (e.g. Legal, Technical, Financial).</p>
@@ -3735,7 +3960,7 @@ const allNavGroups: NavGroup[] = [
             id: 'config-dashboards-list',
             label: 'Dashboards',
             content: `
-              <p>The <strong>Dashboards</strong> configuration controls the dynamic dashboards displayed on the home screen. Each dashboard is a named container that groups cards, sections, and charts. Configure the dashboard list here, then use the nested sections to manage its cards, sections, and charts.</p>
+              <p>The <strong>Dashboard</strong> configuration (<strong>Settings &rarr; Analytics &rarr; Dashboard &rarr; Dashboards</strong>) controls the dynamic dashboards displayed under the <strong>Dashboards</strong> sidebar menu. Each dashboard is a named container that groups cards, sections, and charts. Configure the dashboard list here, then use the nested sections to manage its cards, sections, and charts.</p>
               <img src="${dashboardsListImg}" alt="Dashboards listing" class="docs-screenshot" />
               <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
                 <tr><td><strong>#</strong></td><td>Row index.</td></tr>
@@ -3947,6 +4172,187 @@ function selectSection(id: string) {
   mainRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+type DocsPdfSection = {
+  groupId: string
+  groupLabel: string
+  subgroupId?: string
+  subgroupLabel?: string
+  page: NavPage
+  accessGates: Array<{ roles?: string[]; permissions?: string[] }>
+}
+
+/** Sections the current user can see — same role/permission gates as the sidebar. */
+function getGatedPdfSections(scope: 'all' | 'current'): DocsPdfSection[] {
+  const sections: DocsPdfSection[] = []
+  for (const g of navGroups.value) {
+    for (const page of g.children || []) {
+      if (!canSeeNavItem(page.roles, page.permissions)) continue
+      sections.push({
+        groupId: g.id,
+        groupLabel: g.label,
+        page,
+        accessGates: [
+          { roles: g.roles, permissions: g.permissions },
+          { roles: page.roles, permissions: page.permissions }
+        ]
+      })
+    }
+    for (const sub of g.subgroups || []) {
+      if (!canSeeNavItem(sub.roles, sub.permissions)) continue
+      for (const page of sub.children || []) {
+        if (!canSeeNavItem(page.roles, page.permissions)) continue
+        sections.push({
+          groupId: g.id,
+          groupLabel: g.label,
+          subgroupId: sub.id,
+          subgroupLabel: sub.label,
+          page,
+          accessGates: [
+            { roles: g.roles, permissions: g.permissions },
+            { roles: sub.roles, permissions: sub.permissions },
+            { roles: page.roles, permissions: page.permissions }
+          ]
+        })
+      }
+    }
+  }
+  if (scope === 'current') {
+    const id = currentPage.value?.id
+    return sections.filter((s) => s.page.id === id)
+  }
+  return sections
+}
+
+const pdfLoading = ref(false)
+const pdfStatus = ref('')
+const pdfProgressLabel = computed(() => {
+  if (!pdfLoading.value) return 'Download PDF'
+  return pdfStatus.value || 'Generating PDF…'
+})
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function filenameFromDisposition(header: string | null, fallback: string): string {
+  if (!header) return fallback
+  const match = /filename="?([^";\n]+)"?/i.exec(header)
+  return match?.[1]?.trim() || fallback
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('Failed to read image'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+/** Convert Vite/public image URLs to data URLs so the server can embed them without Chromium. */
+async function inlineImagesInHtml(html: string): Promise<string> {
+  const matches = [...String(html || '').matchAll(/<img\b[^>]*?\bsrc=["']([^"']+)["'][^>]*>/gi)]
+  if (!matches.length) return html
+
+  const cache = new Map<string, string>()
+  const uniqueSrcs = [...new Set(matches.map((m) => m[1]))]
+
+  await Promise.all(
+    uniqueSrcs.map(async (src) => {
+      if (src.startsWith('data:image/')) {
+        cache.set(src, src)
+        return
+      }
+      try {
+        const res = await fetch(src)
+        if (!res.ok) return
+        const blob = await res.blob()
+        if (!blob.type.startsWith('image/')) return
+        cache.set(src, await blobToDataUrl(blob))
+      } catch {
+        // Keep the original src; server may still resolve it.
+      }
+    })
+  )
+
+  return String(html).replace(/<img\b([^>]*?)\bsrc=["']([^"']+)["']/gi, (full, attrs, src) => {
+    const inlined = cache.get(src)
+    return inlined ? `<img${attrs}src="${inlined}"` : full
+  })
+}
+
+async function downloadDocsPdf(scope: 'all' | 'current') {
+  if (pdfLoading.value) return
+  const sections = getGatedPdfSections(scope)
+  if (!sections.length) return
+
+  const token = getToken()
+  if (!token) {
+    console.error('Docs PDF export requires a logged-in session')
+    return
+  }
+
+  pdfLoading.value = true
+  pdfStatus.value = 'Preparing screenshots…'
+  try {
+    const sectionId = scope === 'current' ? sections[0]?.page.id : undefined
+    const prepared = []
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i]
+      pdfStatus.value = `Preparing screenshots ${i + 1}/${sections.length}…`
+      prepared.push({
+        id: section.page.id,
+        label: section.page.label,
+        groupId: section.groupId,
+        groupLabel: section.groupLabel,
+        subgroupId: section.subgroupId || null,
+        subgroupLabel: section.subgroupLabel || null,
+        content: await inlineImagesInHtml(section.page.content || ''),
+        accessGates: section.accessGates
+      })
+    }
+
+    pdfStatus.value = 'Generating PDF…'
+    const res = await fetch('/api/v1/docs/pdf', {
+      method: 'POST',
+      headers: {
+        'x-access-token': token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        scope,
+        sectionId,
+        sections: prepared
+      })
+    })
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}))
+      console.error('Docs PDF export failed', errBody?.message || res.statusText)
+      return
+    }
+
+    const blob = await res.blob()
+    const stamp = new Date().toISOString().slice(0, 10)
+    const fallback =
+      scope === 'current'
+        ? `KeSMIS-Docs-${sections[0]?.page.id || 'page'}-${stamp}.pdf`
+        : `KeSMIS-Docs-${stamp}.pdf`
+    const filename = filenameFromDisposition(res.headers.get('Content-Disposition'), fallback)
+    triggerBlobDownload(blob, filename)
+  } catch (err) {
+    console.error('Docs PDF export failed', err)
+  } finally {
+    pdfLoading.value = false
+    pdfStatus.value = ''
+  }
+}
+
 const closeSidebarOnResize = () => {
   if (window.innerWidth > 768) sidebarOpen.value = false
 }
@@ -3954,6 +4360,7 @@ const closeSidebarOnResize = () => {
 onMounted(async () => {
   loadUserRoles()
   window.addEventListener('resize', closeSidebarOnResize)
+
   // Deep-link support: /#/docs?section=grm-grievances | admin-communications | data-requests-management | …
   const target = route.query.section as string | undefined
   if (target) {
@@ -4195,6 +4602,67 @@ useHead({
 .sidebar-footer {
   padding: 14px 20px;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebar-pdf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pdf-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #4338ca;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.pdf-download-btn:hover:not(:disabled) {
+  background: #3730a3;
+}
+
+.pdf-download-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.pdf-download-btn--secondary {
+  background: #fff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  font-weight: 500;
+}
+
+.pdf-download-btn--secondary:hover:not(:disabled) {
+  background: #eef2ff;
+}
+
+.pdf-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9ca3af;
+}
+
+.spin {
+  animation: docs-spin 0.9s linear infinite;
+}
+
+@keyframes docs-spin {
+  to { transform: rotate(360deg); }
 }
 
 .sidebar-back {
@@ -4276,12 +4744,48 @@ useHead({
   color: #4338ca;
 }
 
+.docs-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
 .docs-page-title {
   font-size: 32px;
   font-weight: 800;
-  margin-bottom: 28px;
+  margin: 0;
   letter-spacing: -0.02em;
   color: #111827;
+  flex: 1;
+  min-width: 0;
+}
+
+.pdf-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-top: 6px;
+  padding: 6px 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.pdf-page-btn:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.pdf-page-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* ---- Prose ---- */

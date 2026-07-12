@@ -50,6 +50,7 @@ import { useRoute } from 'vue-router'
 
 
 
+import '@/plugins/echarts'
 import VChart from 'vue-echarts'
 
 import { useAppStore } from '@/store/modules/app'

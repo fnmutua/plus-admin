@@ -30,6 +30,7 @@ import { getfilteredGeo } from '@/api/settlements'
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { useRoute } from 'vue-router'
+import '@/plugins/echarts'
 import VChart from 'vue-echarts';
 import { getRoutesList } from '@/api/settlements'
 import { useRouter } from 'vue-router'

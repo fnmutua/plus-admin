@@ -1,3 +1,9 @@
+// Node.js 21+ removed SlowBuffer; jsonwebtoken's buffer-equal-constant-time dep needs this.
+const nodeBuffer = require('buffer')
+if (!nodeBuffer.SlowBuffer) {
+  nodeBuffer.SlowBuffer = nodeBuffer.Buffer
+}
+
 // Add ReadableStream polyfill for Node.js compatibility with LangChain
 if (typeof globalThis.ReadableStream === 'undefined') {
   const { ReadableStream } = require('stream/web');
@@ -114,6 +120,7 @@ require('./server/app/routes/grievance.routes')(app)
 require('./server/app/routes/incident.routes')(app)
 require('./server/app/routes/chat.routes')(app)
 require('./server/app/routes/pdf.routes')(app)
+require('./server/app/routes/docsPdf.routes')(app)
 require('./server/app/routes/geoserver.routes')(app)
 require('./server/app/routes/project.routes')(app)
 require('./server/app/routes/videoStream.routes')(app)

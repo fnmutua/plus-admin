@@ -147,7 +147,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     },
     resolve: {
       // Ensure echarts/core is always the same instance (source code & vue-echarts)
-      dedupe: ['echarts', 'echarts/core'],
+      dedupe: ['echarts', 'echarts/core', 'vue-demi', 'vue'],
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.less', '.css'],
       alias: [
         {

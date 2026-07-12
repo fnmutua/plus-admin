@@ -8,6 +8,9 @@ patchedDependencies:
   buffer-equal-constant-time@1.0.1:
     hash: kagnciba3ypyr5fuewzspcbxk4
     path: patches/buffer-equal-constant-time@1.0.1.patch
+  request@2.88.2:
+    hash: gkcwu33dhy3yyhhcpwhpy7fcna
+    path: patches/request@2.88.2.patch
 
 importers:
 
@@ -285,7 +288,7 @@ importers:
         version: 4.7.1
       request:
         specifier: ^2.88.2
-        version: 2.88.2
+        version: 2.88.2(patch_hash=gkcwu33dhy3yyhhcpwhpy7fcna)
       request-ip:
         specifier: ^3.3.0
         version: 3.3.0
@@ -404,6 +407,9 @@ importers:
       '@iconify/vue':
         specifier: ^4.1.1
         version: 4.3.0(vue@3.5.11(typescript@5.8.3))
+      '@intlify/shared':
+        specifier: ^9.14.4
+        version: 9.14.4
       '@intlify/unplugin-vue-i18n':
         specifier: 1.6.0
         version: 1.6.0(rollup@2.80.0)(vue-i18n@9.14.4(vue@3.5.11(typescript@5.8.3)))
@@ -14934,7 +14940,7 @@ snapshots:
       iconv-lite: 0.4.24
       nwmatcher: 1.4.4
       parse5: 1.5.1
-      request: 2.88.2
+      request: 2.88.2(patch_hash=gkcwu33dhy3yyhhcpwhpy7fcna)
       sax: 1.6.0
       symbol-tree: 3.2.4
       tough-cookie: 2.5.0
@@ -16731,7 +16737,7 @@ snapshots:
 
   request-ip@3.3.0: {}
 
-  request@2.88.2:
+  request@2.88.2(patch_hash=gkcwu33dhy3yyhhcpwhpy7fcna):
     dependencies:
       aws-sign2: 0.7.0
       aws4: 1.13.2

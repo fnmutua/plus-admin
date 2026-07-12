@@ -39,40 +39,13 @@ import { Back,Upload } from '@element-plus/icons-vue'
  
 import { useCache } from '@/hooks/web/useCache'
 
-import { use } from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, BarChart, LineChart } from 'echarts/charts';
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-  ToolboxComponent
-} from 'echarts/components';
+import '@/plugins/echarts'
 import VChart from 'vue-echarts';
-
 
 import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline,Circle   } from 'vue3-google-map'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
-
-
-
-use([
-  CanvasRenderer,
-  PieChart,
-  BarChart,
-  LineChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-  ToolboxComponent,
-]);
-
-
-
 
 const tableWidth = ref(window.innerWidth * 0.9); // 90% of window width
 

@@ -1,6 +1,6 @@
 import { EChartsOption } from 'echarts'
+import '@/plugins/echarts'
 import { useI18n } from '@/hooks/web/useI18n'
-import 'echarts/lib/component/toolbox'
 import { useAppStore } from '@/store/modules/app'
 import {
   dashboardChartTitleSize,

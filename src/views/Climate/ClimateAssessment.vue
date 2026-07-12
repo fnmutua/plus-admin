@@ -15,29 +15,57 @@
           <p v-if="countyName || settlementName || assessorName" class="context-name">
             County: {{ countyName || '—' }} | Settlement: {{ settlementName || '—' }} | Assessor: {{ assessorName || '—' }}
           </p>
-          <div v-if="questionVersions.length" class="header-version-row">
-            <span class="header-version-label">Tool B version</span>
-            <ElSelect
-              v-model="selectedQuestionVersion"
-              :disabled="!canSave"
-              size="small"
-              class="header-version-select"
-              placeholder="Select version"
-              @change="onQuestionVersionChange"
-            >
-              <ElOption
-                v-for="v in questionVersions"
-                :key="v.version"
-                :label="`v${v.version}${v.is_active ? ' (active)' : ''}`"
-                :value="v.version"
-              />
-            </ElSelect>
-            <ElTag v-if="assessment?.status" :type="assessment.status === 'completed' ? 'success' : 'info'" size="small">
-              {{ assessment.status }}
-            </ElTag>
-            <ElTag v-if="assessmentVersions.length" type="info" size="small" plain>
-              {{ assessmentVersions.length }} submission{{ assessmentVersions.length === 1 ? '' : 's' }}
-            </ElTag>
+          <div v-if="assessment && (questionVersions.length || canSave)" class="header-version-row">
+            <div class="header-version-left">
+              <template v-if="questionVersions.length">
+                <span class="header-version-label">Tool B version</span>
+                <ElSelect
+                  v-model="selectedQuestionVersion"
+                  :disabled="!canSave"
+                  size="small"
+                  class="header-version-select"
+                  placeholder="Select version"
+                  @change="onQuestionVersionChange"
+                >
+                  <ElOption
+                    v-for="v in questionVersions"
+                    :key="v.version"
+                    :label="`v${v.version}${v.is_active ? ' (active)' : ''}`"
+                    :value="v.version"
+                  />
+                </ElSelect>
+                <ElTag v-if="assessment?.status" :type="assessment.status === 'completed' ? 'success' : 'info'" size="small">
+                  {{ assessment.status }}
+                </ElTag>
+                <ElTag v-if="assessmentVersions.length" type="info" size="small" plain>
+                  {{ assessmentVersions.length }} submission{{ assessmentVersions.length === 1 ? '' : 's' }}
+                </ElTag>
+              </template>
+            </div>
+            <div v-if="canSave" class="header-version-actions">
+              <ElButton type="primary" size="small" :loading="saving" @click="saveAssessment">
+                Save & Compute Scores
+              </ElButton>
+              <ElButton
+                v-if="assessment.status === 'draft'"
+                type="success"
+                size="small"
+                :loading="saving"
+                @click="submitCompleted"
+              >
+                Mark Completed
+              </ElButton>
+              <ElButton
+                v-else-if="assessment.status === 'completed'"
+                type="success"
+                size="small"
+                plain
+                :loading="saving"
+                @click="submitCompleted"
+              >
+                Re-submit
+              </ElButton>
+            </div>
           </div>
         </div>
       </template>
@@ -53,7 +81,7 @@
                   KISIP Tool B — Scoring Methodology
                 </h3>
                 <p class="method-intro">
-                  This assessment follows the <strong>KISIP RVAT (Risk &amp; Vulnerability Assessment Tool)</strong> Excel methodology.
+                  This assessment follows the <strong>KISIP RVAT (Risk &amp; Vulnerability Assessment Tool)</strong>  methodology.
                   Every question is scored on a <strong>1 – 3 scale</strong>. The final Vulnerability and Risk ratings are computed
                   from cross-dimensional formulas described below.
                 </p>
@@ -561,28 +589,6 @@
               </div>
             </ElTabPane>
           </ElTabs>
-          <div v-if="canSave" class="assessment-actions">
-            <ElButton type="primary" :loading="saving" @click="saveAssessment">
-              Save & Compute Scores
-            </ElButton>
-            <ElButton
-              v-if="assessment.status === 'draft'"
-              type="success"
-              :loading="saving"
-              @click="submitCompleted"
-            >
-              Mark Completed
-            </ElButton>
-            <ElButton
-              v-else-if="assessment.status === 'completed'"
-              type="success"
-              plain
-              :loading="saving"
-              @click="submitCompleted"
-            >
-              Re-submit
-            </ElButton>
-          </div>
         </template>
         <ElEmpty v-else-if="!loading" description="Assessment not found" />
       </div>
@@ -2101,13 +2107,30 @@ onMounted(async () => {
   line-height: 1.8;
   font-size: 0.9rem;
 }
-.assessment-actions {
+
+.header-version-row {
   display: flex;
-  gap: 8px;
+  align-items: center;
   justify-content: space-between;
-  padding-top: 16px;
-  margin-top: 16px;
-  border-top: 1px solid var(--el-border-color);
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.header-version-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header-version-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .docs-header-row {
@@ -2367,10 +2390,16 @@ onMounted(async () => {
   .q-select {
     width: 100%;
   }
-  .assessment-actions {
+  .header-version-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-version-actions {
+    margin-left: 0;
+    width: 100%;
     flex-direction: column;
   }
-  .assessment-actions .el-button {
+  .header-version-actions .el-button {
     width: 100%;
   }
   .methodology-content {
@@ -2456,14 +2485,6 @@ onMounted(async () => {
 
 .version-restore-row {
   margin-top: 12px;
-}
-
-.header-version-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
 }
 
 .header-version-label {

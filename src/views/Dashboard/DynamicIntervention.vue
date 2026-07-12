@@ -30,6 +30,7 @@ import { useRoute } from 'vue-router'
 
 
 
+import '@/plugins/echarts'
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
 

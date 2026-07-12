@@ -57,12 +57,9 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 
 import { useVueFuse } from 'vue-fuse'
 import Fuse from 'fuse.js';
-import * as echarts from 'echarts';
-
+import type { EChartsOption } from 'echarts'
+import '@/plugins/echarts'
 import VChart from 'vue-echarts';
-import { CanvasRenderer } from 'echarts/renderers';
-
-
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -70,40 +67,8 @@ import { useRouter } from 'vue-router'
 import shortid from 'shortid';
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 
-import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
-import {
-    TitleComponent,
-    TooltipComponent,
-    LegendComponent,
-    ToolboxComponent,
-    GridComponent,
-
-} from 'echarts/components';
-
-
-import { use } from "echarts/core";
-
-
-type EChartsOption = echarts.EChartsOption;
 var option: EChartsOption;
 var PieChartOption: EChartsOption;
-
-
-use([
-    GaugeChart,
-    CanvasRenderer,
-    PieChart,
-    LineChart,
-    BarChart,
-    TitleComponent,
-    TooltipComponent,
-    LegendComponent,
-    ToolboxComponent,
-    GridComponent
-]);
-
-
-
 
 PieChartOption = {
     legend: {

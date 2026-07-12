@@ -40,17 +40,7 @@ import { ref, watch, onMounted } from 'vue'
 import {
   ElButton, ElSelect, ElOption, ElMessage
 } from 'element-plus'
-import { use } from "echarts/core";
-import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  ToolboxComponent,
-  GridComponent,
-} from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
-// Removed unused echarts import
+import '@/plugins/echarts'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -68,26 +58,6 @@ import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
  
 const mapLoading =ref(false)
 const mapLoadingText =ref('Loading map....')
-
-
-
-
-
-
-// Removed unused ECharts option variable
-
-use([
-  GaugeChart,
-  CanvasRenderer,
-  PieChart,
-  LineChart,
-  BarChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  ToolboxComponent,
-  GridComponent
-]);
 
 const { push } = useRouter()
 

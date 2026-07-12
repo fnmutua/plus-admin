@@ -1,7 +1,7 @@
 import { EChartsOption } from 'echarts'
 import { EChartsOption as EChartsWordOption } from 'echarts-wordcloud'
+import '@/plugins/echarts'
 import { useI18n } from '@/hooks/web/useI18n'
-import 'echarts/lib/component/toolbox'
 import { reactive } from 'vue';
 
 import {

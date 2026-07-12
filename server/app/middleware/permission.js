@@ -186,6 +186,7 @@ module.exports = {
   hasPermission,
   hasAnyPermission,
   hasDynamicPermission,
+  loadUserWithPermissions,
   REFERENCE_DATA_MODELS,
   CONTEXT_READ_PERMISSIONS,
   resolvePermissionName,

@@ -1,41 +1,52 @@
+/**
+ * Single ECharts registration for the whole app.
+ * Side-effect import this before vue-echarts or echarts.init anywhere.
+ */
+import { use } from 'echarts/core'
 import * as echarts from 'echarts/core'
-
+import { CanvasRenderer } from 'echarts/renderers'
 import {
   BarChart,
   LineChart,
   PieChart,
   MapChart,
+  GaugeChart,
   PictorialBarChart,
   RadarChart
 } from 'echarts/charts'
-
 import {
   TitleComponent,
   TooltipComponent,
+  LegendComponent,
+  ToolboxComponent,
   GridComponent,
+  VisualMapComponent,
+  GeoComponent,
   PolarComponent,
   AriaComponent,
-  ParallelComponent,
-  LegendComponent
+  ParallelComponent
 } from 'echarts/components'
 
-import { CanvasRenderer } from 'echarts/renderers'
-
-echarts.use([
-  LegendComponent,
-  TitleComponent,
-  TooltipComponent,
-  GridComponent,
-  PolarComponent,
-  AriaComponent,
-  ParallelComponent,
+use([
+  CanvasRenderer,
   BarChart,
   LineChart,
   PieChart,
   MapChart,
-  CanvasRenderer,
+  GaugeChart,
   PictorialBarChart,
-  RadarChart
+  RadarChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  ToolboxComponent,
+  GridComponent,
+  VisualMapComponent,
+  GeoComponent,
+  PolarComponent,
+  AriaComponent,
+  ParallelComponent
 ])
 
+export { use, registerTheme } from 'echarts/core'
 export default echarts
