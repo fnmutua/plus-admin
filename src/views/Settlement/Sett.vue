@@ -83,6 +83,7 @@ const loadingGetData = ref(false)
 const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
 
 const DateDialogVisible = ref(false)
+const locationFiltersDialogVisible = ref(false)
 const dateRange = ref<[Date, Date] | null>(null)
 /** Dialog-only draft — default range is a picker hint, not applied until Confirm. */
 const dateRangeDraft = ref<[Date, Date] | null>(null)
@@ -925,9 +926,11 @@ const loadDataWithCurrentFilters = async () => {
 }
 
 const segmentsScrollLayout = ref(false)
+const toolbarCompactLayout = ref(false)
 const updateSegmentsScrollLayout = () => {
   if (typeof window === 'undefined') return
   segmentsScrollLayout.value = window.innerWidth <= 768
+  toolbarCompactLayout.value = window.innerWidth < 1200
 }
 
 onMounted(async () => {
@@ -2015,6 +2018,29 @@ const activeFilterTags = computed(() => {
   }
   return tags
 })
+
+const locationFilterTagCount = computed(() =>
+  activeFilterTags.value.filter((tag) => tag.type !== 'info').length
+)
+
+const clearLocationFiltersOnly = async () => {
+  enableSubcounty.value = false
+  Object.assign(locationFilters, emptyLocationFilters())
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    locationFilters.countyIds = [...assignedCountyRoleIds.value]
+  }
+  syncLocationFiltersForRole()
+  pushRoleFilters()
+  persistToolbarFilters()
+  await getCounts()
+  if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else if (activeSegment.value === 'Deleted') {
+    await loadDeletedSegment()
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
+  }
+}
 
 const getSubCountyNames = async () => {
   const countyIds = toIdArray(locationFilters.countyIds)
@@ -5642,55 +5668,102 @@ duplicateRecords.value.forEach(county => {
 
 
 
-    <el-row :gutter="16" class="sett-toolbar-row" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px sett-toolbar-col">
+    <div
+      class="sett-toolbar-row"
+      :class="toolbarCompactLayout ? 'sett-toolbar-row--compact' : 'sett-toolbar-row--wide'"
+    >
+      <div class="sett-toolbar-col sett-toolbar-col--back">
+        <el-button type="primary" plain :icon="Back" @click="goBack" size="small">
+          Back
+        </el-button>
+      </div>
 
-        <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" size="small" style="margin-right: 10px;">
-            Back
-          </el-button>
+      <template v-if="!toolbarCompactLayout">
+        <div v-if="shouldShowCountyFilter" class="sett-toolbar-col sett-toolbar-col--county">
+          <el-select
+            size="default"
+            v-model="locationFilters.countyIds"
+            :onChange="filterByCounty"
+            :onClear="handleClear"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            placeholder="By County"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </div>
-      </el-col>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3" v-if="shouldShowCountyFilter" class="sett-toolbar-col">
-        <el-select
-size="default" v-model="locationFilters.countyIds" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County" style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+        <div class="sett-toolbar-col sett-toolbar-col--subcounty">
+          <el-select
+            :disabled="locationFilters.countyIds.length === 0"
+            size="default"
+            v-model="locationFilters.subcountyIds"
+            :onChange="filterBySubCounty"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            placeholder="By Subcounty"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3" class="sett-toolbar-col">
-        <el-select
-:disabled="locationFilters.countyIds.length === 0" size="default" v-model="locationFilters.subcountyIds" :onChange="filterBySubCounty" multiple
-          clearable filterable collapse-tags placeholder="By Subcounty" style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
+        <div class="sett-toolbar-col sett-toolbar-col--ward">
+          <el-select
+            :disabled="locationFilters.subcountyIds.length === 0"
+            size="default"
+            v-model="locationFilters.wardIds"
+            :onChange="filterByWard"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            placeholder="By Ward"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
+      </template>
 
-      <el-col :xs="24" :sm="24" :md="11" :lg="3" class="sett-toolbar-col">
-        <el-select
-:disabled="locationFilters.subcountyIds.length === 0" size="default" v-model="locationFilters.wardIds" :onChange="filterByWard" multiple
-          clearable filterable collapse-tags placeholder="By Ward" style="width: 100%; margin-right: 5px;">
-          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="11" :lg="4" class="sett-toolbar-col">
-
+      <div class="sett-toolbar-col sett-toolbar-col--search">
         <el-input
-v-model="search_string" clearable :onClear="handleClear"
-          placeholder="Search " @change="searchByNewName" class="input-with-select"
-          style="width: 100%; margin-right: 5px;">
+          v-model="search_string"
+          clearable
+          :onClear="handleClear"
+          placeholder="Search "
+          @change="searchByNewName"
+          class="input-with-select"
+          style="width: 100%;"
+        >
           <template #append>
             <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
           </template>
         </el-input>
-      </el-col>
+      </div>
 
-      <el-col :xs="24" :sm="24" :md="24" :lg="9" class="sett-toolbar-col">
-
+      <div class="sett-toolbar-col sett-toolbar-col--actions">
         <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
+
+          <el-tooltip
+            v-if="toolbarCompactLayout"
+            content="Location filters"
+            placement="top"
+          >
+            <el-badge
+              :value="locationFilterTagCount"
+              :hidden="locationFilterTagCount === 0"
+              :max="99"
+              class="sett-toolbar-filter-badge"
+            >
+              <el-button type="primary" :icon="Filter" @click="locationFiltersDialogVisible = true" />
+            </el-badge>
+          </el-tooltip>
 
           <template v-if="!isMobile">
             <el-tooltip
@@ -5799,10 +5872,8 @@ v-model="search_string" clearable :onClear="handleClear"
             </el-dropdown>
           </template>
         </div>
-
-      </el-col>
-
-    </el-row>
+      </div>
+    </div>
 
 
     <div class="custom-style" v-if="isNationalStaff || isSuperAdmin || isCountyAdmin">
@@ -7194,6 +7265,69 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
         </template>
     </el-dialog>
 
+    <el-dialog
+      v-model="locationFiltersDialogVisible"
+      title="Location filters"
+      :width="isMobile || windowWidth <= 768 ? '92%' : '480px'"
+      destroy-on-close
+    >
+      <el-form label-position="top" class="sett-location-filters-form">
+        <el-form-item v-if="shouldShowCountyFilter" label="County">
+          <el-select
+            size="default"
+            v-model="locationFilters.countyIds"
+            :onChange="filterByCounty"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            placeholder="By County"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Subcounty">
+          <el-select
+            :disabled="locationFilters.countyIds.length === 0"
+            size="default"
+            v-model="locationFilters.subcountyIds"
+            :onChange="filterBySubCounty"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            placeholder="By Subcounty"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Ward">
+          <el-select
+            :disabled="locationFilters.subcountyIds.length === 0"
+            size="default"
+            v-model="locationFilters.wardIds"
+            :onChange="filterByWard"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            placeholder="By Ward"
+            style="width: 100%;"
+          >
+            <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button v-if="locationFilterTagCount > 0" @click="clearLocationFiltersOnly">Clear filters</el-button>
+          <el-button type="primary" @click="locationFiltersDialogVisible = false">Done</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- Location Update Drawer -->
     <el-drawer
       v-model="locationUpdateDrawer"
@@ -7309,6 +7443,58 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   height: 75vh;
 }
 
+.sett-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.sett-toolbar-row--compact {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-row--wide {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-col {
+  min-width: 0;
+}
+
+.sett-toolbar-col--back {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--county,
+.sett-toolbar-row--wide .sett-toolbar-col--subcounty,
+.sett-toolbar-row--wide .sett-toolbar-col--ward {
+  flex: 1 1 0;
+  min-width: 120px;
+  max-width: 200px;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--search {
+  flex: 1 1 0;
+  min-width: 160px;
+  max-width: 240px;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--actions {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--search {
+  flex: 1 1 120px;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--actions {
+  flex: 0 0 auto;
+}
+
 .sett-toolbar-actions {
   display: flex;
   align-items: center;
@@ -7322,25 +7508,19 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   flex-wrap: wrap;
 }
 
+.sett-toolbar-filter-badge :deep(.el-badge__content) {
+  top: 4px;
+  right: 10px;
+}
+
 .sett-toolbar-dropdown-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-/* Space between filter toolbar columns (gutter + vertical gap when stacked) */
-.sett-toolbar-row :deep(.sett-toolbar-col) {
-  margin-bottom: 12px;
-}
-
-.sett-toolbar-row :deep(.sett-toolbar-col:last-child) {
+.sett-location-filters-form :deep(.el-form-item:last-child) {
   margin-bottom: 0;
-}
-
-@media (min-width: 992px) {
-  .sett-toolbar-row :deep(.sett-toolbar-col) {
-    margin-bottom: 0;
-  }
 }
 
 @media (max-width: 768px) {
