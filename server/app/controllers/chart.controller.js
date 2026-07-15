@@ -282,18 +282,124 @@ async function barChart(body) {
 // ─── 2. PIE / DONUT / TREEMAP — types 3, 10, 11 ─────────────────────────────
 // GROUP BY x_axis, AGG(y_axis)
 // Treemap (11) capped to TREEMAP_SLICE_LIMIT tiles — large GROUP BY sets hang the browser.
+// Treemap also splits comma-separated category values into independent tiles.
 const TREEMAP_SLICE_LIMIT = 40
 const PIE_SLICE_LIMIT     = 100
+
+function splitCategoryTokens(value) {
+  if (value == null) return ['(empty)']
+  const text = String(value).trim()
+  if (!text) return ['(empty)']
+  if (!text.includes(',')) return [text]
+  const parts = text.split(',').map((part) => part.trim()).filter(Boolean)
+  return parts.length ? parts : ['(empty)']
+}
+
+function capTreemapEntries(entries) {
+  if (entries.length <= TREEMAP_SLICE_LIMIT) return entries
+  const top = entries.slice(0, TREEMAP_SLICE_LIMIT - 1)
+  const otherSum = entries
+    .slice(TREEMAP_SLICE_LIMIT - 1)
+    .reduce((sum, entry) => sum + entry.value, 0)
+  return otherSum > 0 ? [...top, { name: 'Other', value: otherSum }] : top
+}
+
+async function treemapChart(body) {
+  const { model, x_axis, y_axis, filters, ignore_empty } = body
+  const tbl = safeModel(model)
+  const xBare = String(x_axis?.field || '').split('.').pop()
+
+  if (!x_axis?.field || xBare === 'id') {
+    throw new Error('Word Map requires a category field (not id) — e.g. county.name, gender')
+  }
+
+  const { joinSql, xExpr } = resolveVirtualField(x_axis.field, tbl, filters)
+  const yCol = safeCol(y_axis.field === 'id' ? `${tbl}.id` : y_axis.field)
+  const yAgg = safeAgg(y_axis.aggregation)
+  const yFieldForWhere = y_axis.field === 'id' ? `${tbl}.id` : y_axis.field
+  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+
+  const sql = `
+    SELECT ${xExpr} AS category_raw, ${yCol} AS y_measure
+    FROM   "${tbl}"
+    ${joinSql}
+    ${clause}
+  `
+  const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
+
+  const totals = new Map()
+  const avgMeta = new Map()
+
+  for (const row of rows) {
+    const tokens = splitCategoryTokens(row.category_raw)
+
+    if (yAgg === 'COUNT') {
+      for (const token of tokens) {
+        totals.set(token, (totals.get(token) || 0) + 1)
+      }
+      continue
+    }
+
+    const measure = parseFloat(row.y_measure)
+    if (!Number.isFinite(measure)) continue
+
+    if (yAgg === 'SUM') {
+      for (const token of tokens) {
+        totals.set(token, (totals.get(token) || 0) + measure)
+      }
+      continue
+    }
+
+    if (yAgg === 'AVG') {
+      for (const token of tokens) {
+        const meta = avgMeta.get(token) || { sum: 0, count: 0 }
+        meta.sum += measure
+        meta.count += 1
+        avgMeta.set(token, meta)
+      }
+      continue
+    }
+
+    for (const token of tokens) {
+      const current = totals.get(token)
+      if (current == null) {
+        totals.set(token, measure)
+      } else if (yAgg === 'MIN') {
+        totals.set(token, Math.min(current, measure))
+      } else if (yAgg === 'MAX') {
+        totals.set(token, Math.max(current, measure))
+      }
+    }
+  }
+
+  if (yAgg === 'AVG') {
+    for (const [token, meta] of avgMeta.entries()) {
+      totals.set(token, meta.count ? meta.sum / meta.count : 0)
+    }
+  }
+
+  const entries = capTreemapEntries(
+    [...totals.entries()]
+      .map(([name, value]) => ({ name, value: parseFloat(value) || 0 }))
+      .sort((a, b) => b.value - a.value),
+  )
+
+  return {
+    categories: entries.map((entry) => entry.name),
+    series: [{ name: 'value', data: entries.map((entry) => entry.value) }],
+  }
+}
 
 async function pieChart(body) {
   const { model, x_axis, y_axis, filters, ignore_empty, chart_type } = body
   const chartType = Number(chart_type)
+
+  if (chartType === 11) {
+    return treemapChart(body)
+  }
+
   const tbl  = safeModel(model)
   const xBare = String(x_axis?.field || '').split('.').pop()
-
-  if (chartType === 11 && (!x_axis?.field || xBare === 'id')) {
-    throw new Error('Word Map requires a category field (not id) — e.g. county.name, gender')
-  }
 
   const { joinSql, xExpr, xAlias } = resolveVirtualField(x_axis.field, tbl, filters)
   const yCol = safeCol(y_axis.field === 'id' ? `${tbl}.id` : y_axis.field)
@@ -302,7 +408,7 @@ async function pieChart(body) {
 
   const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
 
-  const sqlLimit = chartType === 11 ? TREEMAP_SLICE_LIMIT : (chartType === 3 || chartType === 10 ? PIE_SLICE_LIMIT : null)
+  const sqlLimit = chartType === 3 || chartType === 10 ? PIE_SLICE_LIMIT : null
   const limitSql = sqlLimit ? ` LIMIT ${sqlLimit}` : ''
 
   const sql = `

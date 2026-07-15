@@ -13,7 +13,29 @@ const {
 const PAGE = { width: 595.28, height: 841.89, margin: 46, footer: 34 };
 const LOGO_PATH = path.join(__dirname, '../../../src/assets/imgs/1logo.png');
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
-const BRAND = rgb(0.263, 0.224, 0.788);
+
+// Match admin app primary theme (src/config/app.ts elColorPrimary)
+const BRAND_HEX = '#684035';
+const BRAND_DARK_HEX = '#523028';
+const BRAND_LIGHT_HEX = '#f4ebe6';
+const BRAND_BORDER_HEX = '#d4c4bb';
+
+function hexToRgb(hex) {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return rgb(0, 0, 0);
+  return rgb(
+    parseInt(normalized.slice(0, 2), 16) / 255,
+    parseInt(normalized.slice(2, 4), 16) / 255,
+    parseInt(normalized.slice(4, 6), 16) / 255
+  );
+}
+
+const BRAND = hexToRgb(BRAND_HEX);
+const BRAND_DARK = hexToRgb(BRAND_DARK_HEX);
+const BRAND_LIGHT = hexToRgb(BRAND_LIGHT_HEX);
+const BRAND_BORDER = hexToRgb(BRAND_BORDER_HEX);
+const RULE = hexToRgb('#e8ded8');
+const HEADER_FILL = hexToRgb('#f0e6e0');
 const MUTED = rgb(0.55, 0.58, 0.63);
 const BODY = rgb(0.22, 0.25, 0.32);
 const HEADING = rgb(0.07, 0.09, 0.14);
@@ -394,7 +416,7 @@ function createRenderer(doc, fonts, assetBaseUrl) {
 
   const drawSectionRule = () => {
     ensureSpace(16);
-    drawLine(PAGE.margin, y - 4, PAGE.width - PAGE.margin, y - 4, rgb(0.9, 0.91, 0.94), 1);
+    drawLine(PAGE.margin, y - 4, PAGE.width - PAGE.margin, y - 4, RULE, 1);
     y -= 14;
   };
 
@@ -408,8 +430,8 @@ function createRenderer(doc, fonts, assetBaseUrl) {
     const paddingY = 5;
     const size = 8;
     const lineHeight = 10.5;
-    const borderColor = rgb(0.82, 0.84, 0.88);
-    const headerFill = rgb(0.94, 0.95, 0.99);
+    const borderColor = BRAND_BORDER;
+    const headerFill = HEADER_FILL;
     const headerRows = rows.filter((row) => row.isHeader);
 
     const measureRow = (row) => {
@@ -506,8 +528,18 @@ function createRenderer(doc, fonts, assetBaseUrl) {
           const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
           const width = image.width * scale;
           const height = image.height * scale;
-          ensureSpace(height + 14);
-          page.drawImage(image, { x: PAGE.margin, y: y - height, width, height });
+          ensureSpace(height + 18);
+          const imageX = PAGE.margin;
+          const imageY = y - height;
+          page.drawRectangle({
+            x: imageX,
+            y: imageY,
+            width,
+            height,
+            borderColor: BRAND_BORDER,
+            borderWidth: 0.75
+          });
+          page.drawImage(image, { x: imageX, y: imageY, width, height });
           y -= height + 12;
         } catch {
           if (block.alt) {
@@ -538,9 +570,7 @@ function createRenderer(doc, fonts, assetBaseUrl) {
     outlineRoots.push({ title: 'KeSMIS Documentation', pageIndex: idx, children: [] });
 
     const centerX = PAGE.width / 2;
-    const pageBg = rgb(0.985, 0.986, 0.992);
-    const brandDark = rgb(0.20, 0.17, 0.62);
-    const brandLight = rgb(0.94, 0.93, 0.99);
+    const pageBg = rgb(0.99, 0.985, 0.98);
     const white = rgb(1, 1, 1);
 
     page.drawRectangle({
@@ -569,7 +599,7 @@ function createRenderer(doc, fonts, assetBaseUrl) {
       y: PAGE.height - 226,
       width: PAGE.width,
       height: 6,
-      color: brandDark
+      color: BRAND_DARK
     });
     page.drawRectangle({
       x: PAGE.margin,
@@ -608,7 +638,7 @@ function createRenderer(doc, fonts, assetBaseUrl) {
         width: boxW,
         height: boxH,
         color: white,
-        borderColor: rgb(0.92, 0.93, 0.97),
+        borderColor: BRAND_BORDER,
         borderWidth: 1
       });
       page.drawImage(logoImage, {
@@ -624,7 +654,7 @@ function createRenderer(doc, fonts, assetBaseUrl) {
     contentY -= 38;
     drawCentered('KeSMIS', { y: contentY, size: 40, bold: true, color: HEADING });
     contentY -= 34;
-    drawCentered('Documentation', { y: contentY, size: 22, bold: true, color: brandDark });
+    drawCentered('Documentation', { y: contentY, size: 22, bold: true, color: BRAND_DARK });
     contentY -= 28;
     drawCentered('Kenya Slum Management Information System', {
       y: contentY,
@@ -646,15 +676,15 @@ function createRenderer(doc, fonts, assetBaseUrl) {
       y: contentY - 72,
       width: PAGE.width - (PAGE.margin + 24) * 2,
       height: 72,
-      color: brandLight,
-      borderColor: rgb(0.88, 0.86, 0.96),
+      color: BRAND_LIGHT,
+      borderColor: BRAND_BORDER,
       borderWidth: 0.75
     });
     drawCentered('Kenya Informal Settlements Improvement Project (KISIP)', {
       y: contentY - 18,
       size: 10,
       bold: true,
-      color: brandDark
+      color: BRAND_DARK
     });
     drawCentered('National digital platform for slums and informal settlements', {
       y: contentY - 36,
@@ -767,7 +797,7 @@ function createRenderer(doc, fonts, assetBaseUrl) {
 
       const label = meta?.footer || meta?.chapter || 'KeSMIS Documentation';
       const footerY = 22;
-      drawLine(PAGE.margin, 38, PAGE.width - PAGE.margin, 38, rgb(0.9, 0.91, 0.94), 0.75);
+      drawLine(PAGE.margin, 38, PAGE.width - PAGE.margin, 38, RULE, 0.75);
 
       pg.drawText(pdfSafeText(label), {
         x: PAGE.margin,

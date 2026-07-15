@@ -117,7 +117,7 @@ const CHART_TYPE_CONFIG: Record<number, {
   // Word Map — tile by field + aggregation only (same pattern as pie/donut)
   11: { xAxis: true,  yAxis: true,  yAxisField: false, series: 'none',
         xLabel: 'Tile by',                 yLabel: 'Tile size (how to measure)',
-        xHint: 'Each unique value = one tile (larger = bigger measure).' },
+        xHint: 'Each unique value = one tile. Comma-separated values are split into independent tiles (e.g. "A, B" counts as A and B).' },
   // Multi-variable Line — time axis + multiple numeric metrics
   12: { xAxis: false, yAxis: false, series: 'none',     timeAxis: true, metrics: true,
         xHint: 'Date or year field for the time axis.' },
@@ -395,7 +395,10 @@ const axisPreviewSentence = computed(() => {
   const xPart   = xField ? `grouped by ${xField}` : ''
   const yPart   = yField && yField !== 'id' ? ` [measuring ${aggVerb} ${yField}]` : ''
   const sPart   = sField ? `, split by ${sField}` : ''
-  return `This chart will show ${entity} records ${xPart}${yPart}${sPart}.`.replace('  ', ' ')
+  const commaPart = ruleForm.type === 11 && xField
+    ? ' (comma-separated values become separate tiles)'
+    : ''
+  return `This chart will show ${entity} records ${xPart}${commaPart}${yPart}${sPart}.`.replace('  ', ' ')
 })
 
 // ── Axis change handlers ──────────────────────────────────────────────────────

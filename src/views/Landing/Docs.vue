@@ -4618,7 +4618,7 @@ useHead({
   padding: 8px 12px;
   border: none;
   border-radius: 6px;
-  background: #4338ca;
+  background: #684035;
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -4627,7 +4627,7 @@ useHead({
 }
 
 .pdf-download-btn:hover:not(:disabled) {
-  background: #3730a3;
+  background: #523028;
 }
 
 .pdf-download-btn:disabled {
@@ -4637,13 +4637,13 @@ useHead({
 
 .pdf-download-btn--secondary {
   background: #fff;
-  color: #4338ca;
-  border: 1px solid #c7d2fe;
+  color: #684035;
+  border: 1px solid #d4c4bb;
   font-weight: 500;
 }
 
 .pdf-download-btn--secondary:hover:not(:disabled) {
-  background: #eef2ff;
+  background: #f4ebe6;
 }
 
 .pdf-hint {
@@ -4765,10 +4765,10 @@ useHead({
   flex-shrink: 0;
   margin-top: 6px;
   padding: 6px 12px;
-  border: 1px solid #c7d2fe;
+  border: 1px solid #d4c4bb;
   border-radius: 6px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: #f4ebe6;
+  color: #684035;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -4776,7 +4776,7 @@ useHead({
 }
 
 .pdf-page-btn:hover:not(:disabled) {
-  background: #e0e7ff;
+  background: #ede3dd;
 }
 
 .pdf-page-btn:disabled {
@@ -4870,7 +4870,7 @@ useHead({
   display: block;
   max-width: 100%;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(104, 64, 53, 0.35);
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.08),
     0 1px 4px rgba(0, 0, 0, 0.04);
