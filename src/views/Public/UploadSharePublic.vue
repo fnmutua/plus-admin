@@ -220,6 +220,11 @@ const uploadMore = () => {
   }
 }
 
+const clearSelection = () => {
+  fileList.value = []
+  for (const key of Object.keys(fileCategories)) delete fileCategories[key]
+}
+
 const goBack = () => {
   router.push('/')
 }
@@ -230,19 +235,19 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 px-2 sm:px-6 overflow-y-auto min-h-screen">
-    <div class="container mx-auto my-3 sm:my-8 max-w-full sm:max-w-2xl">
-      <el-card v-loading="state === 'loading'" class="p-2 sm:p-6 upload-share-card">
+  <div class="upload-share-page bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 px-2 sm:px-6">
+    <div class="upload-share-container container mx-auto my-2 sm:my-8 max-w-full sm:max-w-2xl">
+      <el-card v-loading="state === 'loading'" class="upload-share-card p-2 sm:p-6">
         <template #header>
-          <div class="flex items-center space-x-3">
-            <img src="/gok.png" alt="Logo" class="w-10 h-10 shrink-0" />
-            <h2 class="text-xl font-bold truncate">KesMIS — Upload Documents</h2>
+          <div class="upload-share-header flex items-center space-x-2 sm:space-x-3">
+            <img src="/gok.png" alt="Logo" class="upload-share-logo w-8 h-8 sm:w-10 sm:h-10 shrink-0" />
+            <h2 class="upload-share-title text-base sm:text-xl font-bold truncate">KesMIS — Upload Documents</h2>
           </div>
         </template>
 
         <!-- Valid link: upload form -->
         <div v-if="state === 'valid' && !doneUploading">
-          <div class="upload-info-box mb-5 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-sm">
+          <div class="upload-info-box mb-3 sm:mb-5 rounded-lg border border-gray-200 dark:border-gray-700 p-2 sm:p-3 text-xs sm:text-sm">
             <p class="mb-1">
               You've been invited to upload documents for
               <strong v-if="displayEntity">{{ displayEntity }}</strong>
@@ -257,25 +262,26 @@ onMounted(() => {
           </div>
 
           <el-upload
-            drag
             multiple
             :auto-upload="false"
             :show-file-list="false"
             :file-list="fileList"
             :on-change="handleFileChange"
             :on-remove="handleFileRemove"
-            class="upload-share-dropzone"
+            class="upload-share-select"
           >
-            <Icon icon="material-symbols:cloud-upload-outline" width="40" class="mx-auto mb-2 text-gray-400" />
-            <div class="el-upload__text">Drop files here or <em>click to select</em></div>
+            <el-button type="primary" plain class="upload-share-select-btn">
+              <Icon icon="material-symbols:attach-file" class="mr-1" />
+              Select files
+            </el-button>
           </el-upload>
 
-          <div v-if="fileList.length" class="file-type-list mt-4">
+          <div v-if="fileList.length" class="file-type-list mt-3 sm:mt-4">
             <p class="file-type-list__title">
               Selected files
               <span class="file-type-list__hint">choose a document type for each</span>
             </p>
-            <div class="file-type-list__scroll">
+            <div class="file-type-list__items">
               <div
                 v-for="file in fileList"
                 :key="file.uid"
@@ -324,25 +330,34 @@ onMounted(() => {
           <el-input
             v-model="uploaderName"
             placeholder="Your name or a note (optional)"
-            class="mt-4"
+            class="mt-3 sm:mt-4"
             maxlength="255"
           />
 
-          <el-button
-            type="primary"
-            class="w-full mt-4"
-            size="large"
-            :loading="submitting"
-            :disabled="fileList.length === 0 || !allCategoriesSelected"
-            @click="submitUpload"
-          >
-            Upload {{ fileList.length ? `(${fileList.length})` : '' }}
-          </el-button>
+          <div class="upload-share-actions mt-3 sm:mt-4">
+            <el-button
+              type="primary"
+              class="upload-share-submit"
+              :loading="submitting"
+              :disabled="fileList.length === 0 || !allCategoriesSelected"
+              @click="submitUpload"
+            >
+              Upload {{ fileList.length ? `(${fileList.length})` : '' }}
+            </el-button>
+            <el-button
+              plain
+              class="upload-share-clear"
+              :disabled="fileList.length === 0 || submitting"
+              @click="clearSelection"
+            >
+              Clear
+            </el-button>
+          </div>
         </div>
 
         <!-- Just finished uploading -->
-        <div v-else-if="doneUploading" class="text-center py-6">
-          <Icon icon="material-symbols:check-circle-outline" width="48" class="mx-auto mb-3 text-green-600" />
+        <div v-else-if="doneUploading" class="upload-share-done text-center py-4 sm:py-6">
+          <Icon icon="material-symbols:check-circle-outline" width="40" class="upload-share-done-icon mx-auto mb-2 sm:mb-3 text-green-600" />
           <p class="font-semibold mb-2">
             {{ uploadedFiles.length }} file{{ uploadedFiles.length === 1 ? '' : 's' }} uploaded successfully
           </p>
@@ -361,7 +376,7 @@ onMounted(() => {
         </div>
 
         <!-- Error / blocked states -->
-        <el-empty v-else-if="state !== 'loading'" class="py-6">
+        <el-empty v-else-if="state !== 'loading'" class="upload-share-empty py-4 sm:py-6">
           <template #description>
             <el-tag v-if="state === 'expired'" type="warning" class="mb-2">Link expired</el-tag>
             <el-tag v-else-if="state === 'revoked'" type="danger" class="mb-2">Link revoked</el-tag>
@@ -376,8 +391,23 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.upload-share-page {
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding-bottom: 24px;
+}
+
 .upload-share-card :deep(.el-card__header) {
-  padding: 14px 16px;
+  padding: 10px 12px;
+}
+
+.upload-share-card :deep(.el-card__body) {
+  padding: 12px;
 }
 
 .upload-info-box {
@@ -388,20 +418,43 @@ html.dark .upload-info-box {
   background-color: rgba(255, 255, 255, 0.04);
 }
 
-.upload-share-dropzone :deep(.el-upload-dragger) {
+.upload-share-select {
+  display: block;
+}
+
+.upload-share-select :deep(.el-upload) {
   width: 100%;
+}
+
+.upload-share-select-btn {
+  width: 100%;
+}
+
+.upload-share-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.upload-share-submit {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-share-clear {
+  flex-shrink: 0;
 }
 
 .file-type-list {
   border: 1px solid var(--el-border-color);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
 }
 
 .file-type-list__title {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .required-mark {
@@ -410,15 +463,12 @@ html.dark .upload-info-box {
 
 .file-type-list__hint {
   font-weight: normal;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--el-text-color-secondary);
-  margin-left: 6px;
+  margin-left: 4px;
 }
 
-.file-type-list__scroll {
-  max-height: min(50vh, 320px);
-  overflow-y: auto;
-  overflow-x: hidden;
+.file-type-list__items {
   margin: 0 -4px;
   padding: 0 4px;
 }
@@ -426,8 +476,8 @@ html.dark .upload-info-box {
 .file-type-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 0;
+  gap: 4px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
@@ -435,8 +485,8 @@ html.dark .upload-info-box {
   border-bottom: none;
 }
 
-.file-type-list__scroll .file-type-row:last-child {
-  padding-bottom: 8px;
+.file-type-list__items .file-type-row:last-child {
+  padding-bottom: 6px;
 }
 
 .file-type-row--missing {
@@ -448,7 +498,7 @@ html.dark .upload-info-box {
 }
 
 .file-type-row__name {
-  font-size: 13px;
+  font-size: 12px;
   word-break: break-all;
   color: var(--el-text-color-primary);
 }
@@ -462,26 +512,100 @@ html.dark .upload-info-box {
 }
 
 .file-type-list__warning {
-  margin: 10px 0 0;
-  font-size: 12px;
+  margin: 8px 0 0;
+  font-size: 11px;
   color: var(--el-color-warning);
 }
 
+@media (max-width: 639px) {
+  .upload-share-page {
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-bottom: 32px;
+  }
+
+  .upload-share-container {
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .upload-share-card :deep(.el-card__header) {
+    padding: 8px 10px;
+  }
+
+  .upload-share-card :deep(.el-card__body) {
+    padding: 10px;
+  }
+
+  .upload-share-submit {
+    min-height: 36px;
+  }
+
+  .upload-share-done-icon {
+    width: 36px !important;
+    height: 36px;
+  }
+
+  .upload-share-empty :deep(.el-empty__image) {
+    width: 72px;
+  }
+
+  .upload-share-empty :deep(.el-empty__description) {
+    margin-top: 8px;
+  }
+
+  .upload-info-box p {
+    margin-bottom: 4px;
+  }
+
+  .upload-info-box p:last-child {
+    margin-bottom: 0;
+  }
+}
+
 @media (min-width: 640px) {
+  .upload-share-card :deep(.el-card__header) {
+    padding: 14px 16px;
+  }
+
+  .upload-share-card :deep(.el-card__body) {
+    padding: 20px;
+  }
+
+  .file-type-list {
+    padding: 12px;
+  }
+
+  .file-type-list__title {
+    margin: 0 0 10px;
+    font-size: 14px;
+  }
+
+  .file-type-list__hint {
+    font-size: 12px;
+    margin-left: 6px;
+  }
+
   .file-type-row {
     flex-direction: row;
     align-items: center;
     gap: 12px;
+    padding: 8px 0;
   }
 
   .file-type-row__name {
     flex: 1;
     min-width: 0;
+    font-size: 13px;
   }
 
   .file-type-row__select {
     flex: 0 0 220px;
     width: 220px;
+  }
+
+  .upload-share-submit {
+    min-height: 40px;
   }
 }
 </style>

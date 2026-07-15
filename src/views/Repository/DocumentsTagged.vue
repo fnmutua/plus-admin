@@ -547,8 +547,8 @@ const customDateRange = ref<[Date | string, Date | string] | undefined>(undefine
 
 // Note: Using customDateRange directly for the date picker
 
-// Mobile responsiveness
-const COMPACT_TOOLBAR_BREAKPOINT = 1200
+// Mobile / compact toolbar
+const COMPACT_TOOLBAR_BREAKPOINT = 992
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : COMPACT_TOOLBAR_BREAKPOINT)
 const isMobile = computed(() => appStore.getMobile)
 const isCompactToolbar = computed(() => isMobile.value || windowWidth.value < COMPACT_TOOLBAR_BREAKPOINT)
@@ -2619,6 +2619,7 @@ onMounted(async () => {
   getProjectOptions()
   getImportDocTypes()
   void ensureDocumentCategories()
+  windowWidth.value = window.innerWidth
   window.addEventListener('resize', handleResize) // Add event listener for resize
 })
 
@@ -3343,7 +3344,7 @@ const handleTabChange = async (tabName: string) => {
     <template #header>
       <div class="controls-container controls-container--in-header">
         <el-row :gutter="16" class="controls-row">
-          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 18 : 14" :lg="isCompactToolbar ? 18 : 14" :xl="14" class="search-col">
+          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 16 : 14" :lg="isCompactToolbar ? 16 : 14" :xl="14" class="search-col">
             <el-input
               v-model="searchTerm"
               placeholder="Search documents by name, settlement, county, format, or uploader..."
@@ -3370,18 +3371,18 @@ const handleTabChange = async (tabName: string) => {
             </el-input>
           </el-col>
 
-          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 6 : 10" :lg="isCompactToolbar ? 6 : 10" :xl="10" class="actions-col">
-            <!-- Compact actions on small screens -->
-            <div v-if="isCompactToolbar" class="action-buttons action-buttons--compact">
+          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 8 : 10" :lg="isCompactToolbar ? 8 : 10" :xl="10" class="actions-col">
+            <!-- Small screens: Sort, Upload, Filters collapsed into dropdown -->
+            <div class="action-buttons action-buttons--compact" :class="{ 'is-compact-visible': isCompactToolbar }">
               <el-dropdown trigger="click" @command="handleToolbarAction">
-                <el-button type="primary">
+                <el-button type="primary" class="compact-actions-btn">
                   Actions
                   <el-badge
                     v-if="activeFilterCount > 0"
                     :value="activeFilterCount"
                     class="toolbar-actions-badge"
                   />
-                  <el-icon style="margin-left: 4px;"><ArrowDown /></el-icon>
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -3393,15 +3394,11 @@ const handleTabChange = async (tabName: string) => {
                       <Icon icon="material-symbols:trending-up" width="16" />
                       <span style="margin-left: 8px;">Sort by Popularity{{ sortOption === 'popularity' ? ' ✓' : '' }}</span>
                     </el-dropdown-item>
-                    <el-dropdown-item
-                      v-if="canUploadDocuments"
-                      divided
-                      command="upload"
-                    >
+                    <el-dropdown-item v-if="canUploadDocuments" divided command="upload">
                       <Icon icon="material-symbols:upload" width="16" />
                       <span style="margin-left: 8px;">Upload</span>
                     </el-dropdown-item>
-                    <el-dropdown-item :divided="!canUploadDocuments" command="filters">
+                    <el-dropdown-item command="filters" :divided="!canUploadDocuments">
                       <Icon icon="material-symbols:filter-list" width="16" />
                       <span style="margin-left: 8px;">
                         Filters{{ activeFilterCount > 0 ? ` (${activeFilterCount})` : '' }}
@@ -3419,8 +3416,8 @@ const handleTabChange = async (tabName: string) => {
               </el-dropdown>
             </div>
 
-            <!-- Full actions on larger screens -->
-            <div v-else class="action-buttons">
+            <!-- Larger screens: full buttons -->
+            <div class="action-buttons action-buttons--full" :class="{ 'is-compact-hidden': isCompactToolbar }">
               <div class="sort-options">
                 <span class="sort-label">Sort by:</span>
                 <el-select
@@ -4833,10 +4830,24 @@ const handleTabChange = async (tabName: string) => {
   gap: 12px;
   justify-content: flex-end;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .action-buttons--compact {
-  justify-content: flex-end;
+  display: none;
+}
+
+.action-buttons--compact.is-compact-visible {
+  display: flex;
+}
+
+.action-buttons--full.is-compact-hidden {
+  display: none;
+}
+
+.compact-actions-btn {
+  flex-shrink: 0;
+  min-width: 120px;
 }
 
 .toolbar-actions-badge {
@@ -4894,39 +4905,31 @@ const handleTabChange = async (tabName: string) => {
   .controls-container:not(.controls-container--in-header) {
     padding: 12px;
   }
-  
-  .action-buttons {
-    justify-content: center;
-    margin-top: 12px;
+
+  /* Always collapse Upload/Filters into Actions dropdown on small screens */
+  .action-buttons--full {
+    display: none !important;
   }
-  
-  .action-btn {
-    min-width: 80px;
-    flex: 1;
+
+  .action-buttons--compact {
+    display: flex !important;
+    justify-content: flex-end;
+    margin-top: 0;
   }
-  
-  .btn-text {
-    display: none;
-  }
-  
-  .search-col, .actions-col {
+
+  .search-col,
+  .actions-col {
     margin-bottom: 8px;
   }
 }
 
 @media (max-width: 480px) {
-  .action-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .action-btn {
+  .action-buttons--compact {
     width: 100%;
-    min-width: unset;
   }
-  
-  .btn-text {
-    display: inline;
+
+  .compact-actions-btn {
+    width: 100%;
   }
 }
 

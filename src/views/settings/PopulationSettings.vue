@@ -275,17 +275,7 @@
             </div>
           </ElTabPane>
 
-          <!-- 2. Persons per Building -->
-          <ElTabPane label="Persons per Building" name="ppb">
-            <div class="ppb-section">
-              <p class="section-desc">
-                Configure the default persons-per-building factor used when the population service does not return a county-level value.
-              </p>
-              <ElEmpty description="Coming soon" />
-            </div>
-          </ElTabPane>
-
-          <!-- 3. Density Typology -->
+          <!-- 2. Density Typology -->
           <ElTabPane label="Density Typology" name="density">
             <div class="bulk-update-section">
               <p class="section-desc">
@@ -2042,8 +2032,7 @@ onMounted(async () => {
   max-width: 640px;
 }
 
-.bulk-update-section,
-.ppb-section {
+.bulk-update-section {
   width: 100%;
 }
 

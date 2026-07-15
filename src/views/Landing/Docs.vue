@@ -3667,12 +3667,11 @@ const allNavGroups: NavGroup[] = [
         id: 'settings-population',
         label: 'Population Settings',
         content: `
-          <p>The <strong>Population Settings</strong> page (<strong>Settings &rarr; Platform &rarr; Population Settings</strong>) groups building-based estimates, survey-derived household size, density typology, and <strong>KNBS-aligned annual projections</strong>. It has six top-level tabs:</p>
+          <p>The <strong>Population Settings</strong> page (<strong>Settings &rarr; Platform &rarr; Population Settings</strong>) groups building-based estimates, survey-derived household size, density typology, and <strong>KNBS-aligned annual projections</strong>. It has five top-level tabs:</p>
           <img src="${populationSettingsImg}" alt="Population Settings" class="docs-screenshot" />
           <table><thead><tr><th>Tab</th><th>Purpose</th></tr></thead><tbody>
             <tr><td><strong>Bulk Population Update</strong></td><td>Estimate settlement population from Open Buildings + ward average household size</td></tr>
             <tr><td><strong>Household size (surveys)</strong></td><td>Derive <code>AVG(hh_size)</code> from surveyed household records (single settlement or bulk)</td></tr>
-            <tr><td><strong>Persons per Building</strong></td><td>Manual override factor (placeholder &mdash; coming soon)</td></tr>
             <tr><td><strong>Density Typology</strong></td><td>Classify settlements as Low / Medium / High density from structure footprints</td></tr>
             <tr><td><strong>County growth rates</strong></td><td>View and edit annual population and household growth rates by county and year</td></tr>
             <tr><td><strong>Annual projections</strong></td><td>KNBS baseline + county rate imports, then forward projection into <code>settlement_population</code></td></tr>
@@ -3699,9 +3698,6 @@ const allNavGroups: NavGroup[] = [
           <p>Search for a settlement, click <strong>Compute from surveys</strong> to calculate <code>AVG(hh_size)</code>, then <strong>Update settlement</strong> to save the average.</p>
           <h3>Bulk &mdash; all settlements</h3>
           <p>Same county/scope pattern as bulk population. Updates average household size only, with a results table (survey sample size, avg before/after) and <strong>Download CSV</strong>.</p>
-
-          <h2>Persons per Building</h2>
-          <p>Reserved for configuring a default persons-per-building factor when the service has no county-level value. Currently shows a <em>Coming soon</em> placeholder.</p>
 
           <h2>Density Typology</h2>
           <p>Auto-populates each settlement&rsquo;s density-based slum typology by summing <strong>structure</strong> footprints and dividing by total settlement area (built-up ratio %). Categories follow the <em>National Slum Upgrading and Prevention Strategy 2024&ndash;2034</em> thresholds (Low / Medium / High, configurable).</p>

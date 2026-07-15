@@ -4555,13 +4555,13 @@ v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
       :small="isMobile"
       :pager-count="isMobile ? 3 : 7"
           />
-          <el-button v-if="canUploadProjectDocument" plain @click="toggleComponent()" style=" margin-top:10px">
-            <Icon icon="fa-solid:upload" style=" margin-right:10px" />
-            Upload
-          </el-button>
-          <span v-if="canUploadProjectDocument" style="display:inline-block; margin-top:10px; margin-left:8px">
+          <div v-if="canUploadProjectDocument" class="project-docs-actions">
+            <el-button plain @click="toggleComponent()">
+              <Icon icon="fa-solid:upload" style="margin-right: 10px" />
+              Upload
+            </el-button>
             <UploadShareDialog entity-type="project" :entity-id="project_id" />
-          </span>
+          </div>
         </el-card>
 
       </el-tab-pane>
@@ -5376,6 +5376,14 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
 /* Custom styling for documents container */
 .documents-container {
   margin-top: 20px;
+}
+
+.project-docs-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .documents-container ul {
