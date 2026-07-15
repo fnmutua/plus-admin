@@ -5,8 +5,8 @@ import { getDocumentRepository, getDocumentUploaders, getDocumentAssociationSnap
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElRow, ElCol,ElDialog, ElCard, ElTable, ElTableColumn, ElCheckbox, ElPagination, ElSwitch, ElSteps, ElStep
   ,ElForm,ElFormItem,
-  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker, ElTooltip, ElIcon } from 'element-plus'
-import { Document, Loading, QuestionFilled, Lock } from '@element-plus/icons-vue'
+  ElInput, ElMessage, ElSelect, ElOption, ElDrawer, ElDivider,ElUpload, ElTabs, ElTabPane, ElDatePicker, ElTooltip, ElIcon, ElPopover, ElDropdown, ElDropdownMenu, ElDropdownItem, ElBadge } from 'element-plus'
+import { Document, Loading, QuestionFilled, Lock, ArrowDown } from '@element-plus/icons-vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, shallowRef } from 'vue'
 import { useCache } from '@/hooks/web/useCache'
 import { deleteDocument, updateOneRecord } from '@/api/settlements'
@@ -317,7 +317,7 @@ const selectedCategories = ref(new Set<string>())
 const selectedUploaders = ref(new Set<string>())
 const selectedSettlements = ref(new Set<number>())
 const selectedProjects = ref(new Set<number>())
-const settlementOptions = ref<{ value: number, label: string }[]>([])
+const settlementOptions = ref<{ value: number, label: string, county?: string }[]>([])
 const projectOptions = ref<{ value: number, label: string }[]>([])
 const currentlyFiltered = ref(false)
 const selectedDocuments = ref<Set<number>>(new Set())
@@ -425,7 +425,7 @@ const linkDialogVisible = ref(false)
 const linkingDoc = ref<Document | null>(null)
 const linkEntityType = ref<string>('settlement')
 const linkEntityIds = ref<number[]>([])
-const linkEntityOptions = ref<{ value: number; label: string }[]>([])
+const linkEntityOptions = ref<{ value: number; label: string; county?: string }[]>([])
 const linkEntityOptionsLoading = ref(false)
 const linkLoading = ref(false)
 const linkDialogPreparing = ref(false)
@@ -548,8 +548,39 @@ const customDateRange = ref<[Date | string, Date | string] | undefined>(undefine
 // Note: Using customDateRange directly for the date picker
 
 // Mobile responsiveness
+const COMPACT_TOOLBAR_BREAKPOINT = 1200
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : COMPACT_TOOLBAR_BREAKPOINT)
 const isMobile = computed(() => appStore.getMobile)
+const isCompactToolbar = computed(() => isMobile.value || windowWidth.value < COMPACT_TOOLBAR_BREAKPOINT)
 const actionColumnWidth = ref(isMobile.value ? '60px' : '76px')
+
+const activeFilterCount = computed(() =>
+  selectedCategories.value.size +
+  selectedUploaders.value.size +
+  selectedSettlements.value.size +
+  selectedProjects.value.size +
+  (dateRange.value ? 1 : 0)
+)
+
+const handleToolbarAction = (command: string) => {
+  switch (command) {
+    case 'sort-date':
+      handleSortChange('date')
+      break
+    case 'sort-popularity':
+      handleSortChange('popularity')
+      break
+    case 'upload':
+      importDrawerVisible.value = true
+      break
+    case 'filters':
+      filterDrawer.value = true
+      break
+    case 'clear':
+      clearFilters()
+      break
+  }
+}
 
 // Responsive page size based on screen height
 const getResponsivePageSize = () => {
@@ -570,6 +601,7 @@ const initializePageSize = () => {
 
 // Handle window resize
 const handleResize = () => {
+  windowWidth.value = window.innerWidth
   const newPageSize = getResponsivePageSize()
   if (newPageSize !== pageSize.value) {
     pageSize.value = newPageSize
@@ -768,9 +800,21 @@ const getAssociations = (row: any): { label: string; route: any | null; key: str
 // Keep old getAssociation for any legacy callers (returns first only)
 const getAssociation = (row: any) => getPrimaryAssociation(row)
 
+const getAssociationSummary = (row: any): string => {
+  const assocs = getAssociations(row)
+  if (!assocs.length) return ''
+  return assocs.map((a) => a.label).join(', ')
+}
+
+const getAssociationTypeLabel = (key: string): string => {
+  const entityType = key.split(':')[0] || ''
+  return LINK_ENTITY_TYPES.find((t) => t.value === entityType)?.label
+    || entityType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 // Format functions
 const formatEndDate = (data: any) => {
-  return moment(data.createdAt).format('lll')
+  return moment(data.createdAt).format('DD/MM/YYYY')
 }
 
 const formatText = (str: string | number) => {
@@ -1499,15 +1543,25 @@ const mergeAssociationSnapshotIntoDoc = async (baseDoc: Document): Promise<void>
   }
 }
 
+/** First association type on the document that the link dialog supports (defaults to settlement). */
+const detectLinkEntityType = (doc: any): string => {
+  for (const assoc of getAssociations(doc)) {
+    const entityType = assoc.key.split(':')[0]?.toLowerCase()
+    if (LINK_ENTITY_TYPES.some((t) => t.value === entityType)) return entityType
+  }
+  return 'settlement'
+}
+
 const onLinkToSettlement = async (doc: Document) => {
   linkingDoc.value = doc
-  linkEntityType.value = 'settlement'
   linkDialogVisible.value = true
   linkDialogPreparing.value = true
   try {
     await mergeAssociationSnapshotIntoDoc(doc)
-    await loadLinkEntityOptions('settlement')
-    const existingIds = getExistingIdsForType('settlement')
+    const entityType = detectLinkEntityType(linkingDoc.value)
+    linkEntityType.value = entityType
+    await loadLinkEntityOptions(entityType)
+    const existingIds = getExistingIdsForType(entityType)
     originalLinkedIds.value = existingIds
     linkEntityIds.value = [...existingIds]
   } finally {
@@ -2124,9 +2178,20 @@ const handleClose = () => {
 
 const getSettlementOptions = async () => {
   const res = await getListWithoutGeo({
-    params: { curUser: 1, model: 'settlement', searchField: 'name', searchKeyword: '', sort: 'ASC' }
+    params: {
+      curUser: 1,
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC',
+      associated_multiple_models: 'county'
+    }
   })
-  settlementOptions.value = res.data.map((item: any) => ({ value: item.id, label: item.name }))
+  settlementOptions.value = res.data.map((item: any) => ({
+    value: item.id,
+    label: item.name,
+    county: item.county?.name || item['county.name'] || undefined
+  }))
 }
 
 const getProjectOptions = async () => {
@@ -3112,7 +3177,7 @@ const handleTabChange2 = (tabName: string) => {
 
 const filterDrawerSize = computed(() => isMobile.value ? '100%' : '560px')
 const editDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
-const importDrawerSize = computed(() => isMobile.value ? '100%' : '40%')
+const importDrawerSize = computed(() => isMobile.value ? '90%' : '50%')
 
 // Tab filtering properties
 const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'tif']
@@ -3278,7 +3343,7 @@ const handleTabChange = async (tabName: string) => {
     <template #header>
       <div class="controls-container controls-container--in-header">
         <el-row :gutter="16" class="controls-row">
-          <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" class="search-col">
+          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 18 : 14" :lg="isCompactToolbar ? 18 : 14" :xl="14" class="search-col">
             <el-input
               v-model="searchTerm"
               placeholder="Search documents by name, settlement, county, format, or uploader..."
@@ -3293,15 +3358,69 @@ const handleTabChange = async (tabName: string) => {
                 <Icon icon="material-symbols:search" width="16" />
               </template>
               <template #append>
-                <el-button @click="handleSearch" type="primary" :loading="loading || protectedLoading">
+                <el-button
+                  @click="handleSearch"
+                  type="primary"
+                  :loading="loading || protectedLoading"
+                  :disabled="!searchTerm?.trim()"
+                >
                   Search
                 </el-button>
               </template>
             </el-input>
           </el-col>
 
-          <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10" class="actions-col">
-            <div class="action-buttons">
+          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 6 : 10" :lg="isCompactToolbar ? 6 : 10" :xl="10" class="actions-col">
+            <!-- Compact actions on small screens -->
+            <div v-if="isCompactToolbar" class="action-buttons action-buttons--compact">
+              <el-dropdown trigger="click" @command="handleToolbarAction">
+                <el-button type="primary">
+                  Actions
+                  <el-badge
+                    v-if="activeFilterCount > 0"
+                    :value="activeFilterCount"
+                    class="toolbar-actions-badge"
+                  />
+                  <el-icon style="margin-left: 4px;"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="sort-date">
+                      <Icon icon="material-symbols:sort" width="16" />
+                      <span style="margin-left: 8px;">Sort by Date{{ sortOption === 'date' ? ' ✓' : '' }}</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="sort-popularity">
+                      <Icon icon="material-symbols:trending-up" width="16" />
+                      <span style="margin-left: 8px;">Sort by Popularity{{ sortOption === 'popularity' ? ' ✓' : '' }}</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="canUploadDocuments"
+                      divided
+                      command="upload"
+                    >
+                      <Icon icon="material-symbols:upload" width="16" />
+                      <span style="margin-left: 8px;">Upload</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item :divided="!canUploadDocuments" command="filters">
+                      <Icon icon="material-symbols:filter-list" width="16" />
+                      <span style="margin-left: 8px;">
+                        Filters{{ activeFilterCount > 0 ? ` (${activeFilterCount})` : '' }}
+                      </span>
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="currentlyFiltered"
+                      command="clear"
+                    >
+                      <Icon icon="material-symbols:clear" width="16" />
+                      <span style="margin-left: 8px;">Clear Filters</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
+
+            <!-- Full actions on larger screens -->
+            <div v-else class="action-buttons">
               <div class="sort-options">
                 <span class="sort-label">Sort by:</span>
                 <el-select
@@ -3336,8 +3455,8 @@ const handleTabChange = async (tabName: string) => {
                 <Icon icon="material-symbols:filter-list" width="16" />
                 <span class="btn-text">Filters</span>
                 <el-badge
-                  v-if="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0) > 0"
-                  :value="selectedCategories.size + selectedUploaders.size + selectedSettlements.size + selectedProjects.size + (dateRange ? 1 : 0)"
+                  v-if="activeFilterCount > 0"
+                  :value="activeFilterCount"
                   class="filter-badge"
                 />
               </el-button>
@@ -3459,22 +3578,41 @@ const handleTabChange = async (tabName: string) => {
                     <span>{{ getRowDocumentTypeLabel(row) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="Association" min-width="220">
+                <el-table-column label="Association" width="140">
                   <template #default="{ row }">
                     <span v-if="getAssociations(row).length === 0" style="color: var(--el-text-color-secondary);">—</span>
-                    <span v-else v-for="(assoc, idx) in getAssociations(row)" :key="assoc.key || idx">
-                      <a
-                        v-if="assoc.route"
-                        style="color: var(--el-color-primary); cursor: pointer; text-decoration: none;"
-                        @click.stop="router.push(assoc.route)"
-                      >{{ assoc.label }}</a>
-                      <span v-else>{{ assoc.label }}</span>
-                      <span v-if="idx < getAssociations(row).length - 1" style="color: #909399;">, </span>
-                    </span>
+                    <el-popover
+                      v-else
+                      placement="bottom-start"
+                      :width="280"
+                      trigger="hover"
+                      :show-after="200"
+                    >
+                      <template #reference>
+                        <span class="assoc-cell-ellipsis" :title="getAssociationSummary(row)">
+                          {{ getAssociationSummary(row) }}
+                        </span>
+                      </template>
+                      <div class="assoc-popover-list">
+                        <div
+                          v-for="assoc in getAssociations(row)"
+                          :key="assoc.key"
+                          class="assoc-popover-item"
+                        >
+                          <span class="assoc-popover-type">{{ getAssociationTypeLabel(assoc.key) }}</span>
+                          <a
+                            v-if="assoc.route"
+                            class="assoc-popover-link"
+                            @click.stop="router.push(assoc.route)"
+                          >{{ assoc.label }}</a>
+                          <span v-else>{{ assoc.label }}</span>
+                        </div>
+                      </div>
+                    </el-popover>
                   </template>
                 </el-table-column>
       <el-table-column prop="createdAt" label="Date Uploaded" :formatter="formatEndDate" min-width="120" />
-                 <el-table-column prop="user.name" label="Uploaded By" min-width="100" show-overflow-tooltip />
+                 <el-table-column prop="user.name" label="Uploader" min-width="100" show-overflow-tooltip />
                 <el-table-column prop="size" label="Size(Mb)" min-width="80" />
                 <el-table-column label="Downloads"  prop="downloadCount"  min-width="70" align="center"/>
               
@@ -3546,22 +3684,41 @@ const handleTabChange = async (tabName: string) => {
                <span>{{ getRowDocumentTypeLabel(row) }}</span>
              </template>
            </el-table-column>
-           <el-table-column label="Association" min-width="220">
+           <el-table-column label="Association" width="140">
              <template #default="{ row }">
                <span v-if="getAssociations(row).length === 0" style="color: var(--el-text-color-secondary);">—</span>
-               <span v-else v-for="(assoc, idx) in getAssociations(row)" :key="assoc.key || idx">
-                 <a
-                   v-if="assoc.route"
-                   style="color: var(--el-color-primary); cursor: pointer; text-decoration: none;"
-                   @click.stop="router.push(assoc.route)"
-                 >{{ assoc.label }}</a>
-                 <span v-else>{{ assoc.label }}</span>
-                 <span v-if="idx < getAssociations(row).length - 1" style="color: #909399;">, </span>
-               </span>
+               <el-popover
+                 v-else
+                 placement="bottom-start"
+                 :width="280"
+                 trigger="hover"
+                 :show-after="200"
+               >
+                 <template #reference>
+                   <span class="assoc-cell-ellipsis" :title="getAssociationSummary(row)">
+                     {{ getAssociationSummary(row) }}
+                   </span>
+                 </template>
+                 <div class="assoc-popover-list">
+                   <div
+                     v-for="assoc in getAssociations(row)"
+                     :key="assoc.key"
+                     class="assoc-popover-item"
+                   >
+                     <span class="assoc-popover-type">{{ getAssociationTypeLabel(assoc.key) }}</span>
+                     <a
+                       v-if="assoc.route"
+                       class="assoc-popover-link"
+                       @click.stop="router.push(assoc.route)"
+                     >{{ assoc.label }}</a>
+                     <span v-else>{{ assoc.label }}</span>
+                   </div>
+                 </div>
+               </el-popover>
              </template>
            </el-table-column>
            <el-table-column prop="createdAt" label="Date Uploaded" :formatter="formatEndDate" min-width="120" />
-           <el-table-column prop="user.name" label="Uploaded By" min-width="100" show-overflow-tooltip />
+           <el-table-column prop="user.name" label="Uploader" min-width="100" show-overflow-tooltip />
            <el-table-column prop="size" label="Size(Mb)" min-width="80" />
            <el-table-column label="Downloads" prop="downloadCount" min-width="70" align="center" />
            <el-table-column label="Actions" :width="actionColumnWidth">
@@ -4074,6 +4231,7 @@ const handleTabChange = async (tabName: string) => {
           <el-form-item label="Association Type">
             <el-select
               v-model="linkEntityType"
+              filterable
               style="width: 100%"
               @change="onLinkEntityTypeChange"
             >
@@ -4101,7 +4259,14 @@ const handleTabChange = async (tabName: string) => {
                 :key="opt.value"
                 :label="opt.label"
                 :value="opt.value"
-              />
+              >
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ opt.label }}</span>
+                  <span v-if="opt.county" style="color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                    {{ opt.county }}
+                  </span>
+                </div>
+              </el-option>
             </el-select>
           </el-form-item>
         </el-form>
@@ -4658,6 +4823,7 @@ const handleTabChange = async (tabName: string) => {
   box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
 }
 
+
 .actions-col {
   margin-bottom: 12px;
 }
@@ -4667,6 +4833,14 @@ const handleTabChange = async (tabName: string) => {
   gap: 12px;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.action-buttons--compact {
+  justify-content: flex-end;
+}
+
+.toolbar-actions-badge {
+  margin-left: 6px;
 }
 
 .action-btn {
@@ -4793,4 +4967,54 @@ const handleTabChange = async (tabName: string) => {
   margin-left: 8px;
 }
 
+.assoc-cell-ellipsis {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+</style>
+
+<style>
+.assoc-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assoc-popover-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.assoc-popover-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.assoc-popover-type {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.assoc-popover-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.assoc-popover-link:hover {
+  text-decoration: underline;
+}
 </style>

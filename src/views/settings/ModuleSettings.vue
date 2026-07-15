@@ -3,8 +3,8 @@
     <ElCard class="settings-card">
       <template #header>
         <div class="card-header">
-          <h2>Module Settings</h2>
-          <p class="subtitle">Enable or disable features for different modules</p>
+          <h2>SMS Settings</h2>
+          <p class="subtitle">Configure SMS balance, alerts, and workflow notification toggles</p>
         </div>
       </template>
 
