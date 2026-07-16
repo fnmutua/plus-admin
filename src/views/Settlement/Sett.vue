@@ -5367,6 +5367,11 @@ const onSegmentClick = async () => {
   if (activeSegment.value === 'Duplicates') {
     showPagination.value = false
     await getPotentialDuplicates()
+  } else if (search_string.value?.trim()) {
+    // Keep the typed search when switching segments
+    showPagination.value = activeSegment.value !== 'Deleted'
+    page.value = 1
+    await getFilteredBySearchData(activeSegment.value, search_string.value.trim())
   } else if (activeSegment.value === 'Deleted') {
     showPagination.value = false
     await loadDeletedSegment()

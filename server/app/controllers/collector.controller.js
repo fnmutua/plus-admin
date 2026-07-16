@@ -84,8 +84,24 @@ exports.modelGetProjects = (req, res) => {
 exports.modelLoginCollector =  (req, res) => {
  // console.log('Body', req.body);
 
-  // Extract email and password from req.body
-  const { email, password } = req.body;
+  const email =
+    req.body?.email
+    || process.env.COLLECTOR_EMAIL
+    || process.env.APP_COLLECTOR_EMAIL
+    || process.env.VITE_APP_COLLECTOR_EMAIL
+  const password =
+    req.body?.password
+    || process.env.COLLECTOR_PASSWORD
+    || process.env.APP_COLLECTOR_PASSWORD
+    || process.env.VITE_APP_COLLECTOR_PASSWORD
+
+  if (!email || !password) {
+    return res.status(500).send({
+      code: '9999',
+      error: 'Collector credentials are not configured on the server.',
+      message: 'Set COLLECTOR_EMAIL and COLLECTOR_PASSWORD on kesmis (same values as plus-admin).',
+    })
+  }
 
   // Construct the request body as a JSON object
   const requestBody = {
