@@ -1257,14 +1257,18 @@ const rollbackStatusUpdate = async (
   previousStatus: string,
   previousCurrentLevel: string,
   previousStatusDate: Date | string | null,
-  previousStatusExpiryDate: Date | string | null
+  previousStatusExpiryDate: Date | string | null,
+  options: { silent?: boolean } = {}
 ) => {
+  const silent = options.silent === true
   try {
-    ElMessage({
-      message: 'Reverting status update...',
-      type: 'warning',
-      duration: 2000
-    })
+    if (!silent) {
+      ElMessage({
+        message: 'Reverting status update...',
+        type: 'warning',
+        duration: 2000
+      })
+    }
 
     const rollbackData: any = {
       code: Grievance.value.code,
@@ -1285,11 +1289,13 @@ const rollbackStatusUpdate = async (
 
     await updateGrievanceStatus(rollbackData)
     
-    ElMessage({
-      message: 'Status has been reverted to previous state',
-      type: 'warning',
-      duration: 3000
-    })
+    if (!silent) {
+      ElMessage({
+        message: 'Status has been reverted to previous state',
+        type: 'warning',
+        duration: 3000
+      })
+    }
   } catch (rollbackError) {
     console.error('Error during rollback:', rollbackError)
     ElMessage({
@@ -1464,21 +1470,43 @@ const submitResolutionForm = async () => {
             await uploadFiles(actionIdForLogging, Grievance.value.id, true)
             uploadSuccess = true
           } catch (error) {
-            if (isDuplicateDocumentError(error)) {
+            const isDuplicate = isDuplicateDocumentError(error)
+            const uploadMsg = extractApiErrorMessage(error, 'Document upload failed')
+
+            if (isDuplicate) {
               console.warn('Duplicate document blocked during resolution upload:', error)
             } else {
               console.error('Error uploading documents:', error)
             }
-            // If upload fails, we need to rollback status and delete the log entry if created
+
+            // Show the real failure reason first (e.g. duplicate filename 409)
+            ElMessage({
+              message: uploadMsg,
+              type: isDuplicate ? 'warning' : 'error',
+              duration: 7000,
+              showClose: true
+            })
+
+            // Then revert status so the user already knows why
             if (statusUpdateSuccess) {
-              await rollbackStatusUpdate(previousStatus, previousCurrentLevel, previousStatusDate, previousStatusExpiryDate)
+              await rollbackStatusUpdate(
+                previousStatus,
+                previousCurrentLevel,
+                previousStatusDate,
+                previousStatusExpiryDate,
+                { silent: true }
+              )
+              ElMessage({
+                message: 'Status has been reverted to the previous state.',
+                type: 'warning',
+                duration: 4000
+              })
               if (logRes && logRes.data && logRes.data.id) {
-                // Optionally delete the log entry if it was created but upload failed
-                // This would require a delete API endpoint
                 console.warn('Log entry created but upload failed. Log entry ID:', logRes.data.id)
               }
-              const uploadError: any = new Error(`${extractApiErrorMessage(error, 'Document upload failed')}. Status has been reverted.`)
-              uploadError.isDuplicateDocument = isDuplicateDocumentError(error)
+              const uploadError: any = new Error(`${uploadMsg}. Status has been reverted.`)
+              uploadError.isDuplicateDocument = isDuplicate
+              uploadError.alreadyNotified = true
               throw uploadError
             }
           }
@@ -1557,12 +1585,15 @@ const submitResolutionForm = async () => {
       } catch (rollbackError: any) {
         // This catch handles rollback errors from Step 2 or Step 3
         console.error('Rollback error:', rollbackError)
-        const isDuplicate = isDuplicateDocumentError(rollbackError)
-        ElMessage({
-          message: extractApiErrorMessage(rollbackError, 'Operation failed and status has been reverted'),
-          type: isDuplicate ? 'warning' : 'error',
-          duration: 5000
-        })
+        if (!rollbackError?.alreadyNotified) {
+          const isDuplicate = isDuplicateDocumentError(rollbackError)
+          ElMessage({
+            message: extractApiErrorMessage(rollbackError, 'Operation failed and status has been reverted'),
+            type: isDuplicate ? 'warning' : 'error',
+            duration: 5000,
+            showClose: true
+          })
+        }
         // Refresh grievance data to reflect reverted state and stop to avoid duplicate error toast
         await processGrievance()
         return
