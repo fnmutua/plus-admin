@@ -1287,7 +1287,8 @@ exports.modelGetSettlements = async (req, res) => {
         id: s.__id,
         code: s.code || s.__id, // fallback so entries without pcode are not dropped
         sett_name: s.sett_name,
-        county_name: s.county_name || ''
+        county_name: s.county_name || '',
+        deleted: s.deleted,
       }))
       .filter(s => s.sett_name)
 
