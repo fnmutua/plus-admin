@@ -104,7 +104,8 @@ const Grievance = ref(
     'status': null,
     'plea': null,
     'date_reported': null,
-    'date_logged': null
+    'date_logged': null,
+    'logged_by': null
   }
 )
 
@@ -387,6 +388,9 @@ const processGrievance = async() => {
   Grievance.value.status = res.data.status
   Grievance.value.date_reported = res.data.date_reported
   Grievance.value.date_logged = res.data.date_logged
+  Grievance.value.logged_by = res.data.self_reported
+    ? 'Self'
+    : (res.data.reporter_name || null)
   Grievance.value.plea = res.data.plea
   Grievance.value.current_level = res.data.current_level
   Grievance.value.resolution = res.data.resolution || null
@@ -960,6 +964,8 @@ const grievanceData = computed(() => {
         raw !== null && raw !== undefined && raw !== ''
           ? formatDate(raw)
           : 'N/A'
+    } else if (key === 'logged_by') {
+      value = Grievance.value[key] || 'N/A'
     } else {
       value =
         Grievance.value[key] !== null && Grievance.value[key] !== undefined
