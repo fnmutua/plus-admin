@@ -160,7 +160,7 @@
                   </p>
                   <ul class="method-list">
                     <li><strong>Planning</strong> — integrate findings into settlement/county planning</li>
-                    <li><strong>Designs</strong> — climate-proof infrastructure designs for the settlement</li>
+                    <li><strong>Engineering</strong> — climate-proof infrastructure designs for the settlement</li>
                     <li><strong>Community Development Plan</strong> — community-level adaptation and resilience actions</li>
                   </ul>
                 </div>
@@ -377,7 +377,7 @@
                         </ElTable>
                       </div>
                     </ElTabPane>
-                    <ElTabPane name="designs" label="Design">
+                    <ElTabPane name="designs" label="Engineering">
                       <div class="rec-table-wrapper">
                         <ElTable :data="getRecommendationsTableData('designs')" border stripe height="400" style="width: 100%">
                           <ElTableColumn prop="category" label="Category" width="180" fixed="left">
@@ -1412,7 +1412,7 @@ const downloadAssessmentPdf = () => {
 
   const recommendationSections: Array<{ title: string; key: 'planning' | 'designs' | 'communityDevelopmentPlans' }> = [
     { title: 'Planning Recommendations', key: 'planning' },
-    { title: 'Design Recommendations', key: 'designs' },
+    { title: 'Engineering Recommendations', key: 'designs' },
     { title: 'Community Development Plan Recommendations', key: 'communityDevelopmentPlans' }
   ]
 
@@ -1549,7 +1549,7 @@ const downloadRecommendationsExcel = () => {
   // Create sheets for each type
   const types = [
     { key: 'planning', label: 'Planning' },
-    { key: 'designs', label: 'Design' },
+    { key: 'designs', label: 'Engineering' },
     { key: 'communityDevelopmentPlans', label: 'Community Development Plans' }
   ]
 
