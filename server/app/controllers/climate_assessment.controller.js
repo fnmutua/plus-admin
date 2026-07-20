@@ -638,7 +638,12 @@ exports.update = async (req, res) => {
     updateData.response_meta = newMetaAll
 
     if (status !== undefined) updateData.status = status
-    if (assessed_at !== undefined) updateData.assessed_at = assessed_at
+    if (assessed_at !== undefined) {
+      updateData.assessed_at = assessed_at
+    } else if (status === 'completed') {
+      // Stamp completion time whenever an assessment is marked completed
+      updateData.assessed_at = new Date()
+    }
     if (geom !== undefined && geom && geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) updateData.geom = geom
     updateData.question_config_version = scoringConfig.version || assessment.question_config_version || 1
 

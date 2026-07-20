@@ -1855,13 +1855,14 @@ const submitCompleted = async () => {
       adaptive_capacity_responses: responses.value.adaptive_capacity,
       question_config_version: selectedQuestionVersion.value ?? undefined,
       status: 'completed',
+      assessed_at: new Date().toISOString(),
     })
     if (res.code === '0000') {
       assessment.value = res.data
       ElMessage.success(
         res.version
-          ? `Submitted as v${res.version.version_number}`
-          : 'Assessment submitted'
+          ? `Marked completed (v${res.version.version_number})`
+          : 'Assessment marked as completed'
       )
       await loadAssessmentVersions()
     }

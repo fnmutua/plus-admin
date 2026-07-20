@@ -59,13 +59,19 @@ async function fetchCollectorODataPages(initialUrl, token) {
 function sendCollectorError(res, error, context = 'Collector request failed') {
   const message = error?.message || String(error)
   const isTimeout = /timed out/i.test(message)
+  const isUnauthorized = /HTTP 401/i.test(message) || /unauthorized/i.test(message)
   console.error(`${context}:`, message)
-  res.status(isTimeout ? 504 : 500).send({
-    code: '9999',
+  res.status(isTimeout ? 504 : isUnauthorized ? 401 : 500).send({
+    code: isUnauthorized ? '4010' : '9999',
     error: isTimeout
       ? 'ODK Collector took too long to respond. Try again or narrow filters.'
-      : 'Failed to retrieve data from ODK Collector.',
-    message
+      : isUnauthorized
+        ? 'Failed to connect. Check again later.'
+        : 'Failed to retrieve data from ODK Collector.',
+    // Keep detail server-side only — clients should show a generic message
+    message: isUnauthorized || isTimeout
+      ? 'Failed to connect. Check again later.'
+      : 'Failed to connect. Check again later.',
   })
 }
  
@@ -1334,9 +1340,12 @@ exports.modelGetSettlements = async (req, res) => {
     });
   } catch (error) {
     console.error('Get settlements error:', error);
-    return res.status(500).send({
-      error: 'Failed to fetch settlements',
-      message: error.message
+    const detail = error?.message || String(error)
+    const isUnauthorized = /HTTP 401/i.test(detail) || /unauthorized/i.test(detail)
+    return res.status(isUnauthorized ? 401 : 500).send({
+      error: 'Failed to connect. Check again later.',
+      message: 'Failed to connect. Check again later.',
+      code: isUnauthorized ? '4010' : '9999',
     });
   }
 };
