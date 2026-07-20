@@ -2001,6 +2001,7 @@ async function seedPermissions() {
     "road_asset:read",
     "road_asset:update",
     "settings:read",
+    "settings:update",
     "settlement:approve",
     "settlement:archive",
     "settlement:create",

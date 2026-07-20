@@ -1010,13 +1010,55 @@ const computeCategoryScore = (dim: string, catKey: string): number | null => {
   return Math.round((total / count) * 100) / 100
 }
 
+// Prefer exact category/question keys; fall back by order when keys were regenerated
+// (e.g. livelihoods_food_security → livelihoods_1 after configurable-question saves).
+const findSubcategoryRecEntry = (dim: string, catKey: string, subcategoryKey: string) => {
+  if (!recommendationsData.value?.[dim]) return null
+  const dimRecs = recommendationsData.value[dim]
+
+  let catRecs = dimRecs[catKey]
+  if (!catRecs) {
+    const dimConfig = questionsConfig.value?.[dim]
+    const catIndex = dimConfig?.categories?.findIndex((c: any) => c.key === catKey) ?? -1
+    const recCatKeys = Object.keys(dimRecs)
+    if (catIndex >= 0 && recCatKeys[catIndex]) {
+      catRecs = dimRecs[recCatKeys[catIndex]]
+    }
+  }
+  if (!catRecs?.subcategories) return null
+
+  if (catRecs.subcategories[subcategoryKey]) {
+    return catRecs.subcategories[subcategoryKey]
+  }
+
+  const dimConfig = questionsConfig.value?.[dim]
+  const cat = dimConfig?.categories?.find((c: any) => c.key === catKey)
+  const qIndex = cat?.questions?.findIndex((q: any) => q.key === subcategoryKey) ?? -1
+  if (qIndex < 0) return null
+  const recKeys = Object.keys(catRecs.subcategories)
+  const fallbackKey = recKeys[qIndex]
+  return fallbackKey ? catRecs.subcategories[fallbackKey] : null
+}
+
+const resolveRecommendationRatings = (subcatRecs: any, rating: string) => {
+  if (!subcatRecs?.ratings) return null
+  if (subcatRecs.ratings[rating]) return subcatRecs.ratings[rating]
+  const matchKey = Object.keys(subcatRecs.ratings).find(
+    (k) => k.toLowerCase() === String(rating || '').toLowerCase()
+  )
+  return matchKey ? subcatRecs.ratings[matchKey] : null
+}
+
 // Map question keys to subcategory labels
 const getSubcategoryLabel = (dim: string, catKey: string, questionKey: string): string => {
-  // First try to get label from recommendations data
-  if (recommendationsData.value?.[dim]?.[catKey]?.subcategories?.[questionKey]?.label) {
-    return recommendationsData.value[dim][catKey].subcategories[questionKey].label
-  }
-  
+  const recEntry = findSubcategoryRecEntry(dim, catKey, questionKey)
+  if (recEntry?.label) return recEntry.label
+
+  const dimConfig = questionsConfig.value?.[dim]
+  const cat = dimConfig?.categories?.find((c: any) => c.key === catKey)
+  const q = cat?.questions?.find((item: any) => item.key === questionKey)
+  if (q?.label) return q.label
+
   // Fallback to hardcoded mapping
   const subcategoryMap: Record<string, string> = {
     // Livelihoods subcategories
@@ -1132,16 +1174,11 @@ const getCategoryRating = (dim: string, catKey: string): string => {
 
 // Get subcategory recommendations (based on subcategory's individual rating)
 const getSubcategoryRecommendations = (dim: string, catKey: string, subcategoryKey: string) => {
-  if (!recommendationsData.value || !recommendationsData.value[dim]) return null
-  const dimRecs = recommendationsData.value[dim]
-  if (!dimRecs[catKey] || !dimRecs[catKey].subcategories) return null
-  
-  const subcatRecs = dimRecs[catKey].subcategories[subcategoryKey]
+  const subcatRecs = findSubcategoryRecEntry(dim, catKey, subcategoryKey)
   if (!subcatRecs) return null
-  
-  // Get rating based on subcategory's individual score
+
   const rating = getSubcategoryRating(dim, subcategoryKey)
-  return subcatRecs.ratings?.[rating] || null
+  return resolveRecommendationRatings(subcatRecs, rating)
 }
 
 // Get category recommendations (fallback for categories without subcategories)
