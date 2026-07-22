@@ -70,6 +70,28 @@ module.exports = function (app) {
     controller.runSmsBalanceAlertTest
   )
 
-  console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update, /api/v1/settings/vulnerability-matrix, /api/v1/settings/sms-balance, /api/v1/settings/sms-balance-check')
+  // Data cleanup — normalize text field values across models (excludes users/roles)
+  app.get(
+    '/api/v1/settings/data-cleanup/models',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.listCleanupModels
+  )
+  app.get(
+    '/api/v1/settings/data-cleanup/fields',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.listCleanupFields
+  )
+  app.post(
+    '/api/v1/settings/data-cleanup/values',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.listCleanupFieldValues
+  )
+  app.post(
+    '/api/v1/settings/data-cleanup/replace',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.replaceCleanupFieldValue
+  )
+
+  console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update, /api/v1/settings/vulnerability-matrix, /api/v1/settings/sms-balance, /api/v1/settings/sms-balance-check, /api/v1/settings/data-cleanup/*')
 }
 

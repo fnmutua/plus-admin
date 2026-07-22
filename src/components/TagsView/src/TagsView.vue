@@ -294,7 +294,7 @@ const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   systemUsers: 'users-listing', staff: 'users-listing', AdminStaff: 'users-listing', GRM_Staff: 'users-listing', NewAccounts: 'users-activation',
   Settings: 'settings-sms', SettingsPlatform: 'settings-system', SettingsAnalytics: 'config-dashboards-list',
   ModuleSettings: 'settings-sms', SystemSettings: 'settings-system', ClimateSettings: 'settings-climate',
-  PopulationSettings: 'settings-population', PageVisits: 'settings-page-visits',
+  PopulationSettings: 'settings-population', DataCleanupSettings: 'settings-data-cleanup', PageVisits: 'settings-page-visits',
   ReferenceDataSettings: 'config-common', CommonSettings: 'config-common',
   ProgrammeSettings: 'config-programme', ProjectsProgrammes: 'config-programme', ProgrammeComponents: 'config-programme', ProgrammeImplementation: 'config-programme',
   DashboardSettings: 'config-dashboards-list', DynamicDashboards: 'config-dashboards-list',

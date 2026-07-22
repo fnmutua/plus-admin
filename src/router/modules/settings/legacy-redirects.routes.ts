@@ -23,6 +23,7 @@ export const settingsLegacyRedirects: AppRouteRecordRaw[] = [
   settingRedirect('system-settings', '/settings/platform/system-settings', 'LegacySystemSettings'),
   settingRedirect('climate-settings', '/settings/platform/climate-settings', 'LegacyClimateSettings'),
   settingRedirect('population-settings', '/settings/platform/population-settings', 'LegacyPopulationSettings'),
+  settingRedirect('data-cleanup', '/settings/platform/data-cleanup', 'LegacyDataCleanupSettings'),
   settingRedirect('page-visits', '/settings/analytics/page-visits', 'LegacyPageVisits'),
 
   // Geography legacy group

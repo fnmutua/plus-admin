@@ -237,3 +237,82 @@ export const listClimateQuestionConfigVersions = (): Promise<{
   })
 }
 
+// ── Data cleanup ─────────────────────────────────────────────────────────────
+
+export interface CleanupModelOption {
+  model: string
+  table: string
+}
+
+export interface CleanupFieldOption {
+  field: string
+  type: string
+}
+
+export interface CleanupFieldValueOption {
+  value: string
+  label: string
+  count: number
+}
+
+export const listCleanupModels = (): Promise<{
+  code: string
+  data: CleanupModelOption[]
+  message: string
+}> => {
+  return request.get({
+    url: prod + '/api/v1/settings/data-cleanup/models'
+  })
+}
+
+export const listCleanupFields = (model: string): Promise<{
+  code: string
+  data: CleanupFieldOption[]
+  message: string
+}> => {
+  return request.get({
+    url: prod + '/api/v1/settings/data-cleanup/fields',
+    params: { model }
+  })
+}
+
+export const listCleanupFieldValues = (
+  model: string,
+  field: string
+): Promise<{
+  code: string
+  data: CleanupFieldValueOption[]
+  message: string
+}> => {
+  return request.post({
+    url: prod + '/api/v1/settings/data-cleanup/values',
+    data: { model, field }
+  })
+}
+
+export const replaceCleanupFieldValue = (payload: {
+  model: string
+  field: string
+  fromValues: string[]
+  toValue: string
+  dryRun?: boolean
+}): Promise<{
+  code: string
+  data: {
+    dryRun: boolean
+    model: string
+    field: string
+    fromValues: string[]
+    fromValue: string | string[]
+    toValue: string
+    matched: number
+    updated: number
+  }
+  message: string
+}> => {
+  return request.post({
+    url: prod + '/api/v1/settings/data-cleanup/replace',
+    data: payload
+  })
+}
+

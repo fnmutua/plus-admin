@@ -33,4 +33,12 @@ export const PLATFORM_SETTINGS: SettingsLeafDefinition[] = [
     permissions: ['settings:update'],
     component: () => import('@/views/settings/PopulationSettings.vue'),
   },
+  {
+    path: 'data-cleanup',
+    name: 'DataCleanupSettings',
+    title: 'Data Cleanup',
+    icon: 'mdi:broom',
+    permissions: ['settings:update'],
+    component: () => import('@/views/settings/DataCleanupSettings.vue'),
+  },
 ]

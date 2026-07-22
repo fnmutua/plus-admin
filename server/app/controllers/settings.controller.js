@@ -935,6 +935,302 @@ exports.getSmsBalance = async (req, res) => {
   }
 }
 
+// ── Data cleanup (normalize text field values) ───────────────────────────────
+
+const CLEANUP_EXCLUDED_MODELS = new Set([
+  'users',
+  'user',
+  'roles',
+  'role',
+  'user_roles',
+  'permissions',
+  'permission',
+  'role_permissions',
+  'audit_log',
+  'page_visit',
+  'otp',
+])
+
+const CLEANUP_EXCLUDED_FIELDS = new Set([
+  'id',
+  'password',
+  'resetPasswordToken',
+  'token',
+  'accessToken',
+  'geom',
+  'geometry',
+  'createdAt',
+  'updatedAt',
+  'created_at',
+  'updated_at',
+  'created_by',
+  'updated_by',
+  'deletedAt',
+  'deleted_at',
+])
+
+const CLEANUP_TEXT_TYPES = new Set(['STRING', 'TEXT', 'CHAR', 'CITEXT', 'ENUM'])
+
+function getCleanupModelOrError(modelName, res) {
+  if (!modelName || typeof modelName !== 'string') {
+    res.status(400).send({ code: '1001', message: 'A valid "model" is required' })
+    return null
+  }
+  if (CLEANUP_EXCLUDED_MODELS.has(modelName)) {
+    res.status(403).send({ code: '1003', message: `Model "${modelName}" is not allowed for data cleanup` })
+    return null
+  }
+  const Model = db.models?.[modelName]
+  if (!Model) {
+    res.status(404).send({ code: '1004', message: `Model "${modelName}" not found` })
+    return null
+  }
+  return Model
+}
+
+function getAttrTypeKey(attr) {
+  if (!attr?.type) return ''
+  if (typeof attr.type.key === 'string') return attr.type.key
+  if (typeof attr.type.toString === 'function') {
+    const s = String(attr.type.toString()).toUpperCase()
+    if (s.includes('TEXT')) return 'TEXT'
+    if (s.includes('CHAR') || s.includes('VARCHAR') || s.includes('STRING')) return 'STRING'
+    if (s.includes('ENUM')) return 'ENUM'
+  }
+  return String(attr.type?.constructor?.key || attr.type?.constructor?.name || '').toUpperCase()
+}
+
+function isCleanupTextField(Model, fieldName) {
+  if (!fieldName || CLEANUP_EXCLUDED_FIELDS.has(fieldName)) return false
+  const attr = Model.rawAttributes?.[fieldName]
+  if (!attr) return false
+  if (attr.primaryKey) return false
+  return CLEANUP_TEXT_TYPES.has(getAttrTypeKey(attr))
+}
+
+/** List models available for data cleanup (excludes users/roles/auth). */
+exports.listCleanupModels = async (_req, res) => {
+  try {
+    const models = Object.keys(db.models || {})
+      .filter((name) => !CLEANUP_EXCLUDED_MODELS.has(name))
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({
+        model: name,
+        table: db.models[name]?.tableName || name,
+      }))
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Cleanup models fetched successfully',
+      data: models,
+    })
+  } catch (error) {
+    console.error('[Data Cleanup] listCleanupModels failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'Failed to list cleanup models',
+    })
+  }
+}
+
+/** List text fields for a cleanup model. */
+exports.listCleanupFields = async (req, res) => {
+  try {
+    const modelName = req.query.model || req.body?.model
+    const Model = getCleanupModelOrError(modelName, res)
+    if (!Model) return
+
+    const fields = Object.keys(Model.rawAttributes || {})
+      .filter((name) => isCleanupTextField(Model, name))
+      .map((name) => ({
+        field: name,
+        type: getAttrTypeKey(Model.rawAttributes[name]),
+      }))
+      .sort((a, b) => a.field.localeCompare(b.field))
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Cleanup fields fetched successfully',
+      data: fields,
+    })
+  } catch (error) {
+    console.error('[Data Cleanup] listCleanupFields failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'Failed to list cleanup fields',
+    })
+  }
+}
+
+/** Distinct values (+ counts) for a text field. */
+exports.listCleanupFieldValues = async (req, res) => {
+  try {
+    const modelName = req.body?.model
+    const field = req.body?.field || req.body?.selectedField
+    const Model = getCleanupModelOrError(modelName, res)
+    if (!Model) return
+
+    if (!isCleanupTextField(Model, field)) {
+      return res.status(400).send({
+        code: '1001',
+        message: `Field "${field}" is not a text field available for cleanup`,
+      })
+    }
+
+    const quotedField = `"${String(field).replace(/"/g, '')}"`
+    const table = Model.tableName
+    const rows = await db.sequelize.query(
+      `
+      SELECT ${quotedField} AS value, COUNT(*)::int AS count
+      FROM "${table}"
+      WHERE ${quotedField} IS NOT NULL
+        AND TRIM(CAST(${quotedField} AS TEXT)) <> ''
+      GROUP BY ${quotedField}
+      ORDER BY ${quotedField} ASC
+      `,
+      { type: db.Sequelize.QueryTypes.SELECT }
+    )
+
+    const data = (rows || []).map((row) => ({
+      value: row.value,
+      label: String(row.value),
+      count: Number(row.count) || 0,
+    }))
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Cleanup field values fetched successfully',
+      data,
+    })
+  } catch (error) {
+    console.error('[Data Cleanup] listCleanupFieldValues failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'Failed to list cleanup field values',
+    })
+  }
+}
+
+/**
+ * Replace all rows where field IN fromValues with toValue.
+ * Body: { model, field, fromValue | fromValues, toValue, dryRun? }
+ */
+exports.replaceCleanupFieldValue = async (req, res) => {
+  try {
+    const { model: modelName, field, fromValue, fromValues, toValue } = req.body || {}
+    const dryRun = req.body?.dryRun === true || String(req.body?.dryRun || '') === 'true'
+
+    const Model = getCleanupModelOrError(modelName, res)
+    if (!Model) return
+
+    if (!isCleanupTextField(Model, field)) {
+      return res.status(400).send({
+        code: '1001',
+        message: `Field "${field}" is not a text field available for cleanup`,
+      })
+    }
+
+    const sourceValues = Array.isArray(fromValues)
+      ? fromValues
+      : fromValue != null
+        ? [fromValue]
+        : []
+
+    const normalizedFrom = [...new Set(
+      sourceValues
+        .map((v) => (v == null ? '' : String(v)))
+        .filter((v) => v !== '')
+    )]
+
+    if (!normalizedFrom.length) {
+      return res.status(400).send({
+        code: '1001',
+        message: '"fromValues" (or "fromValue") is required',
+      })
+    }
+    if (toValue == null || String(toValue).trim() === '') {
+      return res.status(400).send({ code: '1001', message: '"toValue" is required' })
+    }
+
+    const toValueStr = String(toValue).trim()
+    if (normalizedFrom.includes(toValueStr)) {
+      return res.status(400).send({
+        code: '1001',
+        message: '"toValue" must not be one of the selected current values',
+      })
+    }
+
+    const where = { [field]: { [Op.in]: normalizedFrom } }
+    const matched = await Model.count({ where })
+
+    if (dryRun) {
+      return res.status(200).send({
+        code: '0000',
+        message: 'Dry run — no rows updated',
+        data: {
+          dryRun: true,
+          model: modelName,
+          field,
+          fromValues: normalizedFrom,
+          fromValue: normalizedFrom.length === 1 ? normalizedFrom[0] : normalizedFrom,
+          toValue: toValueStr,
+          matched,
+          updated: 0,
+        },
+      })
+    }
+
+    const [updated] = await Model.update(
+      { [field]: toValueStr },
+      { where }
+    )
+
+    try {
+      const { logAudit } = require('../utils/auditTrail')
+      await logAudit({
+        req,
+        action: 'data_cleanup_replace',
+        actorId: req.userid != null ? String(req.userid) : null,
+        actorName: req.thisUser?.username || null,
+        entityType: modelName,
+        entityId: null,
+        outcome: 'success',
+        statusCode: 200,
+        changes: {
+          field,
+          fromValues: normalizedFrom,
+          toValue: toValueStr,
+          updated,
+        },
+        metadata: { source: 'settings/data-cleanup' },
+      })
+    } catch (_) {
+      /* audit is best-effort */
+    }
+
+    return res.status(200).send({
+      code: '0000',
+      message: `Updated ${updated} row(s)`,
+      data: {
+        dryRun: false,
+        model: modelName,
+        field,
+        fromValues: normalizedFrom,
+        fromValue: normalizedFrom.length === 1 ? normalizedFrom[0] : normalizedFrom,
+        toValue: toValueStr,
+        matched,
+        updated,
+      },
+    })
+  } catch (error) {
+    console.error('[Data Cleanup] replaceCleanupFieldValue failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'Failed to replace field value',
+    })
+  }
+}
+
 /** Manual trigger for Advanta SMS balance check (scheduled job also runs daily at 8am). */
 exports.runSmsBalanceAlertTest = async (req, res) => {
   try {
