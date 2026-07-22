@@ -9,6 +9,30 @@ const SENSITIVE_KEYS = new Set([
   'otp'
 ])
 
+/**
+ * User IDs that should not create audit_log rows.
+ * Set in .env as a single id or comma-separated list, e.g.:
+ *   AUDIT_SKIP_USER_ID=42
+ *   AUDIT_SKIP_USER_ID=42,100,101
+ */
+function parseSkippedAuditUserIds() {
+  const raw = process.env.AUDIT_SKIP_USER_ID || process.env.AUDIT_SKIP_USER_IDS || ''
+  if (!String(raw).trim()) return new Set()
+  return new Set(
+    String(raw)
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+  )
+}
+
+const SKIPPED_AUDIT_USER_IDS = parseSkippedAuditUserIds()
+
+function shouldSkipAuditForActor(actorId) {
+  if (actorId == null || actorId === '') return false
+  return SKIPPED_AUDIT_USER_IDS.has(String(actorId))
+}
+
 function sanitizeObject(input) {
   if (input == null) return input
   if (Array.isArray(input)) return input.map(sanitizeObject)
@@ -62,9 +86,18 @@ async function logAudit(payload) {
 
     const req = payload.req
     const actorFromReq = req && req.thisUser ? req.thisUser : null
+    const actorFromContext = !payload.actorId && !actorFromReq ? getActorFromContext() : null
 
-    const actorId = payload.actorId || (actorFromReq && actorFromReq.id != null ? String(actorFromReq.id) : null)
-    const actorName = payload.actorName || (actorFromReq && actorFromReq.username ? actorFromReq.username : null)
+    const actorId = payload.actorId
+      || (actorFromReq && actorFromReq.id != null ? String(actorFromReq.id) : null)
+      || (actorFromContext && actorFromContext.actorId != null ? String(actorFromContext.actorId) : null)
+      || (req && req.userid != null ? String(req.userid) : null)
+
+    if (shouldSkipAuditForActor(actorId)) return
+
+    const actorName = payload.actorName
+      || (actorFromReq && actorFromReq.username ? actorFromReq.username : null)
+      || (actorFromContext && actorFromContext.actorName ? actorFromContext.actorName : null)
 
     await db.auditLog.create({
       timestamp: new Date(),
