@@ -1275,105 +1275,126 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
         if (err) {
           console.log(err);
             return res.status(500).send({
-            message: 'Upload failed.',
-            code: '0000'
+            message: `Upload failed: ${err.message || 'multer error'}`,
+            code: 'UPLOAD_FAILED'
           })
         } 
-        if (!req.files) {
-          return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
+        if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+          return res.status(400).send({
+            message: 'No files received for upload.',
+            code: 'NO_FILES'
+          })
         }
     
-        var myFiles =req.files
+        var myFiles = req.files
       
     
         console.log('files to upload',myFiles )
         console.log('Properties Document',req.body )
+
+        const pickBody = (key, index) => {
+          const val = req.body?.[key]
+          if (Array.isArray(val)) return val[index] ?? val[0]
+          return val
+        }
+
+        // App may send pcode once or per file; admin swagger also mentions "code"
+        const rawPcode = pickBody('pcode', 0) ?? pickBody('code', 0)
+        const pcode = rawPcode != null ? String(rawPcode).trim() : ''
+        if (!pcode) {
+          return res.status(400).send({
+            message: 'Missing grievance code (pcode).',
+            code: 'MISSING_PCODE'
+          })
+        }
+
+        let grievanceRecord
+        try {
+          grievanceRecord = await db.models.grievance.findOne({
+            where: {
+              code: {
+                [Op.eq]: pcode
+              }
+            }
+          })
+        } catch (lookupErr) {
+          console.error('Grievance lookup failed:', lookupErr)
+          return res.status(500).send({
+            message: `Grievance lookup failed: ${lookupErr.message || 'unknown error'}`,
+            code: 'LOOKUP_FAILED'
+          })
+        }
+
+        if (!grievanceRecord) {
+          return res.status(404).send({
+            message: `Grievance not found for code ${pcode}`,
+            code: 'GRIEVANCE_NOT_FOUND'
+          })
+        }
      
         var errors = []
         var objs =[]
     
         for (let i = 0; i < myFiles.length; i++) {
-          // Sin
-      
             var obj = {} 
           
-            obj.format = req.body.format 
-            obj.size = req.body.size 
-            obj.protected_file = req.body.protected_file 
+            obj.format = pickBody('format', i) || (myFiles[i].originalname.split('.').pop() || 'bin')
+            const rawSize = pickBody('size', i)
+            obj.size = rawSize != null && rawSize !== '' ? rawSize : myFiles[i].size
+            const protectedRaw = pickBody('protected_file', i)
+            obj.protected_file =
+              protectedRaw === true ||
+              protectedRaw === 'true' ||
+              protectedRaw === '1' ||
+              protectedRaw === 1
             obj.name = myFiles[i].originalname
-            obj.location = myFiles[i].path 
             obj.code = shortid.generate()
-            obj.action_id = req.body.action_id  ? req.body.action_id  : null
-            obj.type = req.body.type  ? req.body.type  : 'Documentation'
-           
-            
-              
-            
-            try {
-              const record = await db.models.grievance.findOne({
-                where: {
-                  code: {
-                    [Op.eq]: req.body.pcode
-                  }
-                }
-              });
-            
-             // console.log('assocaited grievance', record)
-              if (record) {
-                obj.grievance_id = record.id; // Assign the found record's ID
-              } 
-            
-              objs.push(obj);
-            
-            } catch (error) {
-              // Handle the error here
-              console.error("An error occurred:", error);
-            }
-            
-            
-         
-    
-        //  }
-      
+            const actionRaw = pickBody('action_id', i)
+            obj.action_id = actionRaw ? actionRaw : null
+            obj.type = pickBody('type', i) || 'Documentation'
+            obj.grievance_id = grievanceRecord.id
+
+            objs.push(obj);
         }
     
-        // Send message
-    
-        
         var reg_model = 'grievance_document'
-        // console.log("insert Objects", objs)
-    
     
          try {
            for (const eobj of objs) {
               console.log(eobj)
              await db.models[reg_model].create(eobj)
-               .then(function () {
-                 console.log('-----')
-               });
            }
-         }  
-         
-    
-             
-         catch (error) {
-           // handle error;
+         } catch (error) {
            console.log(error)
-           errors.push('Failed to upload attachments.')
-    
+           const isDuplicateDoc =
+             error &&
+             (error.name === 'SequelizeUniqueConstraintError' ||
+               error.parent?.code === '23505' ||
+               error.original?.code === '23505') &&
+             (error.parent?.constraint === 'grievance_document_name_grievance_id' ||
+               error.original?.constraint === 'grievance_document_name_grievance_id' ||
+               (Array.isArray(error.errors) && error.errors.some((e) => e.path === 'name')))
+
+           if (isDuplicateDoc) {
+             const duplicateName = error.fields?.name || objs[0]?.name || 'this file'
+             return res.status(409).send({
+               message: `Upload failed: ${duplicateName} already exists for this grievance. Rename the file or remove the existing one first.`,
+               code: 'DUPLICATE_GRIEVANCE_DOCUMENT'
+             })
+           }
+
+           return res.status(500).send({
+             message: `Upload failed: ${error?.message || 'unknown database error'}`,
+             code: 'UPLOAD_FAILED'
+           })
          }
-    
-    
     
         if (errors.length === 0) {
           res.status(200).send({
             message: 'Upload via App Successful',
             code: '0000'
           })
-      
-    
         } else {
-    
           res.status(500).send({
             message: 'Upload failed. ' + errors + ' errors',
             code: '0000'
