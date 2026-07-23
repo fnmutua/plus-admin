@@ -25,7 +25,7 @@ import {
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider,ElCol } from 'element-plus'
 import { useRouter } from 'vue-router'
- import { activateUserApi, updateUserApi, getCountyStaff, forceLogoutUserApi } from '@/api/users'
+ import { activateUserApi, updateUserApi, getUserListApi, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
@@ -464,8 +464,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
   //-------------------------
-  console.log('gettign getCountyStaff users --->', formData)
-  const res = await getCountyStaff(formData)
+  console.log('getting all users --->', formData)
+  const res = await getUserListApi(formData)
 
   console.log('After getting all users', res)
   tableDataList.value = res.data

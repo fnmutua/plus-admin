@@ -14,6 +14,10 @@ const Sequelize = require('sequelize')
  
 const { Op } = require('sequelize');
 const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
+const {
+  buildUserListWhere,
+  userListIncludes,
+} = require('../utils/userListScope')
 
 //const User = db.user;
 //const Role = db.role;
@@ -108,44 +112,23 @@ exports.modelBoard = (req, res) => {
 
 exports.modelAllUsers = async (req, res) => {
   try {
-    console.log('---------------------------------');
-    console.log('Current User:', req.body.currentUser);
-
-    const user = req.body.currentUser;
-    const reg_model = req.body.model;
+    const viewerId = req.thisUser?.id ?? req.body.currentUser?.id;
+    const reg_model = req.body.model || 'users';
     const filters = req.body.filters || [];
     const filterValues = req.body.filterValues || [];
     const searchString = req.body.searchString;
-    const associated_multiple_models = req.body.associated_multiple_models || [];
+    const limit = req.body.limit || 10;
+    const page = req.body.page || 1;
 
-    let limit = req.body.limit || 10;
-    let page = req.body.page || 1;
+    const where = await buildUserListWhere(viewerId, {
+      searchString,
+      filters,
+      filterValues,
+    });
 
-    // Define role hierarchy
-    const roleHierarchy = ['root_admin', 'super_admin', 'admin', 'grm', 'gbv', 'support', 'monitoring'];
-
-    // Determine the highest role of the current user
-    let highestRole = null;
-    for (const role of roleHierarchy) {
-      if (user.roles.some(r => r.name === role)) {
-        highestRole = role;
-        break; // Stop at the highest role
-      }
-    }
-    console.log(`Highest role of current user: ${highestRole}`);
-
-    // Extract subordinate roles (only from the highest role)
-    const highestRoleIndex = roleHierarchy.indexOf(highestRole);
-    const allowedRoles = roleHierarchy.slice(highestRoleIndex + 1); // Get only lower roles
-
-    console.log('Allowed Roles:', allowedRoles);
-
-    // Define query options
     const findAndCountOptions = {
-      include: [],
-      where: {
-        id: { [Op.ne]: user.id }, // Exclude current user
-      },
+      include: userListIncludes(),
+      where,
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']],
@@ -153,60 +136,14 @@ exports.modelAllUsers = async (req, res) => {
       attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
     };
 
-    // Exclude users with higher or equal roles
-    findAndCountOptions.where.id = {
-      [Op.notIn]: Sequelize.literal(`
-        (SELECT user_roles.userid FROM user_roles
-        JOIN roles ON user_roles.roleid = roles.id
-        WHERE roles.name IN ('${roleHierarchy.slice(0, highestRoleIndex + 1).join("', '")}')
-        )`),
-    };
-
-    // Apply search condition
-    if (searchString) {
-      findAndCountOptions.where.name = {
-        [Op.iLike]: `%${searchString}%`,
-      };
-    }
-
-    // Apply additional filters
-    filters.forEach((filter, index) => {
-      const value = filterValues[index];
-      if (Array.isArray(value)) {
-        findAndCountOptions.where[filter] = { [Op.in]: value };
-      } else {
-        findAndCountOptions.where[filter] = value;
-      }
-    });
-
-    // Include related models
-    associated_multiple_models.forEach(modelName => {
-      findAndCountOptions.include.push({ model: db.models[modelName], raw: true, nested: true });
-    });
-
-    // Always include county information
-    findAndCountOptions.include.push({
-      model: db.models.county,
-      attributes: ['id', 'name', 'code'],
-      required: false
-    });
-
-    // Include role-based filtering
-    findAndCountOptions.include.push({
-      model: db.models.user_roles,
-      required: true,
-      include: [{ model: db.models.roles, where: { name: allowedRoles } }],
-    });
-
-    // Fetch users
     const { count, rows: users } = await db.models[reg_model].findAndCountAll(findAndCountOptions);
 
-    console.log('Total Users Retrieved:', count);
-
-    // Ensure country_name is included in the response
-    const usersWithCountry = users.map(user => ({
-      ...user.toJSON(),
-      country_name: user.country_name || 'xNot specified'
+    const usersWithCountry = users.map((row) => ({
+      ...row.toJSON(),
+      photo: row.photo
+        ? `data:image/png;base64,${row.photo.toString('base64')}`
+        : row.avatar || '',
+      country_name: row.country_name || 'Not specified',
     }));
 
     res.status(200).send({
@@ -366,82 +303,15 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
  
 exports.modelCountyUsers = async (req, res) => {
   try {
-  //  console.log('Request Body:', req.body);
-
-    const { 
-      currentUser, 
-      filters = [], 
-      filterValues = [], 
-      limit = 10, 
-      page = 1 
+    const viewerId = req.thisUser?.id ?? req.body.currentUser?.id;
+    const {
+      filters = [],
+      filterValues = [],
+      limit = 10,
+      page = 1,
+      searchString,
     } = req.body;
 
-    const { roles: currentUserRoles = [], county_id: userCounty } = currentUser;
-
-    console.log('Current User Roles:', currentUserRoles);
-
-    // Check if user is a county admin (has admin/staff role with county location level)
-    // County admins are users with 'admin' or 'staff' role at county level (not super_admin or national admin)
-    const isCountyAdmin = currentUserRoles.some(role => 
-      ['admin', 'staff'].includes(role.name) && 
-      role.user_roles && 
-      role.user_roles.location_level === 'county'
-    );
-    
-    // Get county_id from county admin role
-    const adminCountyId = isCountyAdmin 
-      ? currentUserRoles.find(role => 
-          ['admin', 'staff'].includes(role.name) && 
-          role.user_roles && 
-          role.user_roles.location_level === 'county'
-        )?.user_roles?.county_id
-      : null;
-
-    console.log('Is County Admin:', isCountyAdmin, 'County ID:', adminCountyId);
-
-    // Extract unique subordinate role IDs from the current user roles
-    const uniqueSubordinates = [
-      ...new Set(currentUserRoles.flatMap(role => role.subordinates || []))
-    ];
-
-    console.log('Allowed Role IDs:', uniqueSubordinates);
-
-    // Build user_roles where clause
-    const userRolesWhere = {
-      roleid: { [Op.in]: uniqueSubordinates }
-    };
-
-    // If county admin, filter by county_id in user_roles
-    if (isCountyAdmin && adminCountyId) {
-      userRolesWhere.county_id = adminCountyId;
-      console.log('Filtering by county_id for county admin:', adminCountyId);
-    }
-
-    // Query options
-    const findAndCountOptions = {
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: userRolesWhere
-        },
-        {
-          model: db.models.county,
-          attributes: ['id', 'name', 'code'],
-          required: false
-        }
-      ],
-      where: {
-        id: { [Op.ne]: currentUser.id }, // Exclude the current user
-      },
-      limit,
-      offset: (page - 1) * limit,
-      order: [['id', 'DESC']], // Sort by latest users first
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }, // Hide sensitive fields
-      distinct: true
-    };
-
-    // Normalize and cast filter values based on data type
     const normalizeAndCastFilter = (filter, value) => {
       if (typeof value === 'string') {
         if (value === 'true' || value === 'false') {
@@ -454,25 +324,31 @@ exports.modelCountyUsers = async (req, res) => {
       return value;
     };
 
-    // Apply additional filters if provided
-    if (filters.length === filterValues.length) {
-      findAndCountOptions.where[Op.and] = filters.map((filter, index) => ({
-        [filter]: { [Op.eq]: normalizeAndCastFilter(filter, filterValues[index]) }
-      }));
-    }
+    const where = await buildUserListWhere(viewerId, {
+      searchString,
+      filters,
+      filterValues,
+      normalizeFilter: (_filter, value) => normalizeAndCastFilter(_filter, value),
+    });
 
-    console.log('Final Query Options:', JSON.stringify(findAndCountOptions, null, 2));
+    const findAndCountOptions = {
+      include: userListIncludes(),
+      where,
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']],
+      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
+      distinct: true,
+    };
 
-    // Fetch users and count
     const { count, rows: users } = await db.models.users.findAndCountAll(findAndCountOptions);
 
-    // Convert photo binary data to base64 URL and include country_name
-    const usersWithPhotos = users.map(user => ({
+    const usersWithPhotos = users.map((user) => ({
       ...user.toJSON(),
-      photo: user.photo 
-        ? `data:image/png;base64,${user.photo.toString('base64')}` 
+      photo: user.photo
+        ? `data:image/png;base64,${user.photo.toString('base64')}`
         : '',
-      country_name: user.country_name ||  'KE'
+      country_name: user.country_name || 'KE',
     }));
 
     res.status(200).send({
@@ -481,7 +357,6 @@ exports.modelCountyUsers = async (req, res) => {
       code: '0000',
       message: 'County Users retrieved successfully',
     });
-
   } catch (error) {
     console.error('Error retrieving county users:', error);
     res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
@@ -1565,103 +1440,37 @@ exports.modelAdminUsers = async (req, res) => {
  
 exports.modelUserByName = async (req, res) => {
   try {
-    console.log('---------------------------------');
-    console.log(req.body.searchString);
-
-    const user = req.body.currentUser;
+    const viewerId = req.thisUser?.id ?? req.body.currentUser?.id;
     const searchString = req.body.searchString;
     const filters = req.body.filters || [];
     const filterValues = req.body.filterValues || [];
+    const limit = req.body.limit || 10;
+    const page = req.body.page || 1;
 
-    let limit = req.body.limit || 10;
-    let page = req.body.page || 1;
+    const where = await buildUserListWhere(viewerId, {
+      searchString,
+      filters,
+      filterValues,
+    });
 
-    // Define role hierarchy
-    const roleHierarchy = ['root_admin', 'super_admin', 'admin','grm', 'gbv', 'support', 'monitoring' ];
-
-    // Determine the highest role of the current user
-    let highestRole = null;
-    for (const role of roleHierarchy) {
-      if (user.roles.some(r => r.name === role)) {
-        highestRole = role;
-        break; // Stop at the highest role
-      }
-    }
-    console.log(`Highest role of current user: ${highestRole}`);
-
-    // Extract subordinate roles (only from the highest role)
-    const highestRoleIndex = roleHierarchy.indexOf(highestRole);
-    const allowedRoles = roleHierarchy.slice(highestRoleIndex + 1); // Get only lower roles
-
-    console.log('Allowed Roles:', allowedRoles);
-
-    // Find all users but exclude those with:
-    // - A higher or same level role
     const findAndCountOptions = {
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: {
-            userid: { [Op.ne]: user.id }, // Exclude current user
-          },
-        },
-        {
-          model: db.models.county,
-          attributes: ['id', 'name', 'code'],
-          required: false
-        }
-      ],
-      where: {
-        id: {
-          [Op.notIn]: Sequelize.literal(`
-            (SELECT user_roles.userid FROM user_roles
-            JOIN roles ON user_roles.roleid = roles.id
-            WHERE roles.name IN ('${roleHierarchy.slice(0, highestRoleIndex + 1).join("', '")}')
-            )`),
-        },
-      },
+      include: userListIncludes(),
+      where,
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']],
+      distinct: true,
+      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
     };
 
-    console.log('Users with higher or same level roles are excluded');
-
-    // Apply search string condition
-    if (searchString) {
-      findAndCountOptions.where[Op.or] = [
-        { name: { [Op.iLike]: `%${searchString}%` } },
-        { username: { [Op.iLike]: `%${searchString}%` } },
-        { email: { [Op.iLike]: `%${searchString}%` } },
-        { phone: { [Op.iLike]: `%${searchString}%` } }
-      ];
-    }
-
-    // Apply additional filters
-    filters.forEach((filter, index) => {
-      const value = filterValues[index];
-      if (Array.isArray(value)) {
-        findAndCountOptions.where[filter] = {
-          [Op.in]: value,
-        };
-      } else {
-        findAndCountOptions.where[filter] = value;
-      }
-    });
-
-    // Fetch users
     const { count, rows: usersWithSubordinates } = await Users.findAndCountAll(findAndCountOptions);
 
-    console.log('Total Users with Subordinate Roles:', count);
-
-    // Convert photo binary data to base64 URL
-    const usersWithPhotos = usersWithSubordinates.map(user => {
-      user.photo = user.photo
-        ? 'data:image/png;base64,' + user.photo.toString('base64')
-        : '';
-      return user;
-    });
+    const usersWithPhotos = usersWithSubordinates.map((user) => ({
+      ...user.toJSON(),
+      photo: user.photo
+        ? `data:image/png;base64,${user.photo.toString('base64')}`
+        : '',
+    }));
 
     res.status(200).send({
       data: usersWithPhotos,
