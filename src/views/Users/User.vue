@@ -5,13 +5,13 @@ import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getUserRoles, getByName } from '@/api/users'
 import { getCountyListApi } from '@/api/counties'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import UserTableActions from '@/views/Components/UserTableActions.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,ElDivider,
   ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon, ElTag,
-  ElDatePicker,
+  ElDatePicker, ElPopover, ElCheckbox, ElCheckboxGroup,
 } from 'element-plus'
 import {
   Position,
@@ -20,7 +20,7 @@ import {
   Plus,
   ArrowDown,
   InfoFilled,
-  SwitchButton
+  SwitchButton,
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -39,6 +39,11 @@ import {
   isUserAccessFullyExpired,
   userListRowAccessClassName,
 } from '@/utils/userAccessExpiryDisplay'
+import { useAdjustableTableColumns } from '@/composables/useAdjustableTableColumns'
+import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
+import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
+import UserListAdjustableColumns from '@/components/Users/UserListAdjustableColumns.vue'
+import UserListCardToolbar from '@/components/Users/UserListCardToolbar.vue'
 
 
 const { wsCache } = useCache()
@@ -130,6 +135,7 @@ const selCounties = []
 const loading = ref(true)
 const currentPage = ref(1)
 const total = ref(0)
+const downloadLoading = ref(false)
 
 const tmp_roles = ref([])
 
@@ -194,6 +200,17 @@ const accessReasonLabels: Record<string, string> = {
   personal: 'Personal Interest',
   other: 'Other'
 }
+
+const {
+  showColumnPicker,
+  isColumnVisible,
+  columnWidth,
+  columnMinWidth,
+  hideableColumns,
+  visibleColumnKeys,
+  onHeaderDragend,
+  resetColumns,
+} = useAdjustableTableColumns('usersTableColumns', userTableColumnPresets.full)
 
 const form = ref({
   id: '',
@@ -962,106 +979,97 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
 
 
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    <UserListCardToolbar>
+      <template #filters>
+        <el-button type="primary" plain :icon="Back" @click="goBack" class="users-toolbar__back">
           Back
         </el-button>
-      </div>
 
-      <!-- Title Search -->
-      <el-select
-        v-if="!isCountyRestricted"
-        style="  margin-right: 10px;" 
-        v-model="value2" 
-        :onChange="handleSelectCounty" 
-        :onClear="handleClear"
-        multiple 
-        clearable 
-        filterable 
-        collapse-tags 
-        placeholder="Filter by County">
-        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      <!-- Show county name for county admins (read-only) -->
-      <el-tooltip v-else content="You can only manage users in your county" placement="top">
-        <el-tag type="info" style="margin-right: 10px;">
-          County: {{ countiesOptions.find((c: any) => c.value === userCountyId)?.label || 'Your County' }}
-        </el-tag>
-      </el-tooltip>
+        <el-select
+          v-if="!isCountyRestricted"
+          v-model="value2"
+          :onChange="handleSelectCounty"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by County"
+          class="users-toolbar__county-select"
+        >
+          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by name, username, email or phone" />
+        <el-tooltip v-else content="You can only manage users in your county" placement="top">
+          <el-tag type="info">
+            County: {{ countiesOptions.find((c: any) => c.value === userCountyId)?.label || 'Your County' }}
+          </el-tag>
+        </el-tooltip>
 
+        <el-select
+          v-model="value3"
+          multiple
+          clearable
+          filterable
+          remote
+          :remote-method="searchByName"
+          reserve-keyword
+          placeholder="Search by name, username, email or phone"
+          class="users-toolbar__search-select"
+        />
+      </template>
 
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
+      <template #actions>
         <PermissionWrapper :permissions="['user:create']">
-          <el-tooltip content="Add User " placement="top">
+          <el-tooltip content="Add User" placement="top">
             <el-button :onClick="AddUser" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
 
         <PermissionWrapper :permissions="['user:download']">
-          <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+          <DownloadCustom
+            :data="tableDataList"
+            :model="model"
+            :associated_models="associated_multiple_models"
+            :loading="downloadLoading"
+            :filters="filters"
+            :filter-values="filterValues"
+            :total="total"
+            :search-keyword="searchString"
+            @download-start="downloadLoading = true"
+            @download-end="downloadLoading = false"
+          />
         </PermissionWrapper>
 
-      </div>
-
-    </el-row>
+        <AdjustableTableColumnPicker
+          v-model:show-column-picker="showColumnPicker"
+          v-model:visible-column-keys="visibleColumnKeys"
+          :hideable-columns="hideableColumns"
+          @reset="resetColumns"
+        />
+      </template>
+    </UserListCardToolbar>
 
 
 
     <el-table
       :data="tableDataList"
       style="width: 100% ; margin-top: 30px"
+      border
       v-loading="loading"
       :row-class-name="userListRowAccessClassName"
+      @header-dragend="onHeaderDragend"
     >
+      <UserListAdjustableColumns
+        :is-column-visible="isColumnVisible"
+        :column-width="columnWidth"
+        :column-min-width="columnMinWidth"
+        :access-reason-labels="accessReasonLabels"
+        :format-date="formatDate"
+        avatar-field="photo"
+      />
 
-      <el-table-column prop="id" label="#" width="50" />
-
-
-      <!-- Avatar column -->
-      <el-table-column label="Avatar" width="100">
-        <template #default="scope">
-          <div v-if="scope.row.photo">
-            <el-avatar :src="scope.row.photo" size="80px" />
-          </div>
-          <div v-else>
-            <el-avatar size="80px" />
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Name" prop="name" width="280" sortable>
-        <template #default="scope">
-          <span class="name-with-access-tag">
-            <span>{{ scope.row.name }}</span>
-            <el-tag v-if="isUserAccessFullyExpired(scope.row)" type="danger" effect="plain" size="small">
-              Access expired
-            </el-tag>
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Username" prop="username" sortable />
-      <el-table-column label="Country" prop="country_name" sortable />
-      <el-table-column label="Organization" prop="organization_name" sortable />
-      <el-table-column label="Reason for Access" prop="access_reason" sortable>
-        <template #default="scope">
-          {{ accessReasonLabels[scope.row.access_reason] || scope.row.access_reason || '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="County" prop="county.name" sortable />
-      <el-table-column label="Last Login" width="180" sortable>
-        <template #default="scope">
-          <span v-if="scope.row.last_login">{{ formatDate(scope.row.last_login) }}</span>
-          <span v-else style="color: #999;">Never</span>
-        </template>
-      </el-table-column>
-            <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
+      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
           <UserTableActions
             :row="scope.row"
@@ -1340,13 +1348,6 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
-}
-
-.name-with-access-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 :deep(.el-table__body tr.user-list-row-access-expired > td) {

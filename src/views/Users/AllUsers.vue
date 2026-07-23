@@ -17,7 +17,6 @@ import {
   Position,
   Edit,
   Plus,
-  Download,
   Filter,
   SwitchButton
 } from '@element-plus/icons-vue'
@@ -28,8 +27,7 @@ import { useRouter } from 'vue-router'
  import { activateUserApi, updateUserApi, getUserListApi, forceLogoutUserApi } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import xlsx from "json-as-xlsx"
-import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import UserTableActions from '@/views/Components/UserTableActions.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
@@ -37,6 +35,11 @@ import {
   isUserAccessFullyExpired,
   userListRowAccessClassName,
 } from '@/utils/userAccessExpiryDisplay'
+import { useAdjustableTableColumns } from '@/composables/useAdjustableTableColumns'
+import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
+import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
+import UserListAdjustableColumns from '@/components/Users/UserListAdjustableColumns.vue'
+import UserListContentToolbar from '@/components/Users/UserListContentToolbar.vue'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -98,6 +101,8 @@ const associated_multiple_models = ['county' ,'user_roles']
 //const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
+const downloadLoading = ref(false)
+
 const model = 'users'
 const searchString = ref()
 
@@ -112,6 +117,19 @@ const accessReasonLabels: Record<string, string> = {
   personal: 'Personal Interest',
   other: 'Other'
 }
+
+const {
+  showColumnPicker,
+  isColumnVisible,
+  columnWidth,
+  columnMinWidth,
+  hideableColumns,
+  visibleColumnKeys,
+  onHeaderDragend,
+  resetColumns,
+} = useAdjustableTableColumns('allUsersTableColumns', () =>
+  userTableColumnPresets.full().filter((col) => col.key !== 'last_login')
+)
 
 const form = reactive({
   id: '',
@@ -608,97 +626,66 @@ const updateUser = () => {
   dialogFormVisible.value = false
 }
 
- 
-
-
-
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Email", value: "email" }, // Custom format
-    { label: "Username", value: "username" }, // Run functions
-    { label: "Phone", value: "phone" }, // Run functions
-    { label: "County", value: "county" }, // Run functions
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.name = tableDataList.value[i].name
-    thisRecord.county = tableDataList.value[i].county.name
-    thisRecord.email = tableDataList.value[i].email
-    thisRecord.username = tableDataList.value[i].username
-    thisRecord.phone = tableDataList.value[i].phone
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
-
-
-
 </script>
 
 <template>
   <ContentWrap :title="t('Users')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by County">
-        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
+    <UserListContentToolbar>
+      <template #filters>
+        <el-select
+          v-model="value2"
+          :onChange="handleSelectCounty"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by County"
+        >
+          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by name, username, email or phone" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-    </div>
+        <el-select
+          v-model="value3"
+          multiple
+          clearable
+          filterable
+          remote
+          :remote-method="searchByName"
+          reserve-keyword
+          placeholder="Search by name, username, email or phone"
+        />
+      </template>
 
-    <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Register User" placement="top">
-        <el-button :onClick="AddUser" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
+      <template #actions>
+        <PermissionWrapper :permissions="['user:download']">
+          <DownloadCustom
+            :data="tableDataList"
+            :model="model"
+            :associated_models="associated_multiple_models"
+            :loading="downloadLoading"
+            :filters="filters"
+            :filter-values="filterValues"
+            :total="total"
+            :search-keyword="searchString"
+            @download-start="downloadLoading = true"
+            @download-end="downloadLoading = false"
+          />
+        </PermissionWrapper>
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        <el-tooltip content="Register User" placement="top">
+          <el-button :onClick="AddUser" type="primary" :icon="Plus" />
+        </el-tooltip>
+        <AdjustableTableColumnPicker
+          v-model:show-column-picker="showColumnPicker"
+          v-model:visible-column-keys="visibleColumnKeys"
+          :hideable-columns="hideableColumns"
+          @reset="resetColumns"
+        />
+      </template>
+    </UserListContentToolbar>
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
@@ -708,45 +695,20 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     <el-table
       :data="tableDataList"
       style="width: 100%"
-      fit
+      border
       v-loading="loading"
       :row-class-name="userListRowAccessClassName"
+      @header-dragend="onHeaderDragend"
     >
+      <UserListAdjustableColumns
+        :is-column-visible="isColumnVisible"
+        :column-width="columnWidth"
+        :column-min-width="columnMinWidth"
+        :access-reason-labels="accessReasonLabels"
+        avatar-field="avatar"
+        use-index-column
+      />
 
-      <el-table-column type="index" label="#" width="50">
-        <!-- Use the 'index' slot to customize the index column -->
-        <template #default="scope">
-          {{ scope.$index + 1 }}
-        </template>
-      </el-table-column>
-        <!-- Avatar column -->
-  <el-table-column label="Avatar" width="100">
-    <template #default="scope">
-      <el-avatar :src="scope.row.avatar" :size="80" />
-    </template>
-  </el-table-column>
-
- 
-      <el-table-column label="Name" prop="name" width="280" sortable>
-        <template #default="scope">
-          <span class="name-with-access-tag">
-            <span>{{ scope.row.name }}</span>
-            <el-tag v-if="isUserAccessFullyExpired(scope.row)" type="danger" effect="plain" size="small">
-              Access expired
-            </el-tag>
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Username" prop="username" sortable />
-      <el-table-column label="Country" prop="country_name" sortable />
-      <el-table-column label="Organization" prop="organization_name" sortable />
-      <el-table-column label="Reason for Access" prop="access_reason" sortable>
-        <template #default="scope">
-          {{ accessReasonLabels[scope.row.access_reason] || scope.row.access_reason || '—' }}
-        </template>
-      </el-table-column>
-
-      <el-table-column label="County" prop="county.name" sortable />
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
           <UserTableActions
@@ -916,13 +878,6 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 .my-switch {
   margin-right: 10px;
-}
-
-.name-with-access-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 :deep(.el-table__body tr.user-list-row-access-expired > td) {
