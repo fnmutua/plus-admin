@@ -1068,6 +1068,8 @@ exports.getGrievances = async (req, res) => {
 
   // Include associated models and exclude geometry fields
   const associatedModels = req.body.associated_multiple_models || [];
+  const excludeGeomAssoc = req.body.excludeGeomAssoc !== false; // default true for list payloads
+  const lightAssoc = req.body.lightAssociations !== false; // default: only id/name for location joins
   if (associatedModels.length > 0) {
     // Initialize includes array if not already set by filters
     if (!findAndCountOptions.include) {
@@ -1093,8 +1095,18 @@ exports.getGrievances = async (req, res) => {
         } else {
           includeModel = { model: db.models[model] };
         }
-        
-        if (db.models[model] && db.models[model].rawAttributes && db.models[model].rawAttributes.geom) {
+
+        // List/pull only needs labels — not full settlement surveys / geom payloads
+        if (lightAssoc && (model === 'settlement' || model === 'county' || model === 'subcounty' || model === 'ward')) {
+          includeModel.attributes = ['id', 'name', 'code'].filter(
+            (attr) => db.models[model]?.rawAttributes?.[attr]
+          );
+        } else if (
+          excludeGeomAssoc &&
+          db.models[model] &&
+          db.models[model].rawAttributes &&
+          db.models[model].rawAttributes.geom
+        ) {
           includeModel.attributes = { exclude: ['geom'] };
         }
 
