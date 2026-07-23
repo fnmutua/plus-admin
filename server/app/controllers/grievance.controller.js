@@ -935,6 +935,7 @@ exports.getGrievances = async (req, res) => {
       'ward_id',
       'isgbv',
       'confirmed_by_national_grm',
+      'self_reported',
       'createdAt',
       'updatedAt',
     ].filter((col) => !!raw[col]);
