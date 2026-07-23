@@ -917,6 +917,30 @@ exports.getGrievances = async (req, res) => {
   attributes.push(decryptedName, decryptedNationalId);
   findAndCountOptions.attributes = attributes;
 
+  // Mobile / pull-to-refresh: only fields needed for list cards (detail uses /grv/one)
+  if (req.body.liteList === true || req.body.liteList === 'true') {
+    const raw = db.models.grievance.rawAttributes || {};
+    const liteCols = [
+      'id',
+      'code',
+      'status',
+      'current_level',
+      'date_reported',
+      'phone',
+      'nature',
+      'project_phase',
+      'county_id',
+      'settlement_id',
+      'subcounty_id',
+      'ward_id',
+      'isgbv',
+      'confirmed_by_national_grm',
+      'createdAt',
+      'updatedAt',
+    ].filter((col) => !!raw[col]);
+    findAndCountOptions.attributes = [...liteCols, decryptedName];
+  }
+
   const normalizeToArray = (rawValue) => {
     if (Array.isArray(rawValue)) return rawValue.filter(v => v !== null && v !== undefined && v !== '');
     if (rawValue === null || rawValue === undefined || rawValue === '') return [];
@@ -1117,7 +1141,20 @@ exports.getGrievances = async (req, res) => {
 
   // Execute query
   try {
-    const { count, rows: grievances } = await Grievance.findAndCountAll(findAndCountOptions);
+    // distinct+count is expensive with includes — skip full recount after page 1 when client sends totalHint
+    const skipHeavyCount = req.body.skipCount === true || req.body.skipCount === 'true';
+    let grievances;
+    let count;
+    if (skipHeavyCount && findAndCountOptions.include?.length) {
+      grievances = await Grievance.findAll(findAndCountOptions);
+      count = typeof req.body.totalHint === 'number'
+        ? req.body.totalHint
+        : (grievances.length + ((page - 1) * limit));
+    } else {
+      const result = await Grievance.findAndCountAll(findAndCountOptions);
+      count = result.count;
+      grievances = result.rows;
+    }
     
     console.log('Total grievances:', count);
 
