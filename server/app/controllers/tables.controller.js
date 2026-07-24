@@ -47,9 +47,14 @@ const { normalizeSettlementGeom } = require('../utils/settlementGeometry')
 const {
   applyProgrammeProjectScopeToQuery,
   buildOptimizedScopeSql,
+  buildProjectCountyExistsLiteral,
+  buildProjectSettlementExistsLiteral,
+  ensureDefaultProjectLocationForCreator,
   expandProgrammeIds,
   getProjectProgrammeScope,
+  shouldUseCreatorLocationFallback,
 } = require('../utils/projectListScope')
+const { parseProjectCost, isIntegerOverflowError } = require('../utils/projectCost')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -1272,6 +1277,47 @@ exports.modelCreateOneRecord = async (req, res) => {
     obj.photo_filename = null;
   }
 
+  if (reg_model === 'project') {
+    if ((obj.component_id == null || obj.component_id === '') && obj.domain != null && obj.domain !== '') {
+      obj.component_id = obj.domain;
+    }
+    delete obj.domain;
+    delete obj.component_title;
+
+    const rawComponentId = obj.component_id;
+    if (rawComponentId == null || rawComponentId === '') {
+      event.status = 'failed';
+      logEvents(event);
+      return res.status(400).json({
+        message: 'Project category (component_id) is required',
+        code: 'VALIDATION_ERROR',
+      });
+    }
+    const parsedComponentId = parseInt(rawComponentId, 10);
+    if (Number.isNaN(parsedComponentId)) {
+      event.status = 'failed';
+      logEvents(event);
+      return res.status(400).json({
+        message: 'Invalid project category (component_id)',
+        code: 'VALIDATION_ERROR',
+      });
+    }
+    obj.component_id = parsedComponentId;
+
+    if (Object.prototype.hasOwnProperty.call(obj, 'cost')) {
+      const costResult = parseProjectCost(obj.cost);
+      if (costResult.error) {
+        event.status = 'failed';
+        logEvents(event);
+        return res.status(400).json({
+          message: costResult.error,
+          code: 'VALIDATION_ERROR',
+        });
+      }
+      obj.cost = costResult.value;
+    }
+  }
+
   // Compute vulnerability score for settlement when attributes are present
   if (reg_model === 'settlement') {
     try {
@@ -1345,6 +1391,8 @@ exports.modelCreateOneRecord = async (req, res) => {
       });
 
       item.addIndicators(list_indicators);
+    } else if (reg_model === 'project') {
+      await ensureDefaultProjectLocationForCreator(item.id, req.thisUser.id, req.body);
     }
 
     res.status(200).send({
@@ -1370,6 +1418,17 @@ exports.modelCreateOneRecord = async (req, res) => {
       // Handle the duplicate key error (e.g., return a user-friendly message)
       return res.status(400).json({
         message: 'Duplicate records for '+ reg_model + ' not allowed'
+      });
+    } else if (isIntegerOverflowError(error)) {
+      return res.status(400).json({
+        message: 'Project cost is too large. Enter a valid amount in KSh.',
+        code: 'VALIDATION_ERROR',
+      });
+    } else if (error.name === 'SequelizeValidationError') {
+      const details = error.errors?.map(e => e.message).filter(Boolean).join('; ') || error.message;
+      return res.status(400).json({
+        message: details || 'Validation failed while creating the record.',
+        code: 'VALIDATION_ERROR',
       });
     } else {
       // Handle other errors
@@ -4477,6 +4536,17 @@ exports.modelEditOneRecord = (req, res) => {
 
       // Special for projects where we store the project-activity relation
       if (reg_model === 'project') {
+        if (Object.prototype.hasOwnProperty.call(updateObj, 'cost')) {
+          const costResult = parseProjectCost(updateObj.cost);
+          if (costResult.error) {
+            return res.status(400).json({
+              message: costResult.error,
+              code: 'VALIDATION_ERROR',
+            });
+          }
+          updateObj.cost = costResult.value;
+        }
+
         var activity_list = req.body.activities;
         const list_activities = await db.models.activity.findAll({
           where: {
@@ -5386,6 +5456,13 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
     const hasGeomColumn = Object.keys(Model.rawAttributes).includes('geom');
     const isProjectModel = modelName === 'project';
+    const scopedUserId = req.userid || req.thisUser?.id;
+    let projectProgrammeScope = null;
+    let creatorLocationFallback = false;
+    if (isProjectModel && scopedUserId) {
+      projectProgrammeScope = await getProjectProgrammeScope(scopedUserId);
+      creatorLocationFallback = shouldUseCreatorLocationFallback(projectProgrammeScope);
+    }
 
     // Handle column filters
     if (filters.length > 0 && filterValues.length === filters.length) {
@@ -5402,31 +5479,43 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
           // Filter through project_location for county_id and settlement_id (projects don't have these fields directly)
           if (filter === 'county_id') {
             const countyIds = Array.isArray(value) ? value : [value];
-            const countyIdConditions = countyIds.map(countyId => {
-              const countyIdInt = parseInt(countyId);
-              if (isNaN(countyIdInt)) {
-                console.error(`Invalid county_id value: ${countyId}`);
-                return null;
-              }
-              return literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${Model.tableName}".id AND pl.county_id = ${countyIdInt})`);
-            }).filter(cond => cond !== null);
-            
-            if (countyIdConditions.length > 0) {
-              projectLocationFilters.push({ [Sequelize.Op.or]: countyIdConditions });
+            const parsedCountyIds = countyIds
+              .map((countyId) => parseInt(countyId, 10))
+              .filter((countyId) => !isNaN(countyId));
+            const countyCondition = buildProjectCountyExistsLiteral(
+              Model.tableName,
+              parsedCountyIds,
+              scopedUserId,
+              { creatorFallback: creatorLocationFallback }
+            );
+            if (countyCondition) {
+              projectLocationFilters.push(countyCondition);
             }
           } else if (filter === 'settlement_id') {
             const settlementIds = Array.isArray(value) ? value : [value];
-            const settlementIdConditions = settlementIds.map(settlementId => {
-              const settlementIdInt = parseInt(settlementId);
-              if (isNaN(settlementIdInt)) {
-                console.error(`Invalid settlement_id value: ${settlementId}`);
-                return null;
-              }
-              return literal(`EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${Model.tableName}".id AND pl.settlement_id = ${settlementIdInt})`);
-            }).filter(cond => cond !== null);
-            
-            if (settlementIdConditions.length > 0) {
-              projectLocationFilters.push({ [Sequelize.Op.or]: settlementIdConditions });
+            const parsedSettlementIds = settlementIds
+              .map((settlementId) => parseInt(settlementId, 10))
+              .filter((settlementId) => !isNaN(settlementId));
+            const settlementCondition = buildProjectSettlementExistsLiteral(
+              Model.tableName,
+              parsedSettlementIds,
+              scopedUserId,
+              { creatorFallback: creatorLocationFallback }
+            );
+            if (settlementCondition) {
+              projectLocationFilters.push(settlementCondition);
+            }
+          } else if (filter === 'programme_id') {
+            const programmeIds = Array.isArray(value) ? value : [value];
+            const parsedProgrammeIds = programmeIds
+              .map((programmeId) => parseInt(programmeId, 10))
+              .filter((programmeId) => !isNaN(programmeId));
+            if (parsedProgrammeIds.length > 0) {
+              projectLocationFilters.push(
+                literal(
+                  `EXISTS (SELECT 1 FROM component c WHERE c.id = "${Model.tableName}".component_id AND c.programme_id IN (${parsedProgrammeIds.join(', ')}))`
+                )
+              );
             }
           } else if (modelAttributes.includes(filter)) {
             // Direct field filters for project model (e.g., component_id, status, etc.)
@@ -5440,7 +5529,20 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
           allFilters.push(...projectLocationFilters);
         }
         if (directFilters.length > 0) {
-          allFilters.push(...directFilters.map(({ field, value }) => ({ [field]: value })));
+          allFilters.push(
+            ...directFilters.map(({ field, value }) => {
+              if (Array.isArray(value)) {
+                const parsed = value
+                  .map((entry) => parseInt(entry, 10))
+                  .filter((entry) => !Number.isNaN(entry));
+                if (parsed.length) {
+                  return { [field]: { [Sequelize.Op.in]: parsed } };
+                }
+                return null;
+              }
+              return { [field]: value };
+            }).filter(Boolean)
+          );
         }
         
         if (allFilters.length > 0) {
@@ -5499,7 +5601,13 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
 
     if (['project', 'programme', 'component'].includes(modelName) && req.userid) {
-      await applyProgrammeProjectScopeToQuery(baseQuery, modelName, Model, req.userid);
+      await applyProgrammeProjectScopeToQuery(
+        baseQuery,
+        modelName,
+        Model,
+        req.userid,
+        projectProgrammeScope
+      );
     }
 
     const includeModels = [];
@@ -5517,6 +5625,14 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         model: RelatedModel,
         attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined
       };
+      if (isProjectModel && assocModel === 'project_location') {
+        modelIncl.include = [
+          { model: db.models.settlement, attributes: ['id', 'name'], required: false },
+          { model: db.models.ward, attributes: ['id', 'name'], required: false },
+          { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
+          { model: db.models.county, attributes: ['id', 'name'], required: false },
+        ];
+      }
       // Household listing only needs lightweight settlement metadata.
       if (isHouseholdsModel && assocModel === 'settlement') {
         modelIncl.attributes = ['id', 'name', 'area'];

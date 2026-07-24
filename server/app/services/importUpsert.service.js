@@ -97,6 +97,102 @@ function prepareImportRecords(validRecords, modelName, currentUser) {
   return validData
 }
 
+function hasLocationName(value) {
+  return typeof value === 'string' && value.trim() !== ''
+}
+
+async function enrichProjectLocationRecords(db, records) {
+  const toInt = (value) => {
+    if (value == null || value === '') return null
+    const parsed = parseInt(value, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }
+
+  for (const record of records) {
+    if (!toInt(record.county_id)) {
+      if (toInt(record.settlement_id)) {
+        const settlement = await db.models.settlement.findByPk(toInt(record.settlement_id), {
+          attributes: ['name', 'county_id', 'subcounty_id', 'ward_id'],
+          raw: true
+        })
+        if (settlement) {
+          record.county_id = record.county_id || settlement.county_id
+          record.subcounty_id = record.subcounty_id || settlement.subcounty_id
+          record.ward_id = record.ward_id || settlement.ward_id
+          if (!hasLocationName(record.location_name) && settlement.name) {
+            record.location_name = settlement.name
+          }
+        }
+      } else if (toInt(record.ward_id)) {
+        const ward = await db.models.ward.findByPk(toInt(record.ward_id), {
+          attributes: ['name', 'county_id', 'subcounty_id'],
+          raw: true
+        })
+        if (ward) {
+          record.county_id = record.county_id || ward.county_id
+          record.subcounty_id = record.subcounty_id || ward.subcounty_id
+          if (!hasLocationName(record.location_name) && ward.name) {
+            record.location_name = ward.name
+          }
+        }
+      } else if (toInt(record.subcounty_id)) {
+        const subcounty = await db.models.subcounty.findByPk(toInt(record.subcounty_id), {
+          attributes: ['name', 'county_id'],
+          raw: true
+        })
+        if (subcounty) {
+          record.county_id = record.county_id || subcounty.county_id
+          if (!hasLocationName(record.location_name) && subcounty.name) {
+            record.location_name = subcounty.name
+          }
+        }
+      }
+    }
+
+    if (!hasLocationName(record.location_name) && toInt(record.settlement_id)) {
+      const settlement = await db.models.settlement.findByPk(toInt(record.settlement_id), {
+        attributes: ['name'],
+        raw: true
+      })
+      if (settlement?.name) {
+        record.location_name = settlement.name
+      }
+    }
+
+    if (!hasLocationName(record.location_name) && toInt(record.ward_id)) {
+      const ward = await db.models.ward.findByPk(toInt(record.ward_id), {
+        attributes: ['name'],
+        raw: true
+      })
+      if (ward?.name) {
+        record.location_name = ward.name
+      }
+    }
+
+    if (!hasLocationName(record.location_name) && toInt(record.subcounty_id)) {
+      const subcounty = await db.models.subcounty.findByPk(toInt(record.subcounty_id), {
+        attributes: ['name'],
+        raw: true
+      })
+      if (subcounty?.name) {
+        record.location_name = subcounty.name
+      }
+    }
+
+    if (!hasLocationName(record.location_name) && toInt(record.county_id)) {
+      const county = await db.models.county.findByPk(toInt(record.county_id), {
+        attributes: ['name'],
+        raw: true
+      })
+      if (county?.name) {
+        record.location_name = county.name
+      }
+    }
+  }
+
+  return records
+}
+
 function pushFieldLengthErrors(item, attributes, errors) {
   const tooLongFields = []
   Object.entries(attributes).forEach(([key, attrDef]) => {
@@ -426,6 +522,10 @@ async function executeImportUpsert({
 
   if (modelName === 'settlement_population') {
     validData = await settlementPopulationGeo.enrichSettlementPopulationRecords(db, validData)
+  }
+
+  if (modelName === 'project_location') {
+    validData = await enrichProjectLocationRecords(db, validData)
   }
 
   let transaction = null

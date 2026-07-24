@@ -1,23 +1,90 @@
 <template>
   <div>
-    <el-card class="box-card" v-loading="isLoading">
-     
-
-
-      <el-steps :active="currentStep" finish-status="success" align-center class="small-steps">
-        <el-step
-v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
-          @click="handleStepClick(index)" />
-      </el-steps>
+    <component
+      :is="embedded ? 'div' : 'el-card'"
+      :class="embedded ? 'project-form-embedded' : 'box-card'"
+      v-loading="isLoading"
+    >
+      <div class="steps-wrapper">
+        <el-steps :active="currentStep" finish-status="success" align-center class="project-form-steps">
+          <el-step
+            v-for="(step, index) in steps"
+            :key="index"
+            :title="step.title"
+            :description="isMobile ? '' : step.description"
+            @click="handleStepClick(index)"
+          />
+        </el-steps>
+      </div>
       <el-divider />
       <el-form
           :model="formData"
           :rules="currentStepRules"
-          label-width="200px"
+          label-width="auto"
           ref="dynamicFormRef"
           label-position="top"
         >
-          <el-row :gutter="16">
+          <div v-if="currentStep === totalSteps - 1" id="location-step" class="location-step">
+            <p class="location-step-hint">{{ locationStepHint }}</p>
+
+            <el-alert
+              v-if="isNationalScope"
+              type="info"
+              :closable="false"
+              show-icon
+              title="National scope"
+              description="Location selection is not required for national projects."
+              class="location-national-alert"
+            />
+
+            <template v-else>
+              <el-input
+                v-model="locationSearchKeyword"
+                clearable
+                placeholder="Type to search locations…"
+                class="location-search-input"
+                @input="onLocationSearchInput"
+                @clear="searchLocations('')"
+              />
+
+              <div v-if="scopedSelectedLocations.length" class="selected-locations">
+                <span class="selected-label">Selected ({{ scopedSelectedLocations.length }})</span>
+                <div class="selected-tags">
+                  <el-tag
+                    v-for="loc in scopedSelectedLocations"
+                    :key="loc.key"
+                    closable
+                    size="small"
+                    @close="removeSelectedLocation(loc.key)"
+                  >
+                    {{ loc.label }}
+                  </el-tag>
+                </div>
+              </div>
+
+              <div v-loading="locationSearchLoading" class="location-results">
+                <el-empty
+                  v-if="!locationSearchLoading && displayLocationOptions.length === 0"
+                  description="Search by name to find locations"
+                  :image-size="64"
+                />
+                <el-checkbox-group v-else v-model="selectedLocationKeys" class="location-checkbox-group">
+                  <div
+                    v-for="item in displayLocationOptions"
+                    :key="item.key"
+                    class="location-option"
+                  >
+                    <el-checkbox :label="item.key">
+                      <span class="location-name">{{ item.label }}</span>
+                      <span v-if="item.detail" class="location-detail">{{ item.detail }}</span>
+                    </el-checkbox>
+                  </div>
+                </el-checkbox-group>
+              </div>
+            </template>
+          </div>
+
+          <el-row v-else :gutter="16">
             <el-col
               v-for="(field, index) in currentStepFields"
               :key="index"
@@ -28,53 +95,46 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
               :lg="24"
               :xl="24"
             >
-      <el-form-item :id="field.id" :prop="field.name">
-        <template #label>
-          <el-tooltip
-            v-if="field.tooltip"
-            class="item"
-          
-            :content="field.tooltip"
-             placement="right"
-            effect="dark"
-          >
-            <span>{{ field.label }}</span>
-          </el-tooltip>
-          <span v-else>{{ field.label }}</span>
-        </template>
-
+      <el-form-item :id="field.id" :prop="field.name" :label="field.label">
         <el-input
           v-if="field.type === 'text'"
           v-model="formData[field.name]"
+          :placeholder="field.placeholder"
         />
         <el-input
           v-else-if="field.type === 'textarea'"
           type="textarea"
           v-model="formData[field.name]"
-        />
-        <el-input-number
-          :controls="false"
-          :min="field.min"
-          v-else-if="field.type === 'number'"
-          v-model="formData[field.name]"
-          :formatter="formatMoney"
-          @change="getFieldChangeHandler(field.name)"
+          :rows="field.name === 'description' ? 2 : 2"
+          :placeholder="field.placeholder"
         />
         <el-input
-          :min="field.min"
-          v-else-if="field.type === 'money'"
+          v-else-if="field.type === 'number' && field.name === 'cost'"
+          v-model="costDisplay"
+          inputmode="numeric"
+          :placeholder="field.placeholder"
+          class="project-cost-input"
+        />
+        <el-input-number
+          v-else-if="field.type === 'number'"
           v-model="formData[field.name]"
+          :controls="false"
+          :min="field.min ?? 0"
+          :max="field.max"
+          :precision="0"
+          :step="1"
+          :placeholder="field.placeholder"
+          class="project-cost-input"
+          style="width: 100%"
           @change="getFieldChangeHandler(field.name)"
-          :formatter="formatMoney"
-          :parser="parseMoney"
-        >
-          <template #prepend>KSh.</template>
-        </el-input>
+        />
 
         <el-date-picker
           v-else-if="field.type === 'date'"
           type="date"
           v-model="formData[field.name]"
+          :placeholder="field.placeholder || 'Select date'"
+          style="width: 100%"
         />
 
         <el-select
@@ -82,7 +142,8 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           v-model="formData[field.name]"
           :filterable="true"
           collapse-tags
-          placeholder="Select"
+          :placeholder="field.placeholder || 'Select'"
+          style="width: 100%"
           @change="getFieldChangeHandler(field.name)"
         >
           <el-option
@@ -102,7 +163,8 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           value-key="value"
           :disabled="newRecord"
           :props="{ label: 'label', children: 'children', value: 'value' }"
-          placeholder="Select"
+          :placeholder="field.placeholder || 'Select'"
+          style="width: 100%"
           @change="getFieldChangeHandler(field.name)"
         />
 
@@ -112,7 +174,8 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           :filterable="true"
           multiple
           collapse-tags
-          placeholder="Select"
+          :placeholder="field.placeholder || 'Select'"
+          style="width: 100%"
           @change="getFieldChangeHandler(field.name)"
         >
           <el-option
@@ -210,14 +273,12 @@ class="button-container"
             Submit
           </el-button>
         </div>
-        <h3 v-if="currentStep == totalSteps - 1 && showMessage" style="color: rgb(228, 30, 30); font-style: italic;">{{
-          wardMessage }}</h3>
       </div>
 
       <!-- <pre>{{ wardMessage}}</pre>  -->
       <!-- <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
       <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div> -->
-    </el-card>
+    </component>
 
     <el-dialog v-model="showDialog" title="Select Location" width="70%">
       <el-row>
@@ -291,11 +352,9 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { ElCard, ElTooltip, ElTour, ElTourStep, ElDialog, ElMessage, ElUpload,ElTreeSelect } from 'element-plus'
 import { useRouter } from 'vue-router'
 
-import { steps, formFields, formData, formRules,regionOptions ,} from './common/fields.ts'
-import { subcountyOptions, wardOptions,prog_components   } from './common/index.ts'
+import { steps, formFields, formData, formRules } from './common/fields.ts'
+import { subcountyOptions, wardOptions, implementationOptions, setImplementationOptionsForProgramme } from './common/index.ts'
 import shortid from 'shortid';
-
-import {   nextTick } from 'vue'
 
 import { useRoute } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -305,7 +364,16 @@ import mapboxgl from "mapbox-gl";
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { MapboxLayerDefinition } from "mapbox-layer-switcher";
-import { CreateRecord, updateOneRecord, getOneGeo, getOneSettlement } from '@/api/settlements'
+import {
+  CreateRecord,
+  updateOneRecord,
+  getOneGeo,
+  getOneSettlement,
+  searchByKeyWord,
+  BatchImportUpsert,
+  DeleteRecord,
+  getSettlementListByCounty,
+} from '@/api/settlements'
 
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
@@ -319,20 +387,40 @@ import {
   ElDatePicker,
   ElSteps,
   ElStep, ElRow, ElCol,
-  ElSelect, ElOption} from 'element-plus';
+  ElSelect,
+  ElOption,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElTag,
+  ElEmpty,
+  ElAlert,
+} from 'element-plus';
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { countyOptions } from './common';
 
 import { InfoFilled, Back } from '@element-plus/icons-vue'
 
+const pageProps = defineProps<{
+  embedded?: boolean
+  componentId?: string | number | null
+  projectId?: string | number | null
+}>()
+
+const emit = defineEmits<{
+  saved: [projectId: string | number]
+  close: []
+  'component-loaded': [payload: { title?: string; acronym?: string | null }]
+}>()
+
+const embedded = computed(() => pageProps.embedded === true)
+
+
+const { push } = useRouter()
 
 const props1 = {
   checkStrictly: true,
 }
-
-const { push } = useRouter()
-
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -352,13 +440,16 @@ const route = useRoute()
 const router = useRouter();
 
 const goBack = () => {
-  router.back();
-};
+  if (embedded.value) {
+    emit('close')
+    return
+  }
+  router.back()
+}
 
-const props = {
+const cascaderProps = {
   expandTrigger: 'hover' as const,
-
-};
+}
 
 const labelPosition = ref('left')
 if (isMobile.value) {
@@ -379,15 +470,33 @@ const settOptionsFiltered = ref([])
 const settlement_id = ref()
 const area_ha = ref(0)
 
+const formatCostDisplay = (value: number | string | undefined | null) => {
+  if (value == null || value === '') return ''
+  const digits = String(value).replace(/[^\d]/g, '')
+  if (!digits) return ''
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
 
-const formatMoney = (value) => {
-  if (!value) return '';
-  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
+const handleCostFieldInput = (value: string) => {
+  const digits = String(value ?? '').replace(/[^\d]/g, '')
+  formData.cost = digits === '' ? undefined : Number(digits)
+}
 
-const parseMoney = (value) => {
-  return value.replace(/\$\s?|(,*)/g, '');
-};
+const costDisplay = computed({
+  get: () => formatCostDisplay(formData.cost),
+  set: (value: string) => handleCostFieldInput(value),
+})
+
+const normalizeProjectCost = (value: unknown) => {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && Number.isInteger(value) && value >= 0 ? value : null
+  }
+  const normalized = String(value).replace(/[,\s]/g, '')
+  if (!/^\d+$/.test(normalized)) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : null
+}
 
 
 
@@ -432,6 +541,12 @@ const centroid = ref(37, 1)
 
 const calculateArea = (geom) => {
   console.log('calculateArea', geom);
+
+  if (!geom || !geom.type) {
+    area_ha.value = null
+    centroid.value = null
+    return
+  }
 
   if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
     // Calculate the area using Turf.js
@@ -489,137 +604,654 @@ const visibleUpload = ref(false)
 
 const newRecord = ref(true)
 const isLoading = ref(false)
+const currentStep = ref(0)
+const showMessage = ref(false)
 
 const map = ref()
 
 const mapContainer = ref(null);
 const geomScope = ref([])
 const model = 'project'
-const component_id = ref()
+const component_id = ref<string | number>()
 const component_title = ref()
 
-onMounted(async () => {
+function resolveComponentId(): string | number | null {
+  const candidates = [
+    component_id.value,
+    pageProps.componentId,
+    formData.component_id,
+    route.params.domain,
+  ]
+  for (const candidate of candidates) {
+    if (candidate != null && candidate !== '') {
+      return candidate as string | number
+    }
+  }
+  return null
+}
 
- 
- 
-  console.log('passed data', route.query.id)
-  console.log('formData', formData)
+function syncComponentIdToForm() {
+  const id = resolveComponentId()
+  if (id != null) {
+    formData.component_id = id
+  }
+}
 
-  let params = route.params
-  console.log('Loaded.......',params.domain)
-  component_id.value = params.domain
- 
+type LocationOption = {
+  key: string
+  value: number
+  label: string
+  name: string
+  detail?: string
+  location_type: string
+  county_id?: number | null
+  subcounty_id?: number | null
+  ward_id?: number | null
+  settlement_id?: number | null
+  geom?: any
+  project_location_id?: number
+}
 
- 
-    console.log('new formData ------------,', formData )
+const selectedLocations = ref<LocationOption[]>([])
+const selectedLocationKeys = ref<string[]>([])
+const locationSearchResults = ref<LocationOption[]>([])
+const locationSearchLoading = ref(false)
+const locationSearchKeyword = ref('')
+const locationFirstLoad = ref(true)
+let locationSearchTimer: ReturnType<typeof setTimeout> | null = null
 
+const isNationalScope = computed(() => formData.implementation_scope === 'national')
 
+const locationStepHint = computed(() => {
+  const scope = formData.implementation_scope
+  const labels: Record<string, string> = {
+    county: 'counties',
+    subcounty: 'subcounties',
+    ward: 'wards',
+    settlement: 'settlements',
+  }
+  if (scope === 'national') {
+    return 'National projects do not require location selection.'
+  }
+  const label = labels[scope as string] || 'locations'
+  return `Search ${label} and tick all areas covered by this project.`
+})
 
-  console.log('component_id', component_id)
+function matchesCurrentScope(loc: LocationOption): boolean {
+  const scope = formData.implementation_scope
+  return Boolean(scope && scope !== 'national' && loc.location_type === scope)
+}
 
-  const comp_form = {}
-  comp_form.model = 'component'
-  comp_form.id = route.params.domain
-   
-  const component = await getOneSettlement(comp_form)
+const scopedSelectedLocations = computed(() =>
+  selectedLocations.value.filter(matchesCurrentScope)
+)
 
-  console.log('component',component.data.title)
-  component_title.value=component.data.title
+const displayLocationOptions = computed(() => {
+  const seen = new Set<string>()
+  const merged: LocationOption[] = []
+  for (const loc of selectedLocations.value) {
+    if (matchesCurrentScope(loc) && !seen.has(loc.key)) {
+      seen.add(loc.key)
+      merged.push(loc)
+    }
+  }
+  for (const loc of locationSearchResults.value) {
+    if (matchesCurrentScope(loc) && !seen.has(loc.key)) {
+      seen.add(loc.key)
+      merged.push(loc)
+    }
+  }
+  return merged
+})
 
-  const form = {}
-  form.model = model
-  form.id = route.query.id
+function clearLocationSelection() {
+  selectedLocations.value = []
+  selectedLocationKeys.value = []
+  locationSearchResults.value = []
+  locationSearchKeyword.value = ''
+  locationFirstLoad.value = true
+}
 
-  let ward_id
+function isNationalLocationUser(): boolean {
+  const roles = userInfo?.roles || []
+  if (
+    roles.some(
+      (role: any) => role.name === 'root_admin' || role.name === 'super_admin'
+    )
+  ) {
+    return true
+  }
+  return roles.some((role: any) => {
+    const level = role.user_roles?.location_level
+    return level === 'national' || level == null
+  })
+}
 
+function hasLocationScopedRole(): boolean {
+  if (isNationalLocationUser()) return false
+  return (userInfo?.roles || []).some((role: any) => {
+    const level = role.user_roles?.location_level
+    return level === 'county' || level === 'settlement'
+  })
+}
 
+function getUserCountyIds(): number[] {
+  if (!hasLocationScopedRole()) return []
+  const roles = userInfo?.roles || []
+  return [
+    ...new Set(
+      roles
+        .filter(
+          (role: any) =>
+            role.user_roles?.location_level === 'county' && role.user_roles?.county_id != null
+        )
+        .map((role: any) => Number(role.user_roles.county_id))
+        .filter((id: number) => Number.isFinite(id))
+    ),
+  ]
+}
 
-  if (route.query.id) {
-    isLoading.value = true
-    await getOneSettlement(form)
-      .then((res) => {
-        // Handle the successful response here
-        console.log(res.data)
-        var curData = res.data
-        curData.geom = curData.geom
+function getUserSettlementIds(): number[] {
+  if (!hasLocationScopedRole()) return []
+  const roles = userInfo?.roles || []
+  return [
+    ...new Set(
+      roles
+        .filter(
+          (role: any) =>
+            role.user_roles?.location_level === 'settlement' &&
+            role.user_roles?.settlement_id != null
+        )
+        .map((role: any) => Number(role.user_roles.settlement_id))
+        .filter((id: number) => Number.isFinite(id))
+    ),
+  ]
+}
 
-        console.log('curData', curData)
-        geomScope.value = curData.geom
+function locationMatchesUserScope(loc: LocationOption): boolean {
+  const settlementIds = getUserSettlementIds()
+  if (settlementIds.length > 0) {
+    return loc.settlement_id != null && settlementIds.includes(Number(loc.settlement_id))
+  }
 
+  const countyIds = getUserCountyIds()
+  if (countyIds.length > 0) {
+    return loc.county_id != null && countyIds.includes(Number(loc.county_id))
+  }
 
-        CountyOptionsFiltered.value = countyOptions.value.filter((obj) => obj.region_id == curData.region_id);
+  return true
+}
 
+function filterResultsToUserScope(results: LocationOption[]): LocationOption[] {
+  const settlementIds = getUserSettlementIds()
+  if (settlementIds.length > 0) {
+    return results.filter(
+      (item) => item.settlement_id != null && settlementIds.includes(Number(item.settlement_id))
+    )
+  }
 
-        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id);
+  const countyIds = getUserCountyIds()
+  if (countyIds.length > 0) {
+    return results.filter(
+      (item) => item.county_id != null && countyIds.includes(Number(item.county_id))
+    )
+  }
 
-        ward_id = curData.ward_id
+  return results
+}
 
+function findLocationOption(key: string): LocationOption | undefined {
+  return (
+    locationSearchResults.value.find((loc) => loc.key === key) ||
+    selectedLocations.value.find((loc) => loc.key === key)
+  )
+}
 
+function mapSearchResultToOption(item: any, scope: string): LocationOption {
+  const base = {
+    value: item.id,
+    label: item.name,
+    name: item.name,
+    location_type: scope,
+    geom: item.geom,
+  }
 
+  if (scope === 'settlement') {
+    const detail = [item.ward?.name, item.subcounty?.name, item.county?.name]
+      .filter(Boolean)
+      .join(', ')
+    return {
+      ...base,
+      key: `${scope}-${item.id}`,
+      detail,
+      settlement_id: item.id,
+      ward_id: item.ward?.id ?? null,
+      subcounty_id: item.subcounty?.id ?? null,
+      county_id: item.county?.id ?? null,
+    }
+  }
 
-        //  formData = res.data
-        Object.assign(formData, curData);
-        console.log(formData)
-        newRecord.value = false
+  if (scope === 'subcounty') {
+    return {
+      ...base,
+      key: `${scope}-${item.id}`,
+      detail: item.county?.name,
+      subcounty_id: item.id,
+      county_id: item.county?.id ?? null,
+    }
+  }
 
-        calculateArea(formData.geom)
-        console.log("This is not a new record........")
+  if (scope === 'ward') {
+    const detail = [item.subcounty?.name, item.county?.name].filter(Boolean).join(', ')
+    return {
+      ...base,
+      key: `${scope}-${item.id}`,
+      detail,
+      ward_id: item.id,
+      subcounty_id: item.subcounty?.id ?? null,
+      county_id: item.county?.id ?? null,
+    }
+  }
 
+  return {
+    ...base,
+    key: `${scope}-${item.id}`,
+    county_id: item.id,
+  }
+}
 
+function mapExistingProjectLocation(loc: any): LocationOption | null {
+  const scope = formData.implementation_scope
+  if (!scope || scope === 'national') return null
 
-      })
-      .catch((error) => {
-        // Handle the error here
-        console.log('Error:', error);
-      });
-    isLoading.value = false
+  const type = loc.location_type || 'settlement'
+  if (type !== scope) return null
 
+  let valueId: number | null = null
+  let detail = ''
 
-    if (!geomScope.value) {
-      // if the settlement does not have geomtery, allocated the ward geom to the settlement 
+  if (type === 'settlement') {
+    valueId = loc.settlement_id
+    detail = [loc.ward?.name, loc.subcounty?.name, loc.county?.name].filter(Boolean).join(', ')
+  } else if (type === 'ward') {
+    valueId = loc.ward_id
+    detail = [loc.subcounty?.name, loc.county?.name].filter(Boolean).join(', ')
+  } else if (type === 'subcounty') {
+    valueId = loc.subcounty_id
+    detail = loc.county?.name
+  } else if (type === 'county') {
+    valueId = loc.county_id
+  }
 
-      const wform = {}
-      wform.model = 'ward'
-      wform.id = ward_id
+  if (valueId == null) return null
 
-      geomScope.value = await getWard(wform)
+  const label =
+    loc.location_name ||
+    loc.settlement?.name ||
+    loc.ward?.name ||
+    loc.subcounty?.name ||
+    loc.county?.name ||
+    'Unknown'
 
-      console.log("wardGeom - geomScope.value", geomScope.value)
+  return {
+    key: `${type}-${valueId}`,
+    value: valueId,
+    label,
+    name: loc.location_name || label,
+    detail,
+    location_type: type,
+    county_id: loc.county_id ?? loc.county?.id ?? null,
+    subcounty_id: loc.subcounty_id ?? loc.subcounty?.id ?? null,
+    ward_id: loc.ward_id ?? loc.ward?.id ?? null,
+    settlement_id: loc.settlement_id ?? loc.settlement?.id ?? null,
+    geom: loc.geom,
+    project_location_id: loc.id,
+  }
+}
 
-      showMessage.value = true
+async function loadProjectLocations(projectId: number) {
+  clearLocationSelection()
 
+  if (formData.implementation_scope === 'national') return
+
+  const form: any = {
+    model: 'project_location',
+    excludeGeom: false,
+    associated_multiple_models: ['county', 'subcounty', 'ward', 'settlement'],
+    filters: ['project_id'],
+    filterValues: [[projectId]],
+    limit: 200,
+  }
+
+  const res = await getSettlementListByCounty(form)
+  const items = (res.data || [])
+    .map(mapExistingProjectLocation)
+    .filter((item): item is LocationOption => item != null)
+
+  selectedLocations.value = items
+  selectedLocationKeys.value = items.map((item) => item.key)
+}
+
+async function searchLocations(keyword: string) {
+  const scope = formData.implementation_scope
+  if (!scope || scope === 'national') {
+    locationSearchResults.value = []
+    return
+  }
+
+  locationSearchLoading.value = true
+
+  const associatedModels =
+    scope === 'settlement'
+      ? ['county', 'subcounty', 'ward']
+      : scope === 'subcounty'
+        ? ['county']
+        : scope === 'ward'
+          ? ['subcounty', 'county']
+          : []
+
+  const userCountyIds = getUserCountyIds()
+  const form: any = {
+    model: scope,
+    searchField: 'name',
+    searchKeyword: locationFirstLoad.value ? '' : keyword,
+    excludeGeom: false,
+    excludeGeomAssoc: true,
+    associated_multiple_models: associatedModels,
+    filters: userCountyIds.length === 1 && scope === 'settlement' ? ['county_id'] : [],
+    filterValues: userCountyIds.length === 1 && scope === 'settlement' ? [[userCountyIds[0]]] : [],
+    limit: 50,
+    offset: 0,
+  }
+
+  try {
+    const res = await searchByKeyWord(form)
+    const mapped = ((res as any).data || []).map((item: any) =>
+      mapSearchResultToOption(item, scope)
+    )
+    locationSearchResults.value = filterResultsToUserScope(mapped)
+    locationFirstLoad.value = false
+  } catch (error) {
+    console.error('Location search failed:', error)
+    locationSearchResults.value = []
+  } finally {
+    locationSearchLoading.value = false
+  }
+}
+
+function onLocationSearchInput(keyword: string) {
+  if (locationSearchTimer) clearTimeout(locationSearchTimer)
+  locationSearchTimer = setTimeout(() => {
+    searchLocations(keyword)
+  }, 300)
+}
+
+function removeSelectedLocation(key: string) {
+  selectedLocationKeys.value = selectedLocationKeys.value.filter((item) => item !== key)
+}
+
+function buildLocationObjects(projectId: number) {
+  const scope = formData.implementation_scope
+  if (!scope || scope === 'national') return []
+
+  return selectedLocations.value.filter(matchesCurrentScope).map((loc) => {
+    const obj: any = {
+      project_id: projectId,
+      implementer: formData.implementation_id,
+      location_type: scope,
+      location_name: loc.name,
+      geom: loc.geom,
     }
 
-  } else {
+    if (scope === 'settlement') {
+      obj.settlement_id = loc.value
+      obj.ward_id = loc.ward_id
+      obj.subcounty_id = loc.subcounty_id
+      obj.county_id = loc.county_id
+    } else if (scope === 'county') {
+      obj.county_id = loc.value
+    } else if (scope === 'subcounty') {
+      obj.subcounty_id = loc.value
+      obj.county_id = loc.county_id
+    } else if (scope === 'ward') {
+      obj.ward_id = loc.value
+      obj.subcounty_id = loc.subcounty_id
+      obj.county_id = loc.county_id
+    }
 
-   
-    Object.keys(formData).forEach((key) => {
-      formData[key] = undefined;
-    });
+    return obj
+  })
+}
 
-    formData.component_id =params.domain
+async function deleteProjectLocations(projectId: number) {
+  const form: any = {
+    model: 'project_location',
+    filters: ['project_id'],
+    filterValues: [[projectId]],
+    limit: 500,
+  }
+  const res = await getSettlementListByCounty(form)
+  const ids = (res.data || []).map((loc: any) => loc.id).filter(Boolean)
 
+  for (const id of ids) {
+    await DeleteRecord(
+      {
+        model: 'project_location',
+        id,
+        cascade: true,
+      } as any,
+      { silent: true }
+    )
+  }
+}
 
-    console.log('new record ------------,',formData )
+async function saveProjectLocations(projectId: number) {
+  await deleteProjectLocations(projectId)
 
+  const scope = formData.implementation_scope
+  if (!scope || scope === 'national') return
 
+  const locationObjects = buildLocationObjects(projectId)
+  if (locationObjects.length === 0) return
+
+  await BatchImportUpsert({
+    model: 'project_location',
+    data: locationObjects,
+  } as any)
+}
+
+watch(selectedLocationKeys, (keys, previousKeys) => {
+  const prev = previousKeys ?? []
+  const added = keys.filter((key) => !prev.includes(key))
+  const removed = prev.filter((key) => !keys.includes(key))
+
+  for (const key of added) {
+    const option = findLocationOption(key)
+    if (
+      option &&
+      matchesCurrentScope(option) &&
+      !selectedLocations.value.some((loc) => loc.key === key)
+    ) {
+      selectedLocations.value.push(option)
+    }
+  }
+
+  if (removed.length > 0) {
+    selectedLocations.value = selectedLocations.value.filter((loc) => keys.includes(loc.key))
   }
 })
 
-
-
-// Watch for when prog_components get populated
-watch(prog_components, (newVal) => {
-  if (newVal && newVal.length && formData.component_id) {
-    // Force update of v-model binding by resetting it
-    const temp = formData.component_id
-    formData.component_id = null
-    nextTick(() => {
-      formData.component_id = temp
-    })
+watch(
+  () => formData.implementation_scope,
+  () => {
+    clearLocationSelection()
+    if (currentStep.value === steps.length - 1 && !isNationalScope.value) {
+      searchLocations('')
+    }
   }
-}, { immediate: true })
+)
+
+watch(currentStep, (step) => {
+  if (step === steps.length - 1 && !isNationalScope.value) {
+    locationFirstLoad.value = true
+    searchLocations(locationSearchKeyword.value)
+  }
+})
+
+let initializeFormSeq = 0
+
+async function initializeForm(domainId: string | number, editProjectId?: string | number | null) {
+  const seq = ++initializeFormSeq
+  const isStale = () => seq !== initializeFormSeq
+
+  currentStep.value = 0
+  isLoading.value = true
+
+  try {
+    component_id.value = domainId
+
+    const comp_form: any = {}
+    comp_form.model = 'component'
+    comp_form.id = domainId
+
+    const component = await getOneSettlement(comp_form)
+    if (isStale()) return
+
+    component_title.value = component.data.title
+    emit('component-loaded', {
+      title: component.data.title,
+      acronym: component.data.acronym,
+    })
+
+    const form: any = {}
+    form.model = model
+
+    let ward_id: any
+    const normalizedEditId =
+      editProjectId != null && editProjectId !== ''
+        ? Number(editProjectId)
+        : null
+    const isEdit = normalizedEditId != null && !Number.isNaN(normalizedEditId)
+
+    if (isEdit) {
+      form.id = normalizedEditId
+      const res = await getOneSettlement(form)
+      if (isStale()) return
+
+      const curData = res?.data
+      if (!curData || curData.id == null) {
+        throw new Error('Project record not found')
+      }
+
+      geomScope.value = curData.geom ?? null
+
+      if (curData.region_id != null) {
+        CountyOptionsFiltered.value = countyOptions.value.filter((obj) => obj.region_id == curData.region_id)
+      }
+      if (curData.county_id != null) {
+        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id)
+      }
+      if (curData.subcounty_id != null) {
+        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id)
+      }
+
+      ward_id = curData.ward_id
+      Object.keys(formData).forEach((key) => {
+        delete formData[key]
+      })
+      Object.assign(formData, curData)
+      formData.component_id = curData.component_id ?? domainId
+      const loadedCost = normalizeProjectCost(curData.cost)
+      formData.cost = loadedCost ?? undefined
+      newRecord.value = false
+      calculateArea(formData.geom)
+
+      if (!geomScope.value && ward_id != null && ward_id !== '') {
+        const wform: any = {}
+        wform.model = 'ward'
+        wform.id = ward_id
+        geomScope.value = await getWard(wform)
+        if (isStale()) return
+        showMessage.value = true
+      } else {
+        showMessage.value = false
+      }
+
+      await loadProjectLocations(normalizedEditId)
+      if (isStale()) return
+    } else {
+      if (isStale()) return
+      clearLocationSelection()
+      Object.keys(formData).forEach((key) => {
+        delete formData[key]
+      })
+      formData.component_id = domainId
+      newRecord.value = true
+      geomScope.value = []
+      showMessage.value = false
+    }
+
+    await setImplementationOptionsForProgramme(
+      component.data.programme_id ?? component.data.programmeId,
+      { acronym: component.data.acronym, title: component.data.title },
+      formData.implementation_id
+    )
+    if (isStale()) return
+
+    if (
+      formData.implementation_id != null &&
+      !implementationOptions.value.some((opt) => opt.value === formData.implementation_id)
+    ) {
+      formData.implementation_id = undefined
+    }
+
+    if (
+      newRecord.value &&
+      implementationOptions.value.length === 1 &&
+      formData.implementation_id == null
+    ) {
+      formData.implementation_id = implementationOptions.value[0].value
+    }
+  } catch (error) {
+    if (!isStale()) {
+      console.error('Failed to initialize project form:', error)
+      ElMessage.error('Could not load project form')
+    }
+  } finally {
+    if (!isStale()) {
+      isLoading.value = false
+    }
+  }
+}
+
+onMounted(async () => {
+  if (embedded.value) return
+  const domain = route.params.domain
+  const projectId = route.query.id as string | undefined
+  if (!domain) return
+  await initializeForm(domain as string | number, projectId)
+})
+
+watch(
+  () => [pageProps.embedded, pageProps.componentId, pageProps.projectId] as const,
+  async ([isEmbedded, componentId, projectId]) => {
+    if (!isEmbedded || componentId == null || componentId === '') return
+    component_id.value = componentId
+    syncComponentIdToForm()
+    const editId =
+      projectId != null && projectId !== '' ? projectId : null
+    await initializeForm(componentId, editId)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [component_id.value, pageProps.componentId, route.params.domain, newRecord.value] as const,
+  () => {
+    syncComponentIdToForm()
+  },
+  { immediate: true }
+)
 
 
 
@@ -644,11 +1276,16 @@ const showOnMobile = (options) => {
 };
 
 
-const currentStep = ref(0);
-//const dynamicFormRef: Ref<string | null> = ref(null);
 const dynamicFormRef = ref<FormInstance>()
 
-const currentStepFields = computed(() => formFields[currentStep.value]);
+const currentStepFields = computed(() =>
+  formFields[currentStep.value].map((field) => {
+    if (field.name === 'implementation_id') {
+      return { ...field, options: implementationOptions.value }
+    }
+    return field
+  })
+);
 
 const currentStepRules = computed(() => {
   const stepRulesKey = `step${currentStep.value + 1}`;
@@ -881,23 +1518,9 @@ const nextStep = async () => {
     const formInstance = dynamicFormRef
     formInstance.value.validate((valid: boolean) => {
       if (valid) {
-        console.log(formInstance)
-        currentStep.value++;
+        currentStep.value++
       }
-    });
-  }
-  console.log('xxxxx', currentStep.value, totalSteps.value)
-
-  // Once you are on the last step. Load the map
-  if ((currentStep.value + 1) == (totalSteps.value - 1)) {
-    console.log('Last Step')
-
-    console.log('mapContainer', mapContainer)
-    await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
-
-    loadMap()
-    // toggleDrawToolbox('digitize')
-
+    })
   }
 };
 
@@ -1351,12 +1974,51 @@ const submitForm = async () => {
   const formInstance = dynamicFormRef
   formInstance.value.validate(async (valid: boolean) => {
     if (valid) {
+      const resolvedCategoryId = resolveComponentId()
+      if (resolvedCategoryId == null || resolvedCategoryId === '') {
+        ElMessage.error('Project category is missing. Close the form and try again from the project listing.')
+        return
+      }
+      const numericCategoryId = Number(resolvedCategoryId)
+      if (Number.isNaN(numericCategoryId)) {
+        ElMessage.error('Invalid project category.')
+        return
+      }
+
       // Perform form submission logic
+      const scope = formData.implementation_scope
+      if (scope && scope !== 'national' && scopedSelectedLocations.value.length === 0) {
+        ElMessage.warning('Select at least one location before submitting')
+        return
+      }
+      if (
+        !isNationalLocationUser() &&
+        scope &&
+        scope !== 'national' &&
+        selectedLocations.value.length > 0
+      ) {
+        const outOfScope = scopedSelectedLocations.value.filter(
+          (loc) => !locationMatchesUserScope(loc)
+        )
+        if (outOfScope.length > 0) {
+          ElMessage.error(
+            'Selected locations must be within your assigned county or settlement area'
+          )
+          return
+        }
+      }
 
       formData.model = model
       formData.createdBy = userInfo.id
-      //formData.component_id = component_id.value
+      formData.component_id = numericCategoryId
       formData.component_title = component_title.value
+
+      const normalizedCost = normalizeProjectCost(formData.cost)
+      if (formData.cost != null && formData.cost !== '' && normalizedCost == null) {
+        ElMessage.error('Enter a valid whole-number project cost in KSh')
+        return
+      }
+      formData.cost = normalizedCost
 
 
       // Calculate the area using Turf.js
@@ -1373,6 +2035,7 @@ const submitForm = async () => {
       //formData.geom =geomScope.value
 
       let project_id
+      try {
       if (newRecord.value) {
         formData.isApproved = 'Pending'
         formData.code = shortid.generate()
@@ -1383,19 +2046,16 @@ const submitForm = async () => {
         project_id=createdproject.data.id
 
       } else {
+        formData.area = area_ha.value
+        if (Array.isArray(formData.activities)) {
+          formData.activities = formData.activities
+            .map((item) => (typeof item === 'object' && item != null ? item.id : item))
+            .filter((id) => id != null)
+        } else {
+          delete formData.activities
+        }
 
-
-        // Calculate the area using Turf.js
-       // const areaSquareMeters = turf.area(formData.geom);
-
-        // Convert square meters to hectares
-       // const areaHectares = areaSquareMeters / 10000;
-        formData.area =   area_ha.value
-        const ids = formData.activities.map(item => item.id);
-        console.log(ids)
-
-        formData.activities = ids
-         const udpatedProject= await updateOneRecord(formData)
+        const udpatedProject = await updateOneRecord(formData)
 
         project_id=udpatedProject.data.id
 
@@ -1405,11 +2065,25 @@ const submitForm = async () => {
 
       }
 
+      await saveProjectLocations(project_id)
 
-      push({
+      if (embedded.value) {
+        ElMessage.success(newRecord.value ? 'Project created' : 'Project updated')
+        emit('saved', project_id)
+      } else {
+        push({
           name: 'ProjectDetails',
-        params: { id: project_id }
+          params: { id: project_id }
         })
+      }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Could not save project'
+        ElMessage.error(message)
+        return
+      }
 
 
 
@@ -1502,8 +2176,13 @@ const getFieldChangeHandler = (fieldName: string) => {
     onSelectSettlement(formData[fieldName])
   }
 
-
-
+  if (fieldName === 'implementation_scope') {
+    clearLocationSelection()
+    if (currentStep.value === steps.length - 1 && !isNationalScope.value) {
+      locationFirstLoad.value = true
+      searchLocations('')
+    }
+  }
 
   if (fieldName == 'location_option') {
     handleChangeLocationOption(formData[fieldName])
@@ -1514,10 +2193,6 @@ const getFieldChangeHandler = (fieldName: string) => {
 
 // Addd message if project Geometry is not found 
 const wardMessage = "This settlement does not have location geometry defined. The ward geometry is shown instead. Edit to reflect the actual settlement location"
-
-const showMessage = ref(false)
-
-
 
 const isTourVisible = ref(false)
 const showTour = () => {
@@ -1544,189 +2219,80 @@ const tourSteps = ref([
   {
     step: 0,
     target: '#btn1',
-    title: 'County Selection',
-    content: 'Start by selecting the county where the settlement is located.',
-    visible: true
+    title: 'Project title',
+    content: 'Enter the full project name as it should appear on listings and reports.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn2',
-    title: 'Constituency Selection',
-    content: 'Now, choose the constituency that falls within the selected county.',
-    visible: true
+    title: 'Contract number',
+    content: 'A unique reference or contract number used for tracking and audits.',
+    visible: true,
   },
   {
     step: 0,
+    target: '#btn1d',
+    title: 'Description',
+    content: 'Optional summary of objectives, beneficiaries, or scope of works.',
+    visible: true,
+  },
+  {
+    step: 1,
     target: '#btn3',
-    title: 'Ward Selection',
-    content: 'Next, pick the ward that corresponds to the selected constituency.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn4',
-    title: 'Settlement Name',
-    content: 'Type the settlements name',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn5',
-    title: 'Settlement Type',
-    content: 'Indicate whether the settlement is a Slum or an Informal Settlement.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn6',
-    title: 'Parcel Number',
-    content: 'Enter the parcel number for the where the settlement is located.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn7',
-    title: 'Parcel Ownership',
-    content: 'Specify whether the parcel is publicly or privately owned.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn8',
-    title: 'Survey Plan (RIM)',
-    content: 'Provide the RIM or survey plan number associated with this settlement.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn9',
-    title: 'Area (Ha)',
-    content: 'Enter the total area of the parcel in hectares.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn10',
-    title: 'Population',
-    content: 'Estimate the population residing within the settlement.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn11',
-    title: 'Survey Status',
-    content: 'Indicate whether the parcel has been officially surveyed.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn12',
-    title: 'Land Use',
-    content: 'Describe the predominant land use within the settleemnt.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn13',
-    title: 'Proximity to River',
-    content: 'Specify if the parcel is located near a river.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn14',
-    title: 'Utility Way-leave',
-    content: 'Indicate if the parcel lies on a utility way-leave.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn15',
-    title: 'Road Reserve',
-    content: 'Specify if the parcel is on a road reserve.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn16',
-    title: 'Structure Types',
-    content: 'Select the types of structures found in the settlement.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn17',
-    title: 'Development Level',
-    content: 'Choose the level of development within the settlement.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn18',
-    title: 'Building Materials',
-    content: 'Identify the typical building materials used in the area.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn19',
-    title: 'Structure Spacing',
-    content: 'Enter the average distance between structures in meters.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn20',
-    title: 'Urban Center Proximity',
-    content: 'Specify the distance from the parcel to the nearest urban center.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn21',
-    title: 'Trunk Road Proximity',
-    content: 'Enter the distance from the settlement to the nearest trunk road.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn22',
-    title: 'Encumbrances',
-    content: 'Indicate if there are any court cases or claims related to the parcel.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn23',
     title: 'Status',
-    content: 'Set the current status of the settlement as Active or Decommissioned.',
-    visible: true
-  },
-  {
-    step: 0,
-    target: '#btn24',
-    title: 'Comments/Remarks',
-    content: 'Add any additional comments or remarks about the settlement.',
-    visible: true
-  },
-
-  {
-    step: 1,
-    target: '#mapContainer',
-    title: 'Map',
-    content: 'The Map displays the settlement location based on the selected ward. Zoom in to the settlement location',
-    visible: true
+    content: 'Current lifecycle stage — Planned, Ongoing, Suspended, or Completed.',
+    visible: true,
   },
   {
     step: 1,
-    target: '#upload',
-    title: 'Upload Location geometry',
-    content: 'Upload geojson/shapefile. Current supports .shp (zipped), .json and .geojson ',
-    visible: true
-  }
-
-
-
+    target: '#btn4',
+    title: 'Delivery unit',
+    content: 'The organisation responsible for implementing this project.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn41',
+    title: 'Scope',
+    content: 'Lowest administrative level covered — from National down to Settlement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn5',
+    title: 'Commencement date',
+    content: 'When implementation is expected to start or actually started.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn6',
+    title: 'Completion date',
+    content: 'Expected or actual project completion date. Must be after commencement.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn7',
+    title: 'Total cost',
+    content: 'Total contract value in Kenyan Shillings.',
+    visible: true,
+  },
+  {
+    step: 2,
+    target: '#btn8',
+    title: 'Source of funding',
+    content: 'Select all funders that apply — GoK, IDA, AFD, etc.',
+    visible: true,
+  },
+  {
+    step: 3,
+    target: '#location-step',
+    title: 'Location',
+    content: 'Search for locations matching your scope and tick each area this project covers.',
+    visible: true,
+  },
 ]);
 
 
@@ -1741,37 +2307,147 @@ watch(
   { immediate: true }
 );
 
+function resetProjectForm() {
+  initializeFormSeq += 1
+  Object.keys(formData).forEach((key) => {
+    delete formData[key]
+  })
+  currentStep.value = 0
+  newRecord.value = true
+  showMessage.value = false
+  geomScope.value = []
+  area_ha.value = 0
+  isTourVisible.value = false
+  clearLocationSelection()
+  dynamicFormRef.value?.clearValidate()
+}
+
 
 </script>
-<style>
-.small-steps .el-step {
-  width: 50px;
-  /* Adjust the width as per your requirement */
-  height: 35px;
-  /* Adjust the height as per your requirement */
-  line-height: 20px;
-  /* Adjust the line-height as per your requirement */
-  padding-bottom: 5px;
-  /* Add 5 pixels bottom padding */
+<style scoped>
+.project-form-embedded {
+  min-height: 100%;
+}
 
+.box-card {
+  width: 100%;
+}
+
+.steps-wrapper {
+  margin-bottom: 4px;
+}
+
+.project-form-steps :deep(.el-step__title) {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.project-form-steps :deep(.el-step__description) {
+  font-size: 11px;
+  line-height: 1.3;
+  padding-right: 4px;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+
+:deep(.el-input),
+:deep(.el-select),
+:deep(.el-tree-select),
+:deep(.el-date-editor),
+:deep(.project-cost-input) {
+  width: 100%;
+}
+
+:deep(.project-cost-input .el-input__wrapper) {
+  width: 100%;
+}
+
+:deep(.project-cost-input .el-input__inner) {
+  text-align: left;
+}
+
+.location-step {
+  padding: 4px 0 8px;
+}
+
+.location-step-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.location-national-alert {
+  margin-bottom: 12px;
+}
+
+.location-search-input {
+  margin-bottom: 12px;
+}
+
+.selected-locations {
+  margin-bottom: 12px;
+}
+
+.selected-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.location-results {
+  min-height: 120px;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.location-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.location-option {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.location-option:last-child {
+  border-bottom: none;
+}
+
+.location-name {
+  font-weight: 500;
+}
+
+.location-detail {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
 
-
-
-<style scoped>
-.small-steps .el-step__title {
-  display: none;
-}
-
-
+<style>
 @media (max-width: 768px) {
-  .box-card {
-    padding: 10px;
+  .project-form-steps .el-step__description {
+    display: none;
   }
 
-  .small-steps .el-step__title {
-    display: none;
+  .box-card {
+    padding: 10px;
   }
 
   .cascader-popper-mobile {

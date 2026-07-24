@@ -58,6 +58,7 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import shortid from 'shortid';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import UploadShareDialog from '@/views/Components/UploadShareDialog.vue'
+import ProjectFormDrawer from '@/views/Intervention/Project/ProjectFormDrawer.vue'
 
 import type { FormInstance } from 'element-plus'
 import { getModelSpecs } from '@/api/fields'
@@ -2446,12 +2447,34 @@ const createNewContractor = async () => {
 }
 
 
-const editProject = async () => {
-  router.push({
-    name: 'AddProject',
-    query: { id: String(projectFullData.value.id) },
-    params: { domain: String(projectFullData.value.component_id) },
-  })
+const projectFormDrawerVisible = ref(false)
+const projectFormComponentId = ref<string | number | null>(null)
+const projectFormProjectId = ref<string | number | null>(null)
+const projectFormMode = ref<'add' | 'edit'>('edit')
+
+const editProject = () => {
+  const data = projectFullData.value
+  if (!data?.id) {
+    ElMessage.warning('Project data is not loaded yet')
+    return
+  }
+  const domain = data.component_id
+  if (!domain) {
+    ElMessage.warning('Cannot edit project: missing component')
+    return
+  }
+  projectFormMode.value = 'edit'
+  projectFormProjectId.value = data.id
+  projectFormComponentId.value = domain
+  projectFormDrawerVisible.value = true
+}
+
+const onProjectFormSaved = async () => {
+  projectFormDrawerVisible.value = false
+  const id = project_id.value ?? route.params.id
+  if (id) {
+    await loadProjectDetails(id)
+  }
 }
 
 
@@ -5216,6 +5239,15 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
 
 
 
+
+  <ProjectFormDrawer
+    v-model:visible="projectFormDrawerVisible"
+    :component-id="projectFormComponentId"
+    :project-id="projectFormProjectId"
+    :mode="projectFormMode"
+    :component-title="projectFullData?.component?.acronym || projectFullData?.component?.title"
+    @saved="onProjectFormSaved"
+  />
 
 </template>
 <style scoped>

@@ -11,6 +11,34 @@ function uniqueInts(values) {
   );
 }
 
+function resolveLocationScopeFromAssignments(assignments) {
+  const hasNationalLocation = (assignments || []).some(
+    (row) => row.location_level === 'national' || row.location_level == null
+  );
+
+  if (hasNationalLocation) {
+    return { isNationalLocation: true, countyIds: [], settlementIds: [] };
+  }
+
+  return {
+    isNationalLocation: false,
+    countyIds: uniqueInts(
+      (assignments || [])
+        .filter((row) => row.location_level === 'county' && row.county_id != null)
+        .map((row) => row.county_id)
+    ),
+    settlementIds: uniqueInts(
+      (assignments || [])
+        .filter((row) => row.location_level === 'settlement' && row.settlement_id != null)
+        .map((row) => row.settlement_id)
+    ),
+  };
+}
+
+function scopeLocationFields(assignments) {
+  return resolveLocationScopeFromAssignments(assignments);
+}
+
 /**
  * Expand programme IDs to include all descendants in programmex hierarchy.
  */
@@ -65,6 +93,7 @@ async function getProjectProgrammeScope(userId) {
       expandedProgrammeIds: [],
       countyIds: [],
       settlementIds: [],
+      isNationalLocation: false,
     };
   }
 
@@ -72,6 +101,8 @@ async function getProjectProgrammeScope(userId) {
     where: { userid: userId, ...activeGrantWhere() },
     include: [{ model: db.role, attributes: ['id', 'name'] }],
   });
+
+  const { isNationalLocation, countyIds, settlementIds } = scopeLocationFields(assignments);
 
   const roleIds = uniqueInts(
     assignments.map((row) => row.roleid || row.role?.id).filter(Boolean)
@@ -87,19 +118,9 @@ async function getProjectProgrammeScope(userId) {
       expandedProgrammeIds: [],
       countyIds: [],
       settlementIds: [],
+      isNationalLocation: true,
     };
   }
-
-  const countyIds = uniqueInts(
-    assignments
-      .filter((row) => row.location_level === 'county' && row.county_id != null)
-      .map((row) => row.county_id)
-  );
-  const settlementIds = uniqueInts(
-    assignments
-      .filter((row) => row.location_level === 'settlement' && row.settlement_id != null)
-      .map((row) => row.settlement_id)
-  );
 
   if (!roleIds.length) {
     return {
@@ -109,6 +130,7 @@ async function getProjectProgrammeScope(userId) {
       expandedProgrammeIds: [],
       countyIds,
       settlementIds,
+      isNationalLocation,
     };
   }
 
@@ -161,8 +183,9 @@ async function getProjectProgrammeScope(userId) {
       scopeEnabled: false,
       programmeIds: [],
       expandedProgrammeIds: [],
-      countyIds,
-      settlementIds,
+      countyIds: [],
+      settlementIds: [],
+      isNationalLocation: true,
     };
   }
 
@@ -178,13 +201,19 @@ async function getProjectProgrammeScope(userId) {
     expandedProgrammeIds,
     countyIds,
     settlementIds,
+    isNationalLocation,
     blocked: hasLimitedRoleWithNoProgrammes && baseProgrammeIds.length === 0,
   };
 }
 
+function isEmptyWhere(where) {
+  if (!where || typeof where !== 'object') return true;
+  return Object.keys(where).length === 0 && Object.getOwnPropertySymbols(where).length === 0;
+}
+
 function mergeWhere(baseQuery, extraCondition) {
   const existing = baseQuery.where || {};
-  if (!existing || Object.keys(existing).length === 0) {
+  if (isEmptyWhere(existing)) {
     baseQuery.where = extraCondition;
     return;
   }
@@ -201,15 +230,29 @@ function buildProjectProgrammeLiteral(tableName, programmeIds) {
   );
 }
 
+function buildProjectCountyInLocationLiteral(tableName, countyId) {
+  return literal(
+    `EXISTS (
+      SELECT 1 FROM project_location pl
+      WHERE pl.project_id = "${tableName}".id
+      AND (
+        pl.county_id = ${countyId}
+        OR pl.settlement_id IN (SELECT id FROM settlement WHERE county_id = ${countyId})
+        OR pl.subcounty_id IN (SELECT id FROM subcounty WHERE county_id = ${countyId})
+        OR pl.ward_id IN (
+          SELECT w.id FROM ward w
+          INNER JOIN subcounty sc ON sc.id = w.subcounty_id
+          WHERE sc.county_id = ${countyId}
+        )
+      )
+    )`
+  );
+}
+
 function buildProjectCountyLiteral(tableName, countyIds) {
   const ids = uniqueInts(countyIds);
   if (!ids.length) return null;
-  const parts = ids.map(
-    (countyId) =>
-      literal(
-        `EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${tableName}".id AND pl.county_id = ${countyId})`
-      )
-  );
+  const parts = ids.map((countyId) => buildProjectCountyInLocationLiteral(tableName, countyId));
   return parts.length === 1 ? parts[0] : { [Op.or]: parts };
 }
 
@@ -225,8 +268,171 @@ function buildProjectSettlementLiteral(tableName, settlementIds) {
   return parts.length === 1 ? parts[0] : { [Op.or]: parts };
 }
 
-async function applyProgrammeProjectScopeToQuery(baseQuery, modelName, Model, userId) {
-  const scope = await getProjectProgrammeScope(userId);
+function buildProjectCreatedByLiteral(tableName, userId) {
+  const uid = parseInt(userId, 10);
+  if (!Number.isFinite(uid)) return null;
+  return literal(`"${tableName}"."createdBy" = ${uid}`);
+}
+
+function buildProjectWithoutLocationCreatedByLiteral(tableName, userId) {
+  const uid = parseInt(userId, 10);
+  if (!Number.isFinite(uid)) return null;
+  return literal(
+    `(NOT EXISTS (SELECT 1 FROM project_location pl0 WHERE pl0.project_id = "${tableName}".id) AND "${tableName}"."createdBy" = ${uid})`
+  );
+}
+
+function combineLocationScopeOrCreator(locationCondition, tableName, userId) {
+  if (!locationCondition) return null;
+  const creatorCondition = buildProjectCreatedByLiteral(tableName, userId);
+  if (!creatorCondition) return locationCondition;
+  return { [Op.or]: [locationCondition, creatorCondition] };
+}
+
+function shouldUseCreatorLocationFallback(scope) {
+  if (!scope || scope.bypass || scope.isNationalLocation) return false;
+  return scope.countyIds.length > 0 || scope.settlementIds.length > 0;
+}
+
+function buildProjectCountyVisibilityCondition(tableName, countyIds, userId) {
+  const countyCondition = buildProjectCountyLiteral(tableName, countyIds);
+  if (!countyCondition) return null;
+  return combineLocationScopeOrCreator(countyCondition, tableName, userId);
+}
+
+function buildProjectSettlementVisibilityCondition(tableName, settlementIds, userId) {
+  const settlementCondition = buildProjectSettlementLiteral(tableName, settlementIds);
+  if (!settlementCondition) return null;
+  return combineLocationScopeOrCreator(settlementCondition, tableName, userId);
+}
+
+function buildProjectCountyExistsLiteral(tableName, countyIds, userId, options = {}) {
+  const { creatorFallback = false } = options;
+  const ids = uniqueInts(countyIds);
+  if (!ids.length) return null;
+  const matchParts = ids.map((countyId) => buildProjectCountyInLocationLiteral(tableName, countyId));
+  const locationMatch = matchParts.length === 1 ? matchParts[0] : { [Op.or]: matchParts };
+  if (creatorFallback) {
+    return combineLocationScopeOrCreator(locationMatch, tableName, userId);
+  }
+  return locationMatch;
+}
+
+function buildProjectSettlementExistsLiteral(tableName, settlementIds, userId, options = {}) {
+  const { creatorFallback = false } = options;
+  const ids = uniqueInts(settlementIds);
+  if (!ids.length) return null;
+  const matchParts = ids.map(
+    (settlementId) =>
+      literal(
+        `EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${tableName}".id AND pl.settlement_id = ${settlementId})`
+      )
+  );
+  const locationMatch = matchParts.length === 1 ? matchParts[0] : { [Op.or]: matchParts };
+  if (creatorFallback) {
+    return combineLocationScopeOrCreator(locationMatch, tableName, userId);
+  }
+  return locationMatch;
+}
+
+async function ensureDefaultProjectLocationForCreator(projectId, userId, source = {}) {
+  if (!projectId || !userId) return;
+
+  const existing = await db.models.project_location.count({
+    where: { project_id: projectId },
+  });
+  if (existing > 0) return;
+
+  const toInt = (value) => {
+    if (value == null || value === '') return null;
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  let payload = {
+    project_id: projectId,
+    county_id: toInt(source.county_id),
+    subcounty_id: toInt(source.subcounty_id),
+    ward_id: toInt(source.ward_id),
+    settlement_id: toInt(source.settlement_id),
+    geom: source.geom || null,
+  };
+
+  if (Array.isArray(source.Location) && source.Location.length) {
+    const loc = source.Location;
+    if (!payload.county_id && loc[0] != null) payload.county_id = toInt(loc[0]);
+    if (!payload.subcounty_id && loc[1] != null) payload.subcounty_id = toInt(loc[1]);
+    if (!payload.ward_id && loc[2] != null) payload.ward_id = toInt(loc[2]);
+    if (!payload.settlement_id && loc[3] != null) payload.settlement_id = toInt(loc[3]);
+  }
+
+  if (!payload.county_id && !payload.subcounty_id && !payload.ward_id && !payload.settlement_id) {
+    const assignments = await db.models.user_roles.findAll({
+      where: { userid: userId, ...activeGrantWhere() },
+    });
+
+    const settlementRole = assignments.find(
+      (row) => row.location_level === 'settlement' && row.settlement_id != null
+    );
+    const countyRole = assignments.find(
+      (row) => row.location_level === 'county' && row.county_id != null
+    );
+
+    if (settlementRole) {
+      payload.settlement_id = toInt(settlementRole.settlement_id);
+      payload.location_type = 'settlement';
+    } else if (countyRole) {
+      payload.county_id = toInt(countyRole.county_id);
+      payload.location_type = 'county';
+    } else {
+      return;
+    }
+  }
+
+  if (!payload.location_type) {
+    if (payload.settlement_id) payload.location_type = 'settlement';
+    else if (payload.ward_id) payload.location_type = 'ward';
+    else if (payload.subcounty_id) payload.location_type = 'subcounty';
+    else if (payload.county_id) payload.location_type = 'county';
+  }
+
+  if (!payload.location_name || String(payload.location_name).trim() === '') {
+    if (payload.settlement_id) {
+      const settlement = await db.models.settlement.findByPk(payload.settlement_id, {
+        attributes: ['name'],
+        raw: true,
+      });
+      payload.location_name = settlement?.name || null;
+    } else if (payload.ward_id) {
+      const ward = await db.models.ward.findByPk(payload.ward_id, {
+        attributes: ['name'],
+        raw: true,
+      });
+      payload.location_name = ward?.name || null;
+    } else if (payload.subcounty_id) {
+      const subcounty = await db.models.subcounty.findByPk(payload.subcounty_id, {
+        attributes: ['name'],
+        raw: true,
+      });
+      payload.location_name = subcounty?.name || null;
+    } else if (payload.county_id) {
+      const county = await db.models.county.findByPk(payload.county_id, {
+        attributes: ['name'],
+        raw: true,
+      });
+      payload.location_name = county?.name || null;
+    }
+  }
+
+  try {
+    await db.models.project_location.create(payload);
+  } catch (err) {
+    console.warn(`Default project_location for project ${projectId} failed:`, err.message);
+  }
+}
+
+async function applyProgrammeProjectScopeToQuery(baseQuery, modelName, Model, userId, preloadedScope = null) {
+  const scope = preloadedScope || (await getProjectProgrammeScope(userId));
   if (scope.bypass) return scope;
 
   if (scope.blocked || (scope.scopeEnabled && !scope.expandedProgrammeIds.length)) {
@@ -265,11 +471,21 @@ async function applyProgrammeProjectScopeToQuery(baseQuery, modelName, Model, us
       conditions.push(literal('1 = 0'));
     }
 
-    const countyCondition = buildProjectCountyLiteral(tableName, scope.countyIds);
-    if (countyCondition) conditions.push(countyCondition);
+    if (!scope.isNationalLocation) {
+      const countyCondition = buildProjectCountyVisibilityCondition(
+        tableName,
+        scope.countyIds,
+        userId
+      );
+      if (countyCondition) conditions.push(countyCondition);
 
-    const settlementCondition = buildProjectSettlementLiteral(tableName, scope.settlementIds);
-    if (settlementCondition) conditions.push(settlementCondition);
+      const settlementCondition = buildProjectSettlementVisibilityCondition(
+        tableName,
+        scope.settlementIds,
+        userId
+      );
+      if (settlementCondition) conditions.push(settlementCondition);
+    }
 
     if (conditions.length) {
       mergeWhere(baseQuery, { [Op.and]: conditions });
@@ -296,10 +512,10 @@ function buildOptimizedScopeSql(scope, modelName) {
   }
 
   if (modelName === 'project_location' || modelName === 'project') {
-    if (scope.countyIds.length) {
+    if (!scope.isNationalLocation && scope.countyIds.length) {
       parts.push(`county_id IN (${scope.countyIds.join(', ')})`);
     }
-    if (scope.settlementIds.length) {
+    if (!scope.isNationalLocation && scope.settlementIds.length) {
       parts.push(`settlement_id IN (${scope.settlementIds.join(', ')})`);
     }
   }
@@ -312,4 +528,8 @@ module.exports = {
   getProjectProgrammeScope,
   applyProgrammeProjectScopeToQuery,
   buildOptimizedScopeSql,
+  buildProjectCountyExistsLiteral,
+  buildProjectSettlementExistsLiteral,
+  ensureDefaultProjectLocationForCreator,
+  shouldUseCreatorLocationFallback,
 };

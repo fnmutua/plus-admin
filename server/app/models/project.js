@@ -50,7 +50,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     
     cost: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: true
     },
     

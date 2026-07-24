@@ -1,7 +1,15 @@
 
 import { getListWithoutGeo } from '@/api/counties'
 import { ref } from 'vue'
-import { getRoutesList } from '@/api/settlements'
+import { getRoutesList, getOneSettlement } from '@/api/settlements'
+
+type ProgrammeRow = { id: number; title?: string; acronym?: string; parentId?: number | string | null }
+type ImplementationOption = {
+  value: number
+  label: string
+  acronym?: string
+  title?: string
+}
 
 const settlementOptionsV2 = ref([])
 
@@ -66,31 +74,153 @@ const getCounties = async () => {
 
  
  
-const implementationOptions = ref([])
- const getImplementationSponsors = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme_implementation',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    //console.log('Received response:', response)
-    //tableDataList.value = response.data
-    const ret = response.data
-  
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      const parentOpt = {}
-      parentOpt.value = arrayItem.id
-       parentOpt.label = arrayItem.acronym
-      //  console.log(countyOpt)
-      implementationOptions.value.push(parentOpt)
+const implementationOptions = ref<ImplementationOption[]>([])
+const allImplementationOptions = ref<ImplementationOption[]>([])
+let implementationOptionsLoadPromise: Promise<void> | null = null
+
+function normalizeToken(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+async function loadAllImplementationOptions(): Promise<void> {
+  if (allImplementationOptions.value.length > 0) {
+    return
+  }
+  if (implementationOptionsLoadPromise) {
+    return implementationOptionsLoadPromise
+  }
+
+  if (!implementationOptionsLoadPromise) {
+    implementationOptionsLoadPromise = getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1,
+        model: 'programme_implementation',
+        searchField: 'title',
+        searchKeyword: '',
+        sort: 'ASC',
+      },
     })
+      .then((response: { data: any }) => {
+        const ret = response.data ?? []
+        allImplementationOptions.value = ret.map(
+          (arrayItem: { id: number; acronym: string; title: string }) => ({
+            value: arrayItem.id,
+            label: arrayItem.acronym,
+            acronym: arrayItem.acronym,
+            title: arrayItem.title,
+          })
+        )
+      })
+      .catch((error) => {
+        implementationOptionsLoadPromise = null
+        throw error
+      })
+  }
+
+  return implementationOptionsLoadPromise
+}
+
+export async function ensureImplementationOptionsLoaded(): Promise<void> {
+  await loadAllImplementationOptions()
+}
+
+function implementationMatchesProgrammeChain(
+  impl: ImplementationOption,
+  programmes: ProgrammeRow[],
+  componentMeta?: { acronym?: string; title?: string }
+): boolean {
+  const implAcronym = normalizeToken(impl.acronym || impl.label)
+  const implTitle = normalizeToken(impl.title)
+
+  if (componentMeta) {
+    const componentAcronym = normalizeToken(componentMeta.acronym)
+    if (componentAcronym && componentAcronym === implAcronym) {
+      return true
+    }
+  }
+
+  return programmes.some((programme) => {
+    const acr = normalizeToken(programme.acronym)
+    const title = normalizeToken(programme.title)
+    if (!implAcronym && !implTitle) return false
+    if (implAcronym && (implAcronym === acr || implAcronym === title)) return true
+    if (acr && (acr.includes(implAcronym) || implAcronym.includes(acr))) return true
+    if (title && (title.includes(implAcronym) || implAcronym.includes(title))) return true
+    if (implTitle && (implTitle.includes(acr) || implTitle.includes(title))) return true
+    return false
   })
+}
+
+async function resolveProgrammeChain(programmeId: number | string): Promise<ProgrammeRow[]> {
+  const chain: ProgrammeRow[] = []
+  const visited = new Set<number>()
+  let currentId = Number(programmeId)
+
+  while (!Number.isNaN(currentId) && currentId > 0 && !visited.has(currentId)) {
+    visited.add(currentId)
+    const res = await getOneSettlement({ model: 'programme', id: currentId } as any)
+    const programme = res?.data as ProgrammeRow | undefined
+    if (!programme?.id) break
+    chain.push(programme)
+    const parentRaw = programme.parentId
+    currentId = parentRaw != null && parentRaw !== '' ? Number(parentRaw) : NaN
+  }
+
+  return chain
+}
+
+export async function setImplementationOptionsForProgramme(
+  programmeId?: number | string | null,
+  componentMeta?: { acronym?: string; title?: string },
+  keepImplementationId?: number | string | null
+) {
+  await loadAllImplementationOptions()
+
+  const all = allImplementationOptions.value
+  if (all.length === 0) {
+    implementationOptions.value = []
+    return
+  }
+
+  let filtered: ImplementationOption[] = []
+
+  if (programmeId != null && programmeId !== '') {
+    const chain = await resolveProgrammeChain(programmeId)
+    filtered = all.filter((impl) =>
+      implementationMatchesProgrammeChain(impl, chain, componentMeta)
+    )
+  }
+
+  if (filtered.length === 0 && componentMeta?.acronym) {
+    const componentAcronym = normalizeToken(componentMeta.acronym)
+    filtered = all.filter(
+      (impl) => normalizeToken(impl.acronym || impl.label) === componentAcronym
+    )
+  }
+
+  const keepId =
+    keepImplementationId != null && keepImplementationId !== ''
+      ? Number(keepImplementationId)
+      : null
+  if (
+    keepId != null &&
+    !Number.isNaN(keepId) &&
+    !filtered.some((opt) => opt.value === keepId)
+  ) {
+    const existing = all.find((opt) => opt.value === keepId)
+    if (existing) {
+      filtered = [...filtered, existing]
+    }
+  }
+
+  implementationOptions.value = filtered
+}
+
+ const getImplementationSponsors = async () => {
+  await loadAllImplementationOptions()
+  return allImplementationOptions.value
 }
  
 
@@ -270,7 +400,7 @@ const getCountySubcountySep = async () => {
 };
 
 //getCountySubcountySep()
-getImplementationSponsors()
+void loadAllImplementationOptions()
 
  
 
@@ -486,5 +616,6 @@ getContractors()
 
 export {
   countyOptions, settlementOptionsV2,contractorOptions,getProgrameComponents,
-  activityOptions, subcountyOptions, implementationOptions,  wardOptions, cascadedAdminOptions,prog_components
+  activityOptions, subcountyOptions, implementationOptions,
+  wardOptions, cascadedAdminOptions,prog_components
 };

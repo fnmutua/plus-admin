@@ -1,31 +1,15 @@
-import { reactive, unref, ref,onMounted } from "vue";
- 
+import { reactive } from "vue";
+
 import {
   countyOptions,
-  
-   activityOptions,
-  cascadedAdminOptions,
   implementationOptions,
-  contractorOptions,prog_components  
 } from "./index.ts";
- 
-
- 
-
-
-
-
-
-
-
-
-
 
 const steps = [
-  { title: "Identification" },
-  { title: "Details" },
-  // { title: "Geolocation" },
- 
+  { title: "Identity", description: "Name and reference" },
+  { title: "Implementation", description: "Status and delivery" },
+  { title: "Schedule & Budget", description: "Dates and funding" },
+  { title: "Location", description: "Search and select" },
 ];
 
 interface Field {
@@ -33,11 +17,12 @@ interface Field {
   label: string;
   type: string;
   id: string;
-  // min: number;
-  // max: number;
-  multiselect: string; // Use boolean type instead of string
+  multiselect: string;
   adminUnit: boolean;
-  options: Array<any>; // Specify the array type of options
+  options: Array<any>;
+  placeholder?: string;
+  min?: string | number;
+  max?: number;
 }
 
 interface FormRules {
@@ -47,6 +32,7 @@ interface FormRules {
       type?: string;
       message?: string;
       trigger?: string;
+      validator?: (rule: any, value: any, callback: (error?: Error) => void) => void;
     }[];
   };
 }
@@ -55,9 +41,6 @@ interface FormData {
   [key: string]: any;
 }
 
- 
-
-
 const scope = [
   { label: "National", value: "national" },
   { label: "County", value: "county" },
@@ -65,136 +48,180 @@ const scope = [
   { label: "Ward", value: "ward" },
   { label: "Settlement", value: "settlement" },
 ];
+
 const sourceFundingOptions = [
   { label: "Gok", value: 1 },
   { label: "IDA", value: 2 },
   { label: "AFD", value: 3 },
 ];
-  
-const YesNo = [
-  { label: "Yes", value: 'Yes' },
-  { label: "No", value: 'No' },
- 
-];
-  
-const statusOptions = [
-    { label: 'Planned', value: 'Planned' },
-    { label: 'Ongoing', value: 'Ongoing' },
-    { label: 'Suspended', value: 'Suspended' },
-    { label: 'Completed', value: 'Completed' },
-]  
 
- 
-console.log('prog_components.value',prog_components.value)
-console.log('implementationOptions.value',implementationOptions.value)
-    
+const statusOptions = [
+  { label: "Planned", value: "Planned" },
+  { label: "Ongoing", value: "Ongoing" },
+  { label: "Suspended", value: "Suspended" },
+  { label: "Completed", value: "Completed" },
+];
+
 const formFields = reactive([
   [
-    { name: "component_id", label: "Category", id: "btn1x1", type: "tree", multiselect: 'false', adminUnit: false, options: prog_components.value, tooltip: "Select the project category or component." },
-    { name: "title", label: "Title", id: "btn1", type: "textarea", multiselect: 'false', adminUnit: false, options: [], tooltip: "Enter the project title or name." },
-    { name: "project_code", label: "Contract No.", id: "btn2", type: "text", multiselect: 'false', adminUnit: false, options: [], tooltip: "Enter the unique contract number for this project." },
-    { name: "status", label: "Status", id: "btn3", type: "select", multiselect: 'false', adminUnit: false, options: statusOptions, tooltip: "Select the current status of the project." },
-    { name: "implementation_id", label: "Delivery Unit", id: "btn4", type: "select", multiselect: 'false', adminUnit: false, options: implementationOptions.value, tooltip: "Select the unit responsible for project delivery." },
-    { name: "implementation_scope", label: "Scope", id: "btn41", type: "select", multiselect: 'false', adminUnit: false, options: scope, tooltip: "Select the scope of the project implementation." }
+    {
+      name: "title",
+      label: "Title",
+      id: "btn1",
+      type: "textarea",
+      multiselect: "false",
+      adminUnit: false,
+      options: [],
+      placeholder: "Full project name as shown on reports and listings",
+    },
+    {
+      name: "project_code",
+      label: "Contract No.",
+      id: "btn2",
+      type: "text",
+      multiselect: "false",
+      adminUnit: false,
+      options: [],
+      placeholder: "Unique contract or reference number, e.g. KISIP/SUD/2024/001",
+    },
+    {
+      name: "description",
+      label: "Description",
+      id: "btn1d",
+      type: "textarea",
+      multiselect: "false",
+      adminUnit: false,
+      options: [],
+      placeholder: "Optional summary of objectives, beneficiaries, or scope of works",
+    },
   ],
-  
   [
-    { name: "cost", label: "Total Project Cost", id: "btn7", min: "0", type: "money", multiselect: 'false', adminUnit: false, options: [], tooltip: "Enter the total cost for the project." },
-    { name: "start_date", label: "Commencement Date", id: "btn5", type: "date", multiselect: 'false', adminUnit: false, options: [], tooltip: "Select the date when the project will commence." },
-    { name: "end_date", label: "Completion Date", id: "btn6", type: "date", multiselect: 'false', adminUnit: false, options: [], tooltip: "Select the date when the project is expected to complete." },
-    { name: "sourceFunding", label: "Source of Funding", id: "btn8", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions, tooltip: "Select the funding sources for the project." }
+    {
+      name: "status",
+      label: "Status",
+      id: "btn3",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: statusOptions,
+      placeholder: "Planned, Ongoing, Suspended, or Completed",
+    },
+    {
+      name: "implementation_id",
+      label: "Delivery Unit",
+      id: "btn4",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: implementationOptions.value,
+      placeholder: "Unit responsible for implementing this project",
+    },
+    {
+      name: "implementation_scope",
+      label: "Scope",
+      id: "btn41",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      options: scope,
+      placeholder: "Lowest level covered — National to Settlement",
+    },
   ],
-  
   [
-    { name: "Location", label: "Location", id: "btn11", type: "select_remote", multiselect: 'false', adminUnit: false, options: cascadedAdminOptions.value, tooltip: "Select the specific location for the project." }
-  ]
+    {
+      name: "start_date",
+      label: "Commencement Date",
+      id: "btn5",
+      type: "date",
+      multiselect: "false",
+      adminUnit: false,
+      options: [],
+      placeholder: "When implementation starts",
+    },
+    {
+      name: "end_date",
+      label: "Completion Date",
+      id: "btn6",
+      type: "date",
+      multiselect: "false",
+      adminUnit: false,
+      options: [],
+      placeholder: "Expected or actual completion date",
+    },
+    {
+      name: "cost",
+      label: "Total Project Cost (KSh)",
+      id: "btn7",
+      min: 0,
+      max: 9007199254740991,
+      type: "number",
+      multiselect: "false",
+      adminUnit: false,
+      options: [],
+      placeholder: "e.g. 5,000,000,000",
+    },
+    {
+      name: "sourceFunding",
+      label: "Source of Funding",
+      id: "btn8",
+      type: "select",
+      multiselect: "true",
+      adminUnit: false,
+      options: sourceFundingOptions,
+      placeholder: "GoK, IDA, AFD — select all that apply",
+    },
+  ],
+  [],
 ]);
 
-
 const formData: FormData = reactive({});
+
 const formRules: FormRules = reactive({
-  // Validation rules for each step
-  // step1: {
-  //   title: [
-  //       { required: true, message: 'Name is required', trigger: 'blur' }
-  //   ],
-
-  //   implementation_scope: [
-  //     { required: true, message: 'Scope is required', trigger: 'blur' }
-  // ],
-
-    
-  //   status: [
-  //     { required: true, message: 'Status is required', trigger: 'blur' }
-  //   ],
-
-  //   activities: [
-  //     { required: true, message: 'Activities are required', trigger: 'blur' }
-  //   ],
-
-  //   start_date: [
-  //     { required: true, message: 'Start date is required', trigger: 'blur' }
-  //   ],
-    
-
-  //   implementation_id: [
-  //     { required: true, message: 'Delivery Unit required', trigger: 'blur' }
-  //   ],
-
-         
-  //   sourceFunding: [
-  //     { required: true, message: 'Source of Funding is required', trigger: 'blur' }
-  //   ],
-    
-  //   end_date: [
-  //     {
-  //       required: true,
-  //       message: 'End Date is required',
-  //       trigger: 'blur'
-  //     },
-  //     {
-  //       validator: (rule, value, callback) => {
-  //         const startDate = formData.start_date; // Access the start_date property from formData
-  //         if (startDate && value && startDate > value) {
-  //           callback(new Error('End Date must be after Start Date'));
-  //         } else {
-  //           callback();
-  //         }
-  //       },
-  //       trigger: 'blur'
-  //     }
-  //   ],
- 
-    
-  //   county_id: [
-  //     { required: true, message: 'County is required', trigger: 'blur' },
-       
-  //   ],
-    
-  //   subcounty_id: [
-  //     { required: true, message: 'Constituency is required', trigger: 'blur' },
-       
-  //   ],
-
-  //   ward_id: [
-  //     { required: true, message: 'Ward is required', trigger: 'blur' },
-       
-  //   ],
-
-  // },
-
-  step2: {
-    // Location: [       { required: true, message: 'Location is Required', trigger: 'change' }  ],
-   activities: [
-    { required: true, message: 'At least one Project activity is Required', trigger: 'change' }
- ]
-   },
-  step3: {
-   
+  step1: {
+    title: [{ required: true, message: "Project title is required", trigger: "blur" }],
+    project_code: [{ required: true, message: "Contract number is required", trigger: "blur" }],
   },
-
-  
-   
+  step2: {
+    status: [{ required: true, message: "Status is required", trigger: "change" }],
+    implementation_id: [{ required: true, message: "Delivery unit is required", trigger: "change" }],
+    implementation_scope: [{ required: true, message: "Scope is required", trigger: "change" }],
+  },
+  step3: {
+    start_date: [{ required: true, message: "Commencement date is required", trigger: "change" }],
+    end_date: [
+      { required: true, message: "Completion date is required", trigger: "change" },
+      {
+        validator: (_rule, value, callback) => {
+          const startDate = formData.start_date;
+          if (startDate && value && new Date(startDate) > new Date(value)) {
+            callback(new Error("Completion date must be after commencement date"));
+          } else {
+            callback();
+          }
+        },
+        trigger: "change",
+      },
+    ],
+    sourceFunding: [{ required: true, message: "Source of funding is required", trigger: "change" }],
+    cost: [
+      {
+        validator: (_rule, value, callback) => {
+          if (value == null || value === "") {
+            callback();
+            return;
+          }
+          const parsed = typeof value === "number" ? value : Number(String(value).replace(/[,\s]/g, ""));
+          if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+            callback(new Error("Enter a valid whole-number cost in KSh"));
+            return;
+          }
+          callback();
+        },
+        trigger: "change",
+      },
+    ],
+  },
+  step4: {},
 });
 
-export { formFields, countyOptions, formData, steps, formRules,  };
+export { formFields, countyOptions, formData, steps, formRules };

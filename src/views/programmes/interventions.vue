@@ -6,7 +6,7 @@ import {
   ElUpload, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Plus, Back, Download, DArrowRight, Loading } from '@element-plus/icons-vue'
+import { Plus, Back, Download, DArrowRight, Loading, Edit } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
@@ -21,7 +21,7 @@ import writeXlsxFile from 'write-excel-file'
 import {
   searchByKeyWord
 } from '@/api/settlements'
-import { useRoute } from 'vue-router'
+import { useRoute, onBeforeRouteUpdate } from 'vue-router'
 import moment from "moment";
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
@@ -33,9 +33,10 @@ import { implementationOptions } from './common/index'
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
-import { onMounted } from 'vue';
+import { onMounted, onActivated } from 'vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
+import ProjectFormDrawer from '@/views/Intervention/Project/ProjectFormDrawer.vue';
 
 
 ////////////*************Map Imports***************////////
@@ -106,8 +107,7 @@ onMounted(async () => {
   // Initialize role-based filters
   await getUserRoles();
   
-  // Load projects with role filters applied
-  await getAllProjects();
+  await loadProjectsForRoute(route);
 });
 
 
@@ -128,6 +128,8 @@ let roles_filters: { role: string; field: string | null; value: any }[] = [];
 const getUserRoles = async () => {
   // Clear existing role filters
   roles_filters = [];
+  isNationalStaff.value = false;
+  isCountyStaff.value = false;
 
   processedRoles = (userInfo?.roles || []).map((role: any) => {
     let field: string | null = null;
@@ -135,23 +137,13 @@ const getUserRoles = async () => {
     const level = role.user_roles?.location_level;
     
     if (level === "county") {
-      isNationalStaff.value = false;
-      // For projects, filter EXCLUSIVELY by county_id through project_location
-      // Projects don't have a direct county_id field, so filtering must go through project_location.county_id
-      // The backend needs to handle this by filtering projects where EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.county_id = countyId)
-      // NOTE: Backend must have special handling for 'project' model to filter through project_location association
-      field = "county_id"; // Filter through project_location.county_id (backend must handle this)
+      field = "county_id";
       fieldvalue = role.user_roles.county_id;
       isCountyStaff.value = true;
     } else if (level === "settlement") {
-      isNationalStaff.value = false;
-      // Filter EXCLUSIVELY by settlement_id through project_location
-      // Projects don't have a direct settlement_id field, so filtering must go through project_location.settlement_id
-      // The backend needs to handle this by filtering projects where EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.settlement_id = settlementId)
-      field = "settlement_id"; // Filter through project_location.settlement_id (backend must handle this)
+      field = "settlement_id";
       fieldvalue = role.user_roles.settlement_id;
     } else if (level === "national" || level === null) {
-      isNationalStaff.value = true;
       return {
         role: role.name,
         model: "national",
@@ -170,12 +162,14 @@ const getUserRoles = async () => {
     };
   }).filter((role: any) => role !== null);
 
-  // Determine roles_filters
-  if (isSuperAdmin.value) {
+  const hasNationalRole = processedRoles.some((role: any) => role.model === "national");
+  isNationalStaff.value = hasNationalRole;
+
+  // National admins and super admins see all projects — no auto county/settlement filter
+  if (isSuperAdmin.value || hasNationalRole) {
     roles_filters = [];
   } else {
-    const applicableRoles = processedRoles.filter((role: any) => role.model !== "national");
-    roles_filters = applicableRoles.map((role: any) => ({
+    roles_filters = processedRoles.map((role: any) => ({
       role: role.role,
       field: role.field,
       value: role.fieldvalue
@@ -229,15 +223,88 @@ const component_id = ref()
 const page_title = ref()
 const bounds = ref([])
 
+let projectsFetchSeq = 0
+
+const applyRouteContext = (to = route) => {
+  component_id.value = to.meta.component_id
+  page_title.value = to.meta.title as string
+  syncComponentFilter()
+}
+
+const resolveRouteComponentId = (routeLike = route) => {
+  const raw = routeLike.meta.component_id ?? component_id.value
+  if (raw == null || raw === '') return null
+  const numericId = Number(raw)
+  return Number.isNaN(numericId) ? null : numericId
+}
+
+function resolveProjectLocationLabel(location: any): string {
+  const storedName =
+    typeof location?.location_name === 'string' ? location.location_name.trim() : ''
+  if (storedName) return storedName
+  if (location?.settlement?.name) return location.settlement.name
+  if (location?.ward?.name) return location.ward.name
+  if (location?.subcounty?.name) return location.subcounty.name
+  if (location?.county?.name) return location.county.name
+  return 'Unknown'
+}
+
+function locationsForProjectScope(row: any): any[] {
+  const locations = row?.project_locations
+  if (!Array.isArray(locations) || locations.length === 0) return []
+
+  const scope = row?.implementation_scope
+  if (!scope || scope === 'national') return []
+
+  return locations.filter((location) => location?.location_type === scope)
+}
+
+const loadProjectsForRoute = async (to = route) => {
+  const seq = ++projectsFetchSeq
+  loading.value = true
+
+  try {
+    applyRouteContext(to)
+    page.value = 1
+    searchString.value = ''
+
+    if (to.meta.component_id == null || to.meta.component_id === '') {
+      if (seq === projectsFetchSeq) {
+        tableDataList.value = []
+        tableDataList_orig.value = []
+        total.value = 0
+        tblData.value = []
+      }
+      return
+    }
+
+    await getFilteredData(seq, to)
+  } catch (error) {
+    if (seq === projectsFetchSeq) {
+      console.error('Error loading projects for component route:', error)
+    }
+  } finally {
+    if (seq === projectsFetchSeq) {
+      loading.value = false
+    }
+  }
+}
+
+onBeforeRouteUpdate(async (to) => {
+  await loadProjectsForRoute(to)
+})
+
 watch(
-  route,
-  () => {
-    console.log("Watching...............................", route.meta);
-    component_id.value = route.meta.component_id
-    page_title.value = route.meta.title
-  },
-  { deep: true, immediate: true, }
+  () => route.fullPath,
+  (path, prevPath) => {
+    if (!path || path === prevPath) return
+    void loadProjectsForRoute(route)
+  }
 )
+
+onActivated(() => {
+  void loadProjectsForRoute(route)
+})
 
 
 const page = ref(1)
@@ -260,7 +327,50 @@ let tableDataList_orig = ref<UserType[]>([])
 // - -----Model configs ------------
 const model = 'project'
 let filters: any[] = ['component_id']
-let filterValues: any[] = [[component_id.value]]
+let filterValues: any[] = [[]]
+
+const syncComponentFilter = () => {
+  if (component_id.value == null || component_id.value === '') return
+
+  const numericId = Number(component_id.value)
+
+  const idx = filters.indexOf('component_id')
+  if (idx === -1) {
+    filters.unshift('component_id')
+    filterValues.unshift([numericId])
+    return
+  }
+  filterValues[idx] = [numericId]
+}
+
+const buildProjectQueryFilters = (routeLike = route) => {
+  if (routeLike !== route) {
+    component_id.value = routeLike.meta.component_id ?? component_id.value
+  }
+
+  syncComponentFilter()
+  pushRoleFilters()
+
+  const queryFilters = [...filters]
+  const queryFilterValues = filterValues.map((entry) =>
+    Array.isArray(entry) ? [...entry] : [entry]
+  )
+
+  const numericComponentId = resolveRouteComponentId(routeLike)
+  if (numericComponentId == null) {
+    return { queryFilters: [], queryFilterValues: [], activeComponentId: null }
+  }
+
+  let componentIdx = queryFilters.indexOf('component_id')
+  if (componentIdx === -1) {
+    queryFilters.unshift('component_id')
+    queryFilterValues.unshift([numericComponentId])
+  } else {
+    queryFilterValues[componentIdx] = [numericComponentId]
+  }
+
+  return { queryFilters, queryFilterValues, activeComponentId: numericComponentId }
+}
 let tblData = ref<any[]>([])
 const associated_Model = ''
 const associated_multiple_models = ['programme', 'project_location', 'programme_implementation']
@@ -294,6 +404,7 @@ const handleClear = async () => {
     // clear all the filters -------
     filterValues = []
     filters = ['component_id']
+    syncComponentFilter()
     value1.value = []
     value2.value = []
     value3.value = []
@@ -390,9 +501,20 @@ const destructure = (obj) => {
   return simpleObj
 }
 
-const getFilteredData = async () => {
+const getFilteredData = async (requestSeq?: number, routeLike = route) => {
+  const seq = requestSeq ?? ++projectsFetchSeq
   try {
-    pushRoleFilters();
+    const { queryFilters, queryFilterValues, activeComponentId } = buildProjectQueryFilters(routeLike)
+
+    if (activeComponentId == null) {
+      if (seq === projectsFetchSeq) {
+        tableDataList.value = []
+        tableDataList_orig.value = []
+        total.value = 0
+        tblData.value = []
+      }
+      return
+    }
 
     const formData: any = {
       limit: pageSize.value,
@@ -402,14 +524,16 @@ const getFilteredData = async () => {
       searchField: 'name',
       searchKeyword: '',
       assocModel: associated_Model,
-      filters: filters,
-      filterValues: filterValues,
+      filters: queryFilters,
+      filterValues: queryFilterValues,
       associated_multiple_models: associated_multiple_models
     }
 
     // NOTE: Backend handles county_id/settlement_id filters for 'project' by joining project_location
     // EXISTS (SELECT 1 FROM project_location WHERE project_location.project_id = project.id AND project_location.county_id = ?)
     const res = await getSettlementListByCounty(formData as any)
+
+    if (seq !== projectsFetchSeq) return
 
     console.log('After Query - minimal associations loaded', res)
     tableDataList.value = (res as any).data || []
@@ -694,11 +818,21 @@ const showUploadDialog = ref(false)
  
 
 
-const getFilteredBySearchData = async (searchString) => {
+const getFilteredBySearchData = async (searchString, requestSeq?: number) => {
+  const seq = requestSeq ?? ++projectsFetchSeq
   try {
-    // Apply role-based filters
-    pushRoleFilters();
-    
+    const { queryFilters, queryFilterValues, activeComponentId } = buildProjectQueryFilters()
+
+    if (activeComponentId == null) {
+      if (seq === projectsFetchSeq) {
+        tableDataList.value = []
+        tableDataList_orig.value = []
+        total.value = 0
+        tblData.value = []
+      }
+      return
+    }
+
     const formData: any = {
       limit: pageSize.value,
       page: page.value,
@@ -706,14 +840,16 @@ const getFilteredBySearchData = async (searchString) => {
       model: model,
       searchField: 'title',
       searchKeyword: searchString,
-      filters: filters, // Use filters after pushRoleFilters()
-      filterValues: filterValues, // Use filterValues after pushRoleFilters()
+      filters: queryFilters,
+      filterValues: queryFilterValues,
       associated_multiple_models: associated_multiple_models
     }
 
     //-------------------------
     console.log('Searching with minimal associations...', formData)
     const res = await searchByKeyWord(formData as any)
+
+    if (seq !== projectsFetchSeq) return
 
     console.log('After search query', res)
     tableDataList.value = (res as any).data || []
@@ -792,20 +928,11 @@ const getInterventionComponents = async () => {
 // Initialize data loading with better error handling
 const initializeData = async () => {
   try {
-    loading.value = true
     console.log('Initializing interventions data...')
-    
-    // Load data in parallel for better performance
-    await Promise.all([
-      getAllProjects(),
-      getInterventionComponents()
-    ])
-    
+    await getInterventionComponents()
     console.log('Data initialization completed')
   } catch (error) {
     console.error('Error initializing data:', error)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -834,22 +961,42 @@ const ruleForm = reactive({
 
  
 const AddProject = () => {
+  if (!component_id.value) {
+    ElMessage.warning('Component context is not ready yet')
+    return
+  }
+  projectFormMode.value = 'add'
+  projectFormProjectId.value = null
+  projectFormComponentId.value = component_id.value
+  projectFormDrawerVisible.value = true
+}
 
-  console.log("Adding Projects")
-  console.log(component_id.value)
-  
- 
- 
- console.log('Add prject');
+const projectFormDrawerVisible = ref(false)
+const projectFormComponentId = ref<string | number | null>(null)
+const projectFormProjectId = ref<string | number | null>(null)
+const projectFormMode = ref<'add' | 'edit'>('add')
 
- push({
-  name: 'AddProject',
-  params: { domain: component_id.value }
-})
- 
+const editProjectFromList = (row: any) => {
+  const domain = row.component_id || component_id.value
+  if (!domain) {
+    ElMessage.warning('Cannot edit project: missing component')
+    return
+  }
+  projectFormMode.value = 'edit'
+  projectFormProjectId.value = row.id
+  projectFormComponentId.value = domain
+  projectFormDrawerVisible.value = true
+}
 
-
-
+const onProjectFormSaved = async () => {
+  projectFormDrawerVisible.value = false
+  syncComponentFilter()
+  loading.value = true
+  try {
+    await getFilteredData()
+  } finally {
+    loading.value = false
+  }
 }
 
 
@@ -2025,33 +2172,45 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          <div v-if="row.project_locations && row.project_locations.length > 0" class="locations-container">
+          <div v-if="locationsForProjectScope(row).length > 0" class="locations-container">
             <div class="location-list">
               <span 
-                v-for="(location, index) in row.project_locations" 
-                :key="index"
+                v-for="(location, index) in locationsForProjectScope(row)" 
+                :key="location.id ?? `${location.location_type}-${index}`"
                 class="location-item"
               >
                 <span 
                   v-if="location.location_type === 'settlement'"
                   @click="goToSettlementMap(location)"
                   class="settlement-link"
-                  :title="`View ${location.location_name} on map`"
+                  :title="`View ${resolveProjectLocationLabel(location)} on map`"
                 >
-                  {{ location.location_name || location.settlement?.name || 'Unknown' }}
+                  {{ resolveProjectLocationLabel(location) }}
                 </span>
                 <span v-else class="location-name">
-                  {{ location.location_name || location.settlement?.name || 'Unknown' }}
+                  {{ resolveProjectLocationLabel(location) }}
                 </span>
-                <span v-if="index < row.project_locations.length - 1" class="location-separator">, </span>
+                <span v-if="index < locationsForProjectScope(row).length - 1" class="location-separator">, </span>
               </span>
             </div>
           </div>
+          <span v-else-if="row.implementation_scope === 'national'" class="no-locations">National scope</span>
           <span v-else class="no-locations">No locations configured</span>
         </template>
       </el-table-column>
-      <el-table-column label="Action" width="120" align="center">
+      <el-table-column label="Action" width="180" align="center">
         <template #default="{ row }">
+          <PermissionWrapper :permissions="'project:update'">
+            <el-button
+              @click="editProjectFromList(row)"
+              type="default"
+              size="small"
+              :icon="Edit"
+              style="font-size: 12px; padding: 4px 8px; margin-right: 4px;"
+            >
+              Edit
+            </el-button>
+          </PermissionWrapper>
           <el-button 
             @click="viewProject(row)"
             type="primary" 
@@ -2101,6 +2260,15 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
         />
       </div>
     </el-drawer>
+
+    <ProjectFormDrawer
+      v-model:visible="projectFormDrawerVisible"
+      :component-id="projectFormComponentId"
+      :project-id="projectFormProjectId"
+      :mode="projectFormMode"
+      :component-title="page_title"
+      @saved="onProjectFormSaved"
+    />
 
 
 
