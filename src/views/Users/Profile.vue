@@ -211,7 +211,7 @@ const updateUser = async (formEl: FormInstance | undefined) => {
       <div class="profile-header">
         <div class="profile-avatar-section">
           <div class="avatar-wrapper" @click="EditUser">
-            <el-avatar :size="120" class="profile-avatar">
+            <el-avatar :size="72" class="profile-avatar">
               <img v-if="profile.photo" :src="profile.photo" alt="Profile" />
               <span v-else class="avatar-initials">{{ initials }}</span>
             </el-avatar>
@@ -328,7 +328,7 @@ const updateUser = async (formEl: FormInstance | undefined) => {
 }
 
 .avatar-initials {
-  font-size: 48px;
+  font-size: 28px;
   font-weight: 600;
   color: var(--el-color-primary);
 }

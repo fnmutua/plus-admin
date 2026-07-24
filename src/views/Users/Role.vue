@@ -25,6 +25,9 @@ import {
   getAllPermissions,
   getRolePermissions,
   setRolePermissions,
+  getRoleProgrammes,
+  setRoleProgrammes,
+  getProgrammeCatalog,
   getUserRoles
 } from '@/api/users'
 
@@ -145,6 +148,48 @@ const showEditSaveButton = ref(false)
 const AddDialogVisible=ref(false)
 const permissions = ref<any[]>([])
 const selectedPermissions = ref<number[]>([])
+const programmeOptions = ref<{ value: number; label: string }[]>([])
+const programmeScopeEnabled = ref(false)
+const selectedProgrammeIds = ref<number[]>([])
+
+const fetchProgrammeOptions = async () => {
+  try {
+    const res = await getProgrammeCatalog()
+    const rows = (res as any)?.data || []
+    programmeOptions.value = rows
+      .filter((row: any) => row.parentId == null || row.parentId === '')
+      .map((row: any) => ({
+        value: Number(row.id),
+        label: row.title || row.acronym || row.code || `Programme ${row.id}`,
+      }))
+  } catch (error) {
+    console.error('Failed to load programmes for role scope:', error)
+    programmeOptions.value = []
+  }
+}
+
+const fetchRoleProgrammes = async (roleId: number) => {
+  try {
+    const res = await getRoleProgrammes({ roleId })
+    const payload = (res as any)?.data?.data || (res as any)?.data || {}
+    programmeScopeEnabled.value = !!payload.scopeEnabled
+    selectedProgrammeIds.value = Array.isArray(payload.programmeIds)
+      ? payload.programmeIds.map((id: number) => Number(id))
+      : []
+  } catch (error) {
+    console.error('Failed to load role programme scope:', error)
+    programmeScopeEnabled.value = false
+    selectedProgrammeIds.value = []
+  }
+}
+
+const saveRoleProgrammes = async (roleId: number) => {
+  await setRoleProgrammes({
+    roleId,
+    scopeEnabled: programmeScopeEnabled.value,
+    programmeIds: selectedProgrammeIds.value,
+  })
+}
 
 // Fetch all permissions
 const fetchPermissions = async () => {
@@ -279,6 +324,7 @@ onMounted(() => {
   fetchPermissions()
   getAllRoles()
   fetchSubordinateRoles()
+  fetchProgrammeOptions()
 })
 
 const AddRole = () => {
@@ -291,6 +337,8 @@ const AddRole = () => {
   
   // Set default permissions (read-only permissions)
   selectedPermissions.value = getDefaultPermissionIds()
+  programmeScopeEnabled.value = false
+  selectedProgrammeIds.value = []
   
   formHeader.value = 'Add Role'
   showSubmitBtn.value = true
@@ -322,6 +370,7 @@ const editRole = (data) => {
   AddDialogVisible.value = true
   // Fetch and set permissions for this role
   fetchRolePermissions(data.row.id)
+  fetchRoleProgrammes(data.row.id)
   fetchSubordinateRoles()
 }
 
@@ -341,6 +390,7 @@ const submitForm = async (formEl) => {
           roleId: newRoleId,
           permissions: selectedPermissions.value
         } as any)
+        await saveRoleProgrammes(Number(newRoleId))
       }
       AddDialogVisible.value = false
       getAllRoles()
@@ -363,6 +413,7 @@ const editForm = async (formEl) => {
         roleId: ruleForm.id
       }
       await setRolePermissions(permissionsPayload as any)
+      await saveRoleProgrammes(Number(ruleForm.id))
       AddDialogVisible.value = false
       getAllRoles()
     } else {
@@ -736,6 +787,43 @@ const rules = {
             </div>
           </div>
         </el-tab-pane>
+        <el-tab-pane label="Programme Access" name="programmes">
+          <div style="margin: 24px 0;">
+            <el-switch
+              v-model="programmeScopeEnabled"
+              active-text="Limit programmes for this role"
+              inactive-text="All programmes (no limit)"
+              style="margin-bottom: 16px;"
+            />
+            <div v-if="programmeScopeEnabled" style="margin-top: 8px;">
+              <p style="color: var(--el-text-color-secondary); margin: 0 0 12px;">
+                Users with this role will only see projects and programme menus for the selected programmes (including sub-programmes).
+              </p>
+              <el-select
+                v-model="selectedProgrammeIds"
+                multiple
+                filterable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="Select programmes"
+                style="width: 100%;"
+              >
+                <el-option
+                  v-for="item in programmeOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+              <div v-if="selectedProgrammeIds.length === 0" style="color: #f56c6c; margin-top: 8px;">
+                Select at least one programme, or turn off the limit.
+              </div>
+            </div>
+            <div v-else style="color: var(--el-text-color-secondary); font-size: 13px;">
+              This role can access all programmes unless another assigned role applies a limit.
+            </div>
+          </div>
+        </el-tab-pane>
         <el-tab-pane label="Review" name="review">
           <div style="margin: 24px 0;">
             <div v-if="selectedPermissions.length === 0" style="color: #f56c6c;">No permissions selected.</div>
@@ -776,8 +864,9 @@ const rules = {
         <div style="display: flex; justify-content: flex-end; gap: 12px; padding: 8px 0; border-top: 1px solid #f0f0f0; background: #fafbfc;">
           <el-button @click="AddDialogVisible = false">Cancel</el-button>
           <el-button v-if="activeTab === 'details'" type="primary" @click="activeTab = 'permissions'">Next</el-button>
-          <el-button v-if="activeTab === 'permissions'" type="primary" @click="activeTab = 'review'">Next</el-button>
-          <el-button v-if="activeTab === 'review'" @click="activeTab = 'permissions'">Back</el-button>
+          <el-button v-if="activeTab === 'permissions'" type="primary" @click="activeTab = 'programmes'">Next</el-button>
+          <el-button v-if="activeTab === 'programmes'" type="primary" @click="activeTab = 'review'">Next</el-button>
+          <el-button v-if="activeTab === 'review'" @click="activeTab = 'programmes'">Back</el-button>
           <el-button v-if="activeTab === 'review' && showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Create</el-button>
           <el-button v-if="activeTab === 'review' && showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
         </div>

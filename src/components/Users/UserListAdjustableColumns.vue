@@ -34,7 +34,7 @@ const avatarSrc = (row: any) => {
     resizable
   >
     <template #default="scope">
-      <el-avatar :src="avatarSrc(scope.row)" :size="80" />
+      <el-avatar :src="avatarSrc(scope.row)" :size="40" />
     </template>
   </el-table-column>
 

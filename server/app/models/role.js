@@ -13,6 +13,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: true,
     },
+    programme_scope_limited: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
     isactive: {
       type: Sequelize.BOOLEAN,
       allowNull: true,

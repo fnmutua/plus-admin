@@ -1178,7 +1178,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/media',
     component: Layout,
-    redirect: '/data/slums',
+    redirect: '/media/video',
     name: 'Media',
     meta: {
       title: 'Media',

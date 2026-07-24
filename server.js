@@ -132,6 +132,7 @@ require('./server/app/routes/monitoring.routes')(app)
 require('./server/app/routes/communication.routes')(app)
 require('./server/app/routes/notification.routes')(app)
 require('./server/app/routes/workplace.routes')(app)
+require('./server/app/routes/media.routes')(app)
 
 // Static middleware should come AFTER API routes
 app.use(express.static(path.join(__dirname, '/dist')))

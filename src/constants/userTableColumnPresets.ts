@@ -17,7 +17,7 @@ const col = (
 export const userTableColumnPresets = {
   /** User.vue, AllUsers.vue */
   full: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('country', 'Country', 120, { minWidth: 90 }),
@@ -29,7 +29,7 @@ export const userTableColumnPresets = {
 
   /** NewAccounts.vue */
   newAccounts: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('country', 'Country', 120, { minWidth: 90 }),
@@ -40,7 +40,7 @@ export const userTableColumnPresets = {
 
   /** County.vue, SupportUsers.vue */
   minimal: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('county', 'County', 140, { minWidth: 100 }),
@@ -48,7 +48,7 @@ export const userTableColumnPresets = {
 
   /** AdminUsers national + county tabs */
   adminExtended: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('country', 'Country', 120, { minWidth: 90 }),
@@ -59,7 +59,7 @@ export const userTableColumnPresets = {
 
   /** AdminUsers settlement tab */
   adminSettlement: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('settlement', 'Settlement', 180, { minWidth: 120 }),
@@ -69,7 +69,7 @@ export const userTableColumnPresets = {
 
   /** GrmUsers national + county tabs */
   grmExtended: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('county', 'County', 140, { minWidth: 100 }),
@@ -78,7 +78,7 @@ export const userTableColumnPresets = {
 
   /** GrmUsers settlement tab */
   grmSettlement: (): AdjustableColumnSetting[] => [
-    col('avatar', 'Avatar', 100, { minWidth: 72 }),
+    col('avatar', 'Avatar', 56, { minWidth: 48 }),
     col('name', 'Name', 280, { minWidth: 160, hideable: false }),
     col('username', 'Username', 140, { minWidth: 100 }),
     col('settlement', 'Settlement', 180, { minWidth: 120 }),

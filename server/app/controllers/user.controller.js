@@ -2129,9 +2129,13 @@ exports.getUserPermissions = async (req, res) => {
     // Remove duplicates
     const uniquePermissions = [...new Set(userPermissions)];
 
+    const { getProjectProgrammeScope } = require('../utils/projectListScope');
+    const programmeScope = await getProjectProgrammeScope(userId);
+
     res.status(200).json({
       message: 'User permissions retrieved successfully',
       data: uniquePermissions,
+      programmeScope,
       code: '0000'
     });
   } catch (err) {

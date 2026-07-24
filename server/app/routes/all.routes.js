@@ -82,7 +82,7 @@ module.exports = function (app) {
    *                   type: string
    *                   example: "0000"
    */
-  app.post('/api/v1/routes',  controller.GetRoutes)
+  app.post('/api/v1/routes', [authJwt.verifyToken], controller.GetRoutes)
 
   app.get('/api/v1/page-visits/stats', [authJwt.verifyToken, hasPermission('logs:read')], controller.getPageVisitStats)
 

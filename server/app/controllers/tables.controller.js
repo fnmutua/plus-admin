@@ -44,6 +44,12 @@ const settlementPopulationGeo = require('../services/settlementPopulationGeo')
 const { parseDryRunFlag, executeImportUpsert } = require('../services/importUpsert.service')
 const { getRequestContext } = require('../utils/requestContext')
 const { normalizeSettlementGeom } = require('../utils/settlementGeometry')
+const {
+  applyProgrammeProjectScopeToQuery,
+  buildOptimizedScopeSql,
+  expandProgrammeIds,
+  getProjectProgrammeScope,
+} = require('../utils/projectListScope')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -351,6 +357,10 @@ exports.allAccess = (req, res) => {
       baseQuery.where = {
         [Op.and]: filters.map((filter, i) => ({ [filter]: filterValues[i] }))
       };
+    }
+
+    if (['project', 'programme', 'component'].includes(reg_model) && req.userid) {
+      await applyProgrammeProjectScopeToQuery(baseQuery, reg_model, modelDefinition, req.userid);
     }
 
     // Count query (separate for better performance)
@@ -5439,7 +5449,6 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
           };
         }
       } else {
-        // Standard filtering for other models
         const validFilters = filters
           .map((filter, i) => ({
             field: filter,
@@ -5487,6 +5496,10 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       };
     } else if (Array.isArray(dateRange) && dateRange.length !== 0) {
       return res.status(400).json({ message: 'dateRange must be an array with two dates', code: 'INVALID_DATE_RANGE' });
+    }
+
+    if (['project', 'programme', 'component'].includes(modelName) && req.userid) {
+      await applyProgrammeProjectScopeToQuery(baseQuery, modelName, Model, req.userid);
     }
 
     const includeModels = [];
@@ -15796,6 +15809,12 @@ exports.getOptimizedProjectLocations = async (req, res) => {
       }
     }
 
+    const scope = await getProjectProgrammeScope(req.userid);
+    const scopeSql = buildOptimizedScopeSql(scope, model);
+    if (scopeSql) {
+      whereClause = `${scopeSql} AND ${whereClause}`;
+    }
+
     // Get columns for properties
     const columnsQuery = `
       SELECT column_name 
@@ -15864,51 +15883,24 @@ exports.getOptimizedProjectLocations = async (req, res) => {
 };
 
 /**
- * Expand programme IDs to include all descendants in programmex hierarchy.
- * Selecting KISIP2 (18) also matches components under Tenure, Infrastructure, etc.
- */
-async function expandProgrammeIds(rawIds) {
-  const parsed = (Array.isArray(rawIds) ? rawIds : [rawIds])
-    .map((v) => parseInt(v, 10))
-    .filter((v) => !isNaN(v));
-  if (!parsed.length) return [];
-
-  const rows = await db.sequelize.query(
-    `SELECT id, "parentId" FROM programmex`,
-    { type: db.sequelize.QueryTypes.SELECT, mapToModel: false }
-  );
-
-  const childrenByParent = new Map();
-  for (const row of rows) {
-    const id = parseInt(row.id, 10);
-    const parentRaw = row.parentId;
-    if (parentRaw != null && parentRaw !== '') {
-      const parentId = parseInt(parentRaw, 10);
-      if (!isNaN(parentId)) {
-        if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
-        childrenByParent.get(parentId).push(id);
-      }
-    }
-  }
-
-  const expanded = new Set();
-  const walk = (id) => {
-    if (expanded.has(id)) return;
-    expanded.add(id);
-    for (const childId of childrenByParent.get(id) || []) walk(childId);
-  };
-  for (const id of parsed) walk(id);
-  return [...expanded];
-}
-
-/**
  * Get programmes list (programmex) - optimized, no geometry
  */
 exports.getProgrammesList = async (req, res) => {
   try {
+    const scope = await getProjectProgrammeScope(req.userid);
+    let whereClause = '';
+    if (!scope.bypass) {
+      if (scope.expandedProgrammeIds.length) {
+        whereClause = `WHERE id IN (${scope.expandedProgrammeIds.join(', ')})`;
+      } else if (scope.scopeEnabled) {
+        whereClause = 'WHERE 1 = 0';
+      }
+    }
+
     const qry = `
       SELECT id, title, acronym, code, "parentId"
       FROM programmex
+      ${whereClause}
       ORDER BY title ASC
     `;
     const results = await db.sequelize.query(qry, {

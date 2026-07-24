@@ -15,22 +15,39 @@ verifyToken = (req, res, next) => {
   }
   jwt.verify(token, config.secret, async (err, decoded) => {
     if (err) {
+      if (err.name === "TokenExpiredError") {
+        try {
+          const payload = jwt.decode(token);
+          if (payload?.sid) {
+            await userSessionManager.revokeSession(payload.sid);
+          }
+        } catch (revokeErr) {
+          console.warn("Failed to revoke expired session:", revokeErr);
+        }
+      }
       return res.status(401).send({
-        message: "Unauthorized!"
+        message: "Your session has expired. Please sign in again.",
+        code: "SESSION_EXPIRED"
       });
     }
     try {
       const user = await User.findByPk(decoded.id);
       if (!user) {
-        return res.status(401).send({ message: "Unauthorized!" });
+        return res.status(401).send({
+          message: "Your session has expired. Please sign in again.",
+          code: "SESSION_EXPIRED"
+        });
       }
 
       if (user.force_logout_at && decoded.iat) {
         const logoutAt = new Date(user.force_logout_at).getTime();
         const tokenIssuedAt = decoded.iat * 1000;
         if (logoutAt > tokenIssuedAt) {
+          if (decoded.sid) {
+            await userSessionManager.revokeSession(decoded.sid);
+          }
           return res.status(401).send({
-            message: "Session has been terminated.",
+            message: "You have been logged out by an administrator.",
             code: "SESSION_TERMINATED"
           });
         }
@@ -39,9 +56,10 @@ verifyToken = (req, res, next) => {
       if (decoded.sid) {
         const sessionValid = await userSessionManager.validateSession(decoded.id, decoded.sid);
         if (!sessionValid) {
+          await userSessionManager.revokeSession(decoded.sid);
           return res.status(401).send({
-            message: "Your session has expired or was signed out on this device.",
-            code: "SESSION_TERMINATED"
+            message: "Your session has expired. Please sign in again.",
+            code: "SESSION_EXPIRED"
           });
         }
       }

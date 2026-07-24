@@ -25,12 +25,12 @@ function isValidAccessToken(token: unknown): boolean {
 /** True only for auth/session failures — not permission-denied 403s. */
 function isSessionAuthFailure(status: number | undefined, message: string, code: string): boolean {
   if (status === 401) return true
-  if (code === 'SESSION_TERMINATED') return true
+  if (code === 'SESSION_TERMINATED' || code === 'SESSION_EXPIRED') return true
   if (status === 403 && /session has expired|signed out|no token provided/i.test(message)) return true
   return false
 }
 
-function handleSessionExpired(customMessage?: string) {
+function handleSessionExpired(customMessage?: string, isAdminLogout = false) {
   if (isHandlingExpiry) return
   isHandlingExpiry = true
 
@@ -41,11 +41,10 @@ function handleSessionExpired(customMessage?: string) {
   } catch { /* ignore storage errors */ }
 
   const currentPath = router.currentRoute.value.fullPath
-  const isForceLogout = customMessage?.includes('administrator') || customMessage?.includes('terminated')
 
   ElMessageBox.alert(
     customMessage || 'Your session has expired. Please log in again to continue.',
-    isForceLogout ? 'Logged Out' : 'Session Expired',
+    isAdminLogout ? 'Logged Out' : 'Session Expired',
     {
       confirmButtonText: 'Go to Login',
       type: 'warning',
@@ -148,10 +147,15 @@ service.interceptors.response.use(
 
     // Auth/session failure with a token — not permission-denied 403s
     if (hadToken && isSessionAuthFailure(status, message, code)) {
-      const terminated = code === 'SESSION_TERMINATED' || message.includes('terminated')
-      handleSessionExpired(
-        terminated ? 'You have been logged out by an administrator.' : undefined
-      )
+      if (code === 'SESSION_TERMINATED') {
+        handleSessionExpired('You have been logged out by an administrator.', true)
+      } else {
+        const expiryMessage =
+          message && !/^unauthorized!?$/i.test(message.trim())
+            ? message
+            : 'Your session has expired. Please log in again to continue.'
+        handleSessionExpired(expiryMessage, false)
+      }
       return Promise.reject(error)
     }
 

@@ -35,6 +35,9 @@ module.exports = function(app) {
   app.post('/api/v1/roles/permissions/update', [authJwt.verifyToken, hasPermission('roles:update')], controller.setRolePermissions);
   app.post('/api/v1/roles/permissions/add', [authJwt.verifyToken, hasPermission('roles:update')], controller.addRolePermission);
   app.post('/api/v1/roles/permissions/remove', [authJwt.verifyToken, hasPermission('roles:update')], controller.removeRolePermission);
+  app.post('/api/v1/roles/programmes', [authJwt.verifyToken, hasPermission('roles:read')], controller.getRoleProgrammes);
+  app.post('/api/v1/roles/programmes/update', [authJwt.verifyToken, hasPermission('roles:update')], controller.setRoleProgrammes);
+  app.get('/api/v1/roles/programmes/catalog', [authJwt.verifyToken, hasPermission('roles:read')], controller.getProgrammeCatalog);
 
 
 

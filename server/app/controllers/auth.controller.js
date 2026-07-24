@@ -98,6 +98,13 @@ const SMS_BULK_URL = 'https://quicksms.advantasms.com/api/services/sendbulk/'
 const SMS_BULK_CHUNK_SIZE = 20
 const SMS_REQUEST_TIMEOUT_MS = 15000
 
+/** Format SMS for iOS Security Code AutoFill (code near start of message). */
+function buildOtpSmsMessage(otpCode, purpose = 'login') {
+  const code = String(otpCode)
+  const label = purpose === 'registration' ? 'registration' : 'login'
+  return `${code} is your KeSMIS ${label} code.`
+}
+
 function normalizeSmsEntries(entries) {
   const normalized = []
   for (const entry of entries) {
@@ -2206,7 +2213,7 @@ exports.signupViaApp = async (req, res) => {
           apikey: process.env.SMS_API_KEY,
           partnerID: process.env.SMS_PARTNER_ID || '12108',
           shortcode: 'KISIP',
-          message: 'Your registration code is: ' + otpCode + '.',
+          message: buildOtpSmsMessage(otpCode, 'registration'),
           mobile: formattedPhone,
         };
 
@@ -2731,7 +2738,7 @@ exports.signinViaApp = async (req, res) => {
           apikey: process.env.SMS_API_KEY,
           partnerID: process.env.SMS_PARTNER_ID || '12108',
           shortcode: 'KISIP',
-          message: 'Your KeSMIS Login code is: ' + otpCode + '.',
+          message: buildOtpSmsMessage(otpCode, 'login'),
           //message: 'Your UAFSD Login code is: ' + otpCode + '. \n gyQbWWWRcc5',
           mobile:   user_phone 
           
@@ -3251,19 +3258,34 @@ exports.sessionCheck = async (req, res) => {
 
 exports.Logout = async (req, res) => {
   console.log('logging off >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+
+  let userId = req.userid || req.body?.userId || null;
+  let sessionId = req.sessionId || null;
   
   try {
-    // Get user ID from token (set by authJwt.verifyToken middleware)
-    const userId = req.body.userId;
+    const sessionTracker = require('../utils/sessionTracker');
+    const userSessionManager = require('../utils/userSessionManager');
+
+    if (!userId || !sessionId) {
+      const token = req.headers['x-access-token'];
+      if (token) {
+        try {
+          const decoded = jwt.decode(token);
+          if (decoded?.id && !userId) userId = decoded.id;
+          if (decoded?.sid && !sessionId) sessionId = decoded.sid;
+        } catch (decodeErr) {
+          console.warn('Logout - could not decode access token:', decodeErr.message || decodeErr);
+        }
+      }
+    }
+
     console.log('Logout - User ID from token:', userId);
+
+    if (sessionId) {
+      await userSessionManager.revokeSession(sessionId);
+    }
     
     if (userId) {
-      const sessionTracker = require('../utils/sessionTracker');
-      const userSessionManager = require('../utils/userSessionManager');
-
-      if (req.sessionId) {
-        await userSessionManager.revokeSession(req.sessionId);
-      }
       
       // Get user info from database
       const user = await db.models.users.findByPk(userId);
@@ -3300,8 +3322,8 @@ exports.Logout = async (req, res) => {
     await logAudit({
       req,
       action: 'logout',
-      actorType: req.body?.userId ? 'user' : 'anonymous',
-      actorId: req.body?.userId != null ? String(req.body.userId) : null,
+      actorType: userId ? 'user' : 'anonymous',
+      actorId: userId != null ? String(userId) : null,
       actorName: req.thisUser?.username || null,
       entityType: 'auth',
       outcome: 'success',

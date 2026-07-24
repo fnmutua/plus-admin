@@ -398,3 +398,95 @@ exports.removeRolePermission = async (req, res) => {
     res.status(500).json({ message: 'Error removing permission', error: err });
   }
 };
+
+function uniqueProgrammeIds(values) {
+  return Array.from(
+    new Set((Array.isArray(values) ? values : []).map((v) => Number(v)).filter((n) => Number.isFinite(n)))
+  );
+}
+
+exports.getRoleProgrammes = async (req, res) => {
+  try {
+    const roleId = Number(req.body.roleId);
+    if (!roleId) {
+      return res.status(400).json({ message: 'roleId is required', code: '4001' });
+    }
+
+    const role = await db.role.findByPk(roleId, { attributes: ['id', 'name', 'programme_scope_limited'] });
+    if (!role) {
+      return res.status(404).json({ message: 'Role not found', code: '4041' });
+    }
+
+    const rows = await db.models.role_programme_access.findAll({
+      where: { role_id: roleId },
+      attributes: ['programme_id'],
+      raw: true,
+    });
+
+    return res.status(200).json({
+      code: '0000',
+      data: {
+        programmeIds: rows.map((row) => Number(row.programme_id)),
+        scopeEnabled: role.programme_scope_limited === true,
+      },
+    });
+  } catch (err) {
+    console.error('getRoleProgrammes failed:', err);
+    return res.status(500).json({ message: 'Error fetching role programme access', error: err.message });
+  }
+};
+
+exports.setRoleProgrammes = async (req, res) => {
+  try {
+    const roleId = Number(req.body.roleId);
+    const scopeEnabled = req.body.scopeEnabled === true;
+    const programmeIds = uniqueProgrammeIds(req.body.programmeIds);
+
+    if (!roleId) {
+      return res.status(400).json({ message: 'roleId is required', code: '4001' });
+    }
+
+    const role = await db.role.findByPk(roleId, { attributes: ['id', 'name', 'programme_scope_limited'] });
+    if (!role) {
+      return res.status(404).json({ message: 'Role not found', code: '4041' });
+    }
+    if (role.name === 'root_admin' || role.name === 'super_admin') {
+      return res.status(403).json({ message: 'Programme scope cannot be limited for this role', code: '4031' });
+    }
+
+    await db.models.role_programme_access.destroy({ where: { role_id: roleId } });
+
+    await db.role.update(
+      { programme_scope_limited: scopeEnabled },
+      { where: { id: roleId } }
+    );
+
+    if (scopeEnabled && programmeIds.length > 0) {
+      await db.models.role_programme_access.bulkCreate(
+        programmeIds.map((programme_id) => ({ role_id: roleId, programme_id }))
+      );
+    }
+
+    return res.status(200).json({
+      code: '0000',
+      message: 'Programme access updated',
+      data: { scopeEnabled: scopeEnabled && programmeIds.length > 0, programmeIds },
+    });
+  } catch (err) {
+    console.error('setRoleProgrammes failed:', err);
+    return res.status(500).json({ message: 'Error updating role programme access', error: err.message });
+  }
+};
+
+exports.getProgrammeCatalog = async (_req, res) => {
+  try {
+    const rows = await db.sequelize.query(
+      `SELECT id, title, acronym, code, "parentId" FROM programmex ORDER BY title ASC`,
+      { type: db.sequelize.QueryTypes.SELECT, mapToModel: false }
+    );
+    return res.status(200).json({ code: '0000', data: rows });
+  } catch (err) {
+    console.error('getProgrammeCatalog failed:', err);
+    return res.status(500).json({ message: 'Error loading programme catalog', error: err.message });
+  }
+};

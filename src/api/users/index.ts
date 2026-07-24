@@ -224,6 +224,22 @@ export const removeRolePermission = (data: UserType): Promise<IResponse<UserType
   return request.post({ url: prod + '/api/v1/roles/permissions/remove', data })
 }
 
+export const getRoleProgrammes = (data: { roleId: number }): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/roles/programmes', data })
+}
+
+export const setRoleProgrammes = (data: {
+  roleId: number
+  scopeEnabled: boolean
+  programmeIds: number[]
+}): Promise<IResponse<any>> => {
+  return request.post({ url: prod + '/api/v1/roles/programmes/update', data })
+}
+
+export const getProgrammeCatalog = (): Promise<IResponse<any>> => {
+  return request.get({ url: prod + '/api/v1/roles/programmes/catalog' })
+}
+
 // Function to get user permissions
 export const getUserPermissions = (userId: number): Promise<IResponse<any>> => {
   return request.post({ url: prod + '/api/v1/user/permissions', data: { userId } })

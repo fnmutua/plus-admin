@@ -124,6 +124,7 @@ var _railway_asset= require('./railway_asset')
 
 var _permission= require('./permission')
 var _role_permissions= require('./role_permissions')
+var _role_programme_access= require('./role_programme_access')
 var _role= require('./role')
 var _data_request= require('./data_request')
 var _data_request_document = require('./DataRequestDocument')
@@ -264,7 +265,8 @@ var powerline_asset = _powerline_asset(sequelize, DataTypes)
 var railway_asset = _railway_asset(sequelize, DataTypes)
 var permissions = _permission(sequelize, DataTypes)
 var role_permissions = _role_permissions(sequelize, DataTypes)
-var role = _role(sequelize, DataTypes)
+  var role_programme_access = _role_programme_access(sequelize, DataTypes)
+  var role = _role(sequelize, DataTypes)
 var data_request = _data_request(sequelize, DataTypes)
 var data_request_document = _data_request_document(sequelize, DataTypes)
 var data_request_share = _data_request_share(sequelize, DataTypes)
@@ -365,7 +367,7 @@ communication_recipient.belongsTo(communication, {
     grievance, incident, incident_history,
     grievance_log,disbursement,project_contractor,project_team,project_clockin,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
-     settlement_history,settlement_population,county_population_growth_rate,grievance_history, programme,permissions,role_permissions,role,module_settings,
+     settlement_history,settlement_population,county_population_growth_rate,grievance_history, programme,permissions,role_permissions,role_programme_access,role,module_settings,
      vulnerability_matrix,vulnerability_rating_threshold,climate_assessment,climate_assessment_version,page_visit
 
   }
