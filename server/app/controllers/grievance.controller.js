@@ -1174,7 +1174,7 @@ exports.getGrievances = async (req, res) => {
 
 
 const multer = require('multer');
-const { GRIEVANCE_UPLOAD_DIR, ensureDir } = require('../config/paths.config');
+const { GRIEVANCE_UPLOAD_DIR, UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
 const uploadDir = GRIEVANCE_UPLOAD_DIR;
 /** Previous default when cwd was the app folder — used only as a download fallback for unmigrated files. */
@@ -3289,49 +3289,63 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
  exports.downloadFile = async (req, res) => {
       console.log("Received files:", req.body);
 
-      let filename = req.body.filename;
+      const filenamesToTry = [];
+      const addName = (n) => {
+        const safe = path.basename(String(n ?? '').trim());
+        if (safe && !filenamesToTry.includes(safe)) filenamesToTry.push(safe);
+      };
+
+      if (req.body.filename) addName(req.body.filename);
+
       if (req.body.doc_id != null && req.body.doc_id !== '') {
         try {
           const gd = await db.models.grievance_document.findByPk(Number(req.body.doc_id));
-          if (gd && gd.name) filename = gd.name;
+          if (gd) {
+            addName(gd.name);
+            if (gd.code) addName(gd.code);
+            if (gd.location) addName(gd.location);
+            const fmt = gd.format ? String(gd.format).trim().replace(/^\./, '') : '';
+            if (fmt && gd.name && !String(gd.name).includes('.')) {
+              addName(`${gd.name}.${fmt}`);
+            }
+          }
         } catch (e) {
           console.error('grievance_document lookup in downloadFile', e);
         }
       }
 
-      if (!filename || String(filename).trim() === '') {
-        return res.status(500).send({
+      if (filenamesToTry.length === 0) {
+        return res.status(404).send({
           message: 'File not found.',
-          code: '0000'
+          code: '0000',
         });
       }
 
-      const safeName = path.basename(String(filename));
-      const primaryPath = path.join(uploadDir, safeName);
-      const legacyPath = path.join(grievanceUploadDirLegacy, safeName);
-      const pathsToTry =
-        path.normalize(primaryPath) === path.normalize(legacyPath)
-          ? [primaryPath]
-          : [primaryPath, legacyPath];
-
-      const trySendFrom = (i) => {
-        if (i >= pathsToTry.length) {
-          db.models.document.destroy({ where: { name: req.body.filename } }).then(() => {
-            console.log('succeed');
-            res.status(500).send({
-              message: 'File not found.',
-              code: '0000',
-            });
+      const trySendFile = (fileIndex, pathIndex) => {
+        if (fileIndex >= filenamesToTry.length) {
+          return res.status(404).send({
+            message: 'File not found.',
+            code: '0000',
           });
-          return;
         }
-        const uploadedFile = pathsToTry[i];
-        console.log(uploadedFile);
+
+        const safeName = filenamesToTry[fileIndex];
+        const primaryPath = path.join(uploadDir, safeName);
+        const legacyPath = path.join(grievanceUploadDirLegacy, safeName);
+        const uploadFallbackPath = path.join(UPLOAD_DIR, safeName);
+        const uniquePaths = [primaryPath, legacyPath, uploadFallbackPath].filter(
+          (p, i, arr) => arr.findIndex((x) => path.normalize(x) === path.normalize(p)) === i
+        );
+
+        if (pathIndex >= uniquePaths.length) {
+          return trySendFile(fileIndex + 1, 0);
+        }
+
+        const uploadedFile = uniquePaths[pathIndex];
+        console.log('Trying grievance download path:', uploadedFile);
         fs.access(uploadedFile, fs.constants.F_OK, (err) => {
           if (err) {
-            console.log(err);
-            trySendFrom(i + 1);
-            return;
+            return trySendFile(fileIndex, pathIndex + 1);
           }
           res.sendFile(path.resolve(uploadedFile), function (sendErr) {
             if (sendErr) {
@@ -3345,7 +3359,7 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
         });
       };
 
-      trySendFrom(0);
+      trySendFile(0, 0);
     };
 
 
