@@ -1316,41 +1316,11 @@ exports.signin = async (req, res) => {
  // const username = req.body.username.trim();
  
 
- let whereClause = [];
+ let whereClause = buildSigninWhereClause(req.body.username, req.body.phone);
 
-        if(req.body.username) {
-          whereClause.push({
-            username: {
-              [Op.iLike]: req.body.username.trim().toLowerCase()
-            }
-          });
+        if (whereClause.length === 0) {
+          return res.status(400).send({ message: 'Username or phone is required.' });
         }
-
-        if(req.body.username) {
-          whereClause.push({
-            email: {
-              [Op.iLike]: req.body.username.trim().toLowerCase()
-            }
-          });
-        }
-
-        if(req.body.username) {
-          whereClause.push({
-            phone: {
-              [Op.iLike]: req.body.username.trim().toLowerCase()
-            }
-          });
-        }
-
-
-        if(req.body.phone) {
-          whereClause.push({
-            phone: {
-              [Op.iLike]: req.body.phone.trim().toLowerCase()
-            }
-          });
-        }
-
 
         console.log('Logging in whereClause:', whereClause)
 
@@ -1382,7 +1352,9 @@ exports.signin = async (req, res) => {
         });
         return res.status(404).send({ message: 'User Not found.' })
       }
-      var passwordIsValid = bcrypt.compareSync(req.body.password, user.password)
+      var passwordIsValid = user.password
+        ? bcrypt.compareSync(req.body.password, user.password)
+        : false
       if (!passwordIsValid) {
  
         instlog.userId = 0
@@ -2593,8 +2565,9 @@ exports.signupGRM = async (req, res) => {
 
 
 function convertPhoneNumber(number) {
+  if (number == null) return '';
   // Remove leading plus sign (+) and any spaces
-  number = number.replace(/\+/g, '').trim();
+  number = String(number).replace(/\+/g, '').trim();
 
   // Check if the number starts with "254" or "+254"
   if (number.startsWith('254')) {
@@ -2603,6 +2576,47 @@ function convertPhoneNumber(number) {
   }
 
   return number;
+}
+
+function looksLikeKenyaPhone(value) {
+  if (value == null) return false;
+  const cleaned = String(value).replace(/\s/g, '').trim();
+  return /^(?:\+?254|0)[17]\d{8}$/.test(cleaned);
+}
+
+function buildLoginLookupVariants(identifier) {
+  if (identifier == null) return [];
+  const trimmed = String(identifier).trim();
+  if (!trimmed) return [];
+
+  const variants = new Set([trimmed, trimmed.toLowerCase()]);
+
+  if (looksLikeKenyaPhone(trimmed)) {
+    const normalized = convertPhoneNumber(trimmed.replace(/\s/g, ''));
+    if (normalized) variants.add(normalized);
+    if (normalized.startsWith('0')) {
+      variants.add('254' + normalized.substring(1));
+    }
+  }
+
+  return [...variants].filter(Boolean);
+}
+
+function buildSigninWhereClause(username, phone) {
+  const whereClause = [];
+
+  for (const variant of buildLoginLookupVariants(username)) {
+    whereClause.push({ username: { [Op.iLike]: variant } });
+    whereClause.push({ email: { [Op.iLike]: variant } });
+    whereClause.push({ phone: { [Op.iLike]: variant } });
+  }
+
+  for (const variant of buildLoginLookupVariants(phone)) {
+    whereClause.push({ username: { [Op.iLike]: variant } });
+    whereClause.push({ phone: { [Op.iLike]: variant } });
+  }
+
+  return whereClause;
 }
 
 
