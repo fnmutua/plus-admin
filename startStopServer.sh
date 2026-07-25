@@ -11,7 +11,7 @@
 #   healthcheck — verify PM2 + HTTP; restart anything unhealthy (for cron)
 #
 # Crontab — check every 5 minutes:
-#   */5 * * * * /bin/bash /path/to/plus-admin/startStopServer.sh healthcheck >> /path/to/plus-admin/healthcheck.log 2>&1
+#   */5 * * * * /bin/bash /data/plus-admin/startStopServer.sh healthcheck >> /home/kesmis/healthcheck.log 2>&1
 
 set -euo pipefail
 
