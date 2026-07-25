@@ -1,6 +1,7 @@
 const { authJwt } = require("../middleware");
 const controller = require("../controllers/user.controller");
 const { hasPermission } = require('../middleware/permission');
+const { requireRootAdmin } = require('../middleware/requireRootAdmin');
 
 module.exports = function(app) {
 
@@ -457,6 +458,12 @@ module.exports = function(app) {
    *                   example: "Admin users retrieved successfully"
    */
   app.post("/api/v1/user/admin", [authJwt.verifyToken, hasPermission('user:read')], controller.modelAdminUsers);
+
+  app.post(
+    "/api/v1/user/super-admin",
+    [authJwt.verifyToken, requireRootAdmin, hasPermission('user:read')],
+    controller.modelSuperAdminUsers
+  );
 
   /**
    * @swagger

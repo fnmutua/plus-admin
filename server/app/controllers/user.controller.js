@@ -1438,6 +1438,111 @@ exports.modelAdminUsers = async (req, res) => {
 
  
  
+exports.modelSuperAdminUsers = async (req, res) => {
+  try {
+    const {
+      currentUser,
+      filters = [],
+      filterValues = [],
+      limit = 10,
+      page = 1,
+      searchString,
+    } = req.body;
+
+    const superAdminRole = await db.models.roles.findOne({
+      where: { name: 'super_admin' },
+    });
+
+    if (!superAdminRole) {
+      return res.status(404).send({
+        message: 'Super admin role not found',
+        code: 'ROLE_NOT_FOUND',
+      });
+    }
+
+    const whereClause = {};
+
+    if (searchString) {
+      whereClause[Op.or] = [
+        { name: { [Op.iLike]: `%${searchString}%` } },
+        { username: { [Op.iLike]: `%${searchString}%` } },
+        { email: { [Op.iLike]: `%${searchString}%` } },
+        { phone: { [Op.iLike]: `%${searchString}%` } },
+      ];
+    }
+
+    if (filters.length === filterValues.length && filters.length > 0) {
+      const filterConditions = filters.map((filter, index) => {
+        let value = filterValues[index];
+        if (value === 'true' || value === 'false') {
+          value = value === 'true';
+        } else if (!isNaN(value)) {
+          value = Number(value);
+        }
+        return { [filter]: { [Op.eq]: value } };
+      });
+      if (whereClause[Op.or]) {
+        whereClause[Op.and] = [{ [Op.or]: whereClause[Op.or] }, ...filterConditions];
+        delete whereClause[Op.or];
+      } else {
+        whereClause[Op.and] = filterConditions;
+      }
+    }
+
+    whereClause.id = {
+      [Op.and]: [
+        { [Op.ne]: currentUser.id },
+        {
+          [Op.in]: db.sequelize.literal(
+            `(SELECT userid FROM user_roles WHERE roleid = ${Number(superAdminRole.id)})`
+          ),
+        },
+      ],
+    };
+
+    const { count, rows: superAdminUsers } = await Users.findAndCountAll({
+      include: [
+        {
+          model: db.models.user_roles,
+          required: false,
+          include: [{ model: db.models.roles, required: false }],
+        },
+        {
+          model: db.models.county,
+          attributes: ['id', 'name', 'code'],
+          required: false,
+        },
+      ],
+      where: whereClause,
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']],
+      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
+      distinct: true,
+    });
+
+    const usersWithPhotos = superAdminUsers.map((user) => {
+      const userObj = user.toJSON ? user.toJSON() : user;
+      userObj.photo = userObj.photo
+        ? 'data:image/png;base64,' + userObj.photo.toString('base64')
+        : '';
+      return userObj;
+    });
+
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'Super admin users retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Error in modelSuperAdminUsers:', error);
+    res.status(500).send({
+      message: 'Unable to retrieve super admin users. Please try again later.',
+    });
+  }
+};
+
 exports.modelUserByName = async (req, res) => {
   try {
     const viewerId = req.thisUser?.id ?? req.body.currentUser?.id;

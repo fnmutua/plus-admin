@@ -69,6 +69,10 @@ export const getAdminStaff = (data: UserType): Promise<IResponse<UserType>> => {
   return request.post({ url: prod + '/api/v1/user/admin', data })
 }
 
+export const getSuperAdminStaff = (data: UserType): Promise<IResponse<UserType>> => {
+  return request.post({ url: prod + '/api/v1/user/super-admin', data })
+}
+
 
 
 

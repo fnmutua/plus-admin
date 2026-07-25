@@ -20,7 +20,7 @@ const emit = defineEmits<{
   <el-popover
     :visible="showColumnPicker"
     placement="bottom-end"
-    :width="260"
+    :width="280"
     trigger="manual"
     :teleported="true"
     @update:visible="emit('update:showColumnPicker', $event)"
@@ -38,15 +38,18 @@ const emit = defineEmits<{
       <div class="user-columns-picker__title">Table columns</div>
       <p class="user-columns-picker__hint">Drag column edges in the table to resize. Uncheck to hide.</p>
       <el-checkbox-group
+        class="user-columns-picker__options"
         :model-value="visibleColumnKeys"
         @update:model-value="emit('update:visibleColumnKeys', $event as AdjustableColumnKey[])"
       >
         <el-checkbox
           v-for="col in hideableColumns"
           :key="col.key"
-          :value="col.key"
-          :label="col.label"
-        />
+          class="user-columns-picker__option"
+          :label="col.key"
+        >
+          {{ col.label }}
+        </el-checkbox>
       </el-checkbox-group>
       <el-button class="user-columns-picker__reset" size="small" text type="primary" @click="emit('reset')">
         Reset columns
@@ -56,6 +59,12 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
+.user-columns-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .user-columns-picker__title {
   font-weight: 600;
   margin-bottom: 4px;
@@ -68,15 +77,36 @@ const emit = defineEmits<{
   line-height: 1.4;
 }
 
-.user-columns-picker :deep(.el-checkbox-group) {
+.user-columns-picker__options {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+}
+
+.user-columns-picker__options :deep(.user-columns-picker__option) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 32px;
+  margin-right: 0;
+}
+
+.user-columns-picker__options :deep(.user-columns-picker__option .el-checkbox__input) {
+  flex-shrink: 0;
+}
+
+.user-columns-picker__options :deep(.user-columns-picker__option .el-checkbox__label) {
+  flex: 1;
+  padding-left: 8px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .user-columns-picker__reset {
-  margin-top: 8px;
+  align-self: flex-start;
+  margin-top: 10px;
   padding-left: 0;
 }
 </style>

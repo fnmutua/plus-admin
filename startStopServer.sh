@@ -10,15 +10,15 @@
 #   start       — (default) stop + start all services
 #   healthcheck — verify PM2 + HTTP; restart anything unhealthy (for cron)
 #
-# Crontab — check every 5 minutes:
+# Crontab — run as the PM2 owner (e.g. kesmis), not root; no sudo password needed:
 #   */5 * * * * /bin/bash /data/plus-admin/startStopServer.sh healthcheck >> /home/kesmis/healthcheck.log 2>&1
+# Optional: PM2_CMD=pm2  (default auto-detects; avoids sudo in cron)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO_ROOT"
 
-PM2="${PM2_CMD:-sudo pm2}"
 LOG_FILE="${HEALTHCHECK_LOG:-$REPO_ROOT/healthcheck.log}"
 MAIN_PORT="${MAIN_HTTPS_PORT:-8443}"
 CHAT_PORT="${CHAT_PORT:-3001}"
@@ -35,6 +35,26 @@ SERVICES=(
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
+
+# Cron has no TTY — never use interactive sudo. Prefer the current user's PM2 daemon.
+resolve_pm2_cmd() {
+  if [[ -n "${PM2_CMD:-}" ]]; then
+    echo "$PM2_CMD"
+    return
+  fi
+  if command -v pm2 >/dev/null 2>&1 && pm2 ping >/dev/null 2>&1; then
+    echo "pm2"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1 && sudo -n pm2 ping >/dev/null 2>&1; then
+    echo "sudo -n pm2"
+    return
+  fi
+  log "WARN — PM2 daemon not reachable as $(whoami). Set PM2_CMD or run cron as the PM2 owner."
+  echo "pm2"
+}
+
+PM2="$(resolve_pm2_cmd)"
 
 pm2_online() {
   local name="$1"
@@ -146,6 +166,7 @@ restart_one() {
 }
 
 healthcheck() {
+  log "Health check using PM2 command: $PM2 (user: $(whoami))"
   local failed=0
   local entry name target
   for entry in "${SERVICES[@]}"; do

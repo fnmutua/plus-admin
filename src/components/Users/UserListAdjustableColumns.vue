@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ElAvatar, ElTableColumn, ElTag } from 'element-plus'
+import { ElTableColumn, ElTag } from 'element-plus'
 import type { AdjustableColumnKey } from '@/composables/useAdjustableTableColumns'
 import { isUserAccessFullyExpired } from '@/utils/userAccessExpiryDisplay'
 
@@ -9,34 +9,15 @@ const props = defineProps<{
   columnMinWidth: (key: AdjustableColumnKey) => number | undefined
   accessReasonLabels?: Record<string, string>
   formatDate?: (value: string | Date | null) => string | null
-  avatarField?: 'photo' | 'avatar'
   idLabel?: string
   useIndexColumn?: boolean
   getSettlementLabel?: (row: any) => string
 }>()
-
-const avatarSrc = (row: any) => {
-  const field = props.avatarField ?? 'photo'
-  return row[field] || row.photo || row.avatar || ''
-}
 </script>
 
 <template>
   <el-table-column v-if="useIndexColumn" type="index" label="#" width="50" fixed="left" />
   <el-table-column v-else prop="id" label="#" width="50" fixed="left" />
-
-  <el-table-column
-    v-if="isColumnVisible('avatar')"
-    column-key="avatar"
-    label="Avatar"
-    :width="columnWidth('avatar')"
-    :min-width="columnMinWidth('avatar')"
-    resizable
-  >
-    <template #default="scope">
-      <el-avatar :src="avatarSrc(scope.row)" :size="40" />
-    </template>
-  </el-table-column>
 
   <el-table-column
     v-if="isColumnVisible('name')"

@@ -1487,6 +1487,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           permissions: ['user:read'],
         }
       },
+      {
+        path: 'super-admin',
+        component: () => import('@/views/Users/SuperAdminUsers.vue'),
+        name: 'SuperAdminStaff',
+        meta: {
+          title: 'Super Admins',
+          hidden: false,
+          icon: 'mdi:shield-crown',
+          permissions: ['user:read'],
+          roles: ['root_admin'],
+        }
+      },
       
 
       {

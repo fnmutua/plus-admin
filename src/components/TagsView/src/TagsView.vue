@@ -291,7 +291,7 @@ const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Repository: 'repo-documents', RepositoryTagged: 'repo-documents', ImportDocuments: 'repo-documents',
   DroneImagery: 'repo-imagery', DocumentShares: 'repo-shares',
   Media: 'media-overview', Video: 'media-videos', LiveStreams: 'media-live', Articles: 'media-articles',
-  systemUsers: 'users-listing', staff: 'users-listing', AdminStaff: 'users-listing', GRM_Staff: 'users-listing', NewAccounts: 'users-activation',
+  systemUsers: 'users-listing', staff: 'users-listing', AdminStaff: 'users-listing', SuperAdminStaff: 'users-listing', GRM_Staff: 'users-listing', NewAccounts: 'users-activation',
   Settings: 'settings-sms', SettingsPlatform: 'settings-system', SettingsAnalytics: 'config-dashboards-list',
   ModuleSettings: 'settings-sms', SystemSettings: 'settings-system', ClimateSettings: 'settings-climate',
   PopulationSettings: 'settings-population', DataCleanupSettings: 'settings-data-cleanup', PageVisits: 'settings-page-visits',

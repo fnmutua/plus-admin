@@ -12,6 +12,12 @@ export type AdjustableColumnSetting = {
   hideable: boolean
 }
 
+/** Removed from user tables; strip from cached column prefs. */
+const DEPRECATED_COLUMN_KEYS = new Set(['avatar'])
+
+const withoutDeprecatedColumns = (cols: AdjustableColumnSetting[]) =>
+  cols.filter((col) => !DEPRECATED_COLUMN_KEYS.has(col.key))
+
 export function useAdjustableTableColumns(
   storageKey: string,
   createDefaults: () => AdjustableColumnSetting[]
@@ -19,13 +25,21 @@ export function useAdjustableTableColumns(
   const { wsCache } = useCache()
 
   const loadColumns = (): AdjustableColumnSetting[] => {
-    const defaults = createDefaults()
+    const defaults = withoutDeprecatedColumns(createDefaults())
     const saved = wsCache.get(storageKey) as Partial<AdjustableColumnSetting>[] | undefined
     if (!Array.isArray(saved)) {
       return defaults
     }
-    return defaults.map((col) => {
-      const match = saved.find((s) => s.key === col.key)
+
+    const cleanedSaved = saved.filter(
+      (entry) => entry?.key && !DEPRECATED_COLUMN_KEYS.has(entry.key)
+    )
+    const hadDeprecated = saved.some(
+      (entry) => entry?.key && DEPRECATED_COLUMN_KEYS.has(entry.key)
+    )
+
+    const merged = defaults.map((col) => {
+      const match = cleanedSaved.find((s) => s.key === col.key)
       if (!match) return col
       return {
         ...col,
@@ -33,6 +47,15 @@ export function useAdjustableTableColumns(
         visible: !col.hideable ? true : match.visible !== false,
       }
     })
+
+    if (hadDeprecated || cleanedSaved.length !== saved.length) {
+      wsCache.set(
+        storageKey,
+        merged.map(({ key, width, visible }) => ({ key, width, visible }))
+      )
+    }
+
+    return merged
   }
 
   const columns = ref<AdjustableColumnSetting[]>(loadColumns())
@@ -41,7 +64,11 @@ export function useAdjustableTableColumns(
   const saveColumns = () => {
     wsCache.set(
       storageKey,
-      columns.value.map(({ key, width, visible }) => ({ key, width, visible }))
+      withoutDeprecatedColumns(columns.value).map(({ key, width, visible }) => ({
+        key,
+        width,
+        visible,
+      }))
     )
   }
 
@@ -53,12 +80,14 @@ export function useAdjustableTableColumns(
   const columnMinWidth = (key: AdjustableColumnKey) =>
     columns.value.find((c) => c.key === key)?.minWidth
 
-  const hideableColumns = computed(() => columns.value.filter((c) => c.hideable))
+  const hideableColumns = computed(() =>
+    withoutDeprecatedColumns(columns.value).filter((c) => c.hideable)
+  )
 
   const visibleColumnKeys = computed({
     get: () => hideableColumns.value.filter((c) => c.visible).map((c) => c.key),
     set: (keys: AdjustableColumnKey[]) => {
-      const selected = new Set(keys)
+      const selected = new Set(keys.filter((key) => !DEPRECATED_COLUMN_KEYS.has(key)))
       columns.value.forEach((col) => {
         if (col.hideable) {
           col.visible = selected.has(col.key)
@@ -82,7 +111,7 @@ export function useAdjustableTableColumns(
   }
 
   const resetColumns = () => {
-    columns.value = createDefaults()
+    columns.value = withoutDeprecatedColumns(createDefaults())
     saveColumns()
   }
 

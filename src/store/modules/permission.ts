@@ -690,20 +690,33 @@ export const usePermissionStore = defineStore('permission', {
           initializeRoutes().then(() => { routesLoadedAt.value = Date.now() })
         }
 
-        // Filter routes by granular permissions only. Routes with no permissions declared are visible to all authenticated users.
-        // Operate on a deep clone so the module-level adminRoutes is never mutated between calls.
+        // Filter routes by permissions and optional role restrictions.
+        const { wsCache } = useCache()
+        const { useAppStoreWithOut } = await import('@/store/modules/app')
+        const appStore = useAppStoreWithOut()
+        const currentUserInfo = wsCache.get(appStore.getUserInfo)
+        const userRoleNames: string[] = (currentUserInfo?.roles || []).map((r: any) => r.name)
+
         const filterRoutes = (routes) => {
           return routes
             .filter((route) => {
-              if (!route.meta?.permissions?.length) return true;
-              return route.meta.permissions.some((p: string) => userPermissions.includes(p));
+              if (route.meta?.roles?.length) {
+                const hasRequiredRole = route.meta.roles.some((roleName: string) =>
+                  userRoleNames.includes(roleName)
+                )
+                if (!hasRequiredRole) return false
+              }
+              if (!route.meta?.permissions?.length) return true
+              return route.meta.permissions.some((p: string) => userPermissions.includes(p))
             })
             .map((route) => {
               if (route.children?.length) {
-                return { ...route, children: filterRoutes(route.children) };
+                const children = filterRoutes(route.children)
+                return { ...route, children }
               }
-              return route;
-            });
+              return route
+            })
+            .filter((route) => !route.children?.length || route.children.length > 0)
         };
         const filteredRoutes = filterRoutes(cloneDeep(adminRoutes));
         // Clone the filtered routes to avoid modifying the original routes
