@@ -5535,18 +5535,37 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         if (directFilters.length > 0) {
           allFilters.push(
             ...directFilters.map(({ field, value }) => {
+              const attr = Model.rawAttributes[field]
+              const isIntegerField =
+                attr?.type?.key === 'INTEGER' ||
+                attr?.type?.key === 'BIGINT' ||
+                attr?.type?.key === 'FLOAT' ||
+                attr?.type?.key === 'DOUBLE' ||
+                attr?.type?.key === 'DECIMAL'
+
               if (Array.isArray(value)) {
-                const parsed = value
-                  .map((entry) => parseInt(entry, 10))
-                  .filter((entry) => !Number.isNaN(entry));
-                if (parsed.length) {
-                  return { [field]: { [Sequelize.Op.in]: parsed } };
+                if (isIntegerField) {
+                  const parsed = value
+                    .map((entry) => parseInt(entry, 10))
+                    .filter((entry) => !Number.isNaN(entry))
+                  if (parsed.length) {
+                    return { [field]: { [Sequelize.Op.in]: parsed } }
+                  }
+                  return null
                 }
-                return null;
+                return { [field]: { [Sequelize.Op.in]: value } }
               }
-              return { [field]: value };
+
+              if (isIntegerField && value != null && value !== '') {
+                const parsed = parseInt(value, 10)
+                if (!Number.isNaN(parsed)) {
+                  return { [field]: parsed }
+                }
+              }
+
+              return { [field]: value }
             }).filter(Boolean)
-          );
+          )
         }
         
         if (allFilters.length > 0) {
