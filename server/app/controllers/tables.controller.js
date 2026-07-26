@@ -5427,8 +5427,12 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       returnAll = false,
       // Optional performance hints from client
       excludeGeom = false,
+      // When true (default), strip geom from associated/nested models (e.g. project_location on project list).
+      excludeGeomAssoc = true,
       fields = null,
     } = req.body;
+
+    const stripAssociatedGeom = excludeGeomAssoc !== false && excludeGeomAssoc !== 'false' && excludeGeomAssoc !== 0;
 
     if (!modelName) {
       return res.status(400).json({ message: 'Model name is required', code: 'INVALID_INPUT' });
@@ -5623,7 +5627,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       const relatedHasGeom = Object.keys(RelatedModel.rawAttributes).includes('geom');
       const modelIncl = { 
         model: RelatedModel,
-        attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined
+        attributes: relatedHasGeom && stripAssociatedGeom ? { exclude: ['geom'] } : undefined
       };
       if (isProjectModel && assocModel === 'project_location') {
         modelIncl.include = [
@@ -5655,10 +5659,10 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       const nestedQuery = nested_filter.length === 2 ? { [nested_filter[0]]: nested_filter[1] } : null;
       includeModels.push({
         model: childModel,
-        attributes: childHasGeom ? { exclude: ['geom'] } : undefined,
+        attributes: childHasGeom && stripAssociatedGeom ? { exclude: ['geom'] } : undefined,
         include: [{
           model: grandChildModel,
-          attributes: grandChildHasGeom ? { exclude: ['geom'] } : undefined,
+          attributes: grandChildHasGeom && stripAssociatedGeom ? { exclude: ['geom'] } : undefined,
           ...(nestedQuery && { where: nestedQuery }),
         }],
       });
@@ -6496,11 +6500,14 @@ exports.modelLookup = async (req, res) => {
     const {
       model: reg_model,
       excludeGeom,
+      excludeGeomAssoc = true,
       associated_multiple_models: associatedModels = [],
       nested_models: nestedModels = [],
       filters = [],
       filterValues = [],
     } = req.body;
+
+    const stripAssociatedGeom = excludeGeomAssoc !== false && excludeGeomAssoc !== 'false' && excludeGeomAssoc !== 0;
 
     // Initialize variables
     const includeModels = [];
@@ -6517,7 +6524,7 @@ exports.modelLookup = async (req, res) => {
           model: model,
           raw: true,
           nested: true,
-          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          attributes: stripAssociatedGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
         });
       });
 
@@ -6529,11 +6536,11 @@ exports.modelLookup = async (req, res) => {
             model: grandChildModel,
             raw: true,
             nested: true,
-            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+            attributes: stripAssociatedGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
           }],
           raw: true,
           nested: true,
-          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          attributes: stripAssociatedGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
         });
       }
     }
