@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer, ElMessage, ElCheckbox, ElCheckboxGroup, ElDivider, ElCollapse, ElCollapseItem
 } from 'element-plus'
-import { ref, reactive, computed, onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, computed, onBeforeMount, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@/components/Icon'
 import {
   pieOptions,  multipleBarChart, stacklineOptions, treemapOptions,pyramidOptions,
@@ -43,6 +43,11 @@ import {
   dashboardChartAxisPx,
 } from '@/utils/dashboardTypography'
 import { useAppStore } from '@/store/modules/app'
+import {
+  exportDashboardChartsToZip,
+  type DashboardChartExportItem,
+  type DashboardChartExportTabGroup,
+} from '@/utils/exportDashboardCharts'
 
 const { push } = useRouter()
 const appStore = useAppStore()
@@ -2624,6 +2629,181 @@ const handleMapClick = (params: any, chartId: string) => {
   }
 };
 
+const chartsExportLoading = ref(false)
+const exportDrawerVisible = ref(false)
+const selectedExportChartIds = ref<string[]>([])
+const exportCollapseActive = ref<string[]>([])
+const chartComponentRefs = new Map<string, unknown>()
+
+const setChartComponentRef = (chartId: string | number, el: unknown) => {
+  const key = String(chartId)
+  if (el) {
+    chartComponentRefs.set(key, el)
+  } else {
+    chartComponentRefs.delete(key)
+  }
+}
+
+const getExportableChartsForTab = (tab: any): any[] => {
+  return (tab?.charts || []).filter((chart: any) => chart?.chart && !isChartLoading(chart.id))
+}
+
+const getExportableChartCount = (): number => {
+  return ((tabs.value as any[]) || []).reduce(
+    (count, tab) => count + getExportableChartsForTab(tab).length,
+    0
+  )
+}
+
+const exportDrawerTabGroups = computed(() => {
+  return ((tabs.value as any[]) || [])
+    .map((tab) => {
+      const charts = getExportableChartsForTab(tab).map((chart: any) => ({
+        id: String(chart.id),
+        title: chart.title || `Chart ${chart.id}`,
+      }))
+      return {
+        tabName: tab.name,
+        tabLabel: String(tab.label || tab.name || 'Tab'),
+        tabFolder: sanitizeExportFileSegment(tab.label || tab.name || 'Tab'),
+        charts,
+      }
+    })
+    .filter((group) => group.charts.length > 0)
+})
+
+const allExportChartIds = computed(() =>
+  exportDrawerTabGroups.value.flatMap((group) => group.charts.map((chart) => chart.id))
+)
+
+const openExportDrawer = () => {
+  selectedExportChartIds.value = [...allExportChartIds.value]
+  exportCollapseActive.value = exportDrawerTabGroups.value.map((group) => group.tabFolder)
+  exportDrawerVisible.value = true
+}
+
+const isTabExportFullySelected = (chartIds: string[]) =>
+  chartIds.length > 0 && chartIds.every((id) => selectedExportChartIds.value.includes(id))
+
+const isTabExportPartiallySelected = (chartIds: string[]) => {
+  const selectedCount = chartIds.filter((id) => selectedExportChartIds.value.includes(id)).length
+  return selectedCount > 0 && selectedCount < chartIds.length
+}
+
+const toggleTabExportSelection = (chartIds: string[], checked: boolean) => {
+  if (checked) {
+    selectedExportChartIds.value = [...new Set([...selectedExportChartIds.value, ...chartIds])]
+    return
+  }
+  selectedExportChartIds.value = selectedExportChartIds.value.filter((id) => !chartIds.includes(id))
+}
+
+const buildChartExportConfig = (chart: any): Record<string, unknown> => {
+  if (chart.type === 8) {
+    return chart.chart as Record<string, unknown>
+  }
+  return chart.chart as Record<string, unknown>
+}
+
+const waitForTabCharts = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 200)
+      })
+    })
+  })
+
+const exportChartsZip = async (chartIds: Set<string> | 'all') => {
+  const selectedIds = chartIds === 'all' ? null : chartIds
+  const allTabs = (tabs.value as any[]) || []
+  const tabsWithCharts = allTabs
+    .map((tab) => ({
+      tab,
+      charts: getExportableChartsForTab(tab).filter(
+        (chart: any) => !selectedIds || selectedIds.has(String(chart.id))
+      ),
+    }))
+    .filter(({ charts }) => charts.length > 0)
+
+  if (!tabsWithCharts.length) {
+    ElMessage.warning(selectedIds ? 'Select at least one chart to export' : 'No charts are ready to export')
+    return
+  }
+
+  const scopeLabel = sanitizeExportFileSegment(statisticsCardFilterContext.value || 'Kenya')
+  const zipFileName = `${scopeLabel}_dashboard_charts_${new Date().toISOString().slice(0, 10)}.zip`
+  const previousTab = activeTab.value
+  const chartConfigs = new Map<string, Record<string, unknown>>()
+  const tabGroups: DashboardChartExportTabGroup[] = []
+  const tabNameByFolder = new Map<string, string | number>()
+
+  try {
+    chartsExportLoading.value = true
+
+    for (const { tab, charts } of tabsWithCharts) {
+      const tabFolder = sanitizeExportFileSegment(tab.label || tab.name || 'Tab')
+      tabNameByFolder.set(tabFolder, tab.name)
+
+      const exportItems: DashboardChartExportItem[] = charts.map((chart: any) => {
+        chartConfigs.set(String(chart.id), buildChartExportConfig(chart))
+        return {
+          id: chart.id,
+          title: chart.title || `Chart ${chart.id}`,
+          type: chart.type,
+          chartExpanded: chart.chartExpanded,
+          chartHeight: chart.chartHeight,
+        }
+      })
+
+      tabGroups.push({ tabFolder, charts: exportItems })
+    }
+
+    const { exported, skipped } = await exportDashboardChartsToZip({
+      tabGroups,
+      chartConfigs,
+      chartComponentRefs,
+      zipFileName,
+      isDark: appStore.getIsDark,
+      onBeforeTabExport: async (group) => {
+        const tabName = tabNameByFolder.get(group.tabFolder)
+        if (tabName == null) return
+        activeTab.value = tabName
+        await nextTick()
+        await waitForTabCharts()
+      },
+    })
+
+    exportDrawerVisible.value = false
+
+    if (skipped > 0) {
+      ElMessage.success(`Exported ${exported} chart(s) across ${tabGroups.length} tab(s). ${skipped} chart(s) could not be captured.`)
+    } else {
+      ElMessage.success(`Exported ${exported} chart(s) across ${tabGroups.length} tab(s) to ZIP`)
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || 'Failed to export charts')
+  } finally {
+    activeTab.value = previousTab
+    chartsExportLoading.value = false
+  }
+}
+
+const exportAllChartsFromDrawer = () => exportChartsZip('all')
+
+const exportSelectedChartsFromDrawer = () => {
+  exportChartsZip(new Set(selectedExportChartIds.value))
+}
+
+function sanitizeExportFileSegment(value: string): string {
+  return String(value || 'dashboard')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 60) || 'dashboard'
+}
+
 // Download settlement data
 const downloadSettlementData = async () => {
   if (!selectedSettlement.value) return;
@@ -2723,6 +2903,76 @@ const downloadSettlementData = async () => {
       </div>
     </el-drawer>
 
+    <el-drawer
+      v-model="exportDrawerVisible"
+      title="Export charts"
+      direction="rtl"
+      size="440px"
+    >
+      <div class="export-drawer-content">
+        <p class="export-drawer-intro">
+          Download dashboard charts as PNG files grouped by tab inside a ZIP archive.
+        </p>
+
+        <el-button
+          type="primary"
+          :icon="Download"
+          class="export-drawer-all-btn"
+          :loading="chartsExportLoading"
+          @click="exportAllChartsFromDrawer"
+        >
+          Download all charts ({{ allExportChartIds.length }})
+        </el-button>
+
+        <el-divider content-position="left">Or select charts</el-divider>
+
+        <el-collapse v-model="exportCollapseActive" class="export-tab-collapse">
+          <el-collapse-item
+            v-for="group in exportDrawerTabGroups"
+            :key="group.tabFolder"
+            :name="group.tabFolder"
+          >
+            <template #title>
+              <div class="export-tab-group-header" @click.stop>
+                <el-checkbox
+                  :model-value="isTabExportFullySelected(group.charts.map((chart) => chart.id))"
+                  :indeterminate="isTabExportPartiallySelected(group.charts.map((chart) => chart.id))"
+                  @change="(checked: boolean) => toggleTabExportSelection(group.charts.map((chart) => chart.id), checked)"
+                  @click.stop
+                >
+                  {{ group.tabLabel }}
+                  <span class="export-tab-count">({{ group.charts.length }})</span>
+                </el-checkbox>
+              </div>
+            </template>
+            <el-checkbox-group v-model="selectedExportChartIds" class="export-chart-list">
+              <el-checkbox
+                v-for="chart in group.charts"
+                :key="chart.id"
+                :label="chart.id"
+                class="export-chart-item"
+              >
+                {{ chart.title }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </el-collapse-item>
+        </el-collapse>
+
+        <div class="export-drawer-actions">
+          <el-button @click="exportDrawerVisible = false">Cancel</el-button>
+          <el-button
+            type="primary"
+            :icon="Download"
+            :loading="chartsExportLoading"
+            :disabled="selectedExportChartIds.length === 0"
+            @click="exportSelectedChartsFromDrawer"
+          >
+            Download selected ({{ selectedExportChartIds.length }})
+          </el-button>
+        </div>
+      </div>
+    </el-drawer>
+
     <el-row :gutter="16" class="cards-row">
       <!-- Placeholder skeletons before any cards have loaded -->
       <template v-if="cardLoading && cards.length === 0">
@@ -2808,6 +3058,16 @@ const downloadSettlementData = async () => {
     </div>
 
     <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
+      <el-button
+        class="dashboard-export-btn"
+        type="primary"
+        :icon="Download"
+        :loading="chartsExportLoading"
+        :disabled="chartsLoading || getExportableChartCount() === 0"
+        @click="openExportDrawer"
+      >
+        Export charts (ZIP)
+      </el-button>
       <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
             <el-row :gutter="20">
@@ -2848,6 +3108,7 @@ const downloadSettlementData = async () => {
                           <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px; position: relative;">
                             <v-chart 
                               :key="`map-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`"
+                              :ref="(el) => setChartComponentRef(chart.id, el)"
                               :id="chart.id" 
                               class="chart" 
                               :option="chart.chart" 
@@ -2872,6 +3133,7 @@ const downloadSettlementData = async () => {
                           <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
                             <apexchart 
                               :key="`apex-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}-${(chart.apexSeries || chart.chart?.series || []).length}`"
+                              :ref="(el) => setChartComponentRef(chart.id, el)"
                               :id="chart.id"
                               :options="chart.chart" 
                               :series="Array.isArray(chart.apexSeries) ? chart.apexSeries : (Array.isArray(chart.chart.series) ? chart.chart.series : [])" 
@@ -2891,6 +3153,7 @@ const downloadSettlementData = async () => {
                           <div v-if="chart.type==8" class="chart-wrapper">
                             <apexchart 
                               :key="`pyr-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`"
+                              :ref="(el) => setChartComponentRef(chart.id, el)"
                               :id="chart.id"
                               type="bar" 
                               :options="chart.chart.chartOptions" 
@@ -3129,6 +3392,14 @@ const downloadSettlementData = async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.dashboard-export-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
 }
 
 /* flex:1 + min-height:0 for the flex chain only — do NOT set flex-direction here.
@@ -3172,6 +3443,7 @@ const downloadSettlementData = async () => {
 
 .dashboard-tabs :deep(.el-tabs__header) {
   margin-bottom: 10px;
+  margin-right: 190px;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
 }
@@ -3348,6 +3620,90 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.export-drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.export-drawer-intro {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+.export-drawer-all-btn {
+  width: 100%;
+}
+
+.export-tab-collapse {
+  border: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.export-tab-collapse :deep(.el-collapse-item__header) {
+  height: auto;
+  min-height: 44px;
+  line-height: 1.4;
+  padding: 4px 0 4px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.export-tab-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.export-tab-collapse :deep(.el-collapse-item__content) {
+  padding-bottom: 12px;
+  padding-left: 8px;
+}
+
+.export-tab-group-header {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  padding-left: 4px;
+}
+
+.export-tab-count {
+  font-weight: 400;
+  color: var(--el-text-color-secondary);
+  margin-left: 4px;
+}
+
+.export-chart-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 4px 0 24px;
+}
+
+.export-chart-item {
+  display: flex;
+  align-items: flex-start;
+  margin-right: 0;
+  height: auto;
+  white-space: normal;
+}
+
+.export-chart-item :deep(.el-checkbox__label) {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.export-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: auto;
   padding-top: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
