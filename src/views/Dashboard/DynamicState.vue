@@ -54,6 +54,8 @@ import '@/plugins/echarts'
 import VChart from 'vue-echarts'
 
 import { useAppStore } from '@/store/modules/app'
+import { useDashboardChartExport } from './composables/useDashboardChartExport'
+import DashboardChartExportDrawer from './components/DashboardChartExportDrawer.vue'
 
 import { useRouter } from 'vue-router'
 
@@ -3613,6 +3615,26 @@ selectedSubCounties.value = subcountyId;
   }
 }
 
+const chartExportApi = useDashboardChartExport({
+  tabs,
+  activeTab,
+  chartsLoading,
+  chartLoadingMessages,
+  filterLevel,
+  selectedCounties,
+  selectedSubCounties,
+  selectCounty,
+  selectSubCounty,
+  countyList,
+  subCountyList,
+  filteredSubCountyList,
+  statisticsCardFilterContext,
+  isChartLoading,
+  getCards,
+  getTabs,
+})
+
+const { setChartComponentRef } = chartExportApi
 
 const formatNumber = formatDashboardNumberCompact
 
@@ -3992,6 +4014,7 @@ onBeforeUnmount(() => {
   </template>
 
   <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
+    <DashboardChartExportDrawer :export-api="chartExportApi" :charts-loading="chartsLoading" />
     <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
       <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
           <el-row :gutter="20">
@@ -4021,11 +4044,20 @@ onBeforeUnmount(() => {
                       </template>
                       <template v-if="chart.chart">
                         <div v-if="chart.type==7" :id="`map-container-${chart.id}`" style="width: 100%; height: 400px;">
-                          <v-chart :key="`map-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`" :id="chart.id" class="chart" :option="chart.chart" style="width: 100%; height: 100%;" autoresize />
+                          <v-chart
+                            :key="`map-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`"
+                            :ref="(el) => setChartComponentRef(chart.id, el)"
+                            :id="chart.id"
+                            class="chart"
+                            :option="chart.chart"
+                            style="width: 100%; height: 100%;"
+                            autoresize
+                          />
                         </div> 
                         <div v-if="chart.type!=7 && chart.type!=8" class="chart-wrapper">
                           <apexchart
                             :key="`apex-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}-${(chart.apexSeries || chart.chart?.series || []).length}`"
+                            :ref="(el) => setChartComponentRef(chart.id, el)"
                             :options="chart.chart"
                             :series="Array.isArray(chart.apexSeries) ? chart.apexSeries : (Array.isArray(chart.chart?.series) ? chart.chart.series : [])"
                             :type="getChartType(chart.type)"
@@ -4041,7 +4073,16 @@ onBeforeUnmount(() => {
                             </el-button>
                           </div>
                         </div>
-                        <apexchart v-if="chart.type==8" :key="`pyr-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`" type="bar" :options="chart.chart.chartOptions" :series="Array.isArray(chart.chart.series) ? chart.chart.series : []" height="350" autoresize />
+                        <apexchart
+                          v-if="chart.type==8"
+                          :key="`pyr-${chart.id}-${appStore.getIsDark}-${appStore.getCurrentSize}`"
+                          :ref="(el) => setChartComponentRef(chart.id, el)"
+                          type="bar"
+                          :options="chart.chart.chartOptions"
+                          :series="Array.isArray(chart.chart.series) ? chart.chart.series : []"
+                          height="350"
+                          autoresize
+                        />
                       </template>
                       <template v-else>
                         <div class="empty-state-content">
@@ -4214,6 +4255,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 /* Do not set flex-direction on .dashboard-tabs — Element Plus uses column-reverse for tab-position="top". */
@@ -4254,6 +4296,7 @@ onBeforeUnmount(() => {
 
 .dashboard-tabs :deep(.el-tabs__header) {
   margin-bottom: 10px;
+  margin-right: 190px;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
 }

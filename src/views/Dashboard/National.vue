@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer, ElMessage, ElCheckbox, ElCheckboxGroup, ElDivider, ElCollapse, ElCollapseItem, ElRadioGroup, ElRadio
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer
 } from 'element-plus'
 import { ref, reactive, computed, onBeforeMount, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@/components/Icon'
@@ -43,26 +43,11 @@ import {
   dashboardChartAxisPx,
 } from '@/utils/dashboardTypography'
 import { useAppStore } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
-import {
-  canExportNestedDashboardCharts,
-  canUseNationalNestedDashboardExport,
-  canUseCountyNestedDashboardExport,
-  getCountyAdminCountyIds,
-  isSuperAdminUser,
-  isNationalAdminUser,
-} from '@/utils/documentPermissions'
-import JSZip from 'jszip'
-import { saveAs } from 'file-saver'
-import {
-  exportDashboardChartsToZip,
-  type DashboardChartExportItem,
-  type DashboardChartExportTabGroup,
-} from '@/utils/exportDashboardCharts'
+import { useDashboardChartExport } from './composables/useDashboardChartExport'
+import DashboardChartExportDrawer from './components/DashboardChartExportDrawer.vue'
 
 const { push } = useRouter()
 const appStore = useAppStore()
-const { wsCache } = useCache()
 
  
  
@@ -2641,384 +2626,26 @@ const handleMapClick = (params: any, chartId: string) => {
   }
 };
 
-const chartsExportLoading = ref(false)
-const exportDrawerVisible = ref(false)
-const exportMode = ref<'standard' | 'nested'>('standard')
-const selectedExportChartIds = ref<string[]>([])
-const exportCollapseActive = ref<string[]>([])
-const chartComponentRefs = new Map<string, unknown>()
-
-type DashboardFilterSnapshot = {
-  filterLevel: string
-  selectedCounties: any[]
-  selectedSubCounties: any[]
-  selectCounty: any[]
-  selectSubCounty: any[]
-  activeTab: string | number | undefined
-}
-
-const isNationalDashboardView = computed(
-  () => filterLevel.value === 'national' && selectedCounties.value.length === 0
-)
-
-const canUseNestedExport = computed(() => {
-  const userInfo = wsCache.get(appStore.getUserInfo)
-  return (
-    canUseNationalNestedDashboardExport(userInfo, isNationalDashboardView.value) ||
-    canUseCountyNestedDashboardExport(userInfo)
-  )
+const chartExportApi = useDashboardChartExport({
+  tabs,
+  activeTab,
+  chartsLoading,
+  chartLoadingMessages,
+  filterLevel,
+  selectedCounties,
+  selectedSubCounties,
+  selectCounty,
+  selectSubCounty,
+  countyList,
+  subCountyList,
+  filteredSubCountyList,
+  statisticsCardFilterContext,
+  isChartLoading,
+  getCards,
+  getTabs,
 })
 
-function getNestedExportCounties(userInfo: any): any[] {
-  const allCounties = (countyList.value as any[]) || []
-  if (isSuperAdminUser(userInfo) || isNationalAdminUser(userInfo)) {
-    return allCounties
-  }
-  const countyIds = new Set(getCountyAdminCountyIds(userInfo).map(String))
-  return allCounties.filter((county) => countyIds.has(String(county.value)))
-}
-
-const setChartComponentRef = (chartId: string | number, el: unknown) => {
-  const key = String(chartId)
-  if (el) {
-    chartComponentRefs.set(key, el)
-  } else {
-    chartComponentRefs.delete(key)
-  }
-}
-
-const getExportableChartsForTab = (tab: any): any[] => {
-  return (tab?.charts || []).filter((chart: any) => chart?.chart && !isChartLoading(chart.id))
-}
-
-const getExportableChartCount = (): number => {
-  return ((tabs.value as any[]) || []).reduce(
-    (count, tab) => count + getExportableChartsForTab(tab).length,
-    0
-  )
-}
-
-const exportDrawerTabGroups = computed(() => {
-  return ((tabs.value as any[]) || [])
-    .map((tab) => {
-      const charts = getExportableChartsForTab(tab).map((chart: any) => ({
-        id: String(chart.id),
-        title: chart.title || `Chart ${chart.id}`,
-      }))
-      return {
-        tabName: tab.name,
-        tabLabel: String(tab.label || tab.name || 'Tab'),
-        tabFolder: sanitizeExportFileSegment(tab.label || tab.name || 'Tab'),
-        charts,
-      }
-    })
-    .filter((group) => group.charts.length > 0)
-})
-
-const allExportChartIds = computed(() =>
-  exportDrawerTabGroups.value.flatMap((group) => group.charts.map((chart) => chart.id))
-)
-
-const openExportDrawer = () => {
-  if (!canUseNestedExport.value) {
-    exportMode.value = 'standard'
-  }
-  selectedExportChartIds.value = [...allExportChartIds.value]
-  exportCollapseActive.value = exportDrawerTabGroups.value.map((group) => group.tabFolder)
-  exportDrawerVisible.value = true
-}
-
-const isTabExportFullySelected = (chartIds: string[]) =>
-  chartIds.length > 0 && chartIds.every((id) => selectedExportChartIds.value.includes(id))
-
-const isTabExportPartiallySelected = (chartIds: string[]) => {
-  const selectedCount = chartIds.filter((id) => selectedExportChartIds.value.includes(id)).length
-  return selectedCount > 0 && selectedCount < chartIds.length
-}
-
-const toggleTabExportSelection = (chartIds: string[], checked: boolean) => {
-  if (checked) {
-    selectedExportChartIds.value = [...new Set([...selectedExportChartIds.value, ...chartIds])]
-    return
-  }
-  selectedExportChartIds.value = selectedExportChartIds.value.filter((id) => !chartIds.includes(id))
-}
-
-const buildChartExportConfig = (chart: any): Record<string, unknown> => {
-  if (chart.type === 8) {
-    return chart.chart as Record<string, unknown>
-  }
-  return chart.chart as Record<string, unknown>
-}
-
-const waitForTabCharts = () =>
-  new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTimeout(resolve, 200)
-      })
-    })
-  })
-
-const waitForChartsReady = (timeoutMs = 180000) =>
-  new Promise<void>((resolve, reject) => {
-    const started = Date.now()
-    const poll = () => {
-      const pending = Object.keys(chartLoadingMessages.value).length
-      if (!chartsLoading.value && pending === 0) {
-        resolve()
-        return
-      }
-      if (Date.now() - started > timeoutMs) {
-        reject(new Error('Timed out waiting for charts to load'))
-        return
-      }
-      setTimeout(poll, 300)
-    }
-    poll()
-  })
-
-function saveDashboardFilterSnapshot(): DashboardFilterSnapshot {
-  return {
-    filterLevel: filterLevel.value,
-    selectedCounties: [...selectedCounties.value],
-    selectedSubCounties: [...selectedSubCounties.value],
-    selectCounty: [...selectCounty.value],
-    selectSubCounty: [...selectSubCounty.value],
-    activeTab: activeTab.value,
-  }
-}
-
-async function restoreDashboardFilterSnapshot(snapshot: DashboardFilterSnapshot) {
-  filterLevel.value = snapshot.filterLevel
-  selectedCounties.value = [...snapshot.selectedCounties]
-  selectedSubCounties.value = [...snapshot.selectedSubCounties]
-  selectCounty.value = [...snapshot.selectCounty]
-  selectSubCounty.value = [...snapshot.selectSubCounty]
-  filteredSubCountyList.value = snapshot.selectCounty.length
-    ? subCountyList.value.filter((option: any) => snapshot.selectCounty.includes(option.county_id))
-    : [...subCountyList.value]
-  chartComponentRefs.clear()
-  await getCards()
-  await getTabs()
-  await waitForChartsReady()
-  if (snapshot.activeTab != null) {
-    activeTab.value = snapshot.activeTab
-  }
-}
-
-function buildExportTabGroupsFromTabs(
-  chartIds: Set<string> | null,
-  parentFolder?: string
-): {
-  tabGroups: DashboardChartExportTabGroup[]
-  chartConfigs: Map<string, Record<string, unknown>>
-  tabNameByFolder: Map<string, string | number>
-} {
-  const allTabs = (tabs.value as any[]) || []
-  const tabGroups: DashboardChartExportTabGroup[] = []
-  const chartConfigs = new Map<string, Record<string, unknown>>()
-  const tabNameByFolder = new Map<string, string | number>()
-
-  for (const tab of allTabs) {
-    const charts = getExportableChartsForTab(tab).filter(
-      (chart: any) => !chartIds || chartIds.has(String(chart.id))
-    )
-    if (!charts.length) continue
-
-    const tabFolder = sanitizeExportFileSegment(tab.label || tab.name || 'Tab')
-    const lookupKey = parentFolder ? `${parentFolder}/${tabFolder}` : tabFolder
-    tabNameByFolder.set(lookupKey, tab.name)
-
-    const exportItems: DashboardChartExportItem[] = charts.map((chart: any) => {
-      chartConfigs.set(String(chart.id), buildChartExportConfig(chart))
-      return {
-        id: chart.id,
-        title: chart.title || `Chart ${chart.id}`,
-        type: chart.type,
-        chartExpanded: chart.chartExpanded,
-        chartHeight: chart.chartHeight,
-      }
-    })
-
-    tabGroups.push({
-      tabFolder,
-      parentFolder,
-      charts: exportItems,
-    })
-  }
-
-  return { tabGroups, chartConfigs, tabNameByFolder }
-}
-
-async function applyCountyFilterForExport(countyId: string | number) {
-  selectedSubCounties.value = []
-  selectedCounties.value = [countyId]
-  filterLevel.value = 'county'
-  chartComponentRefs.clear()
-  await getCards()
-  await getTabs()
-  await waitForChartsReady()
-  await nextTick()
-  await waitForTabCharts()
-}
-
-const exportChartsZip = async (chartIds: Set<string> | 'all') => {
-  if (exportMode.value === 'nested' && canUseNestedExport.value) {
-    await exportNestedChartsZip(chartIds)
-    return
-  }
-  await exportStandardChartsZip(chartIds)
-}
-
-const exportStandardChartsZip = async (chartIds: Set<string> | 'all') => {
-  const selectedIds = chartIds === 'all' ? null : chartIds
-  const { tabGroups, chartConfigs, tabNameByFolder } = buildExportTabGroupsFromTabs(selectedIds)
-
-  if (!tabGroups.length) {
-    ElMessage.warning(selectedIds ? 'Select at least one chart to export' : 'No charts are ready to export')
-    return
-  }
-
-  const scopeLabel = sanitizeExportFileSegment(statisticsCardFilterContext.value || 'Kenya')
-  const zipFileName = `${scopeLabel}_dashboard_charts_${new Date().toISOString().slice(0, 10)}.zip`
-  const previousTab = activeTab.value
-
-  try {
-    chartsExportLoading.value = true
-
-    const { exported, skipped } = await exportDashboardChartsToZip({
-      tabGroups,
-      chartConfigs,
-      chartComponentRefs,
-      zipFileName,
-      isDark: appStore.getIsDark,
-      onBeforeTabExport: async (group) => {
-        const tabName = tabNameByFolder.get(group.tabFolder)
-        if (tabName == null) return
-        activeTab.value = tabName
-        await nextTick()
-        await waitForTabCharts()
-      },
-    })
-
-    exportDrawerVisible.value = false
-
-    if (skipped > 0) {
-      ElMessage.success(`Exported ${exported} chart(s) across ${tabGroups.length} tab(s). ${skipped} chart(s) could not be captured.`)
-    } else {
-      ElMessage.success(`Exported ${exported} chart(s) across ${tabGroups.length} tab(s) to ZIP`)
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || 'Failed to export charts')
-  } finally {
-    activeTab.value = previousTab
-    chartsExportLoading.value = false
-  }
-}
-
-const exportNestedChartsZip = async (chartIds: Set<string> | 'all') => {
-  const selectedIds = chartIds === 'all' ? null : chartIds
-  const userInfo = wsCache.get(appStore.getUserInfo)
-  const counties = getNestedExportCounties(userInfo)
-
-  if (!counties.length) {
-    ElMessage.warning('No counties available for nested export')
-    return
-  }
-
-  const snapshot = saveDashboardFilterSnapshot()
-  const dateStamp = new Date().toISOString().slice(0, 10)
-  const zipFileName =
-    counties.length === 1
-      ? `${sanitizeExportFileSegment(counties[0].label || counties[0].value)}_dashboard_charts_nested_${dateStamp}.zip`
-      : `Kenya_dashboard_charts_nested_${dateStamp}.zip`
-  const zip = new JSZip()
-  const usedPaths = new Set<string>()
-  let exported = 0
-  let skipped = 0
-  let countiesProcessed = 0
-
-  try {
-    chartsExportLoading.value = true
-
-    for (const county of counties) {
-      const countyFolder = sanitizeExportFileSegment(county.label || county.value)
-      await applyCountyFilterForExport(county.value)
-
-      const { tabGroups, chartConfigs, tabNameByFolder } = buildExportTabGroupsFromTabs(
-        selectedIds,
-        countyFolder
-      )
-
-      if (!tabGroups.length) {
-        continue
-      }
-
-      const result = await exportDashboardChartsToZip({
-        tabGroups,
-        chartConfigs,
-        chartComponentRefs,
-        zipFileName,
-        isDark: appStore.getIsDark,
-        zip,
-        usedPaths,
-        download: false,
-        allowEmpty: true,
-        onBeforeTabExport: async (group) => {
-          const lookupKey = `${group.parentFolder}/${group.tabFolder}`
-          const tabName = tabNameByFolder.get(lookupKey)
-          if (tabName == null) return
-          activeTab.value = tabName
-          await nextTick()
-          await waitForTabCharts()
-        },
-      })
-
-      exported += result.exported
-      skipped += result.skipped
-      if (result.exported > 0) {
-        countiesProcessed++
-      }
-    }
-
-    if (exported === 0) {
-      throw new Error('Could not export any charts for the selected counties')
-    }
-
-    const content = await zip.generateAsync({ type: 'blob' })
-    saveAs(content, zipFileName)
-    exportDrawerVisible.value = false
-
-    if (skipped > 0) {
-      ElMessage.success(
-        `Exported ${exported} chart(s) across ${countiesProcessed} counties. ${skipped} chart(s) could not be captured.`
-      )
-    } else {
-      ElMessage.success(`Exported ${exported} chart(s) across ${countiesProcessed} counties to ZIP`)
-    }
-  } catch (error: any) {
-    ElMessage.error(error?.message || 'Failed to export nested charts')
-  } finally {
-    await restoreDashboardFilterSnapshot(snapshot)
-    chartsExportLoading.value = false
-  }
-}
-
-const exportAllChartsFromDrawer = () => exportChartsZip('all')
-
-const exportSelectedChartsFromDrawer = () => {
-  exportChartsZip(new Set(selectedExportChartIds.value))
-}
-
-function sanitizeExportFileSegment(value: string): string {
-  return String(value || 'dashboard')
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
-    .replace(/\s+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '')
-    .slice(0, 60) || 'dashboard'
-}
+const { setChartComponentRef } = chartExportApi
 
 // Download settlement data
 const downloadSettlementData = async () => {
@@ -3119,96 +2746,6 @@ const downloadSettlementData = async () => {
       </div>
     </el-drawer>
 
-    <el-drawer
-      v-model="exportDrawerVisible"
-      title="Export charts"
-      direction="rtl"
-      size="440px"
-    >
-      <div class="export-drawer-content">
-        <p class="export-drawer-intro">
-          Download dashboard charts as PNG files grouped by tab inside a ZIP archive.
-        </p>
-
-        <div class="export-mode-group">
-          <span class="export-mode-label">Export layout</span>
-          <el-radio-group v-model="exportMode">
-            <el-radio value="standard">Current view</el-radio>
-            <el-radio value="nested" :disabled="!canUseNestedExport">
-              Nested by county
-            </el-radio>
-          </el-radio-group>
-          <p v-if="exportMode === 'nested'" class="export-drawer-hint">
-            Each county gets its own folder with tab subfolders inside the ZIP. This may take several minutes.
-          </p>
-          <p v-else-if="!canExportNestedDashboardCharts(wsCache.get(appStore.getUserInfo))" class="export-drawer-hint">
-            Nested export requires root, super admin, national admin, or county admin access.
-          </p>
-          <p v-else-if="!canUseNestedExport" class="export-drawer-hint">
-            National admins: use the national view with no county filter. County admins: nested export covers your assigned county.
-          </p>
-        </div>
-
-        <el-button
-          type="primary"
-          :icon="Download"
-          class="export-drawer-all-btn"
-          :loading="chartsExportLoading"
-          @click="exportAllChartsFromDrawer"
-        >
-          Download all charts ({{ allExportChartIds.length }})
-        </el-button>
-
-        <el-divider content-position="left">Or select charts</el-divider>
-
-        <el-collapse v-model="exportCollapseActive" class="export-tab-collapse">
-          <el-collapse-item
-            v-for="group in exportDrawerTabGroups"
-            :key="group.tabFolder"
-            :name="group.tabFolder"
-          >
-            <template #title>
-              <div class="export-tab-group-header" @click.stop>
-                <el-checkbox
-                  :model-value="isTabExportFullySelected(group.charts.map((chart) => chart.id))"
-                  :indeterminate="isTabExportPartiallySelected(group.charts.map((chart) => chart.id))"
-                  @change="(checked: boolean) => toggleTabExportSelection(group.charts.map((chart) => chart.id), checked)"
-                  @click.stop
-                />
-                <span class="export-tab-group-title">
-                  {{ group.tabLabel }}
-                  <span class="export-tab-count">({{ group.charts.length }})</span>
-                </span>
-              </div>
-            </template>
-            <el-checkbox-group v-model="selectedExportChartIds" class="export-chart-list">
-              <el-checkbox
-                v-for="chart in group.charts"
-                :key="chart.id"
-                :label="chart.id"
-                class="export-chart-item"
-              >
-                {{ chart.title }}
-              </el-checkbox>
-            </el-checkbox-group>
-          </el-collapse-item>
-        </el-collapse>
-
-        <div class="export-drawer-actions">
-          <el-button @click="exportDrawerVisible = false">Cancel</el-button>
-          <el-button
-            type="primary"
-            :icon="Download"
-            :loading="chartsExportLoading"
-            :disabled="selectedExportChartIds.length === 0"
-            @click="exportSelectedChartsFromDrawer"
-          >
-            Download selected ({{ selectedExportChartIds.length }})
-          </el-button>
-        </div>
-      </div>
-    </el-drawer>
-
     <el-row :gutter="16" class="cards-row">
       <!-- Placeholder skeletons before any cards have loaded -->
       <template v-if="cardLoading && cards.length === 0">
@@ -3294,16 +2831,7 @@ const downloadSettlementData = async () => {
     </div>
 
     <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
-      <el-button
-        class="dashboard-export-btn"
-        text
-        :icon="Download"
-        :loading="chartsExportLoading"
-        :disabled="chartsLoading || getExportableChartCount() === 0"
-        @click="openExportDrawer"
-      >
-        Export charts (ZIP)
-      </el-button>
+      <DashboardChartExportDrawer :export-api="chartExportApi" :charts-loading="chartsLoading" />
       <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
             <el-row :gutter="20">
@@ -3631,13 +3159,6 @@ const downloadSettlementData = async () => {
   position: relative;
 }
 
-.dashboard-export-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 5;
-}
-
 /* flex:1 + min-height:0 for the flex chain only — do NOT set flex-direction here.
    ElTabs renders [content, header] in DOM and uses .el-tabs--top { flex-direction: column-reverse }
    so the nav stays on top; overriding with column puts tabs at the bottom. */
@@ -3856,124 +3377,6 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid var(--el-border-color-lighter);
-}
-
-.export-drawer-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 100%;
-}
-
-.export-drawer-intro {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--el-text-color-secondary);
-}
-
-.export-mode-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.export-mode-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.export-drawer-hint {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--el-text-color-secondary);
-}
-
-.export-drawer-all-btn {
-  width: 100%;
-}
-
-.export-tab-collapse {
-  border: none;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.export-tab-collapse :deep(.el-collapse-item__header) {
-  height: auto;
-  min-height: 44px;
-  line-height: 1.4;
-  padding: 4px 8px 4px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.export-tab-collapse :deep(.el-collapse-item__title) {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-.export-tab-collapse :deep(.el-collapse-item__wrap) {
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.export-tab-collapse :deep(.el-collapse-item__content) {
-  padding-bottom: 12px;
-}
-
-.export-tab-group-header {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  flex: 1;
-  min-width: 0;
-  gap: 10px;
-}
-
-.export-tab-group-title {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  font-weight: 600;
-}
-
-.export-tab-count {
-  font-weight: 400;
-  color: var(--el-text-color-secondary);
-  margin-left: 4px;
-}
-
-.export-chart-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 8px 0 12px;
-}
-
-.export-chart-item {
-  display: flex;
-  align-items: flex-start;
-  margin-right: 0;
-  height: auto;
-  white-space: normal;
-}
-
-.export-chart-item :deep(.el-checkbox__label) {
-  white-space: normal;
-  line-height: 1.4;
-}
-
-.export-drawer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: auto;
   padding-top: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
