@@ -2939,10 +2939,11 @@ const downloadSettlementData = async () => {
                   :indeterminate="isTabExportPartiallySelected(group.charts.map((chart) => chart.id))"
                   @change="(checked: boolean) => toggleTabExportSelection(group.charts.map((chart) => chart.id), checked)"
                   @click.stop
-                >
+                />
+                <span class="export-tab-group-title">
                   {{ group.tabLabel }}
                   <span class="export-tab-count">({{ group.charts.length }})</span>
-                </el-checkbox>
+                </span>
               </div>
             </template>
             <el-checkbox-group v-model="selectedExportChartIds" class="export-chart-list">
@@ -3653,8 +3654,15 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   height: auto;
   min-height: 44px;
   line-height: 1.4;
-  padding: 4px 0 4px 16px;
+  padding: 4px 8px 4px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.export-tab-collapse :deep(.el-collapse-item__title) {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .export-tab-collapse :deep(.el-collapse-item__wrap) {
@@ -3663,14 +3671,22 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
 
 .export-tab-collapse :deep(.el-collapse-item__content) {
   padding-bottom: 12px;
-  padding-left: 8px;
 }
 
 .export-tab-group-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
   flex: 1;
   min-width: 0;
+  gap: 10px;
+}
+
+.export-tab-group-title {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
   font-weight: 600;
-  padding-left: 4px;
 }
 
 .export-tab-count {
@@ -3683,7 +3699,7 @@ html.dark .dashboard-tabs :deep(.el-tabs__item.is-active) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px 4px 0 24px;
+  padding: 4px 8px 0 12px;
 }
 
 .export-chart-item {
