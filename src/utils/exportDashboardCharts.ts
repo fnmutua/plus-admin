@@ -15,6 +15,8 @@ export interface DashboardChartExportItem {
 export interface DashboardChartExportTabGroup {
   tabFolder: string
   charts: DashboardChartExportItem[]
+  /** When set, charts are placed under `{parentFolder}/{tabFolder}/` in the ZIP. */
+  parentFolder?: string
 }
 
 function sanitizeFileName(name: string): string {
@@ -212,7 +214,11 @@ export async function exportDashboardChartsToZip(options: {
   zipFileName: string
   isDark?: boolean
   onBeforeTabExport?: (group: DashboardChartExportTabGroup) => Promise<void>
-}): Promise<{ exported: number; skipped: number }> {
+  zip?: JSZip
+  usedPaths?: Set<string>
+  download?: boolean
+  allowEmpty?: boolean
+}): Promise<{ exported: number; skipped: number; zip: JSZip }> {
   const {
     tabGroups,
     chartConfigs,
@@ -220,24 +226,33 @@ export async function exportDashboardChartsToZip(options: {
     zipFileName,
     isDark = false,
     onBeforeTabExport,
+    zip: existingZip,
+    usedPaths: existingUsedPaths,
+    download = true,
+    allowEmpty = false,
   } = options
 
   const totalCharts = tabGroups.reduce((sum, group) => sum + group.charts.length, 0)
   if (!totalCharts) {
+    if (allowEmpty && existingZip) {
+      return { exported: 0, skipped: 0, zip: existingZip }
+    }
     throw new Error('No charts to export')
   }
 
-  const zip = new JSZip()
+  const zip = existingZip ?? new JSZip()
   let exported = 0
   let skipped = 0
-  const usedPaths = new Set<string>()
+  const usedPaths = existingUsedPaths ?? new Set<string>()
 
   for (const group of tabGroups) {
     if (onBeforeTabExport) {
       await onBeforeTabExport(group)
     }
 
-    const folder = sanitizeFileName(group.tabFolder || 'Charts')
+    const tabFolder = sanitizeFileName(group.tabFolder || 'Charts')
+    const parentFolder = group.parentFolder ? sanitizeFileName(group.parentFolder) : ''
+    const folder = parentFolder ? `${parentFolder}/${tabFolder}` : tabFolder
 
     for (const chart of group.charts) {
       const key = String(chart.id)
@@ -276,12 +291,14 @@ export async function exportDashboardChartsToZip(options: {
     }
   }
 
-  if (exported === 0) {
+  if (exported === 0 && !allowEmpty) {
     throw new Error('Could not export any charts. Make sure charts are fully loaded.')
   }
 
-  const content = await zip.generateAsync({ type: 'blob' })
-  saveAs(content, zipFileName.endsWith('.zip') ? zipFileName : `${zipFileName}.zip`)
+  if (download) {
+    const content = await zip.generateAsync({ type: 'blob' })
+    saveAs(content, zipFileName.endsWith('.zip') ? zipFileName : `${zipFileName}.zip`)
+  }
 
-  return { exported, skipped }
+  return { exported, skipped, zip }
 }

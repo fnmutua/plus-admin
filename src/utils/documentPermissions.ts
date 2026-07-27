@@ -20,6 +20,27 @@ export function getRoleNames(userInfo: any): string[] {
     .filter(Boolean)
 }
 
+export function isNationalAdminUser(userInfo: any): boolean {
+  return (userInfo?.roles ?? []).some(
+    (r: any) => r?.name === 'admin' && r?.user_roles?.location_level === 'national'
+  )
+}
+
+export function getCountyAdminCountyIds(userInfo: any): Array<string | number> {
+  return (userInfo?.roles ?? [])
+    .filter(
+      (r: any) =>
+        r?.name === 'admin' &&
+        r?.user_roles?.location_level === 'county' &&
+        r?.user_roles?.county_id != null
+    )
+    .map((r: any) => r.user_roles.county_id)
+}
+
+export function isCountyAdminUser(userInfo: any): boolean {
+  return getCountyAdminCountyIds(userInfo).length > 0
+}
+
 /** Settings dashboard list: admins and dashboard managers see all records. */
 export function isDashboardSettingsAdmin(userInfo: any): boolean {
   if (isSuperAdminUser(userInfo)) return true
@@ -40,6 +61,30 @@ export function filterDashboardsForUser(userInfo: any, dashboards: any[]): any[]
   return dashboards.filter(
     (d) => d.createdBy === userInfo?.id || d.public === true
   )
+}
+
+/** Export dashboard charts nested by county — root/super admins, national admins, or county admins. */
+export function canExportNestedDashboardCharts(userInfo: any): boolean {
+  if (!hasPermission(userInfo, 'dashboard:exportNested')) return false
+  if (isSuperAdminUser(userInfo)) return true
+  return isNationalAdminUser(userInfo) || isCountyAdminUser(userInfo)
+}
+
+/** National-scope nested export (all counties) — root/super/national admin on national view. */
+export function canUseNationalNestedDashboardExport(
+  userInfo: any,
+  isNationalDashboardView: boolean
+): boolean {
+  if (!canExportNestedDashboardCharts(userInfo)) return false
+  if (!isNationalDashboardView) return false
+  return isSuperAdminUser(userInfo) || isNationalAdminUser(userInfo)
+}
+
+/** County-scoped nested export — county admins for their assigned county(ies). */
+export function canUseCountyNestedDashboardExport(userInfo: any): boolean {
+  if (!canExportNestedDashboardCharts(userInfo)) return false
+  if (isSuperAdminUser(userInfo) || isNationalAdminUser(userInfo)) return false
+  return isCountyAdminUser(userInfo)
 }
 
 /** Make a dashboard public — root/super admins, or national-level admin only. */
