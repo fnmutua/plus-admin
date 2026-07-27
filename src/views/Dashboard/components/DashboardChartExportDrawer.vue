@@ -25,7 +25,9 @@ const {
   selectedExportChartIds,
   exportCollapseActive,
   canUseNestedExport,
-  nestedExportPermissionDenied,
+  nestedExportRadioLabel,
+  nestedExportDescription,
+  nestedExportUnavailableReason,
   getExportableChartCount,
   exportDrawerTabGroups,
   allExportChartIds,
@@ -35,7 +37,15 @@ const {
   toggleTabExportSelection,
   exportAllChartsFromDrawer,
   exportSelectedChartsFromDrawer,
+  cancelChartsExport,
 } = props.exportApi
+
+const handleDrawerClose = (done: () => void) => {
+  if (chartsExportLoading.value) {
+    cancelChartsExport()
+  }
+  done()
+}
 </script>
 
 <template>
@@ -50,7 +60,14 @@ const {
     Export charts (ZIP)
   </el-button>
 
-  <el-drawer v-model="exportDrawerVisible" title="Export charts" direction="rtl" size="440px">
+  <el-drawer
+    v-model="exportDrawerVisible"
+    title="Export charts"
+    direction="rtl"
+    size="560px"
+    :close-on-click-modal="!chartsExportLoading"
+    :before-close="handleDrawerClose"
+  >
     <div class="export-drawer-content">
       <p class="export-drawer-intro">
         Download dashboard charts as PNG files grouped by tab inside a ZIP archive.
@@ -60,30 +77,23 @@ const {
         <span class="export-mode-label">Export layout</span>
         <el-radio-group v-model="exportMode">
           <el-radio value="standard">Current view</el-radio>
-          <el-radio value="nested" :disabled="!canUseNestedExport">Nested by county</el-radio>
+          <el-radio value="nested" :disabled="!canUseNestedExport">
+            {{ nestedExportRadioLabel }}
+          </el-radio>
         </el-radio-group>
         <p v-if="exportMode === 'nested'" class="export-drawer-hint">
-          Each county gets its own folder with tab subfolders inside the ZIP. This may take several minutes.
-        </p>
-        <p v-else-if="nestedExportPermissionDenied" class="export-drawer-hint">
-          Nested export requires root, super admin, national admin, or county admin access.
+          {{ nestedExportDescription }} This may take several minutes.
         </p>
         <p v-else-if="!canUseNestedExport" class="export-drawer-hint">
-          National admins: use the national view with no county filter. County admins: nested export covers your assigned county.
+          {{ nestedExportUnavailableReason }}
         </p>
       </div>
 
-      <el-button
-        type="primary"
-        :icon="Download"
-        class="export-drawer-all-btn"
-        :loading="chartsExportLoading"
-        @click="exportAllChartsFromDrawer"
-      >
-        Download all charts ({{ allExportChartIds.length }})
-      </el-button>
+      <el-divider content-position="left">Select charts</el-divider>
 
-      <el-divider content-position="left">Or select charts</el-divider>
+      <p v-if="chartsExportLoading" class="export-drawer-progress">
+        Export in progress…
+      </p>
 
       <el-collapse v-model="exportCollapseActive" class="export-tab-collapse">
         <el-collapse-item
@@ -119,15 +129,33 @@ const {
       </el-collapse>
 
       <div class="export-drawer-actions">
-        <el-button @click="exportDrawerVisible = false">Cancel</el-button>
         <el-button
+          v-if="chartsExportLoading"
+          class="export-action-btn"
+          type="warning"
+          @click="cancelChartsExport"
+        >
+          Cancel download
+        </el-button>
+        <el-button
+          class="export-action-btn"
           type="primary"
           :icon="Download"
           :loading="chartsExportLoading"
-          :disabled="selectedExportChartIds.length === 0"
+          :disabled="chartsExportLoading || selectedExportChartIds.length === 0"
           @click="exportSelectedChartsFromDrawer"
         >
           Download selected ({{ selectedExportChartIds.length }})
+        </el-button>
+        <el-button
+          class="export-action-btn"
+          type="danger"
+          :icon="Download"
+          :loading="chartsExportLoading"
+          :disabled="chartsExportLoading"
+          @click="exportAllChartsFromDrawer"
+        >
+          Download all ({{ allExportChartIds.length }})
         </el-button>
       </div>
     </div>
@@ -175,8 +203,33 @@ const {
   color: var(--el-text-color-secondary);
 }
 
-.export-drawer-all-btn {
-  width: 100%;
+.export-drawer-progress {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-color-warning);
+}
+
+.export-drawer-actions {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.export-action-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+
+.export-action-btn :deep(span) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .export-tab-collapse {
@@ -249,14 +302,5 @@ const {
 .export-chart-item :deep(.el-checkbox__label) {
   white-space: normal;
   line-height: 1.4;
-}
-
-.export-drawer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid var(--el-border-color-lighter);
 }
 </style>

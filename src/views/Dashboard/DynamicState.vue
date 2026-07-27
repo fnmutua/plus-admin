@@ -394,6 +394,12 @@ else if (filterLevel.value === 'subcounty') {
   filterOperators.push('or')
 
 }
+
+else if (filterLevel.value === 'ward') {
+  filterFields.push('ward_id')
+  filterValues.push(selectedWards.value)
+  filterOperators.push('or')
+}
  
 
 
@@ -493,6 +499,11 @@ const getSummaryForIndicator = async (card) => {
     filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
   }
+  else if (filterLevel.value === 'ward') {
+    filterFields.push('ward_id')
+    filterValues.push(selectedWards.value)
+    filterOperators.push('or')
+  }
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
   }
@@ -572,6 +583,11 @@ const getSummaryForEntity = async (card) => {
     associated_Models.push('ward')
     filterFields.push('subcounty_id')
     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+  }
+  else if (filterLevel.value === 'ward') {
+    filterFields.push('ward_id')
+    filterValues.push(selectedWards.value)
     filterOperators.push('or')
   }
   else if (filterLevel.value === 'national') {
@@ -745,6 +761,10 @@ function buildChartSummaryFormData(thisChart: any) {
     if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('ward.name')
     }
+  } else if (filterLevel.value === 'ward') {
+    filterFields.push('ward_id')
+    filterValues.push(selectedWards.value)
+    filterOperators.push('or')
   } else if (filterLevel.value === 'national') {
     if (!isTimeSeriesChart) {
       associated_Models.push('county')
@@ -977,6 +997,8 @@ const getAxisChartData = async (thisChart: any): Promise<[any[], any[]]> => {
     locationFilters.push({ field: card_model + '.county_id', operation: 'in', value: selectedCounties.value })
   } else if (filterLevel.value === 'subcounty' && selectedSubCounties.value?.length) {
     locationFilters.push({ field: card_model + '.subcounty_id', operation: 'in', value: selectedSubCounties.value })
+  } else if (filterLevel.value === 'ward' && selectedWards.value?.length) {
+    locationFilters.push({ field: card_model + '.ward_id', operation: 'in', value: selectedWards.value })
   }
   const mergedFilters = [...(Array.isArray(filters) ? filters : []), ...locationFilters]
   if (mergedFilters.length) payload.filters = mergedFilters
@@ -1145,6 +1167,12 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
       // dont add groups for a piechart
       groupFields.push('ward.name')
     }
+  }
+
+  else if (filterLevel.value === 'ward') {
+    filterFields.push('ward_id')
+    filterValues.push(selectedWards.value)
+    filterOperators.push('or')
   }
 
 
@@ -2379,6 +2407,10 @@ const getCharts = async (section_id) => {
                filterFields.push('subcounty_id')
               filterValues.push([selectedSubCounties.value])
              }
+            else if (filterLevel.value === 'ward') {
+              filterFields.push('ward_id')
+              filterValues.push([selectedWards.value])
+            }
 
             else if (filterLevel.value === 'national') {
 
@@ -3623,6 +3655,7 @@ const chartExportApi = useDashboardChartExport({
   filterLevel,
   selectedCounties,
   selectedSubCounties,
+  selectedWards,
   selectCounty,
   selectSubCounty,
   countyList,

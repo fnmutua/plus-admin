@@ -207,6 +207,19 @@ function exportEchartsMapPng(
   return blob
 }
 
+export class ExportCancelledError extends Error {
+  constructor() {
+    super('Export cancelled')
+    this.name = 'ExportCancelledError'
+  }
+}
+
+function checkExportCancelled(shouldCancel?: () => boolean) {
+  if (shouldCancel?.()) {
+    throw new ExportCancelledError()
+  }
+}
+
 export async function exportDashboardChartsToZip(options: {
   tabGroups: DashboardChartExportTabGroup[]
   chartConfigs: Map<string, Record<string, unknown>>
@@ -218,6 +231,7 @@ export async function exportDashboardChartsToZip(options: {
   usedPaths?: Set<string>
   download?: boolean
   allowEmpty?: boolean
+  shouldCancel?: () => boolean
 }): Promise<{ exported: number; skipped: number; zip: JSZip }> {
   const {
     tabGroups,
@@ -230,7 +244,10 @@ export async function exportDashboardChartsToZip(options: {
     usedPaths: existingUsedPaths,
     download = true,
     allowEmpty = false,
+    shouldCancel,
   } = options
+
+  checkExportCancelled(shouldCancel)
 
   const totalCharts = tabGroups.reduce((sum, group) => sum + group.charts.length, 0)
   if (!totalCharts) {
@@ -246,15 +263,21 @@ export async function exportDashboardChartsToZip(options: {
   const usedPaths = existingUsedPaths ?? new Set<string>()
 
   for (const group of tabGroups) {
+    checkExportCancelled(shouldCancel)
+
     if (onBeforeTabExport) {
       await onBeforeTabExport(group)
     }
+
+    checkExportCancelled(shouldCancel)
 
     const tabFolder = sanitizeFileName(group.tabFolder || 'Charts')
     const parentFolder = group.parentFolder ? sanitizeFileName(group.parentFolder) : ''
     const folder = parentFolder ? `${parentFolder}/${tabFolder}` : tabFolder
 
     for (const chart of group.charts) {
+      checkExportCancelled(shouldCancel)
+
       const key = String(chart.id)
       const config = chartConfigs.get(key)
       const componentRef = chartComponentRefs.get(key)
@@ -296,7 +319,9 @@ export async function exportDashboardChartsToZip(options: {
   }
 
   if (download) {
+    checkExportCancelled(shouldCancel)
     const content = await zip.generateAsync({ type: 'blob' })
+    checkExportCancelled(shouldCancel)
     saveAs(content, zipFileName.endsWith('.zip') ? zipFileName : `${zipFileName}.zip`)
   }
 

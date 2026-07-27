@@ -6,13 +6,12 @@ import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import {
   exportDashboardChartsToZip,
+  ExportCancelledError,
   type DashboardChartExportItem,
   type DashboardChartExportTabGroup,
 } from '@/utils/exportDashboardCharts'
 import {
   canExportNestedDashboardCharts,
-  canUseNationalNestedDashboardExport,
-  canUseCountyNestedDashboardExport,
   getCountyAdminCountyIds,
   isSuperAdminUser,
   isNationalAdminUser,
@@ -26,6 +25,7 @@ export interface UseDashboardChartExportOptions {
   filterLevel: Ref<string>
   selectedCounties: Ref<any[]>
   selectedSubCounties: Ref<any[]>
+  selectedWards: Ref<any[]>
   selectCounty: Ref<any[]>
   selectSubCounty: Ref<any[]>
   countyList: Ref<any[]>
@@ -41,9 +41,20 @@ type DashboardFilterSnapshot = {
   filterLevel: string
   selectedCounties: any[]
   selectedSubCounties: any[]
+  selectedWards: any[]
   selectCounty: any[]
   selectSubCounty: any[]
   activeTab: string | number | undefined
+}
+
+type NestedExportDimension = 'county' | 'subcounty' | 'ward'
+
+type NestedExportUnit = {
+  id: string | number
+  label: string
+  folder: string
+  countyId?: string | number
+  subcountyId?: string | number
 }
 
 function sanitizeExportFileSegment(value: string): string {
@@ -67,26 +78,77 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
   const { wsCache } = useCache()
 
   const chartsExportLoading = ref(false)
+  const exportCancelRequested = ref(false)
   const exportDrawerVisible = ref(false)
   const exportMode = ref<'standard' | 'nested'>('standard')
   const selectedExportChartIds = ref<string[]>([])
   const exportCollapseActive = ref<string[]>([])
   const chartComponentRefs = new Map<string, unknown>()
 
-  const isNationalDashboardView = computed(
-    () => options.filterLevel.value === 'national' && options.selectedCounties.value.length === 0
-  )
+  function getNestedExportDimension(): NestedExportDimension {
+    if (
+      options.filterLevel.value === 'subcounty' &&
+      options.selectedSubCounties.value.length > 0
+    ) {
+      return 'ward'
+    }
+    if (options.filterLevel.value === 'county' && options.selectedCounties.value.length > 0) {
+      return 'subcounty'
+    }
+    return 'county'
+  }
 
-  const canUseNestedExport = computed(() => {
-    const userInfo = wsCache.get(appStore.getUserInfo)
-    return (
-      canUseNationalNestedDashboardExport(userInfo, isNationalDashboardView.value) ||
-      canUseCountyNestedDashboardExport(userInfo)
-    )
+  const nestedExportDimension = computed(() => getNestedExportDimension())
+
+  const nestedExportUnitLabel = computed(() => {
+    switch (nestedExportDimension.value) {
+      case 'subcounty':
+        return 'constituency'
+      case 'ward':
+        return 'ward'
+      default:
+        return 'county'
+    }
   })
 
-  const nestedExportPermissionDenied = computed(() => {
-    return !canExportNestedDashboardCharts(wsCache.get(appStore.getUserInfo))
+  const nestedExportUnitLabelPlural = computed(() => {
+    switch (nestedExportDimension.value) {
+      case 'subcounty':
+        return 'constituencies'
+      case 'ward':
+        return 'wards'
+      default:
+        return 'counties'
+    }
+  })
+
+  const nestedExportRadioLabel = computed(
+    () => `Nested by ${nestedExportUnitLabel.value}`
+  )
+
+  const nestedExportDescription = computed(() => {
+    switch (nestedExportDimension.value) {
+      case 'subcounty':
+        return 'Each constituency in your selected county gets its own folder with tab subfolders inside the ZIP.'
+      case 'ward':
+        return 'Each ward in your selected constituency gets its own folder with tab subfolders inside the ZIP.'
+      default:
+        return 'Each county gets its own folder with tab subfolders inside the ZIP.'
+    }
+  })
+
+  const nestedExportUnavailableReason = computed(() => {
+    if (nestedExportPermissionDenied.value) {
+      return 'Nested export requires root, super admin, national admin, or county admin access.'
+    }
+    switch (nestedExportDimension.value) {
+      case 'subcounty':
+        return 'No constituencies are available under your current county selection.'
+      case 'ward':
+        return 'Select a constituency first — wards are exported from the constituency filter.'
+      default:
+        return 'No counties are available for export with your account.'
+    }
   })
 
   function getNestedExportCounties(userInfo: any): any[] {
@@ -96,6 +158,112 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     }
     const countyIds = new Set(getCountyAdminCountyIds(userInfo).map(String))
     return allCounties.filter((county) => countyIds.has(String(county.value)))
+  }
+
+  function getAllWardsFromSubCountyList(): any[] {
+    const wards: any[] = []
+    for (const subcounty of (options.subCountyList.value as any[]) || []) {
+      if (!Array.isArray(subcounty.children)) continue
+      for (const ward of subcounty.children) {
+        wards.push({
+          value: ward.value,
+          label: ward.label,
+          subcounty_id: ward.subcounty_id ?? subcounty.value,
+          county_id: ward.county_id ?? subcounty.county_id,
+        })
+      }
+    }
+    return wards
+  }
+
+  function getNestedExportSubCounties(userInfo: any): any[] {
+    const allSubCounties = (options.subCountyList.value as any[]) || []
+    const countyScope =
+      options.selectedCounties.value.length > 0
+        ? new Set(options.selectedCounties.value.map(String))
+        : new Set(getNestedExportCounties(userInfo).map((county) => String(county.value)))
+
+    return allSubCounties.filter((subcounty) => countyScope.has(String(subcounty.county_id)))
+  }
+
+  function getNestedExportWards(): any[] {
+    const subcountyScope = new Set(options.selectedSubCounties.value.map(String))
+    return getAllWardsFromSubCountyList().filter((ward) =>
+      subcountyScope.has(String(ward.subcounty_id))
+    )
+  }
+
+  function getNestedExportUnits(userInfo: any): NestedExportUnit[] {
+    const dimension = getNestedExportDimension()
+
+    if (dimension === 'ward') {
+      return getNestedExportWards().map((ward) => ({
+        id: ward.value,
+        label: String(ward.label || ward.value),
+        folder: sanitizeExportFileSegment(ward.label || ward.value),
+        countyId: ward.county_id,
+        subcountyId: ward.subcounty_id,
+      }))
+    }
+
+    if (dimension === 'subcounty') {
+      return getNestedExportSubCounties(userInfo).map((subcounty) => ({
+        id: subcounty.value,
+        label: String(subcounty.label || subcounty.value),
+        folder: sanitizeExportFileSegment(subcounty.label || subcounty.value),
+        countyId: subcounty.county_id,
+        subcountyId: subcounty.value,
+      }))
+    }
+
+    return getNestedExportCounties(userInfo).map((county) => ({
+      id: county.value,
+      label: String(county.label || county.value),
+      folder: sanitizeExportFileSegment(county.label || county.value),
+      countyId: county.value,
+    }))
+  }
+
+  const canUseNestedExport = computed(() => {
+    const userInfo = wsCache.get(appStore.getUserInfo)
+    if (!canExportNestedDashboardCharts(userInfo)) return false
+    return getNestedExportUnits(userInfo).length > 0
+  })
+
+  const nestedExportPermissionDenied = computed(() => {
+    return !canExportNestedDashboardCharts(wsCache.get(appStore.getUserInfo))
+  })
+
+  const shouldCancelExport = () => exportCancelRequested.value
+
+  const throwIfExportCancelled = () => {
+    if (exportCancelRequested.value) {
+      throw new ExportCancelledError()
+    }
+  }
+
+  const beginChartsExport = () => {
+    exportCancelRequested.value = false
+    chartsExportLoading.value = true
+  }
+
+  const finishChartsExport = () => {
+    chartsExportLoading.value = false
+    exportCancelRequested.value = false
+  }
+
+  const cancelChartsExport = () => {
+    if (chartsExportLoading.value) {
+      exportCancelRequested.value = true
+    }
+  }
+
+  const handleExportError = (error: any) => {
+    if (error instanceof ExportCancelledError || error?.name === 'ExportCancelledError') {
+      ElMessage.info('Export cancelled')
+      return
+    }
+    ElMessage.error(error?.message || 'Failed to export charts')
   }
 
   const setChartComponentRef = (chartId: string | number, el: unknown) => {
@@ -186,6 +354,10 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     new Promise<void>((resolve, reject) => {
       const started = Date.now()
       const poll = () => {
+        if (exportCancelRequested.value) {
+          reject(new ExportCancelledError())
+          return
+        }
         const pending = pendingChartCount(options.chartLoadingMessages.value)
         if (!options.chartsLoading.value && pending === 0) {
           resolve()
@@ -205,6 +377,7 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
       filterLevel: options.filterLevel.value,
       selectedCounties: [...options.selectedCounties.value],
       selectedSubCounties: [...options.selectedSubCounties.value],
+      selectedWards: [...options.selectedWards.value],
       selectCounty: [...options.selectCounty.value],
       selectSubCounty: [...options.selectSubCounty.value],
       activeTab: options.activeTab.value,
@@ -215,6 +388,7 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     options.filterLevel.value = snapshot.filterLevel
     options.selectedCounties.value = [...snapshot.selectedCounties]
     options.selectedSubCounties.value = [...snapshot.selectedSubCounties]
+    options.selectedWards.value = [...snapshot.selectedWards]
     options.selectCounty.value = [...snapshot.selectCounty]
     options.selectSubCounty.value = [...snapshot.selectSubCounty]
     options.filteredSubCountyList.value = snapshot.selectCounty.length
@@ -275,11 +449,44 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     return { tabGroups, chartConfigs, tabNameByFolder }
   }
 
-  async function applyCountyFilterForExport(countyId: string | number) {
-    options.selectedSubCounties.value = []
-    options.selectedCounties.value = [countyId]
-    options.filterLevel.value = 'county'
+  async function applyNestedUnitFilterForExport(
+    unit: NestedExportUnit,
+    dimension: NestedExportDimension
+  ) {
+    throwIfExportCancelled()
     chartComponentRefs.clear()
+
+    if (dimension === 'county') {
+      options.selectedSubCounties.value = []
+      options.selectedWards.value = []
+      options.selectedCounties.value = [unit.id]
+      options.selectCounty.value = [unit.id]
+      options.selectSubCounty.value = []
+      options.filterLevel.value = 'county'
+    } else if (dimension === 'subcounty') {
+      options.selectedCounties.value = unit.countyId != null ? [unit.countyId] : []
+      options.selectedSubCounties.value = [unit.id]
+      options.selectedWards.value = []
+      options.selectCounty.value = unit.countyId != null ? [unit.countyId] : []
+      options.selectSubCounty.value = [unit.id]
+      options.filterLevel.value = 'subcounty'
+    } else {
+      options.selectedCounties.value = unit.countyId != null ? [unit.countyId] : []
+      options.selectedSubCounties.value = unit.subcountyId != null ? [unit.subcountyId] : []
+      options.selectedWards.value = [unit.id]
+      options.selectCounty.value = unit.countyId != null ? [unit.countyId] : []
+      options.selectSubCounty.value = unit.subcountyId != null ? [unit.subcountyId] : []
+      options.filterLevel.value = 'ward'
+    }
+
+    if (options.selectCounty.value.length) {
+      options.filteredSubCountyList.value = options.subCountyList.value.filter((option: any) =>
+        options.selectCounty.value.includes(option.county_id)
+      )
+    } else {
+      options.filteredSubCountyList.value = [...options.subCountyList.value]
+    }
+
     await options.getCards()
     await options.getTabs()
     await waitForChartsReady()
@@ -301,7 +508,7 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     const previousTab = options.activeTab.value
 
     try {
-      chartsExportLoading.value = true
+      beginChartsExport()
 
       const { exported, skipped } = await exportDashboardChartsToZip({
         tabGroups,
@@ -309,7 +516,9 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
         chartComponentRefs,
         zipFileName,
         isDark: appStore.getIsDark,
+        shouldCancel: shouldCancelExport,
         onBeforeTabExport: async (group) => {
+          throwIfExportCancelled()
           const tabName = tabNameByFolder.get(group.tabFolder)
           if (tabName == null) return
           options.activeTab.value = tabName
@@ -328,45 +537,48 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
         ElMessage.success(`Exported ${exported} chart(s) across ${tabGroups.length} tab(s) to ZIP`)
       }
     } catch (error: any) {
-      ElMessage.error(error?.message || 'Failed to export charts')
+      handleExportError(error)
     } finally {
       options.activeTab.value = previousTab
-      chartsExportLoading.value = false
+      finishChartsExport()
     }
   }
 
   const exportNestedChartsZip = async (chartIds: Set<string> | 'all') => {
     const selectedIds = chartIds === 'all' ? null : chartIds
     const userInfo = wsCache.get(appStore.getUserInfo)
-    const counties = getNestedExportCounties(userInfo)
+    const dimension = getNestedExportDimension()
+    const units = getNestedExportUnits(userInfo)
+    const unitLabelPlural = nestedExportUnitLabelPlural.value
 
-    if (!counties.length) {
-      ElMessage.warning('No counties available for nested export')
+    if (!units.length) {
+      ElMessage.warning(`No ${unitLabelPlural} available for nested export`)
       return
     }
 
     const snapshot = saveDashboardFilterSnapshot()
     const dateStamp = new Date().toISOString().slice(0, 10)
+    const scopeLabel = sanitizeExportFileSegment(options.statisticsCardFilterContext.value || 'Kenya')
     const zipFileName =
-      counties.length === 1
-        ? `${sanitizeExportFileSegment(counties[0].label || counties[0].value)}_dashboard_charts_nested_${dateStamp}.zip`
-        : `Kenya_dashboard_charts_nested_${dateStamp}.zip`
+      units.length === 1
+        ? `${sanitizeExportFileSegment(units[0].label)}_dashboard_charts_nested_${dateStamp}.zip`
+        : `${scopeLabel}_dashboard_charts_nested_${dateStamp}.zip`
     const zip = new JSZip()
     const usedPaths = new Set<string>()
     let exported = 0
     let skipped = 0
-    let countiesProcessed = 0
+    let unitsProcessed = 0
 
     try {
-      chartsExportLoading.value = true
+      beginChartsExport()
 
-      for (const county of counties) {
-        const countyFolder = sanitizeExportFileSegment(county.label || county.value)
-        await applyCountyFilterForExport(county.value)
+      for (const unit of units) {
+        throwIfExportCancelled()
+        await applyNestedUnitFilterForExport(unit, dimension)
 
         const { tabGroups, chartConfigs, tabNameByFolder } = buildExportTabGroupsFromTabs(
           selectedIds,
-          countyFolder
+          unit.folder
         )
 
         if (!tabGroups.length) {
@@ -383,7 +595,9 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
           usedPaths,
           download: false,
           allowEmpty: true,
+          shouldCancel: shouldCancelExport,
           onBeforeTabExport: async (group) => {
+            throwIfExportCancelled()
             const lookupKey = `${group.parentFolder}/${group.tabFolder}`
             const tabName = tabNameByFolder.get(lookupKey)
             if (tabName == null) return
@@ -396,30 +610,35 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
         exported += result.exported
         skipped += result.skipped
         if (result.exported > 0) {
-          countiesProcessed++
+          unitsProcessed++
         }
       }
 
+      throwIfExportCancelled()
+
       if (exported === 0) {
-        throw new Error('Could not export any charts for the selected counties')
+        throw new Error(`Could not export any charts for the selected ${unitLabelPlural}`)
       }
 
       const content = await zip.generateAsync({ type: 'blob' })
+      throwIfExportCancelled()
       saveAs(content, zipFileName)
       exportDrawerVisible.value = false
 
       if (skipped > 0) {
         ElMessage.success(
-          `Exported ${exported} chart(s) across ${countiesProcessed} counties. ${skipped} chart(s) could not be captured.`
+          `Exported ${exported} chart(s) across ${unitsProcessed} ${unitLabelPlural}. ${skipped} chart(s) could not be captured.`
         )
       } else {
-        ElMessage.success(`Exported ${exported} chart(s) across ${countiesProcessed} counties to ZIP`)
+        ElMessage.success(
+          `Exported ${exported} chart(s) across ${unitsProcessed} ${unitLabelPlural} to ZIP`
+        )
       }
     } catch (error: any) {
-      ElMessage.error(error?.message || 'Failed to export nested charts')
+      handleExportError(error)
     } finally {
       await restoreDashboardFilterSnapshot(snapshot)
-      chartsExportLoading.value = false
+      finishChartsExport()
     }
   }
 
@@ -445,6 +664,11 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     exportCollapseActive,
     canUseNestedExport,
     nestedExportPermissionDenied,
+    nestedExportRadioLabel,
+    nestedExportDescription,
+    nestedExportUnavailableReason,
+    nestedExportUnitLabel,
+    nestedExportUnitLabelPlural,
     setChartComponentRef,
     getExportableChartCount,
     exportDrawerTabGroups,
@@ -455,5 +679,6 @@ export function useDashboardChartExport(options: UseDashboardChartExportOptions)
     toggleTabExportSelection,
     exportAllChartsFromDrawer,
     exportSelectedChartsFromDrawer,
+    cancelChartsExport,
   }
 }

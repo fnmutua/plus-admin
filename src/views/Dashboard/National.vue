@@ -494,8 +494,13 @@ for (const item of filters ) {
     filterOperators.push('or')
 
   }
-   
 
+  else if (filterLevel.value === 'ward') {
+    filterFields.push('ward_id')
+    filterValues.push(selectedWards.value)
+    filterOperators.push('or')
+  }
+   
 
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
@@ -672,6 +677,10 @@ function buildChartSummaryFormData(thisChart: any) {
     if (chartType != 3 && chartType != 10 && !isTimeSeriesChart) {
       groupFields.push('ward.name')
     }
+  } else if (filterLevel.value === 'ward') {
+    filterFields.push('ward_id')
+    filterValues.push(selectedWards.value)
+    filterOperators.push('or')
   } else if (filterLevel.value === 'national') {
     if (!isTimeSeriesChart) {
       associated_Models.push('county')
@@ -888,6 +897,8 @@ const getAxisChartData = async (thisChart: any): Promise<[any[], any[]]> => {
     locationFilters.push({ field: card_model + '.county_id', operation: 'in', value: selectedCounties.value })
   } else if (filterLevel.value === 'subcounty' && selectedSubCounties.value?.length) {
     locationFilters.push({ field: card_model + '.subcounty_id', operation: 'in', value: selectedSubCounties.value })
+  } else if (filterLevel.value === 'ward' && selectedWards.value?.length) {
+    locationFilters.push({ field: card_model + '.ward_id', operation: 'in', value: selectedWards.value })
   }
   const mergedFilters = [...(Array.isArray(filters) ? filters : []), ...locationFilters]
   if (mergedFilters.length) payload.filters = mergedFilters
@@ -1829,6 +1840,10 @@ async function processTreemapChart() {
                filterFields.push('subcounty_id')
               filterValues.push([selectedSubCounties.value])
              }
+            else if (filterLevel.value === 'ward') {
+              filterFields.push('ward_id')
+              filterValues.push([selectedWards.value])
+            }
 
             else if (filterLevel.value === 'national') {
 
@@ -2634,6 +2649,7 @@ const chartExportApi = useDashboardChartExport({
   filterLevel,
   selectedCounties,
   selectedSubCounties,
+  selectedWards,
   selectCounty,
   selectSubCounty,
   countyList,
