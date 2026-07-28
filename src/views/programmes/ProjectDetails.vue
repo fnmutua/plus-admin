@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, computed, watch, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, computed, watch, reactive, ref } from 'vue'
 import {
   
 ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
-  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon, ElBadge,
+  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon, ElTransfer,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
@@ -66,7 +66,19 @@ import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
-const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
+const mobileBreakpoint = 768
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= mobileBreakpoint : false)
+
+const updateIsMobile = () => {
+  if (typeof window === 'undefined') return
+  isMobile.value = window.innerWidth <= mobileBreakpoint
+}
+
+const projectDialogWidth = computed(() => (isMobile.value ? 'calc(100% - 32px)' : '480px'))
+const projectFormDialogWidth = computed(() => (isMobile.value ? 'calc(100% - 32px)' : '500px'))
+const projectWideDialogWidth = computed(() => (isMobile.value ? '100%' : '50%'))
+const projectNarrowDialogWidth = computed(() => (isMobile.value ? 'calc(100% - 32px)' : '400px'))
+const projectUploadDialogWidth = computed(() => (isMobile.value ? 'calc(100% - 32px)' : '25%'))
  
 
 
@@ -474,11 +486,34 @@ function formatSentence(text) {
 const dashDisplay = (v: unknown) =>
   v === null || v === undefined || v === '' ? '—' : v
 
-const formatDateDisplay = (v: unknown) => {
-  if (v === null || v === undefined || v === '') return '—'
+const isDateOnlyString = (v: unknown) =>
+  typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())
+
+const parseDisplayDate = (v: unknown): Date | null => {
+  if (v === null || v === undefined || v === '') return null
   const d = v instanceof Date ? v : new Date(v as string)
-  if (Number.isNaN(d.getTime())) return String(v)
-  return d.toLocaleDateString()
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+const formatDateDisplay = (v: unknown) => {
+  const d = parseDisplayDate(v)
+  if (!d) return v === null || v === undefined || v === '' ? '—' : String(v)
+  const useUtc = isDateOnlyString(v)
+  const day = String(useUtc ? d.getUTCDate() : d.getDate()).padStart(2, '0')
+  const month = String(useUtc ? d.getUTCMonth() + 1 : d.getMonth() + 1).padStart(2, '0')
+  const year = useUtc ? d.getUTCFullYear() : d.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+const formatDateTimeDisplay = (v: unknown) => {
+  const d = parseDisplayDate(v)
+  if (!d) return '—'
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
 const formatCostDisplay = (v: unknown) => {
@@ -486,6 +521,13 @@ const formatCostDisplay = (v: unknown) => {
   const n = Number(v)
   if (Number.isNaN(n)) return String(v)
   return `KSh. ${n.toLocaleString()}`
+}
+
+const formatAmountDisplay = (v: unknown) => {
+  if (v === null || v === undefined || v === '') return '—'
+  const n = Number(v)
+  if (Number.isNaN(n)) return String(v)
+  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
 const normalizeImplementationScope = (scope: unknown) =>
@@ -510,8 +552,6 @@ function buildProjectDescription(data: Record<string, any> | null | undefined) {
 
 
 const activityOptions = ref([])
-
-const scopeListPreviewLimit = 5
 
 const sortedActivityOptions = computed(() =>
   [...activityOptions.value].sort((a, b) =>
@@ -1328,7 +1368,13 @@ const loadProjectDetails = async (id: string | string[]) => {
 }
 
 onMounted(() => {
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
   loadProjectDetails(route.params.id)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateIsMobile)
 })
 
 watch(
@@ -1765,61 +1811,21 @@ const selectedScopeActivityIds = computed(() => {
   return Array.isArray(checked) ? checked : []
 })
 
-const selectedScopeActivities = computed(() => {
-  const checked = new Set(selectedScopeActivityIds.value)
-  return sortedActivityOptions.value.filter((activity) => checked.has(activity.id))
-})
+const scopeTransferData = computed(() =>
+  sortedActivityOptions.value.map((activity) => ({
+    key: activity.id,
+    label: String(activity.title || activity.label || 'Untitled activity'),
+  }))
+)
 
-const availableScopeActivities = computed(() => {
-  const checked = new Set(selectedScopeActivityIds.value)
-  return sortedActivityOptions.value.filter((activity) => !checked.has(activity.id))
-})
-
-const selectedScopeCount = computed(() => selectedScopeActivities.value.length)
+const selectedScopeCount = computed(() => selectedScopeActivityIds.value.length)
 const totalScopeCount = computed(() => sortedActivityOptions.value.length)
 
-const scopeActiveTab = ref('available')
-const scopeSearchQuery = ref('')
-
-function activityMatchesScopeSearch(activity: any, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  const title = String(activity.title || activity.label || '').toLowerCase()
-  const shortTitle = String(activity.shortTitle || activity.code || '').toLowerCase()
-  return title.includes(q) || shortTitle.includes(q)
-}
-
-const filteredSelectedScopeActivities = computed(() =>
-  selectedScopeActivities.value.filter((activity) =>
-    activityMatchesScopeSearch(activity, scopeSearchQuery.value)
-  )
+const scopeActionButtonCount = computed(
+  () => (canManageProjectScope.value ? 1 : 0) + (canCreateActivity.value ? 1 : 0)
 )
 
-const filteredAvailableScopeActivities = computed(() =>
-  availableScopeActivities.value.filter((activity) =>
-    activityMatchesScopeSearch(activity, scopeSearchQuery.value)
-  )
-)
-
-watch(selectedScopeCount, (count) => {
-  if (!canManageProjectScope.value) {
-    scopeActiveTab.value = 'selected'
-  } else if (count === 0) {
-    scopeActiveTab.value = 'available'
-  }
-}, { immediate: true })
-
-function removeScopeActivity(activityId: number | string) {
-  if (!canManageProjectScope.value) return
-  projectScopeChecked.value = selectedScopeActivityIds.value.filter((id) => id !== activityId)
-}
-
-function addScopeActivity(activityId: number | string) {
-  if (!canManageProjectScope.value) return
-  if (!selectedScopeActivityIds.value.includes(activityId)) {
-    projectScopeChecked.value = [...selectedScopeActivityIds.value, activityId]
-  }
-}
+const scopeActionColSpan = computed(() => (scopeActionButtonCount.value > 1 ? 12 : 24))
 
 const updateChanges = async () => {
   // Assuming projectScope.value is an array of objects with an 'id' property
@@ -1834,6 +1840,7 @@ const updateChanges = async () => {
 
 
 const ShowActivityAddDialog = ref(false)
+const activitySubmitting = ref(false)
 
 
 
@@ -1848,6 +1855,10 @@ const activityFormRules = reactive<FormRules>({
   title: [
     { required: true, message: 'Please provide a title', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' },
+  ],
+  shortTitle: [
+    { required: true, message: 'Please provide a short title', trigger: 'blur' },
+    { min: 2, message: 'Length should be at least 2 characters', trigger: 'blur' },
   ],
 })
 
@@ -1865,9 +1876,10 @@ const closeAddActivityDialog = () => {
 }
 
 const submitNewActivity = async () => {
-  if (!activityFormRef.value) return
+  if (!activityFormRef.value || activitySubmitting.value) return
   await activityFormRef.value.validate(async (valid) => {
     if (!valid) return
+    activitySubmitting.value = true
     try {
       const payload = {
         model: 'activity',
@@ -1889,6 +1901,8 @@ const submitNewActivity = async () => {
     } catch (error) {
       console.error('Failed to add activity:', error)
       ElMessage.error('Failed to add activity')
+    } finally {
+      activitySubmitting.value = false
     }
   })
 }
@@ -2049,11 +2063,7 @@ const getProjectClockIns = async (project_id, params = {}) => {
 }
 
 // Format date and time
-const formatDateTime = (dateString) => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleString()
-}
+const formatDateTime = (dateString: unknown) => formatDateTimeDisplay(dateString)
 
 // Calculate hours worked  
 const calculateHours = (clockIn, clockOut) => {
@@ -2272,6 +2282,37 @@ const DisbursementRules = ({
   certificate: [
     { required: true, message: 'IPC certificate is required', trigger: 'blur' },
   ],
+})
+
+const disbursementAmountInput = ref('')
+
+const handleDisbursementAmountInput = (value: string) => {
+  const sanitized = value.replace(/,/g, '').replace(/[^\d.]/g, '')
+  const dotIndex = sanitized.indexOf('.')
+  const intPart = dotIndex >= 0 ? sanitized.slice(0, dotIndex) : sanitized
+  const decPart = dotIndex >= 0 ? sanitized.slice(dotIndex + 1).replace(/\./g, '').slice(0, 2) : ''
+
+  if (sanitized === '') {
+    disbursementAmountInput.value = ''
+    DisbursementForm.value.amount = null
+    return
+  }
+
+  const numericString = decPart ? `${intPart}.${decPart}` : intPart
+  const parsed = numericString === '' || numericString === '.' ? null : Number(numericString)
+  DisbursementForm.value.amount = parsed !== null && !Number.isNaN(parsed) ? parsed : null
+
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  disbursementAmountInput.value = decPart ? `${formattedInt}.${decPart}` : formattedInt
+}
+
+watch(AddDisbursementTeamDialog, (open) => {
+  if (!open) return
+  const amount = DisbursementForm.value.amount
+  disbursementAmountInput.value =
+    amount != null && amount !== '' && !Number.isNaN(Number(amount))
+      ? formatAmountDisplay(amount)
+      : ''
 })
 
 
@@ -3141,12 +3182,8 @@ const tableRowClassName = (data) => {
   return ''
 }
 
-function formatDate(dateString) {
-  const dateObj = new Date(dateString);
-  const year = dateObj.getUTCFullYear();
-  const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function formatDate(dateString: unknown) {
+  return formatDateDisplay(dateString)
 }
 
 
@@ -4227,7 +4264,7 @@ const getSummaries = (param) => {
         const value = Number(row[column.property]);
         return isNaN(value) ? sum : sum + value;
       }, 0);
-      sums[index] = total.toLocaleString(); // Or format however you like
+      sums[index] = formatAmountDisplay(total)
     } else {
       sums[index] = '';
     }
@@ -4333,20 +4370,37 @@ function formatLocation(item) {
   <el-card v-loading="isLoading">
     <!-- Header Section -->
     <template #header>
-      <div class="card-header">
+      <div class="card-header" :class="{ 'card-header--mobile': isMobile }">
         <div class="card-header-content">
-          <el-button type="primary" plain :icon="Back" @click="goBack" class="back-button">
+          <el-button
+            v-if="isMobile"
+            type="primary"
+            plain
+            circle
+            :icon="Back"
+            aria-label="Back"
+            @click="goBack"
+            class="back-button"
+          />
+          <el-button
+            v-else
+            type="primary"
+            plain
+            :icon="Back"
+            @click="goBack"
+            class="back-button"
+          >
             Back
           </el-button>
           <div class="project-title-wrap">
             <div class="project-title">
               {{ project_title || 'Project Details' }}
             </div>
-            <div v-if="projectHeaderSubtitle" class="project-subtitle">
+            <div v-if="projectHeaderSubtitle && !isMobile" class="project-subtitle">
               {{ projectHeaderSubtitle }}
             </div>
             <div
-              v-if="projectFullData"
+              v-if="projectFullData && !isMobile"
               class="project-header-tags project-header-tags--prominent"
               role="group"
               aria-label="Project status"
@@ -4365,8 +4419,11 @@ function formatLocation(item) {
           </div>
         </div>
         <div class="header-actions">
+          <el-tooltip v-if="showEditButtons && canEditProjectMeta && isMobile" content="Edit project" placement="top">
+            <el-button type="success" :icon="Edit" plain circle class="edit-button" @click="editProject" />
+          </el-tooltip>
           <el-button
-            v-if="showEditButtons && canEditProjectMeta"
+            v-else-if="showEditButtons && canEditProjectMeta"
             type="success"
             :icon="Edit"
             plain
@@ -4468,41 +4525,82 @@ function formatLocation(item) {
 
    
         <el-dialog
-v-model="ShowLocationAddDialog" title="Add Project Location" width="500"
-          :before-close="handleCloseAdd">
-          <el-select
-id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
-            :loading="loading" :placeholder="'Search '+ implementation_scope" :remote-method="remoteMethod" style="width: 85%">
-            <el-option v-for="item in locationOptions" :key="item.id" :label="item.label" :value="item">
-              <div style="display: flex; align-items: center;">
-                <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-                <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
-                  {{ item.ward ? item.ward + ', ' : '' }}{{ item.subcounty ? item.subcounty + ', ' : '' }}{{ item.county
-                  }}
-                </span>
-              </div>
-            </el-option>
-          </el-select>
-          <el-tooltip content="Save" placement="top">
-            <el-button @click="SaveLocation" style="margin-left :10px;" type="primary">
-              <Icon icon="ic:round-save" style=" color: white" size="48" />
-            </el-button>
-          </el-tooltip>
+          v-model="ShowLocationAddDialog"
+          title="Add Project Location"
+          :width="projectFormDialogWidth"
+          :draggable="!isMobile"
+          append-to-body
+          align-center
+          class="project-details-dialog"
+          :class="{ 'project-details-dialog--mobile': isMobile }"
+          :before-close="handleCloseAdd"
+        >
+          <div class="location-add-dialog-body">
+            <el-select
+              id="location-select"
+              v-model="extra_locations"
+              multiple
+              filterable
+              remote
+              reserve-keyword
+              :loading="loading"
+              :placeholder="'Search ' + implementation_scope"
+              :remote-method="remoteMethod"
+              :size="isMobile ? 'large' : 'default'"
+              class="location-add-dialog-select"
+            >
+              <el-option v-for="item in locationOptions" :key="item.id" :label="item.label" :value="item">
+                <div class="location-option-row">
+                  <span class="location-option-label">{{ item.label }}</span>
+                  <span class="location-option-meta">
+                    {{ item.ward ? item.ward + ', ' : '' }}{{ item.subcounty ? item.subcounty + ', ' : '' }}{{ item.county }}
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
+          </div>
+          <template #footer>
+            <div
+              class="project-details-dialog-footer"
+              :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+            >
+              <el-button :size="isMobile ? 'large' : 'default'" @click="ShowLocationAddDialog = false">
+                Cancel
+              </el-button>
+              <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="SaveLocation">
+                <Icon icon="ic:round-save" style="margin-right: 6px;" />
+                Save
+              </el-button>
+            </div>
+          </template>
         </el-dialog>
 
 
 
-        <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
+        <el-dialog
+          v-model="dialogMap"
+          :width="projectWideDialogWidth"
+          :fullscreen="isMobile"
+          :draggable="!isMobile"
+          append-to-body
+          align-center
+          class="project-details-dialog project-details-map-dialog"
+          :class="{ 'project-details-dialog--mobile': isMobile, 'project-details-map-dialog--mobile': isMobile }"
+          :before-close="closeMap"
+          :show-close="false"
+        >
           <template #header="{ titleId, titleClass }">
-            <div class="my-header">
-              <h4 :id="titleId" :class="titleClass">Project Location</h4>
-              <h2 :style="`color: green; font-style: italic;`">{{ locationStatus }}</h2>
-              <!-- Use the 'italicizedColor' variable -->
-              <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
+            <div class="my-header" :class="{ 'my-header--mobile': isMobile }">
+              <div class="my-header-titles">
+                <h4 :id="titleId" :class="titleClass">Project Location</h4>
+                <h2 class="map-status-text">{{ locationStatus }}</h2>
+              </div>
+              <el-button type="danger" :icon="CircleCloseFilled" :size="isMobile ? 'large' : 'default'" @click="closeMap">
+                Close Map
+              </el-button>
             </div>
           </template>
-          <div id="mapContainer" class="basemap"></div>
-
+          <div id="mapContainer" class="basemap" :class="{ 'basemap--mobile': isMobile }"></div>
         </el-dialog>
 
 
@@ -4519,118 +4617,81 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
 
       <el-tab-pane label="Scope" name="Scope">
         <el-card class="project-scope-card">
-          <div class="project-scope-toolbar">
-            <div class="project-scope-summary">
-              <span class="project-scope-summary-count">
-                {{ selectedScopeCount }} of {{ totalScopeCount }} in scope
-              </span>
-              <span v-if="canManageProjectScope" class="project-scope-summary-hint">
-                Use the tabs below, then save changes.
-              </span>
-            </div>
-            <div class="project-scope-actions">
-              <el-button v-if="canManageProjectScope" @click="updateChanges" type="success" plain>
-                <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
-                Save Changes
-              </el-button>
-              <el-button v-if="canCreateActivity" @click="openAddActivityDialog" type="primary" plain>
-                <Icon icon="material-symbols:add" style="color: green; margin-right: 5px;" size="20" />
-                Add Activity
-              </el-button>
-            </div>
-          </div>
+          <el-row :gutter="8" class="project-scope-toolbar" align="middle">
+            <el-col
+              :xs="isMobile && scopeActionButtonCount > 0 ? 14 : 24"
+              :md="14"
+              :lg="16"
+            >
+              <div class="project-scope-summary" :class="{ 'project-scope-summary--mobile': isMobile }">
+                <span class="project-scope-summary-count">
+                  {{ selectedScopeCount }} of {{ totalScopeCount }} in scope
+                </span>
+                <span v-if="canManageProjectScope && !isMobile" class="project-scope-summary-hint">
+                  Move activities between panels, then save changes.
+                </span>
+              </div>
+            </el-col>
+            <el-col
+              v-if="scopeActionButtonCount > 0"
+              :xs="isMobile ? 10 : 24"
+              :md="10"
+              :lg="8"
+              class="project-scope-actions-col"
+            >
+              <div v-if="isMobile" class="project-scope-mobile-actions">
+                <el-tooltip v-if="canManageProjectScope" content="Save changes" placement="top">
+                  <el-button type="success" plain circle class="project-scope-icon-btn" @click="updateChanges">
+                    <Icon icon="ic:round-save" width="22" />
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip v-if="canCreateActivity" content="Add activity" placement="top">
+                  <el-button type="primary" plain circle class="project-scope-icon-btn" @click="openAddActivityDialog">
+                    <Icon icon="material-symbols:add" width="22" />
+                  </el-button>
+                </el-tooltip>
+              </div>
+              <el-row v-else :gutter="8" justify="end">
+                <el-col v-if="canManageProjectScope" :xs="scopeActionColSpan" :sm="scopeActionColSpan">
+                  <el-button class="project-scope-action-btn" type="success" plain @click="updateChanges">
+                    <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
+                    Save Changes
+                  </el-button>
+                </el-col>
+                <el-col v-if="canCreateActivity" :xs="scopeActionColSpan" :sm="scopeActionColSpan">
+                  <el-button class="project-scope-action-btn" type="primary" plain @click="openAddActivityDialog">
+                    <Icon icon="material-symbols:add" style="color: green; margin-right: 5px;" size="20" />
+                    Add Activity
+                  </el-button>
+                </el-col>
+              </el-row>
+            </el-col>
+          </el-row>
 
           <div v-if="sortedActivityOptions.length === 0" class="project-scope-empty">
             <p>No activities available.</p>
-            <el-button v-if="canCreateActivity" type="primary" plain @click="openAddActivityDialog">
+            <el-tooltip v-if="canCreateActivity && isMobile" content="Add activity" placement="top">
+              <el-button type="primary" plain circle @click="openAddActivityDialog">
+                <Icon icon="material-symbols:add" width="22" />
+              </el-button>
+            </el-tooltip>
+            <el-button v-else-if="canCreateActivity" type="primary" plain @click="openAddActivityDialog">
               <Icon icon="material-symbols:add" style="margin-right: 5px;" />
               Add Activity
             </el-button>
           </div>
 
           <template v-else>
-            <el-input
-              v-model="scopeSearchQuery"
-              clearable
-              placeholder="Search activities…"
-              class="project-scope-search"
+            <el-transfer
+              v-model="projectScopeChecked"
+              :data="scopeTransferData"
+              :props="{ key: 'key', label: 'label' }"
+              :titles="['Available', 'Selected']"
+              filterable
+              filter-placeholder="Search activities"
+              :disabled="!canManageProjectScope"
+              :class="['project-scope-transfer', { 'project-scope-transfer--mobile': isMobile }]"
             />
-
-            <el-tabs v-model="scopeActiveTab" class="project-scope-tabs">
-              <el-tab-pane v-if="canManageProjectScope" name="available">
-                <template #label>
-                  Available
-                  <el-badge
-                    :value="availableScopeActivities.length"
-                    :max="999"
-                    type="info"
-                    class="project-scope-tab-badge"
-                  />
-                </template>
-
-                <div v-if="filteredAvailableScopeActivities.length" class="project-scope-scroll">
-                  <div
-                    v-for="activity in filteredAvailableScopeActivities"
-                    :key="`available-${activity.id}`"
-                    class="project-scope-item"
-                  >
-                    <el-checkbox
-                      :model-value="false"
-                      @change="(checked: boolean) => checked && addScopeActivity(activity.id)"
-                    >
-                      <span class="project-scope-activity-label" :title="activity.title">
-                        {{ activity.title }}
-                      </span>
-                    </el-checkbox>
-                  </div>
-                </div>
-                <p v-else-if="availableScopeActivities.length && scopeSearchQuery.trim()" class="project-scope-none-selected">
-                  No available activities match your search.
-                </p>
-                <p v-else class="project-scope-none-selected">All activities are already selected.</p>
-                <p
-                  v-if="filteredAvailableScopeActivities.length > scopeListPreviewLimit"
-                  class="project-scope-scroll-hint"
-                >
-                  {{ filteredAvailableScopeActivities.length }} shown — scroll to view all
-                </p>
-              </el-tab-pane>
-
-              <el-tab-pane name="selected">
-                <template #label>
-                  Selected
-                  <el-badge :value="selectedScopeCount" :max="999" class="project-scope-tab-badge" />
-                </template>
-
-                <div v-if="filteredSelectedScopeActivities.length" class="project-scope-scroll">
-                  <div
-                    v-for="activity in filteredSelectedScopeActivities"
-                    :key="`selected-${activity.id}`"
-                    class="project-scope-item"
-                  >
-                    <el-checkbox
-                      :model-value="true"
-                      :disabled="!canManageProjectScope"
-                      @change="(checked: boolean) => !checked && removeScopeActivity(activity.id)"
-                    >
-                      <span class="project-scope-activity-label" :title="activity.title">
-                        {{ activity.title }}
-                      </span>
-                    </el-checkbox>
-                  </div>
-                </div>
-                <p v-else-if="selectedScopeActivities.length && scopeSearchQuery.trim()" class="project-scope-none-selected">
-                  No selected activities match your search.
-                </p>
-                <p v-else class="project-scope-none-selected">No activities selected for this project yet.</p>
-                <p
-                  v-if="filteredSelectedScopeActivities.length > scopeListPreviewLimit"
-                  class="project-scope-scroll-hint"
-                >
-                  {{ filteredSelectedScopeActivities.length }} shown — scroll to view all
-                </p>
-              </el-tab-pane>
-            </el-tabs>
           </template>
         </el-card>
       </el-tab-pane>
@@ -4638,21 +4699,60 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
       <el-dialog
         v-model="ShowActivityAddDialog"
         title="Add Activity"
-        width="480px"
-        draggable
+        :width="projectDialogWidth"
+        :draggable="!isMobile"
+        append-to-body
+        align-center
+        destroy-on-close
+        class="project-details-dialog"
+        :class="{ 'project-details-dialog--mobile': isMobile }"
         @close="closeAddActivityDialog"
       >
-        <el-form ref="activityFormRef" :model="activityForm" :rules="activityFormRules" label-position="top">
+        <el-form
+          ref="activityFormRef"
+          :model="activityForm"
+          :rules="activityFormRules"
+          label-position="top"
+          class="project-details-form"
+          @submit.prevent="submitNewActivity"
+        >
           <el-form-item label="Title" prop="title">
-            <el-input v-model="activityForm.title" placeholder="Activity title" />
+            <el-input
+              v-model="activityForm.title"
+              placeholder="Activity title"
+              :size="isMobile ? 'large' : 'default'"
+              autofocus
+            />
           </el-form-item>
           <el-form-item label="Short Title" prop="shortTitle">
-            <el-input v-model="activityForm.shortTitle" placeholder="Short title (optional)" />
+            <el-input
+              v-model="activityForm.shortTitle"
+              placeholder="Short title"
+              :size="isMobile ? 'large' : 'default'"
+            />
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="closeAddActivityDialog">Cancel</el-button>
-          <el-button type="primary" @click="submitNewActivity">Add Activity</el-button>
+          <div
+            class="project-details-dialog-footer"
+            :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+          >
+            <el-button
+              :size="isMobile ? 'large' : 'default'"
+              :disabled="activitySubmitting"
+              @click="closeAddActivityDialog"
+            >
+              Cancel
+            </el-button>
+            <el-button
+              type="primary"
+              :size="isMobile ? 'large' : 'default'"
+              :loading="activitySubmitting"
+              @click="submitNewActivity"
+            >
+              Add Activity
+            </el-button>
+          </div>
         </template>
       </el-dialog>
 
@@ -4734,7 +4834,11 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
               </template>
             </el-table-column>
             <el-table-column prop="type" label="Type" />
-            <el-table-column prop="createdAt" label="Uploaded" />
+            <el-table-column prop="createdAt" label="Uploaded">
+              <template #default="{ row }">
+                {{ formatDateDisplay(row.createdAt) }}
+              </template>
+            </el-table-column>
             <el-table-column label="Size (MB)">
               <template #default="{ row }">
                 {{
@@ -4744,42 +4848,67 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
                 }}
               </template>
             </el-table-column>
-            <el-table-column fixed="right" label="">
+            <el-table-column fixed="right" label="" :width="isMobile ? 132 : undefined" align="center">
               <template #default="scope">
-                <el-button
-                  plain
-                  :loading="downloadingDocId === scope.row.id"
-                  :disabled="downloadingDocId === scope.row.id"
-                  @click="downloadFile(scope.row)"
-                >
-                  <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
-                  <span v-if="downloadingDocId === scope.row.id">Downloading…</span>
-                  <span v-else>Download</span>
-                </el-button>
-              </template>
-            </el-table-column>
-            <el-table-column fixed="right" label="">
-              <template #default="scope">
-                <el-button 
-                  v-if="canUserDeleteDocument(scope.row)"
-                  plain type="danger" @click="RemoveDocument(scope.row)">
-                  <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
-                  Remove
-                </el-button>
-                <el-popconfirm
-                  v-if="canUserUnlinkDocument(scope.row)"
-                  title="Unlink this document from this project? The document will not be deleted."
-                  confirm-button-text="Unlink"
-                  cancel-button-text="Cancel"
-                  @confirm="handleUnlinkDocument(scope.row)"
-                >
-                  <template #reference>
-                    <el-button plain type="warning">
-                      <Icon icon="mdi:link-off" style="margin-right: 5px;" />
-                      Unlink
+                <div class="doc-table-actions">
+                  <el-tooltip
+                    :content="downloadingDocId === scope.row.id ? 'Downloading…' : 'Download'"
+                    placement="top"
+                    :disabled="!isMobile"
+                  >
+                    <el-button
+                      plain
+                      :circle="isMobile"
+                      :size="isMobile ? 'small' : 'default'"
+                      :loading="downloadingDocId === scope.row.id"
+                      :disabled="downloadingDocId === scope.row.id"
+                      @click="downloadFile(scope.row)"
+                    >
+                      <Icon icon="fa-solid:download" :style="isMobile ? undefined : 'margin-right: 5px;'" />
+                      <template v-if="!isMobile">
+                        <span v-if="downloadingDocId === scope.row.id">Downloading…</span>
+                        <span v-else>Download</span>
+                      </template>
                     </el-button>
-                  </template>
-                </el-popconfirm>
+                  </el-tooltip>
+
+                  <el-tooltip v-if="canUserDeleteDocument(scope.row)" content="Remove" placement="top" :disabled="!isMobile">
+                    <el-button
+                      plain
+                      type="danger"
+                      :circle="isMobile"
+                      :size="isMobile ? 'small' : 'default'"
+                      @click="RemoveDocument(scope.row)"
+                    >
+                      <Icon icon="material-symbols-light:delete-outline" :style="isMobile ? undefined : 'margin-right: 5px;'" />
+                      <span v-if="!isMobile">Remove</span>
+                    </el-button>
+                  </el-tooltip>
+
+                  <el-popconfirm
+                    v-if="canUserUnlinkDocument(scope.row)"
+                    title="Unlink this document from this project? The document will not be deleted."
+                    confirm-button-text="Unlink"
+                    cancel-button-text="Cancel"
+                    @confirm="handleUnlinkDocument(scope.row)"
+                  >
+                    <template #reference>
+                      <span class="doc-action-trigger">
+                        <el-button
+                          plain
+                          type="warning"
+                          :circle="isMobile"
+                          :size="isMobile ? 'small' : 'default'"
+                          :title="isMobile ? 'Unlink' : undefined"
+                          aria-label="Unlink"
+                        >
+                          <Icon icon="mdi:link-off" :style="isMobile ? undefined : 'margin-right: 5px;'" />
+                          <span v-if="!isMobile">Unlink</span>
+                        </el-button>
+                      </span>
+                    </template>
+                  </el-popconfirm>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -4799,10 +4928,12 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
       :pager-count="isMobile ? 3 : 7"
           />
           <div v-if="canUploadProjectDocument" class="project-docs-actions">
-            <el-button plain @click="toggleComponent()">
-              <Icon icon="fa-solid:upload" style="margin-right: 10px" />
-              Upload
-            </el-button>
+            <el-tooltip content="Upload" placement="top" :disabled="!isMobile">
+              <el-button plain :circle="isMobile" @click="toggleComponent()">
+                <Icon icon="fa-solid:upload" :style="isMobile ? undefined : 'margin-right: 10px'" />
+                <span v-if="!isMobile">Upload</span>
+              </el-button>
+            </el-tooltip>
             <UploadShareDialog entity-type="project" :entity-id="project_id" />
           </div>
         </el-card>
@@ -4928,14 +5059,27 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
             </el-table-column>
           </el-table>
         </el-card>
-        <el-dialog v-model="clockDialogMap" width="50%" draggable :before-close="closeClockMap" :show-close="false">
+        <el-dialog
+          v-model="clockDialogMap"
+          :width="projectWideDialogWidth"
+          :fullscreen="isMobile"
+          :draggable="!isMobile"
+          append-to-body
+          align-center
+          class="project-details-dialog project-details-map-dialog"
+          :class="{ 'project-details-dialog--mobile': isMobile, 'project-details-map-dialog--mobile': isMobile }"
+          :before-close="closeClockMap"
+          :show-close="false"
+        >
           <template #header="{ titleId, titleClass }">
-            <div class="my-header">
+            <div class="my-header" :class="{ 'my-header--mobile': isMobile }">
               <h4 :id="titleId" :class="titleClass">Clock-in Location</h4>
-              <el-button type="danger" :icon="CircleCloseFilled" @click="closeClockMap">Close Map</el-button>
+              <el-button type="danger" :icon="CircleCloseFilled" :size="isMobile ? 'large' : 'default'" @click="closeClockMap">
+                Close Map
+              </el-button>
             </div>
           </template>
-          <div id="clockMapContainer" class="basemap"></div>
+          <div id="clockMapContainer" class="basemap" :class="{ 'basemap--mobile': isMobile }"></div>
         </el-dialog>
       </el-tab-pane>
 
@@ -4979,8 +5123,16 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
           </el-button>
           <el-table :data="projectDisbursements" style="width: 100%" show-summary :summary-method="getSummaries">
             <el-table-column type="index" width="100" />
-            <el-table-column prop="disbursement_date" label="Date" />
-            <el-table-column prop="amount" label="Amount" />
+            <el-table-column prop="disbursement_date" label="Date">
+              <template #default="{ row }">
+                {{ formatDateDisplay(row.disbursement_date) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="amount" label="Amount" align="right">
+              <template #default="{ row }">
+                {{ formatAmountDisplay(row.amount) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="certificate" label="IPC" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
@@ -5003,8 +5155,12 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
 
         <el-timeline style="max-width: 100%;">
           <el-timeline-item
-v-for="(log, index) in sortedprojectLogs" :key="index" placement="top"
-            :timestamp="log.date_actioned" timestamp-class="timestamp-class">
+            v-for="(log, index) in sortedprojectLogs"
+            :key="index"
+            placement="top"
+            :timestamp="formatDateTimeDisplay(log.date_actioned)"
+            timestamp-class="timestamp-class"
+          >
             <el-card
 class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'success-background' :
           log.action_type == 'Escalated' ? 'warning-background' :
@@ -5033,10 +5189,19 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
                   <p class="documents-header">Documentation </p>
 
                   <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
-
-                    <el-button @click="downloadFile(doc)" link type="primary" size="small" :icon="Download">{{ doc.name
-                      }}</el-button>
-
+                    <el-tooltip :content="doc.name" placement="top" :disabled="!isMobile">
+                      <el-button
+                        @click="downloadFile(doc)"
+                        :link="!isMobile"
+                        :plain="isMobile"
+                        :circle="isMobile"
+                        type="primary"
+                        :size="isMobile ? 'small' : 'small'"
+                        :icon="Download"
+                      >
+                        <span v-if="!isMobile">{{ doc.name }}</span>
+                      </el-button>
+                    </el-tooltip>
                   </p>
                 </el-col>
 
@@ -5061,7 +5226,12 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   <el-dialog
     v-model="addMoreDocuments"
     title="Upload Documents"
-    width="25%"
+    :width="projectUploadDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
     v-loading="loadingPosting"
     element-loading-text="Uploading documents..."
     :close-on-click-modal="!loadingPosting"
@@ -5070,8 +5240,15 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
     @closed="resetUploadDialog"
   >
     <el-select
-class="dialog-select" v-model="documentCategory" placeholder="Select Type" clearable filterable
-      style="margin-bottom:10px" @change="handleSelect">
+      class="dialog-select"
+      v-model="documentCategory"
+      placeholder="Select Type"
+      clearable
+      filterable
+      :size="isMobile ? 'large' : 'default'"
+      style="margin-bottom:10px; width: 100%;"
+      @change="handleSelect"
+    >
       <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
         <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
       </el-option-group>
@@ -5079,18 +5256,27 @@ class="dialog-select" v-model="documentCategory" placeholder="Select Type" clear
 
     <div class="dialog-upload">
       <el-upload
-ref="upload" v-if="showUpload" v-model:file-list="morefileList" multiple :limit="10"
-        :on-exceed="onExceeed" :auto-upload="false">
-        <el-button class="full-width" type="primary" :icon="UploadFilled"> Select File(s) </el-button>
-
+        ref="upload"
+        v-if="showUpload"
+        v-model:file-list="morefileList"
+        multiple
+        :limit="10"
+        :on-exceed="onExceeed"
+        :auto-upload="false"
+      >
+        <el-button class="full-width" type="primary" :icon="UploadFilled" :size="isMobile ? 'large' : 'default'">
+          Select File(s)
+        </el-button>
       </el-upload>
     </div>
 
-
     <el-tooltip
-class="box-item" effect="dark" content="Only the Owner and Admin can view Private documents"
-      placement="right-end">
-      <el-checkbox v-model="protectedFile">Private File</el-checkbox>
+      class="box-item"
+      effect="dark"
+      content="Only the Owner and Admin can view Private documents"
+      placement="right-end"
+    >
+      <el-checkbox v-model="protectedFile" :size="isMobile ? 'large' : 'default'">Private File</el-checkbox>
     </el-tooltip>
 
     <div v-if="loadingPosting" class="dialog-progress">
@@ -5102,164 +5288,240 @@ class="box-item" effect="dark" content="Only the Owner and Admin can view Privat
     </div>
 
     <template #footer>
-      <div class="dialog-footer">
-        <el-button :disabled="loadingPosting" @click="addMoreDocuments = false">Cancel</el-button>
-        <el-button type="primary" :loading="loadingPosting" :disabled="loadingPosting" @click="submitMoreDocuments()">
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" :disabled="loadingPosting" @click="addMoreDocuments = false">
+          Cancel
+        </el-button>
+        <el-button
+          type="primary"
+          :size="isMobile ? 'large' : 'default'"
+          :loading="loadingPosting"
+          :disabled="loadingPosting"
+          @click="submitMoreDocuments()"
+        >
           {{ loadingPosting ? 'Uploading...' : 'Confirm' }}
         </el-button>
       </div>
     </template>
-
-
   </el-dialog>
 
 
 
-  <el-dialog v-model="AddTeamDialog" title="Add Project Team" width="500">
+  <el-dialog
+    v-model="AddTeamDialog"
+    title="Add Project Team"
+    :width="projectFormDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    destroy-on-close
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+  >
     <el-form
-:model="teamForm" label-width="auto" style="max-width: 600px" label-position="top" ref="ruleFormRef"
-      :rules="rules">
-      <el-form-item label="Role" prop='role'>
-        <el-select v-model="teamForm.role" placeholder="Select  Role">
+      :model="teamForm"
+      label-width="auto"
+      style="max-width: 600px"
+      label-position="top"
+      ref="ruleFormRef"
+      :rules="rules"
+      class="project-details-form"
+    >
+      <el-form-item label="Role" prop="role">
+        <el-select v-model="teamForm.role" placeholder="Select  Role" :size="isMobile ? 'large' : 'default'" style="width: 100%;">
           <el-option v-for="role in roles" :key="role" :label="role" :value="role" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Name" prop='name'>
-        <el-input v-model="teamForm.name" />
+      <el-form-item label="Name" prop="name">
+        <el-input v-model="teamForm.name" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
-      <el-form-item label="Phone" prop='phone'>
-        <el-input v-model="teamForm.phone" />
-      </el-form-item>
-
-      <el-form-item label="Email" prop='email'>
-        <el-input v-model="teamForm.email" />
+      <el-form-item label="Phone" prop="phone">
+        <el-input v-model="teamForm.phone" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-      <el-tooltip content="Save" placement="top">
-        <el-button @click="updateTeam" style="margin-left :10px;" type="primary">
-          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
-        </el-button>
-
-      </el-tooltip>
-
+      <el-form-item label="Email" prop="email">
+        <el-input v-model="teamForm.email" :size="isMobile ? 'large' : 'default'" />
+      </el-form-item>
     </el-form>
 
-
+    <template #footer>
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="AddTeamDialog = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="updateTeam">
+          <Icon icon="ic:round-save" style="margin-right: 6px;" />
+          Save
+        </el-button>
+      </div>
+    </template>
   </el-dialog>
 
 
-  <el-dialog v-model="AddContractorTeamDialog" title="Add Project Contractors" width="500">
+  <el-dialog
+    v-model="AddContractorTeamDialog"
+    title="Add Project Contractors"
+    :width="projectFormDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    destroy-on-close
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+  >
     <el-form
-:model="contractorForm" label-width="auto" style="max-width: 600px" label-position="top"
-      ref="contractorFormRef" :rules="contractorRules">
-      <el-form-item label="Contractor" prop='contractor'>
+      :model="contractorForm"
+      label-width="auto"
+      style="max-width: 600px"
+      label-position="top"
+      ref="contractorFormRef"
+      :rules="contractorRules"
+      class="project-details-form"
+    >
+      <el-form-item label="Contractor" prop="contractor">
         <el-select
-v-model="contractorForm.contractor_id" placeholder="Select " filterable
-          :onChange="handleSelectContractor">
+          v-model="contractorForm.contractor_id"
+          placeholder="Select "
+          filterable
+          :size="isMobile ? 'large' : 'default'"
+          style="width: 100%;"
+          :onChange="handleSelectContractor"
+        >
           <el-option v-for="cont in contractorOptions" :key="cont" :label="cont.label" :value="cont.id" />
           <template #footer>
             <el-button text bg size="small" @click="onAddOption">
               Add A Contractor
             </el-button>
-
           </template>
-
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Role" prop='role'>
-        <el-select v-model="contractorForm.role" placeholder="Select ">
+      <el-form-item label="Role" prop="role">
+        <el-select v-model="contractorForm.role" placeholder="Select " :size="isMobile ? 'large' : 'default'" style="width: 100%;">
           <el-option v-for="role in contract_roles" :key="role" :label="role" :value="role" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Scope" prop='scope'>
-        <el-input v-model="contractorForm.scope" />
+      <el-form-item label="Scope" prop="scope">
+        <el-input v-model="contractorForm.scope" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
-
-
-
-      <el-tooltip content="Save" placement="top">
-        <el-button @click="updateContractor" style="margin-left :10px;" type="primary">
-          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
-        </el-button>
-
-      </el-tooltip>
-
     </el-form>
 
-
+    <template #footer>
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="AddContractorTeamDialog = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="updateContractor">
+          <Icon icon="ic:round-save" style="margin-right: 6px;" />
+          Save
+        </el-button>
+      </div>
+    </template>
   </el-dialog>
 
 
 
 
-  <el-dialog v-model="showAddNewContractor" title="Register New Contractors" width="500">
+  <el-dialog
+    v-model="showAddNewContractor"
+    title="Register New Contractors"
+    :width="projectFormDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    destroy-on-close
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+  >
     <el-form
-:model="NewContractorForm" label-width="auto" style="max-width: 600px" label-position="top"
-      ref="NewContractorRef" :rules="ruleFormRules">
-
-
-      <el-form-item label="Contractor" prop='name'>
-        <el-input v-model="NewContractorForm.name" />
+      :model="NewContractorForm"
+      label-width="auto"
+      style="max-width: 600px"
+      label-position="top"
+      ref="NewContractorRef"
+      :rules="ruleFormRules"
+      class="project-details-form"
+    >
+      <el-form-item label="Contractor" prop="name">
+        <el-input v-model="NewContractorForm.name" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-      <el-form-item label="Contact Person" prop='contact_person'>
-        <el-input v-model="NewContractorForm.contact_person" />
+      <el-form-item label="Contact Person" prop="contact_person">
+        <el-input v-model="NewContractorForm.contact_person" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-
-
-      <el-form-item label="Email" prop='email'>
-        <el-input v-model="NewContractorForm.email" />
+      <el-form-item label="Email" prop="email">
+        <el-input v-model="NewContractorForm.email" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-
-      <el-form-item label="Phone" prop='phone'>
-        <el-input v-model="NewContractorForm.phone" />
+      <el-form-item label="Phone" prop="phone">
+        <el-input v-model="NewContractorForm.phone" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-
-
-      <el-form-item label="Address" prop='address'>
-        <el-input v-model="NewContractorForm.address" />
+      <el-form-item label="Address" prop="address">
+        <el-input v-model="NewContractorForm.address" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
-
-      <el-tooltip content="Save" placement="top">
-        <el-button @click="createNewContractor" style="margin-left :10px;" type="primary">
-          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
-        </el-button>
-
-      </el-tooltip>
-
     </el-form>
 
-
+    <template #footer>
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="showAddNewContractor = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="createNewContractor">
+          <Icon icon="ic:round-save" style="margin-right: 6px;" />
+          Save
+        </el-button>
+      </div>
+    </template>
   </el-dialog>
 
 
 
-  <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
-    <span>
+  <el-dialog
+    v-model="uploadDialog"
+    title="Import Document"
+    :width="projectNarrowDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+    @close="uploadDialog = false"
+  >
+    <p class="import-document-text">
       To upload data on projects, use this
       <button @click="handleDownload" class="template-link">template</button>
       , then upload it below.
-    </span>
+    </p>
 
     <el-upload
-class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
-      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
+      class="upload-demo"
+      :on-change="handleCsvUpload"
+      drag
+      :auto-upload="false"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+    >
       <div class="el-upload__text">
         Drop file here or <em>click to upload</em>
       </div>
-
     </el-upload>
 
     <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="uploadDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="uploadData">
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="uploadDialog = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="uploadData">
           Confirm
         </el-button>
       </div>
@@ -5270,8 +5532,26 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 
 
 
-  <el-dialog v-model="AddDialogVisible"  title="File a Report" width="50%"  @close="AddDialogVisible = false"  >
-  <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
+  <el-dialog
+    v-model="AddDialogVisible"
+    title="File a Report"
+    :width="projectWideDialogWidth"
+    :fullscreen="isMobile"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    class="project-details-dialog project-details-report-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile, 'project-details-report-dialog--mobile': isMobile }"
+    @close="AddDialogVisible = false"
+  >
+  <el-steps
+    :active="activeStep"
+    align-center
+    finish-status="success"
+    :direction="isMobile ? 'vertical' : 'horizontal'"
+    class="project-report-steps"
+    style="margin-bottom: 20px;"
+  >
     <el-step title="Project Details" />
     <el-step title="Indicator Selection" />
     <el-step title="Input Values" />
@@ -5397,59 +5677,97 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 
   <!-- Footer -->
   <template #footer>
-    <span class="dialog-footer">
-      <el-row :gutter="5">
-        <el-col :span="24">
-          <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-          <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
-          <el-button @click="handleCancel">Cancel</el-button>
-          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ReportRuleFormRef)">Submit</el-button>
-          <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-        </el-col>
-      </el-row>
-    </span>
+    <div
+      class="project-details-dialog-footer project-details-report-footer"
+      :class="{ 'project-details-dialog-footer--mobile': isMobile, 'project-details-report-footer--mobile': isMobile }"
+    >
+      <el-button :size="isMobile ? 'large' : 'default'" @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+      <el-button :size="isMobile ? 'large' : 'default'" :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
+      <el-button :size="isMobile ? 'large' : 'default'" @click="handleCancel">Cancel</el-button>
+      <el-button
+        v-if="showSubmitBtn && activeStep === 3"
+        :size="isMobile ? 'large' : 'default'"
+        type="primary"
+        @click="submitForm(ReportRuleFormRef)"
+      >
+        Submit
+      </el-button>
+      <el-button
+        v-if="showEditSaveButton && activeStep === 3"
+        :size="isMobile ? 'large' : 'default'"
+        type="primary"
+        @click="editForm(ruleFormRef)"
+      >
+        Save
+      </el-button>
+    </div>
   </template>
 </el-dialog>
 
 
 
 
-  <el-dialog v-model="AddDisbursementTeamDialog" title="Add Disbursement/Payemnt" width="500">
+  <el-dialog
+    v-model="AddDisbursementTeamDialog"
+    title="Add Disbursement/Payemnt"
+    :width="projectFormDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    destroy-on-close
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+  >
     <el-form
-:model="DisbursementForm" label-width="auto" style="max-width: 600px" label-position="top"
-      ref="DisbursementFormRef" :rules="DisbursementRules">
-
-      <el-form-item label="IPC " prop='certificate'>
-        <el-input v-model="DisbursementForm.certificate" style="max-width: 100%" />
+      :model="DisbursementForm"
+      label-width="auto"
+      style="max-width: 600px"
+      label-position="top"
+      ref="DisbursementFormRef"
+      :rules="DisbursementRules"
+      class="project-details-form"
+    >
+      <el-form-item label="IPC " prop="certificate">
+        <el-input v-model="DisbursementForm.certificate" style="width: 100%;" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-
-      <el-form-item label="Description " prop='description'>
-        <el-input v-model="DisbursementForm.description" style="max-width: 100%" />
+      <el-form-item label="Description " prop="description">
+        <el-input v-model="DisbursementForm.description" style="width: 100%;" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
-
-      <el-form-item label="Amount" prop='amount'>
-        <el-input-number min="0" v-model="DisbursementForm.amount" style="max-width: 100%" />
+      <el-form-item label="Amount" prop="amount">
+        <el-input
+          :model-value="disbursementAmountInput"
+          inputmode="decimal"
+          placeholder="0"
+          style="width: 100%;"
+          :size="isMobile ? 'large' : 'default'"
+          @update:model-value="handleDisbursementAmountInput"
+        />
       </el-form-item>
 
-
-      <el-form-item label="Date" prop='disbursement_date'>
+      <el-form-item label="Date" prop="disbursement_date">
         <el-date-picker
-v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates"
-          style="max-width: 100%" />
+          v-model="DisbursementForm.disbursement_date"
+          :disabled-date="disabledFutureDates"
+          style="width: 100%;"
+          :size="isMobile ? 'large' : 'default'"
+        />
       </el-form-item>
-
-      <el-tooltip content="Save" placement="top">
-        <el-button @click="updateDisbursement" style="margin-left :10px;" type="primary">
-          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
-        </el-button>
-
-      </el-tooltip>
-
     </el-form>
 
-
+    <template #footer>
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="AddDisbursementTeamDialog = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="updateDisbursement">
+          <Icon icon="ic:round-save" style="margin-right: 6px;" />
+          Save
+        </el-button>
+      </div>
+    </template>
   </el-dialog>
 
 
@@ -5558,28 +5876,85 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
   line-height: 1.3;
 }
 
-.project-scope-scroll {
-  max-height: 11rem;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.project-scope-tabs :deep(.el-tabs__header) {
-  margin-bottom: 12px;
-}
-
-.project-scope-search {
+.project-scope-transfer {
   width: 100%;
-  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
 }
 
-.project-scope-tab-badge {
-  margin-left: 6px;
-  vertical-align: middle;
+.project-scope-transfer :deep(.el-transfer) {
+  display: flex;
+  width: 100%;
+  max-width: 720px;
 }
 
-.project-scope-item {
-  padding: 4px 0;
+.project-scope-transfer :deep(.el-transfer-panel) {
+  width: min(100%, 320px);
+  flex: 1 1 240px;
+}
+
+.project-scope-transfer :deep(.el-transfer-panel__body) {
+  height: 280px;
+}
+
+.project-scope-transfer :deep(.el-transfer-panel__item.el-checkbox) {
+  margin-right: 0;
+}
+
+.project-scope-transfer :deep(.el-transfer-panel__item.el-checkbox .el-checkbox__label) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-scope-transfer--mobile,
+.project-scope-transfer--mobile :deep(.el-transfer) {
+  display: block;
+  max-width: none;
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer-panel) {
+  width: 100%;
+  flex: none;
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer-panel__body) {
+  height: 11rem;
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer__buttons) {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0;
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(2)),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(4)) {
+  margin-left: 0;
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(1) .el-icon),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(1) svg),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(3) .el-icon),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(3) svg) {
+  transform: rotate(90deg);
+}
+
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(2) .el-icon),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(2) svg),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(4) .el-icon),
+.project-scope-transfer--mobile :deep(.el-transfer__button:nth-child(4) svg) {
+  transform: rotate(-90deg);
 }
 
 .project-scope-card {
@@ -5588,12 +5963,60 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
 }
 
 .project-scope-toolbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+.project-scope-actions-col {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.project-scope-mobile-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.project-scope-icon-btn {
+  flex-shrink: 0;
+}
+
+.project-scope-summary--mobile {
+  padding: 10px 12px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.project-scope-action-btn {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .project-scope-toolbar {
+    margin-bottom: 12px;
+  }
+
+  .project-scope-summary-count {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .project-scope-actions-col {
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .project-scope-actions-col .project-scope-action-btn {
+    width: auto;
+    min-width: 140px;
+  }
 }
 
 .project-scope-summary {
@@ -5614,33 +6037,6 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
   color: var(--el-text-color-secondary);
 }
 
-.project-scope-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.project-scope-none-selected {
-  margin: 0;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-}
-
-.project-scope-activity-label {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.project-scope-scroll-hint {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
 .project-scope-empty {
   padding: 12px 5px;
   color: var(--el-text-color-secondary);
@@ -5648,6 +6044,144 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
 
 .project-scope-empty p {
   margin: 0 0 10px;
+}
+
+.project-details-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.project-details-dialog-footer--mobile {
+  width: 100%;
+}
+
+.project-details-dialog-footer--mobile .el-button {
+  flex: 1;
+  margin: 0;
+  min-height: 44px;
+}
+
+.project-details-dialog--mobile :deep(.el-dialog) {
+  max-width: calc(100vw - 32px);
+  margin: 16px auto;
+}
+
+.project-details-dialog--mobile :deep(.el-dialog__header) {
+  padding: 16px 16px 8px;
+}
+
+.project-details-dialog--mobile :deep(.el-dialog__body) {
+  padding: 8px 16px 4px;
+}
+
+.project-details-dialog--mobile :deep(.el-dialog__footer) {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.project-details-form :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+.location-add-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.location-add-dialog-select {
+  width: 100%;
+}
+
+.location-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.location-option-label {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-option-meta {
+  flex: 2;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  text-align: right;
+}
+
+.project-details-dialog--mobile .location-option-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.project-details-dialog--mobile .location-option-meta {
+  text-align: left;
+  font-size: 12px;
+}
+
+.import-document-text {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.project-details-report-footer {
+  flex-wrap: wrap;
+}
+
+.project-details-report-footer--mobile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.project-details-report-footer--mobile .el-button {
+  margin: 0;
+  min-height: 44px;
+}
+
+.project-details-report-dialog--mobile :deep(.el-dialog__body) {
+  padding: 12px 16px;
+}
+
+.project-details-map-dialog--mobile :deep(.el-dialog__body) {
+  padding: 0 12px 12px;
+}
+
+.project-details-map-dialog--mobile .basemap--mobile {
+  height: calc(100vh - 140px);
+  min-height: 280px;
+}
+
+.map-status-text {
+  color: green;
+  font-style: italic;
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.dialog-upload {
+  margin-bottom: 10px;
+}
+
+.dialog-upload .full-width {
+  width: 100%;
+}
+
+.dialog-progress {
+  margin-top: 12px;
+}
+
+.upload-status-text {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .project-header-tags {
@@ -5694,13 +6228,88 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
 }
 
 @media (max-width: 768px) {
-  .card-header {
-    flex-direction: column;
-    align-items: stretch;
+  .card-header,
+  .card-header--mobile {
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .card-header-content {
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .project-title-wrap {
+    flex: 1;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+  }
+
+  .project-title {
+    font-size: 1rem;
+    line-height: 1.35;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
   }
 
   .header-actions {
-    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-left: 0;
+  }
+
+  .project-scope-transfer :deep(.el-transfer) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    max-width: none;
+  }
+
+  .project-scope-transfer :deep(.el-transfer-panel) {
+    width: 100%;
+    flex: none;
+  }
+
+  .project-scope-transfer :deep(.el-transfer-panel__body) {
+    height: 11rem;
+  }
+
+  .project-scope-transfer :deep(.el-transfer__buttons) {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 0;
+  }
+
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(2)),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(4)) {
+    margin-left: 0;
+  }
+
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(1) .el-icon),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(1) svg),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(3) .el-icon),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(3) svg) {
+    transform: rotate(90deg);
+  }
+
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(2) .el-icon),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(2) svg),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(4) .el-icon),
+  .project-scope-transfer :deep(.el-transfer__button:nth-child(4) svg) {
+    transform: rotate(-90deg);
   }
 }
 
@@ -5728,6 +6337,19 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
   gap: 8px;
   margin-top: 10px;
   flex-wrap: wrap;
+}
+
+.doc-table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.doc-action-trigger {
+  display: inline-flex;
+  vertical-align: middle;
 }
 
 .documents-container ul {
@@ -5858,6 +6480,11 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
   height: 65vh;
 }
 
+.basemap--mobile {
+  height: calc(100vh - 140px);
+  min-height: 280px;
+}
+
 
 .template-link {
   text-decoration: underline;
@@ -5918,5 +6545,20 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.my-header--mobile {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.my-header--mobile .el-button {
+  width: 100%;
+}
+
+.my-header-titles {
+  min-width: 0;
 }
 </style>

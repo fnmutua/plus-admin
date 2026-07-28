@@ -229,10 +229,12 @@ const sendEmail = async () => {
 </script>
 
 <template>
-  <el-button plain @click="openDrawer">
-    <Icon icon="material-symbols:share-outline" style="margin-right: 5px;" />
-    Share upload link
-  </el-button>
+  <el-tooltip content="Share upload link" placement="top" :disabled="!isMobile">
+    <el-button plain :circle="isMobile" @click="openDrawer">
+      <Icon icon="material-symbols:share-outline" :style="isMobile ? undefined : 'margin-right: 5px;'" />
+      <span v-if="!isMobile">Share upload link</span>
+    </el-button>
+  </el-tooltip>
 
   <el-drawer
     v-model="drawerVisible"
