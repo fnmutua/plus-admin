@@ -4,7 +4,7 @@ import {
   
 ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
-  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon,
+  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon, ElBadge,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
@@ -112,6 +112,7 @@ const canEditProjectMeta = computed(() => isSuperAdmin.value || hasPerm('project
 const canCreateProjectLocation = computed(() => isSuperAdmin.value || hasPerm('project_location:create'))
 const canUpdateProjectLocation = computed(() => isSuperAdmin.value || hasPerm('project_location:update'))
 const canManageProjectScope = computed(() => isSuperAdmin.value || hasPerm('project:update'))
+const canCreateActivity = computed(() => isSuperAdmin.value || hasPerm('activity:create'))
 const canAddMonitoringReport = computed(
   () => isSuperAdmin.value || hasPerm('programme_implementation:create')
 )
@@ -435,7 +436,7 @@ const projectLogs = ref([])
 
 // Pagination state for Locations tab
 const locationCurrentPage = ref(1)
-const locationPageSize = ref(10)
+const locationPageSize = ref(5)
 
 // Pagination state for Documentation tab
 const docsCurrentPage = ref(1)
@@ -509,6 +510,16 @@ function buildProjectDescription(data: Record<string, any> | null | undefined) {
 
 
 const activityOptions = ref([])
+
+const scopeListPreviewLimit = 5
+
+const sortedActivityOptions = computed(() =>
+  [...activityOptions.value].sort((a, b) =>
+    String(a.title || a.label || '').localeCompare(String(b.title || b.label || ''), undefined, {
+      sensitivity: 'base',
+    })
+  )
+)
 
 const DocTypes = ref([])
 const DocTypesFiltered = ref([])
@@ -1749,6 +1760,67 @@ const deleteRow = (index: number) => {
 
 const projectScopeChecked = ref([])
 
+const selectedScopeActivityIds = computed(() => {
+  const checked = projectScopeChecked.value
+  return Array.isArray(checked) ? checked : []
+})
+
+const selectedScopeActivities = computed(() => {
+  const checked = new Set(selectedScopeActivityIds.value)
+  return sortedActivityOptions.value.filter((activity) => checked.has(activity.id))
+})
+
+const availableScopeActivities = computed(() => {
+  const checked = new Set(selectedScopeActivityIds.value)
+  return sortedActivityOptions.value.filter((activity) => !checked.has(activity.id))
+})
+
+const selectedScopeCount = computed(() => selectedScopeActivities.value.length)
+const totalScopeCount = computed(() => sortedActivityOptions.value.length)
+
+const scopeActiveTab = ref('available')
+const scopeSearchQuery = ref('')
+
+function activityMatchesScopeSearch(activity: any, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const title = String(activity.title || activity.label || '').toLowerCase()
+  const shortTitle = String(activity.shortTitle || activity.code || '').toLowerCase()
+  return title.includes(q) || shortTitle.includes(q)
+}
+
+const filteredSelectedScopeActivities = computed(() =>
+  selectedScopeActivities.value.filter((activity) =>
+    activityMatchesScopeSearch(activity, scopeSearchQuery.value)
+  )
+)
+
+const filteredAvailableScopeActivities = computed(() =>
+  availableScopeActivities.value.filter((activity) =>
+    activityMatchesScopeSearch(activity, scopeSearchQuery.value)
+  )
+)
+
+watch(selectedScopeCount, (count) => {
+  if (!canManageProjectScope.value) {
+    scopeActiveTab.value = 'selected'
+  } else if (count === 0) {
+    scopeActiveTab.value = 'available'
+  }
+}, { immediate: true })
+
+function removeScopeActivity(activityId: number | string) {
+  if (!canManageProjectScope.value) return
+  projectScopeChecked.value = selectedScopeActivityIds.value.filter((id) => id !== activityId)
+}
+
+function addScopeActivity(activityId: number | string) {
+  if (!canManageProjectScope.value) return
+  if (!selectedScopeActivityIds.value.includes(activityId)) {
+    projectScopeChecked.value = [...selectedScopeActivityIds.value, activityId]
+  }
+}
+
 const updateChanges = async () => {
   // Assuming projectScope.value is an array of objects with an 'id' property
   //projectFullData.value.activities = projectScope.value.map(activity => activity.id);
@@ -1766,23 +1838,61 @@ const ShowActivityAddDialog = ref(false)
 
 
 
-const AddScope = async () => {
+const activityFormRef = ref<FormInstance>()
+const activityForm = reactive({
+  title: '',
+  shortTitle: '',
+})
+
+const activityFormRules = reactive<FormRules>({
+  title: [
+    { required: true, message: 'Please provide a title', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' },
+  ],
+})
+
+const openAddActivityDialog = () => {
+  activityForm.title = ''
+  activityForm.shortTitle = ''
   ShowActivityAddDialog.value = true
 }
 
-const AddActivity = async () => {
-  projectFullData.value.activities = projectScope.value.map(activity => activity.id);
-  updateChanges()
+const closeAddActivityDialog = () => {
+  ShowActivityAddDialog.value = false
+  activityForm.title = ''
+  activityForm.shortTitle = ''
+  activityFormRef.value?.resetFields()
 }
 
-
-
-
-
-const toggleActivity = () => {
-  console.log(projectScopeChecked.value)
-
+const submitNewActivity = async () => {
+  if (!activityFormRef.value) return
+  await activityFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    try {
+      const payload = {
+        model: 'activity',
+        title: activityForm.title.trim(),
+        shortTitle: activityForm.shortTitle.trim(),
+        code: shortid.generate(),
+      }
+      const res = await CreateRecord(payload)
+      const created = (res as any)?.data ?? res
+      ElMessage.success('Activity added successfully')
+      closeAddActivityDialog()
+      await getActivities()
+      if (created?.id != null && canManageProjectScope.value) {
+        const checked = Array.isArray(projectScopeChecked.value) ? projectScopeChecked.value : []
+        if (!checked.includes(created.id)) {
+          projectScopeChecked.value = [...checked, created.id]
+        }
+      }
+    } catch (error) {
+      console.error('Failed to add activity:', error)
+      ElMessage.error('Failed to add activity')
+    }
+  })
 }
+
 
 // do not use same name with ref
 const teamForm = ref({
@@ -4408,33 +4518,143 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
 
 
       <el-tab-pane label="Scope" name="Scope">
-        <el-card>
-          <div style="display: flex; align-items: center; gap: 16px; margin-left: 5px; margin-bottom: 10px;">
-            <el-button v-if="canManageProjectScope" @click="updateChanges" type="success" plain>
-              <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
-              Save Changes
+        <el-card class="project-scope-card">
+          <div class="project-scope-toolbar">
+            <div class="project-scope-summary">
+              <span class="project-scope-summary-count">
+                {{ selectedScopeCount }} of {{ totalScopeCount }} in scope
+              </span>
+              <span v-if="canManageProjectScope" class="project-scope-summary-hint">
+                Use the tabs below, then save changes.
+              </span>
+            </div>
+            <div class="project-scope-actions">
+              <el-button v-if="canManageProjectScope" @click="updateChanges" type="success" plain>
+                <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
+                Save Changes
+              </el-button>
+              <el-button v-if="canCreateActivity" @click="openAddActivityDialog" type="primary" plain>
+                <Icon icon="material-symbols:add" style="color: green; margin-right: 5px;" size="20" />
+                Add Activity
+              </el-button>
+            </div>
+          </div>
+
+          <div v-if="sortedActivityOptions.length === 0" class="project-scope-empty">
+            <p>No activities available.</p>
+            <el-button v-if="canCreateActivity" type="primary" plain @click="openAddActivityDialog">
+              <Icon icon="material-symbols:add" style="margin-right: 5px;" />
+              Add Activity
             </el-button>
+          </div>
 
-           </div>
+          <template v-else>
+            <el-input
+              v-model="scopeSearchQuery"
+              clearable
+              placeholder="Search activities…"
+              class="project-scope-search"
+            />
 
-          <el-divider />
+            <el-tabs v-model="scopeActiveTab" class="project-scope-tabs">
+              <el-tab-pane v-if="canManageProjectScope" name="available">
+                <template #label>
+                  Available
+                  <el-badge
+                    :value="availableScopeActivities.length"
+                    :max="999"
+                    type="info"
+                    class="project-scope-tab-badge"
+                  />
+                </template>
 
-          <el-row :gutter="10">
-            <el-col v-for="(activity) in activityOptions" :key="activity.id" :sm="24" :md="24" :lg="24" :xl="12">
-              <el-checkbox
-:disabled="!canManageProjectScope"
-v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
-                style="max-width: 100%;">
-                <span
-                  style="display: inline-block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
-                  :title="activity.title">
-                  {{ activity.title }}
-                </span>
-              </el-checkbox>
-            </el-col>
-          </el-row>
+                <div v-if="filteredAvailableScopeActivities.length" class="project-scope-scroll">
+                  <div
+                    v-for="activity in filteredAvailableScopeActivities"
+                    :key="`available-${activity.id}`"
+                    class="project-scope-item"
+                  >
+                    <el-checkbox
+                      :model-value="false"
+                      @change="(checked: boolean) => checked && addScopeActivity(activity.id)"
+                    >
+                      <span class="project-scope-activity-label" :title="activity.title">
+                        {{ activity.title }}
+                      </span>
+                    </el-checkbox>
+                  </div>
+                </div>
+                <p v-else-if="availableScopeActivities.length && scopeSearchQuery.trim()" class="project-scope-none-selected">
+                  No available activities match your search.
+                </p>
+                <p v-else class="project-scope-none-selected">All activities are already selected.</p>
+                <p
+                  v-if="filteredAvailableScopeActivities.length > scopeListPreviewLimit"
+                  class="project-scope-scroll-hint"
+                >
+                  {{ filteredAvailableScopeActivities.length }} shown — scroll to view all
+                </p>
+              </el-tab-pane>
+
+              <el-tab-pane name="selected">
+                <template #label>
+                  Selected
+                  <el-badge :value="selectedScopeCount" :max="999" class="project-scope-tab-badge" />
+                </template>
+
+                <div v-if="filteredSelectedScopeActivities.length" class="project-scope-scroll">
+                  <div
+                    v-for="activity in filteredSelectedScopeActivities"
+                    :key="`selected-${activity.id}`"
+                    class="project-scope-item"
+                  >
+                    <el-checkbox
+                      :model-value="true"
+                      :disabled="!canManageProjectScope"
+                      @change="(checked: boolean) => !checked && removeScopeActivity(activity.id)"
+                    >
+                      <span class="project-scope-activity-label" :title="activity.title">
+                        {{ activity.title }}
+                      </span>
+                    </el-checkbox>
+                  </div>
+                </div>
+                <p v-else-if="selectedScopeActivities.length && scopeSearchQuery.trim()" class="project-scope-none-selected">
+                  No selected activities match your search.
+                </p>
+                <p v-else class="project-scope-none-selected">No activities selected for this project yet.</p>
+                <p
+                  v-if="filteredSelectedScopeActivities.length > scopeListPreviewLimit"
+                  class="project-scope-scroll-hint"
+                >
+                  {{ filteredSelectedScopeActivities.length }} shown — scroll to view all
+                </p>
+              </el-tab-pane>
+            </el-tabs>
+          </template>
         </el-card>
       </el-tab-pane>
+
+      <el-dialog
+        v-model="ShowActivityAddDialog"
+        title="Add Activity"
+        width="480px"
+        draggable
+        @close="closeAddActivityDialog"
+      >
+        <el-form ref="activityFormRef" :model="activityForm" :rules="activityFormRules" label-position="top">
+          <el-form-item label="Title" prop="title">
+            <el-input v-model="activityForm.title" placeholder="Activity title" />
+          </el-form-item>
+          <el-form-item label="Short Title" prop="shortTitle">
+            <el-input v-model="activityForm.shortTitle" placeholder="Short title (optional)" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="closeAddActivityDialog">Cancel</el-button>
+          <el-button type="primary" @click="submitNewActivity">Add Activity</el-button>
+        </template>
+      </el-dialog>
 
 
 
@@ -5336,6 +5556,98 @@ v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates
   font-weight: normal;
   color: var(--el-text-color-secondary);
   line-height: 1.3;
+}
+
+.project-scope-scroll {
+  max-height: 11rem;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.project-scope-tabs :deep(.el-tabs__header) {
+  margin-bottom: 12px;
+}
+
+.project-scope-search {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.project-scope-tab-badge {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.project-scope-item {
+  padding: 4px 0;
+}
+
+.project-scope-card {
+  border: none;
+  box-shadow: none;
+}
+
+.project-scope-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.project-scope-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.project-scope-summary-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.project-scope-summary-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.project-scope-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.project-scope-none-selected {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.project-scope-activity-label {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.project-scope-scroll-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.project-scope-empty {
+  padding: 12px 5px;
+  color: var(--el-text-color-secondary);
+}
+
+.project-scope-empty p {
+  margin: 0 0 10px;
 }
 
 .project-header-tags {

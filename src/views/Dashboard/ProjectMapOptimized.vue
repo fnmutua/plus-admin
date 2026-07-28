@@ -159,14 +159,37 @@
         <el-descriptions-item label="Contract Code">
           {{ projectDetails.projectCode }}
         </el-descriptions-item>
-        <el-descriptions-item label="Location">
-          {{ projectDetails.locationName }}
-        </el-descriptions-item>
-        <el-descriptions-item label="Implementer">
-          {{ projectDetails.implementerName }}
-        </el-descriptions-item>
-        <el-descriptions-item label="Location ID">
-          {{ projectDetails.projectLocationId }}
+        <el-descriptions-item label="Locations">
+          <div v-if="projectLocationsList.length" class="project-locations-list-wrap">
+            <ul class="project-locations-list">
+              <li
+                v-for="loc in visibleDrawerLocations"
+                :key="loc.id"
+                :class="{ 'is-selected': String(loc.id) === String(selectedProjectLocationId) }"
+              >
+                {{ formatDrawerLocationLabel(loc) }}
+              </li>
+            </ul>
+            <el-button
+              v-if="projectLocationsList.length > drawerLocationsPreviewLimit && !drawerLocationsExpanded"
+              link
+              type="primary"
+              class="project-locations-toggle"
+              @click="drawerLocationsExpanded = true"
+            >
+              Show all ({{ projectLocationsList.length }})
+            </el-button>
+            <el-button
+              v-else-if="projectLocationsList.length > drawerLocationsPreviewLimit && drawerLocationsExpanded"
+              link
+              type="primary"
+              class="project-locations-toggle"
+              @click="drawerLocationsExpanded = false"
+            >
+              Show less
+            </el-button>
+          </div>
+          <span v-else class="project-locations-empty">No locations configured</span>
         </el-descriptions-item>
       </el-descriptions>
 
@@ -198,6 +221,16 @@
         </el-button>
       </div>
     </div>
+
+    <template v-if="canViewProjectDetails && projectDetails.projectId" #footer>
+      <el-button
+        type="primary"
+        style="width: 100%;"
+        @click="goToProjectDetails"
+      >
+        View Project Details
+      </el-button>
+    </template>
   </el-drawer>
 </template>
 
@@ -217,10 +250,11 @@ import {
   getProgrammesList,
   getComponentsList
 } from '@/api/project-locations-optimized'
-import { getOneSettlement } from '@/api/settlements'
+import { getOneSettlement, getSettlementListByCounty } from '@/api/settlements'
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
+import { hasPermission } from '@/utils/documentPermissions'
 import { debounce } from '@/utils/debounce'
 
 // User and role setup
@@ -370,13 +404,53 @@ const subcounty = ref<number[]>([])
 const implementer = ref<number[]>([])
 const component = ref<number[]>([])
 
+const drawerLocationsPreviewLimit = 5
+const projectLocationsList = ref<any[]>([])
+const drawerLocationsExpanded = ref(false)
+const selectedProjectLocationId = ref<number | string | null>(null)
+
+const visibleDrawerLocations = computed(() => {
+  const list = projectLocationsList.value
+  if (drawerLocationsExpanded.value || list.length <= drawerLocationsPreviewLimit) {
+    return list
+  }
+  return list.slice(0, drawerLocationsPreviewLimit)
+})
+
+function formatDrawerLocationLabel(location: any): string {
+  const storedName = typeof location?.location_name === 'string' ? location.location_name.trim() : ''
+  if (storedName) return storedName
+  if (location?.settlement?.name) return location.settlement.name
+  if (location?.ward?.name) return location.ward.name
+  if (location?.subcounty?.name) return location.subcounty.name
+  if (location?.county?.name) return location.county.name
+  return 'Unknown location'
+}
+
+async function loadProjectLocationsForDrawer(projectId: number | string) {
+  try {
+    const res = await getSettlementListByCounty({
+      model: 'project_location',
+      filters: ['project_id'],
+      filterValues: [[projectId]],
+      associated_multiple_models: ['settlement', 'county', 'subcounty', 'ward'],
+      excludeGeom: true,
+      page: 1,
+      limit: 500,
+    } as any)
+    projectLocationsList.value = (res as any).data || []
+  } catch (error) {
+    console.error('Error loading project locations for drawer:', error)
+    projectLocationsList.value = []
+  }
+}
+
 // Drawer state
 const drawerVisible = ref(false)
 const projectDetails = ref({
+  projectId: null as number | string | null,
   projectTitle: '',
   projectCode: '',
-  locationName: '',
-  implementerName: '',
   projectLocationId: '',
   project: {
     description: '',
@@ -387,6 +461,8 @@ const projectDetails = ref({
   settlementId: null,
   locationType: ''
 })
+
+const canViewProjectDetails = computed(() => hasPermission(userInfo, 'project:read'))
 
 // Data refs
 const geojson = ref<any>({ type: 'FeatureCollection', features: [] })
@@ -1293,26 +1369,26 @@ const getClickedProjectLocation = async (projectLocationId: number) => {
     const projectLocation = (res as any).data || res.results
 
     const project = projectLocation.project || {}
-    const locationName = projectLocation.location_name || 'Unknown Location'
-    const locationType = projectLocation.location_type || ''
     const projectCode = project.project_code || 'N/A'
     const projectTitle = project.title || 'Unknown Project'
-    
-    const programmeId = project.component?.programme_id
-    const programmeOption = programmeId
-      ? programmeList.value.find((p) => p.id === programmeId)
-      : null
-    const implementerName = programmeOption?.title || programmeOption?.acronym || 'Unknown'
+
+    selectedProjectLocationId.value = projectLocationId
+    drawerLocationsExpanded.value = false
 
     projectDetails.value = {
+      projectId: project.id ?? null,
       projectTitle,
       projectCode,
-      locationName: `${locationName} ${locationType}`.trim(),
-      implementerName,
       projectLocationId: projectLocationId.toString(),
       project: project,
       settlementId: projectLocation.settlement_id,
       locationType: projectLocation.location_type
+    }
+
+    if (project.id != null) {
+      await loadProjectLocationsForDrawer(project.id)
+    } else {
+      projectLocationsList.value = []
     }
 
     drawerVisible.value = true
@@ -1325,11 +1401,13 @@ const getClickedProjectLocation = async (projectLocationId: number) => {
 // Handle drawer close
 const handleDrawerClose = (done: () => void) => {
   drawerVisible.value = false
+  projectLocationsList.value = []
+  drawerLocationsExpanded.value = false
+  selectedProjectLocationId.value = null
   projectDetails.value = {
+    projectId: null,
     projectTitle: '',
     projectCode: '',
-    locationName: '',
-    implementerName: '',
     projectLocationId: '',
     project: {
       description: '',
@@ -1341,6 +1419,15 @@ const handleDrawerClose = (done: () => void) => {
     locationType: ''
   }
   done()
+}
+
+const goToProjectDetails = () => {
+  const projectId = projectDetails.value.projectId
+  if (!projectId) return
+  router.push({
+    name: 'ProjectDetails',
+    params: { id: projectId }
+  })
 }
 
 // Navigate to settlement details
@@ -1525,6 +1612,35 @@ const drawerSize = computed(() => {
 
 .project-details {
   padding: 20px;
+}
+
+.project-locations-list-wrap {
+  width: 100%;
+}
+
+.project-locations-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.project-locations-list li {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.project-locations-list li.is-selected {
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+
+.project-locations-toggle {
+  margin-top: 4px;
+  padding: 0;
+}
+
+.project-locations-empty {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 
 .additional-details {
