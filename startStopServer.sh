@@ -90,15 +90,25 @@ tcp_open() {
 # Release a TCP port held by orphaned node processes (fixes EADDRINUSE after bad restarts).
 free_port() {
   local port="$1"
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -k "${port}/tcp" 2>/dev/null || true
-  elif command -v lsof >/dev/null 2>&1; then
-    local pids
+  local pids killed=0
+
+  if command -v lsof >/dev/null 2>&1; then
     pids="$(lsof -ti "tcp:${port}" -sTCP:LISTEN 2>/dev/null || true)"
     if [[ -n "$pids" ]]; then
-      kill -9 $pids 2>/dev/null || true
+      kill -9 $pids 2>/dev/null && killed=1 || true
+      if [[ "$killed" -eq 0 ]] && command -v sudo >/dev/null 2>&1; then
+        sudo kill -9 $pids 2>/dev/null || true
+      fi
     fi
   fi
+
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${port}/tcp" 2>/dev/null || true
+    if command -v sudo >/dev/null 2>&1; then
+      sudo fuser -k "${port}/tcp" 2>/dev/null || true
+    fi
+  fi
+
   sleep 1
 }
 
@@ -159,13 +169,25 @@ stop_all() {
 }
 
 fix_ports() {
-  log "Stopping websocket PM2 apps and freeing ports ${MAIN_PORT}, ${CHAT_PORT}, ${VIDEO_PORT}..."
-  $PM2 stop websocket-chat websocket-video 2>/dev/null || true
+  log "Breaking websocket crash loop and freeing ports ${CHAT_PORT}, ${VIDEO_PORT}..."
+
+  # Stop PM2 auto-restart loop — delete, not stop
   $PM2 delete websocket-chat websocket-video 2>/dev/null || true
-  free_port "$MAIN_PORT"
+  if command -v sudo >/dev/null 2>&1; then
+    sudo pm2 delete websocket-chat websocket-video 2>/dev/null || true
+  fi
+
   free_port "$CHAT_PORT"
   free_port "$VIDEO_PORT"
-  log "Ports freed. Check: ss -ltnp | grep -E ':${MAIN_PORT}|:${CHAT_PORT}|:${VIDEO_PORT}'"
+
+  log "Port holders (should be empty):"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | grep -E ":${CHAT_PORT}|:${VIDEO_PORT}" || log "  (none)"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo ss -ltnp 2>/dev/null | grep -E ":${CHAT_PORT}|:${VIDEO_PORT}" || log "  (none)"
+  fi
+
+  log "Done. Start websockets with: $0 restart  (or pm2 start server/websocket-chat.js --name websocket-chat)"
 }
 
 status_all() {
