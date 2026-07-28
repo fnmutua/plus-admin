@@ -137,7 +137,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
             },
           },
           {
-            entry: '/src/bootstrap-public.ts',
+            entry: '/src/main.ts',
             filename: 'landing.html',
             template: 'landing.html',
           },

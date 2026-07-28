@@ -52,6 +52,12 @@ console.log('ReadableStream defined:', !!globalThis.ReadableStream); // Debug lo
 const path = require('path');
 const fileUpload = require('express-fileupload');
 const auditContext = require('./server/app/middleware/auditContext')
+const {
+  createCompressionMiddleware,
+  cacheControlMiddleware,
+  createDistStatic,
+  registerSpaShellRoutes,
+} = require('./server/app/middleware/staticAssets')
 
 const uploadsDir = path.join(__dirname, '..', 'uploads'); // path to the uploads folder
 if (!fs.existsSync(uploadsDir)) {
@@ -81,38 +87,9 @@ app.use(auditContext)
 const { registerRateLimiters } = require('./server/app/config/rateLimits')
 registerRateLimiters(app)
 
-// simple route
-app.use(express.static(path.join(__dirname, '/dist')));
+const distDir = path.join(__dirname, 'dist')
 
-app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, '/dist/index.html')
-  
-  // Check if index.html exists
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath)
-  } else {
-    // Serve fallback HTML file
-    const fallbackPath = path.join(__dirname, '/public/fallback.html')
-    
-    if (fs.existsSync(fallbackPath)) {
-      console.warn('index.html not found, serving fallback page')
-      res.status(503).sendFile(fallbackPath)
-    } else {
-      // Last resort - simple text response
-      console.error('Both index.html and fallback.html not found!')
-      res.status(503).send(`
-        <h1>KeSMIS</h1>
-        <p>System maintenance in progress. Please try again later.</p>
-        <a href="javascript:location.reload()">Try Again</a>
-      `)
-    }
-  }
-});
-
-app.use(express.static('public'));
-
-
-// Log environment variables on load
+// middle ware
 console.log('=== ENVIRONMENT VARIABLES LOADED ===');
  
 // Main Database Variables
@@ -290,10 +267,6 @@ require('./server/app/routes/workplace.routes')(app)
 require('./server/app/routes/media.routes')(app)
 require('./server/app/routes/notification.routes')(app)
 
-// set port, listen for requests
-
-
- 
 // Swagger UI setup (serving only)
 const swaggerUi = require('swagger-ui-express');
 let swaggerFile;
@@ -441,32 +414,9 @@ app.get('/swagger.json', (req, res) => {
   res.json(swaggerFile);
 });
 
-// Catch-all handler for SPA routing - serve index.html for any route not handled by API
-app.get('*', (req, res) => {
-  // Skip API routes and swagger routes
-  if (req.path.startsWith('/api/') || req.path.startsWith('/api-docs') || req.path.startsWith('/swagger')) {
-    return res.status(404).json({ message: 'API endpoint not found' })
-  }
-  
-  const indexPath = path.join(__dirname, '/dist/index.html')
-  
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath)
-  } else {
-    // Serve fallback HTML file
-    const fallbackPath = path.join(__dirname, '/public/fallback.html')
-    
-    if (fs.existsSync(fallbackPath)) {
-      console.warn(`index.html not found for route ${req.path}, serving fallback page`)
-      res.status(503).sendFile(fallbackPath)
-    } else {
-      // Last resort - simple text response
-      console.error(`Both index.html and fallback.html not found for route ${req.path}!`)
-      res.status(503).send(`
-        <h1>KeSMIS</h1>
-        <p>System maintenance in progress. Please try again later.</p>
-        <a href="javascript:location.reload()">Try Again</a>
-      `)
-    }
-  }
-});
+// Compression, cache headers, static assets, and SPA shell — must be last
+app.use(createCompressionMiddleware())
+app.use(cacheControlMiddleware)
+app.use(createDistStatic(distDir))
+app.use(express.static('public'))
+registerSpaShellRoutes(app, distDir)

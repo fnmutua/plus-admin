@@ -134,41 +134,6 @@ require('./server/app/routes/notification.routes')(app)
 require('./server/app/routes/workplace.routes')(app)
 require('./server/app/routes/media.routes')(app)
 
-// Static middleware should come AFTER API routes
-app.use(express.static(path.join(__dirname, '/dist')))
-app.use(express.static('public'))
-
-app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, '/dist/index.html')
-  
-  // Check if index.html exists
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath)
-  } else {
-    // Serve fallback HTML file
-    const fallbackPath = path.join(__dirname, '/public/fallback.html')
-    
-    if (fs.existsSync(fallbackPath)) {
-      console.warn('index.html not found, serving fallback page')
-      res.status(503).sendFile(fallbackPath)
-    } else {
-      // Last resort - simple text response
-      console.error('Both index.html and fallback.html not found!')
-      res.status(503).send(`
-        <h1>KeSMIS</h1>
-        <p>System maintenance in progress. Please try again later.</p>
-        <a href="javascript:location.reload()">Try Again</a>
-      `)
-    }
-  }
-})
-
-const PORT = process.env.PORT || 80
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}.`)
-})
-
 console.log('Port-Env.:', process.env.PORT)
  
 // Swagger UI setup (serving only)
@@ -318,6 +283,27 @@ app.get('/swagger.json', (req, res) => {
   res.json(swaggerFile);
 });
 
- 
+const {
+  createCompressionMiddleware,
+  cacheControlMiddleware,
+  createDistStatic,
+  registerSpaShellRoutes,
+} = require('./server/app/middleware/staticAssets')
 
+const distDir = path.join(__dirname, 'dist')
+
+// Compression, cache headers, static assets, and SPA shell — must be last
+app.use(createCompressionMiddleware())
+app.use(cacheControlMiddleware)
+app.use(createDistStatic(distDir))
+app.use(express.static('public'))
+registerSpaShellRoutes(app, distDir)
+
+const PORT = process.env.PORT || 80
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}.`)
+})
+
+ 
  
