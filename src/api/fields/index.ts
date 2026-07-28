@@ -11,6 +11,13 @@ export const getModelSpecs = (data: any): Promise<IResponse> => {
   return request.post({ url: prod + '/api/v1/model/fields', data })
 }
 
+export const getUniqueFieldValues = (data: {
+  model: string
+  selectedField: string
+}): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/fields/options', data })
+}
+
 
 
 export const getModelRelatives = (data: any): Promise<IResponse> => {

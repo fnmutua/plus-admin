@@ -3,6 +3,7 @@ const redis = require('redis')
 const NATIONAL_BUNDLE_KEY = 'dashboard:bundle:national'
 const LANDING_MAP_BUNDLE_KEY = 'map:bundle:landing:national'
 const PROJECT_MAP_BUNDLE_KEY = 'map:bundle:projects:national'
+const DASHBOARD_GEO_BUNDLE_KEY = 'dashboard:geo:bundle:national'
 const TTL_SECONDS = Number(process.env.DASHBOARD_BUNDLE_TTL_SECONDS || 600)
 
 let client
@@ -74,10 +75,19 @@ async function setProjectMapBundle(payload) {
   return setCachedBundle(PROJECT_MAP_BUNDLE_KEY, payload)
 }
 
+async function getDashboardGeoBundle() {
+  return getCachedBundle(DASHBOARD_GEO_BUNDLE_KEY)
+}
+
+async function setDashboardGeoBundle(payload) {
+  return setCachedBundle(DASHBOARD_GEO_BUNDLE_KEY, payload)
+}
+
 module.exports = {
   NATIONAL_BUNDLE_KEY,
   LANDING_MAP_BUNDLE_KEY,
   PROJECT_MAP_BUNDLE_KEY,
+  DASHBOARD_GEO_BUNDLE_KEY,
   TTL_SECONDS,
   dashboardBundleKey,
   getCachedBundle,
@@ -90,4 +100,6 @@ module.exports = {
   setLandingMapBundle,
   getProjectMapBundle,
   setProjectMapBundle,
+  getDashboardGeoBundle,
+  setDashboardGeoBundle,
 }

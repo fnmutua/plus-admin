@@ -12,6 +12,12 @@ const steps = [
   { title: "Location", description: "Search and select" },
 ];
 
+/** Edit-only step index (after Location); handled in AddX.vue, not in formFields */
+export const PROGRAMME_COMPONENT_STEP = {
+  title: "Programme & Component",
+  description: "Optional reassignment",
+};
+
 interface Field {
   name: string;
   label: string;
@@ -118,7 +124,7 @@ const formFields = reactive([
     },
     {
       name: "implementation_scope",
-      label: "Scope",
+      label: "Implementation Level",
       id: "btn41",
       type: "select",
       multiselect: "false",
@@ -184,7 +190,7 @@ const formRules: FormRules = reactive({
   step2: {
     status: [{ required: true, message: "Status is required", trigger: "change" }],
     implementation_id: [{ required: true, message: "Delivery unit is required", trigger: "change" }],
-    implementation_scope: [{ required: true, message: "Scope is required", trigger: "change" }],
+    implementation_scope: [{ required: true, message: "Implementation level is required", trigger: "change" }],
   },
   step3: {
     start_date: [{ required: true, message: "Commencement date is required", trigger: "change" }],
@@ -222,6 +228,7 @@ const formRules: FormRules = reactive({
     ],
   },
   step4: {},
+  step5: {},
 });
 
 export { formFields, countyOptions, formData, steps, formRules };

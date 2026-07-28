@@ -44,6 +44,23 @@ export interface ProjectMapBundle {
   countyGeo: any
 }
 
+export interface DashboardGeoBundle {
+  code: string
+  fromCache: boolean
+  kind: 'dashboard-geo'
+  filterLevel: 'national'
+  builtAt: string
+  ttlSeconds: number
+  countyGeo: any
+  subcountyGeo: any
+  wardGeo: any
+  featureCounts?: {
+    county: number
+    subcounty: number
+    ward: number
+  }
+}
+
 /** Single cached payload for National dashboard (cards + all chart data). */
 export const getNationalDashboardBundle = (): Promise<NationalDashboardBundle> => {
   return request.get({ url: `${prod}/api/v1/dashboard/national/bundle` }) as Promise<NationalDashboardBundle>
@@ -62,4 +79,9 @@ export const getLandingMapBundle = (): Promise<LandingMapBundle> => {
 /** Cached national project map payload (locations + counties + geo). */
 export const getProjectMapBundle = (): Promise<ProjectMapBundle> => {
   return request.get({ url: `${prod}/api/v1/dashboard/map/projects/bundle` }) as Promise<ProjectMapBundle>
+}
+
+/** Cached admin-boundary geo for dashboard choropleths (county / subcounty / ward). */
+export const getDashboardGeoBundle = (): Promise<DashboardGeoBundle> => {
+  return request.get({ url: `${prod}/api/v1/dashboard/geo/bundle` }) as Promise<DashboardGeoBundle>
 }

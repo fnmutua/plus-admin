@@ -16,11 +16,14 @@ module.exports = function (app) {
   /** Admin/cron: force rebuild */
   app.post('/api/v1/dashboard/national/bundle/refresh', [authJwt.verifyToken], controller.refreshNationalDashboardBundle)
 
-  /** Intervention / dynamic dashboards — cached national bundle by dashboard id */
-  app.get('/api/v1/dashboard/:id/bundle', [authJwt.verifyToken], controller.getDashboardBundle)
-  app.post('/api/v1/dashboard/:id/bundle/refresh', [authJwt.verifyToken], controller.refreshDashboardBundle)
+  /** Dashboard choropleth admin boundaries (county / subcounty / ward geo) — before :id routes */
+  app.get('/api/v1/dashboard/geo/bundle', [authJwt.verifyToken], controller.getDashboardGeoBundle)
 
   /** Map views — single cached payload for national (no filters) */
   app.get('/api/v1/dashboard/map/landing/bundle', [authJwt.verifyToken], controller.getLandingMapBundle)
   app.get('/api/v1/dashboard/map/projects/bundle', [authJwt.verifyToken], controller.getProjectMapBundle)
+
+  /** Intervention / dynamic dashboards — cached national bundle by dashboard id */
+  app.get('/api/v1/dashboard/:id/bundle', [authJwt.verifyToken], controller.getDashboardBundle)
+  app.post('/api/v1/dashboard/:id/bundle/refresh', [authJwt.verifyToken], controller.refreshDashboardBundle)
 }

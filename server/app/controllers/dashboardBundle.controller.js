@@ -3,6 +3,7 @@ const {
   getDashboardBundleById,
   getLandingMapBundle,
   getProjectMapBundle,
+  getDashboardGeoBundle,
   TTL_SECONDS,
 } = require('../utils/dashboardBundleRedis')
 const {
@@ -13,6 +14,7 @@ const {
   refreshLandingMapBundle,
   refreshProjectMapBundle,
 } = require('../services/mapBundleService')
+const { refreshDashboardGeoBundle } = require('../services/dashboardGeoBundleService')
 
 exports.getNationalDashboardBundle = async (req, res) => {
   try {
@@ -168,4 +170,9 @@ exports.getProjectMapBundle = (req, res) =>
       cached?.projectLocations?.features?.length ??
       cached?.featureCount ??
       null,
+  })
+
+exports.getDashboardGeoBundle = (req, res) =>
+  getMapBundle(req, res, 'dashboard-geo', getDashboardGeoBundle, refreshDashboardGeoBundle, {
+    featureCount: (cached) => cached?.featureCounts?.county ?? null,
   })

@@ -5,6 +5,11 @@ import {
 } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { geoCache as _geoCache, indicatorConfigCache as _indicatorConfigCache } from '@/utils/dashboardCache'
+import {
+  ensureDashboardGeoBundleLoaded,
+  subsetGeoFromCache,
+  applyGeoAspect,
+} from '@/utils/dashboardGeo'
 import { formatDashboardNumberCompact, dashboardNumberTooltip } from '@/utils/formatDashboardNumber'
 import {
   dashboardChartTitleSize,
@@ -223,11 +228,11 @@ const subCountyGeo = ref([])
 const aspect = ref()
 
 const getCountyGeo = async () => {
+  await ensureDashboardGeoBundleLoaded()
+
   if (_geoCache.has('county')) {
     countyGeo.value = _geoCache.get('county')
-    const bbox = turf.bbox(countyGeo.value)
-    const y_coord = (bbox[1] + bbox[3]) / 2
-    aspect.value = Math.cos(y_coord * Math.PI / 180)
+    aspect.value = applyGeoAspect(countyGeo.value)
     registerMap('KE', countyGeo.value)
     return
   }
@@ -240,9 +245,7 @@ const getCountyGeo = async () => {
     countyGeo.value = res.data[0].json_build_object
     _geoCache.set('county', countyGeo.value)
 
-    var bbox = turf.bbox(countyGeo.value);
-    const y_coord = (bbox[1] + bbox[3]) / 2;
-    aspect.value = Math.cos(y_coord * Math.PI / 180);
+    aspect.value = applyGeoAspect(countyGeo.value)
     registerMap('KE', countyGeo.value);
     console.log('✅ Map registered: KE', countyGeo.value.features?.length, 'features');
     if (countyGeo.value.features?.length > 0) {
@@ -260,12 +263,20 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
   try {
     console.log('Get all parcels for this settlement - START', { model, filterFields, filterValues })
 
+    await ensureDashboardGeoBundleLoaded()
+
     const geoCacheKey = `${model}:${filterFields.join(',')}:${JSON.stringify(filterValues)}`
+    const cachedSubset = subsetGeoFromCache(model, filterFields, filterValues)
+    if (cachedSubset) {
+      subCountyGeo.value = cachedSubset
+      aspect.value = applyGeoAspect(subCountyGeo.value)
+      console.log('getSubsetGeo - served from bundle cache')
+      return
+    }
+
     if (_geoCache.has(geoCacheKey)) {
       subCountyGeo.value = _geoCache.get(geoCacheKey)
-      const bbox = turf.bbox(subCountyGeo.value)
-      const y_coord = (bbox[1] + bbox[3]) / 2
-      aspect.value = Math.cos(y_coord * Math.PI / 180)
+      aspect.value = applyGeoAspect(subCountyGeo.value)
       console.log('getSubsetGeo - served from cache')
       return
     }
@@ -309,9 +320,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
     console.log('collection Geo:', collection)
     subCountyGeo.value = collection
     _geoCache.set(geoCacheKey, collection)
-    var bbox = turf.bbox(subCountyGeo.value);
-    const y_coord = (bbox[1] + bbox[3]) / 2;
-    aspect.value = Math.cos(y_coord * Math.PI / 180);
+    aspect.value = applyGeoAspect(subCountyGeo.value)
 
     console.log('collection aspect:', aspect.value)
     // Do NOT register the map here; caller decides which map name to use
@@ -3666,8 +3675,10 @@ const initializeDashboard = async () => {
   try {
     dashboardLoading.value = true
     loading.value = true
+
+    const geoBundlePromise = ensureDashboardGeoBundleLoaded()
     
-    await getCountySubcountySep()
+    await Promise.all([getCountySubcountySep(), geoBundlePromise])
 
     const usedBundle = await tryLoadDashboardBundle()
     if (usedBundle) {

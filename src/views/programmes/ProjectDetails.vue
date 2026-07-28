@@ -5,6 +5,7 @@ import {
 ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
   ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon, ElTransfer,
+  ElCollapseTransition,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
@@ -59,9 +60,11 @@ import shortid from 'shortid';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import UploadShareDialog from '@/views/Components/UploadShareDialog.vue'
 import ProjectFormDrawer from '@/views/Intervention/Project/ProjectFormDrawer.vue'
+import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
+import { useDesign } from '@/hooks/web/useDesign'
 
 import type { FormInstance } from 'element-plus'
-import { getModelSpecs } from '@/api/fields'
+import { getModelSpecs, getUniqueFieldValues } from '@/api/fields'
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
@@ -516,6 +519,16 @@ const formatDateTimeDisplay = (v: unknown) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
+const formatDateForInput = (v: unknown) => {
+  const d = parseDisplayDate(v)
+  if (!d) return ''
+  const useUtc = isDateOnlyString(v)
+  const day = String(useUtc ? d.getUTCDate() : d.getDate()).padStart(2, '0')
+  const month = String(useUtc ? d.getUTCMonth() + 1 : d.getMonth() + 1).padStart(2, '0')
+  const year = useUtc ? d.getUTCFullYear() : d.getFullYear()
+  return `${year}-${month}-${day}`
+}
+
 const formatCostDisplay = (v: unknown) => {
   if (v === null || v === undefined || v === '') return '—'
   const n = Number(v)
@@ -533,21 +546,398 @@ const formatAmountDisplay = (v: unknown) => {
 const normalizeImplementationScope = (scope: unknown) =>
   String(scope || '').trim().toLowerCase()
 
-function buildProjectDescription(data: Record<string, any> | null | undefined) {
-  if (!data) return []
-  const scopeLabel = normalizeImplementationScope(data.implementation_scope)
-  return [
-    { property: 'title', value: dashDisplay(data.title) },
-    { property: 'project_code', value: dashDisplay(data.project_code || data.code) },
-    { property: 'status', value: dashDisplay(data.status) },
-    { property: 'component', value: dashDisplay(data.component?.title || data.component?.name) },
-    { property: 'programme', value: dashDisplay(data.programme?.title) },
-    { property: 'implementation_scope', value: scopeLabel ? formatSentence(scopeLabel) : '—' },
-    { property: 'start_date', value: formatDateDisplay(data.start_date) },
-    { property: 'end_date', value: formatDateDisplay(data.end_date) },
-    { property: 'cost', value: formatCostDisplay(data.cost) },
-    { property: 'description', value: dashDisplay(data.description) },
-  ]
+const descriptionSchema = [
+  { field: 'title', label: 'Title' },
+  { field: 'project_code', label: 'Contract No.' },
+  { field: 'programme_id', label: 'Programme', span: 2 },
+  { field: 'component_id', label: 'Component', span: 2 },
+  { field: 'description', label: 'Description' },
+]
+
+const implementationSchema = [
+  { field: 'status', label: 'Status' },
+  { field: 'implementation_scope', label: 'Implementation Level' },
+]
+
+const scheduleSchema = [
+  { field: 'start_date', label: 'Commencement Date' },
+  { field: 'end_date', label: 'Completion Date' },
+  { field: 'cost', label: 'Total Project Cost' },
+]
+
+const metadataSchema = [
+  { field: 'createdBy', label: 'Created by' },
+  { field: 'createdAt', label: 'Created' },
+  { field: 'updatedAt', label: 'Last updated' },
+]
+
+const readonlyInlineDescription: string[] = []
+const readonlyInlineMetadata = ['createdBy', 'createdAt', 'updatedAt']
+const inlineTextareaFields = ['title', 'description']
+const inlineClampFields = ['description']
+const inlineNumberFields = ['cost']
+const inlineDateFields = ['start_date', 'end_date']
+const inlineSelectFields = ['status', 'implementation_scope']
+const inlineDescriptionSelectFields = ['programme_id', 'component_id']
+
+const inlineProgrammeOptions = ref<Array<{ label: string; value: number }>>([])
+const inlineComponentOptions = ref<Array<{ label: string; value: number }>>([])
+
+const projectInlineSelectOptions = computed(() => ({
+  status: [
+    { label: 'Planned', value: 'Planned' },
+    { label: 'Ongoing', value: 'Ongoing' },
+    { label: 'Suspended', value: 'Suspended' },
+    { label: 'Completed', value: 'Completed' },
+  ],
+  implementation_scope: [
+    { label: 'National', value: 'national' },
+    { label: 'County', value: 'county' },
+    { label: 'Subcounty', value: 'subcounty' },
+    { label: 'Ward', value: 'ward' },
+    { label: 'Settlement', value: 'settlement' },
+  ],
+  programme_id: inlineProgrammeOptions.value,
+  component_id: inlineComponentOptions.value,
+}))
+
+const { getPrefixCls } = useDesign()
+const prefixCls = getPrefixCls('descriptions')
+
+const collapsedSections = reactive({
+  description: false,
+  implementation: true,
+  schedule: true,
+  metadata: true,
+})
+
+const inlineSavingField = ref<string | null>(null)
+
+const canEditProjectInline = computed(
+  () => showEditButtons.value && canEditProjectMeta.value,
+)
+
+const projectProfile = reactive({
+  title: '',
+  project_code: '',
+  programme_id: null as number | null,
+  component_id: null as number | null,
+  description: '',
+  status: '',
+  implementation_scope: '',
+  start_date: '',
+  end_date: '',
+  cost: null as number | null,
+})
+
+function resolveProgrammeId(data: Record<string, any> | null | undefined): number | null {
+  if (!data) return null
+  const id =
+    data.programme?.id ?? data.component?.programme_id ?? data.component?.programme?.id
+  return id != null && id !== '' ? Number(id) : null
+}
+
+async function loadInlineProgrammeOptions() {
+  if (inlineProgrammeOptions.value.length > 0) return
+
+  const res = await getSettlementListByCounty({
+    limit: 200,
+    page: 1,
+    model: 'programme',
+    searchField: 'title',
+    searchKeyword: '',
+    associated_multiple_models: [],
+  } as any)
+
+  inlineProgrammeOptions.value = ((res as any).data || []).map((p: any) => ({
+    value: Number(p.id),
+    label: p.acronym ? `${p.title} (${p.acronym})` : (p.title || `Programme ${p.id}`),
+  }))
+}
+
+async function loadInlineComponentOptions(programmeId: number | null | undefined) {
+  inlineComponentOptions.value = []
+  if (programmeId == null) return
+
+  const res = await getSettlementListByCounty({
+    limit: 200,
+    page: 1,
+    model: 'component',
+    searchField: 'title',
+    searchKeyword: '',
+    filters: ['programme_id'],
+    filterValues: [[programmeId]],
+    associated_multiple_models: [],
+  } as any)
+
+  inlineComponentOptions.value = ((res as any).data || []).map((c: any) => ({
+    value: Number(c.id),
+    label: c.title || c.acronym || `Component ${c.id}`,
+  }))
+}
+
+async function refreshProjectProgrammeComponent(data: Record<string, any>) {
+  if (!data?.component_id) return
+
+  const compRes = await getOneSettlement({
+    model: 'component',
+    id: data.component_id,
+    assocModel: 'programme',
+  } as any)
+
+  if (compRes?.data) {
+    data.component = compRes.data
+    if (compRes.data.programme) {
+      data.programme = compRes.data.programme
+    } else if (compRes.data.programme_id) {
+      const progRes = await getOneSettlement({
+        model: 'programme',
+        id: compRes.data.programme_id,
+      } as any)
+      if (progRes?.data) data.programme = progRes.data
+    }
+  }
+
+  await loadInlineComponentOptions(resolveProgrammeId(data))
+}
+
+function resolveComponentTitle(data: Record<string, any> | null | undefined) {
+  const component = data?.component
+  if (!component) return null
+  return component.title || component.acronym || component.name || null
+}
+
+function resolveProgrammeTitle(data: Record<string, any> | null | undefined) {
+  return data?.programme?.title || data?.component?.programme?.title || null
+}
+
+async function enrichProjectProgrammeComponent(data: Record<string, any> | null | undefined) {
+  if (!data?.component_id) return
+
+  const hasComponent = Boolean(resolveComponentTitle(data))
+  const hasProgramme = Boolean(resolveProgrammeTitle(data))
+  if (hasComponent && hasProgramme) return
+
+  try {
+    const compRes = await getOneSettlement({
+      model: 'component',
+      id: data.component_id,
+      assocModel: 'programme',
+    } as any)
+    if (!compRes?.data) return
+
+    if (!hasComponent) data.component = compRes.data
+    if (!hasProgramme && compRes.data.programme) {
+      data.programme = compRes.data.programme
+    } else if (!hasProgramme && compRes.data.programme_id) {
+      const progRes = await getOneSettlement({
+        model: 'programme',
+        id: compRes.data.programme_id,
+      } as any)
+      if (progRes?.data) data.programme = progRes.data
+    }
+  } catch {
+    // Non-fatal; description fields fall back to em dash.
+  }
+}
+
+function syncProjectProfileFromData(data: Record<string, any> | null | undefined) {
+  if (!data) return
+  projectProfile.title = data.title ?? ''
+  projectProfile.project_code = data.project_code || data.code || ''
+  projectProfile.programme_id = resolveProgrammeId(data)
+  projectProfile.component_id =
+    data.component_id != null && data.component_id !== ''
+      ? Number(data.component_id)
+      : null
+  projectProfile.description = data.description ?? ''
+  projectProfile.status = data.status ?? ''
+  projectProfile.implementation_scope = normalizeImplementationScope(data.implementation_scope) || ''
+  projectProfile.start_date = formatDateForInput(data.start_date)
+  projectProfile.end_date = formatDateForInput(data.end_date)
+  const costNum = data.cost != null && data.cost !== '' ? Number(data.cost) : null
+  projectProfile.cost = costNum != null && Number.isFinite(costNum) ? costNum : null
+}
+
+function buildInlineProjectPayload(field: string, value: unknown) {
+  const d = projectFullData.value
+  if (!d) throw new Error('Project not loaded')
+  return {
+    model: 'project',
+    id: d.id,
+    title: d.title,
+    project_code: d.project_code ?? d.code,
+    code: d.code,
+    component_id: d.component_id,
+    implementation_id: d.implementation_id,
+    status: d.status,
+    description: d.description,
+    start_date: d.start_date,
+    end_date: d.end_date,
+    cost: d.cost,
+    implementation_scope: d.implementation_scope,
+    sourceFunding: d.sourceFunding,
+    [field]: value,
+  }
+}
+
+async function saveProjectInline(payload: { field: string; value: unknown }) {
+  if (!canEditProjectInline.value) {
+    ElMessage.warning('You do not have permission to edit this project.')
+    return
+  }
+
+  const { field, value } = payload
+  const data = projectFullData.value
+  if (!data?.id) return
+
+  let apiValue: unknown = value
+  if (field === 'cost') {
+    if (value === '' || value == null) {
+      apiValue = null
+    } else {
+      const n = Number(value)
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+        ElMessage.error('Enter a valid whole-number cost in KSh')
+        return
+      }
+      apiValue = n
+    }
+  }
+
+  if (field === 'start_date' || field === 'end_date') {
+    apiValue = value === '' || value == null ? null : value
+    const start =
+      field === 'start_date' ? (apiValue as string) : formatDateForInput(data.start_date)
+    const end =
+      field === 'end_date' ? (apiValue as string) : formatDateForInput(data.end_date)
+    if (start && end && new Date(start) > new Date(end)) {
+      ElMessage.error('Completion date must be after commencement date')
+      return
+    }
+  }
+
+  if (field === 'title' && (apiValue == null || String(apiValue).trim() === '')) {
+    ElMessage.error('Project title is required')
+    return
+  }
+
+  if (field === 'project_code' && (apiValue == null || String(apiValue).trim() === '')) {
+    ElMessage.error('Contract number is required')
+    return
+  }
+
+  if (field === 'component_id') {
+    const componentId = Number(apiValue)
+    if (!componentId) {
+      ElMessage.error('Component is required')
+      return
+    }
+    apiValue = componentId
+  }
+
+  if (field === 'programme_id') {
+    const programmeId = Number(apiValue)
+    if (!programmeId) {
+      ElMessage.error('Programme is required')
+      return
+    }
+
+    try {
+      inlineSavingField.value = field
+      await loadInlineComponentOptions(programmeId)
+
+      let componentId = Number(data.component_id)
+      if (!inlineComponentOptions.value.some((opt) => opt.value === componentId)) {
+        componentId = inlineComponentOptions.value[0]?.value ?? 0
+      }
+      if (!componentId) {
+        ElMessage.error('No component available under this programme')
+        return
+      }
+
+      await updateOneRecord(buildInlineProjectPayload('component_id', componentId) as any)
+      data.component_id = componentId
+      await refreshProjectProgrammeComponent(data)
+      syncProjectProfileFromData(data)
+      ElMessage.success('Saved')
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || 'Could not save project'
+      ElMessage.error(message)
+    } finally {
+      inlineSavingField.value = null
+    }
+    return
+  }
+
+  try {
+    inlineSavingField.value = field
+    await updateOneRecord(buildInlineProjectPayload(field, apiValue) as any)
+
+    data[field] = apiValue
+    if (field === 'project_code') {
+      data.project_code = apiValue
+    }
+    if (field === 'title') {
+      project_title.value = apiValue as string
+    }
+    if (field === 'implementation_scope') {
+      const scope = normalizeImplementationScope(apiValue)
+      implementation_scope.value = scope || 'settlement'
+      isNationalProject.value = scope === 'national'
+    }
+    if (field === 'component_id') {
+      data.component_id = apiValue
+      await refreshProjectProgrammeComponent(data)
+    }
+
+    syncProjectProfileFromData(data)
+    ElMessage.success('Saved')
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.message || error?.message || 'Could not save project'
+    ElMessage.error(message)
+  } finally {
+    inlineSavingField.value = null
+  }
+}
+
+const projectMetadata = reactive({
+  createdBy: '—',
+  createdAt: '—',
+  updatedAt: '—',
+})
+
+async function resolveCreatedByDisplay(data: Record<string, any> | null | undefined) {
+  if (!data) return '—'
+  const creatorUser = data.users ?? data.user
+  if (creatorUser && typeof creatorUser === 'object') {
+    const name = creatorUser.name != null ? String(creatorUser.name).trim() : ''
+    const email = creatorUser.email != null ? String(creatorUser.email).trim() : ''
+    return name || email || '—'
+  }
+
+  const createdById = data.createdBy
+  if (createdById == null || createdById === '') return '—'
+
+  try {
+    const res = await getOneSettlement({ model: 'users', id: createdById } as any)
+    const user = (res as any)?.data
+    if (user?.name || user?.email) {
+      return String(user.name || user.email)
+    }
+  } catch {
+    // Fall back to numeric id when user lookup fails.
+  }
+
+  return String(createdById)
+}
+
+async function loadProjectMetadata(data: Record<string, any> | null | undefined) {
+  projectMetadata.createdBy = await resolveCreatedByDisplay(data)
+  projectMetadata.createdAt = formatDateTimeDisplay(data?.createdAt ?? data?.created_at)
+  projectMetadata.updatedAt = formatDateTimeDisplay(data?.updatedAt ?? data?.updated_at)
 }
 
 
@@ -730,6 +1120,7 @@ const getProjecteam = async (project_id) => {
   const res = await getSettlementListByCounty(formData)
 
   projectTeamData.value = res.data
+  syncTeamRolesFromMembers(res.data)
 
 
 
@@ -1028,7 +1419,6 @@ const AddLocation = () => {
 
 
 const projectFullData = ref<Record<string, any>>()
-const projectDescription = computed(() => buildProjectDescription(projectFullData.value))
 
 const projectStatusTagType = computed(() => {
   const s = String(projectFullData.value?.status || '').toLowerCase()
@@ -1037,22 +1427,6 @@ const projectStatusTagType = computed(() => {
   if (s === 'suspended') return 'warning'
   if (s === 'planned') return 'info'
   return 'info'
-})
-
-const projectScopeTagType = computed(() => {
-  const s = normalizeImplementationScope(projectFullData.value?.implementation_scope)
-  if (s === 'national') return 'warning'
-  if (s === 'county') return 'primary'
-  return 'info'
-})
-
-const projectHeaderSubtitle = computed(() => {
-  const d = projectFullData.value
-  if (!d) return ''
-  const parts: string[] = []
-  if (d.component?.title) parts.push(d.component.title)
-  if (d.programme?.title) parts.push(d.programme.title)
-  return parts.join(' · ')
 })
 
 const indicatorsOptions = ref([])
@@ -1300,8 +1674,13 @@ const loadProjectDetails = async (id: string | string[]) => {
 
   const res = await getOneSettlement(formData)
 
+  await enrichProjectProgrammeComponent(res.data)
+  await loadInlineProgrammeOptions()
+  await loadInlineComponentOptions(resolveProgrammeId(res.data))
   projectFullData.value = res.data
   project_title.value = projectFullData.value?.title
+  syncProjectProfileFromData(res.data)
+  await loadProjectMetadata(res.data)
   projectDocuments.value = []
   projectDocumentsTotal.value =
     res.data?.total_documents ??
@@ -1309,6 +1688,8 @@ const loadProjectDetails = async (id: string | string[]) => {
     projectDocuments.value.length
   projectScope.value = res.data.activities
   projectTeamData.value = res.data.project_teams
+  await loadSharedTeamRoles()
+  syncTeamRolesFromMembers(res.data.project_teams)
   projectContractors.value = res.data.project_contractors
 
   const scope = normalizeImplementationScope(res.data?.implementation_scope)
@@ -1956,32 +2337,72 @@ const rules = ({
 
 const AddTeamDialog = ref(false)
 
+const DEFAULT_TEAM_ROLES = [
+  'Project Manager',
+  'Regional Lead',
+  'CDH',
+  'Clerk of Works',
+  'Team Leader',
+  'Resident Engineer (RE)',
+  'Assistant Resident Engineer (ARE)',
+  'Roads Engineer',
+  'Materials Engineer',
+  'Water & Sanitation Engineer',
+  'Electrical Engineer',
+  'Surveyor Engineer',
+  'Environmental Expert',
+  'Sociologist / Community / Resettlement Expert',
+  'Socio-Economist',
+  'Procurement and Contract Management Expert',
+  'Works Inspector',
+  'CAD Technician',
+  'Laboratory Technicians',
+  'Office Administrator',
+  'Chainmen',
+  'Other',
+] as const
 
-const AddTeam = async () => {
-  AddTeamDialog.value = true
+const sharedTeamRoles = ref<string[]>([])
+
+async function loadSharedTeamRoles() {
+  try {
+    const res = await getUniqueFieldValues({ model: 'project_team', selectedField: 'role' })
+    const rows = (res as any)?.data || []
+    sharedTeamRoles.value = rows
+      .map((row: { value?: unknown; label?: unknown }) => String(row.value ?? row.label ?? '').trim())
+      .filter(Boolean)
+  } catch {
+    // Non-fatal; defaults still apply.
+  }
 }
 
-const xroles = ['Project Manager', 'Regional Lead', 'CDH', 'Clerk of Works', 'Other'];
-const roles = [
-  "Team Leader",
-  "Resident Engineer (RE)",
-  "Assistant Resident Engineer (ARE)",
-  "Roads Engineer",
-  "Materials Engineer",
-  "Water & Sanitation Engineer",
-  "Electrical Engineer",
-  "Surveyor Engineer",
-  "Environmental Expert",
-  "Sociologist / Community / Resettlement Expert",
-  "Socio-Economist",
-  "Procurement and Contract Management Expert",
-  "Works Inspector",
-  "CAD Technician",
-  "Laboratory Technicians",
-  "Office Administrator",
-  "Chainmen",
-  "Other"
-]
+const teamRoles = computed(() => {
+  const merged = [...DEFAULT_TEAM_ROLES, ...sharedTeamRoles.value]
+  return [...new Set(merged.map((r) => r.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
+  )
+})
+
+const teamRoleOptions = computed(() =>
+  teamRoles.value.map((role) => ({ label: role, value: role })),
+)
+
+function rememberTeamRole(role: unknown) {
+  const trimmed = String(role || '').trim()
+  if (!trimmed || teamRoles.value.includes(trimmed)) return
+  sharedTeamRoles.value = [...sharedTeamRoles.value, trimmed]
+}
+
+function syncTeamRolesFromMembers(members: Array<{ role?: unknown }> | null | undefined) {
+  for (const member of members || []) {
+    rememberTeamRole(member?.role)
+  }
+}
+
+const AddTeam = async () => {
+  await loadSharedTeamRoles()
+  AddTeamDialog.value = true
+}
 
 
 
@@ -1998,11 +2419,10 @@ const updateTeam = async () => {
 
       const res = await CreateRecord(teamForm.value)
 
-
+      rememberTeamRole(teamForm.value.role)
       projectTeamData.value.push(res.data)
-      // if (res.data && res.data.length > 0) {
-      //   projectTeamData.value = res.data.map(item); 
-      // }
+      await loadSharedTeamRoles()
+      AddTeamDialog.value = false
 
 
 
@@ -2354,7 +2774,15 @@ const updateDisbursement = async () => {
 
 
 
-const contract_roles = ['Main Contractor', 'Subcontractor', 'Consultant', 'Other'];
+const contract_roles = ['Main Contractor', 'Subcontractor', 'Consultant', 'Other'] as const
+
+function contractorRoleTagType(role: unknown): 'primary' | 'success' | 'warning' | 'info' {
+  const r = String(role || '').toLowerCase()
+  if (r === 'main contractor') return 'primary'
+  if (r === 'subcontractor') return 'success'
+  if (r === 'consultant') return 'warning'
+  return 'info'
+}
 
 
 const updateContractor = async () => {
@@ -4371,7 +4799,7 @@ function formatLocation(item) {
     <!-- Header Section -->
     <template #header>
       <div class="card-header" :class="{ 'card-header--mobile': isMobile }">
-        <div class="card-header-content">
+        <div class="card-header-main">
           <el-button
             v-if="isMobile"
             type="primary"
@@ -4393,28 +4821,20 @@ function formatLocation(item) {
             Back
           </el-button>
           <div class="project-title-wrap">
-            <div class="project-title">
-              {{ project_title || 'Project Details' }}
-            </div>
-            <div v-if="projectHeaderSubtitle && !isMobile" class="project-subtitle">
-              {{ projectHeaderSubtitle }}
-            </div>
-            <div
-              v-if="projectFullData && !isMobile"
-              class="project-header-tags project-header-tags--prominent"
-              role="group"
-              aria-label="Project status"
-            >
-              <el-tag v-if="projectFullData.status" :type="projectStatusTagType" effect="plain">
-                {{ projectFullData.status }}
-              </el-tag>
-              <el-tag
-                v-if="projectFullData.implementation_scope"
-                :type="projectScopeTagType"
-                effect="plain"
+            <div class="project-title-row">
+              <h1 class="project-title">
+                {{ project_title || 'Project Details' }}
+              </h1>
+              <div
+                v-if="projectFullData"
+                class="project-header-tags project-header-tags--prominent"
+                role="group"
+                aria-label="Project status"
               >
-                {{ formatSentence(normalizeImplementationScope(projectFullData.implementation_scope)) }}
-              </el-tag>
+                <el-tag v-if="projectFullData.status" :type="projectStatusTagType" effect="plain" size="small">
+                  {{ projectFullData.status }}
+                </el-tag>
+              </div>
             </div>
           </div>
         </div>
@@ -4444,34 +4864,133 @@ function formatLocation(item) {
             <p>Loading project profile...</p>
           </div>
         </div>
-        <div v-show="!isLoading" class="profile-tab-panel__content">
-        <el-card>
-          <el-descriptions title="Project Information" border :column="isMobile ? 1 : 2">
-            <template #extra>
-              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <el-popconfirm
-                  v-if="canUserDeleteProject(projectFullData)"
-                  width="300" title="Are you sure to delete this project?"
-                  @confirm="DeleteProject(projectFullData.id)">
-                  <template #reference>
-                    <el-button type="danger" plain>
-                      <Icon icon="material-symbols:delete" style="margin-right: 5px;" />
-                      Delete Project
-                    </el-button>
-                  </template>
-                </el-popconfirm>
-              </div>
-            </template>
-
-            <el-descriptions-item
-              v-for="item in projectDescription"
-              :key="item.property"
-              :label="formatSentence(item.property)"
+        <div v-show="!isLoading" class="profile-tab-panel__content project-details-sections">
+          <div v-if="canUserDeleteProject(projectFullData)" class="project-details-actions">
+            <el-popconfirm
+              width="300"
+              title="Are you sure to delete this project?"
+              @confirm="DeleteProject(projectFullData.id)"
             >
-              {{ item.value }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
+              <template #reference>
+                <el-button type="danger" plain>
+                  <Icon icon="material-symbols:delete" style="margin-right: 5px;" />
+                  Delete Project
+                </el-button>
+              </template>
+            </el-popconfirm>
+          </div>
+
+          <div
+            :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']"
+          >
+            <div
+              :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+              @click="collapsedSections.description = !collapsedSections.description"
+            >
+              <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+                Description
+              </div>
+              <Icon :icon="collapsedSections.description ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsedSections.description" :class="[`${prefixCls}-content`, 'p-10px']">
+                <InlineEditableDescriptions
+                  :data="projectProfile"
+                  :schema="descriptionSchema"
+                  :editable="canEditProjectInline"
+                  :readonly-fields="readonlyInlineDescription"
+                  :textarea-fields="inlineTextareaFields"
+                  :clamp-fields="inlineClampFields"
+                  :select-options="projectInlineSelectOptions"
+                  :select-fields="inlineDescriptionSelectFields"
+                  :saving-field="inlineSavingField"
+                  :column="isMobile ? 1 : 2"
+                  @save="saveProjectInline"
+                />
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <div
+            :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']"
+          >
+            <div
+              :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+              @click="collapsedSections.implementation = !collapsedSections.implementation"
+            >
+              <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+                Implementation
+              </div>
+              <Icon :icon="collapsedSections.implementation ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsedSections.implementation" :class="[`${prefixCls}-content`, 'p-10px']">
+                <InlineEditableDescriptions
+                  :data="projectProfile"
+                  :schema="implementationSchema"
+                  :editable="canEditProjectInline"
+                  :select-options="projectInlineSelectOptions"
+                  :select-fields="inlineSelectFields"
+                  :saving-field="inlineSavingField"
+                  :column="isMobile ? 1 : 2"
+                  @save="saveProjectInline"
+                />
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <div
+            :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']"
+          >
+            <div
+              :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+              @click="collapsedSections.schedule = !collapsedSections.schedule"
+            >
+              <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+                Schedule & Budget
+              </div>
+              <Icon :icon="collapsedSections.schedule ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsedSections.schedule" :class="[`${prefixCls}-content`, 'p-10px']">
+                <InlineEditableDescriptions
+                  :data="projectProfile"
+                  :schema="scheduleSchema"
+                  :editable="canEditProjectInline"
+                  :number-fields="inlineNumberFields"
+                  :date-fields="inlineDateFields"
+                  :saving-field="inlineSavingField"
+                  :column="isMobile ? 1 : 2"
+                  @save="saveProjectInline"
+                />
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <div
+            :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']"
+          >
+            <div
+              :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
+              @click="collapsedSections.metadata = !collapsedSections.metadata"
+            >
+              <div :class="[`${prefixCls}-header__title`, 'relative text-base font-medium ml-10px']">
+                Record metadata
+              </div>
+              <Icon :icon="collapsedSections.metadata ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsedSections.metadata" :class="[`${prefixCls}-content`, 'p-10px']">
+                <InlineEditableDescriptions
+                  :data="projectMetadata"
+                  :schema="metadataSchema"
+                  :editable="false"
+                  :readonly-fields="readonlyInlineMetadata"
+                  :column="1"
+                />
+              </div>
+            </ElCollapseTransition>
+          </div>
         </div>
       </el-tab-pane>
 
@@ -4616,7 +5135,7 @@ function formatLocation(item) {
 
 
       <el-tab-pane label="Scope" name="Scope">
-        <el-card class="project-scope-card">
+        <div class="project-scope-panel">
           <el-row :gutter="8" class="project-scope-toolbar" align="middle">
             <el-col
               :xs="isMobile && scopeActionButtonCount > 0 ? 14 : 24"
@@ -4693,7 +5212,7 @@ function formatLocation(item) {
               :class="['project-scope-transfer', { 'project-scope-transfer--mobile': isMobile }]"
             />
           </template>
-        </el-card>
+        </div>
       </el-tab-pane>
 
       <el-dialog
@@ -5084,17 +5603,24 @@ function formatLocation(item) {
       </el-tab-pane>
 
 
-      <el-tab-pane label="Contractor" name="contractor">
+      <el-tab-pane label="Contractors & Consultants" name="contractor">
         <el-card>
 
           <el-button v-if="canManageProjectContractors" @click="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
-            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Contractor(s)
+            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add contractor / consultant
           </el-button>
           <el-table :data="projectContractors" style="width: 100%">
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
-            <el-table-column prop="role" label="Role" />
-            <el-table-column prop="scope" label="Phone" />
+            <el-table-column prop="role" label="Role" min-width="140">
+              <template #default="{ row }">
+                <el-tag v-if="row.role" :type="contractorRoleTagType(row.role)" effect="plain" size="small">
+                  {{ row.role }}
+                </el-tag>
+                <span v-else>—</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="scope" label="Scope" />
 
             <el-table-column fixed="right" label="">
               <template #default="scope">
@@ -5331,9 +5857,21 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
       class="project-details-form"
     >
       <el-form-item label="Role" prop="role">
-        <el-select v-model="teamForm.role" placeholder="Select  Role" :size="isMobile ? 'large' : 'default'" style="width: 100%;">
-          <el-option v-for="role in roles" :key="role" :label="role" :value="role" />
-        </el-select>
+        <el-select-v2
+          v-model="teamForm.role"
+          :options="teamRoleOptions"
+          filterable
+          allow-create
+          default-first-option
+          clearable
+          placeholder="Search or type a role"
+          :size="isMobile ? 'large' : 'default'"
+          style="width: 100%;"
+          @change="rememberTeamRole"
+        />
+        <p class="contractor-role-hint">
+          Shared across all users. Search the list or type a new role — it is saved when you add the team member.
+        </p>
       </el-form-item>
 
       <el-form-item label="Name" prop="name">
@@ -5365,7 +5903,7 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
   <el-dialog
     v-model="AddContractorTeamDialog"
-    title="Add Project Contractors"
+    title="Add contractor or consultant"
     :width="projectFormDialogWidth"
     :draggable="!isMobile"
     append-to-body
@@ -5383,10 +5921,26 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
       :rules="contractorRules"
       class="project-details-form"
     >
-      <el-form-item label="Contractor" prop="contractor">
+      <el-form-item label="Role" prop="role">
+        <el-select
+          v-model="contractorForm.role"
+          filterable
+          clearable
+          placeholder="Search role"
+          :size="isMobile ? 'large' : 'default'"
+          style="width: 100%;"
+        >
+          <el-option v-for="role in contract_roles" :key="role" :label="role" :value="role" />
+        </el-select>
+        <p class="contractor-role-hint">
+          Includes main contractor, subcontractor, consultant, and other roles.
+        </p>
+      </el-form-item>
+
+      <el-form-item label="Firm" prop="contractor">
         <el-select
           v-model="contractorForm.contractor_id"
-          placeholder="Select "
+          placeholder="Select firm"
           filterable
           :size="isMobile ? 'large' : 'default'"
           style="width: 100%;"
@@ -5395,20 +5949,14 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
           <el-option v-for="cont in contractorOptions" :key="cont" :label="cont.label" :value="cont.id" />
           <template #footer>
             <el-button text bg size="small" @click="onAddOption">
-              Add A Contractor
+              Register new firm
             </el-button>
           </template>
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Role" prop="role">
-        <el-select v-model="contractorForm.role" placeholder="Select " :size="isMobile ? 'large' : 'default'" style="width: 100%;">
-          <el-option v-for="role in contract_roles" :key="role" :label="role" :value="role" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="Scope" prop="scope">
-        <el-input v-model="contractorForm.scope" :size="isMobile ? 'large' : 'default'" />
+      <el-form-item label="Scope of work" prop="scope">
+        <el-input v-model="contractorForm.scope" placeholder="Brief description of assigned work" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
     </el-form>
 
@@ -5431,7 +5979,7 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
   <el-dialog
     v-model="showAddNewContractor"
-    title="Register New Contractors"
+    title="Register new firm"
     :width="projectFormDialogWidth"
     :draggable="!isMobile"
     append-to-body
@@ -5449,8 +5997,8 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
       :rules="ruleFormRules"
       class="project-details-form"
     >
-      <el-form-item label="Contractor" prop="name">
-        <el-input v-model="NewContractorForm.name" :size="isMobile ? 'large' : 'default'" />
+      <el-form-item label="Firm name" prop="name">
+        <el-input v-model="NewContractorForm.name" placeholder="Contractor or consultant company name" :size="isMobile ? 'large' : 'default'" />
       </el-form-item>
 
       <el-form-item label="Contact Person" prop="contact_person">
@@ -5826,16 +6374,21 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 .card-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  font-weight: bold;
-  font-size: 1.2rem;
+  gap: 12px;
   color: var(--card-header-color, #333);
   background-color: var(--card-header-bg, #f9f9f9);
-  padding: 4px 10px;
+  padding: 12px 14px;
   border-radius: 5px;
-  gap: 6px;
-  flex-wrap: wrap;
+}
+
+.card-header-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .card-header-content {
@@ -5848,32 +6401,34 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 .back-button {
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .project-title-wrap {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.project-title-row {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+  width: 100%;
 }
 
 .project-title {
-  flex: 1;
+  flex: 1 1 12rem;
   min-width: 0;
-  word-wrap: break-word;
-  line-height: 1.2;
   margin: 0;
-}
-
-.project-subtitle {
-  flex-basis: 100%;
-  font-size: 0.9rem;
-  font-weight: normal;
-  color: var(--el-text-color-secondary);
+  font-size: 1.125rem;
+  font-weight: 600;
   line-height: 1.3;
+  word-break: break-word;
 }
 
 .project-scope-transfer {
@@ -5957,13 +6512,19 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   transform: rotate(-90deg);
 }
 
-.project-scope-card {
-  border: none;
-  box-shadow: none;
+.demo-tabs :deep(.el-tabs__content) {
+  padding: 8px 16px 16px;
+}
+
+.project-scope-panel {
+  margin: 0;
 }
 
 .project-scope-toolbar {
-  margin-bottom: 16px;
+  margin-top: 0 !important;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .project-scope-actions-col {
@@ -5998,8 +6559,13 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 }
 
 @media (max-width: 768px) {
+  .demo-tabs :deep(.el-tabs__content) {
+    padding: 8px 12px 12px;
+  }
+
   .project-scope-toolbar {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
   }
 
   .project-scope-summary-count {
@@ -6081,6 +6647,13 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 .project-details-form :deep(.el-form-item:last-child) {
   margin-bottom: 0;
+}
+
+.contractor-role-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
 }
 
 .location-add-dialog-body {
@@ -6187,13 +6760,13 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 .project-header-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-shrink: 0;
 }
 
 .project-header-tags.project-header-tags--prominent :deep(.el-tag) {
-  --el-tag-font-size: clamp(13px, var(--el-font-size-base), 15px);
+  --el-tag-font-size: clamp(12px, var(--el-font-size-base), 14px);
   font-size: var(--el-tag-font-size);
 }
 
@@ -6201,12 +6774,45 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 2px;
+}
+
+:deep(.el-card__header) {
+  padding: 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .profile-tab-panel__loading {
   display: flex;
   justify-content: center;
   padding: 48px 16px;
+}
+
+.project-details-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-details-sections :deep(.v-descriptions-header__title) {
+  position: relative;
+}
+
+.project-details-sections :deep(.v-descriptions-header__title)::after {
+  position: absolute;
+  top: 3px;
+  left: -10px;
+  width: 4px;
+  height: 70%;
+  background: var(--el-color-primary);
+  content: '';
+}
+
+.project-details-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
 }
 
 .profile-tab-panel__spinner {
@@ -6230,41 +6836,53 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 @media (max-width: 768px) {
   .card-header,
   .card-header--mobile {
-    flex-direction: row;
     align-items: flex-start;
     padding: 10px 12px;
-    gap: 10px;
+    gap: 8px;
   }
 
-  .card-header-content {
+  .card-header-main {
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
+  }
+
+  .back-button {
+    margin-top: 0;
   }
 
   .project-title-wrap {
-    flex: 1;
-    min-width: 0;
-    flex-direction: row;
-    align-items: center;
-    gap: 0;
+    gap: 4px;
+  }
+
+  .project-title-row {
+    gap: 6px;
   }
 
   .project-title {
-    font-size: 1rem;
+    flex: 1 1 100%;
+    font-size: 0.95rem;
     line-height: 1.35;
-    width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
-    white-space: normal;
+    overflow: hidden;
+  }
+
+  .project-header-tags {
+    gap: 4px;
+  }
+
+  .project-header-tags.project-header-tags--prominent :deep(.el-tag) {
+    --el-tag-font-size: 11px;
+    height: auto;
+    padding: 2px 7px;
   }
 
   .header-actions {
-    flex-shrink: 0;
     margin-left: 0;
+    padding-top: 0;
   }
 
   .project-scope-transfer :deep(.el-transfer) {

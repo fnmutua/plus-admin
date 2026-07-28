@@ -11,7 +11,8 @@ import {
   ElOption,
   ElIcon,
   ElTooltip,
-  ElTag
+  ElTag,
+  ElDatePicker,
 } from 'element-plus'
 import { Edit, Loading } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store/modules/app'
@@ -24,6 +25,7 @@ const props = withDefaults(
     readonlyFields?: string[]
     textareaFields?: string[]
     numberFields?: string[]
+    dateFields?: string[]
     booleanFields?: string[]
     selectOptions?: Record<string, Array<{ label: string; value: string | number | boolean }>>
     /** When set, only these fields render as selects (requires matching selectOptions). */
@@ -48,6 +50,7 @@ const props = withDefaults(
     readonlyFields: () => [],
     textareaFields: () => [],
     numberFields: () => [],
+    dateFields: () => [],
     booleanFields: () => [],
     selectOptions: () => ({}),
     selectFields: () => [],
@@ -71,6 +74,7 @@ const mobile = computed(() => appStore.getMobile)
 const readonlySet = computed(() => new Set(props.readonlyFields || []))
 const textareaSet = computed(() => new Set(props.textareaFields || []))
 const numberSet = computed(() => new Set(props.numberFields || []))
+const dateSet = computed(() => new Set(props.dateFields || []))
 const booleanSet = computed(() => new Set(props.booleanFields || []))
 const selectFieldSet = computed(() => new Set(props.selectFields || []))
 const multiselectSet = computed(() => new Set(props.multiselectFields || []))
@@ -135,9 +139,46 @@ function isReadonly(field: string) {
   return readonlySet.value.has(field)
 }
 
+function formatDisplayDate(v: unknown) {
+  if (v === null || v === undefined || v === '') return null
+  const d = v instanceof Date ? v : new Date(String(v))
+  if (Number.isNaN(d.getTime())) return String(v)
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+function formatDisplayNumber(v: unknown) {
+  const n = coerceNum(v)
+  if (n === null) return null
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 })
+}
+
+function formatNumberInput(value: number | string | undefined) {
+  if (value === undefined || value === null || value === '') return ''
+  return `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+function parseNumberInput(value: string) {
+  return value.replace(/[^\d.-]/g, '')
+}
+
 function cellDisplay(field: string) {
   const v = props.data[field]
   if (v === null || v === undefined || v === '') return '\u2014'
+  if (shouldUseSelect(field)) {
+    const opt = selectItems(field).find(
+      (item) => item.value === v || String(item.value) === String(v)
+    )
+    if (opt?.label) return opt.label
+  }
+  if (numberSet.value.has(field)) {
+    return formatDisplayNumber(v) ?? '\u2014'
+  }
+  if (dateSet.value.has(field)) {
+    return formatDisplayDate(v) ?? '\u2014'
+  }
   return String(v)
 }
 
@@ -190,8 +231,22 @@ function startEdit(field: string) {
     if (raw === '\u2014' || raw === '' || raw === null || raw === undefined) {
       draft.value = undefined
     } else {
-      const n = Number(raw)
-      draft.value = Number.isFinite(n) ? n : undefined
+      const n = coerceNum(raw)
+      draft.value = n ?? undefined
+    }
+  } else if (dateSet.value.has(field)) {
+    if (raw === '\u2014' || raw === '' || raw === null || raw === undefined) {
+      draft.value = ''
+    } else {
+      const d = new Date(String(raw))
+      if (Number.isNaN(d.getTime())) {
+        draft.value = String(raw).slice(0, 10)
+      } else {
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        draft.value = `${y}-${m}-${day}`
+      }
     }
   } else {
     draft.value = raw === '\u2014' || raw === null || raw === undefined ? '' : raw
@@ -237,6 +292,18 @@ function isUnchanged(): boolean {
     if (a === null || b === null) return false
     return Math.abs(a - b) < 1e-9
   }
+  if (dateSet.value.has(f)) {
+    const norm = (v: unknown) => {
+      if (v === '\u2014' || v === '' || v == null) return ''
+      const d = new Date(String(v))
+      if (Number.isNaN(d.getTime())) return String(v).slice(0, 10)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+    return norm(snapshot.value) === norm(draft.value)
+  }
   const a = normalizeForCompare(snapshot.value)
   const b = normalizeForCompare(draft.value)
   if (a === b) return true
@@ -256,6 +323,10 @@ function commit() {
       ? next.map((x) => String(x).trim()).filter((x) => x.length > 0)
       : []
     next = arr.length ? arr.join(', ') : null
+  } else if (dateSet.value.has(f)) {
+    next = next === '' || next == null ? null : next
+  } else if (numberSet.value.has(f)) {
+    next = coerceNum(next)
   }
   editingField.value = null
   emit('save', { field: f, value: next })
@@ -373,9 +444,25 @@ function booleanTagType(field: string): 'success' | 'danger' | 'info' {
               ref="inputRef"
               v-model="draft"
               :controls="false"
+              :precision="0"
+              :formatter="formatNumberInput"
+              :parser="parseNumberInput"
               class="inline-cell__input-num"
               @blur="commit"
               @keydown="onInputKeydown"
+            />
+            <ElDatePicker
+              v-else-if="dateSet.has(item.field)"
+              ref="inputRef"
+              v-model="draft"
+              type="date"
+              value-format="YYYY-MM-DD"
+              format="DD/MM/YYYY"
+              clearable
+              teleported
+              class="inline-cell__input inline-cell__date"
+              @change="commit"
+              @blur="commit"
             />
             <ElInput
               v-else-if="textareaSet.has(item.field)"
@@ -548,8 +635,13 @@ function booleanTagType(field: string): 'success' | 'danger' | 'info' {
 }
 
 .inline-cell__input,
-.inline-cell__input-num {
+.inline-cell__input-num,
+.inline-cell__date {
   flex: 1;
+  width: 100% !important;
+}
+
+:deep(.inline-cell__date.el-date-editor) {
   width: 100% !important;
 }
 

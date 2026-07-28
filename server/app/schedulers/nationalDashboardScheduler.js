@@ -4,6 +4,7 @@ const {
   refreshAllDashboardBundles,
 } = require('../services/nationalDashboardBundle')
 const { refreshAllMapBundles } = require('../services/mapBundleService')
+const { refreshDashboardGeoBundle } = require('../services/dashboardGeoBundleService')
 
 let scheduledTask = null
 
@@ -16,6 +17,9 @@ function warmAllBundles() {
   })
   refreshAllMapBundles().catch((err) => {
     console.error('[map-bundle] scheduled warm failed:', err.message)
+  })
+  refreshDashboardGeoBundle().catch((err) => {
+    console.error('[dashboard-geo-bundle] scheduled warm failed:', err.message)
   })
 }
 

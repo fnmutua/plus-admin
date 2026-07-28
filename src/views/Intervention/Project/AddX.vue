@@ -8,7 +8,7 @@
       <div class="steps-wrapper">
         <el-steps :active="currentStep" finish-status="success" align-center class="project-form-steps">
           <el-step
-            v-for="(step, index) in steps"
+            v-for="(step, index) in displaySteps"
             :key="index"
             :title="step.title"
             :description="isMobile ? '' : step.description"
@@ -41,7 +41,7 @@
           ref="dynamicFormRef"
           label-position="top"
         >
-          <div v-if="currentStep === totalSteps - 1" id="location-step" class="location-step">
+          <div v-if="isLocationStep" id="location-step" class="location-step">
             <p class="location-step-hint">{{ locationStepHint }}</p>
 
             <el-alert
@@ -49,7 +49,7 @@
               type="info"
               :closable="false"
               show-icon
-              title="National scope"
+              title="National implementation level"
               description="Location selection is not required for national projects."
               class="location-national-alert"
             />
@@ -99,6 +99,66 @@
                 </el-checkbox-group>
               </div>
             </template>
+          </div>
+
+          <div v-else-if="isProgrammeStep" id="programme-step" class="programme-component-step">
+            <p class="programme-step-hint">
+              Current assignment:
+              <strong>{{ programmeLabel || 'Programme' }}</strong>
+              <span v-if="component_title"> · <strong>{{ component_title }}</strong></span>
+            </p>
+            <el-checkbox v-model="showProgrammeComponentEdit" class="programme-component-toggle">
+              Change programme or component
+            </el-checkbox>
+            <div v-if="showProgrammeComponentEdit" class="programme-component-fields">
+              <el-row :gutter="16">
+                <el-col :span="24">
+                  <el-form-item label="Programme">
+                    <el-select
+                      v-model="editProgrammeId"
+                      filterable
+                      placeholder="Select programme"
+                      style="width: 100%"
+                      @change="onEditProgrammeChange"
+                    >
+                      <el-option
+                        v-for="option in editProgrammeOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="24">
+                  <el-form-item label="Component" prop="component_id">
+                    <el-select
+                      v-model="formData.component_id"
+                      filterable
+                      placeholder="Select component"
+                      style="width: 100%"
+                      @change="onEditComponentChange"
+                    >
+                      <el-option
+                        v-for="option in editComponentOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </div>
+            <el-alert
+              v-else
+              type="info"
+              :closable="false"
+              show-icon
+              title="No changes"
+              description="Leave unchecked to keep the current programme and component."
+              class="programme-component-unchanged-alert"
+            />
           </div>
 
           <el-row v-else :gutter="16">
@@ -348,7 +408,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { ElCard, ElTooltip, ElTour, ElTourStep, ElDialog, ElMessage, ElUpload,ElTreeSelect } from 'element-plus'
 import { useRouter } from 'vue-router'
 
-import { steps, formFields, formData, formRules } from './common/fields.ts'
+import { steps, formFields, formData, formRules, PROGRAMME_COMPONENT_STEP } from './common/fields.ts'
 import { subcountyOptions, wardOptions, implementationOptions, setImplementationOptionsForProgramme } from './common/index.ts'
 import shortid from 'shortid';
 
@@ -610,6 +670,130 @@ const geomScope = ref([])
 const model = 'project'
 const component_id = ref<string | number>()
 const component_title = ref()
+const lockedProgrammeId = ref<string | number | null>(null)
+const originalProgrammeId = ref<string | number | null>(null)
+const originalComponentId = ref<string | number | null>(null)
+const editProgrammeId = ref<number | null>(null)
+const programmeLabel = ref('')
+const showProgrammeComponentEdit = ref(false)
+const editProgrammeOptions = ref<Array<{ value: number; label: string }>>([])
+const editComponentOptions = ref<Array<{ value: number; label: string }>>([])
+
+async function loadEditProgrammeOptions() {
+  if (editProgrammeOptions.value.length > 0) return
+
+  const res = await getSettlementListByCounty({
+    limit: 200,
+    page: 1,
+    model: 'programme',
+    searchField: 'title',
+    searchKeyword: '',
+    associated_multiple_models: [],
+  } as any)
+
+  editProgrammeOptions.value = ((res as any).data || []).map((p: any) => ({
+    value: Number(p.id),
+    label: p.acronym ? `${p.title} (${p.acronym})` : (p.title || `Programme ${p.id}`),
+  }))
+}
+
+async function loadEditComponentOptions(programmeId: string | number | null) {
+  editComponentOptions.value = []
+  if (programmeId == null || programmeId === '') return
+
+  const res = await getSettlementListByCounty({
+    limit: 200,
+    page: 1,
+    model: 'component',
+    searchField: 'title',
+    searchKeyword: '',
+    filters: ['programme_id'],
+    filterValues: [[programmeId]],
+    associated_multiple_models: [],
+  } as any)
+
+  editComponentOptions.value = ((res as any).data || []).map((c: any) => ({
+    value: Number(c.id),
+    label: c.title || c.acronym || `Component ${c.id}`,
+  }))
+}
+
+async function resolveProgrammeLabel(programmeId: string | number | null, fallback?: any) {
+  if (fallback?.title || fallback?.acronym) {
+    const title = fallback.title || fallback.acronym
+    const acronym = fallback.acronym
+    programmeLabel.value =
+      title && acronym && String(title).trim().toLowerCase() !== String(acronym).trim().toLowerCase()
+        ? `${title} (${acronym})`
+        : (title || acronym || '')
+    return
+  }
+  if (programmeId == null || programmeId === '') {
+    programmeLabel.value = ''
+    return
+  }
+  const res = await getOneSettlement({ model: 'programme', id: programmeId } as any)
+  await resolveProgrammeLabel(null, res?.data)
+}
+
+function onEditComponentChange(compId: number | string) {
+  component_id.value = compId
+  const opt = editComponentOptions.value.find((o) => o.value === Number(compId))
+  component_title.value = opt?.label ?? component_title.value
+  syncComponentIdToForm()
+}
+
+async function onEditProgrammeChange(progId: number | string) {
+  lockedProgrammeId.value = progId
+  editProgrammeId.value = Number(progId)
+  await Promise.all([
+    resolveProgrammeLabel(progId),
+    loadEditComponentOptions(progId),
+  ])
+  const currentId = Number(formData.component_id)
+  if (!editComponentOptions.value.some((o) => o.value === currentId)) {
+    const next = editComponentOptions.value[0]
+    if (next) {
+      formData.component_id = next.value
+      onEditComponentChange(next.value)
+    }
+  }
+}
+
+function resetProgrammeComponentEditState() {
+  showProgrammeComponentEdit.value = false
+  lockedProgrammeId.value = null
+  originalProgrammeId.value = null
+  originalComponentId.value = null
+  editProgrammeId.value = null
+  programmeLabel.value = ''
+  editComponentOptions.value = []
+}
+
+watch(showProgrammeComponentEdit, async (enabled) => {
+  if (newRecord.value) return
+
+  if (enabled) {
+    await loadEditProgrammeOptions()
+    editProgrammeId.value =
+      originalProgrammeId.value != null ? Number(originalProgrammeId.value) : null
+    lockedProgrammeId.value = editProgrammeId.value
+    await loadEditComponentOptions(editProgrammeId.value)
+    return
+  }
+
+  lockedProgrammeId.value = originalProgrammeId.value
+  editProgrammeId.value =
+    originalProgrammeId.value != null ? Number(originalProgrammeId.value) : null
+  if (originalComponentId.value != null) {
+    formData.component_id = originalComponentId.value
+    component_id.value = originalComponentId.value
+    onEditComponentChange(originalComponentId.value)
+  }
+  if (originalProgrammeId.value != null) {
+    await resolveProgrammeLabel(originalProgrammeId.value)
+  }
+})
 
 function resolveComponentId(): string | number | null {
   const candidates = [
@@ -655,6 +839,18 @@ const locationSearchLoading = ref(false)
 const locationSearchKeyword = ref('')
 const locationFirstLoad = ref(true)
 let locationSearchTimer: ReturnType<typeof setTimeout> | null = null
+
+const LOCATION_STEP_INDEX = 3
+
+const displaySteps = computed(() =>
+  newRecord.value ? steps : [...steps, PROGRAMME_COMPONENT_STEP],
+)
+
+const isLocationStep = computed(() => currentStep.value === LOCATION_STEP_INDEX)
+
+const isProgrammeStep = computed(
+  () => !newRecord.value && currentStep.value === LOCATION_STEP_INDEX + 1,
+)
 
 const isNationalScope = computed(() => formData.implementation_scope === 'national')
 
@@ -1081,16 +1277,19 @@ watch(
   () => formData.implementation_scope,
   () => {
     clearLocationSelection()
-    if (currentStep.value === steps.length - 1 && !isNationalScope.value) {
+    if (currentStep.value === LOCATION_STEP_INDEX && !isNationalScope.value) {
       searchLocations('')
     }
   }
 )
 
 watch(currentStep, (step) => {
-  if (step === steps.length - 1 && !isNationalScope.value) {
+  if (step === LOCATION_STEP_INDEX && !isNationalScope.value) {
     locationFirstLoad.value = true
     searchLocations(locationSearchKeyword.value)
+  }
+  if (step === LOCATION_STEP_INDEX + 1 && !newRecord.value) {
+    void loadEditProgrammeOptions()
   }
 })
 
@@ -1131,6 +1330,7 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
 
     if (isEdit) {
       form.id = normalizedEditId
+      form.associated_multiple_models = ['component', 'programme']
       const res = await getOneSettlement(form)
       if (isStale()) return
 
@@ -1138,6 +1338,19 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
       if (!curData || curData.id == null) {
         throw new Error('Project record not found')
       }
+
+      lockedProgrammeId.value =
+        curData.programme_id ??
+        curData.programme?.id ??
+        curData.component?.programme_id ??
+        component.data.programme_id ??
+        component.data.programmeId ??
+        null
+      originalProgrammeId.value = lockedProgrammeId.value
+      originalComponentId.value = curData.component_id ?? domainId
+
+      await resolveProgrammeLabel(lockedProgrammeId.value, curData.programme)
+      if (isStale()) return
 
       geomScope.value = curData.geom ?? null
 
@@ -1157,6 +1370,11 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
       })
       Object.assign(formData, curData)
       formData.component_id = curData.component_id ?? domainId
+      component_id.value = formData.component_id
+      component_title.value =
+        curData.component?.title ??
+        editComponentOptions.value.find((o) => o.value === Number(formData.component_id))?.label ??
+        component_title.value
       const loadedCost = normalizeProjectCost(curData.cost)
       formData.cost = loadedCost ?? undefined
       newRecord.value = false
@@ -1183,6 +1401,7 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
       })
       formData.component_id = domainId
       newRecord.value = true
+      resetProgrammeComponentEditState()
       geomScope.value = []
       showMessage.value = false
     }
@@ -1274,21 +1493,23 @@ const showOnMobile = (options) => {
 
 const dynamicFormRef = ref<FormInstance>()
 
-const currentStepFields = computed(() =>
-  formFields[currentStep.value].map((field) => {
+const currentStepFields = computed(() => {
+  if (currentStep.value >= formFields.length) return []
+  return formFields[currentStep.value].map((field) => {
     if (field.name === 'implementation_id') {
       return { ...field, options: implementationOptions.value }
     }
     return field
   })
-);
+})
 
 const currentStepRules = computed(() => {
-  const stepRulesKey = `step${currentStep.value + 1}`;
-  return formRules[stepRulesKey];
-});
+  if (isProgrammeStep.value) return {}
+  const stepRulesKey = `step${currentStep.value + 1}`
+  return formRules[stepRulesKey] ?? {}
+})
 
-const totalSteps = computed(() => steps.length);
+const totalSteps = computed(() => displaySteps.value.length)
 
 const prevStep = () => {
   if (currentStep.value > 0) {
@@ -1510,15 +1731,19 @@ const handleStepClick = (index) => {
 
 
 const nextStep = async () => {
-  if (currentStep.value < totalSteps.value - 1 && dynamicFormRef) {
-    const formInstance = dynamicFormRef
-    formInstance.value.validate((valid: boolean) => {
-      if (valid) {
-        currentStep.value++
-      }
-    })
+  if (currentStep.value >= totalSteps.value - 1 || !dynamicFormRef.value) return
+
+  if (isLocationStep.value || isProgrammeStep.value) {
+    currentStep.value++
+    return
   }
-};
+
+  dynamicFormRef.value.validate((valid: boolean) => {
+    if (valid) {
+      currentStep.value++
+    }
+  })
+}
 
 
 
@@ -2006,7 +2231,22 @@ const submitForm = async () => {
 
       formData.model = model
       formData.createdBy = userInfo.id
-      formData.component_id = numericCategoryId
+
+      if (
+        !newRecord.value &&
+        showProgrammeComponentEdit.value &&
+        (formData.component_id == null || formData.component_id === '')
+      ) {
+        ElMessage.warning('Select a component when changing programme or component')
+        return
+      }
+
+      if (!newRecord.value && !showProgrammeComponentEdit.value && originalComponentId.value != null) {
+        formData.component_id = originalComponentId.value
+        component_id.value = originalComponentId.value
+      } else {
+        formData.component_id = numericCategoryId
+      }
       formData.component_title = component_title.value
 
       const normalizedCost = normalizeProjectCost(formData.cost)
@@ -2174,7 +2414,7 @@ const getFieldChangeHandler = (fieldName: string) => {
 
   if (fieldName === 'implementation_scope') {
     clearLocationSelection()
-    if (currentStep.value === steps.length - 1 && !isNationalScope.value) {
+    if (currentStep.value === LOCATION_STEP_INDEX && !isNationalScope.value) {
       locationFirstLoad.value = true
       searchLocations('')
     }
@@ -2250,7 +2490,7 @@ const tourSteps = ref([
   {
     step: 1,
     target: '#btn41',
-    title: 'Scope',
+    title: 'Implementation level',
     content: 'Lowest administrative level covered — from National down to Settlement.',
     visible: true,
   },
@@ -2286,7 +2526,7 @@ const tourSteps = ref([
     step: 3,
     target: '#location-step',
     title: 'Location',
-    content: 'Search for locations matching your scope and tick each area this project covers.',
+    content: 'Search for locations matching your implementation level and tick each area this project covers.',
     visible: true,
   },
 ]);
@@ -2315,6 +2555,7 @@ function resetProjectForm() {
   area_ha.value = 0
   isTourVisible.value = false
   clearLocationSelection()
+  resetProgrammeComponentEditState()
   dynamicFormRef.value?.clearValidate()
 }
 
@@ -2392,6 +2633,38 @@ function resetProjectForm() {
   margin: 0 0 12px;
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+
+.programme-component-step {
+  padding: 4px 0 8px;
+}
+
+.programme-step-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.programme-component-unchanged-alert {
+  margin-top: 12px;
+}
+
+.programme-component-edit-section {
+  margin-bottom: 12px;
+}
+
+.programme-component-summary {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+}
+
+.programme-component-toggle {
+  margin-bottom: 8px;
+}
+
+.programme-component-fields {
+  margin-top: 8px;
 }
 
 .location-national-alert {

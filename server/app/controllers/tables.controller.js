@@ -4372,46 +4372,123 @@ db.models[reg_model].findAll({
 
  
 
-exports.modelOneRecord = (req, res) => {
-  var reg_model = req.body.model;
+function buildOneRecordAssociatedIncludes(parentModel, associatedNames, options = {}) {
+  const includes = [];
+  const addedTargets = new Set();
+  const { isProjectModel = false } = options;
+  const wantsProgramme = associatedNames.includes('programme');
+  const names = associatedNames.filter((name) => name !== 'programme');
 
-  var ass_model = db.models[req.body.assocModel];
+  for (const name of names) {
+    const relatedModel = db.models[name];
+    if (!relatedModel) continue;
 
-  var qry = {
-    include:[]
-  };
-
-  if (ass_model) {
-      qry.include= [{ model: ass_model }]
-    };
-  
-  
-  if (reg_model === 'project') {
-    // Include activities through the many-to-many relationship
-    qry.include.push({
-      model: db.models.activity,
-      as: 'activities', // Replace 'activities' with the actual alias for the many-to-many association
-      through: { attributes: [] } // Exclude join table attributes from the result
-    });
-  }
-
-  qry.where = { id: { [op.eq]: req.body.id } };
-
-  // For households, exclude sensitive identifier fields from the response
-  if (reg_model === 'households') {
-    const Model = db.models[reg_model];
-    const allAttrs = Object.keys(Model.rawAttributes);
-    qry.attributes = allAttrs.filter(
-      (attr) => !['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(attr)
+    const assoc = Object.values(parentModel.associations || {}).find(
+      (a) => a.target === relatedModel || a.target.name === name
     );
+    if (!assoc || addedTargets.has(relatedModel.name)) continue;
+
+    const relatedHasGeom = Object.keys(relatedModel.rawAttributes).includes('geom');
+    const incl = {
+      model: relatedModel,
+      as: assoc.as,
+      required: false,
+      attributes: relatedHasGeom ? { exclude: ['geom'] } : undefined,
+    };
+
+    if (isProjectModel && name === 'component' && wantsProgramme && db.models.programme) {
+      const programmeAssoc = Object.values(relatedModel.associations || {}).find(
+        (a) => a.target.name === 'programme'
+      );
+      if (programmeAssoc) {
+        incl.include = [{
+          model: db.models.programme,
+          as: programmeAssoc.as,
+          required: false,
+        }];
+      }
+    }
+
+    if (isProjectModel && name === 'project_location') {
+      incl.include = [
+        { model: db.models.settlement, attributes: ['id', 'name'], required: false },
+        { model: db.models.ward, attributes: ['id', 'name'], required: false },
+        { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
+        { model: db.models.county, attributes: ['id', 'name'], required: false },
+      ];
+    }
+
+    includes.push(incl);
+    addedTargets.add(relatedModel.name);
   }
 
-  db.models[reg_model].findOne(qry).then((thisRecord) => {
+  return includes;
+}
+
+exports.modelOneRecord = async (req, res) => {
+  try {
+    const reg_model = req.body.model;
+    const Model = db.models[reg_model];
+    if (!Model) {
+      return res.status(400).send({ message: `Model "${reg_model}" not found`, code: 'MODEL_NOT_FOUND' });
+    }
+
+    const ass_model = req.body.assocModel ? db.models[req.body.assocModel] : null;
+    const associated_multiple_models = Array.isArray(req.body.associated_multiple_models)
+      ? req.body.associated_multiple_models
+      : [];
+    const isProjectModel = reg_model === 'project';
+
+    const qry = { include: [] };
+
+    if (ass_model) {
+      qry.include.push({ model: ass_model });
+    }
+
+    const assocIncludes = buildOneRecordAssociatedIncludes(
+      Model,
+      associated_multiple_models,
+      { isProjectModel }
+    );
+    for (const incl of assocIncludes) {
+      const duplicate = qry.include.some(
+        (existing) => existing.model === incl.model && existing.as === incl.as
+      );
+      if (!duplicate) qry.include.push(incl);
+    }
+
+    if (isProjectModel) {
+      const hasActivitiesInclude = qry.include.some((incl) => incl.as === 'activities');
+      if (!hasActivitiesInclude) {
+        qry.include.push({
+          model: db.models.activity,
+          as: 'activities',
+          through: { attributes: [] },
+        });
+      }
+    }
+
+    qry.where = { id: { [op.eq]: req.body.id } };
+
+    if (reg_model === 'households') {
+      const allAttrs = Object.keys(Model.rawAttributes);
+      qry.attributes = allAttrs.filter(
+        (attr) => !['name', 'phone', 'national_id', 'respondents_name', 'telephone'].includes(attr)
+      );
+    }
+
+    const thisRecord = await Model.findOne(qry);
     res.status(200).send({
       data: thisRecord,
-      code: '0000'
+      code: '0000',
     });
-  });
+  } catch (err) {
+    console.error('modelOneRecord error:', err);
+    res.status(500).send({
+      message: err.message || 'Failed to load record',
+      code: 'SERVER_ERROR',
+    });
+  }
 };
 
 exports.modelOneRecordByCode = (req, res) => {
@@ -4604,16 +4681,25 @@ exports.modelEditOneRecord = (req, res) => {
         }
 
         var activity_list = req.body.activities;
-        const list_activities = await db.models.activity.findAll({
-          where: {
-            id: activity_list
-          }
-        });
+        if (activity_list !== undefined && activity_list !== null) {
+          const activityIds = Array.isArray(activity_list)
+            ? activity_list
+                .map((item) => (typeof item === 'object' && item != null ? item.id : item))
+                .filter((id) => id != null)
+            : [];
+          const list_activities = activityIds.length
+            ? await db.models.activity.findAll({
+                where: {
+                  id: activityIds,
+                },
+              })
+            : [];
 
-        console.log(result);
-        console.log(list_activities);
+          console.log(result);
+          console.log(list_activities);
 
-        await result.setActivities(list_activities);
+          await result.setActivities(list_activities);
+        }
       }
 
       // Handle document file renaming if name changed
