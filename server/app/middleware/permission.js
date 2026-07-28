@@ -20,6 +20,7 @@ const REFERENCE_DATA_MODELS = new Set([
   'component',
   'grievance_document',
   'incident_document',
+  'ipc_document',
   'users',
   'user',
 ]);
@@ -37,6 +38,7 @@ const CONTEXT_READ_PERMISSIONS = new Set([
   'dashboard:read',
   'facility:read',
   'project:read',
+  'disbursement:read',
   'households:read',
   'beneficiary:read',
   'user:read',

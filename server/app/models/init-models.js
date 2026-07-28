@@ -99,6 +99,7 @@ var _climate_assessment_version= require('./climate_assessment_version')
 var _page_visit= require('./page_visit')
 
 var _disbursement= require('./disbursements')
+var _ipc_document = require('./IpcDocument')
 var _project_contractor= require('./project_contractor')
 var _project_team= require('./project_team')
 var _project_clockin= require('./project_clockin')
@@ -236,6 +237,7 @@ function initModels(sequelize) {
   var climate_assessment_version = _climate_assessment_version(sequelize, DataTypes)
   var page_visit = _page_visit(sequelize, DataTypes)
   var disbursement = _disbursement(sequelize, DataTypes)
+  var ipc_document = _ipc_document(sequelize, DataTypes)
   var project_contractor = _project_contractor(sequelize, DataTypes)
   var project_team = _project_team(sequelize, DataTypes)
   var project_clockin = _project_clockin(sequelize, DataTypes)
@@ -365,7 +367,7 @@ communication_recipient.belongsTo(communication, {
     project_location,
     project_beneficiary,grievance_resolution_level,
     grievance, incident, incident_history,
-    grievance_log,disbursement,project_contractor,project_team,project_clockin,
+    grievance_log,disbursement,ipc_document,project_contractor,project_team,project_clockin,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
      settlement_history,settlement_population,county_population_growth_rate,grievance_history, programme,permissions,role_permissions,role_programme_access,role,module_settings,
      vulnerability_matrix,vulnerability_rating_threshold,climate_assessment,climate_assessment_version,page_visit

@@ -2146,6 +2146,23 @@ db.models.project.hasMany(db.models.disbursement, {
   foreignKey: 'project_id'
 })
 
+db.models.disbursement.hasMany(db.models.ipc_document, {
+  foreignKey: 'disbursement_id',
+  as: 'ipc_documents',
+})
+
+db.models.ipc_document.belongsTo(db.models.disbursement, {
+  foreignKey: 'disbursement_id',
+})
+
+db.models.project.hasMany(db.models.ipc_document, {
+  foreignKey: 'project_id',
+})
+
+db.models.ipc_document.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+})
+
 
 
 

@@ -33,6 +33,48 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
+    payment_type: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'ipc',
+      validate: {
+        isIn: [['ipc', 'advance', 'final', 'retention']]
+      }
+    },
+
+    status: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'submitted',
+      validate: {
+        isIn: [['draft', 'submitted', 'approved', 'paid']]
+      }
+    },
+
+    advance_amount: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+
+    advance_recovered: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+
+    location_progress_snapshot: {
+      type: DataTypes.JSONB,
+      allowNull: true
+    },
+
+    document_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'document',
+        key: 'id'
+      }
+    },
+
      code: {
       type: DataTypes.STRING,
       allowNull: true

@@ -4852,6 +4852,15 @@ async function recursiveCascadeDelete(mdl, whereClause, snapshotStore, isNested 
   if (!snapshotStore[modelName]) snapshotStore[modelName] = { rows: [], isNested };
   snapshotStore[modelName].rows.push(...rows);
 
+  if (modelName === 'ipc_document') {
+    try {
+      const { deleteIpcDocumentsFromDisk } = require('./ipcDocument.controller');
+      deleteIpcDocumentsFromDisk(rows);
+    } catch (fileErr) {
+      console.error('IPC file cleanup on cascade delete:', fileErr);
+    }
+  }
+
   const pkAttr = (mdl.primaryKeyAttributes && mdl.primaryKeyAttributes[0]) || 'id';
   const parentIds = rows.map(r => r[pkAttr]).filter(id => id != null);
 
@@ -4930,7 +4939,11 @@ exports.modelDeleteOneRecord = async (req, res) => {
  
     // Check for dependencies in associated models
     const associations = Object.keys(model.associations);
-    const cascadeDelete = req.body.cascade === true;
+    let cascadeDelete = req.body.cascade === true;
+    // IPC documents are owned by the disbursement — always cascade on delete
+    if (modelName === 'disbursement') {
+      cascadeDelete = true;
+    }
     const previewDependenciesOnly = req.body.previewDependencies === true;
 
 

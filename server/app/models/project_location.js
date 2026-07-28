@@ -53,6 +53,21 @@ module.exports = function(sequelize, DataTypes) {
        
     },
 
+    physical_progress_pct: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+
+    commencement_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+
+    revised_completion_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+
     implementer: {
       type: DataTypes.INTEGER,
       allowNull: true,

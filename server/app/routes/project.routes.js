@@ -1,5 +1,6 @@
 const { authJwt } = require("../middleware");
 const controller = require("../controllers/project.controller");
+const ipcDocumentController = require("../controllers/ipcDocument.controller");
 const { hasPermission } = require('../middleware/permission');
 
 module.exports = function(app) {
@@ -1317,5 +1318,17 @@ module.exports = function(app) {
      *         description: Server error
      */
     app.get('/api/v1/project/active-clockins', [], controller.getActiveClockIns);
+
+    app.post(
+      '/api/v1/ipc/upload',
+      [authJwt.verifyToken, hasPermission('disbursement:create')],
+      ipcDocumentController.uploadIpcDocument,
+    );
+
+    app.post(
+      '/api/v1/ipc/download',
+      [authJwt.verifyToken, hasPermission('disbursement:read')],
+      ipcDocumentController.downloadFile,
+    );
 
 };

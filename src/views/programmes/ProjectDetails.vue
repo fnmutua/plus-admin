@@ -3,21 +3,23 @@ import { onMounted, onUnmounted, computed, watch, reactive, ref } from 'vue'
 import {
   
 ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
-  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
+  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElDrawer, ElSelect, ElOption, ElDescriptions,
   ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber, ElSwitch, ElPagination, ElTag, ElIcon, ElTransfer,
-  ElCollapseTransition,
+  ElCollapseTransition, ElEmpty, ElDropdown, ElDropdownMenu, ElDropdownItem, ElMessageBox,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 import { getSettlementListByCounty, getLinkedDocuments, unlinkDocument } from '@/api/settlements'
+import { uploadIpcDocuments, downloadIpcDocument } from '@/api/ipc'
 import type { RouteLocationNormalizedLoaded, RouterLinkProps } from 'vue-router'
 
 import { getOneGeo } from '@/api/settlements'
 
 import { Icon } from '@iconify/vue';
 import {
-  Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading
+  Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading,
+  Close, Plus, Setting,
 } from '@element-plus/icons-vue'
 
 import { getCountyListApi, } from '@/api/counties'
@@ -609,6 +611,8 @@ const collapsedSections = reactive({
   implementation: true,
   schedule: true,
   metadata: true,
+  disbursementLocations: true,
+  ipcDocuments: true,
 })
 
 const inlineSavingField = ref<string | null>(null)
@@ -1159,26 +1163,17 @@ const getprojectDisbursements = async (project_id) => {
 
   const formData = {}
   formData.model = 'disbursement'
-  //-Search field--------------------------------------------
-
-  //formData.searchKeyword = project_id
   formData.excludeGeom = false
   formData.associated_multiple_models = []
-
-
-
-  // - multiple filters -------------------------------------
   formData.filters = ['project_id']
   formData.filterValues = [[project_id]]
-
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+  // Bust any cached list so ledger / IPC refs stay current after saves
+  formData.cache_key = `disbursement_${project_id}_${Date.now()}`
 
   const res = await getSettlementListByCounty(formData)
 
-  projectDisbursements.value = res.data
-
-
-
+  projectDisbursements.value = res.data || []
+  await loadIpcDocuments()
 }
 
 
@@ -1882,15 +1877,13 @@ const downloadFile = async (data) => {
   console.log(data);
   viewLoading.value = true;
   downloadingDocId.value = data.id || null
-  const formData = {};
+  const formData: Record<string, unknown> = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
   formData.responseType = 'blob';
 
-  // Add a flag to track if the download has started
+  const isIpcDoc = data.disbursement_id != null
 
-
-  // Attach a 'beforeunload' event listener to the window
   window.addEventListener('beforeunload', () => {
     if (viewLoading.value) {
       console.log('Download has started.');
@@ -1899,7 +1892,9 @@ const downloadFile = async (data) => {
   });
 
   try {
-    const response = await getFile(formData);
+    const response = isIpcDoc
+      ? await downloadIpcDocument(formData as { filename?: string; doc_id?: number })
+      : await getFile(formData);
     console.log(response);
 
     const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -2084,6 +2079,10 @@ const handleTabClick = async (tab) => {
 
   if (tab.props.name === 'documents') {
     await refreshProjectDocuments()
+  }
+
+  if (tab.props.name === 'disbursement') {
+    await getprojectDisbursements(route.params.id)
   }
 
   if (tab.props.name === 'clockin') {
@@ -2665,66 +2664,482 @@ const contractorRules = ({
 
 
 
-const AddDisbursementTeamDialog = ref(false)
-const DisbursementFormRef = ref()
+const PAYMENT_TYPES = [
+  { label: 'IPC', value: 'ipc' },
+  { label: 'Advance', value: 'advance' },
+  { label: 'Final', value: 'final' },
+  { label: 'Retention', value: 'retention' },
+] as const
 
-const AddDisbursement = async () => {
+const IPC_STATUSES = [
+  { label: 'Draft', value: 'draft' },
+  { label: 'Submitted', value: 'submitted' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Paid', value: 'paid' },
+] as const
+
+function parseMoney(v: unknown): number {
+  if (v === null || v === undefined || v === '') return 0
+  const n = Number(String(v).replace(/,/g, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+function disbursementPaymentLabel(type: unknown) {
+  const t = String(type || 'ipc').toLowerCase()
+  return PAYMENT_TYPES.find((p) => p.value === t)?.label || String(type || 'IPC')
+}
+
+function ipcStatusTagType(status: unknown): 'info' | 'success' | 'warning' | 'primary' {
+  const s = String(status || '').toLowerCase()
+  if (s === 'paid') return 'success'
+  if (s === 'approved') return 'primary'
+  if (s === 'draft') return 'info'
+  return 'warning'
+}
+
+const sortedProjectDisbursements = computed(() =>
+  [...(projectDisbursements.value || [])].sort((a, b) => {
+    const da = new Date(a.disbursement_date || 0).getTime()
+    const db = new Date(b.disbursement_date || 0).getTime()
+    if (da !== db) return da - db
+    return Number(a.id || 0) - Number(b.id || 0)
+  }),
+)
+
+const disbursementLedger = computed(() => {
+  const contract = parseMoney(projectFullData.value?.cost)
+  let cumulative = 0
+  return sortedProjectDisbursements.value.map((row) => {
+    const gross = parseMoney(row.amount)
+    cumulative += gross
+    const pctOfContract = contract > 0 ? (cumulative / contract) * 100 : null
+    return { ...row, gross, cumulative, pctOfContract }
+  })
+})
+
+const ipcSummary = computed(() => {
+  const contract = parseMoney(projectFullData.value?.cost)
+  const rows = sortedProjectDisbursements.value
+  let paidGross = 0
+  let advanceGranted = 0
+  let advanceRecovered = 0
+  let ipcCount = 0
+
+  for (const row of rows) {
+    const gross = parseMoney(row.amount)
+    paidGross += gross
+    const pt = String(row.payment_type || 'ipc').toLowerCase()
+    const cert = String(row.certificate || '').trim().toLowerCase()
+    if (pt === 'ipc') ipcCount += 1
+    if (pt === 'advance' || cert === 'advance') {
+      advanceGranted += parseMoney(row.advance_amount ?? row.amount)
+    }
+    if (pt !== 'advance' && cert !== 'advance') {
+      advanceRecovered += parseMoney(row.advance_recovered)
+    }
+  }
+
+  const advanceOutstanding = Math.max(0, advanceGranted - advanceRecovered)
+  const balance = contract > 0 ? contract - paidGross : null
+  const pctPaid = contract > 0 ? (paidGross / contract) * 100 : null
+  const nextIpcNo = ipcCount + 1
+
+  return {
+    contract,
+    paidGross,
+    balance,
+    pctPaid,
+    advanceGranted,
+    advanceRecovered,
+    advanceOutstanding,
+    ipcCount,
+    nextIpcNo,
+    overContract: contract > 0 && paidGross > contract,
+  }
+})
+
+const locationProgressRows = computed(() =>
+  (projectLocations.value || []).map((loc: Record<string, any>) => ({
+    id: loc.id,
+    name:
+      loc.location_name ||
+      loc.settlement?.name ||
+      loc.ward?.name ||
+      loc.subcounty?.name ||
+      `Location ${loc.id}`,
+    progress:
+      loc.physical_progress_pct != null && loc.physical_progress_pct !== ''
+        ? Number(loc.physical_progress_pct)
+        : null,
+    commencement_date: loc.commencement_date || null,
+    revised_completion_date: loc.revised_completion_date || null,
+  })),
+)
+
+const averageLocationProgress = computed(() => {
+  const vals = locationProgressRows.value
+    .map((r) => r.progress)
+    .filter((v): v is number => v != null && Number.isFinite(v))
+  if (!vals.length) return null
+  return vals.reduce((a, b) => a + b, 0) / vals.length
+})
+
+const showDisbursementLocationPanel = computed(
+  () => !isNationalProject.value && locationProgressRows.value.length > 0,
+)
+
+const IPC_DOC_TYPES = [
+  'Consent Memo',
+  'IPC Certificate',
+  'Supporting Document',
+] as const
+
+type IpcUploadFile = UploadUserFile & { docType?: string }
+
+const disbursementDocumentsById = ref<Record<number, any[]>>({})
+
+const allIpcDocuments = computed(() => {
+  const docs: any[] = []
+  for (const list of Object.values(disbursementDocumentsById.value)) {
+    if (Array.isArray(list)) docs.push(...list)
+  }
+  return docs.sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+  )
+})
+
+async function loadIpcDocuments() {
+  const projectId = route.params.id
+  const rows = projectDisbursements.value || []
+  if (!rows.length) {
+    disbursementDocumentsById.value = {}
+    return
+  }
+
+  const formData: Record<string, unknown> = {
+    model: 'ipc_document',
+    excludeGeom: false,
+    associated_multiple_models: [],
+    filters: ['project_id'],
+    filterValues: [[projectId]],
+    cache_key: `ipc_document_${projectId}_${Date.now()}`,
+  }
+
+  try {
+    const res: any = await getSettlementListByCounty(formData)
+    const docs = Array.isArray(res?.data) ? res.data : []
+    const map: Record<number, any[]> = {}
+    for (const row of rows) {
+      if (!row?.id) continue
+      map[row.id] = docs.filter(
+        (doc: { disbursement_id?: number }) =>
+          Number(doc.disbursement_id) === Number(row.id),
+      )
+    }
+    disbursementDocumentsById.value = map
+  } catch (error) {
+    console.error('Failed to load IPC documents', error)
+    disbursementDocumentsById.value = {}
+  }
+}
+
+function buildLocationProgressSnapshot() {
+  return {
+    captured_at: new Date().toISOString(),
+    average_progress_pct: averageLocationProgress.value,
+    locations: locationProgressRows.value.map((loc) => ({
+      project_location_id: loc.id,
+      name: loc.name,
+      progress_pct: loc.progress,
+    })),
+  }
+}
+
+async function saveLocationProgress(row: {
+  id: number
+  progress: number | null
+}) {
+  try {
+    await updateOneRecord({
+      model: 'project_location',
+      id: row.id,
+      physical_progress_pct: row.progress,
+    } as any)
+    const loc = (projectLocations.value as any[]).find((l) => l.id === row.id)
+    if (loc) loc.physical_progress_pct = row.progress
+    ElMessage.success('Site progress saved')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Could not save progress')
+  }
+}
+
+const AddDisbursementTeamDialog = ref(false)
+const IPC_DRAWER_LAST_STEP = 6
+
+const ipcDrawerStep = ref(0)
+const ipcSaving = ref(false)
+const DisbursementFormRef = ref()
+const ipcFileList = ref<IpcUploadFile[]>([])
+const ipcDefaultDocType = ref<string>(IPC_DOC_TYPES[0])
+
+const defaultDisbursementForm = () => ({
+  project_id: route.params.id,
+  amount: null as number | null,
+  disbursement_date: new Date(),
+  certificate: '',
+  description: '',
+  payment_type: 'ipc',
+  status: 'submitted',
+  advance_amount: null as number | null,
+  advance_recovered: null as number | null,
+  code: shortid.generate(),
+})
+
+const DisbursementForm = ref(defaultDisbursementForm())
+
+const resetIpcDrawer = () => {
+  ipcDrawerStep.value = 0
+  ipcFileList.value = []
+  ipcDefaultDocType.value = IPC_DOC_TYPES[0]
+  DisbursementForm.value = defaultDisbursementForm()
+  disbursementAmountInput.value = ''
+  disbursementAdvanceRecoveredInput.value = ''
+}
+
+const openIpcDrawer = async (paymentType: 'ipc' | 'advance' = 'ipc') => {
+  await getprojectDisbursements(route.params.id)
+  resetIpcDrawer()
+  DisbursementForm.value.payment_type = paymentType
+  if (paymentType === 'advance') {
+    DisbursementForm.value.certificate = 'Advance'
+  } else {
+    DisbursementForm.value.certificate = `IPC ${ipcSummary.value.nextIpcNo}`
+  }
   AddDisbursementTeamDialog.value = true
 }
 
+const AddDisbursement = () => openIpcDrawer('ipc')
 
+const AddAdvancePayment = () => openIpcDrawer('advance')
 
+const handleIpcDrawerClose = (done?: () => void) => {
+  AddDisbursementTeamDialog.value = false
+  resetIpcDrawer()
+  done?.()
+}
 
-// do not use same name with ref
-const DisbursementForm = ref({
-  project_id: route.params.id,
-  amount: null,
-  disbursement_date: new Date(),
-  certificate: null,
-  description: null,
-  code: shortid.generate()
+const handleIpcFileChange: UploadProps['onChange'] = (uploadFile) => {
+  const file = uploadFile as IpcUploadFile
+  if (!file.docType) {
+    file.docType = ipcDefaultDocType.value
+  }
+}
+
+const uploadIpcFiles = async (disbursementId: number) => {
+  if (!ipcFileList.value.length) return
+
+  const formData = new FormData()
+  for (const file of ipcFileList.value) {
+    if (!file?.raw) continue
+    formData.append('files', file.raw)
+    formData.append('format', file.name.split('.').pop() || '')
+    formData.append('disbursement_id', String(disbursementId))
+    formData.append('project_id', String(route.params.id))
+    formData.append('protected_file', 'true')
+    formData.append('type', file.docType || ipcDefaultDocType.value)
+    formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2))
+  }
+
+  await uploadIpcDocuments(formData)
+}
+
+const validateIpcStepFields = (fields: string[]): Promise<boolean> =>
+  new Promise((resolve) => {
+    const form = DisbursementFormRef.value
+    if (!form || !fields.length) {
+      resolve(true)
+      return
+    }
+    let pending = fields.length
+    let allValid = true
+    for (const field of fields) {
+      form.validateField(field, (valid: boolean) => {
+        if (!valid) allValid = false
+        pending -= 1
+        if (pending === 0) resolve(allValid)
+      })
+    }
+  })
+
+const showIpcAdvanceColumns = computed(() => ipcSummary.value.advanceGranted > 0)
+
+const showAdvanceRecoveryField = computed(
+  () =>
+    DisbursementForm.value.payment_type !== 'advance' &&
+    ipcSummary.value.advanceGranted > 0,
+)
+
+const validateIpcAdvanceStep = (): boolean => {
+  const paymentType = DisbursementForm.value.payment_type || 'ipc'
+  if (paymentType === 'advance') return true
+
+  const advanceRecovered = parseMoney(DisbursementForm.value.advance_recovered)
+  // Fresh entry with no recovery on this certificate — skip balance checks
+  if (advanceRecovered <= 0) {
+    DisbursementForm.value.advance_recovered = null
+    return true
+  }
+
+  const gross = parseMoney(DisbursementForm.value.amount)
+  const { advanceGranted, advanceOutstanding } = ipcSummary.value
+
+  if (advanceGranted <= 0) {
+    ElMessage.error('No advance has been granted on this project to recover')
+    return false
+  }
+
+  if (advanceOutstanding <= 0) {
+    ElMessage.error('Advance has already been fully recovered on this project')
+    return false
+  }
+
+  if (gross > 0 && advanceRecovered > gross) {
+    ElMessage.error('Advance recovered cannot exceed the gross amount')
+    return false
+  }
+
+  if (advanceRecovered > advanceOutstanding) {
+    ElMessage.error('Advance recovered exceeds outstanding advance balance')
+    return false
+  }
+
+  return true
+}
+
+const validateIpcStep = async (step: number): Promise<boolean> => {
+  const paymentType = DisbursementForm.value.payment_type || 'ipc'
+
+  switch (step) {
+    case 0: {
+      const valid = await validateIpcStepFields([
+        'payment_type',
+        ...(paymentType !== 'advance' ? ['certificate'] : []),
+      ])
+      if (!valid) return false
+      return true
+    }
+    case 1: {
+      const valid = await validateIpcStepFields(['disbursement_date', 'amount'])
+      if (!valid) return false
+      return true
+    }
+    case 2:
+      return validateIpcAdvanceStep()
+    case 3: {
+      const valid = await validateIpcStepFields(['description'])
+      if (!valid) return false
+      return true
+    }
+    default:
+      return true
+  }
+}
+
+const validateIpcPaymentStep = async (): Promise<boolean> => {
+  for (let step = 0; step <= 3; step += 1) {
+    const valid = await validateIpcStep(step)
+    if (!valid) {
+      ipcDrawerStep.value = step
+      return false
+    }
+  }
+  return true
+}
+
+const ipcNextStep = async () => {
+  const valid = await validateIpcStep(ipcDrawerStep.value)
+  if (!valid) return
+
+  if (ipcDrawerStep.value < IPC_DRAWER_LAST_STEP) {
+    ipcDrawerStep.value += 1
+  }
+}
+
+const ipcPrevStep = () => {
+  if (ipcDrawerStep.value > 0) {
+    ipcDrawerStep.value -= 1
+  }
+}
+
+const ipcOptions = computed(() => {
+  const existing = (projectDisbursements.value || [])
+    .map((row: { certificate?: unknown }) => String(row.certificate || '').trim())
+    .filter(Boolean)
+  return [...new Set(existing)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 })
 
-
-
-
-
-const DisbursementRules = ({
-
-  amount: [
-    { required: true, message: 'Amount is required', trigger: 'blur' },
-  ],
-
-  description: [
-    { required: true, message: 'Description is required', trigger: 'blur' },
-  ],
-
-  certificate: [
-    { required: true, message: 'IPC certificate is required', trigger: 'blur' },
-  ],
-})
+const disbursementRules = computed(() => ({
+  amount: [{ required: true, message: 'Amount is required', trigger: 'blur' }],
+  description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
+  payment_type: [{ required: true, message: 'Payment type is required', trigger: 'change' }],
+  disbursement_date: [{ required: true, message: 'Payment date is required', trigger: 'change' }],
+  certificate:
+    DisbursementForm.value.payment_type === 'advance'
+      ? []
+      : [{ required: true, message: 'IPC reference is required', trigger: 'blur' }],
+}))
 
 const disbursementAmountInput = ref('')
+const disbursementAdvanceRecoveredInput = ref('')
 
-const handleDisbursementAmountInput = (value: string) => {
+function handleDisbursementMoneyInput(
+  value: string,
+  target: 'amount' | 'advance_recovered',
+) {
   const sanitized = value.replace(/,/g, '').replace(/[^\d.]/g, '')
   const dotIndex = sanitized.indexOf('.')
   const intPart = dotIndex >= 0 ? sanitized.slice(0, dotIndex) : sanitized
-  const decPart = dotIndex >= 0 ? sanitized.slice(dotIndex + 1).replace(/\./g, '').slice(0, 2) : ''
+  const decPart =
+    dotIndex >= 0 ? sanitized.slice(dotIndex + 1).replace(/\./g, '').slice(0, 2) : ''
 
   if (sanitized === '') {
-    disbursementAmountInput.value = ''
-    DisbursementForm.value.amount = null
+    if (target === 'amount') {
+      disbursementAmountInput.value = ''
+      DisbursementForm.value.amount = null
+    } else {
+      disbursementAdvanceRecoveredInput.value = ''
+      DisbursementForm.value.advance_recovered = null
+    }
     return
   }
 
   const numericString = decPart ? `${intPart}.${decPart}` : intPart
   const parsed = numericString === '' || numericString === '.' ? null : Number(numericString)
-  DisbursementForm.value.amount = parsed !== null && !Number.isNaN(parsed) ? parsed : null
-
+  const nextVal = parsed !== null && !Number.isNaN(parsed) ? parsed : null
   const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  disbursementAmountInput.value = decPart ? `${formattedInt}.${decPart}` : formattedInt
+  const formatted = decPart ? `${formattedInt}.${decPart}` : formattedInt
+
+  if (target === 'amount') {
+    DisbursementForm.value.amount = nextVal
+    disbursementAmountInput.value = formatted
+  } else {
+    DisbursementForm.value.advance_recovered = nextVal
+    disbursementAdvanceRecoveredInput.value = formatted
+  }
 }
+
+watch(
+  () => DisbursementForm.value.payment_type,
+  (type) => {
+    if (type === 'advance') {
+      DisbursementForm.value.certificate = 'Advance'
+      DisbursementForm.value.advance_recovered = null
+      disbursementAdvanceRecoveredInput.value = ''
+    } else if (type === 'ipc' && !DisbursementForm.value.certificate) {
+      DisbursementForm.value.certificate = `IPC ${ipcSummary.value.nextIpcNo}`
+    }
+  },
+)
 
 watch(AddDisbursementTeamDialog, (open) => {
   if (!open) return
@@ -2733,38 +3148,51 @@ watch(AddDisbursementTeamDialog, (open) => {
     amount != null && amount !== '' && !Number.isNaN(Number(amount))
       ? formatAmountDisplay(amount)
       : ''
+  const adv = DisbursementForm.value.advance_recovered
+  disbursementAdvanceRecoveredInput.value =
+    adv != null && adv !== '' && !Number.isNaN(Number(adv)) ? formatAmountDisplay(adv) : ''
 })
 
-
-
-
 const updateDisbursement = async () => {
+  const valid = await validateIpcPaymentStep()
+  if (!valid) return
 
-  DisbursementFormRef.value.validate(async (valid: boolean) => {
+  const gross = parseMoney(DisbursementForm.value.amount)
+  const advanceRecovered = parseMoney(DisbursementForm.value.advance_recovered)
+  const paymentType = DisbursementForm.value.payment_type || 'ipc'
 
-    if (valid) {
-      console.log('submit!')
+  const payload: Record<string, unknown> = {
+    ...DisbursementForm.value,
+    model: 'disbursement',
+    amount: gross,
+    advance_amount: paymentType === 'advance' ? gross : null,
+    advance_recovered: paymentType === 'advance' ? null : advanceRecovered || null,
+    location_progress_snapshot: showDisbursementLocationPanel.value
+      ? buildLocationProgressSnapshot()
+      : null,
+  }
 
-      DisbursementForm.value.model = 'disbursement'
+  if (paymentType === 'advance') {
+    payload.certificate = 'Advance'
+  }
 
-      const res = await CreateRecord(DisbursementForm.value)
-
-
-      projectTeamData.value.push(res.data)
-      getprojectDisbursements(route.params.id)
-
-
-
-
-
-    } else {
-      console.log('error submit!')
+  ipcSaving.value = true
+  try {
+    const res: any = await CreateRecord(payload as any)
+    const saved = res?.data
+    if (saved?.id && ipcFileList.value.length) {
+      await uploadIpcFiles(Number(saved.id))
     }
-
-
-  })
-
-
+    await getprojectDisbursements(route.params.id)
+    handleIpcDrawerClose()
+    ElMessage.success(
+      paymentType === 'advance' ? 'Advance payment recorded' : 'IPC disbursement saved',
+    )
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Could not save disbursement')
+  } finally {
+    ipcSaving.value = false
+  }
 }
 
 
@@ -2890,6 +3318,33 @@ const handleUnlinkDocument = async (row: any) => {
   }
 }
 
+const handleIpcLedgerAction = async (command: string, row: any) => {
+  if (command.startsWith('doc:')) {
+    const docId = Number(command.slice(4))
+    const doc = (disbursementDocumentsById.value[row.id] || []).find(
+      (d) => Number(d.id) === docId,
+    )
+    if (doc) downloadFile(doc)
+    return
+  }
+
+  if (command === 'delete') {
+    try {
+      const docCount = (disbursementDocumentsById.value[row.id] || []).length
+      await ElMessageBox.confirm(
+        docCount
+          ? `Remove this disbursement and ${docCount} attached IPC document(s)?`
+          : 'Remove this disbursement from the ledger?',
+        'Confirm',
+        { type: 'warning', confirmButtonText: 'Remove', cancelButtonText: 'Cancel' },
+      )
+      await RemoveDisbursement(row)
+    } catch {
+      // cancelled
+    }
+  }
+}
+
 const RemoveDisbursement = async (row) => {
   if (!canUserDeleteDisbursement(row)) {
     ElMessage({
@@ -2901,20 +3356,19 @@ const RemoveDisbursement = async (row) => {
     return;
   }
 
-  let formData = {}
-  formData.id = row.id
-  formData.model = 'disbursement'
-
-  await DeleteRecord(formData);
-
-
-
-  // remove the deleted object from array list 
-  let index = projectDisbursements.value.indexOf(row);
-  if (index !== -1) {
-    projectDisbursements.value.splice(index, 1);
+  const formData: Record<string, unknown> = {
+    id: row.id,
+    model: 'disbursement',
+    cascade: true,
   }
 
+  try {
+    await DeleteRecord(formData as any)
+    await getprojectDisbursements(route.params.id)
+    ElMessage.success('Disbursement removed')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Could not remove disbursement')
+  }
 }
 
 
@@ -4687,12 +5141,15 @@ const getSummaries = (param) => {
       return;
     }
 
-    if (column.property === 'amount') {
+    if (column.property === 'gross' || column.property === 'amount') {
       const total = data.reduce((sum, row) => {
-        const value = Number(row[column.property]);
+        const value = Number(row.gross ?? row[column.property]);
         return isNaN(value) ? sum : sum + value;
       }, 0);
       sums[index] = formatAmountDisplay(total)
+    } else if (column.property === 'advance_recovered') {
+      const total = data.reduce((sum, row) => sum + parseMoney(row.advance_recovered), 0);
+      sums[index] = total > 0 ? formatAmountDisplay(total) : '';
     } else {
       sums[index] = '';
     }
@@ -5641,36 +6098,282 @@ function formatLocation(item) {
       </el-tab-pane>
 
 
-      <el-tab-pane label="Disbursements" name="disbursement">
-        <el-card>
+      <el-tab-pane label="IPC / Disbursements" name="disbursement">
+        <el-card class="ipc-disbursements-card">
+          <div class="ipc-summary-compact">
+            <div class="ipc-summary-compact__metrics">
+              <span class="ipc-metric">
+                <em>Contract</em>
+                {{ ipcSummary.contract > 0 ? formatAmountDisplay(ipcSummary.contract) : '—' }}
+              </span>
+              <span class="ipc-metric">
+                <em>Paid</em>
+                {{ formatAmountDisplay(ipcSummary.paidGross) }}
+                <small v-if="ipcSummary.pctPaid != null">({{ ipcSummary.pctPaid.toFixed(1) }}%)</small>
+              </span>
+              <span class="ipc-metric">
+                <em>Balance</em>
+                {{ ipcSummary.balance != null ? formatAmountDisplay(Math.max(0, ipcSummary.balance)) : '—' }}
+              </span>
+              <span v-if="showIpcAdvanceColumns" class="ipc-metric">
+                <em>Adv. out</em>
+                {{ formatAmountDisplay(ipcSummary.advanceOutstanding) }}
+              </span>
+            </div>
+            <el-progress
+              v-if="ipcSummary.contract > 0 && ipcSummary.pctPaid != null"
+              :percentage="Math.min(100, Math.round(ipcSummary.pctPaid))"
+              :status="ipcSummary.overContract ? 'exception' : ipcSummary.pctPaid >= 100 ? 'success' : undefined"
+              :stroke-width="6"
+              :show-text="false"
+              class="ipc-summary-compact__bar"
+            />
+          </div>
 
-          <el-button v-if="canManageDisbursements" @click="AddDisbursement" style="margin-left :5px;margin-bottom :5px; " plain>
-            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Disbursement(s)
-          </el-button>
-          <el-table :data="projectDisbursements" style="width: 100%" show-summary :summary-method="getSummaries">
-            <el-table-column type="index" width="100" />
-            <el-table-column prop="disbursement_date" label="Date">
+          <el-alert
+            v-if="ipcSummary.overContract"
+            type="warning"
+            show-icon
+            :closable="false"
+            class="ipc-summary-alert ipc-summary-alert--compact"
+            title="Payments exceed contract sum."
+          />
+
+          <div class="ipc-table-section">
+            <div v-if="canManageDisbursements" class="ipc-toolbar">
+              <el-button
+                plain
+                :size="isMobile ? 'large' : 'default'"
+                @click="AddDisbursement"
+              >
+                <Icon icon="material-symbols:add" style="color: green;" />
+                Add IPC disbursement
+              </el-button>
+              <el-button
+                plain
+                :size="isMobile ? 'large' : 'default'"
+                @click="AddAdvancePayment"
+              >
+                <Icon icon="material-symbols:payments-outline" style="color: var(--el-color-warning);" />
+                Record advance
+              </el-button>
+            </div>
+
+            <el-table
+            :data="disbursementLedger"
+            class="ipc-ledger-table"
+            style="width: 100%"
+            stripe
+            show-summary
+            :summary-method="getSummaries"
+          >
+            <el-table-column prop="certificate" label="IPC / Ref" min-width="108" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tooltip v-if="row.description" :content="row.description" placement="top">
+                  <span class="ipc-ref-cell">
+                    <el-tag
+                      v-if="String(row.payment_type || 'ipc').toLowerCase() !== 'ipc'"
+                      size="small"
+                      effect="plain"
+                      class="ipc-ref-cell__type"
+                    >
+                      {{ disbursementPaymentLabel(row.payment_type).slice(0, 3) }}
+                    </el-tag>
+                    {{ row.certificate || '—' }}
+                  </span>
+                </el-tooltip>
+                <span v-else class="ipc-ref-cell">
+                  <el-tag
+                    v-if="String(row.payment_type || 'ipc').toLowerCase() !== 'ipc'"
+                    size="small"
+                    effect="plain"
+                    class="ipc-ref-cell__type"
+                  >
+                    {{ disbursementPaymentLabel(row.payment_type).slice(0, 3) }}
+                  </el-tag>
+                  {{ row.certificate || '—' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="disbursement_date" label="Date" min-width="112">
               <template #default="{ row }">
                 {{ formatDateDisplay(row.disbursement_date) }}
               </template>
             </el-table-column>
-            <el-table-column prop="amount" label="Amount" align="right">
+            <el-table-column prop="gross" label="Gross" align="right" min-width="120">
               <template #default="{ row }">
-                {{ formatAmountDisplay(row.amount) }}
+                {{ formatAmountDisplay(row.gross) }}
               </template>
             </el-table-column>
-            <el-table-column prop="certificate" label="IPC" />
-            <el-table-column fixed="right" label="">
-              <template #default="scope">
-                <el-button 
-                  v-if="canUserDeleteDisbursement(scope.row)"
-                  plain type="danger" @click="RemoveDisbursement(scope.row)">
-                  <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
-                  Remove
-                </el-button>
+            <el-table-column
+              v-if="showIpcAdvanceColumns"
+              prop="advance_recovered"
+              label="Adv."
+              align="right"
+              min-width="120"
+            >
+              <template #default="{ row }">
+                {{ parseMoney(row.advance_recovered) > 0 ? formatAmountDisplay(row.advance_recovered) : '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="cumulative" label="Cumulative" align="right" min-width="120">
+              <template #default="{ row }">
+                <div>{{ formatAmountDisplay(row.cumulative) }}</div>
+                <div v-if="row.pctOfContract != null" class="ipc-table-sub">
+                  {{ row.pctOfContract.toFixed(1) }}%
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="Status" min-width="100" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="ipcStatusTagType(row.status)" effect="plain">
+                  {{ row.status || 'submitted' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column fixed="right" label="" width="96" align="center">
+              <template #default="{ row }">
+                <div class="ipc-row-actions">
+                  <el-tooltip
+                    v-if="(disbursementDocumentsById[row.id] || []).length === 1"
+                    :content="disbursementDocumentsById[row.id][0].name"
+                    placement="top"
+                  >
+                    <el-button
+                      type="primary"
+                      link
+                      circle
+                      aria-label="Download IPC document"
+                      @click="downloadFile(disbursementDocumentsById[row.id][0])"
+                    >
+                      <Icon icon="material-symbols:attach-file" />
+                    </el-button>
+                  </el-tooltip>
+
+                  <el-dropdown
+                    v-else-if="(disbursementDocumentsById[row.id] || []).length > 1"
+                    trigger="click"
+                    placement="bottom-end"
+                    @command="(cmd) => handleIpcLedgerAction(cmd, row)"
+                  >
+                    <el-button type="primary" link circle aria-label="IPC documents">
+                      <Icon icon="material-symbols:attach-file" />
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item
+                          v-for="doc in disbursementDocumentsById[row.id]"
+                          :key="doc.id"
+                          :command="`doc:${doc.id}`"
+                        >
+                          <Icon icon="material-symbols:download" class="ipc-dropdown-item-icon" />
+                          <span class="ipc-dropdown-item-label">
+                            {{ doc.type ? `${doc.type}: ` : '' }}{{ doc.name }}
+                          </span>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+
+                  <el-dropdown
+                    v-if="canUserDeleteDisbursement(row)"
+                    trigger="click"
+                    placement="bottom-end"
+                    @command="(cmd) => handleIpcLedgerAction(cmd, row)"
+                  >
+                    <el-button type="primary" :icon="Setting" circle aria-label="Actions" />
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="delete">
+                          <el-icon><Delete /></el-icon>
+                          <span class="ipc-dropdown-item-label">Remove</span>
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
               </template>
             </el-table-column>
           </el-table>
+          </div>
+
+          <div
+            v-if="showDisbursementLocationPanel"
+            class="ipc-collapsible"
+          >
+            <div
+              class="ipc-collapsible__head"
+              @click="collapsedSections.disbursementLocations = !collapsedSections.disbursementLocations"
+            >
+              <span>
+                Site progress
+                <small v-if="averageLocationProgress != null">· {{ averageLocationProgress.toFixed(1) }}% avg</small>
+              </span>
+              <Icon :icon="collapsedSections.disbursementLocations ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <div v-show="!collapsedSections.disbursementLocations" class="ipc-location-panel__body">
+                <div
+                  v-for="loc in locationProgressRows"
+                  :key="loc.id"
+                  class="ipc-location-row"
+                >
+                  <span class="ipc-location-row__name">{{ loc.name }}</span>
+                  <el-input-number
+                    :model-value="loc.progress ?? undefined"
+                    :min="0"
+                    :max="100"
+                    :precision="2"
+                    :controls="false"
+                    placeholder="%"
+                    size="small"
+                    class="ipc-location-row__input"
+                    @change="(val) => saveLocationProgress({
+                      id: loc.id,
+                      progress: val == null || val === '' ? null : Number(val),
+                    })"
+                  />
+                  <span class="ipc-location-row__suffix">%</span>
+                </div>
+              </div>
+            </ElCollapseTransition>
+          </div>
+
+          <div v-if="allIpcDocuments.length" class="ipc-collapsible">
+            <div
+              class="ipc-collapsible__head"
+              @click="collapsedSections.ipcDocuments = !collapsedSections.ipcDocuments"
+            >
+              <span>IPC documents ({{ allIpcDocuments.length }})</span>
+              <Icon :icon="collapsedSections.ipcDocuments ? 'ep:arrow-down' : 'ep:arrow-up'" />
+            </div>
+            <ElCollapseTransition>
+              <el-table
+                v-show="!collapsedSections.ipcDocuments"
+                :data="allIpcDocuments"
+                size="small"
+                class="ipc-docs-table"
+              >
+                <el-table-column prop="type" label="Type" width="120" show-overflow-tooltip />
+                <el-table-column prop="name" label="File" min-width="140" show-overflow-tooltip />
+                <el-table-column label="IPC" width="88" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    {{
+                      sortedProjectDisbursements.find((d) => d.id === row.disbursement_id)?.certificate
+                      || '—'
+                    }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="" width="44" align="center">
+                  <template #default="{ row }">
+                    <el-button type="primary" link size="small" @click="downloadFile(row)">
+                      <Icon icon="material-symbols:download" />
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </ElCollapseTransition>
+          </div>
         </el-card>
 
       </el-tab-pane>
@@ -6255,68 +6958,307 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 
 
-  <el-dialog
+  <el-drawer
     v-model="AddDisbursementTeamDialog"
-    title="Add Disbursement/Payemnt"
-    :width="projectFormDialogWidth"
-    :draggable="!isMobile"
-    append-to-body
-    align-center
+    direction="rtl"
+    :size="isMobile ? '100%' : '45%'"
+    :with-header="false"
+    :before-close="handleIpcDrawerClose"
+    class="ipc-drawer"
     destroy-on-close
-    class="project-details-dialog"
-    :class="{ 'project-details-dialog--mobile': isMobile }"
   >
-    <el-form
-      :model="DisbursementForm"
-      label-width="auto"
-      style="max-width: 600px"
-      label-position="top"
-      ref="DisbursementFormRef"
-      :rules="DisbursementRules"
-      class="project-details-form"
-    >
-      <el-form-item label="IPC " prop="certificate">
-        <el-input v-model="DisbursementForm.certificate" style="width: 100%;" :size="isMobile ? 'large' : 'default'" />
-      </el-form-item>
+    <div class="ipc-drawer-header">
+      <div class="ipc-drawer-header__content">
+        <div class="ipc-drawer-header__icon">
+          <el-icon :size="isMobile ? 20 : 24"><Plus /></el-icon>
+        </div>
+        <div>
+          <h3>Add IPC disbursement</h3>
+          <p v-if="!isMobile">Record payment, site progress, and IPC documents</p>
+        </div>
+      </div>
+      <el-button type="text" class="ipc-drawer-header__close" @click="handleIpcDrawerClose">
+        <el-icon :size="isMobile ? 18 : 20"><Close /></el-icon>
+      </el-button>
+    </div>
 
-      <el-form-item label="Description " prop="description">
-        <el-input v-model="DisbursementForm.description" style="width: 100%;" :size="isMobile ? 'large' : 'default'" />
-      </el-form-item>
+    <div class="ipc-drawer-body">
+      <div class="ipc-step-nums" role="navigation" aria-label="IPC form steps">
+        <span
+          v-for="n in IPC_DRAWER_LAST_STEP + 1"
+          :key="n"
+          class="ipc-step-num"
+          :class="{
+            'ipc-step-num--active': ipcDrawerStep === n - 1,
+            'ipc-step-num--done': ipcDrawerStep > n - 1,
+          }"
+        >{{ n }}</span>
+      </div>
 
-      <el-form-item label="Amount" prop="amount">
-        <el-input
-          :model-value="disbursementAmountInput"
-          inputmode="decimal"
-          placeholder="0"
-          style="width: 100%;"
-          :size="isMobile ? 'large' : 'default'"
-          @update:model-value="handleDisbursementAmountInput"
-        />
-      </el-form-item>
-
-      <el-form-item label="Date" prop="disbursement_date">
-        <el-date-picker
-          v-model="DisbursementForm.disbursement_date"
-          :disabled-date="disabledFutureDates"
-          style="width: 100%;"
-          :size="isMobile ? 'large' : 'default'"
-        />
-      </el-form-item>
-    </el-form>
-
-    <template #footer>
-      <div
-        class="project-details-dialog-footer"
-        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      <el-form
+        :model="DisbursementForm"
+        label-position="top"
+        ref="DisbursementFormRef"
+        :rules="disbursementRules"
+        class="ipc-drawer-form"
       >
-        <el-button :size="isMobile ? 'large' : 'default'" @click="AddDisbursementTeamDialog = false">Cancel</el-button>
-        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="updateDisbursement">
-          <Icon icon="ic:round-save" style="margin-right: 6px;" />
-          Save
+        <!-- Step 0: Type & reference -->
+        <div v-if="ipcDrawerStep === 0" class="ipc-form-step">
+          <el-form-item label="Payment type" prop="payment_type">
+            <el-select v-model="DisbursementForm.payment_type" style="width: 100%;" :size="isMobile ? 'large' : 'default'">
+              <el-option v-for="opt in PAYMENT_TYPES" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item
+            v-if="DisbursementForm.payment_type !== 'advance'"
+            label="IPC / Reference"
+            prop="certificate"
+          >
+            <el-select-v2
+              v-model="DisbursementForm.certificate"
+              :options="ipcOptions.map((ipc) => ({ label: ipc, value: ipc }))"
+              filterable
+              allow-create
+              default-first-option
+              clearable
+              placeholder="Search or enter IPC number"
+              :size="isMobile ? 'large' : 'default'"
+              style="width: 100%;"
+            />
+          </el-form-item>
+        </div>
+
+        <!-- Step 1: Date & amount -->
+        <div v-if="ipcDrawerStep === 1" class="ipc-form-step">
+          <el-form-item label="Payment date" prop="disbursement_date">
+            <el-date-picker
+              v-model="DisbursementForm.disbursement_date"
+              :disabled-date="disabledFutureDates"
+              style="width: 100%;"
+              :size="isMobile ? 'large' : 'default'"
+            />
+          </el-form-item>
+
+          <el-form-item label="Gross amount (KSh)" prop="amount">
+            <el-input
+              :model-value="disbursementAmountInput"
+              inputmode="decimal"
+              placeholder="0"
+              style="width: 100%;"
+              :size="isMobile ? 'large' : 'default'"
+              @update:model-value="(v) => handleDisbursementMoneyInput(v, 'amount')"
+            />
+          </el-form-item>
+        </div>
+
+        <!-- Step 2: Advance & status -->
+        <div v-if="ipcDrawerStep === 2" class="ipc-form-step">
+          <el-form-item
+            v-if="showAdvanceRecoveryField"
+            label="Advance recovered this certificate (KSh)"
+          >
+            <el-input
+              :model-value="disbursementAdvanceRecoveredInput"
+              inputmode="decimal"
+              placeholder="0"
+              style="width: 100%;"
+              :size="isMobile ? 'large' : 'default'"
+              @update:model-value="(v) => handleDisbursementMoneyInput(v, 'advance_recovered')"
+            />
+            <p class="contractor-role-hint">
+              Advance outstanding before this IPC: {{ formatAmountDisplay(ipcSummary.advanceOutstanding) }}
+            </p>
+          </el-form-item>
+
+          <el-empty
+            v-else-if="DisbursementForm.payment_type === 'advance'"
+            description="Advance payments do not recover prior advance — continue to the next step."
+            :image-size="64"
+          />
+
+          <p
+            v-else-if="ipcSummary.advanceGranted <= 0"
+            class="contractor-role-hint ipc-step-intro"
+          >
+            No advance has been recorded on this project — recovery is not applicable.
+          </p>
+
+          <p
+            v-else-if="ipcSummary.advanceOutstanding <= 0"
+            class="contractor-role-hint ipc-step-intro"
+          >
+            Advance has been fully recovered — leave recovery blank on this certificate.
+          </p>
+
+          <el-form-item label="Status" prop="status">
+            <el-select v-model="DisbursementForm.status" style="width: 100%;" :size="isMobile ? 'large' : 'default'">
+              <el-option v-for="opt in IPC_STATUSES" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+          </el-form-item>
+        </div>
+
+        <!-- Step 3: Description -->
+        <div v-if="ipcDrawerStep === 3" class="ipc-form-step">
+          <el-form-item label="Description" prop="description">
+            <el-input
+              v-model="DisbursementForm.description"
+              type="textarea"
+              :rows="isMobile ? 5 : 6"
+              placeholder="Payment period or works covered by this certificate"
+              style="width: 100%;"
+              :size="isMobile ? 'large' : 'default'"
+            />
+          </el-form-item>
+        </div>
+
+        <!-- Step 4: Site progress -->
+        <div v-if="ipcDrawerStep === 4" class="ipc-form-step">
+          <template v-if="showDisbursementLocationPanel">
+            <p class="contractor-role-hint ipc-step-intro">
+              Current site progress will be saved as a snapshot with this IPC record.
+            </p>
+            <div class="ipc-dialog-locations">
+              <div v-for="loc in locationProgressRows" :key="loc.id" class="ipc-dialog-location">
+                <span>{{ loc.name }}</span>
+                <strong>{{ loc.progress != null ? `${loc.progress}%` : '—' }}</strong>
+              </div>
+              <p v-if="averageLocationProgress != null" class="contractor-role-hint">
+                Average {{ averageLocationProgress.toFixed(1) }}%
+              </p>
+            </div>
+          </template>
+          <el-empty
+            v-else
+            description="No project locations — site progress snapshot will not be recorded."
+            :image-size="80"
+          />
+        </div>
+
+        <!-- Step 5: IPC documents -->
+        <div v-if="ipcDrawerStep === 5" class="ipc-form-step">
+          <p class="contractor-role-hint ipc-step-intro">
+            Upload consent memo, IPC certificate, or supporting files.
+          </p>
+
+          <el-form-item label="Default document type">
+            <el-select v-model="ipcDefaultDocType" style="width: 100%;" :size="isMobile ? 'large' : 'default'">
+              <el-option v-for="t in IPC_DOC_TYPES" :key="t" :label="t" :value="t" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="IPC documents">
+            <el-upload
+              v-model:file-list="ipcFileList"
+              :auto-upload="false"
+              :on-change="handleIpcFileChange"
+              :limit="10"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              drag
+              multiple
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">Drop files here or <em>click to upload</em></div>
+              <template #tip>
+                <div class="el-upload__tip">PDF, Word, or images up to 100MB each</div>
+              </template>
+            </el-upload>
+          </el-form-item>
+
+          <div v-if="ipcFileList.length" class="ipc-file-types">
+            <div v-for="file in ipcFileList" :key="file.uid" class="ipc-file-type-row">
+              <span class="ipc-file-type-row__name">{{ file.name }}</span>
+              <el-select
+                v-model="file.docType"
+                placeholder="Type"
+                :size="isMobile ? 'default' : 'small'"
+                style="width: 180px;"
+              >
+                <el-option v-for="t in IPC_DOC_TYPES" :key="t" :label="t" :value="t" />
+              </el-select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 6: Review -->
+        <div v-if="ipcDrawerStep === 6" class="ipc-form-step">
+          <el-descriptions :column="1" border size="small" class="ipc-review">
+            <el-descriptions-item label="Payment type">
+              {{ disbursementPaymentLabel(DisbursementForm.payment_type) }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="DisbursementForm.payment_type !== 'advance'" label="IPC / Ref">
+              {{ DisbursementForm.certificate || '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Date">
+              {{ formatDateDisplay(DisbursementForm.disbursement_date) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Gross amount">
+              {{ formatAmountDisplay(DisbursementForm.amount) }}
+            </el-descriptions-item>
+            <el-descriptions-item
+              v-if="DisbursementForm.payment_type !== 'advance'"
+              label="Advance recovered"
+            >
+              {{ formatAmountDisplay(DisbursementForm.advance_recovered) || '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Status">
+              {{ DisbursementForm.status }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Description">
+              {{ DisbursementForm.description || '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item v-if="showDisbursementLocationPanel" label="Site progress">
+              {{
+                averageLocationProgress != null
+                  ? `${averageLocationProgress.toFixed(1)}% average across ${locationProgressRows.length} site(s)`
+                  : '—'
+              }}
+            </el-descriptions-item>
+            <el-descriptions-item label="Documents">
+              {{ ipcFileList.length ? `${ipcFileList.length} file(s)` : 'None attached' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </el-form>
+
+      <div class="ipc-drawer-footer" :class="{ 'ipc-drawer-footer--mobile': isMobile }">
+        <el-button
+          v-if="ipcDrawerStep === 0"
+          :size="isMobile ? 'default' : 'default'"
+          @click="resetIpcDrawer"
+        >
+          Clear
+        </el-button>
+        <el-button
+          v-if="ipcDrawerStep > 0"
+          :size="isMobile ? 'default' : 'default'"
+          @click="ipcPrevStep"
+        >
+          Previous
+        </el-button>
+        <el-button
+          v-if="ipcDrawerStep < IPC_DRAWER_LAST_STEP"
+          type="primary"
+          :size="isMobile ? 'default' : 'default'"
+          @click="ipcNextStep"
+        >
+          Next
+        </el-button>
+        <el-button
+          v-if="ipcDrawerStep === IPC_DRAWER_LAST_STEP"
+          type="primary"
+          :loading="ipcSaving"
+          :size="isMobile ? 'default' : 'default'"
+          @click="updateDisbursement"
+        >
+          Submit IPC
+        </el-button>
+        <el-button :size="isMobile ? 'default' : 'default'" @click="handleIpcDrawerClose">
+          Cancel
         </el-button>
       </div>
-    </template>
-  </el-dialog>
+    </div>
+  </el-drawer>
 
 
 
@@ -6656,6 +7598,382 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   color: var(--el-text-color-secondary);
 }
 
+.ipc-disbursements-card {
+  width: 100%;
+}
+
+.ipc-disbursements-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ipc-summary-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.ipc-summary-compact__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: baseline;
+}
+
+.ipc-metric {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ipc-metric em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--el-text-color-secondary);
+  margin-right: 4px;
+}
+
+.ipc-metric small {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.ipc-summary-compact__bar {
+  margin: 0;
+}
+
+.ipc-summary-alert--compact {
+  margin: 0;
+  padding: 6px 10px;
+}
+
+.ipc-table-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.ipc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  width: 100%;
+}
+
+.ipc-ledger-table {
+  width: 100%;
+}
+
+.ipc-ledger-table :deep(.el-table),
+.ipc-ledger-table :deep(.el-table__inner-wrapper),
+.ipc-ledger-table :deep(.el-table__header-wrapper),
+.ipc-ledger-table :deep(.el-table__body-wrapper) {
+  width: 100% !important;
+}
+
+.ipc-ledger-table :deep(.el-table__header colgroup col),
+.ipc-ledger-table :deep(.el-table__body colgroup col) {
+  min-width: 0;
+}
+
+.ipc-ledger-table :deep(.el-table__header table),
+.ipc-ledger-table :deep(.el-table__body table) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ipc-ledger-table :deep(.el-table__body-wrapper) {
+  max-height: min(52vh, 520px);
+  overflow-y: auto;
+}
+
+.ipc-table-sub {
+  font-size: 10px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.2;
+}
+
+.ipc-ref-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.ipc-ref-cell__type {
+  flex-shrink: 0;
+  padding: 0 4px;
+  height: 18px;
+}
+
+.ipc-collapsible {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ipc-collapsible__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--el-fill-color-blank);
+  user-select: none;
+}
+
+.ipc-collapsible__head small {
+  font-weight: normal;
+  color: var(--el-text-color-secondary);
+}
+
+.ipc-docs-table {
+  width: 100%;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.ipc-doc-tooltip-line {
+  line-height: 1.4;
+}
+
+.ipc-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ipc-dropdown-item-icon {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.ipc-dropdown-item-label {
+  margin-left: 8px;
+}
+
+.ipc-location-panel {
+  margin-bottom: 4px;
+}
+
+.ipc-location-panel__body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ipc-location-avg {
+  font-weight: normal;
+  color: var(--el-text-color-secondary);
+  font-size: 0.9em;
+}
+
+.ipc-location-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ipc-location-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.ipc-location-row__input {
+  width: 100px;
+}
+
+.ipc-location-row__suffix {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.ipc-no-docs {
+  color: var(--el-text-color-placeholder);
+}
+
+.ipc-dialog-locations {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ipc-dialog-location {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ipc-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.ipc-drawer-header__content {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ipc-drawer-header__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  flex-shrink: 0;
+}
+
+.ipc-drawer-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ipc-drawer-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.ipc-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ipc-step-nums {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ipc-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  flex-shrink: 0;
+}
+
+.ipc-step-num--active {
+  color: #fff;
+  background: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+.ipc-step-num--done {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary-light-5);
+}
+
+.ipc-drawer-form {
+  flex: 1;
+}
+
+.ipc-form-step {
+  padding-top: 4px;
+}
+
+.ipc-step-intro {
+  margin: 0 0 12px;
+}
+
+.ipc-file-types {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ipc-file-type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-file-type-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ipc-review {
+  width: 100%;
+}
+
+.ipc-drawer-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  margin-top: auto;
+}
+
+.ipc-drawer-footer--mobile {
+  position: sticky;
+  bottom: 0;
+  background: var(--el-bg-color);
+  padding-bottom: 4px;
+}
+
 .location-add-dialog-body {
   display: flex;
   flex-direction: column;
@@ -6883,6 +8201,14 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   .header-actions {
     margin-left: 0;
     padding-top: 0;
+  }
+
+  .ipc-summary-compact__metrics {
+    gap: 6px 12px;
+  }
+
+  .ipc-ledger-table :deep(.el-table__body-wrapper) {
+    max-height: 40vh;
   }
 
   .project-scope-transfer :deep(.el-transfer) {

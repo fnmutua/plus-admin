@@ -42,5 +42,9 @@ module.exports = {
     process.env.DATA_REQUEST_UPLOAD_DIR,
     path.join(DATA_ROOT, 'data-requests')
   ),
+  IPC_UPLOAD_DIR: resolveStoragePath(
+    process.env.IPC_UPLOAD_DIR,
+    path.join(DATA_ROOT, 'ipc')
+  ),
   ensureDir,
 };
