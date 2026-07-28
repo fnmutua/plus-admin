@@ -2,7 +2,14 @@ const db = require('../models')
 const { Op } = db.Sequelize
 const { getActiveRolesGetOptions } = require('./userRoleExpiry')
 
-const PLATFORM_ADMIN_ROLES = new Set(['admin', 'root_admin', 'super_admin'])
+const PLATFORM_ADMIN_ROLES = new Set(['admin', 'slum_upgrading', 'root_admin', 'super_admin'])
+
+function isNationalAdminRole(role) {
+  return (
+    (role.name === 'admin' || role.name === 'slum_upgrading') &&
+    role.user_roles?.location_level === 'national'
+  )
+}
 
 /**
  * Resolve whether the user may access the admin workplace and their data scope.
@@ -24,9 +31,7 @@ async function resolveWorkplaceScope(userId) {
 
   const roles = user.roles || []
   const isSuperOrRoot = roles.some((r) => r.name === 'super_admin' || r.name === 'root_admin')
-  const nationalAdminRole = roles.find(
-    (r) => r.name === 'admin' && r.user_roles?.location_level === 'national'
-  )
+  const nationalAdminRole = roles.find(isNationalAdminRole)
   const countyAdminRole = roles.find(
     (r) => r.name === 'admin' && r.user_roles?.location_level === 'county'
   )

@@ -55,6 +55,7 @@ const {
   shouldUseCreatorLocationFallback,
 } = require('../utils/projectListScope')
 const { parseProjectCost, isIntegerOverflowError } = require('../utils/projectCost')
+const { validateProgrammeRecord } = require('../utils/programmeValidation')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -1353,6 +1354,30 @@ exports.modelCreateOneRecord = async (req, res) => {
 
   if (reg_model === 'settlement_population') {
     Object.assign(obj, await settlementPopulationGeo.applySettlementPopulationGeo(db, obj))
+  }
+
+  if (reg_model === 'programme') {
+    try {
+      const validation = await validateProgrammeRecord(db, obj);
+      if (validation.error) {
+        event.status = 'failed';
+        logEvents(event);
+        return res.status(400).json({
+          message: validation.error,
+          code: 'VALIDATION_ERROR',
+        });
+      }
+      if (validation.normalized) {
+        Object.assign(obj, validation.normalized);
+      }
+    } catch (err) {
+      event.status = 'failed';
+      logEvents(event);
+      return res.status(400).json({
+        message: err.message || 'Programme validation failed',
+        code: 'VALIDATION_ERROR',
+      });
+    }
   }
 
   try {
@@ -4507,6 +4532,36 @@ exports.modelEditOneRecord = (req, res) => {
   // Get the record and update it by replacing the whole document
   db.models[reg_model].findOne({ where: { id: req.body.id } })
     .then(async (result) => {
+      if (!result) {
+        return res.status(404).json({ message: 'Record not found', code: 'NOT_FOUND' });
+      }
+
+      if (reg_model === 'programme') {
+        try {
+          const merged = {
+            ...result.toJSON(),
+            ...updateObj,
+            id: req.body.id,
+          };
+          const validation = await validateProgrammeRecord(db, merged, {
+            excludeId: req.body.id,
+          });
+          if (validation.error) {
+            return res.status(400).json({
+              message: validation.error,
+              code: 'VALIDATION_ERROR',
+            });
+          }
+          if (validation.normalized) {
+            Object.assign(updateObj, validation.normalized);
+          }
+        } catch (err) {
+          return res.status(400).json({
+            message: err.message || 'Programme validation failed',
+            code: 'VALIDATION_ERROR',
+          });
+        }
+      }
 
       // Compute vulnerability score for settlement when attributes are present
       if (reg_model === 'settlement') {

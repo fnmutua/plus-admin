@@ -58,6 +58,7 @@ async function seedPermissions() {
       { name: 'root_admin', description: 'Full system access including logs' },
       { name: 'super_admin', description: 'Full admin access except system logs' },
       { name: 'admin', description: 'Administrator access' },
+      { name: 'slum_upgrading', description: 'SLUM upgrading department: national administrator access except grievances and incidents' },
       { name: 'grm', description: 'Grievance Redress Mechanism role' },
       { name: 'staff', description: 'Staff member role' },
       { name: 'monitoring', description: 'Monitoring and evaluation role' },
@@ -193,10 +194,10 @@ async function seedPermissions() {
       { name: 'county_population_growth_rate:export', description: 'Export county population growth rates' },
 
       // Households
-      { name: 'households:create', description: `Create household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
-      { name: 'households:read', description: `Read household data`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
-      { name: 'households:update', description: `Update household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
-      { name: 'households:delete', description: `Delete household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
+      { name: 'households:create', description: `Create household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'slum_upgrading', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
+      { name: 'households:read', description: `Read household data`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'slum_upgrading', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
+      { name: 'households:update', description: `Update household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'slum_upgrading', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
+      { name: 'households:delete', description: `Delete household`, category: 'Household', roles: ['root_admin', 'super_admin', 'admin', 'slum_upgrading', 'staff', 'monitoring', 'grm', 'consultant', 'gbv', 'support'] },
 
       // Parcels
       { name: 'parcel:create', description: 'Create parcels' },
@@ -2108,6 +2109,9 @@ async function seedPermissions() {
     "police_station:read",
     "police_station:update",
     "households:create",
+    "households:read",
+    "households:update",
+    "households:delete",
     "survey:approve",
     "survey:create",
     "survey:delete",
@@ -4668,6 +4672,25 @@ async function seedPermissions() {
   ]
 };
 
+    const isGrmOrIncidentPermission = (permissionName) =>
+      permissionName.startsWith('grievance') || permissionName.startsWith('incident');
+
+    const householdPermissions = [
+      'households:create',
+      'households:read',
+      'households:update',
+      'households:delete',
+    ];
+
+    rolePermissions.slum_upgrading = [
+      ...new Set([
+        ...rolePermissions.admin.filter(
+          (permissionName) => !isGrmOrIncidentPermission(permissionName)
+        ),
+        ...householdPermissions,
+      ]),
+    ];
+
 
     console.log('✅ Assigning permissions to roles...');
     // Assign permissions to roles
@@ -4694,6 +4717,35 @@ async function seedPermissions() {
       await role.addPermission(notificationReadPerm)
     }
     console.log(`✅ Granted notification:read to ${allRolesForNotification.length} roles`)
+
+    // SLUM upgrading department mirrors admin subordinates (except GRM) and parent role hierarchy
+    const adminRole = await db.role.findOne({ where: { name: 'admin' } })
+    const slumUpgradingRole = await db.role.findOne({ where: { name: 'slum_upgrading' } })
+    const grmRole = await db.role.findOne({ where: { name: 'grm' } })
+    if (adminRole && slumUpgradingRole) {
+      const adminSubordinates = Array.isArray(adminRole.subordinates) ? [...adminRole.subordinates] : []
+      const slumSubordinates = grmRole
+        ? adminSubordinates.filter((roleId) => roleId !== grmRole.id)
+        : adminSubordinates
+      await slumUpgradingRole.update({ subordinates: slumSubordinates })
+      console.log(
+        `✅ Set slum_upgrading subordinates (${slumSubordinates.length}, excluding grm): ${slumSubordinates.join(', ')}`
+      )
+
+      for (const parentName of ['root_admin', 'super_admin']) {
+        const parentRole = await db.role.findOne({ where: { name: parentName } })
+        if (!parentRole) continue
+        const current = Array.isArray(parentRole.subordinates) ? [...parentRole.subordinates] : []
+        const includesAdmin = current.includes(adminRole.id)
+        const includesSlum = current.includes(slumUpgradingRole.id)
+        if (includesAdmin && !includesSlum) {
+          await parentRole.update({ subordinates: [...current, slumUpgradingRole.id] })
+          console.log(`✅ Added slum_upgrading to ${parentName}.subordinates`)
+        }
+      }
+    } else {
+      console.log('⚠️  admin or slum_upgrading role not found — skipping subordinate sync')
+    }
 
     // Donor is a subordinate of root_admin and super_admin only (for role hierarchy / assignment UI)
     const donorRole = await db.role.findOne({ where: { name: 'donor' } })

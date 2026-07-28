@@ -17,6 +17,23 @@
         </el-steps>
       </div>
       <el-divider />
+      <div class="button-container">
+        <div class="button-container-actions">
+          <el-tooltip content="Help" placement="top">
+            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+          </el-tooltip>
+
+          <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
+            Previous
+          </el-button>
+          <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
+            Next
+          </el-button>
+          <el-button type="success" @click="submitForm" v-else>
+            Submit
+          </el-button>
+        </div>
+      </div>
       <el-form
           :model="formData"
           :rules="currentStepRules"
@@ -253,27 +270,6 @@
     </el-col>
   </el-row>
         </el-form>
-
-
-      <div
-class="button-container"
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <div>
-          <el-tooltip content="Help" placement="top">
-            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-          </el-tooltip>
-
-          <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
-            Previous
-          </el-button>
-          <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
-            Next
-          </el-button>
-          <el-button type="success" @click="submitForm" v-else>
-            Submit
-          </el-button>
-        </div>
-      </div>
 
       <!-- <pre>{{ wardMessage}}</pre>  -->
       <!-- <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
@@ -2337,6 +2333,26 @@ function resetProjectForm() {
   margin-bottom: 4px;
 }
 
+.button-container {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px 0;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.button-container-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .project-form-steps :deep(.el-step__title) {
   font-size: 13px;
   line-height: 1.3;
@@ -2458,10 +2474,13 @@ function resetProjectForm() {
   }
 
   .button-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 6px 0;
+  }
+
+  .button-container-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 

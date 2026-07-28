@@ -3,25 +3,16 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Position,
-  TopRight,
-  User,
+  Back,
   Plus,
-  Download,Back,
-  Filter,
-  MessageBox,
-  Edit,
-  InfoFilled,
-  Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElTable, ElTableColumn } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -29,10 +20,13 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-
+import TableActions from '@/views/Components/TableActions.vue';
+import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue';
+import { useAdjustableTableColumns } from '@/composables/useAdjustableTableColumns';
+import { implementationTableColumnDefaults } from '@/config/settings/programmeTableColumns';
+import { sortFlatRows, type TableSortOrder } from '@/utils/settingsTableSort'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -51,6 +45,20 @@ console.log('All Routes:', allRoutes);
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
 
+const isMobile = computed(() => appStore.getMobile)
+const rowActionButtons = ['edit', 'delete']
+
+const {
+  showColumnPicker,
+  isColumnVisible,
+  columnWidth,
+  columnMinWidth,
+  hideableColumns,
+  visibleColumnKeys,
+  onHeaderDragend,
+  resetColumns,
+} = useAdjustableTableColumns('settingsImplementationTableColumns', implementationTableColumnDefaults)
+
 
 
 
@@ -63,11 +71,9 @@ const indicatorsOptions = ref([])
 const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
-const page = ref(1)
- const selCounties = []
+const selCounties = []
 const loading = ref(true)
- const currentPage = ref(1)
-const total = ref(0)
+const currentPage = ref(1)
 const downloadLoading = ref(false)
  
 
@@ -81,28 +87,37 @@ const pageSize = ref(defaultPageSize);
 // Function to update pageSize based on window width
 const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
-    pageSize.value = mobilePageSize;
+    pageSize.value = mobilePageSize
   } else {
-    pageSize.value = defaultPageSize;
+    pageSize.value = defaultPageSize
   }
-};
+}
 
-onMounted(async () => { 
-
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
- 
- })
-
-
-
-
+onMounted(async () => {
+  window.addEventListener('resize', updatePageSize)
+  updatePageSize()
+  await loadImplementations()
+})
 
 console.log("Show Buttons -->", showAdminButtons)
 
 
 
-let tableDataList = ref<UserType[]>([])
+let allImplementations = ref<any[]>([])
+
+function normalizeApiRows(response: unknown): any[] {
+  if (!response) return []
+  if (Array.isArray(response)) return response
+  const payload = response as Record<string, unknown>
+  if (Array.isArray(payload.data)) return payload.data as any[]
+  if (payload.data && typeof payload.data === 'object') {
+    const nested = payload.data as Record<string, unknown>
+    if (Array.isArray(nested.data)) return nested.data as any[]
+    if (Array.isArray(nested.rows)) return nested.rows as any[]
+  }
+  if (Array.isArray(payload.rows)) return payload.rows as any[]
+  return []
+}
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = []
@@ -148,19 +163,10 @@ const columns: TableColumn[] = [
 
 ]
 const handleClear = async () => {
-  console.log('cleared....')
-
-  // clear all the fileters -------
   filterValues = []
   filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  pageSize.value = 5
+  value3.value = []
   currentPage.value = 1
-  tblData = []
-  //----run the get data--------
-  getInterventionsAll()
 }
 
 
@@ -186,47 +192,102 @@ const checkIfRouteExists = async (route: any) => {
 
 
 
-const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
+const handleSelectIndicator = async (selectedIds: number[]) => {
+  if (!selectedIds?.length) {
+    filters = []
+    filterValues = []
+  } else {
+    filters = ['id']
+    filterValues = [selectedIds]
   }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
+  currentPage.value = 1
 }
 
-const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
-  page.value = selPage
-  getFilteredData(filters, filterValues)
+const onPageChange = async (selPage: number) => {
+  currentPage.value = selPage
 }
 
-const onPageSizeChange = async (size: any) => {
+const onPageSizeChange = async (size: number) => {
   pageSize.value = size
-  getFilteredData(filters, filterValues)
+  currentPage.value = 1
 }
 
-const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
+const filteredImplementations = computed(() => {
+  const rows = allImplementations.value
+  if (!filters.length || !filterValues.length) return rows
+
+  const idFilterIndex = filters.indexOf('id')
+  if (idFilterIndex === -1) return rows
+
+  const selected = filterValues[idFilterIndex]
+  const idSet = new Set(
+    (Array.isArray(selected) ? selected : [selected])
+      .map((id) => Number(id))
+      .filter((id) => !Number.isNaN(id))
+  )
+  if (!idSet.size) return rows
+
+  return rows.filter((row) => idSet.has(Number(row.id)))
+})
+
+const sortedImplementations = computed(() => {
+  let rows = filteredImplementations.value
+  if (tableSortProp.value && tableSortOrder.value) {
+    rows = sortFlatRows(rows, tableSortProp.value, tableSortOrder.value)
+  }
+  return rows
+})
+
+const total = computed(() => sortedImplementations.value.length)
+
+const paginatedImplementationData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return sortedImplementations.value.slice(start, start + pageSize.value)
+})
+
+const tableSortProp = ref<string | null>(null)
+const tableSortOrder = ref<TableSortOrder>(null)
+
+const handleTableSort = ({
+  prop,
+  order,
+}: {
+  prop: string
+  order: TableSortOrder
+}) => {
+  tableSortProp.value = order ? prop : null
+  tableSortOrder.value = order
+  currentPage.value = 1
+}
+
+const loadImplementations = async () => {
+  loading.value = true
+  try {
+    const response = await getCountyListApi({
+      params: {
+        limit: 10000,
+        curUser: 1,
+        model,
+        searchField: 'title',
+        searchKeyword: '',
+        sort: 'ASC',
+      },
+    })
+
+    const ret = normalizeApiRows(response)
+    allImplementations.value = ret
+    categoryOptions.value = ret.map((item: { id: number; title?: string; acronym?: string }) => ({
+      value: item.id,
+      label: item.title || item.acronym || String(item.id),
+    }))
+    tblData = ret.map((arrayItem) => flattenJSON(arrayItem))
+  } catch (error: any) {
+    allImplementations.value = []
+    tblData = []
+    ElMessage.error(error?.message || 'Failed to load implementations')
+  } finally {
+    loading.value = false
+  }
 }
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
@@ -244,142 +305,45 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
-const getFilteredData = async (selFilters, selfilterValues) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
-    var dd = flattenJSON(arrayItem)
-
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
-}
-
-
-
-const getIndicatorOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-    // pass result to the makeoptions
-
-    categories.value = ret
-    makeOptions(categories)
-  })
-}
-
-
-
-const makeOptions = (list) => {
-  console.log('making the options..............', list)
-  categoryOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title  
-    //  console.log(countyOpt)
-    categoryOptions.value.push(countyOpt)
-  })
-}
-
 const handleDownload = () => {
   downloadLoading.value = true
   const data = tblData
-  const fileName = 'indicators.xlsx'
+  const fileName = 'implementations.csv'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
+  downloadLoading.value = false
 }
 
 
-getIndicatorOptions()
-getInterventionsAll()
+const DEFAULT_IMPLEMENTATION_ICON = 'material-symbols:account-balance-wallet-outline-sharp'
+
+const ensureImplementationIcon = () => {
+  if (!ruleForm.icon) {
+    ruleForm.icon = DEFAULT_IMPLEMENTATION_ICON
+  }
+}
 
 console.log('Options---->', indicatorsOptions)
-const editIndicator = (data: TableSlotDefault) => {
+const editIndicator = (row: { id: number; title?: string; description?: string; icon?: string; acronym?: string }) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
-  console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.title = data.row.title
-  ruleForm.description = data.row.description
-    ruleForm.icon = data.row.icon
-  ruleForm.acronym = data.row.acronym
-
-
-  formHeader.value = 'Edit Category'
-
-
+  ruleForm.id = row.id
+  ruleForm.title = row.title ?? ''
+  ruleForm.description = row.description ?? ''
+  ruleForm.icon = row.icon ?? null
+  ruleForm.acronym = row.acronym ?? null
+  formHeader.value = 'Edit Programme Implementation'
   AddDialogVisible.value = true
 }
 
-
-const DeleteIndicator = async (data: TableSlotDefault) => {
-  console.log('--xxx--->', data.row.id)
-  let formData = {}
-  formData.id = data.row.id
-  formData.model = model
-  
- 
- await  DeleteRecord(formData).then(response => {
-    console.log(response)
-    // remove the deleted object from array list 
-    let index = tableDataList.value.indexOf(data);
-    if (index !== -1) {
-      tableDataList.value.splice(index, 1);
-      
-    }
-
-  })
-    .catch(error => {
-      console.log(error)
-      ElMessage.error(error)
-    });
-
-  
-
-  getFilteredData(filters, filterValues)
+const DeleteIndicator = async (row: { id: number }) => {
+  try {
+    await DeleteRecord({ id: row.id, model })
+    ElMessage.success('Record deleted')
+    await loadImplementations()
+  } catch (error: any) {
+    ElMessage.error(error?.message || error || 'Failed to delete record')
+  }
 }
 
 
@@ -398,11 +362,11 @@ const handleClose = () => {
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
+  id: null as number | null,
   title: '',
   description: '',
-   icon: null,
-  acronym: null
-
+  icon: null as string | null,
+  acronym: null as string | null,
 })
 
 const rules = reactive<FormRules>({
@@ -434,10 +398,13 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
       if (valid) {
+        ensureImplementationIcon()
         ruleForm.model = model
         ruleForm.code = uuid.v4()
-        const res = CreateRecord(ruleForm)
-
+        await CreateRecord(ruleForm)
+        ElMessage.success('Implementation created')
+        AddDialogVisible.value = false
+        await loadImplementations()
       } else {
         console.log('error submit!', fields)
       }
@@ -448,15 +415,14 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
+      ensureImplementationIcon()
       ruleForm.model = model
-
-      updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
-
+      await updateOneRecord(ruleForm)
+      ElMessage.success('Implementation updated')
+      AddDialogVisible.value = false
+      await loadImplementations()
     } else {
       console.log('error submit!', fields)
     }
@@ -511,13 +477,20 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
   </PermissionWrapper>
   <PermissionWrapper :permissions="['programme_implementation:read']">
     <DownloadCustom
-      :data="tableDataList" :model="model"
+      :data="filteredImplementations"
+      :model="model"
       :associated_models="associated_multiple_models"
                       :total="total"
                       :filters="filters"
                       :filter-values="filterValues"
 />
    </PermissionWrapper>
+    <AdjustableTableColumnPicker
+      v-model:show-column-picker="showColumnPicker"
+      v-model:visible-column-keys="visibleColumnKeys"
+      :hideable-columns="hideableColumns"
+      @reset="resetColumns"
+    />
 </div>
 
 </el-row>
@@ -526,33 +499,93 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
    
 
  
-    <Table
-:columns="columns" :data="tableDataList" :loading="loading"  style="margin-top:30px" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
+    <div class="settings-table-wrap">
+    <el-table
+      v-loading="loading"
+      :data="paginatedImplementationData"
+      row-key="id"
+      class="settings-table"
+      table-layout="auto"
+      style="width: 100%; margin-top: 10px;"
+      border
+      show-overflow-tooltip
+      @header-dragend="onHeaderDragend"
+      @sort-change="handleTableSort"
+    >
+      <el-table-column
+        v-if="isColumnVisible('title')"
+        column-key="title"
+        label="Title"
+        prop="title"
+        :width="columnWidth('title')"
+        :min-width="columnMinWidth('title')"
+        sortable="custom"
+      />
+      <el-table-column
+        v-if="isColumnVisible('acronym')"
+        column-key="acronym"
+        label="Acronym"
+        prop="acronym"
+        :width="columnWidth('acronym')"
+        :min-width="columnMinWidth('acronym')"
+        sortable="custom"
+      />
+      <el-table-column
+        v-if="isColumnVisible('description')"
+        column-key="description"
+        label="Description"
+        prop="description"
+        :min-width="columnMinWidth('description')"
+        sortable="custom"
+      />
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-
-      </template>
-    </Table>
+      <el-table-column
+        fixed="right"
+        label=""
+        width="68"
+        align="center"
+        class-name="implementation-ops-column"
+      >
+        <template #default="{ row }">
+          <div class="settings-table-row-actions" @click.stop>
+            <TableActions
+              :item="row"
+              :buttons="rowActionButtons"
+              @edit="editIndicator"
+              @delete="DeleteIndicator"
+            />
+          </div>
+        </template>
+      </el-table-column>
+    </el-table>
+    </div>
     <ElPagination
-layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+      layout="sizes,prev,pager,next, total"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
+    />
+
+    <div class="implementation-table-summary">
+      {{ total }} implementation(s)
+    </div>
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+  <el-dialog
+    v-model="AddDialogVisible"
+    @close="handleClose"
+    :title="formHeader"
+    :width="isMobile ? '100%' : '520px'"
+    :fullscreen="isMobile"
+    :draggable="!isMobile"
+    overflow
+    class="implementation-form-dialog"
+  >
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
       <el-form-item label="Acronym">
         <el-input v-model="ruleForm.acronym" />
@@ -564,13 +597,6 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
       <el-form-item label="Description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
-    
- 
-
-      <el-form-item label="Icon">
-        <el-input v-model="ruleForm.icon" />
-      </el-form-item>
-
 
     </el-form>
     <template #footer>
@@ -583,3 +609,28 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+.settings-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-table-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-table-wrap :deep(.implementation-ops-column .cell) {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.implementation-table-summary {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #606266;
+}
+</style>

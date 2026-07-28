@@ -3,10 +3,10 @@ import { getSettlementListByCounty, getRoutesList } from '@/api/settlements'
 
 import {
   ElButton, ElSelect, ElDialog, ElCard,ElDrawer,
-  ElUpload, ElTable, ElTableColumn
+  ElUpload, ElTable, ElTableColumn, ElAlert
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Plus, Back, Download, DArrowRight, Loading, Edit } from '@element-plus/icons-vue'
+import { Plus, Back, Download, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
@@ -37,6 +37,7 @@ import { onMounted, onActivated } from 'vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
 import ProjectFormDrawer from '@/views/Intervention/Project/ProjectFormDrawer.vue';
+import TableActions from '@/views/Components/TableActions.vue';
 
 
 ////////////*************Map Imports***************////////
@@ -975,6 +976,19 @@ const projectFormDrawerVisible = ref(false)
 const projectFormComponentId = ref<string | number | null>(null)
 const projectFormProjectId = ref<string | number | null>(null)
 const projectFormMode = ref<'add' | 'edit'>('add')
+
+const projectActionButtons = computed(() => {
+  const buttons = ['preview']
+  const perms = userInfo?.permissions ?? []
+  if (perms[0] === '*.*.*' || perms.includes('project:update')) {
+    buttons.push('edit')
+  }
+  return buttons
+})
+
+const handleRowDblClick = (row: any) => {
+  viewProject(row)
+}
 
 const editProjectFromList = (row: any) => {
   const domain = row.component_id || component_id.value
@@ -1996,14 +2010,11 @@ const ImportProjects = async () => {
 
 
 
-const viewProject = (row) => {
- 
- console.log('Double clicked row:', row);
-
- push({
-  name: 'ProjectDetails',
- params: { id: row.id }
-})
+const viewProject = (row: any) => {
+  push({
+    name: 'ProjectDetails',
+    params: { id: row.id }
+  })
 }
 
 function goToSettlementMap(location: any) {
@@ -2112,11 +2123,23 @@ function onLayersLoaded() {
  
     </el-row>
 
+    <el-alert
+      type="info"
+      :closable="false"
+      :show-icon="false"
+      style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;"
+    >
+      <template #default>
+        <span style="font-size: 12px;">💡 Double-click on any row to view project details</span>
+      </template>
+    </el-alert>
 
     <el-table
 ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
       :row-class-name="tableRowClassName" :row-style="{ height: '40px' }"
       v-loading="loading"
+      class="interventions-project-table"
+      @row-dblclick="handleRowDblClick"
     >
       <el-table-column type="index" label="#" width="50" align="center">
         <template #default="{ $index }">
@@ -2156,16 +2179,6 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
         </template>
       </el-table-column>
       <el-table-column
-        label="Implementation"
-        prop="programme_implementation.title"
-        max-width="140"
-        show-overflow-tooltip
-      >
-        <template #default="{ row }">
-          <span class="implementation">{{ row.programme_implementation?.title }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column
         label="Locations"
         prop="project_location"
         min-width="200"
@@ -2198,28 +2211,16 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
           <span v-else class="no-locations">No locations configured</span>
         </template>
       </el-table-column>
-      <el-table-column label="Action" width="180" align="center">
+      <el-table-column label="" width="68" align="center" fixed="right">
         <template #default="{ row }">
-          <PermissionWrapper :permissions="'project:update'">
-            <el-button
-              @click="editProjectFromList(row)"
-              type="default"
-              size="small"
-              :icon="Edit"
-              style="font-size: 12px; padding: 4px 8px; margin-right: 4px;"
-            >
-              Edit
-            </el-button>
-          </PermissionWrapper>
-          <el-button 
-            @click="viewProject(row)"
-            type="primary" 
-            size="small"
-            :icon="DArrowRight"
-            style="font-size: 12px; padding: 4px 8px;"
-          >
-            More
-          </el-button>
+          <div @click.stop>
+            <TableActions
+              :item="row"
+              :buttons="projectActionButtons"
+              @preview="viewProject"
+              @edit="editProjectFromList"
+            />
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -2434,12 +2435,6 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   font-weight: 500;
 }
 
-.implementation {
-  color: #409EFF;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 .locations-container {
   display: flex;
   flex-wrap: wrap;
@@ -2452,6 +2447,10 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   align-items: center;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.interventions-project-table :deep(.el-table__row) {
+  cursor: pointer;
 }
 
 .location-item {

@@ -22,7 +22,9 @@ export function getRoleNames(userInfo: any): string[] {
 
 export function isNationalAdminUser(userInfo: any): boolean {
   return (userInfo?.roles ?? []).some(
-    (r: any) => r?.name === 'admin' && r?.user_roles?.location_level === 'national'
+    (r: any) =>
+      (r?.name === 'admin' || r?.name === 'slum_upgrading') &&
+      r?.user_roles?.location_level === 'national'
   )
 }
 
@@ -52,7 +54,7 @@ export function isDashboardSettingsAdmin(userInfo: any): boolean {
     return true
   }
   return getRoleNames(userInfo).some((name) =>
-    ['admin', 'super_admin', 'root_admin'].includes(name)
+    ['admin', 'slum_upgrading', 'super_admin', 'root_admin'].includes(name)
   )
 }
 
@@ -93,7 +95,8 @@ export function canPublishDashboard(userInfo: any): boolean {
   if (isSuperAdminUser(userInfo)) return true
   return (userInfo?.roles ?? []).some(
     (r: any) =>
-      r?.name === 'admin' && r?.user_roles?.location_level === 'national'
+      (r?.name === 'admin' || r?.name === 'slum_upgrading') &&
+      r?.user_roles?.location_level === 'national'
   )
 }
 
