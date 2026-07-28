@@ -383,8 +383,10 @@
         </div>
                   </section>
 
-      <!-- Settlement Register: search, table (name, population, county, subcounty, ward), map with gradual load -->
-      <SettlementRegister />
+      <!-- Settlement Register: loaded when scrolled into view (avoids Mapbox + register APIs on initial paint) -->
+      <div ref="registerSectionRef" class="register-lazy-anchor">
+        <SettlementRegister v-if="registerSectionVisible" />
+      </div>
 
       <!-- How It Works Section -->
       <section id="how-it-works" ref="howItWorksSection" class="how-it-works-section">
@@ -563,7 +565,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
@@ -577,10 +579,11 @@ import {
   ElDrawer,
 } from 'element-plus';
 import BaseLayout from './BaseLayout.vue';
-import SettlementRegister from './SettlementRegister.vue';
+const SettlementRegister = defineAsyncComponent(() => import('./SettlementRegister.vue'));
 import { Lock, Monitor } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary';
+import { getPublicLandingStats } from '@/api/register-public';
+import { finishLoginNavigation } from '@/utils/bootstrapNavigation';
 import { useHead } from '@unhead/vue'
 
 useHead({
@@ -603,6 +606,10 @@ const featuresSection = ref<HTMLElement | null>(null);
 const whySection = ref<HTMLElement | null>(null);
 const howItWorksSection = ref<HTMLElement | null>(null);
 const ctaSection = ref<HTMLElement | null>(null);
+const registerSectionRef = ref<HTMLElement | null>(null);
+const registerSectionVisible = ref(false);
+
+let registerSectionObserver: IntersectionObserver | null = null;
 
 // Format numbers with K, M notation
 const formatNumber = (num: number): string => {
@@ -619,6 +626,7 @@ const navigateTo = (page: string) => {
   switch (page) {
     case 'get-started':
       if (isLoggedIn.value) {
+        if (finishLoginNavigation('/dashboard/national')) break
         router.push('/dashboard/national');
       } else {
         router.push('/login');
@@ -657,7 +665,55 @@ const navigateTo = (page: string) => {
 const NumSettlements = ref('0');
 const Population = ref('0');
 const TotalProjs = ref('0');
-const avgHHSize = ref('0');
+
+const loadLandingStats = async () => {
+  try {
+    const response = await getPublicLandingStats()
+    const data = response?.data
+    if (!data) return
+    NumSettlements.value = formatNumber(data.settlements)
+    Population.value = formatNumber(data.population)
+    TotalProjs.value = formatNumber(data.projects)
+  } catch (error) {
+    console.error('Error fetching landing stats:', error)
+  }
+};
+
+onMounted(() => {
+  loadLandingStats();
+
+  if (typeof window === 'undefined') {
+    registerSectionVisible.value = true;
+    return;
+  }
+
+  if (typeof IntersectionObserver === 'undefined') {
+    registerSectionVisible.value = true;
+    return;
+  }
+
+  registerSectionObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        registerSectionVisible.value = true;
+        registerSectionObserver?.disconnect();
+        registerSectionObserver = null;
+      }
+    },
+    { rootMargin: '240px 0px' },
+  );
+
+  if (registerSectionRef.value) {
+    registerSectionObserver.observe(registerSectionRef.value);
+  } else {
+    registerSectionVisible.value = true;
+  }
+});
+
+onUnmounted(() => {
+  registerSectionObserver?.disconnect();
+  registerSectionObserver = null;
+});
 
 const features = [
   {
@@ -726,89 +782,6 @@ const steps = [
     description: 'Generate reports, view dashboards, and analyze data for project monitoring and evaluation purposes.'
   }
 ];
-
-
-// Fetch data
-const getNumberOFSettlements = async () => {
-  const formData = {
-    model: 'settlement',
-    summaryField: 'id',
-    summaryFunction: 'count',
-    groupFields: [],
-    filters: [],
-    filterValues: [],
-    associated_multiple_models: [],
-  };
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const summary = response.Total;
-    NumSettlements.value = formatNumber(summary[0].count);
-  } catch (error) {
-    console.error('Error fetching settlement count:', error);
-  }
-};
-
-const PopulationSettlements = async () => {
-  const formData = {
-    model: 'settlement',
-    summaryField: 'population',
-    summaryFunction: 'SUM',
-    groupFields: [],
-    filters: [],
-    filterValues: [],
-    associated_multiple_models: [],
-  };
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const summary = response.Total;
-    Population.value = formatNumber(summary[0].SUM);
-  } catch (error) {
-    console.error('Error fetching population:', error);
-  }
-};
-
-const NumOfProjects = async () => {
-  const formData = {
-    model: 'project',
-    summaryField: 'id',
-    summaryFunction: 'count',
-    groupFields: [],
-    filters: [],
-    filterValues: [],
-    associated_multiple_models: [],
-  };
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const summary = response.Total;
-    TotalProjs.value = formatNumber(summary[0].count);
-  } catch (error) {
-    console.error('Error fetching project count:', error);
-  }
-};
-
-const AvgHHSize = async () => {
-  const formData = {
-    model: 'households',
-    summaryField: 'hh_size',
-    summaryFunction: 'AVG',
-    groupFields: [],
-    filters: [],
-    filterValues: [],
-    associated_multiple_models: [],
-  };
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const summary = response.Total;
-    avgHHSize.value = parseFloat(summary[0].AVG).toFixed(1);
-  } catch (error) {
-    console.error('Error fetching average household size:', error);
-  }
-};
-
-getNumberOFSettlements();
-PopulationSettlements();
-NumOfProjects();
-AvgHHSize();
 </script>
 
 <style scoped>

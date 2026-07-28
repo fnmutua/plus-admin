@@ -14,6 +14,7 @@ import { useValidator } from '@/hooks/web/useValidator'
 import { getUserPermissions, resetUserPassword } from '@/api/users'
 import { validateKenyanPhone } from '@/utils/phoneValidation'
 import BaseLayout from './../BaseLayout.vue'
+import { finishLoginNavigation } from '@/utils/bootstrapNavigation'
 
 const { required } = useValidator()
 const appStore = useAppStore()
@@ -133,6 +134,8 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
     wsCache.set(appStore.getUserInfo, updatedUserInfo)
   }
 
+  if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
+
   const roleHierarchy = {
     'super_admin': 1,
     'admin': 2,
@@ -233,6 +236,7 @@ const signIn = async () => {
           if (appStore.getDynamicRouter) {
             getRole(userDeatilsAfterLogin, formData)
           } else {
+            if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
             await permissionStore.generateRoutes('none', 'settlement').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
               addRoute(route as RouteRecordRaw)

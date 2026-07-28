@@ -15313,6 +15313,37 @@ const PUBLIC_SETTLEMENT_WHERE = {
   is_qualified: true
 };
 
+let landingStatsCache = { data: null, expiresAt: 0 };
+const LANDING_STATS_TTL_MS = 5 * 60 * 1000;
+
+/** GET /api/public/landing/stats – cached hero stats for landing page (no auth) */
+exports.getPublicLandingStats = async (_req, res) => {
+  try {
+    const now = Date.now();
+    if (landingStatsCache.data && landingStatsCache.expiresAt > now) {
+      return res.status(200).json({ code: '0000', data: landingStatsCache.data, cached: true });
+    }
+
+    const [settlements, population, projects] = await Promise.all([
+      db.models.settlement.count({ where: PUBLIC_SETTLEMENT_WHERE }),
+      db.models.settlement.sum('population', { where: PUBLIC_SETTLEMENT_WHERE }),
+      db.models.project.count(),
+    ]);
+
+    const data = {
+      settlements: Number(settlements) || 0,
+      population: Number(population) || 0,
+      projects: Number(projects) || 0,
+    };
+
+    landingStatsCache = { data, expiresAt: now + LANDING_STATS_TTL_MS };
+    return res.status(200).json({ code: '0000', data, cached: false });
+  } catch (error) {
+    console.error('getPublicLandingStats:', error);
+    return res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
 /** POST /api/public/track-visit – record page visit (no auth) */
 exports.trackPageVisit = async (req, res) => {
   try {

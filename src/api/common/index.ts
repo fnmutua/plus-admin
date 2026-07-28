@@ -1,13 +1,16 @@
-import request from '@/config/axios'
+import { DEFAULT_DICT, DEFAULT_DICT_ONE } from '@/constants/defaultDict'
 
-// 获取所有字典
+/** Dictionaries are bundled client-side — there is no production `/dict/*` API. */
 export const getDictApi = (): Promise<IResponse> => {
-  return request.get({ url: '/dict/list' })
+  return Promise.resolve({
+    code: '0000',
+    data: DEFAULT_DICT
+  } as IResponse)
 }
 
-// 模拟获取某个字典
-export const getDictOneApi = async (): Promise<IResponse> => {
-  return request.get({ url: '/dict/one' })
+export const getDictOneApi = (): Promise<IResponse> => {
+  return Promise.resolve({
+    code: '0000',
+    data: DEFAULT_DICT_ONE
+  } as IResponse)
 }
-
-

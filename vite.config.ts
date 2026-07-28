@@ -124,12 +124,24 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
             })
           ]),
       createHtmlPlugin({
-        inject: {
-          data: {
-            title: env.VITE_APP_TITLE,
-            injectScript: `<script src="./inject.js"></script>`,
-          }
-        }
+        pages: [
+          {
+            entry: '/src/main.ts',
+            filename: 'index.html',
+            template: 'index.html',
+            injectOptions: {
+              data: {
+                title: env.VITE_APP_TITLE,
+                injectScript: `<script src="./inject.js"></script>`,
+              },
+            },
+          },
+          {
+            entry: '/src/bootstrap-public.ts',
+            filename: 'landing.html',
+            template: 'landing.html',
+          },
+        ],
       })
     ]
 
@@ -161,6 +173,8 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       ]
     },
     build: {
+      // Avoid preloading admin-only chunks (echarts/turf) on public landing visits.
+      modulePreload: false,
       // esbuild uses far less RAM than terser on large apps (important for server builds)
       minify: 'esbuild',
       outDir: env.VITE_OUT_DIR || 'dist',
@@ -174,12 +188,12 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         maxParallelFileOps: 1,
         output: {
           manualChunks(id) {
+            if (id.includes('shared/publicPaths')) return 'public-paths'
             if (!id.includes('node_modules')) return
-            if (id.includes('element-plus')) return 'element-plus'
-            // vue-echarts depends on Vue — must not live in the echarts chunk (circular init with vue-vendor)
-            if (id.includes('node_modules/vue-echarts') || id.includes('node_modules/vue-demi')) {
-              return 'vue-vendor'
-            }
+            if (id.includes('node_modules/element-plus')) return 'element-plus'
+            // Keep vue-echarts with echarts so public landing never pulls chart code via vue-vendor.
+            if (id.includes('node_modules/vue-echarts')) return 'echarts'
+            if (id.includes('node_modules/vue-demi')) return 'vue-vendor'
             if (id.includes('node_modules/echarts')) return 'echarts'
             if (id.includes('mapbox') || id.includes('@mapbox')) return 'mapbox'
             if (id.includes('@turf')) return 'turf'

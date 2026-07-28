@@ -283,7 +283,106 @@
         </el-tab-pane>
         <el-tab-pane label="Map" name="map">
           <div class="register-map-section">
-            <div ref="mapContainerRef" class="register-map"></div>
+            <GoogleMap
+              v-if="mapInitialized"
+              ref="mapRef"
+              :api-key="GOOGLE_MAPS_API_KEY"
+              class="register-map"
+              :center="mapCenter"
+              :zoom="mapZoom"
+              :map-type-id="googleMapTypeId"
+              :street-view-control="false"
+              :fullscreen-control="true"
+              :map-type-control="false"
+              @click="closePopup"
+            >
+              <MarkerCluster v-if="settlementMarkers.length">
+                <Marker
+                  v-for="marker in settlementMarkers"
+                  :key="marker.id"
+                  :options="{ position: marker.position }"
+                  @click.stop="onSettlementMarkerClick(marker)"
+                />
+              </MarkerCluster>
+              <Polygon
+                v-for="polygon in boundaryPolygons"
+                :key="'boundary-' + polygon.id"
+                :options="polygon.options"
+                @click.stop="onBoundaryPolygonClick(polygon.id, $event)"
+              />
+              <template v-for="overlay in singleSettlementOverlays" :key="overlay.key">
+                <Marker
+                  v-if="overlay.type === 'marker'"
+                  :options="{ position: overlay.position, icon: singleSettlementMarkerIcon }"
+                  @click.stop="onSingleSettlementClick(overlay.settlementId, overlay.position)"
+                />
+                <Polygon
+                  v-else
+                  :options="overlay.options"
+                  @click.stop="onSingleSettlementClick(overlay.settlementId, overlay.position)"
+                />
+              </template>
+              <InfoWindow
+                v-if="popupPosition && (popupSettlement || popupLoading)"
+                :options="{ position: popupPosition, pixelOffset: popupPixelOffset }"
+                @closeclick="closePopup"
+              >
+                <div
+                  class="register-map-popup"
+                  :class="{ 'register-map-popup--mobile': isMobileViewport }"
+                >
+                  <div v-if="popupLoading" class="register-popup register-popup--loading">Loading…</div>
+                  <div v-else-if="popupSettlement" class="register-popup">
+                    <header class="register-popup-header">
+                      <h3 class="register-popup-title">{{ popupSettlement.name || 'Settlement' }}</h3>
+                      <button type="button" class="register-popup-close" aria-label="Close" @click="closePopup">&times;</button>
+                    </header>
+                    <div class="register-popup-body">
+                      <div class="register-popup-row">
+                        <span class="register-popup-label">Type</span>
+                        <span class="register-popup-value">{{ popupSettlement.settlement_type || '–' }}</span>
+                      </div>
+                      <div class="register-popup-row">
+                        <span class="register-popup-label">Vulnerability</span>
+                        <span class="register-popup-value">{{ popupVulnerabilityDisplay }}</span>
+                      </div>
+                      <div class="register-popup-row">
+                        <span class="register-popup-label">Est. Population</span>
+                        <span class="register-popup-value">{{ popupPopulationDisplay }}</span>
+                      </div>
+                      <div class="register-popup-row">
+                        <span class="register-popup-label">County</span>
+                        <span class="register-popup-value">{{ popupSettlement.county?.name || '–' }}</span>
+                      </div>
+                      <div class="register-popup-row">
+                        <span class="register-popup-label">Subcounty</span>
+                        <span class="register-popup-value">{{ popupSettlement.subcounty?.name || '–' }}</span>
+                      </div>
+                      <div class="register-popup-row">
+                        <span class="register-popup-label">Ward</span>
+                        <span class="register-popup-value">{{ popupSettlement.ward?.name || '–' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </InfoWindow>
+            </GoogleMap>
+            <button
+              v-if="mapInitialized"
+              type="button"
+              class="register-style-switcher"
+              :title="mapStyle === 'satellite' ? 'Map view' : 'Satellite view'"
+              :aria-label="mapStyle === 'satellite' ? 'Switch to map view' : 'Switch to satellite view'"
+              @click="toggleMapStyle"
+            >
+              <img
+                class="register-style-switcher-icon"
+                :src="mapStyle === 'satellite' ? STYLE_SWITCHER_ICONS.streets : STYLE_SWITCHER_ICONS.satellite"
+                alt=""
+                width="20"
+                height="20"
+              />
+            </button>
             <div v-if="showMapOverlay" class="map-overlay">
               <div class="map-overlay-card">{{ mapOverlayText }}</div>
             </div>
@@ -316,8 +415,9 @@ import {
   ElPopover
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import { GoogleMap, Marker, MarkerCluster, Polygon, InfoWindow } from 'vue3-google-map'
+import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import {
   getPublicRegisterSettlements,
   getPublicRegisterSettlementsMap,
@@ -328,30 +428,147 @@ import {
   getPublicRegisterWards
 } from '@/api/register-public'
 
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || ''
-
 const toolAUrl = (import.meta.env.VITE_APP_HOST || '') + '/api/public/tool-a'
 
-const mapContainerRef = ref<HTMLElement | null>(null)
+const mapRef = ref<{ map?: google.maps.Map } | null>(null)
 const activeRegisterTab = ref<'table' | 'map'>('table')
+const mapInitialized = ref(false)
 const router = useRouter()
 const appStore = useAppStoreWithOut()
 const isDark = computed(() => appStore.getIsDark)
+const isMobileViewport = computed(() => typeof window !== 'undefined' && window.innerWidth < 768)
 
 const mapStyle = ref<'streets' | 'satellite'>('streets')
 const currentSingleSettlementFeature = ref<any>(null)
-let map: mapboxgl.Map | null = null
-let currentPopup: mapboxgl.Popup | null = null
+const popupSettlement = ref<any>(null)
+const popupPosition = ref<{ lat: number; lng: number } | null>(null)
+const popupLoading = ref(false)
 let popupRequestId = 0
 
-const MAP_STYLE_STREETS_LIGHT = 'mapbox://styles/mapbox/light-v11'
-const MAP_STYLE_STREETS_DARK = 'mapbox://styles/mapbox/dark-v11'
-const MAP_STYLE_SATELLITE = 'mapbox://styles/mapbox/satellite-streets-v12'
+const MAP_INITIAL_CENTER = { lat: 0.1765, lng: 37.913 }
+const MAP_INITIAL_ZOOM = 5
+const mapCenter = ref({ ...MAP_INITIAL_CENTER })
+const mapZoom = ref(MAP_INITIAL_ZOOM)
 
-function getMapStyleUrl(): string {
-  if (mapStyle.value === 'satellite') return MAP_STYLE_SATELLITE
-  return isDark.value ? MAP_STYLE_STREETS_DARK : MAP_STYLE_STREETS_LIGHT
+const googleMapTypeId = computed(() => (mapStyle.value === 'satellite' ? 'hybrid' : 'roadmap'))
+
+const STYLE_SWITCHER_ICONS = {
+  streets: 'https://api.iconify.design/mdi/satellite-variant.svg',
+  satellite: 'https://api.iconify.design/mdi/map.svg'
+} as const
+
+const singleSettlementMarkerIcon = computed(() => {
+  if (!window.google?.maps?.SymbolPath) return undefined
+  return {
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 10,
+    fillColor: '#E6A23C',
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWeight: 2
+  }
+})
+
+const popupPixelOffset = computed(() => {
+  if (!window.google?.maps) return undefined
+  return isMobileViewport.value
+    ? new google.maps.Size(8, 0)
+    : new google.maps.Size(12, 0)
+})
+
+const popupPopulationDisplay = computed(() =>
+  popupSettlement.value?.population != null
+    ? Number(popupSettlement.value.population).toLocaleString()
+    : '–'
+)
+
+const popupVulnerabilityDisplay = computed(() => {
+  const rating = popupSettlement.value?.vulnerability_rating
+  const score = popupSettlement.value?.vulnerability_total_score
+  if (!rating) return '–'
+  return score != null ? `${rating} (${score})` : rating
+})
+
+function ringToLatLng(ring: number[][]): google.maps.LatLngLiteral[] {
+  return ring.map((c) => ({ lat: c[1], lng: c[0] }))
 }
+
+function geoFeatureToPaths(geometry: any): google.maps.LatLngLiteral[][] {
+  if (!geometry) return []
+  if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates?.[0])) {
+    return [ringToLatLng(geometry.coordinates[0])]
+  }
+  if (geometry.type === 'MultiPolygon' && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates
+      .map((poly: number[][][]) => (Array.isArray(poly?.[0]) ? ringToLatLng(poly[0]) : []))
+      .filter((path: google.maps.LatLngLiteral[]) => path.length > 0)
+  }
+  return []
+}
+
+const settlementMarkers = computed(() => {
+  const features = geojson.value?.features ?? []
+  return features
+    .filter((f: any) => f?.geometry?.type === 'Point' && Array.isArray(f.geometry.coordinates))
+    .map((f: any) => ({
+      id: Number(f.properties?.id),
+      position: { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] } as google.maps.LatLngLiteral
+    }))
+    .filter((m) => Number.isFinite(m.id))
+})
+
+const boundaryPolygons = computed(() => {
+  const features = boundariesGeoJson.value?.features ?? []
+  return features.flatMap((f: any) => {
+    const id = f?.properties?.id
+    if (id == null) return []
+    const paths = geoFeatureToPaths(f.geometry)
+    if (!paths.length) return []
+    return [{
+      id: Number(id),
+      options: {
+        paths,
+        fillColor: '#00DC82',
+        fillOpacity: 0.12,
+        strokeColor: '#00a366',
+        strokeOpacity: 0.7,
+        strokeWeight: 1.2,
+        clickable: true
+      }
+    }]
+  })
+})
+
+const singleSettlementOverlays = computed(() => {
+  const feature = currentSingleSettlementFeature.value
+  if (!feature?.geometry) return []
+  const settlementId = Number(feature.properties?.id)
+  const geom = feature.geometry
+  if (geom.type === 'Point' && Array.isArray(geom.coordinates)) {
+    return [{
+      type: 'marker' as const,
+      key: `single-point-${settlementId}`,
+      settlementId,
+      position: { lat: geom.coordinates[1], lng: geom.coordinates[0] } as google.maps.LatLngLiteral
+    }]
+  }
+  const paths = geoFeatureToPaths(geom)
+  return paths.map((path, index) => ({
+    type: 'polygon' as const,
+    key: `single-polygon-${settlementId}-${index}`,
+    settlementId,
+    position: path[0],
+    options: {
+      paths: path,
+      fillColor: '#E6A23C',
+      fillOpacity: 0.25,
+      strokeColor: '#c45a00',
+      strokeWeight: 2.5,
+      clickable: true,
+      zIndex: 2
+    }
+  }))
+})
 
 const searchKeyword = ref('')
 const selectedCounty = ref<number | null>(null)
@@ -454,16 +671,11 @@ async function loadList() {
 }
 
 async function loadMapData() {
-  if (!map) return
   const searchTerm = searchKeyword.value?.trim() || ''
   const hasFilter = selectedCounty.value != null || searchTerm.length > 0
   if (!hasFilter) {
     geojson.value = { type: 'FeatureCollection', features: [] }
     boundariesGeoJson.value = { type: 'FeatureCollection', features: [] }
-    if (map.getSource('settlements')) {
-      (map.getSource('settlements') as mapboxgl.GeoJSONSource).setData(geojson.value)
-    }
-    removeBoundariesLayer()
     mapLoadingText.value = 'Select a county or search by name to load settlements on map'
     return
   }
@@ -490,116 +702,73 @@ async function loadMapData() {
     boundariesGeoJson.value = polygonsFc?.type === 'FeatureCollection' && Array.isArray(polygonsFc.features) && polygonsFc.features.length > 0
       ? polygonsFc
       : { type: 'FeatureCollection', features: [] }
-    if (map.getSource('settlements')) {
-      (map.getSource('settlements') as mapboxgl.GeoJSONSource).setData(geojson.value)
-    }
-    updateBoundariesLayer()
     mapLoadingText.value = `${geojson.value.features?.length || 0} settlements on map`
     nextTick(() => fitMapToTableSettlements())
   } catch (e) {
     console.error('Load map settlements:', e)
     geojson.value = { type: 'FeatureCollection', features: [] }
     boundariesGeoJson.value = { type: 'FeatureCollection', features: [] }
-    if (map.getSource('settlements')) {
-      (map.getSource('settlements') as mapboxgl.GeoJSONSource).setData(geojson.value)
-    }
-    removeBoundariesLayer()
     mapLoadingText.value = 'Failed to load map data'
   } finally {
     mapLoading.value = false
   }
 }
 
-function updateBoundariesLayer() {
-  if (!map) return
-  const fc = boundariesGeoJson.value
-  if (!fc?.features?.length) {
-    removeBoundariesLayer()
-    return
-  }
-  if (!map.getSource('settlements-boundaries')) {
-    map.addSource('settlements-boundaries', {
-      type: 'geojson',
-      data: fc
-    })
-    // Insert boundaries BELOW clusters so clusters remain visible and don't clash
-    const beforeId = map.getLayer('clusters') ? 'clusters' : undefined
-    map.addLayer({
-      id: 'settlements-fill',
-      type: 'fill',
-      source: 'settlements-boundaries',
-      paint: {
-        'fill-color': '#00DC82',
-        'fill-opacity': 0.12
-      }
-    }, beforeId)
-    map.addLayer({
-      id: 'settlements-line',
-      type: 'line',
-      source: 'settlements-boundaries',
-      paint: {
-        'line-color': '#00a366',
-        'line-width': 1.2,
-        'line-opacity': 0.7
-      }
-    }, beforeId)
-    map.on('click', 'settlements-fill', (e: any) => onBoundaryClick(e))
-    map.on('click', 'settlements-line', (e: any) => onBoundaryClick(e))
-    map.on('mouseenter', 'settlements-fill', () => { map.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'settlements-fill', () => { map.getCanvas().style.cursor = '' })
-    map.on('mouseenter', 'settlements-line', () => { map.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'settlements-line', () => { map.getCanvas().style.cursor = '' })
-  } else {
-    (map.getSource('settlements-boundaries') as mapboxgl.GeoJSONSource).setData(fc)
+function getGoogleMap(): google.maps.Map | null {
+  return mapRef.value?.map ?? null
+}
+
+function triggerMapResize() {
+  const map = getGoogleMap()
+  if (map && window.google?.maps) {
+    google.maps.event.trigger(map, 'resize')
   }
 }
 
-function removeBoundariesLayer() {
-  if (!map) return
-  try {
-    if (map.getLayer('settlements-fill')) map.removeLayer('settlements-fill')
-    if (map.getLayer('settlements-line')) map.removeLayer('settlements-line')
-    if (map.getSource('settlements-boundaries')) map.removeSource('settlements-boundaries')
-  } catch (_) {}
+function applyMapColorScheme() {
+  const map = getGoogleMap()
+  if (!map || !window.google?.maps?.ColorScheme || mapStyle.value !== 'streets') return
+  map.setOptions({
+    colorScheme: isDark.value ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT
+  })
+}
+
+function fitBoundsToCoords(coords: Array<{ lat: number; lng: number }>, maxZoom = 14) {
+  const map = getGoogleMap()
+  if (!map || !window.google?.maps || coords.length === 0) return
+  if (coords.length === 1) {
+    map.panTo(coords[0])
+    map.setZoom(12)
+    return
+  }
+  const bounds = new google.maps.LatLngBounds()
+  coords.forEach((coord) => bounds.extend(coord))
+  map.fitBounds(bounds, 48)
+  const listener = google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+    if ((map.getZoom() ?? 0) > maxZoom) map.setZoom(maxZoom)
+  })
+  return listener
 }
 
 /** Fit map zoom/bounds to show settlements currently in the table. */
 function fitMapToTableSettlements() {
-  if (!map || !geojson.value?.features?.length) return
+  if (!getGoogleMap() || !geojson.value?.features?.length) return
   const ids = new Set((settlementList.value || []).map((s: any) => s?.id).filter((id: any) => id != null))
   if (ids.size === 0) return
-  const coords: [number, number][] = []
+  const coords: Array<{ lat: number; lng: number }> = []
   for (const f of geojson.value.features) {
     const id = f?.properties?.id
     if (id == null || !ids.has(id)) continue
     const geom = f?.geometry
     if (!geom) continue
     if (geom.type === 'Point' && Array.isArray(geom.coordinates) && geom.coordinates.length >= 2) {
-      coords.push([geom.coordinates[0], geom.coordinates[1]])
+      coords.push({ lat: geom.coordinates[1], lng: geom.coordinates[0] })
     } else if (geom.type === 'Polygon' && Array.isArray(geom.coordinates?.[0])) {
       const ring = geom.coordinates[0]
-      if (ring?.length) coords.push([ring[0][0], ring[0][1]])
+      if (ring?.length) coords.push({ lat: ring[0][1], lng: ring[0][0] })
     }
   }
-  if (coords.length === 0) return
-  if (coords.length === 1) {
-    map.flyTo({ center: coords[0], zoom: 12, duration: 600 })
-    return
-  }
-  const bounds = coords.reduce(
-    (acc, [lng, lat]) => acc.extend([lng, lat]),
-    new mapboxgl.LngLatBounds(coords[0], coords[0])
-  )
-  map.fitBounds(bounds, { padding: 48, maxZoom: 14, duration: 600 })
-}
-
-async function onBoundaryClick(e: any) {
-  e.originalEvent?.stopPropagation()
-  e.originalEvent?.stopImmediatePropagation()
-  const f = e.features?.[0]
-  const id = f?.properties?.id
-  if (!id) return
-  await showPopupForSettlement(Number(id), e.lngLat)
+  fitBoundsToCoords(coords)
 }
 
 /** Get [lng, lat] from a GeoJSON feature (Point or Polygon). */
@@ -624,19 +793,62 @@ function getCoordsFromFeature(f: any): [number, number] | null {
   return null
 }
 
+function closePopup() {
+  popupSettlement.value = null
+  popupPosition.value = null
+  popupLoading.value = false
+}
+
+async function showPopupForSettlement(id: number, position: { lat: number; lng: number }) {
+  const myRequestId = ++popupRequestId
+  popupLoading.value = true
+  popupSettlement.value = null
+  popupPosition.value = position
+  try {
+    const res = await getPublicRegisterSettlement(id)
+    if (myRequestId !== popupRequestId) return
+    popupSettlement.value = res?.data ?? res?.results ?? null
+  } catch (err) {
+    console.error('Popup error:', err)
+    if (myRequestId === popupRequestId) closePopup()
+  } finally {
+    if (myRequestId === popupRequestId) popupLoading.value = false
+  }
+}
+
+function onSettlementMarkerClick(marker: { id: number; position: google.maps.LatLngLiteral }) {
+  showPopupForSettlement(marker.id, marker.position)
+}
+
+function onBoundaryPolygonClick(id: number, event: google.maps.MapMouseEvent) {
+  const latLng = event.latLng?.toJSON()
+  if (!latLng) return
+  showPopupForSettlement(id, latLng)
+}
+
+function onSingleSettlementClick(settlementId: number, position: google.maps.LatLngLiteral) {
+  showPopupForSettlement(settlementId, position)
+}
+
 /** Switch to Map tab and load this settlement (no page scroll). */
 function goToMapWithSettlement(row: any) {
-  if (row?.id == null || !map) return
+  if (row?.id == null) return
   activeRegisterTab.value = 'map'
-  nextTick(() => {
-    map?.resize()
+  nextTick(async () => {
+    await ensureMapInitialized()
+    await nextTick()
+    triggerMapResize()
     viewSettlementOnMap(row)
   })
 }
 
 async function viewSettlementOnMap(row: any) {
   const id = row?.id
-  if (id == null || !map) return
+  if (id == null) return
+  if (!getGoogleMap()) {
+    await nextTick()
+  }
+  if (!getGoogleMap()) return
   const idNum = Number(id)
   try {
     const feature = await getPublicRegisterSettlementMap(idNum)
@@ -645,25 +857,18 @@ async function viewSettlementOnMap(row: any) {
       ElMessage.warning('This settlement has no location data.')
       return
     }
-    ensureSingleSettlementLayer()
     currentSingleSettlementFeature.value = feature
-    const source = map.getSource('single-settlement') as mapboxgl.GeoJSONSource
-    if (source) {
-      source.setData({ type: 'FeatureCollection', features: [feature] })
-    }
     const geom = feature?.geometry
     if (geom?.type === 'Polygon' && geom?.coordinates?.[0]?.length) {
       const ring = geom.coordinates[0] as [number, number][]
-      const bounds = new mapboxgl.LngLatBounds(ring[0], ring[0])
-      ring.forEach((c) => bounds.extend(c))
-      map.fitBounds(bounds, { padding: 48, maxZoom: 15, duration: 700 })
+      fitBoundsToCoords(ring.map((c) => ({ lat: c[1], lng: c[0] })), 15)
     } else if (geom?.type === 'MultiPolygon' && geom?.coordinates?.[0]?.[0]?.length) {
       const ring = geom.coordinates[0][0] as [number, number][]
-      const bounds = new mapboxgl.LngLatBounds(ring[0], ring[0])
-      ring.forEach((c) => bounds.extend(c))
-      map.fitBounds(bounds, { padding: 48, maxZoom: 15, duration: 700 })
+      fitBoundsToCoords(ring.map((c) => ({ lat: c[1], lng: c[0] })), 15)
     } else {
-      map.flyTo({ center: coords, zoom: 13, duration: 700 })
+      const map = getGoogleMap()
+      map?.panTo({ lat: coords[1], lng: coords[0] })
+      map?.setZoom(13)
     }
   } catch (e: any) {
     if (e?.response?.status === 404 || e?.message === 'Not found') {
@@ -674,149 +879,12 @@ async function viewSettlementOnMap(row: any) {
   }
 }
 
-function ensureSingleSettlementLayer() {
-  if (!map) return
-  if (!map.getSource('single-settlement')) {
-    map.addSource('single-settlement', {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: [] }
-    })
-    map.addLayer({
-      id: 'single-settlement-fill',
-      type: 'fill',
-      source: 'single-settlement',
-      paint: {
-        'fill-color': '#E6A23C',
-        'fill-opacity': 0.25
-      }
-    })
-    map.addLayer({
-      id: 'single-settlement-line-outline',
-      type: 'line',
-      source: 'single-settlement',
-      paint: {
-        'line-color': '#fff',
-        'line-width': 4
-      }
-    })
-    map.addLayer({
-      id: 'single-settlement-line',
-      type: 'line',
-      source: 'single-settlement',
-      paint: {
-        'line-color': '#c45a00',
-        'line-width': 2.5
-      }
-    })
-    map.addLayer({
-      id: 'single-settlement-point',
-      type: 'circle',
-      source: 'single-settlement',
-      filter: ['==', ['geometry-type'], 'Point'],
-      paint: {
-        'circle-color': '#E6A23C',
-        'circle-radius': 10,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#fff'
-      }
-    })
-    map.on('click', 'single-settlement-fill', (e: any) => onSingleSettlementClick(e))
-    map.on('click', 'single-settlement-line', (e: any) => onSingleSettlementClick(e))
-    map.on('click', 'single-settlement-line-outline', (e: any) => onSingleSettlementClick(e))
-    map.on('click', 'single-settlement-point', (e: any) => onSingleSettlementClick(e))
-    map.on('mouseenter', 'single-settlement-fill', () => { map!.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'single-settlement-fill', () => { map!.getCanvas().style.cursor = '' })
-    map.on('mouseenter', 'single-settlement-line', () => { map!.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'single-settlement-line', () => { map!.getCanvas().style.cursor = '' })
-    map.on('mouseenter', 'single-settlement-point', () => { map!.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'single-settlement-point', () => { map!.getCanvas().style.cursor = '' })
-  }
-}
-
-async function onSingleSettlementClick(e: any) {
-  e.originalEvent?.stopPropagation()
-  e.originalEvent?.stopImmediatePropagation()
-  const f = e.features?.[0]
-  const id = f?.properties?.id
-  if (!id) return
-  const lngLat = e.lngLat
-  await showPopupForSettlement(Number(id), { lng: lngLat.lng, lat: lngLat.lat })
-}
-
-async function showPopupForSettlement(id: number, lngLat: { lng: number; lat: number }) {
-  const myRequestId = ++popupRequestId
-  if (currentPopup) {
-    currentPopup.remove()
-    currentPopup = null
-  }
-  try {
-    const res = await getPublicRegisterSettlement(id)
-    if (myRequestId !== popupRequestId) return
-    const s = res?.data ?? res?.results
-    if (!s) return
-    const name = s.name || 'Settlement'
-    const pop = s.population != null ? Number(s.population).toLocaleString() : '–'
-    const countyName = s.county?.name || '–'
-    const subName = s.subcounty?.name || '–'
-    const wardName = s.ward?.name || '–'
-    const settlementType = s.settlement_type || '–'
-    const vulnRating = s.vulnerability_rating || ''
-    const vulnScore = s.vulnerability_total_score != null ? String(s.vulnerability_total_score) : null
-    const vulnDisplay = vulnRating ? (vulnScore != null ? `${vulnRating} (${vulnScore})` : vulnRating) : '–'
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-    const popup = new mapboxgl.Popup({
-      closeButton: false,
-      closeOnClick: false,
-      className: isMobile ? 'register-map-popup register-map-popup--mobile' : 'register-map-popup',
-      maxWidth: isMobile ? '260px' : '320px',
-      anchor: isMobile ? 'right' : 'left',
-      offset: isMobile ? 8 : 12
-    })
-      .setLngLat(lngLat)
-      .setHTML(
-        `<div class="register-popup">
-          <header class="register-popup-header">
-            <h3 class="register-popup-title">${escapeHtml(name)}</h3>
-            <button type="button" class="register-popup-close" aria-label="Close">&times;</button>
-          </header>
-          <div class="register-popup-body">
-            <div class="register-popup-row"><span class="register-popup-label">Type</span><span class="register-popup-value">${escapeHtml(settlementType)}</span></div>
-            <div class="register-popup-row"><span class="register-popup-label">Vulnerability</span><span class="register-popup-value">${escapeHtml(vulnDisplay)}</span></div>
-            <div class="register-popup-row"><span class="register-popup-label">Est. Population</span><span class="register-popup-value">${pop}</span></div>
-            <div class="register-popup-row"><span class="register-popup-label">County</span><span class="register-popup-value">${escapeHtml(countyName)}</span></div>
-            <div class="register-popup-row"><span class="register-popup-label">Subcounty</span><span class="register-popup-value">${escapeHtml(subName)}</span></div>
-            <div class="register-popup-row"><span class="register-popup-label">Ward</span><span class="register-popup-value">${escapeHtml(wardName)}</span></div>
-          </div>
-        </div>`
-      )
-    popup.on('open', () => {
-      const el = popup.getElement()
-      const closeBtn = el?.querySelector('.register-popup-close')
-      if (closeBtn) {
-        closeBtn.addEventListener(
-          'click',
-          (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            popup.remove()
-            currentPopup = null
-          },
-          { capture: true }
-        )
-      }
-    })
-    popup.on('close', () => { currentPopup = null })
-    popup.addTo(map!)
-    currentPopup = popup
-  } catch (err) {
-    console.error('Popup error:', err)
-  }
-}
-
 function onRegisterTabChange(tabName: string) {
-  if (tabName === 'map' && map) {
-    nextTick(() => {
-      map?.resize()
+  if (tabName === 'map') {
+    nextTick(async () => {
+      await ensureMapInitialized()
+      triggerMapResize()
+      loadMapData()
     })
   }
 }
@@ -846,18 +914,14 @@ function onPageChange(p: number) {
   loadList()
 }
 
-const MAP_INITIAL_CENTER: [number, number] = [37.913, 0.1765]
-const MAP_INITIAL_ZOOM = 5
-
 function resetMapView() {
-  if (!map) return
-  if (currentPopup) {
-    currentPopup.remove()
-    currentPopup = null
-  }
-  const singleSrc = map.getSource('single-settlement') as mapboxgl.GeoJSONSource
-  if (singleSrc) singleSrc.setData({ type: 'FeatureCollection', features: [] })
-  map.flyTo({ center: MAP_INITIAL_CENTER, zoom: MAP_INITIAL_ZOOM, duration: 500 })
+  closePopup()
+  currentSingleSettlementFeature.value = null
+  mapCenter.value = { ...MAP_INITIAL_CENTER }
+  mapZoom.value = MAP_INITIAL_ZOOM
+  const map = getGoogleMap()
+  map?.panTo(MAP_INITIAL_CENTER)
+  map?.setZoom(MAP_INITIAL_ZOOM)
 }
 
 function resetFilters() {
@@ -874,6 +938,11 @@ function resetFilters() {
   nextTick(() => resetMapView())
 }
 
+function toggleMapStyle() {
+  mapStyle.value = mapStyle.value === 'satellite' ? 'streets' : 'satellite'
+  nextTick(() => applyMapColorScheme())
+}
+
 watch([selectedWard], () => {
   currentPage.value = 1
   loadList()
@@ -881,141 +950,23 @@ watch([selectedWard], () => {
 })
 
 watch(isDark, () => {
-  if (!map || mapStyle.value !== 'streets') return
-  map.setStyle(getMapStyleUrl())
-  map.once('style.load', () => {
-    addRegisterMapLayers()
-  })
+  applyMapColorScheme()
 })
 
-function addRegisterMapLayers() {
-  if (!map) return
-  if (!map.getSource('settlements')) {
-    map.addSource('settlements', {
-      type: 'geojson',
-      data: geojson.value,
-      cluster: true,
-      clusterMaxZoom: 12,
-      clusterRadius: 50
+watch(mapInitialized, (ready) => {
+  if (ready) {
+    nextTick(() => {
+      applyMapColorScheme()
+      triggerMapResize()
+      loadMapData()
     })
-    map.addLayer({
-      id: 'clusters',
-      type: 'circle',
-      source: 'settlements',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': ['step', ['get', 'point_count'], '#00DC82', 10, '#409EFF', 30, '#E6A23C'],
-        'circle-radius': ['step', ['get', 'point_count'], 18, 10, 22, 30, 26],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#fff'
-      }
-    })
-    map.addLayer({
-      id: 'cluster-count',
-      type: 'symbol',
-      source: 'settlements',
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': ['get', 'point_count_abbreviated'],
-        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-        'text-size': 12
-      },
-      paint: { 'text-color': '#fff' }
-    })
-    map.addLayer({
-      id: 'unclustered-point',
-      type: 'circle',
-      source: 'settlements',
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': '#00DC82',
-        'circle-radius': 8,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#fff'
-      }
-    })
-    map.on('click', 'unclustered-point', async (e: any) => {
-      e.originalEvent?.stopPropagation()
-      e.originalEvent?.stopImmediatePropagation()
-      const id = e.features[0]?.properties?.id
-      if (!id) return
-      const coords = e.features[0].geometry?.coordinates
-      await showPopupForSettlement(Number(id), { lng: coords[0], lat: coords[1] })
-    })
-    map.on('click', 'clusters', (e: any) => {
-      const features = map!.queryRenderedFeatures(e.point, { layers: ['clusters'] })
-      const clusterId = features[0]?.properties?.cluster_id
-      if (clusterId == null) return
-      const source = map!.getSource('settlements') as mapboxgl.GeoJSONSource
-      source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-        if (err) return
-        map!.easeTo({ center: (features[0].geometry as any).coordinates, zoom })
-      })
-    })
-  } else {
-    (map.getSource('settlements') as mapboxgl.GeoJSONSource).setData(geojson.value)
   }
-  updateBoundariesLayer()
-  ensureSingleSettlementLayer()
-  const src = map.getSource('single-settlement') as mapboxgl.GeoJSONSource
-  if (src) {
-    if (currentSingleSettlementFeature.value) {
-      src.setData({ type: 'FeatureCollection', features: [currentSingleSettlementFeature.value] })
-    } else {
-      src.setData({ type: 'FeatureCollection', features: [] })
-    }
-  }
-}
+})
 
-const STYLE_SWITCHER_ICONS = {
-  streets: 'https://api.iconify.design/mdi/satellite-variant.svg',
-  satellite: 'https://api.iconify.design/mdi/map.svg'
-} as const
-
-function createStyleSwitcherControl() {
-  const el = document.createElement('div')
-  el.className = 'mapboxgl-ctrl mapboxgl-ctrl-group register-style-switcher'
-  const btn = document.createElement('button')
-  btn.type = 'button'
-  btn.setAttribute('aria-label', 'Toggle satellite / map view')
-  const img = document.createElement('img')
-  img.alt = ''
-  img.width = 20
-  img.height = 20
-  img.src = STYLE_SWITCHER_ICONS[mapStyle.value]
-  img.className = 'register-style-switcher-icon'
-  btn.title = mapStyle.value === 'satellite' ? 'Map view' : 'Satellite view'
-  btn.appendChild(img)
-  function updateIcon() {
-    img.src = STYLE_SWITCHER_ICONS[mapStyle.value]
-    btn.title = mapStyle.value === 'satellite' ? 'Map view' : 'Satellite view'
-  }
-  btn.addEventListener('click', () => {
-    mapStyle.value = mapStyle.value === 'satellite' ? 'streets' : 'satellite'
-    updateIcon()
-    if (!map) return
-    map.setStyle(getMapStyleUrl())
-    map.once('style.load', () => {
-      addRegisterMapLayers()
-    })
-  })
-  el.appendChild(btn)
-  return { onAdd: () => el, onRemove: () => { el.parentNode?.removeChild(el) } }
-}
-
-function initMap() {
-  if (!mapContainerRef.value) return
-  map = new mapboxgl.Map({
-    container: mapContainerRef.value,
-    style: getMapStyleUrl(),
-    center: MAP_INITIAL_CENTER,
-    zoom: MAP_INITIAL_ZOOM
-  })
-  map.addControl(new mapboxgl.NavigationControl())
-  map.addControl(createStyleSwitcherControl() as any, 'top-right')
-  map.on('load', () => {
-    addRegisterMapLayers()
-  })
+async function ensureMapInitialized() {
+  if (mapInitialized.value) return
+  await loadGoogleMapsApi()
+  mapInitialized.value = true
 }
 
 function vulnerabilityRatingTagType(rating: string | null | undefined): 'success' | 'warning' | 'danger' | 'info' {
@@ -1026,23 +977,13 @@ function vulnerabilityRatingTagType(rating: string | null | undefined): 'success
   return 'info'
 }
 
-function escapeHtml(str: string) {
-  const div = document.createElement('div')
-  div.textContent = str
-  return div.innerHTML
-}
-
 onMounted(async () => {
   await loadCounties()
   loadList()
-  initMap()
 })
 
 onUnmounted(() => {
-  if (map) {
-    map.remove()
-    map = null
-  }
+  closePopup()
 })
 </script>
 
@@ -1115,45 +1056,17 @@ onUnmounted(() => {
   color: #00b368;
 }
 
-/* Map popup – card style and close button (Mapbox injects into map container) */
-:deep(.register-map-popup.mapboxgl-popup) {
-  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.15));
-  pointer-events: none;
-}
-:deep(.register-map-popup.mapboxgl-popup .mapboxgl-popup-tip) {
-  pointer-events: none;
-}
-:deep(.register-map-popup .mapboxgl-popup-content) {
-  padding: 0;
+/* Map popup card */
+.register-map-popup {
+  min-width: 240px;
+  max-width: 320px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter, #ebeef5);
   background: var(--el-bg-color, #fff);
-  min-width: 240px;
-  max-width: 320px;
-  position: relative;
-  z-index: 0;
-  pointer-events: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
-:deep(.register-map-popup .mapboxgl-popup-close-button) {
-  font-size: 26px;
-  font-weight: 700;
-  padding: 6px 12px;
-  color: #fff;
-  right: 4px;
-  top: 4px;
-  z-index: 10;
-  position: absolute;
-  pointer-events: auto;
-  transition: color 0.2s, background 0.2s;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-}
-:deep(.register-map-popup .mapboxgl-popup-close-button:hover) {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.35);
-}
-:deep(.register-popup) {
+.register-popup {
   font-size: 14px;
   color: var(--text-primary, #303133);
 }
@@ -1221,15 +1134,15 @@ onUnmounted(() => {
 }
 
 /* Compact popup on mobile */
-:deep(.register-map-popup--mobile .mapboxgl-popup-content) {
+.register-map-popup--mobile {
   min-width: 0;
   max-width: 260px;
   border-radius: 8px;
 }
-:deep(.register-map-popup--mobile .register-popup-header) {
+.register-map-popup--mobile .register-popup-header {
   padding: 8px 28px 8px 10px;
 }
-:deep(.register-map-popup--mobile .register-popup-close) {
+.register-map-popup--mobile .register-popup-close {
   top: 4px;
   right: 4px;
   width: 24px;
@@ -1250,17 +1163,8 @@ onUnmounted(() => {
   padding: 4px 0;
   gap: 8px;
 }
-:deep(.register-map-popup--mobile .register-popup-label) {
+.register-map-popup--mobile .register-popup-label {
   font-size: 11px;
-}
-:deep(.register-map-popup--mobile .mapboxgl-popup-close-button) {
-  font-size: 20px;
-  padding: 4px 8px;
-  right: 2px;
-  top: 2px;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
 }
 
 .register-tabs {
@@ -1510,19 +1414,28 @@ onUnmounted(() => {
   min-height: 400px;
 }
 
-.register-map-section :deep(.register-style-switcher button) {
+.register-map-section .register-style-switcher {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
   padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: rgba(0, 0, 0, 0.3) 0 1px 4px -1px;
+  cursor: pointer;
 }
-.register-map-section :deep(.register-style-switcher-icon) {
+.register-map-section .register-style-switcher-icon {
   display: block;
   width: 20px;
   height: 20px;
   object-fit: contain;
 }
-.register-map-section :deep(.register-style-switcher button:hover .register-style-switcher-icon) {
+.register-map-section .register-style-switcher:hover .register-style-switcher-icon {
   opacity: 0.9;
 }
 

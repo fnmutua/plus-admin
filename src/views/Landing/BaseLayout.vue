@@ -126,11 +126,8 @@ import { ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter, ElHeader } from 'ele
 import { Icon } from '@iconify/vue';
 import { useCache } from '@/hooks/web/useCache';
 import { useAppStoreWithOut } from '@/store/modules/app';
-import { usePermissionStoreWithOut } from '@/store/modules/permission';
 import { useDictStoreWithOut } from '@/store/modules/dict';
 import { useLocaleStoreWithOut } from '@/store/modules/locale';
-import { useTagsViewStore } from '@/store/modules/tagsView';
-import { resetRouter } from '@/router';
 import { loginOutApi } from '@/api/login';
 
 // Enable scrolling for landing page
@@ -155,10 +152,8 @@ onBeforeUnmount(() => {
 const router = useRouter();
 const { wsCache } = useCache();
 const appStore = useAppStoreWithOut();
-const permissionStore = usePermissionStoreWithOut();
 const dictStore = useDictStoreWithOut();
 const localeStore = useLocaleStoreWithOut();
-const tagsViewStore = useTagsViewStore();
 
 // Get current year for copyright
 const currentYear = new Date().getFullYear();
@@ -318,23 +313,13 @@ const handleLoginOrLogout = async () => {
       await Promise.all(cacheNames.map(name => caches.delete(name)));
     }
     
-    // Clear dynamic routes first (before resetting store)
-    permissionStore.clearDynamicRoutes();
-    
-    // Reset all Pinia stores to clear in-memory state
-    tagsViewStore.$reset();
+    // Clear dynamic admin routes on next full load (avoid importing admin router here).
     appStore.$reset();
-    permissionStore.$reset();
     dictStore.$reset();
     localeStore.$reset();
-    
-    // Clear tags view manually (in case $reset doesn't clear it properly)
-    tagsViewStore.delAllViews();
-    
-    // Reset router to clear dynamic routes
-    resetRouter();
-    
-    router.push('/login');
+
+    window.location.replace(`${window.location.pathname}${window.location.search}#/login`);
+    window.location.reload();
   } else {
     router.push('/login');
   }

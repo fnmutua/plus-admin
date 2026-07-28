@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KeSMIS</title>
+    <meta name="description" content="Kenya Slum Management Information System (KeSMIS) - National geodatabase for slums and informal settlements across Kenya." />
+    <meta name="theme-color" content="#684035" />
+  </head>
+  <body>
+    <div id="app">
+      <style>
+        .app-loading {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          min-height: 100vh;
+          justify-content: center;
+          align-items: center;
+          flex-direction: column;
+          background: #f0f2f5;
+        }
+        .app-loading-wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+        .app-loading-logo {
+          width: 100px;
+        }
+        .app-loading-title {
+          font-size: 20px;
+          font-weight: 700;
+          text-align: center;
+        }
+      </style>
+      <div class="app-loading">
+        <div class="app-loading-wrap">
+          <img src="/loader.svg" class="app-loading-logo" alt="Logo" />
+          <div class="app-loading-title">KeSMIS</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/bootstrap-public.ts"></script>
+  </body>
+</html>

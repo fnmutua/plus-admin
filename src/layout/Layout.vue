@@ -1,10 +1,11 @@
 <script lang="tsx">
-import { computed, defineComponent, unref } from 'vue'
+import { computed, defineComponent, onMounted, unref, getCurrentInstance } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import { Backtop } from '@/components/Backtop'
 import { Setting } from '@/components/Setting'
 import { useRenderLayout } from './components/useRenderLayout'
 import { useDesign } from '@/hooks/web/useDesign'
+import { setupCharts } from '@/plugins/setupCharts'
 
 const { getPrefixCls } = useDesign()
 
@@ -46,6 +47,11 @@ const renderLayout = () => {
 export default defineComponent({
   name: 'Layout',
   setup() {
+    onMounted(() => {
+      const app = getCurrentInstance()?.appContext.app
+      if (app) setupCharts(app)
+    })
+
     return () => (
       <section class={[prefixCls, `${prefixCls}__${layout.value}`, 'w-[100%] h-[100%] relative']}>
         {mobile.value && !collapse.value ? (

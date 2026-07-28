@@ -172,16 +172,7 @@ export const useAppStore = defineStore({
       this.title = title
     },
     setIsDark(isDark: boolean) {
-
- 
-      console.log("Setting Dark mode",isDark ) 
-
       this.isDark = isDark
-       
-
-
-      
-
   // Apply dark mode settings
   if (this.isDark) {
     document.documentElement.classList.add('dark');

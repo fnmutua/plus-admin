@@ -2597,6 +2597,7 @@ module.exports = function (app) {
   app.put('/api/v1/data-requests/:id/clarification-status', [authJwt.verifyToken], dataRequestController.updateClarificationStatus)
 
   // Public settlement register (no auth) – landing page
+  app.get('/api/public/landing/stats', controller.getPublicLandingStats)
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
   app.get('/api/public/register/subcounties', controller.getPublicRegisterSubcounties)
   app.get('/api/public/register/wards', controller.getPublicRegisterWards)

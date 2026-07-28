@@ -44,7 +44,6 @@ router.beforeEach(async (to, from, next) => {
   }
 
   const userInfo = wsCache.get(appStore.getUserInfo);
-  console.log(userInfo)
 
   if (userInfo) {
     if (to.path === '/login') {
@@ -56,11 +55,14 @@ router.beforeEach(async (to, from, next) => {
       }
 
       if (!dictStore.getIsSetDict) {
-        // Fetch all dictionaries
-        const res = await getDictApi();
-        if (res) {
-          dictStore.setDictObj(res.data);
-          dictStore.setIsSetDict(true);
+        try {
+          const res = await getDictApi()
+          if (res?.data) {
+            dictStore.setDictObj(res.data)
+            dictStore.setIsSetDict(true)
+          }
+        } catch {
+          dictStore.setIsSetDict(true)
         }
       }
 
@@ -78,8 +80,6 @@ router.beforeEach(async (to, from, next) => {
         let hasEditRole = false;
 
         for (const role of roles) {
-          console.log("getting user roles: ", role);
-
           await permissionStore.generateRoutes(role.name, role.user_roles.location_level, userPermissions);
 
           if (adminRoles.includes(role.name)) {
@@ -96,15 +96,11 @@ router.beforeEach(async (to, from, next) => {
           appStore.setEditButtons(true);  // Admins get both buttons
         } else if (hasEditRole) {
           appStore.setEditButtons(true);
-          appStore.setAdminButtons(false);  // Non-admins can have edit buttons only
+          appStore.setAdminButtons(false);  // Non-admins can have edit permissions but not admin
         } else {
           appStore.setAdminButtons(false);
           appStore.setEditButtons(false);  // No permissions, so no buttons
         }
-
-        console.log('appStore', appStore);
-
-    
 
       permissionStore.getAddRouters.forEach((route) => {
         router.addRoute(route as unknown as RouteRecordRaw); // Dynamically add accessible routes

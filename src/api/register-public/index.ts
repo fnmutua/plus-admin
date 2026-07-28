@@ -127,6 +127,16 @@ export function getPublicRegisterWards(subcountyId: number): Promise<{ data?: { 
 }
 
 /** Page visit tracking. No auth. Fire-and-forget. */
+export interface PublicLandingStats {
+  settlements: number
+  population: number
+  projects: number
+}
+
+export function getPublicLandingStats(): Promise<{ code: string; data: PublicLandingStats; cached?: boolean }> {
+  return publicGet('/api/public/landing/stats')
+}
+
 export function trackPageVisit(payload: {
   path: string
   page_name?: string

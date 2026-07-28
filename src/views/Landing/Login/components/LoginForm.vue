@@ -15,6 +15,7 @@ import { resetUserPassword, setUserFeedback, getUserPermissions } from '@/api/us
 import { validateKenyanPhone } from '@/utils/phoneValidation'
 import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
+import { finishLoginNavigation } from '@/utils/bootstrapNavigation'
 
 const { required } = useValidator()
  
@@ -140,6 +141,7 @@ const signIn = async () => {
           if (appStore.getDynamicRouter) {
             getRole(userDeatilsAfterLogin, formData)
           } else {
+            if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
             await permissionStore.generateRoutes('none').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
               addRoute(route as RouteRecordRaw)
@@ -187,6 +189,8 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
     wsCache.set(appStore.getUserInfo, updatedUserInfo);
     console.log('Using fallback permissions due to error');
   }
+
+  if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
 
   // Define the role hierarchy (lower index means higher priority)
   const roleHierarchy = {
