@@ -18,6 +18,8 @@ import {
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
+import { getNationalDashboardBundle } from '@/api/dashboard/bundle'
+import type { NationalDashboardBundle } from '@/api/dashboard/bundle'
 import { useI18n } from '@/hooks/web/useI18n'
 import {
   getSummarybyFieldFromMultipleIncludes,
@@ -58,6 +60,11 @@ const appStore = useAppStore()
 const { t } = useI18n()
 
 const dashboard_id = ref()
+const filterLevel = ref('national')
+const nationalBundleActive = ref(false)
+const nationalBundlePayload = ref<NationalDashboardBundle | null>(null)
+const nationalBundleRenderById = ref(new Map<string, { categories: any[]; series: any[] }>())
+const nationalBundleGroupById = ref(new Map<string, { Total: any }>())
 //////////
 const route = useRoute()
 
@@ -101,14 +108,101 @@ const getDynamicDashboards = async () => {
 }
 //getDynamicDashboards()
 
+function hydrateNationalBundleMaps(bundle: NationalDashboardBundle) {
+  nationalBundleRenderById.value = new Map()
+  nationalBundleGroupById.value = new Map()
+  for (const section of bundle.sections || []) {
+    for (const chart of section.charts || []) {
+      const bd = chart.bundleData
+      if (!bd) continue
+      if (bd.kind === 'render') {
+        nationalBundleRenderById.value.set(String(chart.id), {
+          categories: bd.categories ?? [],
+          series: bd.series ?? [],
+        })
+      } else if (bd.kind === 'group') {
+        nationalBundleGroupById.value.set(String(chart.id), { Total: bd.Total })
+      }
+    }
+  }
+}
+
+async function tryLoadNationalBundle(): Promise<boolean> {
+  if (filterLevel.value !== 'national') return false
+  try {
+    const bundle = await getNationalDashboardBundle()
+    if (bundle.code !== '0000' || !bundle.dashboardId) return false
+    nationalBundleActive.value = true
+    nationalBundlePayload.value = bundle
+    dashboard_id.value = bundle.dashboardId
+    hydrateNationalBundleMaps(bundle)
+    return true
+  } catch {
+    nationalBundleActive.value = false
+    nationalBundlePayload.value = null
+    return false
+  }
+}
+
+async function applyNationalBundleCards() {
+  const bundle = nationalBundlePayload.value
+  if (!bundle) return
+  cardLoading.value = true
+  cards.value = bundle.cards.map((c) => ({
+    ...c,
+    symbol: c.computation === 'proportion' ? '%' : '',
+  }))
+  cards.value.sort((a, b) => a.id - b.id)
+  cardLoading.value = false
+}
+
+async function applyNationalBundleTabs() {
+  const bundle = nationalBundlePayload.value
+  if (!bundle) return
+  chartsLoading.value = true
+  const summaryByChartId = new Map<string, any>()
+  for (const section of bundle.sections) {
+    for (const chart of section.charts) {
+      const bd = chart.bundleData
+      if (bd?.kind === 'summary' && bd.Total !== undefined) {
+        summaryByChartId.set(String(chart.id), { Total: bd.Total })
+      }
+    }
+  }
+
+  const tabPromises = bundle.sections.map(async (section) => ({
+    id: section.id,
+    label: section.title,
+    name: section.title,
+    charts: await getCharts(section.id, {
+      chartDefinitions: section.charts,
+      summaryByChartId,
+    }),
+  }))
+  tabs.value = await Promise.all(tabPromises)
+  tabs.value.sort((a, b) => a.id - b.id)
+  activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
+  chartsLoading.value = false
+}
 
 onBeforeMount( async () => {
     try {
-      // Load critical data first
+      const usedBundle = await tryLoadNationalBundle()
+
+      if (usedBundle) {
+        dashboardLoading.value = false
+        await Promise.all([
+          getCountyGeo(),
+          getCountySubcountySep(),
+          applyNationalBundleCards(),
+          applyNationalBundleTabs(),
+        ])
+        return
+      }
+
       await getDynamicDashboards();
       dashboardLoading.value = false;
       
-      // Load remaining data in parallel for better performance
       await Promise.all([
         getCountyGeo(),
         getCards(),
@@ -117,7 +211,6 @@ onBeforeMount( async () => {
       ]);
       
     } catch (error) {
-      // Set loading states to false even on error to prevent infinite loading
       dashboardLoading.value = false;
       geoLoading.value = false;
       cardLoading.value = false;
@@ -296,7 +389,6 @@ watch(
   },
 )
 
-const filterLevel = ref('national')
 const selectedCounties = ref([])
 const selectedSubCounties = ref([])
 const selectedWards = ref([])
@@ -923,6 +1015,22 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any
   try {
     const x_axis = parseAxisJson(thisChart.x_axis)
     const y_axis = parseAxisJson(thisChart.y_axis)
+    const chartType = Number(thisChart.type)
+
+    const renderPre = nationalBundleRenderById.value.get(String(thisChart.id))
+    if (renderPre && shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
+      const categories = renderPre.categories ?? []
+      const series = renderPre.series ?? []
+      if (chartType === 3 || chartType === 10 || chartType === 11) {
+        const data = series[0]?.data ?? series
+        return [categories, Array.isArray(data) ? data.map(Number) : []]
+      }
+      if (chartType === 7) {
+        return [categories, series]
+      }
+      return [categories, series]
+    }
+
     if (shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
       return await getAxisChartData({ ...thisChart, x_axis, y_axis, series_field: parseAxisJson(thisChart.series_field) })
     }
@@ -1029,9 +1137,18 @@ const getCards = async () => {
 ////-----------------------------------------------------------------------------------
 
 
-const getCharts = async (section_id) => {
+const getCharts = async (
+  section_id,
+  bundleOpts: {
+    chartDefinitions?: any[]
+    summaryByChartId?: Map<string, any>
+  } = {},
+) => {
   try {
     chartsLoading.value = true;
+    const { chartDefinitions = null, summaryByChartId: injectedSummary = null } = bundleOpts
+    const bundleGroupByChartId = nationalBundleGroupById.value
+
     const formData = {}
     formData.curUser = 1 // Id for logged in user
     formData.model = 'dashboard_section_chart'
@@ -1042,15 +1159,15 @@ const getCharts = async (section_id) => {
     formData.filterValues = [[section_id]]
     //--Single Filter -----------------------------------------
     formData.associated_multiple_models = ['dashboard_section']
-    //const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
-    //formData.nested_models = ['indicator', 'activity']
 
     //-------------------------
     const charts = reactive([]);
-    const response = await getSettlementListByCounty(formData);
-    //  const charts = response.data;
+    const response = chartDefinitions
+      ? { data: chartDefinitions }
+      : await getSettlementListByCounty(formData);
 
-    const summaryByChartId = new Map<string, any>()
+    const summaryByChartId = injectedSummary ?? new Map<string, any>()
+    if (!injectedSummary) {
     try {
       const forBatch = response.data.filter(
         (c: any) =>
@@ -1077,6 +1194,7 @@ const getCharts = async (section_id) => {
       }
     } catch {
       /* charts fall back to individual /summary/byfield/multiple calls */
+    }
     }
 
     const processPromises: Promise<void>[] = []
@@ -1860,7 +1978,9 @@ async function processTreemapChart() {
 
 
   
-            await getSummaryGroupByMultipleFields(formData)
+            await (bundleGroupByChartId.has(String(thisChart.id))
+              ? Promise.resolve({ Total: bundleGroupByChartId.get(String(thisChart.id))!.Total })
+              : getSummaryGroupByMultipleFields(formData))
               .then(response => {
                 if (response.Total) {
                   const results = response.Total[0];
@@ -2261,6 +2381,19 @@ function getActiveFilterLabel() {
 /** Locality line for KPI cards — mirrors chart subtitles (county / constituency names). */
 const statisticsCardFilterContext = computed(() => getActiveFilterLabel())
 
+/** Subtle “data as of …” when national bundle is served from Redis. */
+const dashboardLastUpdatedLabel = computed(() => {
+  if (!nationalBundleActive.value || !nationalBundlePayload.value?.builtAt) return ''
+  try {
+    return new Date(nationalBundlePayload.value.builtAt).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    })
+  } catch {
+    return ''
+  }
+})
+
 const getCountySubcountySep = async () => {
     // initialize every time its called
   const  nested =['subcounty','ward']
@@ -2342,8 +2475,15 @@ const handleClear = async () => {
   selectedCounties.value = []
   filteredSubCountyList.value = [...subCountyList.value]
   filterLevel.value = 'national'
-  getCards()
-  getTabs()
+  nationalBundleActive.value = false
+  nationalBundlePayload.value = null
+  if (await tryLoadNationalBundle()) {
+    await applyNationalBundleCards()
+    await applyNationalBundleTabs()
+  } else {
+    getCards()
+    getTabs()
+  }
 }
 
 
@@ -2370,8 +2510,15 @@ const filterCounty = async (county_id) => {
 
   selectedCounties.value = county_id
   filterLevel.value = selectedCounties.value.length === 0 ? 'national' : 'county'
-  getCards()
-  getTabs()
+  nationalBundleActive.value = false
+  nationalBundlePayload.value = null
+  if (filterLevel.value === 'national' && (await tryLoadNationalBundle())) {
+    await applyNationalBundleCards()
+    await applyNationalBundleTabs()
+  } else {
+    getCards()
+    getTabs()
+  }
 }
 
 
@@ -2387,6 +2534,8 @@ selectedSubCounties.value = subcountyId;
   } else {
     filterLevel.value = 'subcounty'
   }
+  nationalBundleActive.value = false
+  nationalBundlePayload.value = null
   getCards()
   getTabs()
 }
@@ -2966,6 +3115,10 @@ const downloadSettlementData = async () => {
         </el-tab-pane>
       </el-tabs>
     </div>
+
+    <p v-if="dashboardLastUpdatedLabel" class="dashboard-last-updated">
+      Data as of {{ dashboardLastUpdatedLabel }} · refreshes every 10 min
+    </p>
   </div>
 </template>
 
@@ -2983,6 +3136,17 @@ const downloadSettlementData = async () => {
   overflow: hidden;
   padding: 0 12px 12px;
   margin-top: -8px;
+}
+
+.dashboard-last-updated {
+  flex-shrink: 0;
+  margin: 4px 2px 0;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--el-text-color-placeholder);
+  opacity: 0.72;
+  user-select: none;
 }
 
 .tabs-skeleton-container {

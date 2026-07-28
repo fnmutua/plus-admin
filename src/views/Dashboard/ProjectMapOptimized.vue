@@ -250,6 +250,8 @@ import {
   getProgrammesList,
   getComponentsList
 } from '@/api/project-locations-optimized'
+import { getProjectMapBundle } from '@/api/dashboard/bundle'
+import { normalizeFeatureCollection } from '@/utils/normalizeGeoJson'
 import { getOneSettlement, getSettlementListByCounty } from '@/api/settlements'
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
@@ -660,10 +662,61 @@ const initializeMap = () => {
 }
 
 // Initialize map data
+const tryApplyProjectMapBundle = async (): Promise<boolean> => {
+  if (isCountyRestricted.value && userCountyId.value) return false
+  // National bundle is all locations — programme-scoped users must use live API
+  if (!isSuperAdmin.value && !hasNationalAccess.value) return false
+  try {
+    const bundle = await getProjectMapBundle()
+    if (bundle.code !== '0000') return false
+
+    const fc = normalizeFeatureCollection(bundle.projectLocations)
+    if (!fc.features.length) {
+      console.warn('[project-map] bundle has no project locations, falling back to live API')
+      return false
+    }
+
+    geojson.value = fc
+    countyOptions.value = (bundle.counties || []).map((item: any) => ({
+      value: item.id,
+      label: item.name,
+    }))
+    countyGeo.value = normalizeFeatureCollection(bundle.countyGeo)
+    return true
+  } catch (err) {
+    console.warn('[project-map] bundle load failed, falling back to live API', err)
+    return false
+  }
+}
+
 const initializeMapData = async () => {
   try {
     mapLoading.value = true
     mapLoadingText.value = 'Loading data...'
+
+    if (isCountyRestricted.value && userCountyId.value) {
+      await loadProgrammeOptions()
+      const [, , , countyGeoData] = await Promise.all([
+        loadProjectLocations(),
+        loadCounties(),
+        loadCountyGeo(),
+      ])
+      county.value = [userCountyId.value]
+      await handleChangeCounty([userCountyId.value])
+      mapLoading.value = false
+      return
+    }
+
+    const usedBundle = await tryApplyProjectMapBundle()
+    if (usedBundle) {
+      await loadProgrammeOptions()
+      await addProjectLayers()
+      if (countyGeo.value) {
+        addCountyLayer(countyGeo.value)
+      }
+      mapLoading.value = false
+      return
+    }
 
     // Parallelize initial data loading
     const [, , , countyGeoData] = await Promise.all([
@@ -673,15 +726,9 @@ const initializeMapData = async () => {
       loadCountyGeo()
     ])
 
-    // Auto-set county for restricted users
-    if (isCountyRestricted.value && userCountyId.value) {
-      county.value = [userCountyId.value]
-      await handleChangeCounty([userCountyId.value])
-    } else {
-      await addProjectLayers()
-      if (countyGeoData) {
-        addCountyLayer(countyGeoData)
-      }
+    await addProjectLayers()
+    if (countyGeoData) {
+      addCountyLayer(countyGeoData)
     }
 
     mapLoading.value = false
@@ -745,7 +792,9 @@ const loadProjectLocations = async (filters?: {
     }
 
     const response = await getOptimizedProjectLocations({ params })
-    geojson.value = (response as any).results || (response as any).data || { type: 'FeatureCollection', features: [] }
+    geojson.value = normalizeFeatureCollection(
+      (response as any).results || (response as any).data || response,
+    )
     
     return geojson.value
   } catch (error: any) {
@@ -804,13 +853,15 @@ const loadCountyGeo = async () => {
 const addProjectLayers = async () => {
   if (!map.value) return
 
+  const mapData = normalizeFeatureCollection(geojson.value)
+
   // Update or add source
   if (map.value.getSource('projectLocations')) {
-    (map.value.getSource('projectLocations') as mapboxgl.GeoJSONSource).setData(geojson.value)
+    (map.value.getSource('projectLocations') as mapboxgl.GeoJSONSource).setData(mapData)
   } else {
     map.value.addSource('projectLocations', {
       type: 'geojson',
-      data: geojson.value
+      data: mapData
     })
   }
 

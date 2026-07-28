@@ -108,6 +108,8 @@ import {
   getCountiesList,
   getSubcountiesList 
 } from '@/api/settlements-optimized'
+import { getLandingMapBundle } from '@/api/dashboard/bundle'
+import { normalizeFeatureCollection } from '@/utils/normalizeGeoJson'
 import { getOneSettlement } from '@/api/settlements'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
@@ -461,10 +463,51 @@ onUnmounted(() => {
 })
 
 // Initialize map data
+const tryApplyLandingMapBundle = async (): Promise<boolean> => {
+  if (isCountyRestricted.value && userCountyId.value) return false
+  try {
+    const bundle = await getLandingMapBundle()
+    if (bundle.code !== '0000') return false
+
+    geojson.value = normalizeFeatureCollection(bundle.settlements)
+    countyOptions.value = (bundle.counties || []).map((item: any) => ({
+      value: item.id,
+      label: item.name,
+    }))
+    countyGeo.value = normalizeFeatureCollection(bundle.countyGeo)
+    return true
+  } catch (err) {
+    console.warn('[landing-map] bundle load failed, falling back to live API', err)
+    return false
+  }
+}
+
 const initializeMap = async () => {
   try {
     mapLoading.value = true
     mapLoadingText.value = 'Loading data...'
+
+    if (isCountyRestricted.value && userCountyId.value) {
+      const [, , countyGeoData] = await Promise.all([
+        loadSettlements(),
+        loadCounties(),
+        loadCountyGeo(),
+      ])
+      county.value = [userCountyId.value]
+      await handleChangeCounty([userCountyId.value])
+      mapLoading.value = false
+      return
+    }
+
+    const usedBundle = await tryApplyLandingMapBundle()
+    if (usedBundle) {
+      await addSettlementLayers()
+      if (countyGeo.value) {
+        addCountyLayer(countyGeo.value)
+      }
+      mapLoading.value = false
+      return
+    }
 
     // Parallelize all initial data loading
     const [, , countyGeoData] = await Promise.all([
@@ -473,15 +516,9 @@ const initializeMap = async () => {
       loadCountyGeo()
     ])
 
-    // Auto-set county for restricted users
-    if (isCountyRestricted.value && userCountyId.value) {
-      county.value = [userCountyId.value]
-      await handleChangeCounty([userCountyId.value])
-    } else {
-      await addSettlementLayers()
-      if (countyGeoData) {
-        addCountyLayer(countyGeoData)
-      }
+    await addSettlementLayers()
+    if (countyGeoData) {
+      addCountyLayer(countyGeoData)
     }
 
     mapLoading.value = false
@@ -528,7 +565,9 @@ const loadSettlements = async (filters?: { countyIds?: number[], subcountyIds?: 
     }
 
     const response = await getOptimizedSettlements({ params })
-    geojson.value = (response as any).results || response.data || { type: 'FeatureCollection', features: [] }
+    geojson.value = normalizeFeatureCollection(
+      (response as any).results || response.data || response,
+    )
     
     return geojson.value
   } catch (error: any) {
@@ -586,13 +625,15 @@ const loadCountyGeo = async () => {
 const addSettlementLayers = async () => {
   if (!map.value) return
 
+  const mapData = normalizeFeatureCollection(geojson.value)
+
   // Update or add source
   if (map.value.getSource('settlements')) {
-    (map.value.getSource('settlements') as mapboxgl.GeoJSONSource).setData(geojson.value)
+    (map.value.getSource('settlements') as mapboxgl.GeoJSONSource).setData(mapData)
   } else {
     map.value.addSource('settlements', {
       type: 'geojson',
-      data: geojson.value,
+      data: mapData,
       cluster: true,
       clusterMaxZoom: 12, // Reduced from 14 for better performance
       clusterRadius: 60    // Increased from 50 for better clustering

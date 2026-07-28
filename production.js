@@ -161,7 +161,9 @@ db.sequelize.sync().then(async () => {
   // db.sequelize.sync({force: true}).then(() => {
   console.log('Drop and Resync Db');
   const { startSmsBalanceScheduler } = require('./server/app/schedulers/smsBalanceScheduler')
+  const { startNationalDashboardScheduler } = require('./server/app/schedulers/nationalDashboardScheduler')
   await startSmsBalanceScheduler()
+  startNationalDashboardScheduler()
   // initial();     // Run this first time only
 });
 
@@ -245,6 +247,7 @@ require('./server/app/routes/auth.routes')(app)
 require('./server/app/routes/user.routes')(app)
 require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/summary.routes')(app)
+require('./server/app/routes/dashboard.routes')(app)
 require('./server/app/routes/chart.routes')(app)
 require('./server/app/routes/chat.routes')(app)
 require('./server/app/routes/household.routes')(app)

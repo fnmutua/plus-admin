@@ -39,7 +39,12 @@
     "chat:update-enum": "node server/run-enum-update.js",
     "video:server": "node server/websocket-video.js",
     "video:migrate": "node server/run-video-stream-migration.js",
-    "start:all": "node start-video-server.js"
+    "start:all": "node start-video-server.js",
+    "test:live-audit": "node tools/check-live-performance.mjs https://kesmis.go.ke 20 --audit-only",
+    "test:live-load": "node tools/check-live-performance.mjs https://kesmis.go.ke 100",
+    "test:live": "node tools/check-live-performance.mjs https://kesmis.go.ke 100",
+    "test:live-slow": "node tools/check-live-performance.mjs https://kesmis.go.ke --throttle 1mbps --load-only",
+    "test:dashboard-bundle": "node tools/test-national-dashboard-bundle.mjs http://localhost:80"
   },
   "dependencies": {
     "@dafcoe/vue-collapsible-panel": "^0.2.0",

@@ -58,6 +58,7 @@ import { useDashboardChartExport } from './composables/useDashboardChartExport'
 import DashboardChartExportDrawer from './components/DashboardChartExportDrawer.vue'
 
 import { useRouter } from 'vue-router'
+import { getDashboardBundle, type DashboardBundle } from '@/api/dashboard/bundle'
 
 const { push } = useRouter()
 
@@ -72,6 +73,12 @@ const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
 const { t } = useI18n()
 
 const dashboard_id = ref()
+
+const dashboardBundleActive = ref(false)
+const dashboardBundlePayload = ref<DashboardBundle | null>(null)
+const dashboardBundleRenderById = ref(new Map<string, { categories: any[]; series: any[] }>())
+const dashboardBundleGroupById = ref(new Map<string, { Total: any }>())
+
 //////////
 const route = useRoute()
 
@@ -1025,6 +1032,22 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any
   try {
     const x_axis = parseAxisJson(thisChart.x_axis)
     const y_axis = parseAxisJson(thisChart.y_axis)
+    const chartType = Number(thisChart.type)
+
+    const renderPre = dashboardBundleRenderById.value.get(String(thisChart.id))
+    if (renderPre && shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
+      const categories = renderPre.categories ?? []
+      const series = renderPre.series ?? []
+      if (chartType === 3 || chartType === 10 || chartType === 11) {
+        const data = series[0]?.data ?? series
+        return [categories, Array.isArray(data) ? data.map(Number) : []]
+      }
+      if (chartType === 7) {
+        return [categories, series]
+      }
+      return [categories, series]
+    }
+
     if (shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
       return await getAxisChartData({ ...thisChart, x_axis, y_axis, series_field: parseAxisJson(thisChart.series_field) })
     }
@@ -1044,23 +1067,23 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any
   }
 }
 
-const getSummaryChart = async (thisChart) => {
+const getSummaryChart = async (thisChart, preloaded?: any) => {
   // Check if this is an indicator chart or entity chart
   if (thisChart.category === 'Indicator') {
-    return await getSummaryChartForIndicator(thisChart)
+    return await getSummaryChartForIndicator(thisChart, preloaded)
   } else {
     return await getSummaryChartForEntity(thisChart)
   }
 }
 
-const getSummaryChartForIndicator = async (thisChart) => {
+const getSummaryChartForIndicator = async (thisChart, preloaded?: any) => {
   console.log('Processing Indicator chart:', thisChart)
   
   // For charts, we still use indicator_id to get indicator category IDs
   let indicator = thisChart.indicator_id
   var indicator_categories = await getIndicatorConfigurations(indicator)
   
-  return await getSummaryChartIIntervention(indicator_categories, thisChart)
+  return await getSummaryChartIIntervention(indicator_categories, thisChart, preloaded)
 }
 
 const getSummaryChartForEntity = async (thisChart) => {
@@ -1070,7 +1093,7 @@ const getSummaryChartForEntity = async (thisChart) => {
   return await xgetSummaryMultipleParentsGrouped(thisChart)
 }
 
-const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
+const getSummaryChartIIntervention = async (indicator_categories, thisChart, preloaded?: any) => {
   
   //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
 
@@ -1226,8 +1249,13 @@ formData.ignoreEmpty = ignoreEmpty
   console.log('form-Data',formData)
 
   try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
+    let amount: any
+    if (preloaded?.Total !== undefined && preloaded?.Total !== null) {
+      amount = preloaded.Total
+    } else {
+      const response = await getSummarybyFieldFromMultipleIncludes(formData);
+      amount = response.Total;
+    }
     console.log('Data xcounty -inter', amount)
 
 
@@ -1474,9 +1502,18 @@ const getCards = async () => {
 ////-----------------------------------------------------------------------------------
 
 
-const getCharts = async (section_id) => {
+const getCharts = async (
+  section_id,
+  bundleOpts: {
+    chartDefinitions?: any[]
+    summaryByChartId?: Map<string, any>
+  } = {},
+) => {
   try {
     chartsLoading.value = true
+    const { chartDefinitions = null, summaryByChartId: injectedSummary = null } = bundleOpts
+    const bundleGroupByChartId = dashboardBundleGroupById.value
+
     const formData = {}
     formData.curUser = 1 // Id for logged in user
     formData.model = 'dashboard_section_chart'
@@ -1492,11 +1529,14 @@ const getCharts = async (section_id) => {
 
     //-------------------------
     const charts = reactive([]);
-    const response = await getSettlementListByCounty(formData);
+    const response = chartDefinitions
+      ? { data: chartDefinitions }
+      : await getSettlementListByCounty(formData);
     //  const charts = response.data;
     console.log('Getting the charts ', response.data)
 
-    const summaryByChartId = new Map<string, any>()
+    const summaryByChartId = injectedSummary ?? new Map<string, any>()
+    if (!injectedSummary) {
     try {
       const forBatch = response.data.filter(
         (c: any) =>
@@ -1523,6 +1563,7 @@ const getCharts = async (section_id) => {
       }
     } catch {
       /* charts fall back to individual /summary/byfield/multiple calls */
+    }
     }
 
     const processPromises = response.data.map(async (thisChart) => {
@@ -2428,7 +2469,9 @@ const getCharts = async (section_id) => {
 
  
 
-            await getSummaryGroupByMultipleFields(formData)
+            await (bundleGroupByChartId.has(String(thisChart.id))
+              ? Promise.resolve({ Total: bundleGroupByChartId.get(String(thisChart.id))!.Total })
+              : getSummaryGroupByMultipleFields(formData))
               .then(response => {
                 if (response.Total) {
                   var results = response.Total
@@ -2534,7 +2577,7 @@ const getCharts = async (section_id) => {
 
           try {
             // Use the unified chart function that handles both indicator and entity charts
-            var cdata = await getSummaryChart(thisChart)   // first array is the categories // second is the data
+            var cdata = await getSummaryChart(thisChart, summaryByChartId.get(String(thisChart.id)))   // first array is the categories // second is the data
             console.log('PIEx', cdata[1])
 
             const UpdatedPieOptionsMultiple = {
@@ -2612,7 +2655,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            var cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))   // first array is the categories // second is the data
             console.log('x-cdata',cdata)
             console.log('x-cdata[0]',cdata[0])
 
@@ -2687,7 +2730,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            var cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))   // first array is the categories // second is the data
             console.log(cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -2753,7 +2796,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            var cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))   // first array is the categories // second is the data
             console.log(cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -2823,7 +2866,7 @@ const getCharts = async (section_id) => {
           try {
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))
             var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
             var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
             var safeData = seriesData.map((v) => (v != null && !Number.isNaN(Number(v)) ? Number(v) : 0));
@@ -2895,7 +2938,7 @@ const getCharts = async (section_id) => {
           try {
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))
             var categories = Array.isArray(cdata?.[0]) ? cdata[0] : [];
             var seriesData = Array.isArray(cdata?.[1]) ? cdata[1] : [];
             console.log('lichecrt data', cdata);
@@ -2978,7 +3021,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            const cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            const cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))   // first array is the categories // second is the data
             console.log('map data raw (intervention)', cdata)
             const rawRange = Array.isArray(cdata?.[0]) ? cdata[0] : [0, 0]
             const rawData = Array.isArray(cdata?.[1]) ? cdata[1] : []
@@ -3529,20 +3572,114 @@ const getCountySubcounty = async () => {
 ////-----------------------------------------------------------------------------------
 
 
+function hydrateDashboardBundleMaps(bundle: DashboardBundle) {
+  dashboardBundleRenderById.value = new Map()
+  dashboardBundleGroupById.value = new Map()
+  for (const section of bundle.sections || []) {
+    for (const chart of section.charts || []) {
+      const bd = chart.bundleData
+      if (!bd) continue
+      if (bd.kind === 'render') {
+        dashboardBundleRenderById.value.set(String(chart.id), {
+          categories: bd.categories ?? [],
+          series: bd.series ?? [],
+        })
+      } else if (bd.kind === 'group') {
+        dashboardBundleGroupById.value.set(String(chart.id), { Total: bd.Total })
+      }
+    }
+  }
+}
+
+async function tryLoadDashboardBundle(): Promise<boolean> {
+  if (filterLevel.value !== 'national' || !dashboard_id.value) return false
+  try {
+    const bundle = await getDashboardBundle(dashboard_id.value)
+    if (bundle.code !== '0000' || !bundle.dashboardId) return false
+    if (Number(bundle.dashboardId) !== Number(dashboard_id.value)) return false
+    dashboardBundleActive.value = true
+    dashboardBundlePayload.value = bundle
+    hydrateDashboardBundleMaps(bundle)
+    return true
+  } catch {
+    dashboardBundleActive.value = false
+    dashboardBundlePayload.value = null
+    return false
+  }
+}
+
+async function applyDashboardBundleCards() {
+  const bundle = dashboardBundlePayload.value
+  if (!bundle) return
+  cardLoading.value = true
+  cards.value = bundle.cards.map((c) => ({
+    ...c,
+    symbol: c.computation === 'proportion' ? '%' : '',
+  }))
+  cards.value.sort((a, b) => a.id - b.id)
+  cardLoading.value = false
+}
+
+async function applyDashboardBundleTabs() {
+  const bundle = dashboardBundlePayload.value
+  if (!bundle) return
+  chartsLoading.value = true
+  const summaryByChartId = new Map<string, any>()
+  for (const section of bundle.sections) {
+    for (const chart of section.charts) {
+      const bd = chart.bundleData
+      if (bd?.kind === 'summary' && bd.Total !== undefined) {
+        summaryByChartId.set(String(chart.id), { Total: bd.Total })
+      }
+    }
+  }
+
+  const tabPromises = bundle.sections.map(async (section) => ({
+    id: section.id,
+    label: section.title,
+    name: section.title,
+    charts: await getCharts(section.id, {
+      chartDefinitions: section.charts,
+      summaryByChartId,
+    }),
+  }))
+  tabs.value = await Promise.all(tabPromises)
+  tabs.value.sort((a, b) => a.id - b.id)
+  activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
+  chartsLoading.value = false
+}
+
+const dashboardLastUpdatedLabel = computed(() => {
+  if (!dashboardBundleActive.value || !dashboardBundlePayload.value?.builtAt) return ''
+  try {
+    return new Date(dashboardBundlePayload.value.builtAt).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    })
+  } catch {
+    return ''
+  }
+})
+
 // Initialize dashboard with proper loading states
 const initializeDashboard = async () => {
   try {
     dashboardLoading.value = true
     loading.value = true
     
-    // Load data in parallel where possible
+    await getCountySubcountySep()
+
+    const usedBundle = await tryLoadDashboardBundle()
+    if (usedBundle) {
+      await Promise.all([applyDashboardBundleCards(), applyDashboardBundleTabs()])
+      console.log('Dashboard initialized from bundle')
+      return
+    }
+
     await Promise.all([
-      getCountySubcountySep(),
       getCards(),
       getTabs()
     ])
-    
-    console.log('Dashboard initialized')
   } catch (error) {
     console.error('Error initializing dashboard:', error)
   } finally {
@@ -3569,10 +3706,16 @@ const handleClear = async () => {
   filteredSubCountyList.value = [...subCountyList.value]
   filterLevel.value = 'national'
 
+  dashboardBundleActive.value = false
+  dashboardBundlePayload.value = null
   cardLoading.value = true
   chartsLoading.value = true
   try {
-    await Promise.all([getCards(), getTabs()])
+    if (await tryLoadDashboardBundle()) {
+      await Promise.all([applyDashboardBundleCards(), applyDashboardBundleTabs()])
+    } else {
+      await Promise.all([getCards(), getTabs()])
+    }
   } catch (error) {
     console.error('Error in handleClear:', error)
   } finally {
@@ -3599,13 +3742,19 @@ const filterCounty = async (county_id) => {
   } else {
     filterLevel.value = 'county'
   }
+  dashboardBundleActive.value = false
+  dashboardBundlePayload.value = null
   cardLoading.value = true
   chartsLoading.value = true
   try {
-    await Promise.all([
-      getCards(),
-      getTabs()
-    ])
+    if (filterLevel.value === 'national' && (await tryLoadDashboardBundle())) {
+      await Promise.all([applyDashboardBundleCards(), applyDashboardBundleTabs()])
+    } else {
+      await Promise.all([
+        getCards(),
+        getTabs()
+      ])
+    }
   } catch (error) {
     console.error('Error in filterCounty:', error)
   } finally {
@@ -3631,13 +3780,19 @@ selectedSubCounties.value = subcountyId;
   } else {
     filterLevel.value = 'subcounty'
   }
+  dashboardBundleActive.value = false
+  dashboardBundlePayload.value = null
   cardLoading.value = true
   chartsLoading.value = true
   try {
-    await Promise.all([
-      getCards(),
-      getTabs()
-    ])
+    if (filterLevel.value === 'national' && (await tryLoadDashboardBundle())) {
+      await Promise.all([applyDashboardBundleCards(), applyDashboardBundleTabs()])
+    } else {
+      await Promise.all([
+        getCards(),
+        getTabs()
+      ])
+    }
   } catch (error) {
     console.error('Error in filterSubCounty:', error)
   } finally {
@@ -4154,6 +4309,10 @@ onBeforeUnmount(() => {
           </el-row>
       </el-tab-pane>
     </el-tabs>
+
+    <p v-if="dashboardLastUpdatedLabel" class="dashboard-last-updated">
+      Data as of {{ dashboardLastUpdatedLabel }} · refreshes every 10 min
+    </p>
   </div>
  
 
@@ -4175,6 +4334,17 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: 0 12px 12px;
   margin-top: -8px;
+}
+
+.dashboard-last-updated {
+  flex-shrink: 0;
+  margin: 4px 2px 0;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--el-text-color-placeholder);
+  opacity: 0.72;
+  user-select: none;
 }
 
 :deep(.el-loading-mask) {

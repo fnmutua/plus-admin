@@ -56,6 +56,7 @@ const {
 } = require('../utils/projectListScope')
 const { parseProjectCost, isIntegerOverflowError } = require('../utils/projectCost')
 const { validateProgrammeRecord } = require('../utils/programmeValidation')
+const { normalizeFeatureCollection } = require('../utils/normalizeGeoJson')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
 const Sequelize = require('sequelize')
@@ -15284,7 +15285,9 @@ exports.getOptimizedSettlements = async (req, res) => {
       mapToModel: false,
     });
 
-    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+    const geojson = normalizeFeatureCollection(
+      result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] },
+    );
 
     console.log(`[getOptimizedSettlements] Returning ${geojson.features?.length || 0} features`);
 
@@ -15698,7 +15701,9 @@ exports.getBatchGeometries = async (req, res) => {
       mapToModel: false,
     });
 
-    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+    const geojson = normalizeFeatureCollection(
+      result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] },
+    );
 
     console.log(`[getBatchGeometries] Returning ${geojson.features?.length || 0} features`);
 
@@ -16037,7 +16042,19 @@ exports.getOptimizedProjectLocations = async (req, res) => {
       }
     }
 
-    const scope = await getProjectProgrammeScope(req.userid);
+    const bypassScope =
+      req.query.bypassScope === 'true' || req.query.bypassScope === true
+    const scope = bypassScope
+      ? {
+          bypass: true,
+          scopeEnabled: false,
+          programmeIds: [],
+          expandedProgrammeIds: [],
+          countyIds: [],
+          settlementIds: [],
+          isNationalLocation: true,
+        }
+      : await getProjectProgrammeScope(req.userid)
     const scopeSql = buildOptimizedScopeSql(scope, model);
     if (scopeSql) {
       whereClause = `${scopeSql} AND ${whereClause}`;
@@ -16090,7 +16107,9 @@ exports.getOptimizedProjectLocations = async (req, res) => {
       mapToModel: false,
     });
 
-    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+    const geojson = normalizeFeatureCollection(
+      result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] },
+    );
 
     console.log(`[getOptimizedProjectLocations] Returning ${geojson.features?.length || 0} features`);
 
