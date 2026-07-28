@@ -6,7 +6,7 @@
 #   those, run:  npm ci && npm run build   (with .env or env vars set), deploy dist/, then re-run start.
 #
 # Usage:
-#   ./startStopServer.sh [start|stop|restart|status|healthcheck]
+#   ./startStopServer.sh [start|stop|restart|status|healthcheck|fix-ports]
 #   start       — (default) stop + start all services
 #   healthcheck — verify PM2 + HTTP; restart anything unhealthy (for cron)
 #
@@ -87,11 +87,40 @@ tcp_open() {
   (echo > "/dev/tcp/$host/$port") >/dev/null 2>&1
 }
 
+# Release a TCP port held by orphaned node processes (fixes EADDRINUSE after bad restarts).
+free_port() {
+  local port="$1"
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${port}/tcp" 2>/dev/null || true
+  elif command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids="$(lsof -ti "tcp:${port}" -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -n "$pids" ]]; then
+      kill -9 $pids 2>/dev/null || true
+    fi
+  fi
+  sleep 1
+}
+
+port_for_service() {
+  case "$1" in
+    production) echo "$MAIN_PORT" ;;
+    websocket-chat) echo "$CHAT_PORT" ;;
+    websocket-video) echo "$VIDEO_PORT" ;;
+    *) echo "" ;;
+  esac
+}
+
 start_one() {
   local name="$1"
   local target="$2"
+  local port
+  port="$(port_for_service "$name")"
   $PM2 stop "$name" 2>/dev/null || true
   $PM2 delete "$name" 2>/dev/null || true
+  if [[ -n "$port" ]]; then
+    free_port "$port"
+  fi
   if [[ "$target" == /* ]]; then
     $PM2 start "$target" --name "$name"
   else
@@ -123,7 +152,20 @@ stop_all() {
     IFS='|' read -r name target <<< "$entry"
     stop_one "$name"
   done
+  free_port "$MAIN_PORT"
+  free_port "$CHAT_PORT"
+  free_port "$VIDEO_PORT"
   log "All services stopped."
+}
+
+fix_ports() {
+  log "Stopping websocket PM2 apps and freeing ports ${MAIN_PORT}, ${CHAT_PORT}, ${VIDEO_PORT}..."
+  $PM2 stop websocket-chat websocket-video 2>/dev/null || true
+  $PM2 delete websocket-chat websocket-video 2>/dev/null || true
+  free_port "$MAIN_PORT"
+  free_port "$CHAT_PORT"
+  free_port "$VIDEO_PORT"
+  log "Ports freed. Check: ss -ltnp | grep -E ':${MAIN_PORT}|:${CHAT_PORT}|:${VIDEO_PORT}'"
 }
 
 status_all() {
@@ -207,8 +249,11 @@ case "$CMD" in
   healthcheck)
     healthcheck
     ;;
+  fix-ports)
+    fix_ports
+    ;;
   *)
-    echo "Usage: $0 [start|stop|restart|status|healthcheck]" >&2
+    echo "Usage: $0 [start|stop|restart|status|healthcheck|fix-ports]" >&2
     exit 1
     ;;
 esac
