@@ -152,6 +152,43 @@ onMounted(async () => {
 
 })
 
+const getRowIndicatorLabel = (row: Record<string, any>) =>
+  row.indicator_category?.indicator_name ??
+  row.indicator_category?.indicator?.name ??
+  '—'
+
+const getRowCategoryLabel = (row: Record<string, any>) =>
+  row.indicator_category?.category_title ??
+  row.indicator_category?.category?.category ??
+  '—'
+
+const getRowActivityLabel = (row: Record<string, any>) => {
+  const level = row.indicator_category?.indicator_level
+  if (level === 'project') return 'Project level'
+  const title =
+    row.activity?.title ??
+    row.activity?.shortTitle ??
+    row.indicator_category?.activity?.title ??
+    row.indicator_category?.indicator?.activity?.title ??
+    activityOptionsFiltered.value.find((o) => o.value === row.activity_id)?.label
+  if (title) return title
+  return row.activity_id ? `Activity #${row.activity_id}` : '—'
+}
+
+const getRowSettlementLabel = (row: Record<string, any>) => {
+  const name =
+    row.settlement?.name ??
+    row.project_location?.settlement?.name ??
+    row.project_location?.location_name
+  if (name) return name
+  const ward = row.ward?.name ?? row.project_location?.ward?.name
+  const county = row.county?.name ?? row.project_location?.county?.name
+  if (ward && county) return `${ward}, ${county}`
+  if (county) return county
+  if (row.subcounty?.name) return row.subcounty.name
+  return row.settlement_id ? `Settlement #${row.settlement_id}` : '—'
+}
+
 
 
 
@@ -202,8 +239,8 @@ var tblData = []
 
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'ward', 'subcounty', 'users', 'project']
-const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+const associated_multiple_models = ['document', 'settlement', 'county', 'ward', 'subcounty', 'users', 'project', 'activity', 'project_location']
+const nested_models = ['indicator_category', 'indicator']
 
 //// ------------------parameters -----------------------////
 
@@ -1822,17 +1859,22 @@ const loadMap = () => {
 
       <el-table-column label="Indicator" sortable>
         <template #default="{ row }">
-          {{ row.indicator_category?.indicator_name || 'N/A' }}
+          {{ getRowIndicatorLabel(row) }}
         </template>
       </el-table-column>
       <el-table-column label="Category" sortable>
         <template #default="{ row }">
-          {{ row.indicator_category?.category_title || 'N/A' }}
+          {{ getRowCategoryLabel(row) }}
         </template>
       </el-table-column>
-      <el-table-column label="Settlement" sortable>
+      <el-table-column label="Activity" sortable show-overflow-tooltip>
         <template #default="{ row }">
-          {{ row.settlement?.name || 'N/A' }}
+          {{ getRowActivityLabel(row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Settlement" sortable show-overflow-tooltip>
+        <template #default="{ row }">
+          {{ getRowSettlementLabel(row) }}
         </template>
       </el-table-column>
       <el-table-column label="Qty/Status" sortable>
