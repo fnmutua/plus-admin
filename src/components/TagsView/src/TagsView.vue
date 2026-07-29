@@ -277,7 +277,7 @@ const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Road: 'data-facilities-overview', Water: 'data-facilities-overview', WaterPoint: 'data-facilities-overview', PipedWater: 'data-facilities-overview',
   SEC: 'data-community-sec', GRCView: 'data-community-grc',
   kisipInterventions: 'data-projects-listing', ProjectDetails: 'data-projects-details', AddProject: 'data-projects-add',
-  All: 'mne-activities', NewReports: 'mne-reports', PastReports: 'mne-reports', AddEvaluation: 'mne-reports',
+  NewReports: 'mne-reports', PastReports: 'mne-reports',
   BeneficiaryConfigs: 'mne-beneficiaries', IndicatorCategory: 'mne-framework',
   Grievances: 'grm-grievances', OpenGrievances: 'grm-grievances', ReferredGrievances: 'grm-grievances',
   GrievanceDetails: 'grm-details', xGBVGrievances: 'grm-gbv', GBVGrievanceDetails: 'grm-gbv',

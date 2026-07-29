@@ -774,30 +774,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon:'mdi:file-document-plus',
             }
           },
-
-          {
-            path: 'all',
-          //  component: 'views/Indicators/indicator_category_report',
-            component: () => import('@/views/Evaluation/All.vue'),
-            name: 'All',
-            meta: {
-              title: 'Evaluations',
-              permissions: ['post_evaluation:read'],
-              icon:'solar:list-check-bold',
-            }
-          },
-          {
-            path: 'add',
-          //  component: 'views/Indicators/indicator_category_report',
-            component: () => import('@/views/Evaluation/AddX.vue'),
-            name: 'AddEvaluation',
-            meta: {
-              title: 'Add Evaluation',
-              hidden: true,
-              permissions: ['post_evaluation:create'],
-              icon:'mdi:file-document-plus',
-            }
-          },
         ]
       },
  

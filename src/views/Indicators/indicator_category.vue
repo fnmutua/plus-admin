@@ -839,10 +839,6 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.frequency = data.frequency
   ruleForm.category_title = data.category_title
   ruleForm.activity_id = data.activity_id
-  ruleForm.project_id = data.project_id
-  ruleForm.target = data.target
-  ruleForm.baseline = data.baseline
-  ruleForm.project_location_id = data.project_location_id
 
   // Load indicators based on level without clearing fields
   if (data.indicator_level === 'project') {
@@ -951,11 +947,10 @@ const rules = reactive<FormRules>({
       trigger: 'change',
     },
   ],
-  project_id: [{ required: true, message: 'Project is required', trigger: 'blur' }],
-  target: [{ required: true, message: 'Target is required', trigger: 'blur' }],
-  baseline: [{ required: true, message: 'Baseline is required', trigger: 'blur' }],
-
 })
+
+const buildIndicatorCategoryCode = () =>
+  [ruleForm.indicator_id, ruleForm.activity_id, ruleForm.category_id].filter(Boolean).join('_')
 
 const categoryRules = reactive<FormRules>({
   category: [
@@ -1005,66 +1000,52 @@ const prevStep = () => {
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      ruleForm.model = 'indicator_category'
-      ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id
-      try {
-        await CreateRecord(ruleForm)
-        page.value = 1
-        currentPage.value = 1
-        await getFilteredData(filters, filterValues)
-        handleClose()
-        ruleForm.project_id = null
-        ruleForm.activity_id = null
-      } catch (error) {
-        console.error('Error creating record:', error)
-      }
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
+  const fields = [...step0Fields.value, 'category_id', 'frequency']
+  try {
+    await formEl.validateField(fields)
+    ruleForm.model = 'indicator_category'
+    ruleForm.code = buildIndicatorCategoryCode()
+    await CreateRecord(ruleForm)
+    page.value = 1
+    currentPage.value = 1
+    await getFilteredData(filters, filterValues)
+    handleClose()
+    ruleForm.activity_id = null
+  } catch (fields) {
+    console.log('error submit!', fields)
+  }
 }
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
+  if (!formEl) return
 
-  const valid = await new Promise<boolean>((resolve) => {
-    formEl.validate((valid) => {
-      resolve(valid);
-    });
-  });
-
-  if (valid) {
-    ruleForm.model = 'indicator_category';
-    ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id;
-
-    //await updateOneRecord(ruleForm);
-
-    await updateOneRecord(ruleForm)
-        .then((updatedRecord) => {
-          // Assuming you get the updated record back from the API
-          if (updatedRecord) {
-            getFilteredData(filters, filterValues)
-          AddDialogVisible.value=false
-            handleClose()
-          }
-         
-        })
-        .catch((error) => {
-          console.error('Error updating record:', error);
-        });
-
-
-
-    AddDialogVisible.value = false;
-    ruleForm.project_id = null;
-    ruleForm.activity_id = null;
-    editingMode.value = false;
-  } else {
-    console.log('error submit!', formEl.fields);
+  const fields = [...step0Fields.value, 'category_id', 'frequency']
+  try {
+    await formEl.validateField(fields)
+  } catch (fields) {
+    console.log('error submit!', fields)
+    return
   }
+
+  ruleForm.model = 'indicator_category'
+  ruleForm.code = buildIndicatorCategoryCode()
+
+  await updateOneRecord(ruleForm)
+    .then((updatedRecord) => {
+      if (updatedRecord) {
+        getFilteredData(filters, filterValues)
+        AddDialogVisible.value = false
+        handleClose()
+      }
+    })
+    .catch((error) => {
+      console.error('Error updating record:', error)
+    })
+
+  AddDialogVisible.value = false
+  ruleForm.activity_id = null
+  editingMode.value = false
 }
 
 
@@ -1185,7 +1166,6 @@ const handleCloseCategory = () => {
 
 const handleCancelAddEdit = () => {
   ruleForm.activity_id = null
-  ruleForm.project_id = null
   editingMode.value = false
   activeStep.value = 0
   AddDialogVisible.value = false
