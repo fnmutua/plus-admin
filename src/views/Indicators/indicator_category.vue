@@ -21,7 +21,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch,
-  ElTooltip, ElOption, ElDialog, ElForm, ElRow, ElFormItem, ElInput, FormRules, ElPopconfirm
+  ElTooltip, ElOption, ElDialog, ElDrawer, ElForm, ElRow, ElFormItem, ElInput, FormRules, ElPopconfirm, ElStep, ElSteps
 } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 
@@ -38,6 +38,9 @@ import type { ButtonInstance } from 'element-plus'
 import { v5 } from 'uuid'
 import TableActions from '@/views/Components/TableActions.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
+import { Icon as AppIcon } from '@/components/Icon'
+import { useAdjustableTableColumns, type AdjustableColumnSetting } from '@/composables/useAdjustableTableColumns'
 
 
 const { wsCache } = useCache()
@@ -75,35 +78,108 @@ const dialogWidth = ref()
 const actionColumnWidth = ref()
 
 if (isMobile.value) {
-  dialogWidth.value = "100px"
-  actionColumnWidth.value = "100px"
+  dialogWidth.value = '90%'
+  actionColumnWidth.value = '75px'
 } else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
-
+  dialogWidth.value = '32%'
+  actionColumnWidth.value = '160px'
 }
 
+const indicatorCategoryColumnDefaults = (): AdjustableColumnSetting[] => [
+  { key: 'id', label: 'Id', width: 80, minWidth: 80, visible: true, hideable: true },
+  { key: 'activity', label: 'Activity', width: undefined as any, minWidth: 180, visible: true, hideable: true },
+  { key: 'indicator', label: 'Indicator', width: undefined as any, minWidth: 180, visible: true, hideable: true },
+  { key: 'dimension', label: 'Dimension', width: undefined as any, minWidth: 140, visible: true, hideable: true },
+  { key: 'location', label: 'Location', width: undefined as any, minWidth: 140, visible: true, hideable: true },
+]
 
+const {
+  showColumnPicker,
+  isColumnVisible,
+  columnWidth,
+  columnMinWidth,
+  hideableColumns,
+  visibleColumnKeys,
+  onHeaderDragend,
+  resetColumns,
+} = useAdjustableTableColumns('indicatorCategoryTableColumnsV1', indicatorCategoryColumnDefaults)
 
+const equalDataColumnsVisible = computed(
+  () => isColumnVisible('activity') && isColumnVisible('indicator')
+)
+
+const idColumnWidth = () => {
+  const w = columnWidth('id')
+  return typeof w === 'number' && w > 40 ? w : 80
+}
+
+const getRowActivityLabel = (row: Record<string, any>) => {
+  if (row.indicator_level === 'project') return 'Project level'
+  const title =
+    row.activity?.title ??
+    row.activity?.shortTitle ??
+    row.indicator?.activity?.title ??
+    activityOptionsFiltered.value.find((o) => o.value === row.activity_id)?.label
+  if (title) return title
+  return row.activity_id ? `Activity #${row.activity_id}` : '—'
+}
+
+const getRowIndicatorLabel = (row: Record<string, any>) =>
+  row.indicator?.name ?? row.indicator_name ?? '—'
+
+const getRowDimensionLabel = (row: Record<string, any>) =>
+  row.category_title ?? row.category?.category ?? '—'
+
+const getRowLocationLabel = (row: Record<string, any>) => {
+  const pl = row.project_location
+  if (!pl) return '—'
+  return (
+    pl.settlement?.name ??
+    pl.location_name ??
+    pl.county?.name ??
+    (pl.id ? `Location #${pl.id}` : '—')
+  )
+}
+
+const flexColumnMinWidth = (key: 'activity' | 'indicator' | 'dimension' | 'location') => {
+  const min = columnMinWidth(key) ?? 140
+  const w = columnWidth(key)
+  if (typeof w === 'number' && w > 40) {
+    if (equalDataColumnsVisible.value && (key === 'activity' || key === 'indicator')) {
+      const otherKey = key === 'activity' ? 'indicator' : 'activity'
+      const otherW = columnWidth(otherKey)
+      const saved = [w, otherW].filter((n): n is number => typeof n === 'number' && n > 40)
+      if (saved.length) return Math.max(min, ...saved)
+    }
+    return Math.max(min, w)
+  }
+  return min
+}
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  indicator_level:null,
+  indicator_level: null,
   indicator_id: null,
   activity_id: null,
   indicator_name: null,
   category_id: null,
-  category_title:null,
+  category_title: null,
   frequency: null,
   level: null,
   code: null,
- }) 
-
+})
 
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
+
+const hasActiveFilters = computed(
+  () =>
+    (Array.isArray(value2.value) && value2.value.length > 0) ||
+    (Array.isArray(value3.value) && value3.value.length > 0)
+)
+
 const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
@@ -156,6 +232,7 @@ const AddDialogVisible = ref(false)
 const formHeader = ref('Configure Indicator')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
+const activeStep = ref(0)
 
 
 console.log("Show Buttons -->", showAdminButtons)
@@ -171,8 +248,8 @@ var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['indicator', 'project', 'activity', 'category', 'project_location']
 const model = 'indicator_category'
-const nested_models = ['indicator', 'activity'] // The mother, then followed by the child
-// const nested_models = [] // The mother, then followed by the child
+// indicator + activity are already in associated_multiple_models; nesting again duplicates indicator and can drop joins
+const nested_models = []
 
 //// ------------------parameters -----------------------////
 
@@ -469,34 +546,34 @@ const getCategoryOptions = async () => {
   })
 }
 
+type SelectOption = { label?: string; value?: unknown; [key: string]: unknown }
+
+const sortSelectOptionsByLabel = (options: SelectOption[]) =>
+  options.sort((a, b) =>
+    String(a.label ?? '').localeCompare(String(b.label ?? ''), undefined, { sensitivity: 'base' })
+  )
+
+const activityOptions = ref<SelectOption[]>([])
+const activityOptionsFiltered = ref<SelectOption[]>([])
+
 const getActivityOptions = async () => {
-  const res = await getCountyListApi({
+  activityOptionsFiltered.value = []
+  await getCountyListApi({
     params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
+      curUser: 1,
       model: 'activity',
       searchField: 'title',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Activities response:', response)
-
- 
-
-    response.data.forEach((arrayItem) => { 
-
-      let act = {}
-      act.value=arrayItem.id
-      act.label=arrayItem.title
-      activityOptionsFiltered.value.push(act)
-
+    response.data.forEach((arrayItem) => {
+      activityOptionsFiltered.value.push({
+        value: arrayItem.id,
+        label: arrayItem.title
+      })
     })
-
-    console.log('activityOptionsFiltered.value',activityOptionsFiltered.value)
-   
-   
+    sortSelectOptionsByLabel(activityOptionsFiltered.value)
   })
 }
 
@@ -541,26 +618,13 @@ const getFrequencyOptions = async () => {
 
 getFrequencyOptions()
 
-
-
-
-
-
-
- 
-const activityOptions = ref([])
-const activityOptionsFiltered = ref([])
-
- 
-
- 
-
 const projectOptions = ref([])
 const projectList = ref([])
 
 const getProjectActivities = async () => {
+  projectOptions.value = []
+  activityOptions.value = []
   const formData = {}
-  // formData.limit = 10000
   formData.curUser = 1 // Id for logged in user
   formData.model = 'project'
   //-Search field--------------------------------------------
@@ -604,12 +668,11 @@ const getProjectActivities = async () => {
       act_opt.label = activity.title + '(' + activity.id + ')'
 
       //  console.log(countyOpt)
-      activityOptions.value.push(act_opt)  // We keep this as backup 
- 
+      activityOptions.value.push(act_opt)
     })
-
   })
 
+  sortSelectOptionsByLabel(activityOptions.value)
 }
 
 const project_locations = ref([])
@@ -758,6 +821,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
   editingMode.value = true
+  activeStep.value = 0
 
   console.log('Editing indicator:', data)
   
@@ -824,10 +888,9 @@ const DeleteIndicator = (data: TableSlotDefault) => {
 
 
 const handleClose = () => {
-
-  console.log("Closing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
+  activeStep.value = 0
 
   ruleForm.indicator_id = ''
   ruleForm.indicator_name = ''
@@ -835,10 +898,8 @@ const handleClose = () => {
   ruleForm.category_title = ''
   ruleForm.frequency = ''
 
- 
   formHeader.value = 'Configure Indicator'
   AddDialogVisible.value = false
-
 }
 
 
@@ -875,10 +936,21 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Please select an indicator', trigger: 'blur' }
   ],
   
-  indicator_level:  [{ required: true, message: 'The Indicator level is required', trigger: 'blur' }],
+  indicator_level: [{ required: true, message: 'The Indicator level is required', trigger: 'blur' }],
   category_id: [{ required: true, message: 'The Indicator category is required', trigger: 'blur' }],
   frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
-  activity_id: [{ required: true, message: 'The Indicator Activity is required', trigger: 'blur' }],
+  activity_id: [
+    {
+      validator: (_rule, value, callback) => {
+        if (ruleForm.indicator_level === 'activity' && !value) {
+          callback(new Error('The Indicator Activity is required'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'change',
+    },
+  ],
   project_id: [{ required: true, message: 'Project is required', trigger: 'blur' }],
   target: [{ required: true, message: 'Target is required', trigger: 'blur' }],
   baseline: [{ required: true, message: 'Baseline is required', trigger: 'blur' }],
@@ -892,25 +964,62 @@ const categoryRules = reactive<FormRules>({
 })
 
 const AddIndicatorConfig = async () => {
-  // Ensure activity options are loaded when opening the dialog
   if (activityOptionsFiltered.value.length === 0) {
     await getActivityOptions()
   }
+  activeStep.value = 0
   AddDialogVisible.value = true
+}
+
+const step0Fields = computed(() => {
+  const fields: string[] = ['indicator_level', 'indicator_id']
+  if (ruleForm.indicator_level === 'activity') fields.push('activity_id')
+  return fields
+})
+
+const validateCurrentStep = async () => {
+  if (!ruleFormRef.value) return false
+  const fields = activeStep.value === 0 ? step0Fields.value : ['category_id', 'frequency']
+  try {
+    await ruleFormRef.value.validateField(fields)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const nextStep = async () => {
+  const valid = await validateCurrentStep()
+  if (valid && activeStep.value < 1) {
+    activeStep.value++
+  }
+}
+
+const prevStep = () => {
+  if (activeStep.value > 0) {
+    activeStep.value--
+  }
 }
 
 
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = 'indicator_category'
       ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id
-      const res = CreateRecord(ruleForm)
-      console.log('ruleForm.code >>', ruleForm.code)
-      //  AddDialogVisible.value = false
-
+      try {
+        await CreateRecord(ruleForm)
+        page.value = 1
+        currentPage.value = 1
+        await getFilteredData(filters, filterValues)
+        handleClose()
+        ruleForm.project_id = null
+        ruleForm.activity_id = null
+      } catch (error) {
+        console.error('Error creating record:', error)
+      }
     } else {
       console.log('error submit!', fields)
     }
@@ -1078,6 +1187,7 @@ const handleCancelAddEdit = () => {
   ruleForm.activity_id = null
   ruleForm.project_id = null
   editingMode.value = false
+  activeStep.value = 0
   AddDialogVisible.value = false
 }
 
@@ -1281,234 +1391,320 @@ const indicatorLevels = [
 
 </script>
 <template>
-  <el-card>
-
-
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+  <el-card class="indicator-category-page-card">
+    <div
+      class="sett-toolbar-row"
+      :class="isMobile ? 'sett-toolbar-row--compact' : 'sett-toolbar-row--wide'"
+    >
+      <div class="sett-toolbar-col sett-toolbar-col--back">
+        <el-button type="primary" plain :icon="Back" @click="goBack" size="small">
           Back
         </el-button>
       </div>
 
-      <!-- Indicator Search -->
-      <el-select
-        v-model="value2" 
-        :onChange="handleSelectIndicator" 
-        :onClear="handleClear" 
-        multiple 
-        clearable 
-        filterable
-        collapse-tags 
-        placeholder="Filter by Indicator" 
-        style="margin-right: 10px;"
-        :filter-method="filterIndicators"
-        :loading="searchLoading">
-        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      
-      <el-select
-        v-model="value3" 
-        :onChange="handleSelectCategory" 
-        :onClear="handleClear" 
-        multiple 
-        clearable 
-        filterable
-        collapse-tags 
-        placeholder="Filter by Category"
-        :filter-method="filterCategories"
-        :loading="searchLoading">
-        <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      <div class="sett-toolbar-col sett-toolbar-col--search indicator-category-filters">
+        <el-select
+          v-model="value2"
+          :onChange="handleSelectIndicator"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by Indicator"
+          style="width: 100%;"
+          :filter-method="filterIndicators"
+          :loading="searchLoading"
+        >
+          <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-        <PermissionWrapper :permissions="['indicator:create']">
-          <el-tooltip content="Add Indicator Configuration" placement="top">
-            <el-button v-if="showAdminButtons" :onClick="AddIndicatorConfig" type="primary" :icon="Plus" />
-          </el-tooltip>
-          <el-tooltip content="Clear" placement="top">
-            <el-button @click="handleClear" type="primary">
-              <Icon icon="mdi:filter-remove" />
-            </el-button>
-          </el-tooltip>
-          <DownloadCustom
-            :data="tableDataList"
-            :model="model"
-            :associated_models="associated_multiple_models"
-            :loading="downloadLoading"
-            @download-start="downloadLoading = true"
-            @download-end="downloadLoading = false"
-                      :total="total"
-                      :filters="filters"
-                      :filter-values="filterValues"
-/>
-        </PermissionWrapper>
-         
+        <el-select
+          v-model="value3"
+          :onChange="handleSelectCategory"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by Category"
+          style="width: 100%;"
+          :filter-method="filterCategories"
+          :loading="searchLoading"
+        >
+          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
       </div>
 
-    </el-row>
-
-
-
-    <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
-      <el-table-column label="Id" prop="id" width="50px" sortable />
-      <el-table-column label="Activity" prop="activity.title" sortable show-overflow-tooltip />
-      <el-table-column label="Indicator" prop="indicator.name" sortable show-overflow-tooltip />
-      <el-table-column label="Dimension" prop="category_title" sortable />
-      <!-- <el-table-column label="Target" prop="target" sortable /> -->
-      <!-- <el-table-column label="Baseline" prop="baseline" sortable /> -->
-
-
-<!-- 
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-        <template #default="scope">
-          <el-dropdown v-if="isMobile">
-            <span class="el-dropdown-link">
-              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
-                  color="green">Edit</el-dropdown-item>
-                <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
-                  :icon="Delete" color="red">Delete</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
-          <div v-else>
-
-            <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
-              <el-button
-type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
-                circle />
+      <div class="sett-toolbar-col sett-toolbar-col--actions">
+        <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
+          <PermissionWrapper :permissions="['indicator:create']">
+            <el-tooltip content="Add Indicator Configuration" placement="top">
+              <el-button @click="AddIndicatorConfig" type="primary" :icon="Plus" />
             </el-tooltip>
-
-            <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" width="350"
-                @confirm="DeleteIndicator(scope as TableSlotDefault)">
-                <template #reference>
-                  <el-button type="danger" size="small" :icon=Delete circle />
-                </template>
-              </el-popconfirm>
-            </el-tooltip>
-
-          </div>
-        </template>
-
-      </el-table-column> -->
-
-
-      <el-table-column label="Actions" width="250">
-        <template #default="{ row }">
-          <PermissionWrapper :permissions="['indicator:update', 'indicator:delete']">
-            <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
           </PermissionWrapper>
-        </template>
-      </el-table-column>
 
-    </el-table>
+          <el-tooltip v-if="hasActiveFilters" content="Clear all filters" placement="top">
+            <el-button type="primary" @click="handleClear">
+              <AppIcon icon="mdi:filter-remove" width="22" height="22" />
+            </el-button>
+          </el-tooltip>
+
+          <AdjustableTableColumnPicker
+            v-model:show-column-picker="showColumnPicker"
+            v-model:visible-column-keys="visibleColumnKeys"
+            :hideable-columns="hideableColumns"
+            @reset="resetColumns"
+          />
+
+          <PermissionWrapper :permissions="['indicator:read']">
+            <DownloadCustom
+              :data="tableDataList"
+              :model="model"
+              :associated_models="associated_multiple_models"
+              :loading="downloadLoading"
+              :total="total"
+              :filters="filters"
+              :filter-values="filterValues"
+              @download-start="downloadLoading = true"
+              @download-end="downloadLoading = false"
+            />
+          </PermissionWrapper>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div class="indicator-category-table-wrap">
+      <el-table
+        fit
+        table-layout="fixed"
+        :data="tableDataList"
+        :loading="loading"
+        :show-overflow-tooltip="true"
+        class="indicator-category-table"
+        style="width: 100%; margin-top: 10px;"
+        border
+        row-key="id"
+        @header-dragend="onHeaderDragend"
+      >
+        <el-table-column
+          v-if="isColumnVisible('id')"
+          column-key="id"
+          label="Id"
+          prop="id"
+          :width="idColumnWidth()"
+          :min-width="columnMinWidth('id')"
+          sortable
+          resizable
+        >
+          <template #default="{ row }">
+            <span>{{ row.id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('activity')"
+          column-key="activity"
+          label="Activity"
+          prop="activity.title"
+          class-name="indicator-category-col-equal"
+          :min-width="flexColumnMinWidth('activity')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span>{{ getRowActivityLabel(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('indicator')"
+          column-key="indicator"
+          label="Indicator"
+          prop="indicator.name"
+          class-name="indicator-category-col-equal"
+          :min-width="flexColumnMinWidth('indicator')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span>{{ getRowIndicatorLabel(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('dimension')"
+          column-key="dimension"
+          label="Dimension"
+          prop="category_title"
+          :min-width="flexColumnMinWidth('dimension')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span>{{ getRowDimensionLabel(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('location')"
+          column-key="location"
+          label="Location"
+          prop="project_location.location_name"
+          :min-width="flexColumnMinWidth('location')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            <span>{{ getRowLocationLabel(row) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Actions" :width="actionColumnWidth">
+          <template #default="{ row }">
+            <PermissionWrapper :permissions="['indicator:update', 'indicator:delete']">
+              <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+            </PermissionWrapper>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <ElPagination
-:layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 15, 20, 50, 100]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
       :small="isMobile"
-      :pager-count="isMobile ? 3 : 7" />
+      :pager-count="isMobile ? 3 : 7"
+    />
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" draggable width="30%"> 
-    <el-row>
-      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+  <el-drawer
+    v-model="AddDialogVisible"
+    direction="rtl"
+    :size="dialogWidth"
+    :title="formHeader"
+    @close="handleClose"
+  >
+    <el-steps :active="activeStep" align-center finish-status="success" class="indicator-category-drawer-steps">
+      <el-step title="Indicator setup" description="Level, activity & indicator" />
+      <el-step title="Reporting" description="Category & frequency" />
+    </el-steps>
 
-        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="180px" label-position="left">
-
- 
-   
-        <el-form-item id="btn1" label="Indicator level" prop="indicator_level" >
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="top">
+      <template v-if="activeStep === 0">
+        <el-form-item id="btn1" label="Indicator level" prop="indicator_level">
           <el-select
-ref="ref1" filterable v-model="ruleForm.indicator_level" :onChange="handleSwitchChange"
-            placeholder="Select Level" style="width: 100%;">
+            ref="ref1"
+            filterable
+            v-model="ruleForm.indicator_level"
+            :onChange="handleSwitchChange"
+            placeholder="Select level"
+            style="width: 100%;"
+          >
             <el-option
-v-for="item in indicatorLevels" :key="item.value" :label="item.label"
-              :value="item.value" />
-
+              v-for="item in indicatorLevels"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
-         </el-form-item>
+          <p class="field-hint">Project level applies across the whole project; Activity level ties reporting to one implementation activity.</p>
+        </el-form-item>
 
- 
-
-        <el-form-item v-if="ruleForm.indicator_level =='activity'" id="btn2" label="Activity" prop="activity_id">
+        <el-form-item v-if="ruleForm.indicator_level == 'activity'" id="btn2" label="Activity" prop="activity_id">
           <el-select
-ref="ref3" filterable v-model="ruleForm.activity_id"   :onChange="changeActivity"
-            placeholder="Select Activity" style="width: 100%;">
+            ref="ref3"
+            filterable
+            v-model="ruleForm.activity_id"
+            :onChange="changeActivity"
+            placeholder="Select activity"
+            style="width: 100%;"
+          >
             <el-option
-v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
-              :value="item.value" />
-          </el-select> 
-
+              v-for="item in activityOptionsFiltered"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+          <p class="field-hint">The work package this indicator tracks. Field teams see the activity <strong>short title</strong> on SlumMapper mobile.</p>
         </el-form-item>
 
         <el-form-item id="btn3" label="Indicator" prop="indicator_id">
-          <el-select
-ref="ref4" filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
-            placeholder="Select Indicator" style="width: 70%; margin-right: 10px;">
-            <el-option
-v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
-              :value="item.value" />
-          </el-select>
-          <el-button type="primary" @click="AddIndicator" :icon="Plus" plain />
-          <div v-if="ruleForm.indicator_level === 'activity' && !ruleForm.activity_id" style="margin-top: 5px;">
-            <el-text type="info" size="small">Please select an activity first to see available indicators</el-text>
+          <div class="form-inline-add">
+            <el-select
+              ref="ref4"
+              filterable
+              v-model="ruleForm.indicator_id"
+              :onChange="changeIndicator"
+              placeholder="Select indicator"
+              style="width: 100%;"
+            >
+              <el-option
+                v-for="item in indicatorsOptionsFiltered"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+            <el-button type="primary" @click="AddIndicator" :icon="Plus" plain />
           </div>
+          <p v-if="ruleForm.indicator_level === 'activity' && !ruleForm.activity_id" class="field-hint">
+            Select an activity first to see its indicators.
+          </p>
+          <p v-else class="field-hint">What is being measured (e.g. Beneficiaries reached). Use <strong>+</strong> to create a new indicator.</p>
         </el-form-item>
+      </template>
 
- 
-
-
-
-
+      <template v-else>
         <el-form-item id="btn4" label="Category" prop="category_id">
-          <el-select
-            v-model="ruleForm.category_id" :onChange="changeCategory" filterable placeholder="Select Category"
-            style="width: 70%; margin-right: 10px;">
-            <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-          <el-button type="primary" @click="AddCategory" :icon="Plus" plain />
+          <div class="form-inline-add">
+            <el-select
+              v-model="ruleForm.category_id"
+              :onChange="changeCategory"
+              filterable
+              placeholder="Select category"
+              style="width: 100%;"
+            >
+              <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-button type="primary" @click="AddCategory" :icon="Plus" plain />
+          </div>
+          <p class="field-hint">Reporting dimension on mobile — e.g. <em>Male/Female</em>, <em>Trained/Untrained</em>, or <em>Prepared/Approved</em>.</p>
         </el-form-item>
-
 
         <el-form-item id="btn5" label="Frequency" prop="frequency">
-          <el-select
-          v-model="ruleForm.frequency" placeholder="Select Frequency"
-          style="width: 70%; margin-right: 10px;">
-            <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-          <el-button type="primary" @click="AddNewFreq" :icon="Plus" plain />
+          <div class="form-inline-add">
+            <el-select v-model="ruleForm.frequency" placeholder="Select frequency" style="width: 100%;">
+              <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-button type="primary" @click="AddNewFreq" :icon="Plus" plain />
+          </div>
+          <p class="field-hint">How often values are reported (e.g. Monthly, Quarterly).</p>
         </el-form-item>
+      </template>
+    </el-form>
 
-
-
-        </el-form>
-
-      </el-col>
-    </el-row>
     <template #footer>
-      <span class="dialog-footer">
+      <div class="drawer-footer-bar">
         <el-button type="primary" plain @click="openHelp = true">Help</el-button>
         <el-button @click="handleCancelAddEdit">Cancel</el-button>
-        <el-button id="btn10" v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button id="btn11" v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
+        <el-button v-if="activeStep > 0" @click="prevStep">Previous</el-button>
+        <el-button v-if="activeStep < 1" type="primary" @click="nextStep">Next</el-button>
+        <el-button id="btn10" v-if="showSubmitBtn && activeStep === 1" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button id="btn11" v-if="showEditSaveButton && activeStep === 1" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+      </div>
     </template>
-
-  </el-dialog>
+  </el-drawer>
 
 
   <el-dialog v-model="AddCategoryVisible" @close="handleCloseCategory" title="Add Category" width="30%" draggable>
@@ -1630,69 +1826,146 @@ target="#btn5" title="Frequency"
 </template>
 
 <style scoped>
-.custom-switch .el-switch__label--left {
-  color: gray;
-  /* Gray out the inactive text */
-  opacity: 0.1;
-  /* Optional: Adjust the opacity */
-}
-
-.custom-switch .el-switch__label--right {
-  color: inherit;
-  /* Keep the active text as it is */
-}
-
-
-
-
-
-.responsive-container {
+.sett-toolbar-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
-  /* Space between the elements */
+  gap: 8px;
   margin-bottom: 10px;
-  /* Space below the container */
+  min-width: 0;
 }
 
-.responsive-container>* {
-  flex-shrink: 0;
-  /* Prevents elements from shrinking below their content size */
+.sett-toolbar-row--compact {
+  flex-wrap: nowrap;
 }
 
-.responsive-container .el-select {
-  max-width: 250px;
-  /* Set a maximum width for the select elements */
+.sett-toolbar-row--wide {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-col {
+  min-width: 0;
+}
+
+.sett-toolbar-col--back {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--search {
+  flex: 1 1 0;
+  min-width: 160px;
+  max-width: 520px;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--actions {
   flex: 1 1 auto;
-  /* Allow the select elements to grow and shrink */
+  min-width: 0;
+  margin-left: auto;
 }
 
-.responsive-container .el-button {
+.sett-toolbar-row--compact .sett-toolbar-col--search {
+  flex: 1 1 120px;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--actions {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.sett-toolbar-actions--desktop {
+  flex-wrap: wrap;
+}
+
+.indicator-category-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .indicator-category-filters {
+    flex-direction: row;
+  }
+}
+
+.indicator-category-page-card {
+  width: 100%;
+}
+
+.indicator-category-page-card :deep(.el-card__body) {
+  width: 100%;
+}
+
+.indicator-category-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.indicator-category-table-wrap :deep(.indicator-category-table),
+.indicator-category-table-wrap :deep(.el-table__inner-wrapper),
+.indicator-category-table-wrap :deep(.el-table__header-wrapper),
+.indicator-category-table-wrap :deep(.el-table__body-wrapper) {
+  width: 100% !important;
+}
+
+.indicator-category-table-wrap :deep(.el-table__header colgroup col),
+.indicator-category-table-wrap :deep(.el-table__body colgroup col) {
+  min-width: 0;
+}
+
+.indicator-category-table-wrap :deep(.el-table__header table),
+.indicator-category-table-wrap :deep(.el-table__body table) {
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+.indicator-category-table-wrap :deep(.el-table__empty-block) {
+  width: 100% !important;
+}
+
+.drawer-footer-bar {
+  padding: 12px 20px;
+  border-top: 1px solid var(--el-border-color);
+  text-align: right;
+}
+
+.indicator-category-drawer-steps {
+  margin-bottom: 20px;
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.45;
+}
+
+.field-hint strong {
+  font-weight: 600;
+}
+
+.form-inline-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.form-inline-add .el-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.form-inline-add .el-button {
   flex-shrink: 0;
-  /* Prevents buttons from shrinking */
-}
-
-
-@media (max-width: 768px) {
-  .responsive-container {
-    justify-content: space-between;
-    gap: 10px;
-    /* Reduce gap on smaller screens */
-  }
-}
-
-@media (max-width: 480px) {
-  .responsive-container {
-    flex-direction: column;
-    /* Stack elements on top of each other on very small screens */
-    gap: 15px;
-    /* Increase gap for stacked items */
-  }
-
-  .responsive-container .el-select {
-    max-width: 100%;
-    /* Allow select to take full width in column layout */
-  }
 }
 </style>

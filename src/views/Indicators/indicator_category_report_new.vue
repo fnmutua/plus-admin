@@ -45,6 +45,7 @@ import { defineAsyncComponent } from 'vue';
 
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
+import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
 import TableActions from '@/views/Components/TableActions.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';

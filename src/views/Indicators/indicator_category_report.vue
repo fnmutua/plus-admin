@@ -22,7 +22,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow, ElDescriptions, ElDescriptionsItem
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElDrawer, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow, ElDescriptions, ElDescriptionsItem
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
@@ -54,9 +54,13 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
+import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf'
 import { useAppStore } from '@/store/modules/app'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
+import { Icon as AppIcon } from '@/components/Icon'
+import { useAdjustableTableColumns, type AdjustableColumnSetting } from '@/composables/useAdjustableTableColumns'
 
 
 const MapBoxToken =
@@ -554,6 +558,13 @@ const indicatorFilterOptions = ref([])
 const selectedSettlements = ref([])
 const selectedIndicators = ref([])
 
+const hasActiveFilters = computed(
+  () =>
+    (Array.isArray(selectedSettlements.value) && selectedSettlements.value.length > 0) ||
+    (Array.isArray(selectedIndicators.value) && selectedIndicators.value.length > 0) ||
+    filters.length > 0
+)
+
 
 // Borrowed word for word from ProjectDetails.vue
 const firstLoad = ref(true)
@@ -779,7 +790,8 @@ const editReport = async (data: TableSlotDefault) => {
   isNationalProject.value = thisProject && thisProject[0].implementation_scope === 'National';
 
   // Open the dialog for editing
-  AddDialogVisible.value = true;
+  activeStep.value = 0
+  AddDialogVisible.value = true
 };
 
 
@@ -826,10 +838,9 @@ const DeleteReport = (data: TableSlotDefault) => {
 const currentRow = ref()
 
 const handleClose = () => {
-
-  console.log("Closing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
+  activeStep.value = 0
   ruleForm.indicator_category_id = null
   ruleForm.date = null
   ruleForm.amount = null
@@ -839,7 +850,6 @@ const handleClose = () => {
 
   formHeader.value = 'Add M&E Report'
   AddDialogVisible.value = false
-
 }
 
 
@@ -1130,6 +1140,7 @@ function getQuarter(date = new Date()) {
 
 
 const AddReport = () => {
+  activeStep.value = 0
   AddDialogVisible.value = true
   showSubmitBtn.value = true
 }
@@ -1219,6 +1230,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     }
 
     emptyRuleForm();
+    page.value = 1
+    currentPage.value = 1
+    await getFilteredData(filters, filterValues)
     AddDialogVisible.value = false;
     handleClose();
   });
@@ -1308,6 +1322,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
     // Reset the form
     emptyRuleForm();
+    page.value = 1
+    currentPage.value = 1
+    await getFilteredData(filters, filterValues)
     AddDialogVisible.value = false;
     handleClose();
   });
@@ -1794,6 +1811,55 @@ if (isMobile.value) {
   previewWindowWidth.value = "40%"
 }
 
+const reportColumnDefaults = (): AdjustableColumnSetting[] => [
+  { key: 'indicator', label: 'Indicator', width: undefined as any, minWidth: 160, visible: true, hideable: true },
+  { key: 'category', label: 'Category', width: undefined as any, minWidth: 140, visible: true, hideable: true },
+  { key: 'settlement', label: 'Settlement', width: undefined as any, minWidth: 160, visible: true, hideable: true },
+  { key: 'amount', label: 'Amount', width: undefined as any, minWidth: 100, visible: true, hideable: true },
+  { key: 'progress', label: 'Progress %', width: undefined as any, minWidth: 110, visible: true, hideable: true },
+  { key: 'date', label: 'Date', width: undefined as any, minWidth: 110, visible: true, hideable: true },
+  { key: 'status', label: 'Status', width: undefined as any, minWidth: 100, visible: true, hideable: true },
+  { key: 'documents', label: 'Documents', width: 120, minWidth: 100, visible: true, hideable: true },
+]
+
+const {
+  showColumnPicker,
+  isColumnVisible,
+  columnWidth,
+  columnMinWidth,
+  hideableColumns,
+  visibleColumnKeys,
+  onHeaderDragend,
+  resetColumns,
+} = useAdjustableTableColumns('indicatorCategoryReportTableColumnsV1', reportColumnDefaults)
+
+const equalDataColumnsVisible = computed(
+  () =>
+    isColumnVisible('indicator') &&
+    isColumnVisible('category') &&
+    isColumnVisible('settlement')
+)
+
+const flexColumnMinWidth = (key: 'indicator' | 'category' | 'settlement' | 'amount' | 'progress' | 'date' | 'status') => {
+  const min = columnMinWidth(key) ?? 120
+  const w = columnWidth(key)
+  if (typeof w === 'number' && w > 40) {
+    if (equalDataColumnsVisible.value && ['indicator', 'category', 'settlement'].includes(key)) {
+      const saved = (['indicator', 'category', 'settlement'] as const)
+        .map((k) => columnWidth(k))
+        .filter((n): n is number => typeof n === 'number' && n > 40)
+      if (saved.length) return Math.max(min, ...saved)
+    }
+    return Math.max(min, w)
+  }
+  return min
+}
+
+const documentsColumnWidth = () => {
+  const w = columnWidth('documents')
+  return typeof w === 'number' && w > 40 ? w : 120
+}
+
 
 
 /// Uplaod docuemnts from a central component 
@@ -2266,19 +2332,29 @@ const openHelp = ref(false)
 
 const activeStep = ref(0)
 
+const step0Fields = computed(() => {
+  const fields: string[] = ['project_id']
+  if (!isNationalProject.value) fields.push('project_location_id')
+  return fields
+})
 
+const validateCurrentStep = async () => {
+  if (!ruleFormRef.value) return false
+  if (activeStep.value === 2 || activeStep.value === 3) return true
+  const fields = activeStep.value === 0 ? step0Fields.value : ['indicator_category_id']
+  try {
+    await ruleFormRef.value.validateField(fields)
+    return true
+  } catch {
+    return false
+  }
+}
 
 const nextStep = async () => {
-  console.log(ruleFormRef.value)
-  await ruleFormRef.value?.validate((valid) => {
-    if (valid) {
-      if (activeStep.value < 3) {
-        activeStep.value++
-      }
-    }
-  })
-
-
+  const valid = await validateCurrentStep()
+  if (valid && activeStep.value < 3) {
+    activeStep.value++
+  }
 }
 
 
@@ -2293,6 +2369,7 @@ const tableRef = ref(null);
 
 const handleCancel = () => {
   disableIndicator.value = false
+  activeStep.value = 0
   AddDialogVisible.value = false
 }
 
@@ -2394,33 +2471,39 @@ function handleIndicatorsChange(selectedIds) {
 </script>
 
 <template>
-  <el-card>
-    <el-row :gutter="10" style="margin-bottom: 10px;">
-      <el-col :span="3">
-        <el-button type="primary" plain :icon="Back" @click="goBack">
+  <el-card class="indicator-category-report-page-card">
+    <div
+      class="sett-toolbar-row"
+      :class="isMobile ? 'sett-toolbar-row--compact' : 'sett-toolbar-row--wide'"
+    >
+      <div class="sett-toolbar-col sett-toolbar-col--back">
+        <el-button type="primary" plain :icon="Back" @click="goBack" size="small">
           Back
         </el-button>
-      </el-col>
-      
-      <el-col :span="5">
+      </div>
+
+      <div class="sett-toolbar-col sett-toolbar-col--search report-toolbar-filters">
         <el-select
-          v-model="selectedSettlements" 
-          @change="handleSettlementFilter" 
-          @clear="handleClear" 
-          multiple clearable 
+          v-model="selectedSettlements"
+          @change="handleSettlementFilter"
+          @clear="handleClear"
+          multiple
+          clearable
           filterable
           remote
           reserve-keyword
           :loading="loading"
-          collapse-tags 
+          collapse-tags
           placeholder="Search Settlement"
           :remote-method="remoteMethodSettlement"
-          style="width: 100%;">
-          <el-option 
-            v-for="item in settlementFilterOptions" 
-            :key="item.id" 
-            :label="item.label" 
-            :value="item.value">
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in settlementFilterOptions"
+            :key="item.id"
+            :label="item.label"
+            :value="item.value"
+          >
             <div style="display: flex; align-items: center;">
               <span style="flex: 1; text-align: left;">{{ item.label }}</span>
               <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
@@ -2429,139 +2512,236 @@ function handleIndicatorsChange(selectedIds) {
             </div>
           </el-option>
         </el-select>
-      </el-col>
-      
-      <el-col :span="5">
+
         <el-select
-          v-model="selectedIndicators" 
-          @change="handleIndicatorFilter" 
-          @clear="handleClear" 
-          multiple clearable filterable
-          collapse-tags 
+          v-model="selectedIndicators"
+          @change="handleIndicatorFilter"
+          @clear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
           placeholder="Filter by Indicator"
-          style="width: 100%;">
+          style="width: 100%;"
+        >
           <el-option v-for="item in indicatorFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-      </el-col>
-      
-      <el-col :span="11">
-        <div style="display: flex; align-items: center; gap: 10px; justify-content: flex-end;">
+      </div>
+
+      <div class="sett-toolbar-col sett-toolbar-col--actions">
+        <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
           <PermissionWrapper :permissions="['indicator_category_report:create']">
             <el-tooltip content="Add Indicator Category Report" placement="top">
-              <el-button :onClick="AddReport" type="primary" :icon="Plus" />
+              <el-button @click="AddReport" type="primary" :icon="Plus" />
             </el-tooltip>
-            <el-tooltip content="Clear" placement="top">
-              <el-button @click="handleClear" type="primary">
-                <Icon icon="mdi:filter-remove" />
-              </el-button>
-            </el-tooltip>
+          </PermissionWrapper>
+
+          <el-tooltip v-if="hasActiveFilters" content="Clear all filters" placement="top">
+            <el-button type="primary" @click="handleClear">
+              <AppIcon icon="mdi:filter-remove" width="22" height="22" />
+            </el-button>
+          </el-tooltip>
+
+          <AdjustableTableColumnPicker
+            v-model:show-column-picker="showColumnPicker"
+            v-model:visible-column-keys="visibleColumnKeys"
+            :hideable-columns="hideableColumns"
+            @reset="resetColumns"
+          />
+
+          <PermissionWrapper :permissions="['indicator_category_report:read']">
             <DownloadCustom
               :data="tableDataList"
               :model="model"
               :associated_models="associated_multiple_models"
               :loading="downloadLoading"
+              :total="total"
+              :filters="filters"
+              :filter-values="filterValues"
               @download-start="downloadLoading = true"
               @download-end="downloadLoading = false"
-                      :total="total"
-                      :filters="filters"
-                      :filter-values="filterValues"
-/>
+            />
           </PermissionWrapper>
         </div>
-      </el-col>
-    </el-row>
-    <el-table 
-      :data="tableDataList" 
-      :loading="loading" 
-      border 
-      show-summary 
-      :summary-method="getSummaries" 
-      style="width: 100%; margin-top: 10px;">
-      <el-table-column label="Indicator" sortable>
-        <template #default="{ row }">
-          {{ row.indicator_category?.indicator_name || 'N/A' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Category" sortable>
-        <template #default="{ row }">
-          {{ row.indicator_category?.category_title || 'N/A' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Settlement" sortable>
-        <template #default="{ row }">
-          {{ row.settlement?.name || 'N/A' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Amount" prop="amount" sortable />
-      <el-table-column label="Progress %" prop="progress" sortable>
-        <template #default="{ row }">
-          {{ isFinite(Number(row.progress || 0)) ? Number(row.progress || 0).toFixed(1) : '0.0' }}%
-        </template>
-      </el-table-column>
-      <el-table-column label="Date" prop="date" sortable>
-        <template #default="{ row }">
-          {{ formatDate(row.date) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Status" prop="status" sortable>
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'info'">
-            {{ row.status || 'New' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="Documents" width="120" align="center">
-        <template #default="{ row }">
-          <div class="documents-cell">
-            <el-button 
-              type="primary" 
-              size="small" 
-              :icon="Files"
-              @click="openDocumentDrawer(row)"
-              class="documents-button"
-            >
-              {{ row.documents?.length || 0 }}
-            </el-button>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="Actions" width="250">
-        <template #default="{ row }">
-          <PermissionWrapper :permissions="['indicator_category_report:update', 'indicator_category_report:delete']">
-            <TableActions 
-              :item="row" 
-              :buttons="action_buttons" 
-              @edit="editReport" 
-              @delete="DeleteReport" 
-              @view-on-map="showMap"
-              @preview="preview"
-              :disabled-buttons="row.geom ? [] : ['viewOnMap']" />
-          </PermissionWrapper>
-        </template>
-      </el-table-column>
-    </el-table>
+      </div>
+    </div>
+    <div class="indicator-category-report-table-wrap">
+      <el-table
+        fit
+        table-layout="fixed"
+        :data="tableDataList"
+        :loading="loading"
+        border
+        show-summary
+        :summary-method="getSummaries"
+        :show-overflow-tooltip="true"
+        class="indicator-category-report-table"
+        style="width: 100%; margin-top: 10px;"
+        row-key="id"
+        @header-dragend="onHeaderDragend"
+      >
+        <el-table-column
+          v-if="isColumnVisible('indicator')"
+          column-key="indicator"
+          label="Indicator"
+          class-name="report-col-equal"
+          :min-width="flexColumnMinWidth('indicator')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            {{ row.indicator_category?.indicator_name || 'N/A' }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('category')"
+          column-key="category"
+          label="Category"
+          class-name="report-col-equal"
+          :min-width="flexColumnMinWidth('category')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            {{ row.indicator_category?.category_title || 'N/A' }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('settlement')"
+          column-key="settlement"
+          label="Settlement"
+          class-name="report-col-equal"
+          :min-width="flexColumnMinWidth('settlement')"
+          sortable
+          resizable
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            {{ row.settlement?.name || 'N/A' }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('amount')"
+          column-key="amount"
+          label="Amount"
+          prop="amount"
+          :min-width="flexColumnMinWidth('amount')"
+          sortable
+          resizable
+        />
+        <el-table-column
+          v-if="isColumnVisible('progress')"
+          column-key="progress"
+          label="Progress %"
+          prop="progress"
+          :min-width="flexColumnMinWidth('progress')"
+          sortable
+          resizable
+        >
+          <template #default="{ row }">
+            {{ isFinite(Number(row.progress || 0)) ? Number(row.progress || 0).toFixed(1) : '0.0' }}%
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('date')"
+          column-key="date"
+          label="Date"
+          prop="date"
+          :min-width="flexColumnMinWidth('date')"
+          sortable
+          resizable
+        >
+          <template #default="{ row }">
+            {{ formatDate(row.date) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('status')"
+          column-key="status"
+          label="Status"
+          prop="status"
+          :min-width="flexColumnMinWidth('status')"
+          sortable
+          resizable
+        >
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'info'">
+              {{ row.status || 'New' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('documents')"
+          column-key="documents"
+          label="Documents"
+          :width="documentsColumnWidth()"
+          :min-width="columnMinWidth('documents')"
+          align="center"
+          resizable
+        >
+          <template #default="{ row }">
+            <div class="documents-cell">
+              <el-button
+                type="primary"
+                size="small"
+                :icon="Files"
+                @click="openDocumentDrawer(row)"
+                class="documents-button"
+              >
+                {{ row.documents?.length || 0 }}
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="Actions" :width="actionColumnWidth">
+          <template #default="{ row }">
+            <PermissionWrapper :permissions="['indicator_category_report:update', 'indicator_category_report:delete']">
+              <TableActions
+                :item="row"
+                :buttons="action_buttons"
+                @edit="editReport"
+                @delete="DeleteReport"
+                @view-on-map="showMap"
+                @preview="preview"
+                :disabled-buttons="row.geom ? [] : ['viewOnMap']"
+              />
+            </PermissionWrapper>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
     <ElPagination
-      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
+      :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]"
+      :total="total"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
       :small="isMobile"
-      :pager-count="isMobile ? 3 : 7" />
+      :pager-count="isMobile ? 3 : 7"
+    />
   </el-card>
 
+  <el-drawer
+    v-model="AddDialogVisible"
+    direction="rtl"
+    :size="dialogWidth"
+    :title="formHeader"
+    @close="handleClose"
+  >
+    <el-steps :active="activeStep" align-center finish-status="success" class="indicator-category-report-drawer-steps">
+      <el-step title="Project Details" />
+      <el-step title="Indicator Selection" />
+      <el-step title="Input Values" />
+      <el-step title="Submit" />
+    </el-steps>
 
-
-
-
-
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth">
-  <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-    <el-step title="Project Details" />
-    <el-step title="Indicator Selection" />
-    <el-step title="Input Values" />
-    <el-step title="Submit" />
-  </el-steps>
-
-  <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
+  <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="top">
     <!-- Step 0 -->
     <el-row v-if="activeStep === 0" :gutter="20">
       <el-col :span="24">
@@ -2702,19 +2882,15 @@ function handleIndicatorsChange(selectedIds) {
 
   <!-- Footer -->
   <template #footer>
-    <span class="dialog-footer">
-      <el-row :gutter="5">
-        <el-col :span="24">
-          <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-          <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
-          <el-button @click="handleCancel">Cancel</el-button>
-          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-          <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-        </el-col>
-      </el-row>
-    </span>
+    <div class="drawer-footer-bar">
+      <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+      <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
+      <el-button @click="handleCancel">Cancel</el-button>
+      <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+      <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+    </div>
   </template>
-</el-dialog>
+</el-drawer>
 
 
 
@@ -2869,9 +3045,123 @@ target="#btn13" title="Documentation"
   width: 100%;
   height: 450px;
   border: 1px solid #e2dcdc;
-  /* Outline */
   box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
-  /* Shadow */
+}
+
+.sett-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.sett-toolbar-row--compact {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-row--wide {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-col {
+  min-width: 0;
+}
+
+.sett-toolbar-col--back {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--search {
+  flex: 1 1 0;
+  min-width: 160px;
+  max-width: 520px;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--actions {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--search {
+  flex: 1 1 120px;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--actions {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.sett-toolbar-actions--desktop {
+  flex-wrap: wrap;
+}
+
+.report-toolbar-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .report-toolbar-filters {
+    flex-direction: row;
+  }
+}
+
+.indicator-category-report-page-card {
+  width: 100%;
+}
+
+.indicator-category-report-page-card :deep(.el-card__body) {
+  width: 100%;
+}
+
+.indicator-category-report-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.indicator-category-report-table-wrap :deep(.indicator-category-report-table),
+.indicator-category-report-table-wrap :deep(.el-table__inner-wrapper),
+.indicator-category-report-table-wrap :deep(.el-table__header-wrapper),
+.indicator-category-report-table-wrap :deep(.el-table__body-wrapper) {
+  width: 100% !important;
+}
+
+.indicator-category-report-table-wrap :deep(.el-table__header colgroup col),
+.indicator-category-report-table-wrap :deep(.el-table__body colgroup col) {
+  min-width: 0;
+}
+
+.indicator-category-report-table-wrap :deep(.el-table__header table),
+.indicator-category-report-table-wrap :deep(.el-table__body table) {
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+.indicator-category-report-table-wrap :deep(.el-table__empty-block) {
+  width: 100% !important;
+}
+
+.drawer-footer-bar {
+  padding: 12px 20px;
+  border-top: 1px solid var(--el-border-color);
+  text-align: right;
+}
+
+.indicator-category-report-drawer-steps {
+  margin-bottom: 20px;
 }
 </style>
 

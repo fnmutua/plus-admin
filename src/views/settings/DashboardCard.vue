@@ -30,6 +30,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { getUniqueFieldValues } from '@/api/households'
+import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
@@ -167,6 +168,62 @@ onMounted(async () => {
 
 const fieldSet = ref([])
 const indicatorCategoryOptions = ref([])
+
+// component_id / programme_id aren't real columns on project_location — they're
+// resolved server-side via a project→component subquery (summary.controller.js).
+// Loaded once and reused for both the Field-injection and the grouped Value picker.
+const allProgrammes = ref([])
+const allComponentsWithProgramme = ref([])
+const programmeHierarchyLoaded = ref(false)
+
+const loadProgrammeComponentHierarchy = async () => {
+  if (programmeHierarchyLoaded.value) return
+  const progRes = await getProgrammesList({ params: {} })
+  allProgrammes.value = progRes.data || []
+  const allIds = allProgrammes.value.map((p: any) => p.id)
+  if (allIds.length) {
+    const compRes = await getComponentsList({ params: { programme_ids: allIds.join(',') } })
+    allComponentsWithProgramme.value = compRes.data || []
+  }
+  programmeHierarchyLoaded.value = true
+}
+
+// Programme picker (root + child programmes) — used when filtering directly by
+// programme_id. Selecting a root (e.g. SUD) covers all its descendants.
+const programmeOptionGroupsForFilter = computed(() => {
+  const roots = allProgrammes.value.filter((p: any) => p.parentId == null || p.parentId === '')
+  return roots.map((root: any) => ({
+    id: root.id,
+    label: root.title || root.acronym,
+    rootLabel: `${root.title || root.acronym} (all)`,
+    children: allProgrammes.value
+      .filter((p: any) => String(p.parentId) === String(root.id))
+      .map((p: any) => ({ value: p.id, label: p.title || p.acronym })),
+  }))
+})
+
+// Component picker grouped by programme (e.g. "SUD / Markets") instead of one
+// long undifferentiated list of component titles.
+const componentOptionGroupsForFilter = computed(() => {
+  const programmeById = new Map(allProgrammes.value.map((p: any) => [p.id, p]))
+  const groups = new Map<number, { label: string; children: any[] }>()
+
+  for (const c of allComponentsWithProgramme.value) {
+    const programme = programmeById.get(c.programme_id)
+    if (!programme) continue
+    const root = programme.parentId != null && programme.parentId !== ''
+      ? programmeById.get(Number(programme.parentId))
+      : null
+    const label = root
+      ? `${root.title || root.acronym} / ${programme.title || programme.acronym}`
+      : (programme.title || programme.acronym)
+
+    if (!groups.has(c.programme_id)) groups.set(c.programme_id, { label, children: [] })
+    groups.get(c.programme_id)!.children.push({ value: c.id, label: c.title || c.acronym })
+  }
+
+  return Array.from(groups.values())
+})
 
 // Get indicator categories for Indicator cards
 const getIndicatorCategories = async () => {
@@ -926,6 +983,16 @@ const handleSelectModel = async (selModel) => {
 
   console.log('specs.....')
   await getModeldefinition(selModel)
+
+  // component_id / programme_id aren't columns on project_location, so getModelSpecs
+  // won't surface them — inject them as filterable pseudo-fields (backend resolves
+  // them via a project→component subquery).
+  if (selModel === 'project_location') {
+    fieldSet.value.push(
+      { value: 'component_id', label: 'Component (via Project)', type: 'FK_COMPONENT' },
+      { value: 'programme_id', label: 'Programme (via Project)', type: 'FK_PROGRAMME' },
+    )
+  }
 }
 
 
@@ -1130,6 +1197,18 @@ const handleChangeFilterField = async (selField) => {
   console.log('selectedField', selectedField)
   let selFieldType = selectedField[0].type
 
+  if (selFieldType === 'FK_COMPONENT' || selFieldType === 'FK_PROGRAMME') {
+    // Rendered via the grouped Programme/Component picker in the template, not
+    // fieldOptions — just load the hierarchy and set an IN-style operator.
+    aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
+    functionOptions.value = [
+      { value: 'all', label: 'All' },
+      { value: 'eq', label: 'Equal' },
+    ]
+    await loadProgrammeComponentHierarchy()
+    return
+  }
+
   if (selFieldType === "STRING") {
     aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
 
@@ -1257,8 +1336,14 @@ const preloadFilterOptions = async () => {
   if (!ruleForm.card_model || !tableData.value.length) return
   const fields = [...new Set(tableData.value.map((r: any) => r.field).filter(Boolean))]
   if (!fields.length) return
+
+  if (fields.includes('component_id') || fields.includes('programme_id')) {
+    await loadProgrammeComponentHierarchy()
+  }
+
   fieldOptions.value = []
   for (const field of fields) {
+    if (field === 'component_id' || field === 'programme_id') continue
     try {
       const res = await getUniqueFieldValues({ model: ruleForm.card_model, selectedField: field })
       res.data.flat(Infinity).forEach((arrayItem: any) => {
@@ -1500,7 +1585,6 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
     v-model="AddDialogVisible"
     direction="rtl"
     :size="isMobile ? '100%' : '40%'"
-    :with-header="false"
     :before-close="handleDrawerBeforeClose"
     v-loading="drawerLoading"
     :element-loading-text="drawerLoadingText"
@@ -1674,7 +1758,25 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
               <el-table-column prop="value" label="Value">
                 <template #default="scope">
                   <el-select
-size="small" v-model="scope.row.value" placeholder="Select Value" multiple
+                    v-if="scope.row.field === 'component_id'"
+                    size="small" v-model="scope.row.value" placeholder="Select Component(s)" multiple
+                    filterable collapse-tags-tooltip collapse-tags :onChange="onAddFilter">
+                    <el-option-group v-for="group in componentOptionGroupsForFilter" :key="group.label" :label="group.label">
+                      <el-option v-for="item in group.children" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-option-group>
+                  </el-select>
+                  <el-select
+                    v-else-if="scope.row.field === 'programme_id'"
+                    size="small" v-model="scope.row.value" placeholder="Select Programme(s)" multiple
+                    filterable collapse-tags-tooltip collapse-tags :onChange="onAddFilter">
+                    <el-option-group v-for="group in programmeOptionGroupsForFilter" :key="group.id" :label="group.label">
+                      <el-option :key="`root-${group.id}`" :label="group.rootLabel" :value="group.id" />
+                      <el-option v-for="item in group.children" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-option-group>
+                  </el-select>
+                  <el-select
+                    v-else
+                    size="small" v-model="scope.row.value" placeholder="Select Value" multiple
                     collapse-tags-tooltip collapse-tags :onChange="onAddFilter">
                     <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>

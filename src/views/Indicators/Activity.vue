@@ -12,22 +12,18 @@ import {
   TopRight,
   User,
   Plus,
-  Download,
-  Filter,
-  MessageBox,
   Edit,
   Back,
   InfoFilled,
-  Delete
+  Delete,
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
-  ElPagination, ElTooltip, ElCol, ElOption, ElDivider, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElPagination, ElTooltip, ElCol, ElOption, ElDivider, ElDrawer, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu,
   ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTooltipContentProps, ElTable, ElTableColumn, ElCard,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
@@ -35,9 +31,12 @@ import { uuid } from 'vue-uuid'
 import shortid from 'shortid';
 
 import type { FormInstance } from 'element-plus'
-import xlsx from "json-as-xlsx"
 import TableActions from '@/views/Components/TableActions.vue';
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
+import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
+import DownloadCustom from '@/views/Components/DownloadCustom.vue'
+import { Icon } from '@/components/Icon'
+import { useAdjustableTableColumns, type AdjustableColumnSetting } from '@/composables/useAdjustableTableColumns'
 
 
 const { wsCache } = useCache()
@@ -85,6 +84,57 @@ if (isMobile.value) {
 
 }
 
+// Code is system-generated (shortid), not something users need to see by default.
+// shortTitle/title/code have no fixed `width` — el-table stretches columns with
+// only a min-width to fill the table, instead of leaving blank space to the
+// right of a few narrow fixed-width columns. `id` stays fixed since it never
+// needs more than a few digits. Once a user drags a column, onHeaderDragend
+// saves a real width and it stops flexing (this is the same width field the
+// drag-resize persistence already uses — see useAdjustableTableColumns).
+const activityColumnDefaults = (): AdjustableColumnSetting[] => [
+  { key: 'id', label: 'Id', width: 80, minWidth: 80, visible: true, hideable: true },
+  { key: 'shortTitle', label: 'Short Title', width: undefined as any, minWidth: 180, visible: true, hideable: true },
+  { key: 'title', label: 'Title', width: undefined as any, minWidth: 180, visible: true, hideable: true },
+  { key: 'code', label: 'Code', width: undefined as any, minWidth: 120, visible: false, hideable: true },
+]
+
+const {
+  showColumnPicker,
+  isColumnVisible,
+  columnWidth,
+  columnMinWidth,
+  hideableColumns,
+  visibleColumnKeys,
+  onHeaderDragend,
+  resetColumns,
+} = useAdjustableTableColumns('activityTableColumnsV2', activityColumnDefaults)
+
+/** Code stretches when visible; shortTitle + title share remaining space equally. */
+const equalTitleColumnsVisible = computed(
+  () => isColumnVisible('shortTitle') && isColumnVisible('title')
+)
+
+const idColumnWidth = (key: 'id') => {
+  const w = columnWidth(key)
+  return typeof w === 'number' && w > 40 ? w : 80
+}
+
+/** Flex columns use min-width only so the table always fills 100% width. */
+const flexColumnMinWidth = (key: 'shortTitle' | 'title' | 'code') => {
+  const min = columnMinWidth(key) ?? 120
+  const w = columnWidth(key)
+  if (typeof w === 'number' && w > 40) {
+    if (equalTitleColumnsVisible.value && (key === 'shortTitle' || key === 'title')) {
+      const otherKey = key === 'shortTitle' ? 'title' : 'shortTitle'
+      const otherW = columnWidth(otherKey)
+      const saved = [w, otherW].filter((n): n is number => typeof n === 'number' && n > 40)
+      if (saved.length) return Math.max(min, ...saved)
+    }
+    return Math.max(min, w)
+  }
+  return min
+}
+
 
 
 
@@ -107,7 +157,7 @@ const downloadLoading = ref(false)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 10;
+const defaultPageSize = 5;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 
@@ -142,6 +192,13 @@ const associated_Model = ''
 const associated_multiple_models = []
 const model = 'activity'
 //// ------------------parameters -----------------------////
+
+const hasActiveFilters = computed(
+  () =>
+    (Array.isArray(value3.value) && value3.value.length > 0) ||
+    (Array.isArray(value1.value) && value1.value.length > 0) ||
+    (Array.isArray(value2.value) && value2.value.length > 0)
+)
 
 const { t } = useI18n()
 const AddDialogVisible = ref(false)
@@ -310,16 +367,6 @@ const makeOptions = (list) => {
   })
 }
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'indicators.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
-
-
-
 console.log('Options---->', indicatorsOptions)
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
@@ -387,6 +434,11 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Please provide A title', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
+  // shortTitle is allowNull: false on the activity table — the form let it
+  // through blank before, which would only fail at the DB with no useful message.
+  shortTitle: [
+    { required: true, message: 'Please provide a short title', trigger: 'blur' },
+  ],
 
 })
 
@@ -453,52 +505,6 @@ getIndicatorOptions()
 getInterventionsAll()
 
 
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "id" }, // Top level data
-    { label: "Title", value: "title" }, // Top level data
-    { label: "Code", value: "code" }, // Custom format
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.id = tableDataList.value[i].id
-    thisRecord.title = tableDataList.value[i].title
-    thisRecord.code = tableDataList.value[i].code
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
-
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
   if (data.row.documents.length > 0) {
@@ -530,51 +536,73 @@ const goBack = () => {
 </script>
 
 <template>
-  <el-card>
+  <el-card class="activity-page-card">
 
 
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
-
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    <div
+      class="sett-toolbar-row"
+      :class="isMobile ? 'sett-toolbar-row--compact' : 'sett-toolbar-row--wide'"
+    >
+      <div class="sett-toolbar-col sett-toolbar-col--back">
+        <el-button type="primary" plain :icon="Back" @click="goBack" size="small">
           Back
         </el-button>
       </div>
 
-      <!-- Title Search -->
-      <el-select
-v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Activity" style=" margin-right: 5px;">
-        <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-
-
-
-
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
-
-        <PermissionWrapper :permissions="['activity:create']">
-          <el-tooltip content="Add Activity" placement="top">
-            <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
-          </el-tooltip>
-        </PermissionWrapper>
-
-        <el-tooltip content="Clear" placement="top">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip>
-
-        <el-tooltip content="Download" placement="top">
-          <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
-        </el-tooltip>
+      <div class="sett-toolbar-col sett-toolbar-col--search">
+        <el-select
+          v-model="value3"
+          :onChange="handleSelectActivity"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Search Activity"
+          style="width: 100%;"
+        >
+          <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
       </div>
 
-      <!-- Download All Component -->
-      <PermissionWrapper :permissions="['activity:read']">
-        <DownloadAll :model="model" :associated_models="associated_multiple_models" />
-      </PermissionWrapper>
-    </el-row>
+      <div class="sett-toolbar-col sett-toolbar-col--actions">
+        <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
+          <PermissionWrapper :permissions="['activity:create']">
+            <el-tooltip content="Add Activity" placement="top">
+              <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+            </el-tooltip>
+          </PermissionWrapper>
+
+          <el-tooltip v-if="hasActiveFilters" content="Clear all filters" placement="top">
+            <el-button type="primary" @click="handleClear">
+              <Icon icon="mdi:filter-remove" width="22" height="22" />
+            </el-button>
+          </el-tooltip>
+
+          <AdjustableTableColumnPicker
+            v-model:show-column-picker="showColumnPicker"
+            v-model:visible-column-keys="visibleColumnKeys"
+            :hideable-columns="hideableColumns"
+            @reset="resetColumns"
+          />
+
+          <PermissionWrapper :permissions="['activity:read']">
+            <DownloadCustom
+              :data="tableDataList"
+              :model="model"
+              :associated_models="associated_multiple_models"
+              :loading="downloadLoading"
+              :filters="filters"
+              :filter-values="filterValues"
+              :total="total"
+              @download-start="downloadLoading = true"
+              @download-end="downloadLoading = false"
+            />
+          </PermissionWrapper>
+        </div>
+      </div>
+    </div>
 
 
 
@@ -589,11 +617,76 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
 
 
 
-    <el-table :data="tableDataList" :loading="loading" border>
-      <el-table-column label="Id" prop="id" width="50px" sortable />
-      <el-table-column label="Short Title" prop="shortTitle" sortable />
-      <el-table-column label="Title" prop="title" sortable />
-      <el-table-column label="Code" prop="code" sortable />
+    <div class="activity-table-wrap">
+    <el-table
+      fit
+      table-layout="fixed"
+      :data="tableDataList"
+      :loading="loading"
+      :show-overflow-tooltip="true"
+      class="activity-table"
+      style="width: 100%; margin-top: 10px;"
+      border
+      row-key="id"
+      @header-dragend="onHeaderDragend"
+    >
+      <el-table-column
+        v-if="isColumnVisible('id')"
+        column-key="id"
+        label="Id"
+        prop="id"
+        :width="idColumnWidth('id')"
+        :min-width="columnMinWidth('id')"
+        sortable
+        resizable
+      >
+        <template #default="{ row }">
+          <span>{{ row.id }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-if="isColumnVisible('shortTitle')"
+        column-key="shortTitle"
+        label="Short Title"
+        prop="shortTitle"
+        class-name="activity-col-equal"
+        :min-width="flexColumnMinWidth('shortTitle')"
+        sortable
+        resizable
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <span>{{ row.shortTitle }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-if="isColumnVisible('title')"
+        column-key="title"
+        label="Title"
+        prop="title"
+        class-name="activity-col-equal"
+        :min-width="flexColumnMinWidth('title')"
+        sortable
+        resizable
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <span>{{ row.title }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-if="isColumnVisible('code')"
+        column-key="code"
+        label="Code"
+        prop="code"
+        :min-width="flexColumnMinWidth('code')"
+        sortable
+        resizable
+      >
+        <template #default="{ row }">
+          <span>{{ row.code }}</span>
+        </template>
+      </el-table-column>
       <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -634,7 +727,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 </el-table-column> -->
 
 
-      <el-table-column label="Actions" width="250">
+      <el-table-column label="Actions" :width="actionColumnWidth">
         <template #default="{ row }">
           <PermissionWrapper :permissions="['activity:update', 'activity:delete']">
             <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
@@ -644,6 +737,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 
 
     </el-table>
+    </div>
 
     <ElPagination
 :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
@@ -653,28 +747,151 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
       :pager-count="isMobile ? 3 : 7" />
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
-      <!-- <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
-      <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" /> -->
-      <el-form-item label="Title">
-        <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+  <el-drawer
+    v-model="AddDialogVisible"
+    direction="rtl"
+    :size="dialogWidth"
+    :title="formHeader"
+    @close="handleClose"
+  >
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="top">
+      <el-form-item label="Title" prop="title">
+        <el-input
+          v-model="ruleForm.title"
+          placeholder="e.g. Community Training Sessions"
+          :style="{ width: '100%' }"
+        />
+        <p class="field-hint">Full descriptive name of the activity. Used in admin lists, reports, and M&amp;E configuration.</p>
       </el-form-item>
 
-      <el-form-item label="Short Title">
-        <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
+      <el-form-item label="Short Title" prop="shortTitle">
+        <el-input
+          v-model="ruleForm.shortTitle"
+          placeholder="e.g. Training"
+          :style="{ width: '100%' }"
+        />
+        <p class="field-hint">Abbreviated label for <strong>SlumMapper mobile</strong> — keep it short so field teams can pick the activity quickly on a small screen.</p>
       </el-form-item>
-
-
-
     </el-form>
-    <template #footer>
 
-      <span class="dialog-footer">
+    <template #footer>
+      <div class="drawer-footer-bar">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
+      </div>
     </template>
-  </el-dialog>
+  </el-drawer>
 </template>
+
+<style scoped>
+.sett-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.sett-toolbar-row--compact {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-row--wide {
+  flex-wrap: nowrap;
+}
+
+.sett-toolbar-col {
+  min-width: 0;
+}
+
+.sett-toolbar-col--back {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--search {
+  flex: 1 1 0;
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.sett-toolbar-row--wide .sett-toolbar-col--actions {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--search {
+  flex: 1 1 120px;
+}
+
+.sett-toolbar-row--compact .sett-toolbar-col--actions {
+  flex: 0 0 auto;
+}
+
+.sett-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.sett-toolbar-actions--desktop {
+  flex-wrap: wrap;
+}
+
+.activity-page-card {
+  width: 100%;
+}
+
+.activity-page-card :deep(.el-card__body) {
+  width: 100%;
+}
+
+.activity-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.activity-table-wrap :deep(.activity-table),
+.activity-table-wrap :deep(.el-table__inner-wrapper),
+.activity-table-wrap :deep(.el-table__header-wrapper),
+.activity-table-wrap :deep(.el-table__body-wrapper) {
+  width: 100% !important;
+}
+
+.activity-table-wrap :deep(.el-table__header colgroup col),
+.activity-table-wrap :deep(.el-table__body colgroup col) {
+  min-width: 0;
+}
+
+.activity-table-wrap :deep(.el-table__header table),
+.activity-table-wrap :deep(.el-table__body table) {
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+.activity-table-wrap :deep(.el-table__empty-block) {
+  width: 100% !important;
+}
+
+.drawer-footer-bar {
+  padding: 12px 20px;
+  border-top: 1px solid var(--el-border-color);
+  text-align: right;
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.45;
+}
+
+.field-hint strong {
+  font-weight: 600;
+}
+</style>

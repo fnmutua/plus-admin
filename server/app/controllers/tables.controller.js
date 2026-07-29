@@ -5803,8 +5803,14 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         model: RelatedModel,
         attributes: relatedHasGeom && stripAssociatedGeom ? { exclude: ['geom'] } : undefined
       };
-      if (isProjectModel && assocModel === 'project_location') {
-        if (relatedHasGeom) {
+      if (assocModel === 'project_location') {
+        const projectLocationNested = [
+          { model: db.models.settlement, attributes: ['id', 'name'], required: false },
+          { model: db.models.ward, attributes: ['id', 'name'], required: false },
+          { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
+          { model: db.models.county, attributes: ['id', 'name'], required: false },
+        ];
+        if (isProjectModel && relatedHasGeom) {
           // Use the Sequelize hasMany alias (project_locations), not the table name — nested
           // settlement/county joins also have geom columns, so unqualified geom is ambiguous.
           const plAssocAs = Model.associations.project_locations?.as || 'project_locations';
@@ -5833,12 +5839,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
             ? { exclude: ['geom'], include: geomMetaIncludes }
             : { include: geomMetaIncludes };
         }
-        modelIncl.include = [
-          { model: db.models.settlement, attributes: ['id', 'name'], required: false },
-          { model: db.models.ward, attributes: ['id', 'name'], required: false },
-          { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
-          { model: db.models.county, attributes: ['id', 'name'], required: false },
-        ];
+        modelIncl.include = projectLocationNested;
       }
       // Household listing only needs lightweight settlement metadata.
       if (isHouseholdsModel && assocModel === 'settlement') {

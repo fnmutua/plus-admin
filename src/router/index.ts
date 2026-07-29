@@ -656,7 +656,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/mne',
     component: Layout,
-    redirect: '/mne/indicator',
+    redirect: '/mne/overview',
     name: 'MonitoringEvaluation',
     meta: {
       title: 'M&E',
@@ -665,6 +665,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       alwaysShow: false
     },
     children: [
+
+       {
+        path: 'overview',
+        component: () => import('@/views/Indicators/MonitoringOverview.vue'),
+        name: 'MonitoringOverview',
+        meta: {
+          title: 'Structure',
+          icon: 'mdi:sitemap',
+          permissions: ['activity:read'],
+        }
+       },
 
        {
         path: 'activity',
@@ -1184,7 +1195,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/users',
     component: Layout,
-    redirect: '/mne/indicator',
+    redirect: '/users/all',
     name: 'systemUsers',
     meta: {
       title: 'Users',
@@ -1443,7 +1454,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/me',
     component: Layout,
-    redirect: '/mne/indicator',
+    redirect: '/me/profile',
     name: 'MyPages',
     meta: {
       title: 'My Space',
