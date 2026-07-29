@@ -209,6 +209,7 @@ const getProgrameComponents = async (): Promise<RouteItem[]> => {
           meta: {
             title: item.title,
             hidden: false,
+            alwaysShow: true,
             icon: item.icon,
             programme_id: item.id,
             role: ['admin', 'super_admin']
