@@ -250,6 +250,23 @@ function resolveProjectLocationLabel(location: any): string {
   return 'Unknown'
 }
 
+function normalizeLocationScope(scope: unknown): string {
+  return String(scope || '').trim().toLowerCase()
+}
+
+function isSettlementLocation(location: any): boolean {
+  return (
+    normalizeLocationScope(location?.location_type) === 'settlement' &&
+    location?.settlement_id != null &&
+    location?.settlement_id !== ''
+  )
+}
+
+function locationHasGeoPoint(location: any): boolean {
+  const geomType = String(location?.geomType || location?.geom?.type || '')
+  return geomType === 'Point' || geomType === 'MultiPoint'
+}
+
 function locationsForProjectScope(row: any): any[] {
   const locations = row?.project_locations
   if (!Array.isArray(locations) || locations.length === 0) return []
@@ -1597,69 +1614,60 @@ const locations_loading = ref(false)
 const project_locations = ref<any[]>([])
 
 const getProjectLocations = async (project_id: any) => {
-  console.log('project_id', project_id);
-
   locations_loading.value = true
-  project_locations.value = []   // Empty current locations first
+  project_locations.value = []
 
   try {
-    // Get the project settlement ids with minimal associations
     const formData: any = {
-    model: 'project_location',
-    searchField: 'name',
-    searchKeyword: '',
-    filters: ['project_id'],
-    filterValues: [[project_id]],
-    associated_multiple_models: []
-  };
-
-    const res = await getSettlementListByCounty(formData as any);
-    const sett_ids = (res as any).data?.map((item: any) => item.settlement_id) || []; // Extract settlement_id
-  console.log('sett_ids', sett_ids);
-
-    if (sett_ids.length === 0) {
-      locations_loading.value = false;
-      return;
+      model: 'project_location',
+      searchField: 'name',
+      searchKeyword: '',
+      filters: ['project_id'],
+      filterValues: [[project_id]],
+      associated_multiple_models: [],
     }
 
-    // Fetch settlements with minimal associations for better performance
+    const res = await getSettlementListByCounty(formData as any)
+    const sett_ids = (res as any).data?.map((item: any) => item.settlement_id) || []
+
+    if (sett_ids.length === 0) {
+      return
+    }
+
     const form: any = {
-    model: 'settlement',
-    filters: ['id'],
-    filterValues: [sett_ids],
-    excludeGeom: true,
-      associated_multiple_models: ['county'] // Minimal associations for location performance
-  };
+      model: 'settlement',
+      filters: ['id'],
+      filterValues: [sett_ids],
+      excludeGeom: true,
+      associated_multiple_models: ['county'],
+    }
 
-    const setts = await getSettlementListByCounty(form as any);
-  console.log('setts', setts);
-
-  // Map settlements to include additional details
+    const setts = await getSettlementListByCounty(form as any)
     const settlements = (setts as any).data?.map((item: any) => ({
       county: item.county?.name || 'N/A',
       subcounty: item.subcounty?.name || 'N/A',
       ward: item.ward?.name || 'N/A',
       settlement: item.name || 'N/A',
-    settlement_id: item.id
-    })) || [];
+      settlement_id: item.id,
+    })) || []
 
-  // Join project locations with settlement details based on settlement_id
     project_locations.value = (res as any).data?.map((projectLocation: any) => {
-      const settlement = settlements.find((sett: any) => sett.settlement_id === projectLocation.settlement_id);
-    return {
-      ...projectLocation,
-      county: settlement ? settlement.county : null,
-      subcounty: settlement ? settlement.subcounty : null,
-      ward: settlement ? settlement.ward : null,
-      settlementName: settlement ? settlement.settlement : null
-    };
-    }) || [];
-
-  locations_loading.value = false
-  console.log('project_locations', project_locations);
+      const settlement = settlements.find(
+        (sett: any) => sett.settlement_id === projectLocation.settlement_id
+      )
+      return {
+        ...projectLocation,
+        county: settlement ? settlement.county : null,
+        subcounty: settlement ? settlement.subcounty : null,
+        ward: settlement ? settlement.ward : null,
+        settlementName: settlement ? settlement.settlement : null,
+      }
+    }) || []
   } catch (error) {
-    console.error('Error fetching project locations:', error);
-    locations_loading.value = false;
+    console.error('Error fetching project locations:', error)
+    project_locations.value = []
+  } finally {
+    locations_loading.value = false
   }
 };
 
@@ -2018,8 +2026,8 @@ const viewProject = (row: any) => {
 }
 
 function goToSettlementMap(location: any) {
-  console.log('Open settlement map drawer:', location)
-  // Set the selected settlement data and open the drawer
+  if (!isSettlementLocation(location)) return
+
   selectedSettlement.value = {
     id: location.settlement_id,
     name: location.location_name,
@@ -2192,16 +2200,24 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
                 :key="location.id ?? `${location.location_type}-${index}`"
                 class="location-item"
               >
-                <span 
-                  v-if="location.location_type === 'settlement'"
-                  @click="goToSettlementMap(location)"
-                  class="settlement-link"
-                  :title="`View ${resolveProjectLocationLabel(location)} on map`"
-                >
-                  {{ resolveProjectLocationLabel(location) }}
-                </span>
-                <span v-else class="location-name">
-                  {{ resolveProjectLocationLabel(location) }}
+                <span class="location-item-inner">
+                  <Icon
+                    v-if="locationHasGeoPoint(location)"
+                    icon="mdi:map-marker"
+                    class="location-geo-marker"
+                    title="Pinned map location"
+                  />
+                  <span
+                    v-if="isSettlementLocation(location)"
+                    @click="goToSettlementMap(location)"
+                    class="settlement-link"
+                    :title="`View ${resolveProjectLocationLabel(location)} on map`"
+                  >
+                    {{ resolveProjectLocationLabel(location) }}
+                  </span>
+                  <span v-else class="location-name">
+                    {{ resolveProjectLocationLabel(location) }}
+                  </span>
                 </span>
                 <span v-if="index < locationsForProjectScope(row).length - 1" class="location-separator">, </span>
               </span>
@@ -2457,6 +2473,19 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   color: #409EFF;
   font-weight: 500;
   font-size: 13px;
+}
+
+.location-item-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.location-geo-marker {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: #e6a23c;
 }
 
 .settlement-link {

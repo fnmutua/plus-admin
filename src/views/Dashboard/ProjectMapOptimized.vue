@@ -167,6 +167,12 @@
                 :key="loc.id"
                 :class="{ 'is-selected': String(loc.id) === String(selectedProjectLocationId) }"
               >
+                <Icon
+                  v-if="locationHasGeoPoint(loc)"
+                  icon="mdi:map-marker"
+                  class="location-geo-marker"
+                  title="Pinned map location"
+                />
                 {{ formatDrawerLocationLabel(loc) }}
               </li>
             </ul>
@@ -427,6 +433,11 @@ function formatDrawerLocationLabel(location: any): string {
   if (location?.subcounty?.name) return location.subcounty.name
   if (location?.county?.name) return location.county.name
   return 'Unknown location'
+}
+
+function locationHasGeoPoint(location: any): boolean {
+  const geomType = String(location?.geomType || location?.geom?.type || '')
+  return geomType === 'Point' || geomType === 'MultiPoint'
 }
 
 async function loadProjectLocationsForDrawer(projectId: number | string) {
@@ -1675,8 +1686,18 @@ const drawerSize = computed(() => {
 }
 
 .project-locations-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-bottom: 4px;
   line-height: 1.4;
+}
+
+.location-geo-marker {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: #e6a23c;
 }
 
 .project-locations-list li.is-selected {

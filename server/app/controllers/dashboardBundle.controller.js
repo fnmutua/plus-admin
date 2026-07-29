@@ -15,6 +15,7 @@ const {
   refreshProjectMapBundle,
 } = require('../services/mapBundleService')
 const { refreshDashboardGeoBundle } = require('../services/dashboardGeoBundleService')
+const { sendBundleEnvelope } = require('../utils/bundleResponse')
 
 exports.getNationalDashboardBundle = async (req, res) => {
   try {
@@ -23,20 +24,12 @@ exports.getNationalDashboardBundle = async (req, res) => {
     if (!force) {
       const cached = await getNationalBundle()
       if (cached) {
-        return res.status(200).send({
-          code: '0000',
-          fromCache: true,
-          ...cached,
-        })
+        return sendBundleEnvelope(req, res, 'national', { code: '0000', fromCache: true, ...cached })
       }
     }
 
     const bundle = await refreshNationalDashboardBundle()
-    return res.status(200).send({
-      code: '0000',
-      fromCache: false,
-      ...bundle,
-    })
+    return sendBundleEnvelope(req, res, 'national', { code: '0000', fromCache: false, ...bundle })
   } catch (err) {
     console.error('[dashboard-bundle] national GET failed:', err.message)
     return res.status(500).send({
@@ -55,23 +48,17 @@ exports.getDashboardBundle = async (req, res) => {
 
     const force = req.query.refresh === '1' || req.body?.refresh === true
 
+    const cacheKey = `dashboard:${dashboardId}`
+
     if (!force) {
       const cached = await getDashboardBundleById(dashboardId)
       if (cached) {
-        return res.status(200).send({
-          code: '0000',
-          fromCache: true,
-          ...cached,
-        })
+        return sendBundleEnvelope(req, res, cacheKey, { code: '0000', fromCache: true, ...cached })
       }
     }
 
     const bundle = await refreshDashboardBundle(dashboardId)
-    return res.status(200).send({
-      code: '0000',
-      fromCache: false,
-      ...bundle,
-    })
+    return sendBundleEnvelope(req, res, cacheKey, { code: '0000', fromCache: false, ...bundle })
   } catch (err) {
     console.error('[dashboard-bundle] GET failed:', err.message)
     return res.status(500).send({
@@ -135,11 +122,7 @@ async function getMapBundle(req, res, kind, getCached, refresh, opts = {}) {
       const cached = await getCached()
       const cachedCount = opts.featureCount?.(cached) ?? null
       if (cached && (cachedCount == null || cachedCount > 0)) {
-        return res.status(200).send({
-          code: '0000',
-          fromCache: true,
-          ...cached,
-        })
+        return sendBundleEnvelope(req, res, kind, { code: '0000', fromCache: true, ...cached })
       }
       if (cached && cachedCount === 0) {
         console.warn(`[map-bundle] ${kind} cache empty — rebuilding`)
@@ -147,11 +130,7 @@ async function getMapBundle(req, res, kind, getCached, refresh, opts = {}) {
     }
 
     const bundle = await refresh()
-    return res.status(200).send({
-      code: '0000',
-      fromCache: false,
-      ...bundle,
-    })
+    return sendBundleEnvelope(req, res, kind, { code: '0000', fromCache: false, ...bundle })
   } catch (err) {
     console.error(`[map-bundle] ${kind} GET failed:`, err.message)
     return res.status(500).send({

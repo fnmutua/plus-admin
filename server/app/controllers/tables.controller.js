@@ -5804,6 +5804,35 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         attributes: relatedHasGeom && stripAssociatedGeom ? { exclude: ['geom'] } : undefined
       };
       if (isProjectModel && assocModel === 'project_location') {
+        if (relatedHasGeom) {
+          // Use the Sequelize hasMany alias (project_locations), not the table name — nested
+          // settlement/county joins also have geom columns, so unqualified geom is ambiguous.
+          const plAssocAs = Model.associations.project_locations?.as || 'project_locations';
+          const plGeom = `"${plAssocAs}"."geom"`;
+          const geomMetaIncludes = [
+            [
+              db.sequelize.literal(
+                `CASE WHEN ${plGeom} IS NOT NULL AND ST_IsEmpty(${plGeom}) = false THEN true ELSE false END`
+              ),
+              'hasGeom',
+            ],
+            [
+              db.sequelize.literal(
+                `CASE 
+                  WHEN ${plGeom} IS NULL THEN 'none'
+                  WHEN ST_GeometryType(${plGeom}) IN ('ST_Point', 'ST_MultiPoint') THEN 'Point'
+                  WHEN ST_GeometryType(${plGeom}) IN ('ST_Polygon', 'ST_MultiPolygon') THEN 'Polygon'
+                  WHEN ST_GeometryType(${plGeom}) IN ('ST_LineString', 'ST_MultiLineString') THEN 'LineString'
+                  ELSE 'other'
+                END`
+              ),
+              'geomType',
+            ],
+          ];
+          modelIncl.attributes = stripAssociatedGeom
+            ? { exclude: ['geom'], include: geomMetaIncludes }
+            : { include: geomMetaIncludes };
+        }
         modelIncl.include = [
           { model: db.models.settlement, attributes: ['id', 'name'], required: false },
           { model: db.models.ward, attributes: ['id', 'name'], required: false },
