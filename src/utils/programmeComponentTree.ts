@@ -210,11 +210,18 @@ export interface ComponentTableRow {
   domain_id?: number
 }
 
-function getProgrammeTitlePath(
+export function getProgrammePathLabels(
   programmeId: number,
-  byId: Map<number, ProgrammeRecord>
+  programmes: ProgrammeRecord[],
+  preferAcronym = true
 ): string[] {
-  const titles: string[] = []
+  const byId = new Map<number, ProgrammeRecord>()
+  programmes.forEach((programme) => {
+    const id = Number(programme.id)
+    if (!Number.isNaN(id)) byId.set(id, programme)
+  })
+
+  const labels: string[] = []
   const visited = new Set<number>()
   let current = byId.get(programmeId)
 
@@ -222,12 +229,25 @@ function getProgrammeTitlePath(
     const id = Number(current.id)
     if (visited.has(id)) break
     visited.add(id)
-    titles.unshift(String(current.title || current.acronym || id))
+
+    const acronym = String(current.acronym ?? '').trim()
+    const title = String(current.title ?? '').trim()
+    labels.unshift(
+      preferAcronym ? (acronym || title || String(id)) : (title || acronym || String(id))
+    )
+
     const parentId = normalizeParentId(current.parentId)
     current = parentId != null ? byId.get(parentId) : undefined
   }
 
-  return titles
+  return labels
+}
+
+function getProgrammeTitlePath(
+  programmeId: number,
+  byId: Map<number, ProgrammeRecord>
+): string[] {
+  return getProgrammePathLabels(programmeId, [...byId.values()])
 }
 
 export function buildComponentTableRows(

@@ -114,6 +114,11 @@ require('./server/app/routes/auth.routes')(app)
 require('./server/app/routes/user.routes')(app)
 require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/summary.routes')(app)
+
+// Dashboard bundle payloads (cards + all chart data) can be large; gzip cuts
+// them ~70-85%. Scoped to /api/v1/dashboard so it never touches the video
+// streaming routes, which rely on uncompressed Range/206 responses.
+app.use('/api/v1/dashboard', require('./server/app/middleware/staticAssets').createCompressionMiddleware())
 require('./server/app/routes/dashboard.routes')(app)
 require('./server/app/routes/chart.routes')(app)
 require('./server/app/routes/household.routes')(app)

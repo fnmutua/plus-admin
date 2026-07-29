@@ -595,7 +595,34 @@ const getComponents = async () => {
 };
 
 
+export function formatProgrammeSelectLabel(p: {
+  id?: number | string | null
+  title?: string | null
+  acronym?: string | null
+}): string {
+  const title = p.title?.trim()
+  const acronym = p.acronym?.trim()
+  if (title && acronym && title.toLowerCase() !== acronym.toLowerCase()) {
+    return `${title} (${acronym})`
+  }
+  return title || acronym || `Programme ${p.id}`
+}
 
+export function formatComponentSelectLabel(c: {
+  id?: number | string | null
+  title?: string | null
+  acronym?: string | null
+}): string {
+  return c.title?.trim() || c.acronym?.trim() || `Component ${c.id}`
+}
+
+export function formatProgrammeComponentSelectLabel(
+  programmePath: string[] | string,
+  componentLabel: string
+): string {
+  const segments = Array.isArray(programmePath) ? programmePath : [programmePath]
+  return [...segments, componentLabel].join(' >> ')
+}
 
 
 getActivities()
@@ -617,5 +644,5 @@ getContractors()
 export {
   countyOptions, settlementOptionsV2,contractorOptions,getProgrameComponents,
   activityOptions, subcountyOptions, implementationOptions,
-  wardOptions, cascadedAdminOptions,prog_components
+  wardOptions, cascadedAdminOptions,prog_components,
 };

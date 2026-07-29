@@ -18,18 +18,24 @@
       </div>
       <el-divider />
       <div class="button-container">
-        <div class="button-container-actions">
-          <el-tooltip content="Help" placement="top">
-            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-          </el-tooltip>
+        <el-tooltip content="Help" placement="top">
+          <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+        </el-tooltip>
 
-          <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
+        <div class="button-container-actions">
+          <el-button v-if="currentStep > 0" type="primary" :icon="ArrowLeft" @click="prevStep">
             Previous
           </el-button>
-          <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
+          <el-button
+            v-if="currentStep < totalSteps - 1"
+            type="primary"
+            class="step-btn-next"
+            :icon="ArrowRight"
+            @click="nextStep"
+          >
             Next
           </el-button>
-          <el-button type="success" @click="submitForm" v-else>
+          <el-button v-else type="success" :icon="Check" @click="submitForm">
             Submit
           </el-button>
         </div>
@@ -105,50 +111,28 @@
             <p class="programme-step-hint">
               Current assignment:
               <strong>{{ programmeLabel || 'Programme' }}</strong>
-              <span v-if="component_title"> · <strong>{{ component_title }}</strong></span>
+              <span v-if="component_title"> >> <strong>{{ component_title }}</strong></span>
             </p>
             <el-checkbox v-model="showProgrammeComponentEdit" class="programme-component-toggle">
               Change programme or component
             </el-checkbox>
             <div v-if="showProgrammeComponentEdit" class="programme-component-fields">
-              <el-row :gutter="16">
-                <el-col :span="24">
-                  <el-form-item label="Programme">
-                    <el-select
-                      v-model="editProgrammeId"
-                      filterable
-                      placeholder="Select programme"
-                      style="width: 100%"
-                      @change="onEditProgrammeChange"
-                    >
-                      <el-option
-                        v-for="option in editProgrammeOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="24">
-                  <el-form-item label="Component" prop="component_id">
-                    <el-select
-                      v-model="formData.component_id"
-                      filterable
-                      placeholder="Select component"
-                      style="width: 100%"
-                      @change="onEditComponentChange"
-                    >
-                      <el-option
-                        v-for="option in editComponentOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
+              <el-form-item label="Programme / Component" prop="component_id">
+                <el-select
+                  v-model="formData.component_id"
+                  filterable
+                  placeholder="Select programme and component"
+                  style="width: 100%"
+                  @change="onEditProgrammeComponentChange"
+                >
+                  <el-option
+                    v-for="option in editProgrammeComponentOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
             </div>
             <el-alert
               v-else
@@ -409,7 +393,8 @@ import { ElCard, ElTooltip, ElTour, ElTourStep, ElDialog, ElMessage, ElUpload,El
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules, PROGRAMME_COMPONENT_STEP } from './common/fields.ts'
-import { subcountyOptions, wardOptions, implementationOptions, setImplementationOptionsForProgramme } from './common/index.ts'
+import { subcountyOptions, wardOptions, implementationOptions, setImplementationOptionsForProgramme, formatProgrammeSelectLabel, formatComponentSelectLabel, formatProgrammeComponentSelectLabel } from './common/index.ts'
+import { getProgrammePathLabels } from '@/utils/programmeComponentTree'
 import shortid from 'shortid';
 
 import { useRoute } from 'vue-router'
@@ -455,7 +440,7 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { countyOptions } from './common';
 
-import { InfoFilled, Back } from '@element-plus/icons-vue'
+import { InfoFilled, Back, ArrowLeft, ArrowRight, Check } from '@element-plus/icons-vue'
 
 const pageProps = defineProps<{
   embedded?: boolean
@@ -673,17 +658,21 @@ const component_title = ref()
 const lockedProgrammeId = ref<string | number | null>(null)
 const originalProgrammeId = ref<string | number | null>(null)
 const originalComponentId = ref<string | number | null>(null)
+const originalComponentTitle = ref('')
 const editProgrammeId = ref<number | null>(null)
 const programmeLabel = ref('')
 const showProgrammeComponentEdit = ref(false)
 const editProgrammeOptions = ref<Array<{ value: number; label: string }>>([])
-const editComponentOptions = ref<Array<{ value: number; label: string }>>([])
+const editProgrammeRecords = ref<Array<Record<string, any>>>([])
+const editProgrammeComponentOptions = ref<
+  Array<{ value: number; label: string; programmeId: number; componentLabel: string }>
+>([])
 
 async function loadEditProgrammeOptions() {
   if (editProgrammeOptions.value.length > 0) return
 
   const res = await getSettlementListByCounty({
-    limit: 200,
+    limit: 500,
     page: 1,
     model: 'programme',
     searchField: 'title',
@@ -691,34 +680,56 @@ async function loadEditProgrammeOptions() {
     associated_multiple_models: [],
   } as any)
 
-  editProgrammeOptions.value = ((res as any).data || []).map((p: any) => ({
+  editProgrammeRecords.value = (res as any).data || []
+  editProgrammeOptions.value = editProgrammeRecords.value.map((p: any) => ({
     value: Number(p.id),
-    label: p.acronym ? `${p.title} (${p.acronym})` : (p.title || `Programme ${p.id}`),
+    label: formatProgrammeSelectLabel(p),
   }))
 }
 
-async function loadEditComponentOptions(programmeId: string | number | null) {
-  editComponentOptions.value = []
-  if (programmeId == null || programmeId === '') return
+async function loadEditProgrammeComponentOptions() {
+  if (editProgrammeComponentOptions.value.length > 0) return
+
+  await loadEditProgrammeOptions()
 
   const res = await getSettlementListByCounty({
-    limit: 200,
+    limit: 500,
     page: 1,
     model: 'component',
     searchField: 'title',
     searchKeyword: '',
-    filters: ['programme_id'],
-    filterValues: [[programmeId]],
     associated_multiple_models: [],
   } as any)
 
-  editComponentOptions.value = ((res as any).data || []).map((c: any) => ({
-    value: Number(c.id),
-    label: c.title || c.acronym || `Component ${c.id}`,
-  }))
+  editProgrammeComponentOptions.value = ((res as any).data || [])
+    .map((component: any) => {
+      const programmeId = Number(component.programme_id ?? component.programme?.id)
+      const programmePath = getProgrammePathLabels(programmeId, editProgrammeRecords.value)
+      const componentLabel = formatComponentSelectLabel(component)
+      return {
+        value: Number(component.id),
+        programmeId,
+        componentLabel,
+        label: formatProgrammeComponentSelectLabel(programmePath, componentLabel),
+      }
+    })
+    .filter(
+      (option) =>
+        !Number.isNaN(option.value) && !Number.isNaN(option.programmeId) && option.programmeId > 0
+    )
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 async function resolveProgrammeLabel(programmeId: string | number | null, fallback?: any) {
+  if (programmeId != null && programmeId !== '') {
+    await loadEditProgrammeOptions()
+    const path = getProgrammePathLabels(Number(programmeId), editProgrammeRecords.value)
+    if (path.length) {
+      programmeLabel.value = path.join(' >> ')
+      return
+    }
+  }
+
   if (fallback?.title || fallback?.acronym) {
     const title = fallback.title || fallback.acronym
     const acronym = fallback.acronym
@@ -736,28 +747,19 @@ async function resolveProgrammeLabel(programmeId: string | number | null, fallba
   await resolveProgrammeLabel(null, res?.data)
 }
 
-function onEditComponentChange(compId: number | string) {
-  component_id.value = compId
-  const opt = editComponentOptions.value.find((o) => o.value === Number(compId))
-  component_title.value = opt?.label ?? component_title.value
-  syncComponentIdToForm()
-}
+function onEditProgrammeComponentChange(compId: number | string) {
+  const option = editProgrammeComponentOptions.value.find(
+    (entry) => entry.value === Number(compId)
+  )
+  if (!option) return
 
-async function onEditProgrammeChange(progId: number | string) {
-  lockedProgrammeId.value = progId
-  editProgrammeId.value = Number(progId)
-  await Promise.all([
-    resolveProgrammeLabel(progId),
-    loadEditComponentOptions(progId),
-  ])
-  const currentId = Number(formData.component_id)
-  if (!editComponentOptions.value.some((o) => o.value === currentId)) {
-    const next = editComponentOptions.value[0]
-    if (next) {
-      formData.component_id = next.value
-      onEditComponentChange(next.value)
-    }
-  }
+  formData.component_id = option.value
+  component_id.value = option.value
+  component_title.value = option.componentLabel
+  lockedProgrammeId.value = option.programmeId
+  editProgrammeId.value = option.programmeId
+  void resolveProgrammeLabel(option.programmeId)
+  syncComponentIdToForm()
 }
 
 function resetProgrammeComponentEditState() {
@@ -765,20 +767,19 @@ function resetProgrammeComponentEditState() {
   lockedProgrammeId.value = null
   originalProgrammeId.value = null
   originalComponentId.value = null
+  originalComponentTitle.value = ''
   editProgrammeId.value = null
   programmeLabel.value = ''
-  editComponentOptions.value = []
 }
 
 watch(showProgrammeComponentEdit, async (enabled) => {
   if (newRecord.value) return
 
   if (enabled) {
-    await loadEditProgrammeOptions()
+    await loadEditProgrammeComponentOptions()
     editProgrammeId.value =
       originalProgrammeId.value != null ? Number(originalProgrammeId.value) : null
     lockedProgrammeId.value = editProgrammeId.value
-    await loadEditComponentOptions(editProgrammeId.value)
     return
   }
 
@@ -788,8 +789,8 @@ watch(showProgrammeComponentEdit, async (enabled) => {
   if (originalComponentId.value != null) {
     formData.component_id = originalComponentId.value
     component_id.value = originalComponentId.value
-    onEditComponentChange(originalComponentId.value)
   }
+  component_title.value = originalComponentTitle.value
   if (originalProgrammeId.value != null) {
     await resolveProgrammeLabel(originalProgrammeId.value)
   }
@@ -1289,7 +1290,7 @@ watch(currentStep, (step) => {
     searchLocations(locationSearchKeyword.value)
   }
   if (step === LOCATION_STEP_INDEX + 1 && !newRecord.value) {
-    void loadEditProgrammeOptions()
+    void loadEditProgrammeComponentOptions()
   }
 })
 
@@ -1348,6 +1349,12 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
         null
       originalProgrammeId.value = lockedProgrammeId.value
       originalComponentId.value = curData.component_id ?? domainId
+      originalComponentTitle.value =
+        curData.component?.title ??
+        curData.component?.acronym ??
+        component.data.title ??
+        component.data.acronym ??
+        ''
 
       await resolveProgrammeLabel(lockedProgrammeId.value, curData.programme)
       if (isStale()) return
@@ -1372,9 +1379,8 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
       formData.component_id = curData.component_id ?? domainId
       component_id.value = formData.component_id
       component_title.value =
-        curData.component?.title ??
-        editComponentOptions.value.find((o) => o.value === Number(formData.component_id))?.label ??
-        component_title.value
+        originalComponentTitle.value ||
+        formatComponentSelectLabel(curData.component ?? component.data)
       const loadedCost = normalizeProjectCost(curData.cost)
       formData.cost = loadedCost ?? undefined
       newRecord.value = false
@@ -2579,8 +2585,9 @@ function resetProjectForm() {
   top: 0;
   z-index: 10;
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 12px;
   padding: 8px 0;
   background: var(--el-bg-color);
@@ -2591,7 +2598,18 @@ function resetProjectForm() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  margin-left: auto;
+}
+
+.step-btn-next {
+  flex-direction: row-reverse;
+  gap: 6px;
+}
+
+.step-btn-next :deep(.el-icon + span) {
+  margin-left: 0;
 }
 
 .project-form-steps :deep(.el-step__title) {
@@ -2752,8 +2770,8 @@ function resetProjectForm() {
   }
 
   .button-container-actions {
-    width: 100%;
-    justify-content: flex-start;
+    width: auto;
+    justify-content: flex-end;
   }
 }
 

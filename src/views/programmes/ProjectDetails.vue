@@ -19,7 +19,7 @@ import { getOneGeo } from '@/api/settlements'
 import { Icon } from '@iconify/vue';
 import {
   Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading,
-  Close, Plus, Setting,
+  Close, Plus, Setting, ArrowLeft, ArrowRight,
 } from '@element-plus/icons-vue'
 
 import { getCountyListApi, } from '@/api/counties'
@@ -63,6 +63,12 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import UploadShareDialog from '@/views/Components/UploadShareDialog.vue'
 import ProjectFormDrawer from '@/views/Intervention/Project/ProjectFormDrawer.vue'
 import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
+import {
+  formatProgrammeSelectLabel,
+  formatComponentSelectLabel,
+  formatProgrammeComponentSelectLabel,
+} from '@/views/Intervention/Project/common/index.ts'
+import { getProgrammePathLabels } from '@/utils/programmeComponentTree'
 import { useDesign } from '@/hooks/web/useDesign'
 
 import type { FormInstance } from 'element-plus'
@@ -583,7 +589,8 @@ const inlineSelectFields = ['status', 'implementation_scope']
 const inlineDescriptionSelectFields = ['programme_id', 'component_id']
 
 const inlineProgrammeOptions = ref<Array<{ label: string; value: number }>>([])
-const inlineComponentOptions = ref<Array<{ label: string; value: number }>>([])
+const inlineProgrammeRecords = ref<Array<Record<string, any>>>([])
+const inlineComponentOptions = ref<Array<{ label: string; value: number; programmeId?: number }>>([])
 
 const projectInlineSelectOptions = computed(() => ({
   status: [
@@ -645,7 +652,7 @@ async function loadInlineProgrammeOptions() {
   if (inlineProgrammeOptions.value.length > 0) return
 
   const res = await getSettlementListByCounty({
-    limit: 200,
+    limit: 500,
     page: 1,
     model: 'programme',
     searchField: 'title',
@@ -653,31 +660,47 @@ async function loadInlineProgrammeOptions() {
     associated_multiple_models: [],
   } as any)
 
-  inlineProgrammeOptions.value = ((res as any).data || []).map((p: any) => ({
+  inlineProgrammeRecords.value = (res as any).data || []
+  inlineProgrammeOptions.value = inlineProgrammeRecords.value.map((p: any) => ({
     value: Number(p.id),
-    label: p.acronym ? `${p.title} (${p.acronym})` : (p.title || `Programme ${p.id}`),
+    label: formatProgrammeSelectLabel(p),
   }))
 }
 
-async function loadInlineComponentOptions(programmeId: number | null | undefined) {
-  inlineComponentOptions.value = []
-  if (programmeId == null) return
+async function loadInlineComponentOptions() {
+  if (inlineComponentOptions.value.length > 0) return
+
+  await loadInlineProgrammeOptions()
 
   const res = await getSettlementListByCounty({
-    limit: 200,
+    limit: 500,
     page: 1,
     model: 'component',
     searchField: 'title',
     searchKeyword: '',
-    filters: ['programme_id'],
-    filterValues: [[programmeId]],
     associated_multiple_models: [],
   } as any)
 
-  inlineComponentOptions.value = ((res as any).data || []).map((c: any) => ({
-    value: Number(c.id),
-    label: c.title || c.acronym || `Component ${c.id}`,
-  }))
+  inlineComponentOptions.value = ((res as any).data || [])
+    .map((component: any) => {
+      const componentProgrammeId = Number(component.programme_id ?? component.programme?.id)
+      const programmePath = getProgrammePathLabels(
+        componentProgrammeId,
+        inlineProgrammeRecords.value
+      )
+      const componentLabel = formatComponentSelectLabel(component)
+      return {
+        value: Number(component.id),
+        programmeId: componentProgrammeId,
+        label: formatProgrammeComponentSelectLabel(programmePath, componentLabel),
+      }
+    })
+    .filter((option) => !Number.isNaN(option.value))
+    .sort((a, b) => a.label.localeCompare(b.label))
+}
+
+function getInlineComponentsForProgramme(programmeId: number) {
+  return inlineComponentOptions.value.filter((option) => option.programmeId === programmeId)
 }
 
 async function refreshProjectProgrammeComponent(data: Record<string, any>) {
@@ -702,7 +725,7 @@ async function refreshProjectProgrammeComponent(data: Record<string, any>) {
     }
   }
 
-  await loadInlineComponentOptions(resolveProgrammeId(data))
+  await loadInlineComponentOptions()
 }
 
 function resolveComponentTitle(data: Record<string, any> | null | undefined) {
@@ -849,11 +872,12 @@ async function saveProjectInline(payload: { field: string; value: unknown }) {
 
     try {
       inlineSavingField.value = field
-      await loadInlineComponentOptions(programmeId)
+      await loadInlineComponentOptions()
+      const componentsForProgramme = getInlineComponentsForProgramme(programmeId)
 
       let componentId = Number(data.component_id)
-      if (!inlineComponentOptions.value.some((opt) => opt.value === componentId)) {
-        componentId = inlineComponentOptions.value[0]?.value ?? 0
+      if (!componentsForProgramme.some((opt) => opt.value === componentId)) {
+        componentId = componentsForProgramme[0]?.value ?? 0
       }
       if (!componentId) {
         ElMessage.error('No component available under this programme')
@@ -1671,7 +1695,7 @@ const loadProjectDetails = async (id: string | string[]) => {
 
   await enrichProjectProgrammeComponent(res.data)
   await loadInlineProgrammeOptions()
-  await loadInlineComponentOptions(resolveProgrammeId(res.data))
+  await loadInlineComponentOptions()
   projectFullData.value = res.data
   project_title.value = projectFullData.value?.title
   syncProjectProfileFromData(res.data)
@@ -6932,8 +6956,24 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
       class="project-details-dialog-footer project-details-report-footer"
       :class="{ 'project-details-dialog-footer--mobile': isMobile, 'project-details-report-footer--mobile': isMobile }"
     >
-      <el-button :size="isMobile ? 'large' : 'default'" @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-      <el-button :size="isMobile ? 'large' : 'default'" :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
+      <el-button
+        :size="isMobile ? 'large' : 'default'"
+        :icon="ArrowLeft"
+        @click="prevStep"
+        :disabled="activeStep === 0"
+      >
+        Previous
+      </el-button>
+      <el-button
+        class="step-btn-next"
+        :size="isMobile ? 'large' : 'default'"
+        :icon="ArrowRight"
+        :disabled="disableIndicator"
+        @click="nextStep"
+        v-if="activeStep < 3"
+      >
+        Next
+      </el-button>
       <el-button :size="isMobile ? 'large' : 'default'" @click="handleCancel">Cancel</el-button>
       <el-button
         v-if="showSubmitBtn && activeStep === 3"
@@ -7232,14 +7272,17 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
         <el-button
           v-if="ipcDrawerStep > 0"
           :size="isMobile ? 'default' : 'default'"
+          :icon="ArrowLeft"
           @click="ipcPrevStep"
         >
           Previous
         </el-button>
         <el-button
           v-if="ipcDrawerStep < IPC_DRAWER_LAST_STEP"
+          class="step-btn-next"
           type="primary"
           :size="isMobile ? 'default' : 'default'"
+          :icon="ArrowRight"
           @click="ipcNextStep"
         >
           Next
@@ -7552,6 +7595,15 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 .project-scope-empty p {
   margin: 0 0 10px;
+}
+
+.step-btn-next {
+  flex-direction: row-reverse;
+  gap: 6px;
+}
+
+.step-btn-next :deep(.el-icon + span) {
+  margin-left: 0;
 }
 
 .project-details-dialog-footer {

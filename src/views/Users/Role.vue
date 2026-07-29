@@ -9,7 +9,8 @@ import { ElButton, ElSwitch, ElSelect, ElDialog, ElForm, ElFormItem, ElInput, El
  } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Plus,Edit, Back, Check, Setting, Switch} from '@element-plus/icons-vue'
+  Plus, Edit, Back, Check, Setting, Switch, ArrowLeft, ArrowRight,
+} from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -863,10 +864,16 @@ const rules = {
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 12px; padding: 8px 0; border-top: 1px solid #f0f0f0; background: #fafbfc;">
           <el-button @click="AddDialogVisible = false">Cancel</el-button>
-          <el-button v-if="activeTab === 'details'" type="primary" @click="activeTab = 'permissions'">Next</el-button>
-          <el-button v-if="activeTab === 'permissions'" type="primary" @click="activeTab = 'programmes'">Next</el-button>
-          <el-button v-if="activeTab === 'programmes'" type="primary" @click="activeTab = 'review'">Next</el-button>
-          <el-button v-if="activeTab === 'review'" @click="activeTab = 'programmes'">Back</el-button>
+          <el-button v-if="activeTab === 'details'" type="primary" class="step-btn-next" :icon="ArrowRight" @click="activeTab = 'permissions'">
+            Next
+          </el-button>
+          <el-button v-if="activeTab === 'permissions'" type="primary" class="step-btn-next" :icon="ArrowRight" @click="activeTab = 'programmes'">
+            Next
+          </el-button>
+          <el-button v-if="activeTab === 'programmes'" type="primary" class="step-btn-next" :icon="ArrowRight" @click="activeTab = 'review'">
+            Next
+          </el-button>
+          <el-button v-if="activeTab === 'review'" :icon="ArrowLeft" @click="activeTab = 'programmes'">Back</el-button>
           <el-button v-if="activeTab === 'review' && showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Create</el-button>
           <el-button v-if="activeTab === 'review' && showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
         </div>
@@ -881,6 +888,15 @@ const rules = {
   .action-buttons {
     display: flex;
     align-items: center;
+  }
+
+  .step-btn-next {
+    flex-direction: row-reverse;
+    gap: 6px;
+  }
+
+  .step-btn-next :deep(.el-icon + span) {
+    margin-left: 0;
   }
 
   .roles-toolbar-actions {
