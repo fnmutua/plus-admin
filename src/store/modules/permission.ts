@@ -255,12 +255,27 @@ const loadComponents = async () => {
   }
 };
 
+// Static "Summary" entry shown first in the Projects (/subprogrammes) menu,
+// alongside the dynamically-loaded programme/component tree. Unlike a
+// programme/sub-programme node it carries its own component, so it's a real
+// page rather than a layout pass-through.
+const summaryRouteChild = {
+  path: 'summary',
+  name: 'ProgrammeSummary',
+  component: () => import('@/views/programmes/ProgrammeSummary.vue'),
+  meta: {
+    title: 'Summary',
+    hidden: false,
+    icon: 'mdi:view-dashboard-outline'
+  }
+}
+
 // Idempotently insert the /subprogrammes parent route into adminRoutes.
 // Done unconditionally so deep links like /subprogrammes/<programme>/<component>
 // at least resolve to the parent layout (or fall through to the wildcard 404)
 // rather than producing a blank <router-view/> when the dynamic API fails.
 const ensureSubprogrammesRoute = () => {
-  subprograms.value[0].children = (programmeComponentOptions.value as any) || []
+  subprograms.value[0].children = [summaryRouteChild, ...(((programmeComponentOptions.value as any) || []))]
   const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes')
   if (existingIndex >= 0) {
     adminRoutes[existingIndex] = subprograms.value[0]

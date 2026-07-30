@@ -15,7 +15,8 @@
       "Bash(node c:/Users/USER/plus-admin/_patch_controller.js)",
       "Bash(node -e ' *)",
       "Bash(node c:/Users/USER/plus-admin/_add_components_controller.js)",
-      "Bash(node c:/Users/USER/plus-admin/_fix_components_controller.js)"
+      "Bash(node c:/Users/USER/plus-admin/_fix_components_controller.js)",
+      "Bash(npx eslint *)"
     ]
   }
 }
