@@ -31,6 +31,9 @@ export VUE_APP_DB=kisip
 # 1. Dry-run first — review the summary, no writes
 ./tools/me-cleanup-import/run-import.sh
 
+# Or run the script directly:
+# ./tools/me-cleanup-import/import-me-cleanup.js
+
 # 2. Apply when satisfied
 ./tools/me-cleanup-import/run-import.sh --apply
 ```

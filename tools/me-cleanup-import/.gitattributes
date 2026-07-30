@@ -1,0 +1,4 @@
+# Force Unix line endings for scripts in this folder
+*.sh text eol=lf
+*.js text eol=lf
+*.md text eol=lf

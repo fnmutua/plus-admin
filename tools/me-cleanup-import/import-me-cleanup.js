@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Import M&E cleanup master lists from projects-clean.xlsx into PostgreSQL.
  *
