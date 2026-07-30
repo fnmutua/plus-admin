@@ -49,11 +49,11 @@ const PRIMARY_INDICATOR = {
   AC3: { name: 'Grievance resolutions', format: 'number', unit: 'No.' },
   AC4: { name: 'LP&LUDPs', format: 'number', unit: 'No.' },
   AC5: { name: 'Survey plans', format: 'number', unit: 'No.' },
-  AC6: { name: 'Registry index maps (RIMs)', format: 'number', unit: 'No.' },
+  AC6: { name: 'Registry index maps', format: 'number', unit: 'No.' },
   AC7: { name: 'Regularization letters', format: 'number', unit: 'No.' },
   AC8: { name: 'Titles and leases', format: 'number', unit: 'No.' },
   AC10: { name: 'Community development plans', format: 'number', unit: 'No.' },
-  AC11: { name: 'Vulnerable persons identified', format: 'number', unit: 'No.' },
+  AC11: { name: 'Vulnerable persons', format: 'number', unit: 'No.' },
   AC12: { name: 'LICW works', format: 'number', unit: 'No.' },
   AC13: { name: 'DPW works', format: 'number', unit: 'No.' },
   AC14: { name: 'Household water connections', format: 'number', unit: 'No.' },
@@ -72,7 +72,7 @@ const PRIMARY_INDICATOR = {
   AC29: { name: 'Informal settlements', format: 'number', unit: 'No.' },
   AC31: { name: 'County upgrading strategies', format: 'number', unit: 'No.' },
   AC35: { name: 'Substructure and excavation works', format: 'number', unit: 'No.' },
-  AC36: { name: 'CDPs implemented', format: 'number', unit: 'No.' },
+  AC36: { name: 'CDP outputs', format: 'number', unit: 'No.' },
   AC38: { name: 'ESIA reports', format: 'number', unit: 'No.' },
   AC39: { name: 'Education facility blocks', format: 'number', unit: 'No.' },
   AC41: { name: 'Civil works and greening', format: 'number', unit: 'No.' },
@@ -85,7 +85,7 @@ const PRIMARY_INDICATOR = {
   'AC-RAP': { name: 'Resettlement action plans', format: 'number', unit: 'No.' },
   'AC-CAP': { name: 'Capacity development plans', format: 'number', unit: 'No.' },
   'AC-COMP': { name: 'Completion and handover', format: 'percent', unit: '%' },
-  'AC-FURN': { name: 'Furnished housing units', format: 'number', unit: 'No.' },
+  'AC-FURN': { name: 'Housing unit furnishings', format: 'number', unit: 'No.' },
   'AC-DESIGN': { name: 'Detailed engineering designs', format: 'number', unit: 'No.' },
   'AC-SUP': { name: 'Supervision milestones', format: 'number', unit: 'No.' },
   'AC-FEAS': { name: 'Feasibility studies', format: 'number', unit: 'No.' },
@@ -96,7 +96,7 @@ const PRIMARY_INDICATOR = {
   'AC-FENC': { name: 'Boundary fencing', format: 'number', unit: 'Km' },
   'AC-SEC': { name: 'Security systems', format: 'number', unit: 'No.' },
   'AC-BRIDGE': { name: 'Bridges and footbridges', format: 'number', unit: 'No.' },
-  'AC-LAND': { name: 'Land parcels acquired', format: 'number', unit: 'No.' },
+  'AC-LAND': { name: 'Land parcels', format: 'number', unit: 'No.' },
   'AC-VAL': { name: 'Valuation and compensation assessments', format: 'number', unit: 'No.' },
   'AC-MAINT': { name: 'Maintenance obligations', format: 'percent', unit: '%' },
   'AC-INST': { name: 'Institutional facilities', format: 'number', unit: 'No.' },
@@ -121,6 +121,12 @@ const PROJECT_INDICATORS = {
 // Redundant DB indicators to drop on import (covered by other master-list entries).
 const INDICATOR_REMOVES = {
   70: 'Redundant — use Skilled jobs (32) + Unskilled jobs (33)',
+  16: 'Misassigned — use Household sanitation connections (65) on AC16',
+  30: 'Duplicate — use Community development plans (10) on AC10',
+  55: 'Duplicate — use Markets and commercial facilities (19) on AC19',
+  58: 'Duplicate — use Markets and commercial facilities (19) on AC19',
+  61: 'Duplicate — use Storm water drainage (23) on AC23',
+  67: 'Duplicate — use Markets and commercial facilities (19) on AC19',
 };
 
 // Map existing DB indicator id → activity code for primary indicators.

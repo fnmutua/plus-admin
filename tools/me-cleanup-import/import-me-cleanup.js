@@ -12,6 +12,9 @@ const {
   PROJECTS_CLEAN_PATH,
   getDB,
   isUuidCode,
+  normalizeActivityCodeForImport,
+  cleanActivityTitle,
+  cleanIndicatorName,
   loadWorkbook,
   loadActivityMergeMap,
 } = require('./me-cleanup-shared');
@@ -335,8 +338,11 @@ async function importActivities(client, workbook, activityIdByCode, mergeMap) {
     const action = String(row.action || 'keep');
     if (action === 'merge') continue;
 
-    const code = row.activity_code || row.code;
-    const title = row.title;
+    const code = normalizeActivityCodeForImport(
+      row.activity_code || row.code,
+      id
+    );
+    const title = cleanActivityTitle(row.title);
     const shortTitle = row.shortTitle || title;
 
     if (id && (action === 'keep' || action === 'realign')) {
@@ -516,6 +522,16 @@ function resolveIndicatorId(row, indicatorMaps) {
   return id;
 }
 
+async function syncIndicatorCategoryNames(client, indicatorId, indicatorName) {
+  await query(
+    client,
+    `UPDATE indicator_category
+     SET indicator_name = $2, "updatedAt" = NOW()
+     WHERE indicator_id = $1`,
+    [indicatorId, indicatorName]
+  );
+}
+
 async function importIndicators(client, workbook, activityIdByCode, indicatorMaps) {
   log('\n=== Indicators ===');
   const rows = sheetRows(workbook, 'indicators').filter(
@@ -533,8 +549,10 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
       num(row.activity_id)
     );
 
+    const indicatorName = cleanIndicatorName(row.name);
+
     if (id && ['keep', 'realign', 'project_level'].includes(action)) {
-      log(`  update indicator ${id}: ${row.name}`);
+      log(`  update indicator ${id}: ${indicatorName}`);
       await query(
         client,
         `UPDATE indicator
@@ -543,7 +561,7 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
          WHERE id = $1`,
         [
           id,
-          row.name,
+          indicatorName,
           row.type || 'output',
           row.format || 'number',
           row.unit || 'No.',
@@ -552,6 +570,7 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
           row.indicator_code || row.code,
         ]
       );
+      await syncIndicatorCategoryNames(client, id, indicatorName);
       stats.indicators_updated += 1;
       continue;
     }
@@ -561,7 +580,7 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
       const existingId = await findIndicatorIdByCode(client, indicatorCode, indicatorMaps);
 
       if (existingId) {
-        log(`  update existing indicator ${existingId} (${indicatorCode}): ${row.name}`);
+        log(`  update existing indicator ${existingId} (${indicatorCode}): ${indicatorName}`);
         await query(
           client,
           `UPDATE indicator
@@ -570,7 +589,7 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
            WHERE id = $1`,
           [
             existingId,
-            row.name,
+            indicatorName,
             row.type || 'output',
             row.format || 'number',
             row.unit || 'No.',
@@ -579,13 +598,14 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
             indicatorCode,
           ]
         );
+        await syncIndicatorCategoryNames(client, existingId, indicatorName);
         indicatorMaps.byId.set(existingId, { id: existingId, code: indicatorCode });
         if (indicatorCode) indicatorMaps.byCode.set(String(indicatorCode), existingId);
         stats.indicators_updated += 1;
         continue;
       }
 
-      log(`  create indicator ${indicatorCode}: ${row.name}`);
+      log(`  create indicator ${indicatorCode}: ${indicatorName}`);
       if (DRY_RUN) {
         const fakeId = 900000 + stats.indicators_created;
         indicatorMaps.byId.set(fakeId, { id: fakeId, code: row.indicator_code });
@@ -600,7 +620,7 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
          VALUES ($1, $2, $3, $4, $5, $6, $7, 1, NOW(), NOW())
          RETURNING id`,
         [
-          row.name,
+          indicatorName,
           row.type || 'output',
           row.format || 'number',
           row.unit || 'No.',
@@ -683,6 +703,7 @@ async function importIndicatorCategories(
     const id = num(row.id);
     const action = String(row.action || 'keep');
     const indicatorId = resolveIndicatorId(row, indicatorMaps);
+    const indicatorName = cleanIndicatorName(row.indicator_name || row.name);
     const activityId = resolveActivityId(
       row.activity_code,
       activityIdByCode,
@@ -709,7 +730,7 @@ async function importIndicatorCategories(
         [
           id,
           indicatorId,
-          row.indicator_name,
+          indicatorName,
           row.indicator_level || 'activity',
           activityId,
           categoryId,
@@ -745,7 +766,7 @@ async function importIndicatorCategories(
           `UPDATE indicator_category
            SET indicator_name = $2, activity_id = $3, category_title = $4, "updatedAt" = NOW()
            WHERE id = $1`,
-          [existingCategoryId, row.indicator_name, activityId, row.category_title]
+          [existingCategoryId, indicatorName, activityId, row.category_title]
         );
         categoryMaps.byId.set(existingCategoryId, row);
         categoryMaps.byIndicatorTitle.set(`${indicatorId}:${row.category_title}`, existingCategoryId);
@@ -767,7 +788,7 @@ async function importIndicatorCategories(
         [
           row.indicator_level || 'activity',
           indicatorId,
-          row.indicator_name,
+          indicatorName,
           categoryId,
           activityId,
           row.category_title,

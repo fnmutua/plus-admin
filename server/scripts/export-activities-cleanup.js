@@ -754,6 +754,17 @@ function isUuidCode(code) {
   );
 }
 
+function isCanonicalActivityCode(code) {
+  return /^(AC\d+|AC-[A-Z0-9-]+)$/i.test(String(code || '').trim());
+}
+
+function cleanActivityTitle(title) {
+  return String(title || '')
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function loadCleanProjects() {
   if (!fs.existsSync(PROJECTS_CLEAN_PATH)) return null;
 
@@ -963,11 +974,12 @@ async function main() {
 
       const cleanCode = isDuplicate
         ? canonicalTarget?.code || activity.code
-        : isUuidCode(activity.code)
-          ? `AC${activity.id}`
-          : activity.code;
+        : isCanonicalActivityCode(activity.code)
+          ? activity.code
+          : `AC${activity.id}`;
 
       const wording = getActivityWording(activity);
+      const cleanTitle = cleanActivityTitle(wording.clean_title);
       const wordingIssue =
         activity.id === 14 && /ablution/i.test(activity.shortTitle)
           ? 'shortTitle mismatch — was labelled as ablution, not water connection'
@@ -979,7 +991,7 @@ async function main() {
 
       return {
         id: activity.id,
-        title: wording.clean_title,
+        title: cleanTitle,
         shortTitle: wording.clean_shortTitle,
         category: getActivityCategory(activity.code, activity.id),
         master_list: keep,

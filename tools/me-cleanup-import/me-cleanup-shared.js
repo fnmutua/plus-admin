@@ -58,6 +58,47 @@ function isUuidCode(code) {
   );
 }
 
+function isCanonicalActivityCode(code) {
+  return /^(AC\d+|AC-[A-Z0-9-]+)$/i.test(String(code || '').trim());
+}
+
+function normalizeActivityCodeForImport(code, id) {
+  const trimmed = String(code || '').trim();
+  if (isCanonicalActivityCode(trimmed)) return trimmed;
+  if (id) return `AC${id}`;
+  return trimmed;
+}
+
+/** Drop parenthetical acronyms/clarifiers from activity titles — keep those in shortTitle. */
+function cleanActivityTitle(title) {
+  return String(title || '')
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Drop parenthetical acronyms and normalise legacy indicator names to noun phrases. */
+function cleanIndicatorName(name) {
+  let cleaned = cleanActivityTitle(name)
+    .replace(/^Number of /i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const fixes = {
+    'Vulnerable persons identified': 'Vulnerable persons',
+    'CDPs implemented': 'CDP outputs',
+    'Land parcels acquired': 'Land parcels',
+    'Furnished housing units': 'Housing unit furnishings',
+    'Registry index maps (RIMs)': 'Registry index maps',
+    'Additional Classrooms': 'Education facility blocks',
+    'Capacity Development Plans': 'Community development plans',
+    'Market Sheds': 'Markets and commercial facilities',
+    'Market Stalls': 'Markets and commercial facilities',
+    'Storm Water Drains': 'Storm water drainage',
+    'Vending platforms': 'Markets and commercial facilities',
+  };
+  return fixes[cleaned] || fixes[name] || cleaned;
+}
+
 function loadWorkbook(outputPath = PROJECTS_CLEAN_PATH) {
   if (!fs.existsSync(outputPath)) {
     throw new Error(`Workbook not found: ${outputPath}`);
@@ -85,6 +126,10 @@ module.exports = {
   loadRepoEnv,
   getDB,
   isUuidCode,
+  isCanonicalActivityCode,
+  normalizeActivityCodeForImport,
+  cleanActivityTitle,
+  cleanIndicatorName,
   loadWorkbook,
   loadActivityMergeMap,
 };
