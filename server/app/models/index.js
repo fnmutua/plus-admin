@@ -987,6 +987,14 @@ db.models.project.hasMany(db.models.project_contractor, {
   foreignKey: 'project_id'
 })
 
+db.models.project_team.belongsTo(db.models.project, {
+  foreignKey: 'project_id'
+})
+
+db.models.project.hasMany(db.models.project_team, {
+  foreignKey: 'project_id'
+})
+
 // Project Clock-in associations
 db.models.project_clockin.belongsTo(db.models.project_location, {
   foreignKey: 'project_location_id',
@@ -2067,6 +2075,24 @@ db.models.settlement_history.belongsTo(db.models.settlement, {
 
 db.models.settlement.hasMany(db.models.settlement_history, {
   foreignKey: 'settlement_id'
+})
+
+db.models.project_history.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+  onDelete: 'SET NULL',
+})
+
+db.models.project.hasMany(db.models.project_history, {
+  foreignKey: 'project_id'
+})
+
+db.models.project_history.belongsTo(db.models.users, {
+  foreignKey: 'changed_by',
+  onDelete: 'SET NULL',
+})
+
+db.models.users.hasMany(db.models.project_history, {
+  foreignKey: 'changed_by'
 })
 
 db.models.settlement_population.belongsTo(db.models.settlement, {

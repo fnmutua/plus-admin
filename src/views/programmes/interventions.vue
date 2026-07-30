@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { getSettlementListByCounty, getRoutesList } from '@/api/settlements'
+import { getSettlementListByCounty, getRoutesList, revertHistory } from '@/api/settlements'
 
 import {
   ElButton, ElSelect, ElDialog, ElCard,ElDrawer,
-  ElUpload, ElTable, ElTableColumn, ElAlert
+  ElUpload, ElTable, ElTableColumn, ElAlert, ElSegmented, ElMessageBox
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Plus, Back, Download, Loading } from '@element-plus/icons-vue'
@@ -109,6 +109,7 @@ onMounted(async () => {
   await getUserRoles();
   
   await loadProjectsForRoute(route);
+  void refreshDeletedProjectCount();
 });
 
 
@@ -373,6 +374,9 @@ let tableDataList_orig = ref<UserType[]>([])
 
 // - -----Model configs ------------
 const model = 'project'
+const activeSegment = ref<'Projects' | 'Deleted'>('Projects')
+const deletedProjects = ref<any[]>([])
+const deletedProjectsCount = ref(0)
 let filters: any[] = ['component_id']
 let filterValues: any[] = [[]]
 
@@ -1031,6 +1035,128 @@ const projectActionButtons = computed(() => {
   }
   return buttons
 })
+
+const showDeletedProjectsTab = computed(() => isSuperAdmin.value || isNationalStaff.value || isCountyStaff.value)
+
+const projectSegments = computed(() => {
+  const segments = [{ label: 'Projects', value: 'Projects' }]
+  if (showDeletedProjectsTab.value) {
+    segments.push({ label: `Deleted (${deletedProjectsCount.value})`, value: 'Deleted' })
+  }
+  return segments
+})
+
+const displayTableData = computed(() =>
+  activeSegment.value === 'Deleted' ? deletedProjects.value : tableDataList.value
+)
+
+async function fetchDeletedProjectHistory(): Promise<any[]> {
+  const formData: any = {
+    model: 'project_history',
+    searchField: 'title',
+    excludeGeom: true,
+    associated_multiple_models: ['users'],
+    filters: ['change_type', 'status'],
+    filterValues: [['Delete'], ['Open']],
+    returnAll: true,
+  }
+  const res = await getSettlementListByCounty(formData)
+  const activeComponentId = resolveRouteComponentId(route)
+  const out: any[] = []
+  ;(res.data || []).forEach((item: any) => {
+    const beforeObject = item.changes?.before
+    if (!beforeObject) return
+    if (activeComponentId != null && Number(beforeObject.component_id) !== Number(activeComponentId)) return
+    if (roles_filters.length > 0 && !isSuperAdmin.value && !isNationalStaff.value) {
+      const allowed = roles_filters.every((rf: any) => {
+        if (!rf.field || rf.value == null) return true
+        if (rf.field === 'county_id') {
+          return Array.isArray(rf.value)
+            ? rf.value.includes(beforeObject.county_id)
+            : beforeObject.county_id === rf.value
+        }
+        return true
+      })
+      if (!allowed) return
+    }
+    out.push({
+      ...beforeObject,
+      history_id: item.id,
+      _deletedAt: item.createdAt,
+      _deletedBy: item.user?.username || item.users?.username || 'Unknown',
+    })
+  })
+  return out
+}
+
+async function refreshDeletedProjectCount() {
+  if (!showDeletedProjectsTab.value) return
+  try {
+    const rows = await fetchDeletedProjectHistory()
+    deletedProjectsCount.value = rows.length
+  } catch {
+    deletedProjectsCount.value = 0
+  }
+}
+
+async function loadDeletedProjects() {
+  loading.value = true
+  try {
+    deletedProjects.value = await fetchDeletedProjectHistory()
+    deletedProjectsCount.value = deletedProjects.value.length
+  } finally {
+    loading.value = false
+  }
+}
+
+const onProjectSegmentChange = async (val: string) => {
+  if (val === 'Deleted') {
+    await loadDeletedProjects()
+    return
+  }
+  loading.value = true
+  try {
+    await getFilteredData()
+  } finally {
+    loading.value = false
+  }
+}
+
+const restoreDeletedProject = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `Restore project "${row.title}"? Locations, activities, disbursements, and other records saved at delete time will be recreated where possible.`,
+      'Restore Project',
+      {
+        type: 'warning',
+        confirmButtonText: 'Restore',
+        cancelButtonText: 'Cancel',
+        width: 420,
+      },
+    )
+    const res = await revertHistory({ model: 'project', history_id: row.history_id } as any)
+    if (res.code === '0000') {
+      ElMessage.success(res.message || 'Project restored successfully.')
+      await loadDeletedProjects()
+      if (activeSegment.value !== 'Deleted') {
+        await getFilteredData()
+      }
+    } else if (res.code === '1003') {
+      ElMessage.info('This project was already restored.')
+      await loadDeletedProjects()
+    }
+  } catch (error: any) {
+    const code = error?.response?.data?.code
+    if (code === '1003') {
+      ElMessage.info('This project was already restored.')
+      await loadDeletedProjects()
+      return
+    }
+    if (error !== 'cancel' && error?.message !== 'cancel') {
+      ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to restore project.')
+    }
+  }
+}
 
 const handleRowDblClick = (row: any) => {
   viewProject(row)
@@ -2160,6 +2286,14 @@ function onLayersLoaded() {
  
     </el-row>
 
+    <el-segmented
+      v-if="showDeletedProjectsTab"
+      v-model="activeSegment"
+      :options="projectSegments"
+      style="margin-top: 10px; margin-bottom: 4px;"
+      @change="onProjectSegmentChange"
+    />
+
     <el-alert
       type="info"
       :closable="false"
@@ -2167,12 +2301,13 @@ function onLayersLoaded() {
       style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;"
     >
       <template #default>
-        <span style="font-size: 12px;">💡 Double-click on any row to view project details</span>
+        <span v-if="activeSegment === 'Deleted'" style="font-size: 12px;">💡 Deleted projects can be restored with their associated records. Double-click a row to open details after restore.</span>
+        <span v-else style="font-size: 12px;">💡 Double-click on any row to view project details</span>
       </template>
     </el-alert>
 
     <el-table
-ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-top: 10px;" border
       :row-class-name="tableRowClassName" :row-style="{ height: '40px' }"
       v-loading="loading"
       class="interventions-project-table"
@@ -2268,10 +2403,34 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
           <span v-else class="no-locations">No locations configured</span>
         </template>
       </el-table-column>
+      <el-table-column
+        v-if="activeSegment === 'Deleted'"
+        label="Deleted By"
+        prop="_deletedBy"
+        min-width="120"
+        show-overflow-tooltip
+      />
+      <el-table-column
+        v-if="activeSegment === 'Deleted'"
+        label="Deleted At"
+        prop="_deletedAt"
+        min-width="140"
+        show-overflow-tooltip
+      />
       <el-table-column label="" width="68" align="center" fixed="right">
         <template #default="{ row }">
           <div @click.stop>
+            <el-button
+              v-if="activeSegment === 'Deleted'"
+              type="success"
+              size="small"
+              plain
+              @click="restoreDeletedProject(row)"
+            >
+              Restore
+            </el-button>
             <TableActions
+              v-else
               :item="row"
               :buttons="projectActionButtons"
               @preview="viewProject"
@@ -2282,6 +2441,7 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
       </el-table-column>
     </el-table>
     <ElPagination
+v-if="activeSegment !== 'Deleted'"
 :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"

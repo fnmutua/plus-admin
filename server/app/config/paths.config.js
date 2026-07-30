@@ -46,5 +46,9 @@ module.exports = {
     process.env.IPC_UPLOAD_DIR,
     path.join(DATA_ROOT, 'ipc')
   ),
+  PROJECT_DELETE_ARCHIVE_DIR: resolveStoragePath(
+    process.env.PROJECT_DELETE_ARCHIVE_DIR,
+    path.join(DATA_ROOT, 'project-delete-archive')
+  ),
   ensureDir,
 };

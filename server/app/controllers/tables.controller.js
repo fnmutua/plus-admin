@@ -4807,6 +4807,10 @@ exports.modelEditOneRecord = (req, res) => {
         updateSettlementDataInODK(result)
       }
 
+      if (reg_model === 'project') {
+        updateProjectHistory(result.id, req.body, req.thisUser.id, 'Edit')
+      }
+
 
       console.log("Edit", result);
       if (result) {
@@ -4865,7 +4869,18 @@ async function recursiveCascadeDelete(mdl, whereClause, snapshotStore, isNested 
 
   const modelName = mdl.name;
   if (!snapshotStore[modelName]) snapshotStore[modelName] = { rows: [], isNested };
-  snapshotStore[modelName].rows.push(...rows);
+  const existingKeys = new Set(
+    snapshotStore[modelName].rows.map((r) =>
+      r.id != null ? `${modelName}:${r.id}` : `${modelName}:${JSON.stringify(r)}`,
+    ),
+  );
+  for (const row of rows) {
+    const key = row.id != null ? `${modelName}:${row.id}` : `${modelName}:${JSON.stringify(row)}`;
+    if (!existingKeys.has(key)) {
+      snapshotStore[modelName].rows.push(row);
+      existingKeys.add(key);
+    }
+  }
 
   if (modelName === 'ipc_document') {
     try {
@@ -4955,11 +4970,15 @@ exports.modelDeleteOneRecord = async (req, res) => {
     // Check for dependencies in associated models
     const associations = Object.keys(model.associations);
     let cascadeDelete = req.body.cascade === true;
+    const previewDependenciesOnly = req.body.previewDependencies === true;
     // IPC documents are owned by the disbursement — always cascade on delete
     if (modelName === 'disbursement') {
       cascadeDelete = true;
     }
-    const previewDependenciesOnly = req.body.previewDependencies === true;
+    // Projects always cascade-delete children so the full snapshot can be restored later
+    if (modelName === 'project' && !previewDependenciesOnly) {
+      cascadeDelete = true;
+    }
 
 
  
@@ -4973,13 +4992,41 @@ exports.modelDeleteOneRecord = async (req, res) => {
     // Snapshot of full associated rows before cascade delete — used for restore
     const affectedAssociations = {};
 
+    let archivedProjectFiles = null;
+    if (modelName === 'project' && cascadeDelete && !previewDependenciesOnly) {
+      try {
+        const projectLinkRows = await db.models.document_link.findAll({
+          where: { entity_type: 'project', entity_id: record.id },
+          raw: true,
+        });
+        if (projectLinkRows.length) {
+          affectedAssociations.document_link = {
+            rows: projectLinkRows,
+            isNested: true,
+          };
+          await db.models.document_link.destroy({
+            where: { entity_type: 'project', entity_id: record.id },
+          });
+        }
+      } catch (linkErr) {
+        console.error('Project document_link snapshot before delete failed:', linkErr);
+      }
+
+      try {
+        const { archiveProjectDeleteFiles } = require('../utils/projectDeleteArchive');
+        archivedProjectFiles = await archiveProjectDeleteFiles(record.id);
+      } catch (archiveErr) {
+        console.error('Project file archive before delete failed:', archiveErr);
+      }
+    }
+
     let hasDependencies = false;
     for (let i = 0; i < associations.length; i++) {
       const associationName = associations[i];
       const association = model.associations[associationName];
 
-       // Ignore settlement_history associations
-      if (associationName === 'settlement_histories') {
+       // Ignore history associations (orphaned rows kept for restore)
+      if (associationName === 'settlement_histories' || associationName === 'project_histories') {
         continue;
       }
 
@@ -5020,6 +5067,38 @@ exports.modelDeleteOneRecord = async (req, res) => {
             throw err;
           }
         }
+      } else if (associationType === 'BelongsToMany') {
+        const throughModel =
+          typeof association.through === 'string'
+            ? db.models[association.through]
+            : association.through?.model;
+        const fk = association.foreignKey || association.options?.foreignKey;
+        const snapshotJoinRows =
+          !previewDependenciesOnly && (cascadeDelete || modelName === 'project' || modelName === 'settlement');
+        if (throughModel && fk) {
+          const joinRows = await throughModel.findAll({ where: { [fk]: record.id }, raw: true });
+          dependentRowsCount = joinRows.length;
+          if (joinRows.length > 0 && (previewDependenciesOnly || cascadeDelete)) {
+            dependencyDetails.push({
+              association: associationName,
+              model: throughModel.name,
+              count: joinRows.length,
+            });
+          }
+          if (joinRows.length > 0 && snapshotJoinRows) {
+            if (!affectedAssociations[throughModel.name]) {
+              affectedAssociations[throughModel.name] = { rows: [], isNested: false, foreignKey: fk };
+            }
+            affectedAssociations[throughModel.name].rows.push(...joinRows);
+            const deletedCount = await throughModel.destroy({ where: { [fk]: record.id } });
+            if (cascadeDelete) {
+              deletedAssociations.push({ model: throughModel.name, count: deletedCount });
+            }
+            console.log(`Removed ${deletedCount} ${throughModel.name} join row(s) before ${modelName} delete`);
+          }
+        } else {
+          dependentRowsCount = 0;
+        }
       } else {
         dependentRowsCount = 0;
       }
@@ -5055,6 +5134,17 @@ exports.modelDeleteOneRecord = async (req, res) => {
     if (modelName == 'settlement') {
       updateHistory(record.id, record, req.thisUser.id, 'Delete', affectedAssociations);
       deleteSettlementDataFromODK(record);
+    }
+
+    if (modelName == 'project') {
+      await updateProjectHistory(
+        record.id,
+        record,
+        req.thisUser.id,
+        'Delete',
+        affectedAssociations,
+        archivedProjectFiles,
+      );
     }
 
  
@@ -5749,7 +5839,12 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
             field: filter,
             value: filterValues[i],
           }))
-          .filter(({ field }) => modelAttributes.includes(field));
+          .filter(({ field }) => {
+            if (modelName === 'project_history' && field === 'deleted_project_id') {
+              return true;
+            }
+            return modelAttributes.includes(field);
+          });
 
         if (validFilters.length === 0) {
           return res.status(400).json({ message: 'No valid filter fields provided', code: 'INVALID_FILTERS' });
@@ -5758,6 +5853,14 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         // Support both scalar equality and array "IN" semantics
         baseQuery.where = {
           [Sequelize.Op.and]: validFilters.map(({ field, value }) => {
+            if (modelName === 'project_history' && field === 'deleted_project_id') {
+              const raw = Array.isArray(value) ? value[0] : value;
+              const projectId = parseInt(raw, 10);
+              if (Number.isNaN(projectId)) return null;
+              return literal(
+                `(("${Model.tableName}"."changes"->>'deleted_project_id')::int = ${projectId} OR ("${Model.tableName}"."changes"->'before'->>'id')::int = ${projectId})`,
+              );
+            }
             if (Array.isArray(value)) {
               // Treat an array of values as an IN clause
               return { [field]: { [Sequelize.Op.in]: value } };
@@ -8109,18 +8212,26 @@ exports.downloadFile = async (req, res) => {
   try {
     console.log("Received files:", req.body);
     const filename = req.body.filename
-    if (!filename) {
+    const docId = req.body.doc_id != null ? Number(req.body.doc_id) : null
+
+    if (!filename && !docId) {
       return res.status(400).send({
-        message: 'filename is required.',
+        message: 'filename or doc_id is required.',
         code: '0000'
       })
     }
 
-    // Enforce protected-file visibility before serving from disk
-    const doc = await db.models.document.findOne({
-      where: { name: filename },
-      order: [['id', 'DESC']],
-    })
+    let doc = null
+    if (docId) {
+      doc = await db.models.document.findByPk(docId)
+    }
+    if (!doc && filename) {
+      doc = await db.models.document.findOne({
+        where: { name: filename },
+        order: [['id', 'DESC']],
+      })
+    }
+
     if (doc?.protectedFile) {
       const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
       if (!canSeeProtected) {
@@ -8131,20 +8242,32 @@ exports.downloadFile = async (req, res) => {
       }
     }
 
-    const uploadedFile = path.join(uploadDir, filename);
-    console.log(uploadedFile);
+    const { resolveDocumentSourcePath } = require('../utils/projectDeleteArchive')
+    let filePath = doc ? resolveDocumentSourcePath(doc) : null
 
-    if (!fs.existsSync(uploadedFile)) {
-      await destroyDocumentsWithDependencies({ name: filename }).catch((delErr) => {
-        console.error('Could not remove document after missing file:', delErr)
-      })
+    if (!filePath && filename) {
+      const fallback = path.join(uploadDir, path.basename(filename))
+      if (fs.existsSync(fallback)) {
+        filePath = fallback
+      }
+    }
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      const cleanupName = doc?.name || filename
+      if (cleanupName) {
+        await destroyDocumentsWithDependencies(
+          doc?.id ? { id: doc.id } : { name: cleanupName },
+        ).catch((delErr) => {
+          console.error('Could not remove document after missing file:', delErr)
+        })
+      }
       return res.status(500).send({
         message: 'File not found.',
         code: '0000'
       })
     }
 
-    return res.sendFile(path.resolve(uploadedFile), function(err) {
+    return res.sendFile(path.resolve(filePath), function(err) {
       if (err) {
         console.log(err);
         return res.status(500).send({
@@ -8153,11 +8276,10 @@ exports.downloadFile = async (req, res) => {
         });
       }
 
-      // Increment download count for the specific row when available
-      const whereClause = doc?.id ? { id: doc.id } : { name: filename }
+      const whereClause = doc?.id ? { id: doc.id } : { name: doc?.name || filename }
       db.models.document.increment('downloadCount', { where: whereClause })
         .then(() => {
-          console.log('Download count incremented for:', filename);
+          console.log('Download count incremented for:', doc?.name || filename);
         }).catch(error => {
           console.error('Error incrementing download count:', error);
         });
@@ -8751,6 +8873,39 @@ exports.RemoveDocument = async (req, res) => {
   for (const item of filesToDelete) {
     try {
       if (typeof item === 'object' && item !== null) {
+        let docRow = item.id
+          ? await db.models.document.findByPk(item.id, { raw: true })
+          : null
+        if (!docRow && item.name) {
+          docRow = await db.models.document.findOne({ where: { name: item.name }, raw: true })
+        }
+
+        const projectId = Number(
+          docRow?.project_id ?? item.project_id ?? req.body.project_id,
+        ) || null
+        let archivedFile = null
+        let linkRow = null
+
+        if (projectId && docRow) {
+          try {
+            const { archiveSingleProjectDocument } = require('../utils/projectDeleteArchive')
+            archivedFile = await archiveSingleProjectDocument(docRow, projectId)
+            if (!archivedFile) {
+              console.warn(`Document archive skipped for doc ${docRow.id} — source file not found`)
+            }
+          } catch (archiveErr) {
+            console.error('Document pre-delete archive failed:', archiveErr.message)
+          }
+          linkRow = await db.models.document_link.findOne({
+            where: {
+              document_id: docRow.id,
+              entity_type: 'project',
+              entity_id: projectId,
+            },
+            raw: true,
+          })
+        }
+
         const referenceWhere = item.location
           ? { location: item.location, id: { [Op.ne]: item.id } }
           : { name: item.name, id: { [Op.ne]: item.id } }
@@ -8760,21 +8915,34 @@ exports.RemoveDocument = async (req, res) => {
 
         await destroyDocumentsWithDependencies(item.id ? { id: item.id } : { name: item.name })
 
-        if (otherRefs === 0) {
-          const uploadRoot = path.resolve(uploadDir)
-          const storedPath = item.location ? path.resolve(item.location) : ''
-          const filePath = storedPath.startsWith(uploadRoot + path.sep)
-            ? storedPath
-            : path.join(uploadRoot, path.basename(item.name))
-          try {
-            await fs.promises.unlink(filePath)
-            console.log('Final reference removed; file deleted:', filePath)
-          } catch (fileError) {
-            if (fileError.code !== 'ENOENT') throw fileError
-            console.log('File already absent:', filePath)
+        if (otherRefs === 0 && !archivedFile) {
+          const { resolveDocumentSourcePath } = require('../utils/projectDeleteArchive')
+          const resolvedPath = docRow
+            ? resolveDocumentSourcePath(docRow)
+            : (item.location ? path.resolve(item.location) : path.join(uploadDir, path.basename(item.name)))
+          if (resolvedPath) {
+            try {
+              await fs.promises.unlink(resolvedPath)
+              console.log('Final reference removed; file deleted:', resolvedPath)
+            } catch (fileError) {
+              if (fileError.code !== 'ENOENT') throw fileError
+              console.log('File already absent:', resolvedPath)
+            }
           }
+        } else if (otherRefs === 0 && archivedFile) {
+          console.log('Document file archived for revert; live copy removed during archive')
         } else {
           console.log('Document unlinked; file retained for', otherRefs, 'other report(s)')
+        }
+
+        if (projectId && docRow && req.thisUser?.id) {
+          await recordProjectDocumentHistory(projectId, req.thisUser.id, 'DocumentRemove', {
+            action: 'remove',
+            project_id: projectId,
+            document: docRow,
+            document_link: linkRow,
+            archived_file: archivedFile,
+          })
         }
       } else {
         const filePath = path.join(uploadDir, path.basename(item))
@@ -8836,6 +9004,14 @@ exports.unlinkDocument = async (req, res) => {
     if (!document_id || !entity_type || !entity_id) {
       return res.status(400).send({ code: '0001', message: 'document_id, entity_type and entity_id are required' })
     }
+
+    const docRow = await db.models.document.findByPk(document_id, { raw: true })
+    const linkRow = {
+      document_id: Number(document_id),
+      entity_type: String(entity_type),
+      entity_id: Number(entity_id),
+    }
+
     const deleted = await db.models.document_link.destroy({
       where: { document_id, entity_type, entity_id }
     })
@@ -8855,6 +9031,17 @@ exports.unlinkDocument = async (req, res) => {
     if (!ok) {
       return res.status(400).send({ code: '0001', message: 'Link not found' })
     }
+
+    if (entity_type === 'project' && docRow && req.thisUser?.id) {
+      await recordProjectDocumentHistory(Number(entity_id), req.thisUser.id, 'DocumentUnlink', {
+        action: 'unlink',
+        project_id: Number(entity_id),
+        document: docRow,
+        document_link: linkRow,
+        archived_file: null,
+      })
+    }
+
     res.status(200).send({ code: '0000', message: 'Unlinked' })
   } catch (e) {
     console.error('unlinkDocument error', e)
@@ -12492,6 +12679,352 @@ async function updateHistory(settlementId, updatedData, userId, change_type, aff
   }
 }
 
+const ENTITY_HISTORY_CONFIG = {
+  settlement_history: {
+    entityModel: 'settlement',
+    fkField: 'settlement_id',
+    deletedIdField: 'deleted_settlement_id',
+    entityLabel: 'Settlement',
+  },
+  project_history: {
+    entityModel: 'project',
+    fkField: 'project_id',
+    deletedIdField: 'deleted_project_id',
+    entityLabel: 'Project',
+  },
+};
+
+function historyModelFromRequest(requestModel) {
+  if (!requestModel) return null;
+  const normalized = String(requestModel).toLowerCase();
+  if (normalized === 'project') return 'project_history';
+  if (normalized === 'settlement') return 'settlement_history';
+  if (ENTITY_HISTORY_CONFIG[normalized]) return normalized;
+  return null;
+}
+
+async function resolveHistoryRecord(history_id, requestModel) {
+  const preferred = historyModelFromRequest(requestModel);
+  if (preferred && ENTITY_HISTORY_CONFIG[preferred]) {
+    const history = await db.models[preferred]?.findByPk(history_id);
+    if (history) {
+      return { history, historyModel: preferred, config: ENTITY_HISTORY_CONFIG[preferred] };
+    }
+    return null;
+  }
+
+  for (const [historyModel, config] of Object.entries(ENTITY_HISTORY_CONFIG)) {
+    const mdl = db.models[historyModel];
+    if (!mdl) continue;
+    const history = await mdl.findByPk(history_id);
+    if (history) return { history, historyModel, config };
+  }
+  return null;
+}
+
+function getRestoreRowKey(modelName, row) {
+  if (modelName === 'project_activity') {
+    return `${row.project_id}:${row.activity_id}`;
+  }
+  if (modelName === 'document_link') {
+    return `${row.document_id}:${row.entity_type}:${row.entity_id}`;
+  }
+  const pk = row.id ?? row.ID;
+  if (pk != null) return String(pk);
+  return JSON.stringify(row);
+}
+
+async function restoreRow(mdl, modelName, rowData, transaction) {
+  const pkAttr = (mdl.primaryKeyAttributes && mdl.primaryKeyAttributes[0]) || 'id';
+  const pkValue = rowData[pkAttr];
+
+  if (modelName === 'project_activity') {
+    const existing = await mdl.findOne({
+      where: { project_id: rowData.project_id, activity_id: rowData.activity_id },
+      transaction,
+    });
+    if (!existing) {
+      await mdl.create(rowData, { transaction });
+      return true;
+    }
+    return false;
+  }
+
+  if (modelName === 'document_link') {
+    const where = {
+      document_id: rowData.document_id,
+      entity_type: rowData.entity_type,
+      entity_id: rowData.entity_id,
+    };
+    const existing = await mdl.findOne({ where, transaction });
+    if (existing) {
+      return false;
+    }
+    await mdl.create(rowData, { transaction });
+    return true;
+  }
+
+  if (pkValue != null) {
+    const existing = await mdl.findByPk(pkValue, { transaction });
+    if (existing) {
+      await existing.update(rowData, { transaction });
+      return true;
+    }
+  }
+
+  await mdl.create(rowData, { transaction });
+  return true;
+}
+
+async function restoreAssociationsFromSnapshot(affectedAssociations, targetEntityId, transaction) {
+  const restored = [];
+  const seenKeys = new Set();
+  const sortedEntries = Object.entries(affectedAssociations || {}).sort(([, a], [, b]) => {
+    return (a.isNested ? 1 : 0) - (b.isNested ? 1 : 0);
+  });
+
+  for (const [modelName, assocData] of sortedEntries) {
+    const mdl = db.models[modelName];
+    if (!mdl || !assocData.rows || !assocData.rows.length) continue;
+    let count = 0;
+    for (const row of assocData.rows) {
+      const dedupeKey = `${modelName}:${getRestoreRowKey(modelName, row)}`;
+      if (seenKeys.has(dedupeKey)) continue;
+      seenKeys.add(dedupeKey);
+
+      try {
+        const { createdAt: _c, updatedAt: _u, ...rowData } = row;
+        if (!assocData.isNested && assocData.foreignKey) {
+          rowData[assocData.foreignKey] = targetEntityId;
+        }
+        if (modelName === 'document_link' && rowData.entity_type === 'project') {
+          rowData.entity_id = targetEntityId;
+        }
+        const ok = await restoreRow(mdl, modelName, rowData, transaction);
+        if (ok && modelName === 'document_link' && rowData.entity_type === 'project' && rowData.document_id) {
+          const doc = await db.models.document.findByPk(rowData.document_id, { transaction });
+          if (doc && doc.project_id == null) {
+            await doc.update({ project_id: targetEntityId }, { transaction });
+          }
+        }
+        if (ok) count++;
+      } catch (e) {
+        console.error(`Restore failed for ${modelName} row:`, e.message);
+      }
+    }
+    if (count > 0) restored.push(`${count} ${modelName}(s)`);
+  }
+
+  return restored;
+}
+
+async function recordProjectDocumentHistory(projectId, userId, changeType, documentRestore) {
+  const numericProjectId = Number(projectId);
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericProjectId) || !Number.isFinite(numericUserId) || !documentRestore?.document) {
+    return;
+  }
+  await db.models.project_history.create({
+    project_id: numericProjectId,
+    changed_by: numericUserId,
+    change_type: changeType,
+    changes: { document_restore: documentRestore },
+  });
+}
+
+async function revertProjectDocumentHistory(history, transaction) {
+  const payload = history.changes?.document_restore;
+  if (!payload?.document?.id) {
+    throw new Error('Document restore snapshot missing');
+  }
+
+  const projectId = Number(payload.project_id);
+  const docId = Number(payload.document.id);
+  if (!Number.isFinite(projectId) || !Number.isFinite(docId)) {
+    throw new Error('Invalid document restore snapshot');
+  }
+
+  const { restoreArchivedDocumentFile, resolveDocumentSourcePath } = require('../utils/projectDeleteArchive');
+
+  let restoredPath = null;
+  if (payload.action === 'remove' && payload.archived_file?.archiveKey) {
+    restoredPath = await restoreArchivedDocumentFile(payload.archived_file);
+  } else if (payload.action !== 'remove') {
+    restoredPath = resolveDocumentSourcePath(payload.document);
+  }
+
+  const { createdAt: _c, updatedAt: _u, ...documentSnapshot } = payload.document;
+  const locationPath = restoredPath || documentSnapshot.location || null;
+
+  let doc = await db.models.document.findByPk(docId, { transaction });
+  if (!doc) {
+    doc = await db.models.document.create(
+      {
+        ...documentSnapshot,
+        id: docId,
+        project_id: projectId,
+        location: locationPath || documentSnapshot.location,
+      },
+      { transaction },
+    );
+  } else {
+    await doc.update(
+      {
+        project_id: projectId,
+        location: locationPath || doc.location || documentSnapshot.location,
+        name: documentSnapshot.name || doc.name,
+        category: documentSnapshot.category ?? doc.category,
+        format: documentSnapshot.format || doc.format,
+        size: documentSnapshot.size ?? doc.size,
+      },
+      { transaction },
+    );
+  }
+
+  const link = payload.document_link;
+  if (link?.entity_type === 'project') {
+    await db.models.document_link.findOrCreate({
+      where: {
+        document_id: docId,
+        entity_type: 'project',
+        entity_id: projectId,
+      },
+      defaults: {
+        document_id: docId,
+        entity_type: 'project',
+        entity_id: projectId,
+      },
+      transaction,
+    });
+  }
+
+  const fileOk = restoredPath ? fs.existsSync(restoredPath) : resolveDocumentSourcePath(doc.toJSON ? doc.toJSON() : doc);
+  const restored = ['document'];
+  if (fileOk) restored.push('file');
+
+  return {
+    message: fileOk
+      ? 'Document and file restored on this project.'
+      : 'Document restored on this project, but the file could not be found on disk.',
+    restored,
+  };
+}
+
+async function updateProjectHistory(
+  projectId,
+  updatedData,
+  userId,
+  change_type,
+  affectedAssociations = {},
+  archivedFiles = null,
+) {
+  let originalData;
+
+  if (change_type === 'Delete') {
+    originalData = updatedData;
+  } else {
+    const project = await db.models.project.findByPk(projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+    originalData = project.toJSON();
+  }
+
+  const changes = {
+    before: originalData,
+    after: change_type === 'Delete' ? originalData : updatedData,
+  };
+
+  if (change_type === 'Delete' && Object.keys(affectedAssociations).length > 0) {
+    changes.affected_associations = affectedAssociations;
+  }
+  if (change_type === 'Delete') {
+    changes.deleted_project_id = projectId;
+  }
+  if (change_type === 'Delete' && archivedFiles) {
+    changes.archived_files = archivedFiles;
+  }
+
+  await db.models.project_history.create({
+    project_id: change_type === 'Delete' ? null : projectId,
+    changed_by: userId,
+    change_type: change_type,
+    changes,
+  });
+
+  if (change_type !== 'Delete') {
+    return await db.models.project.update(updatedData, { where: { id: projectId } });
+  }
+}
+
+async function revertEntityFromHistory(history, config) {
+  const fkField = config.fkField;
+  const entityId = history[fkField];
+  const { changes } = history;
+  const targetEntityId = changes?.[config.deletedIdField] || changes?.before?.id || entityId;
+  const isDeleteRestore = history.change_type === 'Delete';
+
+  return db.sequelize.transaction(async (transaction) => {
+    if (history.change_type === 'DocumentRemove' || history.change_type === 'DocumentUnlink') {
+      const result = await revertProjectDocumentHistory(history, transaction);
+      await history.update({ status: 'Reverted' }, { transaction });
+      return result;
+    }
+
+    let entity = await db.models[config.entityModel].findByPk(targetEntityId, { transaction });
+
+    if (isDeleteRestore) {
+      if (!entity) {
+        const { id: _id, createdAt: _c, updatedAt: _u, ...restBefore } = changes.before || {};
+        entity = await db.models[config.entityModel].create(
+          { id: targetEntityId, ...restBefore },
+          { transaction },
+        );
+      } else {
+        const { id: _id, createdAt: _c, updatedAt: _u, ...restBefore } = changes.before || {};
+        await entity.update(restBefore, { transaction });
+      }
+
+      const restored = await restoreAssociationsFromSnapshot(
+        changes.affected_associations,
+        targetEntityId,
+        transaction,
+      );
+
+      let fileRestoreSummary = [];
+      if (changes.archived_files) {
+        try {
+          const { restoreProjectDeleteFiles } = require('../utils/projectDeleteArchive');
+          const restoredNames = await restoreProjectDeleteFiles(changes.archived_files);
+          if (restoredNames.length) {
+            fileRestoreSummary.push(`${restoredNames.length} file(s)`);
+          }
+        } catch (fileErr) {
+          console.error('Project file restore failed:', fileErr);
+        }
+      }
+
+      await history.update({ status: 'Reverted' }, { transaction });
+
+      const allRestored = [...restored, ...fileRestoreSummary];
+      const msg = allRestored.length
+        ? `${config.entityLabel} restored. Recreated: ${allRestored.join(', ')}.`
+        : `${config.entityLabel} restored. No associated records to recover.`;
+
+      return { message: msg, restored: allRestored };
+    }
+
+    if (!entity) {
+      throw new Error(`${config.entityLabel} not found`);
+    }
+
+    await entity.update(changes.before, { transaction });
+    await history.update({ status: 'Reverted' }, { transaction });
+
+    return { message: 'Changes reverted successfully.' };
+  });
+}
+
 
 exports.xrevertEdits = async (req, res) => {
   const {history_id } = req.body;
@@ -12527,84 +13060,32 @@ exports.revertEdits = async (req, res) => {
   const { history_id } = req.body;
 
   try {
-    // Find the history record by primary key
-    const history = await db.models.settlement_history.findByPk(history_id);
-    if (!history) {
+    const resolved = await resolveHistoryRecord(history_id, req.body.model);
+    if (!resolved) {
       throw new Error('History record not found');
     }
 
-    const { settlement_id, changes } = history;
-    const targetSettlementId = changes?.deleted_settlement_id || changes?.before?.id || settlement_id;
+    const { history, config } = resolved;
 
-    // Check if the settlement exists
-    let settlement = await db.models.settlement.findByPk(targetSettlementId);
-    if (!settlement) {
-      // Recreate the deleted settlement from history
-      const { id: _id, createdAt: _c, updatedAt: _u, ...restBefore } = changes.before || {};
-      settlement = await db.models.settlement.create({
-        id: targetSettlementId,
-        ...restBefore,
+    if (history.status === 'Reverted') {
+      return res.status(400).send({
+        message: 'This change has already been reverted',
+        code: '1003',
       });
-
-      // Recreate associated records from the full row snapshots saved at delete time.
-      // Direct children get their FK re-pointed to the restored settlement.
-      // Nested grandchildren are recreated as-is (their parent PKs were preserved).
-      const affectedAssociations = changes.affected_associations || {};
-      const restored = [];
-
-      // Restore direct children first (isNested = false), then nested (isNested = true)
-      const sortedEntries = Object.entries(affectedAssociations).sort(([, a], [, b]) => {
-        return (a.isNested ? 1 : 0) - (b.isNested ? 1 : 0);
-      });
-
-      for (const [modelName, assocData] of sortedEntries) {
-        const mdl = db.models[modelName];
-        if (!mdl || !assocData.rows || !assocData.rows.length) continue;
-        let count = 0;
-        for (const row of assocData.rows) {
-          try {
-            const { createdAt: _c, updatedAt: _u, ...rowData } = row;
-            // For direct children, re-point FK to restored settlement
-            if (!assocData.isNested && assocData.foreignKey) {
-              rowData[assocData.foreignKey] = targetSettlementId;
-            }
-            await mdl.create(rowData);
-            count++;
-          } catch (e) {
-            console.error(`Restore failed for ${modelName} row:`, e.message);
-          }
-        }
-        if (count > 0) restored.push(`${count} ${modelName}(s)`);
-      }
-
-      await history.update({ status: 'Reverted' });
-
-      const msg = restored.length
-        ? `Settlement restored. Recreated: ${restored.join(', ')}.`
-        : 'Settlement restored. No associated records to recover.';
-
-      return res.status(200).send({ message: msg, code: '0000', restored });
     }
 
-    // If the settlement exists, update it to its previous state
-    await settlement.update(changes.before);
-    console.log('settlement.update')
- 
-    await history.update({ status: 'Reverted' }); // Update history status
-    console.log('history.update')
+    const result = await revertEntityFromHistory(history, config);
 
     res.status(200).send({
-      message: 'Changes reverted successfully.',
+      message: result.message,
       code: '0000',
+      restored: result.restored,
     });
   } catch (error) {
-    // console.log(error)
-   // res.status(500).json({ error: error.message });
     res.status(500).send({
-      message: 'An error occurred while reverting edits.' +  error.message ,
+      message: 'An error occurred while reverting edits.' + error.message,
       code: '0004',
     });
-
   }
 };
 

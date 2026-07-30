@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, watch, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, computed, watch, reactive, ref, nextTick } from 'vue'
 import {
   
 ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
@@ -10,7 +10,7 @@ ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInp
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
 import { uuid } from 'vue-uuid'
-import { getSettlementListByCounty, getLinkedDocuments, unlinkDocument } from '@/api/settlements'
+import { getSettlementListByCounty, getLinkedDocuments, unlinkDocument, revertHistory } from '@/api/settlements'
 import { uploadIpcDocuments, downloadIpcDocument } from '@/api/ipc'
 import type { RouteLocationNormalizedLoaded, RouterLinkProps } from 'vue-router'
 
@@ -19,7 +19,7 @@ import { getOneGeo } from '@/api/settlements'
 import { Icon } from '@iconify/vue';
 import {
   Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading,
-  Close, Plus, Setting, ArrowLeft, ArrowRight, Check,
+  Close, Plus, Setting, ArrowLeft, ArrowRight, Check, RefreshLeft,
 } from '@element-plus/icons-vue'
 
 import { getCountyListApi, } from '@/api/counties'
@@ -144,6 +144,9 @@ const canManageProjectTeam = computed(() => isSuperAdmin.value || hasPerm('proje
 const canManageProjectContractors = computed(() => isSuperAdmin.value || hasPerm('project_contractor:create'))
 const canManageDocumentTypes = computed(() => isSuperAdmin.value || hasPerm('document_type:create'))
 const canManageDisbursements = computed(() => isSuperAdmin.value || hasPerm('disbursement:create'))
+const canViewProjectSettings = computed(
+  () => canEditProjectMeta.value || canUserDeleteProject(projectFullData.value)
+)
 const showClockInTab = false
 
 // Process user roles for permission checking
@@ -205,6 +208,11 @@ const canUserDeleteProject = (project: any): boolean => {
 const canUserDeleteDocument = (document: any): boolean => {
   // Return false if document is undefined or null
   if (!document) {
+    return false;
+  }
+
+  // Linked documents can only be unlinked — not permanently deleted from this project view
+  if (document._isLinked || document.deletable === false) {
     return false;
   }
 
@@ -483,6 +491,10 @@ const locationPageSize = ref(5)
 const docsCurrentPage = ref(1)
 const docsPageSize = ref(10)
 const documentsLoading = ref(false)
+
+/** Wide enough for ~2 lines of confirm copy without awkward wrapping */
+const CONFIRM_POP_WIDTH = 320
+const CONFIRM_BOX_WIDTH = 420
 
 //// ------------------parameters -----------------------////
 
@@ -1274,18 +1286,10 @@ const getLocations = async (
   page = locationCurrentPage.value,
   size = locationPageSize.value
 ) => {
-
-  const formData = {}
+  const formData: Record<string, unknown> = {}
   formData.model = 'project_location'
-  //-Search field--------------------------------------------
-
-  //formData.searchKeyword = project_id
   formData.excludeGeom = false
   formData.associated_multiple_models = ['county', 'subcounty', 'ward', 'settlement']
-
-
-
-  // - multiple filters -------------------------------------
   formData.filters = ['project_id']
   formData.filterValues = [[project_id]]
   if (page && size) {
@@ -1293,29 +1297,43 @@ const getLocations = async (
     formData.limit = size
   }
 
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  const res = await getSettlementListByCounty(formData)
+  const res = await getSettlementListByCounty(formData as any)
 
   const incoming = res.data || []
   if (page && page > 1 && Array.isArray(projectLocations.value)) {
     const existingIds = new Set(projectLocations.value.map((loc: any) => loc.id))
     const merged = [
       ...projectLocations.value,
-      ...incoming.filter((loc: any) => !existingIds.has(loc.id))
+      ...incoming.filter((loc: any) => !existingIds.has(loc.id)),
     ]
     projectLocations.value = merged
   } else {
     projectLocations.value = incoming
   }
   projectLocationsTotal.value = res.total ?? projectLocations.value.length
-
-
-  console.log('Locations:', project_id, res)
-
 }
 
- 
+async function loadAllProjectLocationsForIpc(projectId: string | string[]) {
+  const formData: Record<string, unknown> = {
+    model: 'project_location',
+    excludeGeom: false,
+    associated_multiple_models: ['county', 'subcounty', 'ward', 'settlement'],
+    filters: ['project_id'],
+    filterValues: [[projectId]],
+    returnAll: true,
+  }
+  const res = await getSettlementListByCounty(formData as any)
+  projectLocations.value = res.data || []
+  projectLocationsTotal.value = res.total ?? projectLocations.value.length
+}
+
+function getKnownProjectLocationIds(): Set<number> {
+  return new Set(
+    (projectLocations.value as any[])
+      .map((loc) => Number(loc.id))
+      .filter((id) => Number.isFinite(id) && id > 0),
+  )
+}
 
 const getProjectDocuments = async (
   field,
@@ -1649,7 +1667,9 @@ const changeProject = async (project: any) => {
 
 
   project_activities = await getProjectActivities(project)
+  scopeHydrating.value = true
   projectScopeChecked.value = project_activities
+  scopeHydrating.value = false
   sel_indicators = await getProjectActivityIndicators(project_activities)
 
   console.log('project_activities', project_activities)
@@ -1737,10 +1757,15 @@ const programme_implementation_id = ref()
 
 const projectTabStorageKey = (id: string | string[]) => `projectActiveTab:${id}`
 
-// Allow deep-linking to a specific tab, e.g. /prj/169?tab=map
-const activeName = ref(
-  typeof route.query.tab === 'string' && route.query.tab ? route.query.tab : 'details'
-)
+// Allow deep-linking to a specific tab, e.g. /prj/169?tab=map (map nests under Locations)
+const resolveInitialProjectTab = () => {
+  const q = typeof route.query.tab === 'string' ? route.query.tab : ''
+  if (q === 'map') return 'Locations'
+  return q || 'details'
+}
+
+const activeName = ref(resolveInitialProjectTab())
+const locationSubTab = ref(typeof route.query.tab === 'string' && route.query.tab === 'map' ? 'map' : 'list')
 
 const loadProjectDetails = async (id: string | string[]) => {
   isLoading.value = true
@@ -1821,10 +1846,19 @@ const loadProjectDetails = async (id: string | string[]) => {
   changeProject(id)
 
   const savedTab = localStorage.getItem(projectTabStorageKey(id))
-  if (savedTab) {
+  if (savedTab === 'map') {
+    activeName.value = 'Locations'
+    locationSubTab.value = 'map'
+  } else if (savedTab) {
     activeName.value = savedTab
   } else if (typeof route.query.tab === 'string' && route.query.tab) {
-    activeName.value = route.query.tab
+    activeName.value = resolveInitialProjectTab()
+    if (route.query.tab === 'map') locationSubTab.value = 'map'
+  }
+
+  if (locationSubTab.value === 'map' && projectLocations.value.length > 0) {
+    await nextTick()
+    loadLocationsMapView()
   }
 }
 
@@ -1957,9 +1991,10 @@ const uploadFiles = async (action_id, grievance_id) => {
 
 const viewLoading = ref(false)
 const downloadingDocId = ref<number | null>(null)
+const downloadingAllDocs = ref(false)
 
 const downloadFile = async (data) => {
-  console.log(data);
+  if (!data?.id || !data?.name) return
   viewLoading.value = true;
   downloadingDocId.value = data.id || null
   const formData: Record<string, unknown> = {};
@@ -1969,18 +2004,10 @@ const downloadFile = async (data) => {
 
   const isIpcDoc = data.disbursement_id != null
 
-  window.addEventListener('beforeunload', () => {
-    if (viewLoading.value) {
-      console.log('Download has started.');
-      viewLoading.value = false;
-    }
-  });
-
   try {
     const response = isIpcDoc
       ? await downloadIpcDocument(formData as { filename?: string; doc_id?: number })
       : await getFile(formData);
-    console.log(response);
 
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
@@ -1988,14 +2015,41 @@ const downloadFile = async (data) => {
     link.setAttribute('download', data.name);
     document.body.appendChild(link);
     link.click();
-    viewLoading.value = false;
-    downloadingDocId.value = null
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   } catch (error) {
-    ElMessage.error('Failed');
+    ElMessage.error('Failed to download file');
+  } finally {
     viewLoading.value = false;
     downloadingDocId.value = null
   }
 };
+
+const downloadAllProjectDocuments = async () => {
+  if (downloadingAllDocs.value) return
+  downloadingAllDocs.value = true
+  try {
+    const allDocs = await getProjectDocuments(
+      'project_id',
+      [project_id.value],
+      { paginate: false },
+    )
+    if (!allDocs?.length) {
+      ElMessage.warning('No documents to download')
+      return
+    }
+    ElMessage.info(`Downloading ${allDocs.length} document(s)…`)
+    for (const doc of allDocs) {
+      await downloadFile(doc)
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    }
+  } catch (error) {
+    console.error('Failed to download all documents:', error)
+    ElMessage.error('Failed to download documents')
+  } finally {
+    downloadingAllDocs.value = false
+  }
+}
 
 
 
@@ -2145,21 +2199,32 @@ const rowNumber = (index: number, page: number, size: number) => {
   return (page - 1) * size + index + 1
 }
 
+const loadLocationsMapView = () => {
+  locationsGeometry.value = toFeatureCollection(projectLocations.value)
+  setTimeout(() => {
+    loadAllLocationsMap(locationsGeometry.value)
+  }, 500)
+}
+
+watch(locationSubTab, (tab) => {
+  if (tab === 'map' && projectLocations.value.length > 0) {
+    loadLocationsMapView()
+  }
+})
+
 const handleTabClick = async (tab) => {
   localStorage.setItem(projectTabStorageKey(route.params.id), tab.props.name);
 
-  if (tab.props.name === 'map') {
-    // Delay the loadMap function
-    locationsGeometry.value = toFeatureCollection(projectLocations.value)
-
-    setTimeout(() => {
-      loadAllLocationsMap(locationsGeometry.value); // Load map after a brief delay
-    }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
+  if (tab.props.name === 'Locations' && locationSubTab.value === 'map') {
+    loadLocationsMapView()
   }
 
   if (tab.props.name === 'Scope') {
-    projectScopeChecked.value = projectScope.value.map(activity => activity.id);
-
+    scopeHydrating.value = true
+    projectScopeChecked.value = projectScope.value.map((activity) => activity.id)
+    nextTick(() => {
+      scopeHydrating.value = false
+    })
   }
 
   if (tab.props.name === 'documents') {
@@ -2172,6 +2237,14 @@ const handleTabClick = async (tab) => {
 
   if (tab.props.name === 'clockin') {
     getProjectClockIns(route.params.id);
+  }
+
+  if (tab.props.name === 'timeline') {
+    await loadProjectTimeline(route.params.id)
+  }
+
+  if (tab.props.name === 'history') {
+    await getProjectHistory(route.params.id)
   }
 };
 
@@ -2270,6 +2343,9 @@ const deleteRow = (index: number) => {
 }
 
 const projectScopeChecked = ref([])
+const scopeSaving = ref(false)
+const scopeHydrating = ref(false)
+let scopeSaveTimer: ReturnType<typeof setTimeout> | null = null
 
 const selectedScopeActivityIds = computed(() => {
   const checked = projectScopeChecked.value
@@ -2287,21 +2363,44 @@ const selectedScopeCount = computed(() => selectedScopeActivityIds.value.length)
 const totalScopeCount = computed(() => sortedActivityOptions.value.length)
 
 const scopeActionButtonCount = computed(
-  () => (canManageProjectScope.value ? 1 : 0) + (canCreateActivity.value ? 1 : 0)
+  () => (canCreateActivity.value ? 1 : 0)
 )
 
 const scopeActionColSpan = computed(() => (scopeActionButtonCount.value > 1 ? 12 : 24))
 
 const updateChanges = async () => {
-  // Assuming projectScope.value is an array of objects with an 'id' property
-  //projectFullData.value.activities = projectScope.value.map(activity => activity.id);
-  projectFullData.value.activities = projectScopeChecked.value;
-
-
-  projectFullData.value.model = 'project'
-  const res = await updateOneRecord(projectFullData.value)
-  console.log('updated project Activties', res)
+  await saveProjectScope()
 }
+
+const saveProjectScope = async () => {
+  if (!canManageProjectScope.value || scopeSaving.value || scopeHydrating.value) return
+  scopeSaving.value = true
+  try {
+    projectFullData.value.activities = [...selectedScopeActivityIds.value]
+    projectFullData.value.model = 'project'
+    await updateOneRecord(projectFullData.value, { silent: true })
+    projectScope.value = sortedActivityOptions.value.filter((activity) =>
+      selectedScopeActivityIds.value.includes(activity.id),
+    )
+  } catch (error) {
+    console.error('Failed to save project scope:', error)
+    ElMessage.error('Failed to save activities')
+  } finally {
+    scopeSaving.value = false
+  }
+}
+
+watch(
+  projectScopeChecked,
+  () => {
+    if (scopeHydrating.value || !canManageProjectScope.value) return
+    if (scopeSaveTimer) clearTimeout(scopeSaveTimer)
+    scopeSaveTimer = setTimeout(() => {
+      void saveProjectScope()
+    }, 400)
+  },
+  { deep: true },
+)
 
 
 const ShowActivityAddDialog = ref(false)
@@ -2360,7 +2459,10 @@ const submitNewActivity = async () => {
       if (created?.id != null && canManageProjectScope.value) {
         const checked = Array.isArray(projectScopeChecked.value) ? projectScopeChecked.value : []
         if (!checked.includes(created.id)) {
+          scopeHydrating.value = true
           projectScopeChecked.value = [...checked, created.id]
+          scopeHydrating.value = false
+          await saveProjectScope()
         }
       }
     } catch (error) {
@@ -2784,6 +2886,131 @@ function ipcStatusTagType(status: unknown): 'info' | 'success' | 'warning' | 'pr
   return 'warning'
 }
 
+function isCompletedProjectStatus(status: unknown): boolean {
+  return String(status || '').trim().toLowerCase() === 'completed'
+}
+
+function ipcTimelineLabel(row: Record<string, unknown>): string {
+  const cert = String(row.certificate || '').trim()
+  if (cert) return cert
+  const label = disbursementPaymentLabel(row.payment_type)
+  return label === 'IPC' ? 'IPC payment' : label
+}
+
+type ProjectTimelineEvent = {
+  id: string
+  kind: 'start' | 'ipc' | 'closure'
+  date: unknown
+  title: string
+  detail?: string
+  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
+}
+
+const projectTimelineLoading = ref(false)
+const projectCompletionDate = ref<string | null>(null)
+
+const projectTimelineEvents = computed<ProjectTimelineEvent[]>(() => {
+  const events: ProjectTimelineEvent[] = []
+  const startDate = projectFullData.value?.start_date ?? projectProfile.start_date
+  if (startDate) {
+    events.push({
+      id: 'start',
+      kind: 'start',
+      date: startDate,
+      title: 'Project started',
+      type: 'primary',
+    })
+  }
+
+  for (const row of sortedProjectDisbursements.value) {
+    if (isAdvanceDisbursementRow(row)) continue
+    const status = String(row.status || 'submitted').toLowerCase()
+    events.push({
+      id: `ipc-${row.id}`,
+      kind: 'ipc',
+      date: row.disbursement_date,
+      title: ipcTimelineLabel(row),
+      detail: `${formatCostDisplay(row.amount)}${status ? ` · ${status}` : ''}`,
+      type: status === 'paid' ? 'success' : 'primary',
+    })
+  }
+
+  if (isCompletedProjectStatus(projectFullData.value?.status)) {
+    const closureDate =
+      projectCompletionDate.value ||
+      projectFullData.value?.end_date ||
+      projectProfile.end_date ||
+      null
+    events.push({
+      id: 'closure',
+      kind: 'closure',
+      date: closureDate,
+      title: 'Project completed',
+      detail: 'Status changed to completed',
+      type: 'success',
+    })
+  }
+
+  return events
+    .filter((event) => event.date || event.kind === 'closure')
+    .sort((a, b) => {
+      const da = parseDisplayDate(a.date)?.getTime() ?? 0
+      const db = parseDisplayDate(b.date)?.getTime() ?? 0
+      if (da !== db) return da - db
+      const order = { start: 0, ipc: 1, closure: 2 }
+      return order[a.kind] - order[b.kind]
+    })
+})
+
+async function loadProjectTimelineCompletion(projectId: string | string[]) {
+  const numericId = Number(projectId)
+  if (!Number.isFinite(numericId) || !isCompletedProjectStatus(projectFullData.value?.status)) {
+    projectCompletionDate.value = null
+    return
+  }
+
+  try {
+    const res = await getSettlementListByCounty({
+      model: 'project_history',
+      excludeGeom: true,
+      filters: ['project_id', 'change_type'],
+      filterValues: [[numericId], ['Edit']],
+      fields: ['id', 'createdAt', 'changes'],
+      returnAll: true,
+    } as any)
+
+    const edits = [...(res.data || [])].sort((a: any, b: any) => {
+      const da = new Date(a.createdAt || a.created_at || 0).getTime()
+      const db = new Date(b.createdAt || b.created_at || 0).getTime()
+      return da - db
+    })
+
+    for (const record of edits) {
+      const before = record?.changes?.before?.status
+      const after = record?.changes?.after?.status
+      if (isCompletedProjectStatus(after) && !isCompletedProjectStatus(before)) {
+        projectCompletionDate.value = record.createdAt || record.created_at || null
+        return
+      }
+    }
+    projectCompletionDate.value = null
+  } catch {
+    projectCompletionDate.value = null
+  }
+}
+
+async function loadProjectTimeline(projectId: string | string[]) {
+  projectTimelineLoading.value = true
+  try {
+    await Promise.all([
+      getprojectDisbursements(projectId),
+      loadProjectTimelineCompletion(projectId),
+    ])
+  } finally {
+    projectTimelineLoading.value = false
+  }
+}
+
 const sortedProjectDisbursements = computed(() =>
   [...(projectDisbursements.value || [])].sort((a, b) => {
     const da = new Date(a.disbursement_date || 0).getTime()
@@ -3181,7 +3408,8 @@ function validateIpcLocationProgress(): boolean {
 }
 
 async function persistIpcLocationProgress() {
-  if (!ipcLocationProgress.value.length) return
+  const validLocationIds = getKnownProjectLocationIds()
+  if (!validLocationIds.size && !ipcLocationProgress.value.length) return
 
   const maxByLocationId = new Map<number, number>()
   for (const disbursement of sortedProjectDisbursements.value) {
@@ -3194,28 +3422,39 @@ async function persistIpcLocationProgress() {
     for (const loc of locations) {
       const locId = Number(loc.project_location_id)
       const pct = loc.progress_pct != null ? Number(loc.progress_pct) : null
-      if (!locId || pct == null || !Number.isFinite(pct)) continue
+      if (!locId || !validLocationIds.has(locId) || pct == null || !Number.isFinite(pct)) continue
       maxByLocationId.set(locId, Math.max(maxByLocationId.get(locId) ?? 0, pct))
     }
   }
 
   for (const row of ipcLocationProgress.value) {
+    if (!validLocationIds.has(row.id)) continue
     if (row.progress == null || !Number.isFinite(row.progress)) continue
     maxByLocationId.set(row.id, Math.max(maxByLocationId.get(row.id) ?? 0, row.progress))
   }
 
-  await Promise.all(
+  if (!maxByLocationId.size) return
+
+  const results = await Promise.allSettled(
     [...maxByLocationId.entries()].map(([id, progress]) =>
-      updateOneRecord({
-        model: 'project_location',
-        id,
-        physical_progress_pct: progress,
-      } as any),
+      updateOneRecord(
+        {
+          model: 'project_location',
+          id,
+          physical_progress_pct: progress,
+        } as any,
+        { silent: true },
+      ),
     ),
   )
 
+  const failed = results.filter((result) => result.status === 'rejected')
+  if (failed.length) {
+    console.warn('Some project location progress updates were skipped:', failed)
+  }
+
   for (const [id, progress] of maxByLocationId.entries()) {
-    const loc = (projectLocations.value as any[]).find((l) => l.id === id)
+    const loc = (projectLocations.value as any[]).find((l) => Number(l.id) === Number(id))
     if (loc) loc.physical_progress_pct = progress
   }
 }
@@ -3350,7 +3589,7 @@ const ipcFileList = ref<IpcUploadFile[]>([])
 
 const defaultDisbursementForm = () => ({
   id: undefined as number | undefined,
-  project_id: route.params.id,
+  project_id: Number(route.params.id),
   amount: null as number | null,
   disbursement_date: new Date(),
   certificate: '',
@@ -3377,6 +3616,9 @@ const resetIpcDrawer = () => {
 
 const openIpcDrawer = async (mode: 'ipc' | 'advance' = 'ipc') => {
   await getprojectDisbursements(route.params.id)
+  if (mode === 'ipc' && !isNationalProject.value) {
+    await loadAllProjectLocationsForIpc(route.params.id)
+  }
   resetIpcDrawer()
   ipcDrawerMode.value = mode
   DisbursementForm.value.payment_type = mode === 'advance' ? 'advance' : 'ipc'
@@ -3397,13 +3639,16 @@ const openIpcDrawerForEdit = async (row: Record<string, unknown>) => {
   }
 
   await getprojectDisbursements(route.params.id)
+  if (!isAdvanceDisbursementRow(row) && !isNationalProject.value) {
+    await loadAllProjectLocationsForIpc(route.params.id)
+  }
   resetIpcDrawer()
   ipcEditingId.value = Number(row.id)
   ipcDrawerMode.value = isAdvanceDisbursementRow(row) ? 'advance' : 'ipc'
 
   DisbursementForm.value = {
     id: Number(row.id),
-    project_id: route.params.id,
+    project_id: Number(route.params.id),
     amount: parseMoney(row.amount),
     disbursement_date: row.disbursement_date ? new Date(String(row.disbursement_date)) : new Date(),
     certificate: String(row.certificate || ''),
@@ -3695,6 +3940,21 @@ watch(AddDisbursementTeamDialog, (open) => {
     adv != null && adv !== '' && !Number.isNaN(Number(adv)) ? formatAmountDisplay(adv) : ''
 })
 
+let ipcProgressSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  ipcLocationProgress,
+  () => {
+    if (!AddDisbursementTeamDialog.value || isAdvanceDrawer.value || !showDisbursementLocationPanel.value) {
+      return
+    }
+    if (ipcProgressSaveTimer) clearTimeout(ipcProgressSaveTimer)
+    ipcProgressSaveTimer = setTimeout(() => {
+      void persistIpcLocationProgress()
+    }, 600)
+  },
+  { deep: true },
+)
+
 const updateDisbursement = async () => {
   const valid = await validateIpcPaymentStep()
   if (!valid) return
@@ -3705,9 +3965,11 @@ const updateDisbursement = async () => {
     ? 'advance'
     : (DisbursementForm.value.payment_type || 'ipc')
 
+  const { id: _formId, ...formRest } = DisbursementForm.value
   const payload: Record<string, unknown> = {
-    ...DisbursementForm.value,
+    ...formRest,
     model: 'disbursement',
+    project_id: Number(route.params.id),
     amount: gross,
     advance_amount: paymentType === 'advance' ? gross : null,
     advance_recovered: paymentType === 'advance' ? null : advanceRecovered || null,
@@ -3724,13 +3986,12 @@ const updateDisbursement = async () => {
 
   ipcSaving.value = true
   try {
-    if (!isAdvanceDrawer.value && showDisbursementLocationPanel.value) {
-      await persistIpcLocationProgress()
-    }
-
     if (isEditingIpc.value && ipcEditingId.value) {
       payload.id = ipcEditingId.value
       await updateOneRecord(payload as any)
+      if (!isAdvanceDrawer.value && showDisbursementLocationPanel.value) {
+        await persistIpcLocationProgress()
+      }
       if (ipcFileList.value.length) {
         await uploadIpcFiles(ipcEditingId.value)
       }
@@ -3744,6 +4005,9 @@ const updateDisbursement = async () => {
 
     const res: any = await CreateRecord(payload as any)
     const saved = res?.data
+    if (!isAdvanceDrawer.value && showDisbursementLocationPanel.value) {
+      await persistIpcLocationProgress()
+    }
     if (saved?.id && ipcFileList.value.length) {
       await uploadIpcFiles(Number(saved.id))
     }
@@ -3863,7 +4127,9 @@ const RemoveContractor = async (row) => {
 const RemoveDocument = async (row) => {
   if (!canUserDeleteDocument(row)) {
     ElMessage({
-      message: 'You do not have permission to delete this document. Only Super Admins, National Staff, or the County Admin who created this document can delete it.',
+      message: row?._isLinked
+        ? 'Linked documents can only be unlinked.'
+        : 'You do not have permission to delete this document. Only Super Admins, National Staff, or the County Admin who created this document can delete it.',
       type: 'warning',
       duration: 5000,
       showClose: true
@@ -3871,22 +4137,22 @@ const RemoveDocument = async (row) => {
     return;
   }
 
-  // Use the cascading delete endpoint: it removes dependent document_link /
-  // document_share_item rows before deleting the document row itself, so it
-  // doesn't fail when the document is linked to other entities.
-  let formData = {}
-  formData.filesToDelete = [row]
+  const pid = Number(route.params.id)
+  try {
+    await deleteDocument({
+      id: row.id,
+      model: 'document',
+      project_id: pid,
+      filesToDelete: [{ ...row, project_id: row.project_id ?? pid }],
+    } as any)
 
-  await deleteDocument(formData);
-
-
-
-  // remove the deleted object from array list
-  let index = projectDocuments.value.indexOf(row);
-  if (index !== -1) {
-    projectDocuments.value.splice(index, 1);
+    projectDocuments.value = (projectDocuments.value as any[]).filter((d: any) => d.id !== row.id)
+    projectDocumentsTotal.value = Math.max(0, (projectDocumentsTotal.value || 0) - 1)
+    ElMessage.success('Document deleted permanently')
+  } catch (error: any) {
+    console.error('Failed to delete document:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to delete document')
   }
-
 }
 
 
@@ -3903,9 +4169,10 @@ const handleUnlinkDocument = async (row: any) => {
   const pid = Number(route.params.id)
   if (!pid || !row.id) return
   try {
-  await unlinkDocument({ document_id: row.id, entity_type: 'project', entity_id: pid })
+    await unlinkDocument({ document_id: row.id, entity_type: 'project', entity_id: pid })
     projectDocuments.value = (projectDocuments.value as any[]).filter((d: any) => d.id !== row.id)
-    ElMessage.success('Document unlinked from this project')
+    projectDocumentsTotal.value = Math.max(0, (projectDocumentsTotal.value || 0) - 1)
+    ElMessage.success('Document unlinked.')
   } catch {
     ElMessage.error('Failed to unlink document')
   }
@@ -3925,7 +4192,12 @@ const handleIpcLedgerAction = async (command: string, row: any) => {
           ? `Remove this disbursement and ${docCount} attached IPC document(s)?`
           : 'Remove this disbursement from the ledger?',
         'Confirm',
-        { type: 'warning', confirmButtonText: 'Remove', cancelButtonText: 'Cancel' },
+        {
+          type: 'warning',
+          confirmButtonText: 'Remove',
+          cancelButtonText: 'Cancel',
+          width: CONFIRM_BOX_WIDTH,
+        },
       )
       await RemoveDisbursement(row)
     } catch {
@@ -4606,6 +4878,301 @@ const handleDownload = async () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+const projectEditHistory = ref<any[]>([])
+const projectHistoryLoading = ref(false)
+const projectHistoryDetails = ref<Record<number, any>>({})
+const projectHistoryDetailLoading = ref<Record<number, boolean>>({})
+
+const PROJECT_HISTORY_LIST_FIELDS = [
+  'id',
+  'project_id',
+  'change_type',
+  'status',
+  'changed_by',
+  'createdAt',
+]
+
+const HISTORY_DIFF_IGNORED_FIELDS = new Set([
+  'id', 'updatedAt', 'createdAt', 'updated_at', 'created_at', 'version', 'deletedAt', 'deleted_at', 'model',
+])
+
+function isHistoryValueEqual(a: any, b: any): boolean {
+  const norm = (v: any) => {
+    if (v === null || v === undefined) return ''
+    if (typeof v === 'string') return v.trim()
+    return v
+  }
+  const na = norm(a)
+  const nb = norm(b)
+  if (na === nb) return true
+  if (na !== '' && nb !== '' && !Number.isNaN(Number(na)) && !Number.isNaN(Number(nb))) {
+    return Number(na) === Number(nb)
+  }
+  return false
+}
+
+function getProjectHistoryDifferences(before: any, after: any, parentKey = ''): any[] {
+  const differences: any[] = []
+  const safeBefore = before ?? {}
+  const safeAfter = after ?? {}
+
+  for (const key in safeAfter) {
+    if (HISTORY_DIFF_IGNORED_FIELDS.has(key)) continue
+    const currentKey = parentKey ? `${parentKey}.${key}` : key
+    const beforeVal = safeBefore[key]
+    const afterVal = safeAfter[key]
+
+    if (typeof afterVal === 'object' && afterVal !== null) {
+      if (Array.isArray(afterVal)) {
+        const beforeArr = Array.isArray(beforeVal) ? beforeVal : []
+        if (JSON.stringify(beforeArr) !== JSON.stringify(afterVal)) {
+          differences.push({
+            field: currentKey,
+            before: beforeArr.join(', '),
+            after: afterVal.join(', '),
+          })
+        }
+      } else {
+        const beforeObj =
+          beforeVal && typeof beforeVal === 'object' && !Array.isArray(beforeVal) ? beforeVal : {}
+        differences.push(...getProjectHistoryDifferences(beforeObj, afterVal, currentKey))
+      }
+    } else if (!isHistoryValueEqual(beforeVal, afterVal)) {
+      differences.push({
+        field: currentKey,
+        before: beforeVal === null || beforeVal === undefined ? '' : beforeVal,
+        after: afterVal === null || afterVal === undefined ? '' : afterVal,
+      })
+    }
+  }
+
+  return differences
+}
+
+function summarizeDeleteAssociations(record: any): string {
+  const affected = record?.changes?.affected_associations || {}
+  const parts = Object.entries(affected)
+    .filter(([, data]: any) => data?.rows?.length)
+    .map(([model, data]: any) => `${data.rows.length} ${model}(s)`)
+  const archived = record?.changes?.archived_files
+  const ipcFiles = archived?.ipc_documents?.length || 0
+  const docFiles = archived?.documents?.length || 0
+  if (ipcFiles) parts.push(`${ipcFiles} IPC file(s) archived`)
+  if (docFiles) parts.push(`${docFiles} document file(s) archived`)
+  return parts.length ? parts.join(', ') : 'No associated records snapshotted'
+}
+
+function buildProjectHistoryDetail(record: any) {
+  const changeType = record.change_type || 'Edit'
+  if (changeType === 'Delete') {
+    return {
+      ...record,
+      differences: [],
+      deleteSummary: summarizeDeleteAssociations(record),
+    }
+  }
+  if (changeType === 'DocumentRemove' || changeType === 'DocumentUnlink') {
+    const docName = record?.changes?.document_restore?.document?.name || 'Document'
+    return {
+      ...record,
+      differences: [],
+      documentSummary:
+        changeType === 'DocumentRemove'
+          ? `Removed "${docName}" from documentation`
+          : `Unlinked "${docName}" from this project`,
+    }
+  }
+  const changes = record.changes || {}
+  const differences = getProjectHistoryDifferences(changes.before, changes.after)
+  return { ...record, differences }
+}
+
+const loadProjectHistoryDetail = async (historyId: number) => {
+  if (projectHistoryDetails.value[historyId] || projectHistoryDetailLoading.value[historyId]) {
+    return
+  }
+  projectHistoryDetailLoading.value = {
+    ...projectHistoryDetailLoading.value,
+    [historyId]: true,
+  }
+  try {
+    const res = await getSettlementListByCounty({
+      model: 'project_history',
+      searchField: 'title',
+      excludeGeom: true,
+      associated_multiple_models: ['users'],
+      filters: ['id'],
+      filterValues: [[historyId]],
+      limit: 1,
+      page: 1,
+    } as any)
+    const record = res.data?.[0]
+    if (record) {
+      projectHistoryDetails.value = {
+        ...projectHistoryDetails.value,
+        [historyId]: buildProjectHistoryDetail(record),
+      }
+    }
+  } catch {
+    // keep expand row empty on failure
+  } finally {
+    const next = { ...projectHistoryDetailLoading.value }
+    delete next[historyId]
+    projectHistoryDetailLoading.value = next
+  }
+}
+
+const onProjectHistoryExpand = async (row: any, expandedRows: any[]) => {
+  const isExpanded = expandedRows.some((entry: any) => entry.id === row.id)
+  if (isExpanded) {
+    await loadProjectHistoryDetail(row.id)
+  }
+}
+
+const getProjectHistory = async (projectId: string | string[]) => {
+  projectHistoryLoading.value = true
+  projectHistoryDetails.value = {}
+  try {
+    const numericId = Number(projectId)
+    const [linkedRes, deleteRes] = await Promise.all([
+      getSettlementListByCounty({
+        model: 'project_history',
+        searchField: 'title',
+        excludeGeom: true,
+        associated_multiple_models: ['users'],
+        filters: ['project_id'],
+        filterValues: [[numericId]],
+        fields: PROJECT_HISTORY_LIST_FIELDS,
+        returnAll: true,
+      } as any),
+      getSettlementListByCounty({
+        model: 'project_history',
+        searchField: 'title',
+        excludeGeom: true,
+        associated_multiple_models: ['users'],
+        filters: ['change_type', 'deleted_project_id'],
+        filterValues: [['Delete'], [numericId]],
+        fields: PROJECT_HISTORY_LIST_FIELDS,
+        returnAll: true,
+      } as any),
+    ])
+
+    const byId = new Map<number, any>()
+    ;[...(linkedRes.data || []), ...(deleteRes.data || [])].forEach((record: any) => {
+      byId.set(record.id, record)
+    })
+
+    projectEditHistory.value = Array.from(byId.values()).sort((a: any, b: any) => {
+      const da = new Date(a.createdAt || a.created_at || 0).getTime()
+      const db = new Date(b.createdAt || b.created_at || 0).getTime()
+      return db - da
+    })
+  } catch {
+    projectEditHistory.value = []
+  } finally {
+    projectHistoryLoading.value = false
+  }
+}
+
+const revertProjectHistory = async (row: any) => {
+  if (!canEditProjectMeta.value && !canUserDeleteProject(projectFullData.value)) {
+    ElMessage.warning('You do not have permission to revert changes for this project.')
+    return
+  }
+
+  if (row.status === 'Reverted') {
+    ElMessage.info('This change has already been reverted.')
+    return
+  }
+
+  const isDelete = row.change_type === 'Delete'
+  const isDocumentChange =
+    row.change_type === 'DocumentRemove' || row.change_type === 'DocumentUnlink'
+  try {
+    await ElMessageBox.confirm(
+      isDelete
+        ? 'Revert this project delete?'
+        : isDocumentChange
+          ? row.change_type === 'DocumentRemove'
+            ? 'Revert this document removal?'
+            : 'Revert this document unlink?'
+          : 'Revert this edit?',
+      'Confirm',
+      {
+        type: 'warning',
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        width: CONFIRM_BOX_WIDTH,
+      },
+    )
+  } catch {
+    return
+  }
+
+  try {
+    const res = await revertHistory({ model: 'project', history_id: row.id } as any)
+    if (res.code === '0000') {
+      ElMessage.success(res.message || (isDelete || isDocumentChange ? 'Change reverted.' : 'Changes reverted.'))
+      await loadProjectDetails(route.params.id)
+      if (activeName.value === 'documents') {
+        await refreshProjectDocuments()
+      }
+      await getProjectHistory(route.params.id)
+    } else if (res.code === '1003') {
+      ElMessage.info('This change was already reverted.')
+      await getProjectHistory(route.params.id)
+    }
+  } catch (error: any) {
+    const code = error?.response?.data?.code
+    if (code === '1003') {
+      ElMessage.info('This change was already reverted.')
+      await getProjectHistory(route.params.id)
+      return
+    }
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to revert changes.')
+  }
+}
+
+const escapeHtmlForDelete = (value: any) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const buildDependencyConfirmHtml = (dependencies: any[]) => {
+  const dependencyRows = dependencies.length
+    ? dependencies.map((dep: any) => `
+        <tr>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;">${escapeHtmlForDelete(dep.model || dep.association || 'Unknown')}</td>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;">${escapeHtmlForDelete(dep.count ?? 0)}</td>
+        </tr>
+      `).join('')
+    : `
+        <tr>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;">Associated records</td>
+          <td style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;">Unknown</td>
+        </tr>
+      `
+  return `
+    <div style="margin: 8px 0 6px 0;">The following associated records will be deleted:</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr>
+          <th style="padding:6px 10px;border:1px solid #ebeef5;text-align:left;background:#f5f7fa;">Association</th>
+          <th style="padding:6px 10px;border:1px solid #ebeef5;text-align:right;background:#f5f7fa;">Affected Records</th>
+        </tr>
+      </thead>
+      <tbody>${dependencyRows}</tbody>
+    </table>
+    <div style="margin-top:10px;">Delete this project and all associated records listed above?</div>
+  `
+}
+
+const performProjectDelete = async (id: number) => {
+  const formData: any = { id, model: 'project', cascade: true }
+  return DeleteRecord(formData, { silent: true })
+}
 
 const DeleteProject = async (id) => {
   const project = projectFullData.value;
@@ -4619,32 +5186,18 @@ const DeleteProject = async (id) => {
     return;
   }
 
-  let formData = {};
-  formData.id = id;
-  formData.model = 'project';
-
   try {
-    await DeleteRecord(formData);
+    const response = await performProjectDelete(id)
 
-    // Delete documents only if there are any documents to delete
-    if (projectDocuments.value.length > 0) {
-      formData.filesToDelete = projectDocuments.value;
-      await deleteDocument(formData);
+    if (response && response.code === '0000') {
+      ElMessage.success('Project deleted successfully.');
+      goBack();
+      return;
     }
 
-    ElMessage({
-      message: 'Project deleted successfully!',
-      type: 'success',
-      duration: 3000,
-    });
-
-    goBack();
-  } catch (error) {
-    ElMessage({
-      message: 'Failed to delete the project. Please try again.',
-      type: 'error',
-      duration: 3000,
-    });
+    ElMessage.error(response?.message || 'Failed to delete the project.')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to delete the project. Please try again.');
   }
 };
 
@@ -5070,7 +5623,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
 
-const DeleteProjectLocation = (data) => {
+const DeleteProjectLocation = async (data) => {
   if (!canUserDeleteProjectLocation(data.row)) {
     ElMessage({
       message: 'You do not have permission to delete this project location. Only Super Admins, National Staff, or the County Admin who created this location can delete it.',
@@ -5081,20 +5634,18 @@ const DeleteProjectLocation = (data) => {
     return;
   }
 
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.row.id
-  formData.model = 'project_location'
-
-  DeleteRecord(formData)
-
-
-  // remove the deleted object from array list 
-  let index = projectLocations.value.indexOf(data.row);
-  if (index !== -1) {
-    projectLocations.value.splice(index, 1);
+  const formData: Record<string, unknown> = {
+    id: data.row.id,
+    model: 'project_location',
   }
 
+  try {
+    await DeleteRecord(formData as any, { silent: true })
+    await getLocations(project_id.value, locationCurrentPage.value, locationPageSize.value)
+    ElMessage.success('Location removed')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to remove location')
+  }
 }
 
 // const locationOptions = ref([])
@@ -5188,78 +5739,92 @@ const remoteMethod = async (keyword) => {
 
 
 const extra_locations = ref([])
+const locationSaving = ref(false)
+let locationSaveTimer: ReturnType<typeof setTimeout> | null = null
 
+const handleCloseAdd = () => {
+  if (locationSaving.value) return
+  ShowLocationAddDialog.value = false
+  extra_locations.value = []
+  locationOptions.value = []
+  firstLoad.value = true
+}
+
+watch(extra_locations, (val) => {
+  if (!ShowLocationAddDialog.value || !val?.length || locationSaving.value) return
+  if (locationSaveTimer) clearTimeout(locationSaveTimer)
+  locationSaveTimer = setTimeout(() => {
+    void SaveLocation()
+  }, 350)
+}, { deep: true })
 
 const SaveLocation = async () => {
-  var form = {};
-  form.model = 'project_location';
+  if (!extra_locations.value.length || locationSaving.value) return
+  const pendingLocations = [...extra_locations.value]
+  locationSaving.value = true
+  const form: Record<string, unknown> = { model: 'project_location' }
+  const location_objects = []
 
-  console.log('project_id', project_id.value);
-  console.log('locations', extra_locations.value);
-
-  const location_objects = [];
-
-  // Loop through each extra location to build location objects
-  for (let i = 0; i < extra_locations.value.length; i++) {
-    console.log(extra_locations.value[i]);
-
-    let obj = {};
-    obj.project_id = project_id.value;
-    obj.implementer = extra_locations.value[i].implementer;
-    
-    // Check if the location is for settlement, county, subcounty, or ward and assign accordingly
-    if (implementation_scope.value == 'settlement') {
-      obj.settlement_id = extra_locations.value[i].value;
-      obj.ward_id = extra_locations.value[i].ward_id;
-      obj.subcounty_id = extra_locations.value[i].subcounty_id;
-      obj.county_id = extra_locations.value[i].county_id;
-      obj.location_type = 'settlement';
-      obj.location_name = extra_locations.value[i].name;
-      obj.geom = extra_locations.value[i].geom;
-   
-
-      
-    } else if (implementation_scope.value == 'county') {
-      // If it's a county, only include county_id
-      obj.county_id = extra_locations.value[i].value;
-      obj.location_type = 'county';
-      obj.location_name = extra_locations.value[i].name;
-      obj.geom = extra_locations.value[i].geom;
-    } else if (implementation_scope.value == 'subcounty') {      // If it's a subcounty, only include subcounty_id and related county
-      obj.subcounty_id = extra_locations.value[i].value;
-      obj.county_id = extra_locations.value[i].county_id; // Ensure county_id is linked
-      obj.location_type = 'subcounty';
-      obj.location_name = extra_locations.value[i].name;
-      obj.geom = extra_locations.value[i].geom;
-    } else if (implementation_scope.value == 'ward') {
-      // If it's a ward, only include ward_id and related subcounty, county
-      obj.ward_id = extra_locations.value[i].value;
-      obj.subcounty_id = extra_locations.value[i].subcounty_id; // Ensure subcounty_id is linked
-      obj.county_id = extra_locations.value[i].county_id; // Ensure county_id is linked
-
-      obj.location_type = 'ward';
-      obj.location_name = extra_locations.value[i].name;
-      obj.geom = extra_locations.value[i].geom;
+  for (let i = 0; i < pendingLocations.length; i++) {
+    const item = pendingLocations[i]
+    const obj: Record<string, unknown> = {
+      project_id: project_id.value,
+      implementer: item.implementer,
     }
 
-    location_objects.push(obj);
-    console.log('obj', obj);
+    if (implementation_scope.value == 'settlement') {
+      obj.settlement_id = item.value
+      obj.ward_id = item.ward_id
+      obj.subcounty_id = item.subcounty_id
+      obj.county_id = item.county_id
+      obj.location_type = 'settlement'
+      obj.location_name = item.name
+      obj.geom = item.geom
+    } else if (implementation_scope.value == 'county') {
+      obj.county_id = item.value
+      obj.location_type = 'county'
+      obj.location_name = item.name
+      obj.geom = item.geom
+    } else if (implementation_scope.value == 'subcounty') {
+      obj.subcounty_id = item.value
+      obj.county_id = item.county_id
+      obj.location_type = 'subcounty'
+      obj.location_name = item.name
+      obj.geom = item.geom
+    } else if (implementation_scope.value == 'ward') {
+      obj.ward_id = item.value
+      obj.subcounty_id = item.subcounty_id
+      obj.county_id = item.county_id
+      obj.location_type = 'ward'
+      obj.location_name = item.name
+      obj.geom = item.geom
+    }
+
+    location_objects.push(obj)
   }
 
-  form.data = location_objects;
-  console.log('formData', form);
+  form.data = location_objects
 
-  // Call BatchImportUpsert function to process the data
-  const loc_res = await BatchImportUpsert(form);
-  console.log('loc_res', loc_res);
+  try {
+    await BatchImportUpsert(form)
+    await getLocations(project_id.value, locationCurrentPage.value, locationPageSize.value)
 
-  // After processing, update locations and reset the selection options
-  await getLocations(project_id.value, locationCurrentPage.value, locationPageSize.value);
-
-  // Empty the locations and reset other states
-  extra_locations.value = [];
-  locationOptions.value = [];
-};
+    const savedKeys = new Set(pendingLocations.map((loc) => loc.value))
+    extra_locations.value = extra_locations.value.filter((loc) => !savedKeys.has(loc.value))
+    ElMessage.success('Location(s) saved')
+  } catch (error) {
+    console.error('Failed to save locations:', error)
+    ElMessage.error('Failed to save location(s)')
+  } finally {
+    locationSaving.value = false
+    if (ShowLocationAddDialog.value && extra_locations.value.length) {
+      if (locationSaveTimer) clearTimeout(locationSaveTimer)
+      locationSaveTimer = setTimeout(() => {
+        void SaveLocation()
+      }, 350)
+    }
+  }
+}
 
 
 
@@ -6009,21 +6574,6 @@ function formatLocation(item) {
             </div>
           </div>
         </div>
-        <div class="header-actions">
-          <el-tooltip v-if="showEditButtons && canEditProjectMeta && isMobile" content="Edit project" placement="top">
-            <el-button type="success" :icon="Edit" plain circle class="edit-button" @click="editProject" />
-          </el-tooltip>
-          <el-button
-            v-else-if="showEditButtons && canEditProjectMeta"
-            type="success"
-            :icon="Edit"
-            plain
-            class="edit-button"
-            @click="editProject"
-          >
-            Edit Project
-          </el-button>
-        </div>
       </div>
     </template>
 
@@ -6036,21 +6586,38 @@ function formatLocation(item) {
           </div>
         </div>
         <div v-show="!isLoading" class="profile-tab-panel__content project-details-sections">
-          <div v-if="canUserDeleteProject(projectFullData)" class="project-details-actions">
+          <div
+            v-if="(showEditButtons && canEditProjectMeta) || canUserDeleteProject(projectFullData)"
+            class="project-details-toolbar"
+          >
+            <el-button
+              v-if="showEditButtons && canEditProjectMeta"
+              type="success"
+              :icon="Edit"
+              plain
+              class="edit-button"
+              @click="editProject"
+            >
+              Edit
+            </el-button>
             <el-popconfirm
-              width="300"
-              title="Are you sure to delete this project?"
+              v-if="canUserDeleteProject(projectFullData)"
+              :width="CONFIRM_POP_WIDTH"
+              title="Delete this project?"
+              confirm-button-text="Yes"
+              cancel-button-text="No"
+              confirm-button-type="danger"
               @confirm="DeleteProject(projectFullData.id)"
             >
               <template #reference>
-                <el-button type="danger" plain>
-                  <Icon icon="material-symbols:delete" style="margin-right: 5px;" />
-                  Delete Project
-                </el-button>
+                <span class="doc-action-trigger">
+                  <el-button type="danger" :icon="Delete" plain>
+                    Delete
+                  </el-button>
+                </span>
               </template>
             </el-popconfirm>
           </div>
-
           <div
             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']"
           >
@@ -6166,54 +6733,61 @@ function formatLocation(item) {
       </el-tab-pane>
 
       <el-tab-pane v-if="!isNationalProject" label="Locations" name="Locations">
-        <el-button v-if="canCreateProjectLocation" @click="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
-          <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Location
-        </el-button>
+        <el-tabs v-model="locationSubTab" class="ipc-inner-tabs location-inner-tabs">
+          <el-tab-pane label="List" name="list">
+            <el-button v-if="canCreateProjectLocation" @click="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain :loading="locationSaving">
+              <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Location
+            </el-button>
 
+            <el-table :data="paginatedProjectLocations" border>
+              <el-table-column label="#" width="70">
+                <template #default="{ $index }">
+                  {{ rowNumber($index, locationCurrentPage, locationPageSize) }}
+                </template>
+              </el-table-column>
 
-        <el-table :data="paginatedProjectLocations" border>
-          <el-table-column label="#" width="70">
-            <template #default="{ $index }">
-              {{ rowNumber($index, locationCurrentPage, locationPageSize) }}
-            </template>
-          </el-table-column>
+              <el-table-column label="County" prop="county.name" />
+              <el-table-column label="Subcounty" prop="subcounty.name" />
+              <el-table-column label="Ward" prop="ward.name" />
+              <el-table-column label="Settlement" prop="settlement.name" />
 
-          <el-table-column label="County" prop="county.name" />
-          <el-table-column label="Subcounty" prop="subcounty.name" />
-          <el-table-column label="Ward" prop="ward.name" />
-          <el-table-column label="Settlement" prop="settlement.name" />
+              <el-table-column label="Actions" width="280">
+                <template #default="scope">
+                  <el-button v-if="canUpdateProjectLocation" size="small" :icon="Position" @click="openMapDialog(scope)" type="primary" plain>
+                    Edit Location 
+                  </el-button>
 
-          <el-table-column label="Actions" width="280">
-            <template #default="scope">
-              <el-button v-if="canUpdateProjectLocation" size="small" :icon="Position" @click="openMapDialog(scope)" type="primary" plain>
-                Edit Location 
-              </el-button>
+                  <el-button 
+                    v-if="canUserDeleteProjectLocation(scope.row)"
+                    size="small" type="danger" :icon="Delete" @click="DeleteProjectLocation(scope)" plain>
+                    Delete
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
 
-              <el-button 
-                v-if="canUserDeleteProjectLocation(scope.row)"
-                size="small" type="danger" :icon="Delete" @click="DeleteProjectLocation(scope)" plain>
-                Delete
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+            <ElPagination
+              v-if="projectLocations && projectLocations.length"
+              :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
+              v-model:currentPage="locationCurrentPage"
+              v-model:page-size="locationPageSize"
+              :page-sizes="[5, 10, 20, 50, 100]"
+              :total="projectLocationsTotal"
+              :background="true"
+              class="mt-3"
+              @size-change="handleLocationSizeChange"
+              @current-change="handleLocationPageChange"
+              :small="isMobile"
+              :pager-count="isMobile ? 3 : 7"
+            />
+          </el-tab-pane>
 
-        <ElPagination
-          v-if="projectLocations && projectLocations.length"
-          :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
-          v-model:currentPage="locationCurrentPage"
-          v-model:page-size="locationPageSize"
-          :page-sizes="[5, 10, 20, 50, 100]"
-          :total="projectLocationsTotal"
-          :background="true"
-          class="mt-3"
-          @size-change="handleLocationSizeChange"
-          @current-change="handleLocationPageChange"
-      :small="isMobile"
-      :pager-count="isMobile ? 3 : 7"
-        />
+          <el-tab-pane label="Map" name="map" :disabled="!projectLocations.length">
+            <el-empty v-if="!projectLocations.length" description="Add locations to view them on the map" />
+            <div v-else id="mapContainerAll" class="basemap" :class="{ 'basemap--mobile': isMobile }"></div>
+          </el-tab-pane>
+        </el-tabs>
 
-   
         <el-dialog
           v-model="ShowLocationAddDialog"
           title="Add Project Location"
@@ -6226,6 +6800,8 @@ function formatLocation(item) {
           :before-close="handleCloseAdd"
         >
           <div class="location-add-dialog-body">
+            <p v-if="locationSaving" class="location-add-dialog-hint">Saving locations…</p>
+            <p v-else class="location-add-dialog-hint">Selected locations are saved automatically.</p>
             <el-select
               id="location-select"
               v-model="extra_locations"
@@ -6254,12 +6830,8 @@ function formatLocation(item) {
               class="project-details-dialog-footer"
               :class="{ 'project-details-dialog-footer--mobile': isMobile }"
             >
-              <el-button :size="isMobile ? 'large' : 'default'" @click="ShowLocationAddDialog = false">
-                Cancel
-              </el-button>
-              <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="SaveLocation">
-                <Icon icon="ic:round-save" style="margin-right: 6px;" />
-                Save
+              <el-button :size="isMobile ? 'large' : 'default'" @click="handleCloseAdd">
+                Close
               </el-button>
             </div>
           </template>
@@ -6296,15 +6868,6 @@ function formatLocation(item) {
 
       </el-tab-pane>
 
-
-
-
-      <el-tab-pane v-if="!isNationalProject && projectLocations.length > 0" label="Map" name="map">
-        <div id="mapContainerAll" class="basemap"></div>
-      </el-tab-pane>
-
-
-
       <el-tab-pane label="Scope" name="Scope">
         <div class="project-scope-panel">
           <el-row :gutter="8" class="project-scope-toolbar" align="middle">
@@ -6317,8 +6880,9 @@ function formatLocation(item) {
                 <span class="project-scope-summary-count">
                   {{ selectedScopeCount }} of {{ totalScopeCount }} in scope
                 </span>
-                <span v-if="canManageProjectScope && !isMobile" class="project-scope-summary-hint">
-                  Move activities between panels, then save changes.
+                <span v-if="scopeSaving" class="project-scope-summary-hint">Saving…</span>
+                <span v-else-if="canManageProjectScope && !isMobile" class="project-scope-summary-hint">
+                  Changes save automatically when you add or remove activities.
                 </span>
               </div>
             </el-col>
@@ -6330,11 +6894,6 @@ function formatLocation(item) {
               class="project-scope-actions-col"
             >
               <div v-if="isMobile" class="project-scope-mobile-actions">
-                <el-tooltip v-if="canManageProjectScope" content="Save changes" placement="top">
-                  <el-button type="success" plain circle class="project-scope-icon-btn" @click="updateChanges">
-                    <Icon icon="ic:round-save" width="22" />
-                  </el-button>
-                </el-tooltip>
                 <el-tooltip v-if="canCreateActivity" content="Add activity" placement="top">
                   <el-button type="primary" plain circle class="project-scope-icon-btn" @click="openAddActivityDialog">
                     <Icon icon="material-symbols:add" width="22" />
@@ -6342,13 +6901,7 @@ function formatLocation(item) {
                 </el-tooltip>
               </div>
               <el-row v-else :gutter="8" justify="end">
-                <el-col v-if="canManageProjectScope" :xs="scopeActionColSpan" :sm="scopeActionColSpan">
-                  <el-button class="project-scope-action-btn" type="success" plain @click="updateChanges">
-                    <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
-                    Save Changes
-                  </el-button>
-                </el-col>
-                <el-col v-if="canCreateActivity" :xs="scopeActionColSpan" :sm="scopeActionColSpan">
+                <el-col v-if="canCreateActivity" :xs="24" :sm="24">
                   <el-button class="project-scope-action-btn" type="primary" plain @click="openAddActivityDialog">
                     <Icon icon="material-symbols:add" style="color: green; margin-right: 5px;" size="20" />
                     Add Activity
@@ -6511,15 +7064,52 @@ function formatLocation(item) {
 
       <el-tab-pane label="Documentation" name="documents">
         <el-card v-loading="documentsLoading">
+          <div class="project-docs-toolbar">
+            <el-tooltip content="Upload" placement="top" :disabled="!isMobile">
+              <el-button
+                v-if="canUploadProjectDocument"
+                plain
+                :circle="isMobile"
+                @click="toggleComponent()"
+              >
+                <Icon icon="fa-solid:upload" :style="isMobile ? undefined : 'margin-right: 8px'" />
+                <span v-if="!isMobile">Upload</span>
+              </el-button>
+            </el-tooltip>
+            <el-tooltip content="Download all project documents" placement="top" :disabled="!isMobile">
+              <el-button
+                v-if="projectDocumentsTotal > 0"
+                plain
+                :circle="isMobile"
+                :loading="downloadingAllDocs"
+                :disabled="downloadingAllDocs"
+                @click="downloadAllProjectDocuments"
+              >
+                <Icon icon="fa-solid:download" :style="isMobile ? undefined : 'margin-right: 8px'" />
+                <span v-if="!isMobile">Download all</span>
+              </el-button>
+            </el-tooltip>
+            <UploadShareDialog entity-type="project" :entity-id="project_id" />
+          </div>
+
           <el-table :data="paginatedProjectDocuments" style="width: 100%">
             <el-table-column label="#" width="70">
               <template #default="{ $index }">
                 {{ rowNumber($index, docsCurrentPage, docsPageSize) }}
               </template>
             </el-table-column>
-            <el-table-column label="Name">
+            <el-table-column label="Name" min-width="200">
               <template #default="{ row }">
-                {{ row.name }}
+                <el-button
+                  link
+                  type="primary"
+                  class="doc-name-link"
+                  :loading="downloadingDocId === row.id"
+                  :disabled="downloadingDocId === row.id"
+                  @click="downloadFile(row)"
+                >
+                  {{ row.name }}
+                </el-button>
                 <el-tag v-if="row._isLinked" size="small" type="info" style="margin-left:6px;">Linked</el-tag>
               </template>
             </el-table-column>
@@ -6538,63 +7128,73 @@ function formatLocation(item) {
                 }}
               </template>
             </el-table-column>
-            <el-table-column fixed="right" label="" :width="isMobile ? 132 : undefined" align="center">
+            <el-table-column fixed="right" label="Actions" width="120" align="center">
               <template #default="scope">
                 <div class="doc-table-actions">
                   <el-tooltip
                     :content="downloadingDocId === scope.row.id ? 'Downloading…' : 'Download'"
                     placement="top"
-                    :disabled="!isMobile"
                   >
                     <el-button
                       plain
-                      :circle="isMobile"
-                      :size="isMobile ? 'small' : 'default'"
+                      circle
+                      size="small"
                       :loading="downloadingDocId === scope.row.id"
                       :disabled="downloadingDocId === scope.row.id"
+                      aria-label="Download"
                       @click="downloadFile(scope.row)"
                     >
-                      <Icon icon="fa-solid:download" :style="isMobile ? undefined : 'margin-right: 5px;'" />
-                      <template v-if="!isMobile">
-                        <span v-if="downloadingDocId === scope.row.id">Downloading…</span>
-                        <span v-else>Download</span>
-                      </template>
-                    </el-button>
-                  </el-tooltip>
-
-                  <el-tooltip v-if="canUserDeleteDocument(scope.row)" content="Remove" placement="top" :disabled="!isMobile">
-                    <el-button
-                      plain
-                      type="danger"
-                      :circle="isMobile"
-                      :size="isMobile ? 'small' : 'default'"
-                      @click="RemoveDocument(scope.row)"
-                    >
-                      <Icon icon="material-symbols-light:delete-outline" :style="isMobile ? undefined : 'margin-right: 5px;'" />
-                      <span v-if="!isMobile">Remove</span>
+                      <Icon icon="fa-solid:download" />
                     </el-button>
                   </el-tooltip>
 
                   <el-popconfirm
+                    v-if="canUserDeleteDocument(scope.row)"
+                    title="Remove this document?"
+                    confirm-button-text="Yes"
+                    cancel-button-text="No"
+                    confirm-button-type="danger"
+                    :width="CONFIRM_POP_WIDTH"
+                    @confirm="RemoveDocument(scope.row)"
+                  >
+                    <template #reference>
+                      <span class="doc-action-trigger">
+                        <el-tooltip content="Remove" placement="top">
+                          <el-button
+                            plain
+                            type="danger"
+                            circle
+                            size="small"
+                            aria-label="Remove"
+                          >
+                            <Icon icon="material-symbols-light:delete-outline" />
+                          </el-button>
+                        </el-tooltip>
+                      </span>
+                    </template>
+                  </el-popconfirm>
+
+                  <el-popconfirm
                     v-if="canUserUnlinkDocument(scope.row)"
-                    title="Unlink this document from this project? The document will not be deleted."
-                    confirm-button-text="Unlink"
-                    cancel-button-text="Cancel"
+                    title="Unlink this document?"
+                    confirm-button-text="Yes"
+                    cancel-button-text="No"
+                    :width="CONFIRM_POP_WIDTH"
                     @confirm="handleUnlinkDocument(scope.row)"
                   >
                     <template #reference>
                       <span class="doc-action-trigger">
-                        <el-button
-                          plain
-                          type="warning"
-                          :circle="isMobile"
-                          :size="isMobile ? 'small' : 'default'"
-                          :title="isMobile ? 'Unlink' : undefined"
-                          aria-label="Unlink"
-                        >
-                          <Icon icon="mdi:link-off" :style="isMobile ? undefined : 'margin-right: 5px;'" />
-                          <span v-if="!isMobile">Unlink</span>
-                        </el-button>
+                        <el-tooltip content="Unlink" placement="top">
+                          <el-button
+                            plain
+                            type="warning"
+                            circle
+                            size="small"
+                            aria-label="Unlink"
+                          >
+                            <Icon icon="mdi:link-off" />
+                          </el-button>
+                        </el-tooltip>
                       </span>
                     </template>
                   </el-popconfirm>
@@ -6617,15 +7217,6 @@ function formatLocation(item) {
       :small="isMobile"
       :pager-count="isMobile ? 3 : 7"
           />
-          <div v-if="canUploadProjectDocument" class="project-docs-actions">
-            <el-tooltip content="Upload" placement="top" :disabled="!isMobile">
-              <el-button plain :circle="isMobile" @click="toggleComponent()">
-                <Icon icon="fa-solid:upload" :style="isMobile ? undefined : 'margin-right: 10px'" />
-                <span v-if="!isMobile">Upload</span>
-              </el-button>
-            </el-tooltip>
-            <UploadShareDialog entity-type="project" :entity-id="project_id" />
-          </div>
         </el-card>
 
       </el-tab-pane>
@@ -6807,7 +7398,7 @@ function formatLocation(item) {
       </el-tab-pane>
 
 
-      <el-tab-pane label="IPC / Disbursements" name="disbursement">
+      <el-tab-pane label="Payments" name="disbursement">
         <el-card class="ipc-disbursements-card">
           <div class="ipc-summary-compact">
             <div class="ipc-summary-compact__metrics">
@@ -7236,66 +7827,108 @@ function formatLocation(item) {
 
 
       <el-tab-pane label="Timeline" name="timeline">
+        <div v-loading="projectTimelineLoading" class="project-lifecycle-timeline-wrap">
+          <el-empty
+            v-if="!projectTimelineLoading && !projectTimelineEvents.length"
+            description="No timeline events yet."
+          />
+          <el-timeline v-else class="project-lifecycle-timeline">
+            <el-timeline-item
+              v-for="event in projectTimelineEvents"
+              :key="event.id"
+              :timestamp="formatDateDisplay(event.date)"
+              :type="event.type"
+              placement="top"
+            >
+              <div class="project-timeline-event">
+                <span class="project-timeline-event__title">{{ event.title }}</span>
+                <span v-if="event.detail" class="project-timeline-event__detail">{{ event.detail }}</span>
+              </div>
+            </el-timeline-item>
+          </el-timeline>
+        </div>
+      </el-tab-pane>
 
-        <el-timeline style="max-width: 100%;">
-          <el-timeline-item
-            v-for="(log, index) in sortedprojectLogs"
-            :key="index"
-            placement="top"
-            :timestamp="formatDateTimeDisplay(log.date_actioned)"
-            timestamp-class="timestamp-class"
-          >
-            <el-card
-class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'success-background' :
-          log.action_type == 'Escalated' ? 'warning-background' :
-            log.action_type == 'Closed' ? 'closed-background' :
-              log.action_type == 'Referred' ? 'referred-background' :
-                'info-background'
-          ">
-              <el-row align="middle" :gutter="20">
-                <!-- Icon in the first 1/4 of the card -->
-                <el-col :xs="24" :sm="24" :md="24" :lg="2">
-                  <Icon v-if="log.action_type == 'Resolved'" icon="fluent-mdl2:completed-solid" width="60" />
-                  <Icon v-if="log.action_type == 'Escalated'" icon="streamline:dangerous-zone-sign-solid" width="60" />
-                  <Icon v-if="log.action_type == 'Reported'" icon="fluent-mdl2:report-warning" width="60" />
-                  <Icon v-if="log.action_type == 'Referred'" icon="mdi:justice" width="60" />
-                  <Icon v-if="log.action_type == 'Closed'" icon="fluent:lock-closed-20-filled" width="60" />
-
-                </el-col>
-
-                <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
-                  <p class="action-header">{{ log.action_type }} </p>
-                  <p class="action-body">{{ log.action ? log.action : 'None' }}</p>
-                  <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
-                </el-col>
-
-                <el-col v-if="log.grievance_documents.length > 0" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-                  <p class="documents-header">Documentation </p>
-
-                  <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
-                    <el-tooltip :content="doc.name" placement="top" :disabled="!isMobile">
-                      <el-button
-                        @click="downloadFile(doc)"
-                        :link="!isMobile"
-                        :plain="isMobile"
-                        :circle="isMobile"
-                        type="primary"
-                        :size="isMobile ? 'small' : 'small'"
-                        :icon="Download"
+      <el-tab-pane v-if="canViewProjectSettings" label="History" name="history">
+        <div class="project-settings-panel">
+          <el-table
+              :data="projectEditHistory"
+              border
+              v-loading="projectHistoryLoading"
+              empty-text="No change history recorded for this project yet."
+              style="width: 100%;"
+              @expand-change="onProjectHistoryExpand"
+            >
+              <el-table-column type="expand" width="48">
+                <template #default="{ row }">
+                  <div
+                    v-loading="projectHistoryDetailLoading[row.id]"
+                    class="project-history-expand"
+                  >
+                    <template v-if="projectHistoryDetails[row.id]">
+                      <div v-if="row.change_type === 'Delete'">
+                        <p><strong>Snapshot at delete:</strong> {{ projectHistoryDetails[row.id].deleteSummary }}</p>
+                      </div>
+                      <div
+                        v-else-if="row.change_type === 'DocumentRemove' || row.change_type === 'DocumentUnlink'"
                       >
-                        <span v-if="!isMobile">{{ doc.name }}</span>
-                      </el-button>
-                    </el-tooltip>
-                  </p>
-                </el-col>
+                        <p>{{ projectHistoryDetails[row.id].documentSummary }}</p>
+                      </div>
+                      <template v-else-if="projectHistoryDetails[row.id].differences?.length">
+                        <el-table :data="projectHistoryDetails[row.id].differences" border style="margin: 10px 0;">
+                          <el-table-column prop="field" label="Field" min-width="160" />
+                          <el-table-column prop="before" label="Before" min-width="180" show-overflow-tooltip />
+                          <el-table-column prop="after" label="After" min-width="180" show-overflow-tooltip />
+                        </el-table>
+                      </template>
+                      <p v-else class="project-history-expand-hint">No visible field changes recorded.</p>
+                    </template>
+                    <p v-else class="project-history-expand-hint">Loading details…</p>
+                  </div>
+                </template>
+              </el-table-column>
 
-              </el-row>
-            </el-card>
-          </el-timeline-item>
+              <el-table-column label="Date" min-width="150" sortable>
+                <template #default="{ row }">
+                  {{ formatDateTimeDisplay(row.createdAt || row.created_at) }}
+                </template>
+              </el-table-column>
 
+              <el-table-column label="Type" prop="change_type" width="130">
+                <template #default="{ row }">
+                  <el-tag v-if="row.change_type === 'Delete'" type="danger" size="small">Delete</el-tag>
+                  <el-tag v-else-if="row.change_type === 'DocumentRemove'" type="warning" size="small">Doc removed</el-tag>
+                  <el-tag v-else-if="row.change_type === 'DocumentUnlink'" type="warning" size="small">Doc unlinked</el-tag>
+                  <el-tag v-else type="info" size="small">Edit</el-tag>
+                </template>
+              </el-table-column>
 
-        </el-timeline>
+              <el-table-column label="Changed by" min-width="140" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ row.user?.name || row.users?.username || '—' }}
+                </template>
+              </el-table-column>
 
+              <el-table-column label="Status" prop="status" width="110">
+                <template #default="{ row }">
+                  <el-tag v-if="row.status === 'Reverted'" type="success" size="small">Reverted</el-tag>
+                  <el-tag v-else type="warning" size="small">Open</el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="Actions" width="100" fixed="right" align="center">
+                <template #default="{ row }">
+                  <el-tooltip
+                    v-if="row.status !== 'Reverted'"
+                    content="Revert"
+                    placement="top"
+                  >
+                    <el-button type="warning" :icon="RefreshLeft" @click="revertProjectHistory(row)" />
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+            </el-table>
+        </div>
       </el-tab-pane>
 
  
@@ -8195,6 +8828,7 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
                 · {{ ipcLocationProgressAverage.toFixed(1) }}% avg
               </template>
               · {{ ipcLocationProgress.length }} site{{ ipcLocationProgress.length === 1 ? '' : 's' }}
+              · saves automatically
             </p>
             <div class="ipc-dialog-locations__scroll">
               <div
@@ -8584,6 +9218,22 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 .project-scope-summary-hint {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.location-add-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.location-add-dialog-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.location-add-dialog-select {
+  width: 100%;
 }
 
 .project-scope-empty {
@@ -9526,6 +10176,14 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   gap: 12px;
 }
 
+.project-details-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 2px 8px;
+}
+
 .project-details-sections :deep(.v-descriptions-header__title) {
   position: relative;
 }
@@ -9688,6 +10346,28 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   margin-top: 20px;
 }
 
+.project-docs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.doc-name-link {
+  max-width: 100%;
+  height: auto;
+  padding: 0;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.doc-name-link :deep(span) {
+  white-space: normal;
+  word-break: break-word;
+}
+
 .project-docs-actions {
   display: flex;
   align-items: center;
@@ -9699,7 +10379,7 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 .doc-table-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 4px;
   flex-wrap: nowrap;
 }
@@ -9707,6 +10387,12 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 .doc-action-trigger {
   display: inline-flex;
   vertical-align: middle;
+}
+
+:deep(.el-popconfirm__main) {
+  white-space: normal;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .documents-container ul {
@@ -9847,6 +10533,74 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   text-decoration: underline;
   color: #409EFF;
   /* Optional: change link color */
+}
+
+.project-lifecycle-timeline-wrap {
+  max-width: 560px;
+  padding: 8px 4px 0;
+}
+
+.project-lifecycle-timeline :deep(.el-timeline-item__timestamp) {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.project-lifecycle-timeline :deep(.el-timeline-item__wrapper) {
+  padding-left: 18px;
+}
+
+.project-lifecycle-timeline :deep(.el-timeline-item__node) {
+  width: 10px;
+  height: 10px;
+}
+
+.project-timeline-event {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.project-timeline-event__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.project-timeline-event__detail {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.project-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 4px 0 12px;
+}
+
+.project-settings-section__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.project-settings-section__hint {
+  margin: 0 0 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.project-history-expand {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.project-history-expand-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
 

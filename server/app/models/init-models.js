@@ -88,6 +88,7 @@ var _grievance_notification= require('./grievance_notification')
 var _structure= require('./structure')
 var _article= require('./article')
 var _settlement_history= require('./settlement_history')
+var _project_history= require('./project_history')
 var _settlement_population = require('./settlement_population')
 var _county_population_growth_rate = require('./county_population_growth_rate')
 var _grievance_history= require('./grievance_history')
@@ -227,6 +228,7 @@ function initModels(sequelize) {
 
   var article = _article(sequelize, DataTypes)
   var settlement_history = _settlement_history(sequelize, DataTypes)
+  var project_history = _project_history(sequelize, DataTypes)
   var settlement_population = _settlement_population(sequelize, DataTypes)
   var county_population_growth_rate = _county_population_growth_rate(sequelize, DataTypes)
   var grievance_history = _grievance_history(sequelize, DataTypes)
@@ -369,7 +371,7 @@ communication_recipient.belongsTo(communication, {
     grievance, incident, incident_history,
     grievance_log,disbursement,ipc_document,project_contractor,project_team,project_clockin,
      grievance_resolution,grievance_escalation,grievance_document, incident_document, grievance_notification,article,
-     settlement_history,settlement_population,county_population_growth_rate,grievance_history, programme,permissions,role_permissions,role_programme_access,role,module_settings,
+     settlement_history,project_history,settlement_population,county_population_growth_rate,grievance_history, programme,permissions,role_permissions,role_programme_access,role,module_settings,
      vulnerability_matrix,vulnerability_rating_threshold,climate_assessment,climate_assessment_version,page_visit
 
   }
