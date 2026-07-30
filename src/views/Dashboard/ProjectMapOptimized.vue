@@ -25,89 +25,69 @@
           <el-tabs v-model="activeFilterTab" class="filter-tabs">
             <el-tab-pane label="Component" name="component">
               <div class="filters-container">
-                <el-select
-                  multiple
-                  clearable
-                  filterable
+                <el-tree-select
                   v-model="implementer"
+                  :data="programmeTreeData"
+                  multiple
+                  show-checkbox
+                  filterable
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  default-expand-all
+                  node-key="value"
+                  value-key="value"
+                  :props="{ label: 'label', children: 'children', value: 'value' }"
                   placeholder="Filter by Programme"
-                  @change="handleChangeImplementer"
                   class="filter-select compact-select"
                   teleported
                   :popper-options="selectPopperOptions"
                   popper-class="filter-select-dropdown"
-                >
-                  <el-option-group
-                    v-for="group in programmeOptionGroups"
-                    :key="group.id"
-                    :label="group.label"
-                  >
-                    <el-option
-                      :key="`root-${group.id}`"
-                      :label="group.rootLabel"
-                      :value="group.id"
-                    />
-                    <el-option
-                      v-for="item in group.children"
-                      :key="item.value"
-                      :label="item.label"
-                      :value="item.value"
-                    />
-                  </el-option-group>
-                </el-select>
-                <el-select
-                  multiple
-                  clearable
-                  filterable
+                />
+                <el-tree-select
                   v-model="component"
+                  :data="componentTreeData"
+                  multiple
+                  show-checkbox
+                  filterable
+                  clearable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  default-expand-all
+                  node-key="value"
+                  value-key="value"
+                  :props="{ label: 'label', children: 'children', value: 'value' }"
                   placeholder="Filter by Component"
-                  @change="handleChangeComponent"
                   :disabled="implementer.length === 0"
                   class="filter-select compact-select"
                   teleported
                   :popper-options="selectPopperOptions"
                   popper-class="filter-select-dropdown"
-                >
-                  <el-option
-                    v-for="item in componentOptions"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value"
-                  />
-                </el-select>
+                />
               </div>
             </el-tab-pane>
             <el-tab-pane label="Admin" name="admin">
               <div class="filters-container">
-                <el-select
+                <el-tree-select
+                  v-model="locationSelection"
+                  :data="locationTreeData"
                   multiple
-                  v-model="county"
-                  placeholder="Filter by County"
-                  @change="handleChangeCounty"
+                  show-checkbox
                   filterable
                   :clearable="!isCountyRestricted"
                   :disabled="isCountyRestricted"
+                  collapse-tags
+                  collapse-tags-tooltip
+                  default-expand-all
+                  node-key="value"
+                  value-key="value"
+                  :props="{ label: 'label', children: 'children', value: 'value' }"
+                  placeholder="Filter by County / Subcounty"
                   class="filter-select compact-select"
                   teleported
                   :popper-options="selectPopperOptions"
                   popper-class="filter-select-dropdown"
-                >
-                  <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-                <el-select
-                  multiple
-                  clearable
-                  filterable
-                  v-model="subcounty"
-                  placeholder="Filter by Subcounty"
-                  @change="handleChangeSubcounty"
-                  class="filter-select compact-select"
-                  teleported
-                  :popper-options="selectPopperOptions"
-                  popper-class="filter-select-dropdown"
-                >
-                  <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
+                />
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -242,7 +222,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, type Ref } from 'vue'
-import { ElButton, ElSelect, ElOption, ElOptionGroup, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem, ElTabs, ElTabPane } from 'element-plus'
+import { ElButton, ElTreeSelect, ElMessage, ElDrawer, ElDescriptions, ElDescriptionsItem, ElCollapse, ElCollapseItem, ElTabs, ElTabPane } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import mapboxgl from "mapbox-gl"
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -264,6 +244,11 @@ import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { hasPermission } from '@/utils/documentPermissions'
 import { debounce } from '@/utils/debounce'
+import {
+  buildProgrammeTree,
+  getProgrammeDescendantIds,
+  type ProgrammeRecord,
+} from '@/utils/programmeValidation'
 
 // User and role setup
 const appStore = useAppStore()
@@ -411,6 +396,53 @@ const county = ref<number[]>([])
 const subcounty = ref<number[]>([])
 const implementer = ref<number[]>([])
 const component = ref<number[]>([])
+const filtersInteractive = ref(false)
+let suppressFilterWatch = false
+
+const normalizeNumericIds = (values: unknown): number[] => {
+  const list = Array.isArray(values) ? values : values != null && values !== '' ? [values] : []
+  return [
+    ...new Set(
+      list
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    ),
+  ]
+}
+
+const withSuppressedFilterWatch = (fn: () => void) => {
+  suppressFilterWatch = true
+  try {
+    fn()
+  } finally {
+    suppressFilterWatch = false
+  }
+}
+
+const syncFilterIds = () => {
+  const nextImplementer = normalizeNumericIds(implementer.value)
+  const nextComponent = normalizeNumericIds(component.value)
+  const nextCounty = normalizeNumericIds(county.value)
+  const nextSubcounty = normalizeNumericIds(subcounty.value)
+
+  withSuppressedFilterWatch(() => {
+    if (JSON.stringify(nextImplementer) !== JSON.stringify(implementer.value)) {
+      implementer.value = nextImplementer
+    }
+    const validComponentIds = new Set(componentOptions.value.map((option) => option.value))
+    const filteredComponents = nextComponent.filter((id) => validComponentIds.has(id))
+    if (JSON.stringify(filteredComponents) !== JSON.stringify(component.value)) {
+      component.value = filteredComponents
+    }
+    if (JSON.stringify(nextCounty) !== JSON.stringify(county.value)) {
+      county.value = nextCounty
+    }
+    if (JSON.stringify(nextSubcounty) !== JSON.stringify(subcounty.value)) {
+      subcounty.value = nextSubcounty
+    }
+  })
+  syncLocationSelectionFromRefs()
+}
 
 const drawerLocationsPreviewLimit = 5
 const projectLocationsList = ref<any[]>([])
@@ -484,26 +516,151 @@ const countyGeo = ref<any>(null)
 
 // Options refs
 const countyOptions = ref<Array<{value: number, label: string}>>([])
-const subCountyOptions = ref<Array<{value: number, label: string}>>([])
-const programmeList = ref<Array<{ id: number; title: string; acronym: string; parentId: number | string | null }>>([])
+const subCountyOptions = ref<Array<{value: number, label: string, countyId: number}>>([])
+const programmeList = ref<ProgrammeRecord[]>([])
 const componentOptions = ref<Array<{ value: number; label: string; programmeId: number }>>([])
 
-/** Programme dropdown grouped by root (KISIP2, SUD, etc.) from programmex table */
-const programmeOptionGroups = computed(() => {
-  const roots = programmeList.value.filter((p) => p.parentId == null || p.parentId === '')
-  return roots.map((root) => ({
-    id: root.id,
-    label: root.title || root.acronym,
-    rootLabel: `${root.title || root.acronym} (all)`,
-    children: programmeList.value
-      .filter((p) => String(p.parentId) === String(root.id))
-      .map((p) => ({
-        value: p.id,
-        label: p.title || p.acronym,
-        title: p.title
-      }))
-  }))
+const resolveProgrammeFilterIds = (selected: number[]): number[] => {
+  const ids = new Set<number>()
+  normalizeNumericIds(selected).forEach((id) => {
+    ids.add(id)
+    getProgrammeDescendantIds(id, programmeList.value).forEach((childId) => ids.add(childId))
+  })
+  return [...ids]
+}
+
+const programmeTreeData = computed(() => {
+  const mapNode = (node: ProgrammeRecord) => ({
+    value: Number(node.id),
+    label: String(node.title || node.acronym || node.id),
+    children: node.children?.length ? node.children.map(mapNode) : undefined,
+  })
+  return buildProgrammeTree(programmeList.value).map(mapNode)
 })
+
+const componentTreeData = computed(() => {
+  if (!implementer.value.length) return []
+
+  const allowedProgrammeIds = new Set(resolveProgrammeFilterIds(normalizeNumericIds(implementer.value)))
+  const groups: Array<{ value: number; label: string; disabled: boolean; children: Array<{ value: number; label: string }> }> = []
+
+  const walkProgrammes = (nodes: ProgrammeRecord[]) => {
+    nodes.forEach((node) => {
+      const programmeId = Number(node.id)
+      const components = componentOptions.value
+        .filter((c) => c.programmeId === programmeId)
+        .map((c) => ({ value: c.value, label: c.label }))
+
+      if (components.length && allowedProgrammeIds.has(programmeId)) {
+        groups.push({
+          value: -programmeId,
+          label: String(node.title || node.acronym || programmeId),
+          children: components,
+        })
+      }
+
+      if (node.children?.length) walkProgrammes(node.children)
+    })
+  }
+
+  walkProgrammes(buildProgrammeTree(programmeList.value))
+  return groups
+})
+
+const selectedProgrammeIds = computed(() =>
+  normalizeNumericIds(implementer.value).length
+    ? resolveProgrammeFilterIds(normalizeNumericIds(implementer.value))
+    : []
+)
+
+const selectedComponentIds = computed(() => normalizeNumericIds(component.value))
+
+const hasAdminLocationFilter = computed(
+  () => normalizeNumericIds(county.value).length > 0 || normalizeNumericIds(subcounty.value).length > 0
+)
+
+const subcountiesByCountyId = ref(new Map<number, Array<{ value: number; label: string }>>())
+const locationSelection = ref<string[]>([])
+
+const parseLocationSelection = (values: unknown) => {
+  const list = Array.isArray(values) ? values : []
+  const nextCounty: number[] = []
+  const nextSubcounty: number[] = []
+
+  list.forEach((entry) => {
+    const value = String(entry)
+    if (value.startsWith('c:')) {
+      const id = Number(value.slice(2))
+      if (Number.isFinite(id) && id > 0) nextCounty.push(id)
+    } else if (value.startsWith('s:')) {
+      const id = Number(value.slice(2))
+      if (Number.isFinite(id) && id > 0) nextSubcounty.push(id)
+    }
+  })
+
+  return {
+    county: [...new Set(nextCounty)],
+    subcounty: [...new Set(nextSubcounty)],
+  }
+}
+
+const syncLocationSelectionFromRefs = () => {
+  const next = [
+    ...normalizeNumericIds(county.value).map((id) => `c:${id}`),
+    ...normalizeNumericIds(subcounty.value).map((id) => `s:${id}`),
+  ]
+  if (JSON.stringify(next) !== JSON.stringify(locationSelection.value)) {
+    withSuppressedFilterWatch(() => {
+      locationSelection.value = next
+    })
+  }
+}
+
+const refreshSubCountyOptionsFromCache = (restrictToIds?: number[]) => {
+  const all: typeof subCountyOptions.value = []
+  subcountiesByCountyId.value.forEach((subs, countyId) => {
+    subs.forEach((subcountyItem) => {
+      if (!restrictToIds?.length || restrictToIds.includes(subcountyItem.value)) {
+        all.push({ ...subcountyItem, countyId })
+      }
+    })
+  })
+  subCountyOptions.value = all.sort((a, b) => a.value - b.value)
+}
+
+const ensureSubcountiesLoaded = async (countyIds: number[], restrictToIds?: number[]) => {
+  const missing = countyIds.filter((id) => !subcountiesByCountyId.value.has(id))
+  if (missing.length) {
+    await Promise.all(
+      missing.map(async (countyId) => {
+        const res = await getSubcountiesList({
+          params: { model: 'subcounty', county_id: countyId },
+        })
+        let subs = ((res as any).data || []).map((item: any) => ({
+          value: item.id,
+          label: item.name,
+        }))
+        if (restrictToIds?.length) {
+          const allowed = new Set(restrictToIds)
+          subs = subs.filter((subcountyItem: { value: number }) => allowed.has(subcountyItem.value))
+        }
+        subcountiesByCountyId.value.set(countyId, subs)
+      })
+    )
+  }
+  refreshSubCountyOptionsFromCache(restrictToIds)
+}
+
+const locationTreeData = computed(() =>
+  countyOptions.value.map((countyItem) => ({
+    value: `c:${countyItem.value}`,
+    label: countyItem.label,
+    children: (subcountiesByCountyId.value.get(countyItem.value) || []).map((subcountyItem) => ({
+      value: `s:${subcountyItem.value}`,
+      label: subcountyItem.label,
+    })),
+  }))
+)
 
 const loadProgrammeOptions = async () => {
   try {
@@ -516,13 +673,13 @@ const loadProgrammeOptions = async () => {
 }
 
 const loadComponentOptions = async () => {
-  if (!implementer.value.length) {
+  if (!normalizeNumericIds(implementer.value).length) {
     componentOptions.value = []
     return
   }
   try {
     const res = await getComponentsList({
-      params: { programme_ids: implementer.value.join(',') }
+      params: { programme_ids: resolveProgrammeFilterIds(normalizeNumericIds(implementer.value)).join(',') }
     })
     const rows = Array.isArray(res?.data) ? res.data : []
     componentOptions.value = rows.map((c: any) => ({
@@ -713,7 +870,9 @@ const initializeMapData = async () => {
         loadCountyGeo(),
       ])
       county.value = [userCountyId.value]
-      await handleChangeCounty([userCountyId.value])
+      syncFilterIds()
+      filtersInteractive.value = true
+      await handleChangeLocation()
       mapLoading.value = false
       return
     }
@@ -722,9 +881,9 @@ const initializeMapData = async () => {
     if (usedBundle) {
       await loadProgrammeOptions()
       await addProjectLayers()
-      if (countyGeo.value) {
-        addCountyLayer(countyGeo.value)
-      }
+      await syncMapBoundaryLayers()
+      syncFilterIds()
+      filtersInteractive.value = true
       mapLoading.value = false
       return
     }
@@ -738,15 +897,16 @@ const initializeMapData = async () => {
     ])
 
     await addProjectLayers()
-    if (countyGeoData) {
-      addCountyLayer(countyGeoData)
-    }
+    await syncMapBoundaryLayers()
 
     mapLoading.value = false
   } catch (error: any) {
     console.error('Error initializing map:', error)
     ElMessage.error('Failed to load map data')
     mapLoading.value = false
+  } finally {
+    syncFilterIds()
+    filtersInteractive.value = true
   }
 }
 
@@ -834,6 +994,8 @@ const loadCounties = async () => {
       value: item.id,
       label: item.name
     }))
+
+    await ensureSubcountiesLoaded(countyOptions.value.map((item) => item.value))
     
     return countyOptions.value
   } catch (error: any) {
@@ -929,6 +1091,98 @@ const addProjectLayers = async () => {
 }
 
 // Add county layer
+const clearCountyLayer = () => {
+  if (!map.value) return
+  if (map.value.getLayer('county')) map.value.removeLayer('county')
+  if (map.value.getSource('County')) map.value.removeSource('County')
+}
+
+const clearSubcountyLayer = () => {
+  if (!map.value) return
+  if (map.value.getLayer('Subcounty')) map.value.removeLayer('Subcounty')
+  if (map.value.getSource('Subcounty')) map.value.removeSource('Subcounty')
+}
+
+const showNationalCountyOutline = () => {
+  if (!countyGeo.value) return
+  clearSubcountyLayer()
+  addCountyLayer(countyGeo.value)
+  fitToGeoData(countyGeo.value)
+}
+
+const getCountyIdsFromProjects = (): number[] => {
+  const ids = new Set<number>()
+  geojson.value.features.forEach((feature: any) => {
+    const id = Number(feature.properties?.county_id)
+    if (Number.isFinite(id) && id > 0) ids.add(id)
+  })
+  return Array.from(ids)
+}
+
+const applyCountyBoundariesFromProjects = async () => {
+  clearSubcountyLayer()
+  const countyIds = getCountyIdsFromProjects()
+
+  if (!countyIds.length) {
+    clearCountyLayer()
+    return
+  }
+
+  const countyGeos = await loadCountyGeometries(countyIds)
+  if (countyGeos?.features?.length) {
+    addCountyLayer(countyGeos)
+    fitToGeoData(countyGeos)
+  } else {
+    clearCountyLayer()
+  }
+}
+
+const applyAdminBoundaryLayers = async () => {
+  const countyArray = normalizeNumericIds(county.value)
+  const subcountyArray = normalizeNumericIds(subcounty.value)
+
+  if (subcountyArray.length > 0) {
+    clearCountyLayer()
+    const subcountyGeos = await loadSubcountyGeometries(subcountyArray)
+    if (subcountyGeos) {
+      addSubcountyLayer(subcountyGeos)
+      fitToGeoData(subcountyGeos)
+    }
+    return
+  }
+
+  clearSubcountyLayer()
+  if (countyArray.length > 0) {
+    const countyGeos = await loadCountyGeometries(countyArray)
+    if (countyGeos) {
+      addCountyLayer(countyGeos)
+      fitToGeoData(countyGeos)
+    }
+    return
+  }
+
+  clearCountyLayer()
+}
+
+const syncMapBoundaryLayers = async () => {
+  if (hasAdminLocationFilter.value) {
+    await applyAdminBoundaryLayers()
+    return
+  }
+
+  if (geojson.value.features.length > 0) {
+    await applyCountyBoundariesFromProjects()
+    return
+  }
+
+  clearCountyLayer()
+  clearSubcountyLayer()
+
+  if (countyGeo.value) {
+    showNationalCountyOutline()
+  }
+}
+
 const addCountyLayer = (geoData: any) => {
   if (!map.value) return
 
@@ -970,139 +1224,50 @@ const fitToGeoData = (geoData: any) => {
   }
 }
 
-// Debounced county change handler
-const handleChangeCounty = debounce(async (countyIds: number | number[]) => {
-  if (!map.value) return
+// Debounced admin location change handler
+const handleChangeLocation = debounce(async () => {
+  if (!map.value || !filtersInteractive.value) return
 
-  const countyArray = Array.isArray(countyIds) ? countyIds : (countyIds ? [countyIds] : [])
-
-  // Clear subcounty selection
-  subcounty.value = []
-  subCountyOptions.value = []
-
-  if (countyArray.length > 0) {
-    try {
-      mapLoading.value = true
-      mapLoadingText.value = 'Loading filtered project locations...'
-
-      // Parallelize: load projects and county geometries
-      const [, countyGeos] = await Promise.all([
-        loadProjectLocations({
-          countyIds: countyArray,
-          programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
-          componentIds: component.value.length > 0 ? component.value : undefined
-        }),
-        loadCountyGeometries(countyArray)
-      ])
-
-      await addProjectLayers()
-      if (countyGeos) {
-        addCountyLayer(countyGeos)
-        fitToGeoData(countyGeos)
-      }
-
-      // Cascade: restrict subcounties to those with matching implementer projects when a Programme is active
-      const subcountyRestriction = implementer.value.length > 0 ? getSubcountyIdsFromProjects() : undefined
-      await loadSubcountiesForCounties(countyArray, subcountyRestriction)
-
-      mapLoading.value = false
-    } catch (error: any) {
-      console.error('Error changing county:', error)
-      ElMessage.error('Failed to load county data')
-      mapLoading.value = false
-    }
-  } else {
-    // County cleared — reload all data and zoom to full extent
-    try {
-      mapLoading.value = true
-      mapLoadingText.value = 'Loading all project locations...'
-
-      await loadProjectLocations({
-        programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
-        componentIds: component.value.length > 0 ? component.value : undefined
-      })
-      await addProjectLayers()
-
-      if (countyGeo.value) {
-        addCountyLayer(countyGeo.value)
-        fitToGeoData(countyGeo.value)
-      }
-
-      mapLoading.value = false
-    } catch (error: any) {
-      console.error('Error reloading after county clear:', error)
-      ElMessage.error('Failed to reload data')
-      mapLoading.value = false
-    }
-  }
-}, 300)
-
-// Debounced subcounty change handler
-const handleChangeSubcounty = debounce(async (subcountyIds: number | number[]) => {
-  if (!map.value) return
-
-  const subcountyArray = Array.isArray(subcountyIds) ? subcountyIds : (subcountyIds ? [subcountyIds] : [])
+  syncFilterIds()
+  const countyArray = normalizeNumericIds(county.value)
+  const subcountyArray = normalizeNumericIds(subcounty.value)
 
   try {
     mapLoading.value = true
     mapLoadingText.value = 'Loading filtered project locations...'
 
-    // Remove subcounty layer if subcounty is cleared
     if (subcountyArray.length === 0) {
-      if (map.value.getLayer('Subcounty')) {
-        map.value.removeLayer('Subcounty')
-      }
-      if (map.value.getSource('Subcounty')) {
-        map.value.removeSource('Subcounty')
-      }
+      clearSubcountyLayer()
     }
 
-    // Load project locations with filters (county, subcounty, and/or implementer)
-    // For county-restricted users, county restriction is handled in loadProjectLocations
     await loadProjectLocations({
-      countyIds: (!isCountyRestricted.value && county.value.length > 0) ? county.value : undefined,
+      countyIds: (!isCountyRestricted.value && countyArray.length > 0) ? countyArray : undefined,
       subcountyIds: subcountyArray.length > 0 ? subcountyArray : undefined,
-      programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
-      componentIds: component.value.length > 0 ? component.value : undefined
+      programmeIds: selectedProgrammeIds.value.length > 0 ? selectedProgrammeIds.value : undefined,
+      componentIds: selectedComponentIds.value.length > 0 ? selectedComponentIds.value : undefined
     })
 
-    // Load subcounty geometries if subcounties are selected
-    if (subcountyArray.length > 0) {
-      const subcountyGeos = await loadSubcountyGeometries(subcountyArray)
-      await addProjectLayers()
-      if (subcountyGeos) {
-        addSubcountyLayer(subcountyGeos)
-      }
-    } else {
-      // Subcounty cleared — restore county layer and zoom to county extent
-      await addProjectLayers()
-      if (county.value.length > 0) {
-        const countyGeos = await loadCountyGeometries(county.value)
-        if (countyGeos) {
-          addCountyLayer(countyGeos)
-          fitToGeoData(countyGeos)
-        }
-      } else if (countyGeo.value) {
-        addCountyLayer(countyGeo.value)
-        fitToGeoData(countyGeo.value)
-      }
-    }
+    await addProjectLayers()
+    await syncMapBoundaryLayers()
 
     mapLoading.value = false
   } catch (error: any) {
-    console.error('Error changing subcounty:', error)
-    ElMessage.error('Failed to load subcounty data')
+    console.error('Error changing location:', error)
+    ElMessage.error('Failed to load location data')
     mapLoading.value = false
   }
 }, 300)
 
 // Debounced programme change handler — cascades to components then projects
-const handleChangeImplementer = debounce(async (programmeIds: number | number[]) => {
-  if (!map.value) return
+const handleChangeImplementer = debounce(async () => {
+  if (!map.value || !filtersInteractive.value) return
 
-  const programmeArray = Array.isArray(programmeIds) ? programmeIds : (programmeIds ? [programmeIds] : [])
+  syncFilterIds()
+  const programmeArray = normalizeNumericIds(implementer.value)
 
-  component.value = []
+  withSuppressedFilterWatch(() => {
+    component.value = []
+  })
 
   try {
     mapLoading.value = true
@@ -1111,20 +1276,26 @@ const handleChangeImplementer = debounce(async (programmeIds: number | number[])
     await loadComponentOptions()
 
     const validComponentIds = new Set(componentOptions.value.map((o) => o.value))
-    component.value = component.value.filter((id) => validComponentIds.has(id))
+    withSuppressedFilterWatch(() => {
+      component.value = component.value.filter((id) => validComponentIds.has(id))
+    })
+
+    const expandedProgrammeIds = programmeArray.length
+      ? resolveProgrammeFilterIds(programmeArray)
+      : []
 
     await loadProjectLocations({
-      countyIds: county.value.length > 0 ? county.value : undefined,
-      subcountyIds: subcounty.value.length > 0 ? subcounty.value : undefined,
-      programmeIds: programmeArray.length > 0 ? programmeArray : undefined,
+      countyIds: normalizeNumericIds(county.value).length > 0 ? normalizeNumericIds(county.value) : undefined,
+      subcountyIds: normalizeNumericIds(subcounty.value).length > 0 ? normalizeNumericIds(subcounty.value) : undefined,
+      programmeIds: expandedProgrammeIds.length > 0 ? expandedProgrammeIds : undefined,
       componentIds: undefined
     })
 
     await Promise.all([
       filterCountyOptionsByImplementer(),
-      loadCountiesFromFilteredProjects(),
       addProjectLayers()
     ])
+    await syncMapBoundaryLayers()
 
     if (programmeArray.length === 0) {
       await loadCounties()
@@ -1132,14 +1303,18 @@ const handleChangeImplementer = debounce(async (programmeIds: number | number[])
     }
 
     const validCountyIds = new Set(countyOptions.value.map(o => o.value))
-    county.value = county.value.filter(id => validCountyIds.has(id))
+    withSuppressedFilterWatch(() => {
+      county.value = county.value.filter(id => validCountyIds.has(id))
+      subcounty.value = subcounty.value.filter((id) =>
+        subCountyOptions.value.some((option) => option.value === id)
+      )
+    })
+    syncLocationSelectionFromRefs()
 
-    subcounty.value = []
-    subCountyOptions.value = []
-    if (county.value.length > 0) {
-      const subcountyRestriction = programmeArray.length > 0 ? getSubcountyIdsFromProjects() : undefined
-      await loadSubcountiesForCounties(county.value, subcountyRestriction)
-    }
+    await ensureSubcountiesLoaded(
+      countyOptions.value.map((item) => item.value),
+      programmeArray.length > 0 ? getSubcountyIdsFromProjects() : undefined
+    )
 
     mapLoading.value = false
   } catch (error: any) {
@@ -1150,40 +1325,46 @@ const handleChangeImplementer = debounce(async (programmeIds: number | number[])
 }, 300)
 
 // Debounced component change handler
-const handleChangeComponent = debounce(async (componentIds: number | number[]) => {
-  if (!map.value) return
+const handleChangeComponent = debounce(async () => {
+  if (!map.value || !filtersInteractive.value) return
 
-  const componentArray = Array.isArray(componentIds) ? componentIds : (componentIds ? [componentIds] : [])
+  syncFilterIds()
+  const componentArray = selectedComponentIds.value
+  const countyArray = normalizeNumericIds(county.value)
 
   try {
     mapLoading.value = true
     mapLoadingText.value = 'Loading filtered project locations...'
 
     await loadProjectLocations({
-      countyIds: county.value.length > 0 ? county.value : undefined,
-      subcountyIds: subcounty.value.length > 0 ? subcounty.value : undefined,
-      programmeIds: implementer.value.length > 0 ? implementer.value : undefined,
+      countyIds: countyArray.length > 0 ? countyArray : undefined,
+      subcountyIds: normalizeNumericIds(subcounty.value).length > 0 ? normalizeNumericIds(subcounty.value) : undefined,
+      programmeIds: selectedProgrammeIds.value.length > 0 ? selectedProgrammeIds.value : undefined,
       componentIds: componentArray.length > 0 ? componentArray : undefined
     })
 
     // Cascade: narrow county options to counties containing matching projects
     await Promise.all([
       filterCountyOptionsByImplementer(),
-      loadCountiesFromFilteredProjects(),
       addProjectLayers()
     ])
+    await syncMapBoundaryLayers()
 
     // Clear any county selections no longer valid after component filter
     const validCountyIds = new Set(countyOptions.value.map(o => o.value))
-    county.value = county.value.filter(id => validCountyIds.has(id))
+    withSuppressedFilterWatch(() => {
+      county.value = county.value.filter(id => validCountyIds.has(id))
+      subcounty.value = subcounty.value.filter((id) =>
+        subCountyOptions.value.some((option) => option.value === id)
+      )
+    })
+    syncLocationSelectionFromRefs()
 
-    // Cascade: reset and reload subcounties respecting active implementer + component
-    subcounty.value = []
-    subCountyOptions.value = []
-    if (county.value.length > 0) {
-      const subcountyRestriction = getSubcountyIdsFromProjects()
-      await loadSubcountiesForCounties(county.value, subcountyRestriction.length > 0 ? subcountyRestriction : undefined)
-    }
+    const subcountyRestriction = getSubcountyIdsFromProjects()
+    await ensureSubcountiesLoaded(
+      countyOptions.value.map((item) => item.value),
+      subcountyRestriction.length > 0 ? subcountyRestriction : undefined
+    )
 
     mapLoading.value = false
   } catch (error: any) {
@@ -1192,6 +1373,26 @@ const handleChangeComponent = debounce(async (componentIds: number | number[]) =
     mapLoading.value = false
   }
 }, 300)
+
+watch(implementer, () => {
+  if (suppressFilterWatch || !filtersInteractive.value) return
+  handleChangeImplementer()
+}, { deep: true })
+
+watch(component, () => {
+  if (suppressFilterWatch || !filtersInteractive.value) return
+  handleChangeComponent()
+}, { deep: true })
+
+watch(locationSelection, (values) => {
+  if (suppressFilterWatch || !filtersInteractive.value) return
+  const parsed = parseLocationSelection(values)
+  withSuppressedFilterWatch(() => {
+    county.value = parsed.county
+    subcounty.value = parsed.subcounty
+  })
+  handleChangeLocation()
+}, { deep: true })
 
 // Load county geometries in batch
 const loadCountyGeometries = async (countyIds: number[]) => {
@@ -1222,52 +1423,6 @@ const loadSubcountyGeometries = async (subcountyIds: number[]) => {
   } catch (error: any) {
     console.error('Error loading subcounty geometries:', error)
     return null
-  }
-}
-
-// Load subcounties for counties, optionally restricting to a set of IDs (cascade from implementer filter)
-const loadSubcountiesForCounties = async (countyIds: number[], restrictToIds?: number[]) => {
-  try {
-    const promises = countyIds.map(countyId =>
-      getSubcountiesList({
-        params: {
-          model: 'subcounty',
-          county_id: countyId
-        }
-      })
-    )
-
-    const responses = await Promise.all(promises)
-    const allSubcounties: any[] = []
-
-    responses.forEach(res => {
-      if ((res as any).data) {
-        allSubcounties.push(...(res as any).data)
-      }
-    })
-
-    // Remove duplicates
-    let uniqueSubcounties = Array.from(
-      new Map(allSubcounties.map(item => [item.id, item])).values()
-    )
-
-    // Cascade: if a Programme filter is active, restrict subcounties to those with matching projects
-    if (restrictToIds && restrictToIds.length > 0) {
-      const restrictSet = new Set(restrictToIds)
-      uniqueSubcounties = uniqueSubcounties.filter(s => restrictSet.has(s.id))
-    }
-
-    subCountyOptions.value = uniqueSubcounties
-      .sort((a, b) => a.id - b.id)
-      .map(item => ({
-        value: item.id,
-        label: item.name
-      }))
-
-    return subCountyOptions.value
-  } catch (error: any) {
-    console.error('Error loading subcounties:', error)
-    return []
   }
 }
 
@@ -1336,85 +1491,46 @@ const filterCountyOptionsByImplementer = async () => {
   }
 }
 
-// Load counties from filtered projects
-const loadCountiesFromFilteredProjects = async () => {
-  try {
-    const countyIdSet = new Set<number>()
-    geojson.value.features.forEach((feature: any) => {
-      const id = feature.properties?.county_id
-      if (id !== null && id !== undefined && typeof id === 'number') {
-        countyIdSet.add(id)
-      }
-    })
-    const countyIds: number[] = Array.from(countyIdSet)
-    
-    if (countyIds.length === 0) {
-      return
-    }
-
-    const countyGeos = await loadCountyGeometries(countyIds)
-    if (countyGeos) {
-      addCountyLayer(countyGeos)
-      
-      // Fit bounds
-      try {
-        const bounds = turf.bbox(countyGeos)
-        if (bounds && bounds.length === 4 &&
-            isFinite(bounds[0]) && isFinite(bounds[1]) &&
-            isFinite(bounds[2]) && isFinite(bounds[3])) {
-          // Responsive padding based on screen size
-          const isMobile = window.innerWidth <= 768
-          const padding = isMobile ? 50 : 20
-          map.value?.fitBounds(bounds as [number, number, number, number], { padding })
-        }
-      } catch (error) {
-        console.warn('Error fitting bounds:', error)
-      }
-    }
-  } catch (error: any) {
-    console.error('Error loading counties from filtered projects:', error)
-  }
-}
-
 // Reset filters
 const resetFilters = async () => {
+  filtersInteractive.value = false
+
   if (isCountyRestricted.value && userCountyId.value) {
-    subcounty.value = []
-    implementer.value = []
-    component.value = []
+    withSuppressedFilterWatch(() => {
+      subcounty.value = []
+      implementer.value = []
+      component.value = []
+    })
     componentOptions.value = []
     subCountyOptions.value = []
-    await handleChangeCounty([userCountyId.value])
+    county.value = [userCountyId.value]
+    syncFilterIds()
+    filtersInteractive.value = true
+    await handleChangeLocation()
     return
   }
 
-  county.value = []
-  subcounty.value = []
+  withSuppressedFilterWatch(() => {
+    county.value = []
+    subcounty.value = []
+    implementer.value = []
+    component.value = []
+    locationSelection.value = []
+  })
   subCountyOptions.value = []
-  implementer.value = []
-  component.value = []
   componentOptions.value = []
 
   mapLoading.value = true
   mapLoadingText.value = 'Resetting filters...'
 
-  // Remove subcounty layer
-  if (map.value?.getLayer('Subcounty')) {
-    map.value.removeLayer('Subcounty')
-  }
-  if (map.value?.getSource('Subcounty')) {
-    map.value.removeSource('Subcounty')
-  }
+  clearSubcountyLayer()
 
-  // Reload all project locations
   await loadProjectLocations()
   await addProjectLayers()
+  await syncMapBoundaryLayers()
 
-  // Restore county layer
-  if (countyGeo.value) {
-    addCountyLayer(countyGeo.value)
-  }
-
+  syncFilterIds()
+  filtersInteractive.value = true
   mapLoading.value = false
 }
 
@@ -1648,6 +1764,14 @@ const drawerSize = computed(() => {
   height: 24px;
   line-height: 24px;
   font-size: 13px;
+}
+
+.compact-select :deep(.el-select__tags) {
+  max-width: calc(100% - 24px);
+}
+
+.compact-select :deep(.el-tag) {
+  max-width: 100%;
 }
 
 .compact-button {

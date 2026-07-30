@@ -19,7 +19,7 @@ import { getOneGeo } from '@/api/settlements'
 import { Icon } from '@iconify/vue';
 import {
   Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading,
-  Close, Plus, Setting, ArrowLeft, ArrowRight,
+  Close, Plus, Setting, ArrowLeft, ArrowRight, Check,
 } from '@element-plus/icons-vue'
 
 import { getCountyListApi, } from '@/api/counties'
@@ -142,7 +142,9 @@ const canAddMonitoringReport = computed(
 const canUploadProjectDocument = computed(() => isSuperAdmin.value || hasPerm('document:upload'))
 const canManageProjectTeam = computed(() => isSuperAdmin.value || hasPerm('project_team:create'))
 const canManageProjectContractors = computed(() => isSuperAdmin.value || hasPerm('project_contractor:create'))
+const canManageDocumentTypes = computed(() => isSuperAdmin.value || hasPerm('document_type:create'))
 const canManageDisbursements = computed(() => isSuperAdmin.value || hasPerm('disbursement:create'))
+const showClockInTab = false
 
 // Process user roles for permission checking
 let processedRoles: any[] = []
@@ -399,6 +401,22 @@ const canUserDeleteDisbursement = (disbursement: any): boolean => {
   return false;
 }
 
+const canUserEditDisbursement = (disbursement: any): boolean => {
+  if (isSuperAdmin.value) return true
+  if (isNationalStaff.value) return true
+
+  const userPermissions = userInfo.permissions || []
+  if (userPermissions.includes('*.*.*') || userPermissions.includes('disbursement:update')) {
+    if (disbursement.createdBy === userInfo.id) return true
+
+    const countyRole = userInfo.roles.find(
+      (role: any) => role.user_roles?.location_level === 'county' && role.name === 'admin',
+    )
+    if (countyRole) return true
+  }
+  return canManageDisbursements.value
+}
+
 const canUserDeleteTask = (task: any): boolean => {
   // Super admins and root admins can delete any task
   if (isSuperAdmin.value) {
@@ -618,8 +636,6 @@ const collapsedSections = reactive({
   implementation: true,
   schedule: true,
   metadata: true,
-  disbursementLocations: true,
-  ipcDocuments: true,
 })
 
 const inlineSavingField = ref<string | null>(null)
@@ -1040,6 +1056,50 @@ const getDocumentTypes = async () => {
 
 console.log(  'DocCategories.value',  DocCategories.value)
 
+}
+
+const documentCategoryOptions = ref<Array<{ value: number; label: string; group: string }>>([])
+
+const loadDocumentCategories = async () => {
+  try {
+    const response = await getCountyListApi({
+      params: {
+        pageIndex: 1,
+        limit: 1000,
+        curUser: 1,
+        model: 'document_category',
+        searchField: 'title',
+        searchKeyword: '',
+        sort: 'ASC',
+      },
+    })
+    documentCategoryOptions.value = ((response as any).data || []).map((item: any) => ({
+      value: Number(item.id),
+      label: String(item.title || item.name || item.id),
+      group: String(item.title || item.name || 'Other'),
+    }))
+  } catch (error) {
+    console.error('Error loading document categories:', error)
+    documentCategoryOptions.value = []
+  }
+}
+
+function appendDocumentTypeOption(record: { id: number; type: string; group?: string | null }) {
+  const groupLabel = String(record.group || 'Other').trim() || 'Other'
+  const ensureGroup = (collection: typeof DocTypes.value) => {
+    let group = collection.find((entry: any) => entry.label === groupLabel)
+    if (!group) {
+      group = { label: groupLabel, options: [] }
+      collection.push(group)
+    }
+    const opt = { value: Number(record.id), label: String(record.type) }
+    if (!group.options.some((entry: any) => entry.value === opt.value)) {
+      group.options.push(opt)
+    }
+  }
+  ensureGroup(DocTypes.value)
+  ensureGroup(DocTypesFiltered.value)
+  ensureGroup(DocTypesAll.value)
 }
 
 
@@ -1718,6 +1778,7 @@ const loadProjectDetails = async (id: string | string[]) => {
   programme_implementation_id.value = res.data.implementation_id
 
   await getDocumentTypes()
+  await loadDocumentCategories()
 
   getActivities()
   getContractors(id)
@@ -2508,15 +2569,6 @@ const getProjectClockIns = async (project_id, params = {}) => {
 // Format date and time
 const formatDateTime = (dateString: unknown) => formatDateTimeDisplay(dateString)
 
-// Calculate hours worked  
-const calculateHours = (clockIn, clockOut) => {
-  if (!clockIn || !clockOut) return '-'
-  const start = new Date(clockIn)
-  const end = new Date(clockOut)
-  const hours = (end - start) / (1000 * 60 * 60)
-  return hours.toFixed(2) + ' hrs'
-}
-
 // Apply filters (date range or month) to reload clock-ins
 const applyClockFilters = () => {
   const params = {}
@@ -2648,6 +2700,7 @@ const AddContractorTeamDialog = ref(false)
 const contractorFormRef = ref()
 
 const AddContractorTeam = async () => {
+  await loadSharedContractorRoles()
   AddContractorTeamDialog.value = true
 }
 
@@ -2688,12 +2741,22 @@ const contractorRules = ({
 
 
 
-const PAYMENT_TYPES = [
+const IPC_PAYMENT_TYPES = [
   { label: 'IPC', value: 'ipc' },
-  { label: 'Advance', value: 'advance' },
   { label: 'Final', value: 'final' },
   { label: 'Retention', value: 'retention' },
 ] as const
+
+const PAYMENT_TYPES = [
+  ...IPC_PAYMENT_TYPES,
+  { label: 'Advance', value: 'advance' },
+] as const
+
+function isAdvanceDisbursementRow(row: Record<string, unknown>) {
+  const pt = String(row.payment_type || 'ipc').toLowerCase()
+  const cert = String(row.certificate || '').trim().toLowerCase()
+  return pt === 'advance' || cert === 'advance'
+}
 
 const IPC_STATUSES = [
   { label: 'Draft', value: 'draft' },
@@ -2733,13 +2796,78 @@ const sortedProjectDisbursements = computed(() =>
 const disbursementLedger = computed(() => {
   const contract = parseMoney(projectFullData.value?.cost)
   let cumulative = 0
+  let advanceGranted = 0
+  let advanceRecovered = 0
+
   return sortedProjectDisbursements.value.map((row) => {
     const gross = parseMoney(row.amount)
     cumulative += gross
     const pctOfContract = contract > 0 ? (cumulative / contract) * 100 : null
-    return { ...row, gross, cumulative, pctOfContract }
+
+    const isAdvanceGrant = isAdvanceDisbursementRow(row)
+    let advanceRecoveredThisRow = 0
+
+    if (isAdvanceGrant) {
+      advanceGranted += parseMoney(row.advance_amount ?? row.amount)
+    } else {
+      advanceRecoveredThisRow = parseMoney(row.advance_recovered)
+      advanceRecovered += advanceRecoveredThisRow
+    }
+
+    const advanceBalance = Math.max(0, advanceGranted - advanceRecovered)
+
+    return {
+      ...row,
+      gross,
+      cumulative,
+      pctOfContract,
+      isAdvanceGrant,
+      advanceRecoveredThisRow,
+      advanceBalance,
+    }
   })
 })
+
+const ipcDisbursementSubTab = ref('ipcs')
+
+const ipcLedgerRows = computed(() => {
+  const contract = parseMoney(projectFullData.value?.cost)
+  const advanceGranted = ipcSummary.value.advanceGranted
+  let cumulative = 0
+  let advanceRecoveredRunning = 0
+
+  return sortedProjectDisbursements.value
+    .filter((row) => !isAdvanceDisbursementRow(row))
+    .map((row) => {
+      const gross = parseMoney(row.amount)
+      cumulative += gross
+      const advanceRecoveredThisRow = parseMoney(row.advance_recovered)
+      advanceRecoveredRunning += advanceRecoveredThisRow
+      const advanceBalance = Math.max(0, advanceGranted - advanceRecoveredRunning)
+      const contractBalanceAfter = contract > 0 ? Math.max(0, contract - cumulative) : null
+      const pctOfContract = contract > 0 ? (cumulative / contract) * 100 : null
+      return {
+        ...row,
+        gross,
+        cumulative,
+        contractBalanceAfter,
+        pctOfContract,
+        isAdvanceGrant: false,
+        advanceRecoveredThisRow,
+        advanceBalance,
+      }
+    })
+})
+
+const advanceLedgerRows = computed(() =>
+  sortedProjectDisbursements.value
+    .filter((row) => isAdvanceDisbursementRow(row))
+    .map((row) => ({
+      ...row,
+      gross: parseMoney(row.advance_amount ?? row.amount),
+      isAdvanceGrant: true,
+    })),
+)
 
 const ipcSummary = computed(() => {
   const contract = parseMoney(projectFullData.value?.cost)
@@ -2812,25 +2940,11 @@ const showDisbursementLocationPanel = computed(
   () => !isNationalProject.value && locationProgressRows.value.length > 0,
 )
 
-const IPC_DOC_TYPES = [
-  'Consent Memo',
-  'IPC Certificate',
-  'Supporting Document',
-] as const
+const IPC_DOCUMENT_TYPE = 'Other'
 
 type IpcUploadFile = UploadUserFile & { docType?: string }
 
 const disbursementDocumentsById = ref<Record<number, any[]>>({})
-
-const allIpcDocuments = computed(() => {
-  const docs: any[] = []
-  for (const list of Object.values(disbursementDocumentsById.value)) {
-    if (Array.isArray(list)) docs.push(...list)
-  }
-  return docs.sort(
-    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
-  )
-})
 
 async function loadIpcDocuments() {
   const projectId = route.params.id
@@ -2867,11 +2981,11 @@ async function loadIpcDocuments() {
   }
 }
 
-function buildLocationProgressSnapshot() {
+function buildIpcLocationProgressSnapshot() {
   return {
     captured_at: new Date().toISOString(),
-    average_progress_pct: averageLocationProgress.value,
-    locations: locationProgressRows.value.map((loc) => ({
+    average_progress_pct: ipcLocationProgressAverage.value,
+    locations: ipcLocationProgress.value.map((loc) => ({
       project_location_id: loc.id,
       name: loc.name,
       progress_pct: loc.progress,
@@ -2879,34 +2993,363 @@ function buildLocationProgressSnapshot() {
   }
 }
 
-async function saveLocationProgress(row: {
+type IpcLocationProgressRow = {
   id: number
+  name: string
   progress: number | null
-}) {
-  try {
-    await updateOneRecord({
-      model: 'project_location',
-      id: row.id,
-      physical_progress_pct: row.progress,
-    } as any)
-    const loc = (projectLocations.value as any[]).find((l) => l.id === row.id)
-    if (loc) loc.physical_progress_pct = row.progress
-    ElMessage.success('Site progress saved')
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || error?.message || 'Could not save progress')
+}
+
+const ipcLocationProgress = ref<IpcLocationProgressRow[]>([])
+
+const ipcLocationProgressAverage = computed(() => {
+  const vals = ipcLocationProgress.value
+    .map((r) => r.progress)
+    .filter((v): v is number => v != null && Number.isFinite(v))
+  if (!vals.length) return null
+  return vals.reduce((a, b) => a + b, 0) / vals.length
+})
+
+function compareDisbursementToReference(
+  candidate: { disbursement_date?: unknown; id?: unknown },
+  reference: { disbursement_date?: unknown; id?: number | null },
+) {
+  const da = new Date(candidate.disbursement_date || 0).getTime()
+  const db = new Date(reference.disbursement_date || 0).getTime()
+  if (da !== db) return da - db
+  const cid = Number(candidate.id || 0)
+  const rid = reference.id != null ? Number(reference.id) : Number.MAX_SAFE_INTEGER
+  return cid - rid
+}
+
+function getIpcProgressReference() {
+  if (ipcEditingId.value) {
+    return {
+      disbursement_date: DisbursementForm.value.disbursement_date,
+      id: ipcEditingId.value,
+    }
+  }
+  return {
+    disbursement_date: DisbursementForm.value.disbursement_date || new Date(),
+    id: null as number | null,
   }
 }
 
+function computeIpcProgressBounds(
+  reference: { disbursement_date?: unknown; id?: number | null },
+  excludeId?: number | null,
+) {
+  const floorByLocationId = new Map<number, number>()
+  const ceilingByLocationId = new Map<number, number>()
+
+  for (const disbursement of sortedProjectDisbursements.value) {
+    if (excludeId && Number(disbursement.id) === Number(excludeId)) continue
+
+    const order = compareDisbursementToReference(disbursement, reference)
+    if (order === 0) continue
+
+    const locations = (
+      (disbursement.location_progress_snapshot as {
+        locations?: Array<{ project_location_id?: number; progress_pct?: number | null }>
+      } | null)?.locations || []
+    )
+
+    for (const loc of locations) {
+      const locId = Number(loc.project_location_id)
+      const pct = loc.progress_pct != null ? Number(loc.progress_pct) : null
+      if (!locId || pct == null || !Number.isFinite(pct)) continue
+
+      if (order < 0) {
+        floorByLocationId.set(locId, Math.max(floorByLocationId.get(locId) ?? 0, pct))
+      } else {
+        const prevCeiling = ceilingByLocationId.get(locId)
+        ceilingByLocationId.set(locId, prevCeiling == null ? pct : Math.min(prevCeiling, pct))
+      }
+    }
+  }
+
+  return { floorByLocationId, ceilingByLocationId }
+}
+
+const ipcProgressBounds = computed(() =>
+  computeIpcProgressBounds(getIpcProgressReference(), ipcEditingId.value),
+)
+
+function ipcLocationProgressFloor(locationId: number) {
+  return ipcProgressBounds.value.floorByLocationId.get(locationId) ?? 0
+}
+
+function ipcLocationProgressCeiling(locationId: number) {
+  const ceiling = ipcProgressBounds.value.ceilingByLocationId.get(locationId)
+  return ceiling != null && Number.isFinite(ceiling) ? ceiling : 100
+}
+
+function ipcPriorDisbursement(row: Record<string, unknown>) {
+  const idx = sortedProjectDisbursements.value.findIndex(
+    (entry) => Number(entry.id) === Number(row.id),
+  )
+  if (idx <= 0) return null
+  return sortedProjectDisbursements.value[idx - 1]
+}
+
+function ipcPriorSnapshotAverage(row: Record<string, unknown>) {
+  const prior = ipcPriorDisbursement(row)
+  return prior ? ipcLocationSnapshotAverage(prior) : null
+}
+
+function ipcPriorSiteProgress(row: Record<string, unknown>, locationId: number) {
+  const prior = ipcPriorDisbursement(row)
+  if (!prior) return null
+  const locations = (
+    (prior.location_progress_snapshot as {
+      locations?: Array<{ project_location_id?: number; progress_pct?: number | null }>
+    } | null)?.locations || []
+  )
+  const match = locations.find((loc) => Number(loc.project_location_id) === Number(locationId))
+  return match?.progress_pct != null && Number.isFinite(Number(match.progress_pct))
+    ? Number(match.progress_pct)
+    : null
+}
+
+function setIpcLocationProgress(id: number, progress: number | null) {
+  let next = progress
+  if (next != null && Number.isFinite(next)) {
+    const floor = ipcLocationProgressFloor(id)
+    const ceiling = ipcLocationProgressCeiling(id)
+    if (next < floor) {
+      ElMessage.warning(`Progress cannot go below ${floor.toFixed(1)}% (prior IPC)`)
+      next = floor
+    } else if (next > ceiling) {
+      ElMessage.warning(`Progress cannot exceed ${ceiling.toFixed(1)}% (later IPC)`)
+      next = ceiling
+    }
+  }
+
+  ipcLocationProgress.value = ipcLocationProgress.value.map((row) =>
+    row.id === id ? { ...row, progress: next } : row,
+  )
+}
+
+function validateIpcLocationProgress(): boolean {
+  if (!showDisbursementLocationPanel.value) return true
+
+  for (const loc of ipcLocationProgress.value) {
+    if (loc.progress == null || !Number.isFinite(loc.progress)) continue
+
+    const floor = ipcLocationProgressFloor(loc.id)
+    const ceiling = ipcLocationProgressCeiling(loc.id)
+
+    if (loc.progress + 0.001 < floor) {
+      ElMessage.error(
+        `${loc.name}: progress must be at least ${floor.toFixed(1)}% based on earlier IPC order`,
+      )
+      return false
+    }
+
+    if (loc.progress > ceiling + 0.001) {
+      ElMessage.error(
+        `${loc.name}: progress cannot exceed ${ceiling.toFixed(1)}% — a later IPC already recorded higher progress`,
+      )
+      return false
+    }
+  }
+
+  const priorAverage = (() => {
+    const reference = getIpcProgressReference()
+    let maxPrior: number | null = null
+    for (const disbursement of sortedProjectDisbursements.value) {
+      if (ipcEditingId.value && Number(disbursement.id) === Number(ipcEditingId.value)) continue
+      if (compareDisbursementToReference(disbursement, reference) >= 0) continue
+      const avg = ipcLocationSnapshotAverage(disbursement)
+      if (avg != null) maxPrior = maxPrior == null ? avg : Math.max(maxPrior, avg)
+    }
+    return maxPrior
+  })()
+
+  const currentAverage = ipcLocationProgressAverage.value
+  if (
+    priorAverage != null &&
+    currentAverage != null &&
+    currentAverage + 0.001 < priorAverage
+  ) {
+    ElMessage.error(
+      `Average site progress must be at least ${priorAverage.toFixed(1)}% to match earlier IPC order`,
+    )
+    return false
+  }
+
+  return true
+}
+
+async function persistIpcLocationProgress() {
+  if (!ipcLocationProgress.value.length) return
+
+  const maxByLocationId = new Map<number, number>()
+  for (const disbursement of sortedProjectDisbursements.value) {
+    if (ipcEditingId.value && Number(disbursement.id) === Number(ipcEditingId.value)) continue
+    const locations = (
+      (disbursement.location_progress_snapshot as {
+        locations?: Array<{ project_location_id?: number; progress_pct?: number | null }>
+      } | null)?.locations || []
+    )
+    for (const loc of locations) {
+      const locId = Number(loc.project_location_id)
+      const pct = loc.progress_pct != null ? Number(loc.progress_pct) : null
+      if (!locId || pct == null || !Number.isFinite(pct)) continue
+      maxByLocationId.set(locId, Math.max(maxByLocationId.get(locId) ?? 0, pct))
+    }
+  }
+
+  for (const row of ipcLocationProgress.value) {
+    if (row.progress == null || !Number.isFinite(row.progress)) continue
+    maxByLocationId.set(row.id, Math.max(maxByLocationId.get(row.id) ?? 0, row.progress))
+  }
+
+  await Promise.all(
+    [...maxByLocationId.entries()].map(([id, progress]) =>
+      updateOneRecord({
+        model: 'project_location',
+        id,
+        physical_progress_pct: progress,
+      } as any),
+    ),
+  )
+
+  for (const [id, progress] of maxByLocationId.entries()) {
+    const loc = (projectLocations.value as any[]).find((l) => l.id === id)
+    if (loc) loc.physical_progress_pct = progress
+  }
+}
+
+function ipcLocationSnapshotRows(row: Record<string, unknown>) {
+  const snap = row.location_progress_snapshot as {
+    locations?: Array<{
+      project_location_id?: number
+      name?: string
+      progress_pct?: number | null
+    }>
+  } | null
+  return Array.isArray(snap?.locations) ? snap.locations : []
+}
+
+function ipcLocationSnapshotAverage(row: Record<string, unknown>) {
+  const snap = row.location_progress_snapshot as { average_progress_pct?: number | null } | null
+  if (snap?.average_progress_pct != null && Number.isFinite(Number(snap.average_progress_pct))) {
+    return Number(snap.average_progress_pct)
+  }
+  const rows = ipcLocationSnapshotRows(row)
+  const vals = rows
+    .map((loc) => loc.progress_pct)
+    .filter((v): v is number => v != null && Number.isFinite(Number(v)))
+    .map(Number)
+  if (!vals.length) return null
+  return vals.reduce((a, b) => a + b, 0) / vals.length
+}
+
+function ipcLocationSnapshotProgressPct(row: Record<string, unknown>) {
+  const avg = ipcLocationSnapshotAverage(row)
+  if (avg == null || !Number.isFinite(avg)) return null
+  return Math.min(100, Math.max(0, Math.round(avg * 10) / 10))
+}
+
+function ipcHasSiteProgress(row: Record<string, unknown>) {
+  return ipcLocationSnapshotRows(row).length > 0
+}
+
+function initIpcLocationProgressFromRow(row?: Record<string, unknown>) {
+  const reference = row
+    ? { disbursement_date: row.disbursement_date, id: Number(row.id) }
+    : { disbursement_date: DisbursementForm.value.disbursement_date, id: null as number | null }
+  const { floorByLocationId } = computeIpcProgressBounds(
+    reference,
+    row ? Number(row.id) : null,
+  )
+
+  const snapshotLocations = row
+    ? ((row.location_progress_snapshot as { locations?: Array<{
+        project_location_id?: number
+        name?: string
+        progress_pct?: number | null
+      }> } | null)?.locations || [])
+    : []
+
+  ipcLocationProgress.value = locationProgressRows.value.map((loc) => {
+    const snap = snapshotLocations.find(
+      (entry) => Number(entry.project_location_id) === Number(loc.id),
+    )
+    const floor = floorByLocationId.get(loc.id) ?? 0
+    const snapProgress =
+      snap?.progress_pct != null && snap.progress_pct !== '' ? Number(snap.progress_pct) : null
+    let progress = row
+      ? (snapProgress ?? loc.progress ?? floor)
+      : Math.max(floor, loc.progress ?? 0, 0)
+    if (progress != null && progress < floor) progress = floor
+    return {
+      id: loc.id,
+      name: loc.name,
+      progress,
+    }
+  })
+}
+
+const ipcEditingId = ref<number | null>(null)
+const isEditingIpc = computed(() => ipcEditingId.value != null)
+const ipcDrawerMode = ref<'ipc' | 'advance'>('ipc')
+const isAdvanceDrawer = computed(() => ipcDrawerMode.value === 'advance')
+
+const ipcDrawerTitle = computed(() => {
+  if (isAdvanceDrawer.value) {
+    return isEditingIpc.value ? 'Edit advance payment' : 'Record advance payment'
+  }
+  return isEditingIpc.value ? 'Edit IPC disbursement' : 'Add IPC disbursement'
+})
+
+const ipcDrawerSubtitle = computed(() => {
+  if (isAdvanceDrawer.value) {
+    return 'One-off early payment — no site progress required'
+  }
+  return isEditingIpc.value
+    ? 'Update payment, advance recovery, site progress, or document'
+    : 'IPC payment with optional advance recovery, progress & document'
+})
+
+const ipcSubmitLabel = computed(() => {
+  if (isAdvanceDrawer.value) {
+    return isEditingIpc.value ? 'Save advance' : 'Record advance'
+  }
+  return isEditingIpc.value ? 'Save changes' : 'Submit IPC'
+})
+
+const ipcEditingDocuments = computed(() => {
+  if (!ipcEditingId.value) return []
+  return disbursementDocumentsById.value[ipcEditingId.value] || []
+})
+
 const AddDisbursementTeamDialog = ref(false)
-const IPC_DRAWER_LAST_STEP = 6
+
+const IPC_DRAWER_STEPS = [
+  { title: 'Payment', description: 'Amount, recovery & status' },
+  { title: 'Details', description: 'Progress & document' },
+  { title: 'Review', description: 'Confirm & submit' },
+] as const
+
+const ADVANCE_DRAWER_STEPS = [
+  { title: 'Payment', description: 'Amount & date' },
+  { title: 'Review', description: 'Confirm & submit' },
+] as const
+
+const activeIpcDrawerSteps = computed(() =>
+  isAdvanceDrawer.value ? ADVANCE_DRAWER_STEPS : IPC_DRAWER_STEPS,
+)
+
+const ipcDrawerLastStep = computed(() => (isAdvanceDrawer.value ? 1 : 2))
 
 const ipcDrawerStep = ref(0)
 const ipcSaving = ref(false)
 const DisbursementFormRef = ref()
 const ipcFileList = ref<IpcUploadFile[]>([])
-const ipcDefaultDocType = ref<string>(IPC_DOC_TYPES[0])
 
 const defaultDisbursementForm = () => ({
+  id: undefined as number | undefined,
   project_id: route.params.id,
   amount: null as number | null,
   disbursement_date: new Date(),
@@ -2923,21 +3366,63 @@ const DisbursementForm = ref(defaultDisbursementForm())
 
 const resetIpcDrawer = () => {
   ipcDrawerStep.value = 0
+  ipcDrawerMode.value = 'ipc'
+  ipcEditingId.value = null
   ipcFileList.value = []
-  ipcDefaultDocType.value = IPC_DOC_TYPES[0]
+  ipcLocationProgress.value = []
   DisbursementForm.value = defaultDisbursementForm()
   disbursementAmountInput.value = ''
   disbursementAdvanceRecoveredInput.value = ''
 }
 
-const openIpcDrawer = async (paymentType: 'ipc' | 'advance' = 'ipc') => {
+const openIpcDrawer = async (mode: 'ipc' | 'advance' = 'ipc') => {
   await getprojectDisbursements(route.params.id)
   resetIpcDrawer()
-  DisbursementForm.value.payment_type = paymentType
-  if (paymentType === 'advance') {
+  ipcDrawerMode.value = mode
+  DisbursementForm.value.payment_type = mode === 'advance' ? 'advance' : 'ipc'
+  if (mode === 'advance') {
     DisbursementForm.value.certificate = 'Advance'
+    DisbursementForm.value.advance_recovered = null
   } else {
+    initIpcLocationProgressFromRow()
     DisbursementForm.value.certificate = `IPC ${ipcSummary.value.nextIpcNo}`
+  }
+  AddDisbursementTeamDialog.value = true
+}
+
+const openIpcDrawerForEdit = async (row: Record<string, unknown>) => {
+  if (!canUserEditDisbursement(row)) {
+    ElMessage.warning('You do not have permission to edit this disbursement.')
+    return
+  }
+
+  await getprojectDisbursements(route.params.id)
+  resetIpcDrawer()
+  ipcEditingId.value = Number(row.id)
+  ipcDrawerMode.value = isAdvanceDisbursementRow(row) ? 'advance' : 'ipc'
+
+  DisbursementForm.value = {
+    id: Number(row.id),
+    project_id: route.params.id,
+    amount: parseMoney(row.amount),
+    disbursement_date: row.disbursement_date ? new Date(String(row.disbursement_date)) : new Date(),
+    certificate: String(row.certificate || ''),
+    description: String(row.description || ''),
+    payment_type: String(row.payment_type || 'ipc'),
+    status: String(row.status || 'submitted'),
+    advance_amount:
+      row.advance_amount != null && row.advance_amount !== ''
+        ? parseMoney(row.advance_amount)
+        : null,
+    advance_recovered:
+      row.advance_recovered != null && row.advance_recovered !== ''
+        ? parseMoney(row.advance_recovered)
+        : null,
+    code: String(row.code || shortid.generate()),
+  }
+
+  if (ipcDrawerMode.value === 'ipc') {
+    initIpcLocationProgressFromRow(row)
   }
   AddDisbursementTeamDialog.value = true
 }
@@ -2954,9 +3439,7 @@ const handleIpcDrawerClose = (done?: () => void) => {
 
 const handleIpcFileChange: UploadProps['onChange'] = (uploadFile) => {
   const file = uploadFile as IpcUploadFile
-  if (!file.docType) {
-    file.docType = ipcDefaultDocType.value
-  }
+  file.docType = IPC_DOCUMENT_TYPE
 }
 
 const uploadIpcFiles = async (disbursementId: number) => {
@@ -2970,7 +3453,7 @@ const uploadIpcFiles = async (disbursementId: number) => {
     formData.append('disbursement_id', String(disbursementId))
     formData.append('project_id', String(route.params.id))
     formData.append('protected_file', 'true')
-    formData.append('type', file.docType || ipcDefaultDocType.value)
+    formData.append('type', file.docType || IPC_DOCUMENT_TYPE)
     formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2))
   }
 
@@ -2995,17 +3478,29 @@ const validateIpcStepFields = (fields: string[]): Promise<boolean> =>
     }
   })
 
-const showIpcAdvanceColumns = computed(() => ipcSummary.value.advanceGranted > 0)
+const showIpcAdvanceColumns = computed(
+  () => ipcSummary.value.advanceGranted > 0 || ipcSummary.value.advanceRecovered > 0,
+)
 
 const showAdvanceRecoveryField = computed(
   () =>
-    DisbursementForm.value.payment_type !== 'advance' &&
-    ipcSummary.value.advanceGranted > 0,
+    !isAdvanceDrawer.value &&
+    ipcSummary.value.advanceGranted > 0 &&
+    ipcSummary.value.advanceOutstanding > 0,
 )
 
+const ipcAdvanceOutstandingForForm = computed(() => {
+  if (!ipcEditingId.value) return ipcSummary.value.advanceOutstanding
+  const editingRow = sortedProjectDisbursements.value.find(
+    (r) => Number(r.id) === Number(ipcEditingId.value),
+  )
+  return (
+    ipcSummary.value.advanceOutstanding + parseMoney(editingRow?.advance_recovered)
+  )
+})
+
 const validateIpcAdvanceStep = (): boolean => {
-  const paymentType = DisbursementForm.value.payment_type || 'ipc'
-  if (paymentType === 'advance') return true
+  if (isAdvanceDrawer.value) return true
 
   const advanceRecovered = parseMoney(DisbursementForm.value.advance_recovered)
   // Fresh entry with no recovery on this certificate — skip balance checks
@@ -3015,7 +3510,13 @@ const validateIpcAdvanceStep = (): boolean => {
   }
 
   const gross = parseMoney(DisbursementForm.value.amount)
-  const { advanceGranted, advanceOutstanding } = ipcSummary.value
+  const { advanceGranted } = ipcSummary.value
+  const editingRow = ipcEditingId.value
+    ? sortedProjectDisbursements.value.find((r) => Number(r.id) === Number(ipcEditingId.value))
+    : null
+  const priorRecoveredOnRow = parseMoney(editingRow?.advance_recovered)
+  const advanceOutstanding =
+    ipcSummary.value.advanceOutstanding + (ipcEditingId.value ? priorRecoveredOnRow : 0)
 
   if (advanceGranted <= 0) {
     ElMessage.error('No advance has been granted on this project to recover')
@@ -3041,28 +3542,26 @@ const validateIpcAdvanceStep = (): boolean => {
 }
 
 const validateIpcStep = async (step: number): Promise<boolean> => {
-  const paymentType = DisbursementForm.value.payment_type || 'ipc'
-
   switch (step) {
     case 0: {
+      if (isAdvanceDrawer.value) {
+        const valid = await validateIpcStepFields(['disbursement_date', 'amount', 'description'])
+        return valid
+      }
       const valid = await validateIpcStepFields([
         'payment_type',
-        ...(paymentType !== 'advance' ? ['certificate'] : []),
+        'certificate',
+        'disbursement_date',
+        'amount',
       ])
       if (!valid) return false
-      return true
+      return validateIpcAdvanceStep()
     }
     case 1: {
-      const valid = await validateIpcStepFields(['disbursement_date', 'amount'])
-      if (!valid) return false
-      return true
-    }
-    case 2:
-      return validateIpcAdvanceStep()
-    case 3: {
+      if (isAdvanceDrawer.value) return true
       const valid = await validateIpcStepFields(['description'])
       if (!valid) return false
-      return true
+      return validateIpcLocationProgress()
     }
     default:
       return true
@@ -3070,7 +3569,7 @@ const validateIpcStep = async (step: number): Promise<boolean> => {
 }
 
 const validateIpcPaymentStep = async (): Promise<boolean> => {
-  for (let step = 0; step <= 3; step += 1) {
+  for (let step = 0; step < ipcDrawerLastStep.value; step += 1) {
     const valid = await validateIpcStep(step)
     if (!valid) {
       ipcDrawerStep.value = step
@@ -3080,11 +3579,19 @@ const validateIpcPaymentStep = async (): Promise<boolean> => {
   return true
 }
 
+const showIpcNextButton = computed(() => ipcDrawerStep.value < ipcDrawerLastStep.value)
+const showIpcSubmitButton = computed(() => ipcDrawerStep.value === ipcDrawerLastStep.value)
+
+function handleIpcStepClick(index: number) {
+  if (index < 0 || index > ipcDrawerLastStep.value || index > ipcDrawerStep.value) return
+  ipcDrawerStep.value = index
+}
+
 const ipcNextStep = async () => {
   const valid = await validateIpcStep(ipcDrawerStep.value)
   if (!valid) return
 
-  if (ipcDrawerStep.value < IPC_DRAWER_LAST_STEP) {
+  if (ipcDrawerStep.value < ipcDrawerLastStep.value) {
     ipcDrawerStep.value += 1
   }
 }
@@ -3107,10 +3614,9 @@ const disbursementRules = computed(() => ({
   description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
   payment_type: [{ required: true, message: 'Payment type is required', trigger: 'change' }],
   disbursement_date: [{ required: true, message: 'Payment date is required', trigger: 'change' }],
-  certificate:
-    DisbursementForm.value.payment_type === 'advance'
-      ? []
-      : [{ required: true, message: 'IPC reference is required', trigger: 'blur' }],
+  certificate: isAdvanceDrawer.value
+    ? []
+    : [{ required: true, message: 'IPC reference is required', trigger: 'blur' }],
 }))
 
 const disbursementAmountInput = ref('')
@@ -3153,13 +3659,25 @@ function handleDisbursementMoneyInput(
 }
 
 watch(
+  () => DisbursementForm.value.disbursement_date,
+  () => {
+    if (!AddDisbursementTeamDialog.value || !showDisbursementLocationPanel.value) return
+    ipcLocationProgress.value = ipcLocationProgress.value.map((loc) => {
+      const floor = ipcLocationProgressFloor(loc.id)
+      const ceiling = ipcLocationProgressCeiling(loc.id)
+      let progress = loc.progress
+      if (progress != null && progress < floor) progress = floor
+      if (progress != null && progress > ceiling) progress = ceiling
+      return { ...loc, progress }
+    })
+  },
+)
+
+watch(
   () => DisbursementForm.value.payment_type,
   (type) => {
-    if (type === 'advance') {
-      DisbursementForm.value.certificate = 'Advance'
-      DisbursementForm.value.advance_recovered = null
-      disbursementAdvanceRecoveredInput.value = ''
-    } else if (type === 'ipc' && !DisbursementForm.value.certificate) {
+    if (isAdvanceDrawer.value) return
+    if (type === 'ipc' && !DisbursementForm.value.certificate && !isEditingIpc.value) {
       DisbursementForm.value.certificate = `IPC ${ipcSummary.value.nextIpcNo}`
     }
   },
@@ -3183,7 +3701,9 @@ const updateDisbursement = async () => {
 
   const gross = parseMoney(DisbursementForm.value.amount)
   const advanceRecovered = parseMoney(DisbursementForm.value.advance_recovered)
-  const paymentType = DisbursementForm.value.payment_type || 'ipc'
+  const paymentType = isAdvanceDrawer.value
+    ? 'advance'
+    : (DisbursementForm.value.payment_type || 'ipc')
 
   const payload: Record<string, unknown> = {
     ...DisbursementForm.value,
@@ -3191,17 +3711,37 @@ const updateDisbursement = async () => {
     amount: gross,
     advance_amount: paymentType === 'advance' ? gross : null,
     advance_recovered: paymentType === 'advance' ? null : advanceRecovered || null,
-    location_progress_snapshot: showDisbursementLocationPanel.value
-      ? buildLocationProgressSnapshot()
-      : null,
+    location_progress_snapshot:
+      !isAdvanceDrawer.value && showDisbursementLocationPanel.value
+        ? buildIpcLocationProgressSnapshot()
+        : null,
   }
 
   if (paymentType === 'advance') {
     payload.certificate = 'Advance'
+    payload.payment_type = 'advance'
   }
 
   ipcSaving.value = true
   try {
+    if (!isAdvanceDrawer.value && showDisbursementLocationPanel.value) {
+      await persistIpcLocationProgress()
+    }
+
+    if (isEditingIpc.value && ipcEditingId.value) {
+      payload.id = ipcEditingId.value
+      await updateOneRecord(payload as any)
+      if (ipcFileList.value.length) {
+        await uploadIpcFiles(ipcEditingId.value)
+      }
+      await getprojectDisbursements(route.params.id)
+      handleIpcDrawerClose()
+      ElMessage.success(
+        isAdvanceDrawer.value ? 'Advance payment updated' : 'IPC disbursement updated',
+      )
+      return
+    }
+
     const res: any = await CreateRecord(payload as any)
     const saved = res?.data
     if (saved?.id && ipcFileList.value.length) {
@@ -3228,6 +3768,33 @@ const updateDisbursement = async () => {
 
 const contract_roles = ['Main Contractor', 'Subcontractor', 'Consultant', 'Other'] as const
 
+const sharedContractorRoles = ref<string[]>([])
+
+async function loadSharedContractorRoles() {
+  try {
+    const res = await getUniqueFieldValues({ model: 'project_contractor', selectedField: 'role' })
+    const rows = (res as any)?.data || []
+    sharedContractorRoles.value = rows
+      .map((row: { value?: unknown; label?: unknown }) => String(row.value ?? row.label ?? '').trim())
+      .filter(Boolean)
+  } catch {
+    // Non-fatal; defaults still apply.
+  }
+}
+
+const contractorRoleOptions = computed(() => {
+  const merged = [...contract_roles, ...sharedContractorRoles.value]
+  return [...new Set(merged.map((role) => role.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' }),
+  )
+})
+
+function rememberContractorRole(role: unknown) {
+  const trimmed = String(role || '').trim()
+  if (!trimmed || contractorRoleOptions.value.includes(trimmed)) return
+  sharedContractorRoles.value = [...sharedContractorRoles.value, trimmed]
+}
+
 function contractorRoleTagType(role: unknown): 'primary' | 'success' | 'warning' | 'info' {
   const r = String(role || '').toLowerCase()
   if (r === 'main contractor') return 'primary'
@@ -3248,7 +3815,9 @@ const updateContractor = async () => {
 
       const res = await CreateRecord(contractorForm.value)
 
+      rememberContractorRole(contractorForm.value.role)
       projectContractors.value.push(res.data)
+      await loadSharedContractorRoles()
       AddContractorTeamDialog.value = false
     } else {
       console.log('error submit!')
@@ -3343,12 +3912,8 @@ const handleUnlinkDocument = async (row: any) => {
 }
 
 const handleIpcLedgerAction = async (command: string, row: any) => {
-  if (command.startsWith('doc:')) {
-    const docId = Number(command.slice(4))
-    const doc = (disbursementDocumentsById.value[row.id] || []).find(
-      (d) => Number(d.id) === docId,
-    )
-    if (doc) downloadFile(doc)
+  if (command === 'edit') {
+    await openIpcDrawerForEdit(row)
     return
   }
 
@@ -3409,9 +3974,95 @@ const handleSelectContractor = async (selected) => {
 // ASdd Missing Contractot
 
 const showAddNewContractor = ref(false)
+const showAddNewDocumentType = ref(false)
+const showAddNewTeamRole = ref(false)
 
 const onAddOption = () => {
   showAddNewContractor.value = true
+}
+
+const onAddDocumentTypeOption = () => {
+  showAddNewDocumentType.value = true
+}
+
+const onAddTeamRoleOption = () => {
+  newTeamRoleForm.value.role = ''
+  showAddNewTeamRole.value = true
+}
+
+const NewDocumentTypeForm = ref({
+  type: '',
+  category_id: null as number | null,
+  group: '',
+  code: shortid.generate(),
+})
+
+const NewDocumentTypeRef = ref()
+const newTeamRoleForm = ref({ role: '' })
+const NewTeamRoleRef = ref()
+
+const newDocumentTypeRules = {
+  category_id: [{ required: true, message: 'Please select a category', trigger: 'change' }],
+  type: [{ required: true, message: 'Please enter a document type', trigger: 'blur' }],
+}
+
+const newTeamRoleRules = {
+  role: [{ required: true, message: 'Please enter a role', trigger: 'blur' }],
+}
+
+const handleNewDocumentTypeCategory = (categoryId: number | null) => {
+  const selected = documentCategoryOptions.value.find((item) => item.value === categoryId)
+  NewDocumentTypeForm.value.group = selected?.group || selected?.label || ''
+}
+
+const createNewDocumentType = async () => {
+  NewDocumentTypeRef.value?.validate(async (valid: boolean) => {
+    if (!valid) return
+
+    try {
+      const payload = {
+        ...NewDocumentTypeForm.value,
+        model: 'document_type',
+        type: String(NewDocumentTypeForm.value.type || '').trim(),
+        code: shortid.generate(),
+      }
+      const res = await CreateRecord(payload)
+      const created = (res as any)?.data
+      if (!created?.id) return
+
+      appendDocumentTypeOption({
+        id: Number(created.id),
+        type: String(created.type || payload.type),
+        group: created.group || payload.group,
+      })
+      documentCategory.value = Number(created.id)
+      showUpload.value = true
+      showAddNewDocumentType.value = false
+      NewDocumentTypeForm.value = {
+        type: '',
+        category_id: null,
+        group: '',
+        code: shortid.generate(),
+      }
+      ElMessage.success('Document type registered')
+    } catch (error) {
+      console.error('Error creating document type:', error)
+      ElMessage.error('Failed to register document type')
+    }
+  })
+}
+
+const createNewTeamRole = async () => {
+  NewTeamRoleRef.value?.validate(async (valid: boolean) => {
+    if (!valid) return
+    const trimmed = String(newTeamRoleForm.value.role || '').trim()
+    if (!trimmed) return
+    rememberTeamRole(trimmed)
+    teamForm.value.role = trimmed
+    showAddNewTeamRole.value = false
+    newTeamRoleForm.value.role = ''
+    ElMessage.success('Role added — save the team member to keep it')
+  })
 }
 
 // do not use same name with ref
@@ -3474,8 +4125,8 @@ const createNewContractor = async () => {
         new_cont.code = res.data.code
 
         contractorOptions.value.push(new_cont)
-
-
+        contractorForm.value.contractor_id = res.data.id
+        contractorForm.value.name = res.data.name
       }
       /*  contractorOptions.value = 
          contractorOptions.value = res.data.map(item => ({
@@ -5159,21 +5810,35 @@ const getSummaries = (param) => {
   const { columns, data } = param;
   const sums = [];
 
+  const advanceTotal = data.reduce((sum, row) => sum + parseMoney(row.advance_recovered), 0);
+  const lastRow = data.length ? data[data.length - 1] : null;
+  const { advanceGranted, advanceOutstanding } = ipcSummary.value;
+
   columns.forEach((column, index) => {
-    if (index === 0) {
-      sums[index] = 'Total';
+    if (column.type === 'expand' || !column.property) {
+      sums[index] = '';
       return;
     }
 
-    if (column.property === 'gross' || column.property === 'amount') {
-      const total = data.reduce((sum, row) => {
-        const value = Number(row.gross ?? row[column.property]);
-        return isNaN(value) ? sum : sum + value;
-      }, 0);
-      sums[index] = formatAmountDisplay(total)
-    } else if (column.property === 'advance_recovered') {
-      const total = data.reduce((sum, row) => sum + parseMoney(row.advance_recovered), 0);
-      sums[index] = total > 0 ? formatAmountDisplay(total) : '';
+    if (column.property === 'certificate') {
+      sums[index] = 'Total';
+    } else if (column.property === 'gross' || column.property === 'amount') {
+      sums[index] =
+        lastRow?.contractBalanceAfter != null
+          ? formatCostDisplay(lastRow.contractBalanceAfter)
+          : '';
+    } else if (
+      column.property === 'advanceBalance'
+      || column.property === 'advance_recovered'
+      || column.property === 'advanceRecoveredThisRow'
+    ) {
+      sums[index] =
+        advanceGranted > 0 || advanceTotal > 0
+          ? formatCostDisplay(advanceOutstanding)
+          : '';
+    } else if (column.property === 'cumulative') {
+      sums[index] =
+        lastRow?.cumulative != null ? formatCostDisplay(lastRow.cumulative) : '';
     } else {
       sums[index] = '';
     }
@@ -5181,6 +5846,28 @@ const getSummaries = (param) => {
 
   return sums;
 };
+
+const getAdvanceSummaries = (param) => {
+  const { columns, data } = param
+  const sums = []
+  const total = data.reduce((sum, row) => sum + parseMoney(row.gross ?? row.amount), 0)
+
+  columns.forEach((column, index) => {
+    if (!column.property) {
+      sums[index] = ''
+      return
+    }
+    if (column.property === 'description') {
+      sums[index] = 'Total'
+    } else if (column.property === 'gross' || column.property === 'amount') {
+      sums[index] = formatCostDisplay(total)
+    } else {
+      sums[index] = ''
+    }
+  })
+
+  return sums
+}
 
 
 const changeLocation = async (location: any) => {
@@ -5970,7 +6657,7 @@ function formatLocation(item) {
 
       </el-tab-pane>
 
-      <el-tab-pane label="Clock-In/Out" name="clockin">
+      <el-tab-pane v-if="showClockInTab" label="Clock-In" name="clockin">
         <el-card>
           <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
             <el-date-picker
@@ -6038,11 +6725,6 @@ function formatLocation(item) {
                 {{ formatDateTime(scope.row.clock_in_time) }}
               </template>
             </el-table-column>
-            <el-table-column label="Clock Out Time" width="180">
-              <template #default="scope">
-                {{ formatDateTime(scope.row.clock_out_time) }}
-              </template>
-            </el-table-column>
             <el-table-column label="Status" width="120">
               <template #default="scope">
                 <el-tag v-if="scope.row.status === 'active'" type="success">Active</el-tag>
@@ -6052,7 +6734,7 @@ function formatLocation(item) {
             </el-table-column>
             <el-table-column label="Hours Worked" width="120">
               <template #default="scope">
-                {{ scope.row.total_hours ? scope.row.total_hours + ' hrs' : calculateHours(scope.row.clock_in_time, scope.row.clock_out_time) }}
+                {{ scope.row.total_hours ? scope.row.total_hours + ' hrs' : '—' }}
               </template>
             </el-table-column>
             <el-table-column label="Notes" min-width="200">
@@ -6130,23 +6812,49 @@ function formatLocation(item) {
           <div class="ipc-summary-compact">
             <div class="ipc-summary-compact__metrics">
               <span class="ipc-metric">
-                <em>Contract</em>
-                {{ ipcSummary.contract > 0 ? formatAmountDisplay(ipcSummary.contract) : '—' }}
+                <span class="ipc-metric__label">Contract</span>
+                <strong class="ipc-metric__value">
+                  {{ ipcSummary.contract > 0 ? formatCostDisplay(ipcSummary.contract) : '—' }}
+                </strong>
               </span>
               <span class="ipc-metric">
-                <em>Paid</em>
-                {{ formatAmountDisplay(ipcSummary.paidGross) }}
+                <span class="ipc-metric__label">Paid</span>
+                <strong class="ipc-metric__value">
+                  {{ formatCostDisplay(ipcSummary.paidGross) }}
+                </strong>
                 <small v-if="ipcSummary.pctPaid != null">({{ ipcSummary.pctPaid.toFixed(1) }}%)</small>
               </span>
-              <span class="ipc-metric">
-                <em>Balance</em>
-                {{ ipcSummary.balance != null ? formatAmountDisplay(Math.max(0, ipcSummary.balance)) : '—' }}
+              <span class="ipc-metric ipc-metric--balance">
+                <span class="ipc-metric__label">Total left</span>
+                <strong class="ipc-metric__value ipc-metric__value--balance">
+                  {{
+                    ipcSummary.balance != null
+                      ? formatCostDisplay(Math.max(0, ipcSummary.balance))
+                      : '—'
+                  }}
+                </strong>
               </span>
               <span v-if="showIpcAdvanceColumns" class="ipc-metric">
-                <em>Adv. out</em>
-                {{ formatAmountDisplay(ipcSummary.advanceOutstanding) }}
+                <span class="ipc-metric__label">Advance outstanding</span>
+                <strong class="ipc-metric__value">
+                  {{ formatCostDisplay(ipcSummary.advanceOutstanding) }}
+                </strong>
+              </span>
+              <span
+                v-if="showDisbursementLocationPanel && averageLocationProgress != null"
+                class="ipc-metric"
+              >
+                <span class="ipc-metric__label">Site progress</span>
+                <strong class="ipc-metric__value">{{ averageLocationProgress.toFixed(1) }}%</strong>
               </span>
             </div>
+            <el-progress
+              v-if="showDisbursementLocationPanel && averageLocationProgress != null"
+              :percentage="Math.min(100, Math.round(averageLocationProgress))"
+              :stroke-width="6"
+              :show-text="false"
+              class="ipc-summary-compact__bar ipc-summary-compact__bar--progress"
+            />
             <el-progress
               v-if="ipcSummary.contract > 0 && ipcSummary.pctPaid != null"
               :percentage="Math.min(100, Math.round(ipcSummary.pctPaid))"
@@ -6166,37 +6874,121 @@ function formatLocation(item) {
             title="Payments exceed contract sum."
           />
 
-          <div class="ipc-table-section">
-            <div v-if="canManageDisbursements" class="ipc-toolbar">
-              <el-button
-                plain
-                :size="isMobile ? 'large' : 'default'"
-                @click="AddDisbursement"
-              >
-                <Icon icon="material-symbols:add" style="color: green;" />
-                Add IPC disbursement
-              </el-button>
-              <el-button
-                plain
-                :size="isMobile ? 'large' : 'default'"
-                @click="AddAdvancePayment"
-              >
-                <Icon icon="material-symbols:payments-outline" style="color: var(--el-color-warning);" />
-                Record advance
-              </el-button>
-            </div>
+          <el-tabs v-model="ipcDisbursementSubTab" class="ipc-inner-tabs">
+            <el-tab-pane label="IPCs" name="ipcs">
+              <div class="ipc-table-section">
+                <div v-if="canManageDisbursements" class="ipc-toolbar">
+                  <el-button
+                    plain
+                    :size="isMobile ? 'large' : 'default'"
+                    @click="AddDisbursement"
+                  >
+                    <Icon icon="material-symbols:add" style="color: green;" />
+                    Add IPC disbursement
+                  </el-button>
+                </div>
 
-            <el-table
-            :data="disbursementLedger"
-            class="ipc-ledger-table"
-            style="width: 100%"
-            stripe
-            show-summary
-            :summary-method="getSummaries"
-          >
-            <el-table-column prop="certificate" label="IPC / Ref" min-width="108" show-overflow-tooltip>
+                <el-table
+                  :data="ipcLedgerRows"
+                  row-key="id"
+                  class="ipc-ledger-table"
+                  style="width: 100%"
+                  border
+                  stripe
+                  show-summary
+                  :summary-method="getSummaries"
+                >
+            <el-table-column type="expand" width="40">
               <template #default="{ row }">
-                <el-tooltip v-if="row.description" :content="row.description" placement="top">
+                <div class="ipc-nested-detail">
+                  <div
+                    v-if="ipcHasSiteProgress(row)"
+                    class="ipc-nested-progress ipc-nested-progress--expand"
+                  >
+                    <p class="ipc-nested-detail__heading">
+                      Site progress at this IPC
+                      <small v-if="ipcLocationSnapshotAverage(row) != null">
+                        · {{ ipcLocationSnapshotAverage(row)?.toFixed(1) }}% avg
+                        <template v-if="ipcPriorSnapshotAverage(row) != null">
+                          (+{{
+                            Math.max(
+                              0,
+                              (ipcLocationSnapshotAverage(row) || 0) - (ipcPriorSnapshotAverage(row) || 0),
+                            ).toFixed(1)
+                          }}%)
+                        </template>
+                      </small>
+                    </p>
+                    <div
+                      v-for="(loc, idx) in ipcLocationSnapshotRows(row)"
+                      :key="idx"
+                      class="ipc-nested-progress-site"
+                    >
+                      <div class="ipc-nested-progress-site__head">
+                        <span class="ipc-nested-progress-site__name">{{ loc.name || 'Site' }}</span>
+                        <strong class="ipc-nested-progress-site__pct">
+                          {{ loc.progress_pct != null ? `${Number(loc.progress_pct).toFixed(1)}%` : '—' }}
+                          <small
+                            v-if="
+                              loc.project_location_id != null
+                                && ipcPriorSiteProgress(row, Number(loc.project_location_id)) != null
+                                && loc.progress_pct != null
+                            "
+                            class="ipc-nested-progress-site__delta"
+                          >
+                            +{{
+                              Math.max(
+                                0,
+                                Number(loc.progress_pct)
+                                  - (ipcPriorSiteProgress(row, Number(loc.project_location_id)) || 0),
+                              ).toFixed(1)
+                            }}%
+                          </small>
+                        </strong>
+                      </div>
+                      <el-progress
+                        v-if="loc.progress_pct != null && Number.isFinite(Number(loc.progress_pct))"
+                        :percentage="Math.min(100, Math.max(0, Number(loc.progress_pct)))"
+                        :stroke-width="8"
+                        :show-text="false"
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="(disbursementDocumentsById[row.id] || []).length"
+                    class="ipc-nested-docs"
+                    :class="{ 'ipc-nested-docs--after-progress': ipcHasSiteProgress(row) }"
+                  >
+                    <p class="ipc-nested-detail__heading">Documents</p>
+                    <div
+                      v-for="doc in disbursementDocumentsById[row.id]"
+                      :key="doc.id"
+                      class="ipc-nested-doc-row"
+                    >
+                      <span class="ipc-nested-doc-row__name">{{ doc.name }}</span>
+                      <el-button type="primary" link size="small" @click="downloadFile(doc)">
+                        <Icon icon="material-symbols:download" />
+                        Download
+                      </el-button>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="
+                      !(disbursementDocumentsById[row.id] || []).length
+                        && !ipcHasSiteProgress(row)
+                    "
+                    class="ipc-nested-docs ipc-nested-docs--empty"
+                  >
+                    No documents or site progress recorded for this IPC
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="certificate" label="IPC / Ref" min-width="140" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-tooltip :disabled="!row.description" :content="row.description" placement="top">
                   <span class="ipc-ref-cell">
                     <el-tag
                       v-if="String(row.payment_type || 'ipc').toLowerCase() !== 'ipc'"
@@ -6206,20 +6998,25 @@ function formatLocation(item) {
                     >
                       {{ disbursementPaymentLabel(row.payment_type).slice(0, 3) }}
                     </el-tag>
-                    {{ row.certificate || '—' }}
+                    <span class="ipc-ref-cell__ref">{{ row.certificate || '—' }}</span>
+                    <el-tag
+                      size="small"
+                      :type="ipcStatusTagType(row.status)"
+                      effect="plain"
+                      class="ipc-ref-cell__status"
+                    >
+                      {{ row.status || 'submitted' }}
+                    </el-tag>
+                    <span
+                      v-if="(disbursementDocumentsById[row.id] || []).length"
+                      class="ipc-ref-cell__doc"
+                      :title="`${(disbursementDocumentsById[row.id] || []).length} attached document${(disbursementDocumentsById[row.id] || []).length === 1 ? '' : 's'}`"
+                      aria-label="Has attachments"
+                    >
+                      <Icon icon="material-symbols:attach-file" width="14" />
+                    </span>
                   </span>
                 </el-tooltip>
-                <span v-else class="ipc-ref-cell">
-                  <el-tag
-                    v-if="String(row.payment_type || 'ipc').toLowerCase() !== 'ipc'"
-                    size="small"
-                    effect="plain"
-                    class="ipc-ref-cell__type"
-                  >
-                    {{ disbursementPaymentLabel(row.payment_type).slice(0, 3) }}
-                  </el-tag>
-                  {{ row.certificate || '—' }}
-                </span>
               </template>
             </el-table-column>
             <el-table-column prop="disbursement_date" label="Date" min-width="112">
@@ -6227,83 +7024,94 @@ function formatLocation(item) {
                 {{ formatDateDisplay(row.disbursement_date) }}
               </template>
             </el-table-column>
-            <el-table-column prop="gross" label="Gross" align="right" min-width="120">
+            <el-table-column prop="gross" label="Gross (KES)" align="right" min-width="128">
               <template #default="{ row }">
-                {{ formatAmountDisplay(row.gross) }}
+                <div>{{ formatCostDisplay(row.gross) }}</div>
+                <div v-if="row.contractBalanceAfter != null" class="ipc-table-sub">
+                  Balance {{ formatCostDisplay(row.contractBalanceAfter) }}
+                </div>
               </template>
             </el-table-column>
             <el-table-column
               v-if="showIpcAdvanceColumns"
-              prop="advance_recovered"
-              label="Adv."
+              prop="advanceRecoveredThisRow"
+              label="Advance recovery"
               align="right"
-              min-width="120"
+              min-width="128"
             >
               <template #default="{ row }">
-                {{ parseMoney(row.advance_recovered) > 0 ? formatAmountDisplay(row.advance_recovered) : '—' }}
+                <template v-if="row.advanceRecoveredThisRow > 0 || row.advanceBalance > 0">
+                  <div>
+                    {{
+                      row.advanceRecoveredThisRow > 0
+                        ? formatCostDisplay(row.advanceRecoveredThisRow)
+                        : '—'
+                    }}
+                  </div>
+                  <div v-if="row.advanceBalance > 0" class="ipc-table-sub">
+                    Balance {{ formatCostDisplay(row.advanceBalance) }}
+                  </div>
+                </template>
+                <span v-else>—</span>
               </template>
             </el-table-column>
-            <el-table-column prop="cumulative" label="Cumulative" align="right" min-width="120">
+            <el-table-column prop="cumulative" label="Cumulative (KES)" align="right" min-width="120">
               <template #default="{ row }">
-                <div>{{ formatAmountDisplay(row.cumulative) }}</div>
+                <div>{{ formatCostDisplay(row.cumulative) }}</div>
                 <div v-if="row.pctOfContract != null" class="ipc-table-sub">
                   {{ row.pctOfContract.toFixed(1) }}%
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="status" label="Status" min-width="100" align="center">
+            <el-table-column
+              v-if="showDisbursementLocationPanel"
+              prop="physical_progress"
+              label="Progress"
+              min-width="108"
+              align="center"
+            >
               <template #default="{ row }">
-                <el-tag size="small" :type="ipcStatusTagType(row.status)" effect="plain">
-                  {{ row.status || 'submitted' }}
-                </el-tag>
+                <el-tooltip
+                  v-if="ipcLocationSnapshotProgressPct(row) != null"
+                  :content="
+                    ipcPriorSnapshotAverage(row) != null
+                      ? `+${Math.max(0, (ipcLocationSnapshotAverage(row) || 0) - (ipcPriorSnapshotAverage(row) || 0)).toFixed(1)}% since prior IPC — expand for sites`
+                      : 'Expand row for site breakdown'
+                  "
+                  placement="top"
+                >
+                  <div class="ipc-progress-cell">
+                    <span class="ipc-progress-cell__value">
+                      {{ ipcLocationSnapshotProgressPct(row)?.toFixed(1) }}%
+                    </span>
+                    <el-progress
+                      :percentage="ipcLocationSnapshotProgressPct(row) || 0"
+                      :stroke-width="5"
+                      :show-text="false"
+                      class="ipc-progress-cell__bar"
+                    />
+                    <small
+                      v-if="ipcLocationSnapshotRows(row).length > 1"
+                      class="ipc-progress-cell__sites"
+                    >
+                      {{ ipcLocationSnapshotRows(row).length }} sites
+                    </small>
+                  </div>
+                </el-tooltip>
+                <span v-else class="ipc-progress-cell__empty">—</span>
               </template>
             </el-table-column>
-            <el-table-column fixed="right" label="" width="96" align="center">
+            <el-table-column
+              fixed="right"
+              label=""
+              width="72"
+              align="center"
+              class-name="ipc-col-actions"
+            >
               <template #default="{ row }">
                 <div class="ipc-row-actions">
-                  <el-tooltip
-                    v-if="(disbursementDocumentsById[row.id] || []).length === 1"
-                    :content="disbursementDocumentsById[row.id][0].name"
-                    placement="top"
-                  >
-                    <el-button
-                      type="primary"
-                      link
-                      circle
-                      aria-label="Download IPC document"
-                      @click="downloadFile(disbursementDocumentsById[row.id][0])"
-                    >
-                      <Icon icon="material-symbols:attach-file" />
-                    </el-button>
-                  </el-tooltip>
-
                   <el-dropdown
-                    v-else-if="(disbursementDocumentsById[row.id] || []).length > 1"
-                    trigger="click"
-                    placement="bottom-end"
-                    @command="(cmd) => handleIpcLedgerAction(cmd, row)"
-                  >
-                    <el-button type="primary" link circle aria-label="IPC documents">
-                      <Icon icon="material-symbols:attach-file" />
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item
-                          v-for="doc in disbursementDocumentsById[row.id]"
-                          :key="doc.id"
-                          :command="`doc:${doc.id}`"
-                        >
-                          <Icon icon="material-symbols:download" class="ipc-dropdown-item-icon" />
-                          <span class="ipc-dropdown-item-label">
-                            {{ doc.type ? `${doc.type}: ` : '' }}{{ doc.name }}
-                          </span>
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-
-                  <el-dropdown
-                    v-if="canUserDeleteDisbursement(row)"
+                    v-if="canUserEditDisbursement(row) || canUserDeleteDisbursement(row)"
                     trigger="click"
                     placement="bottom-end"
                     @command="(cmd) => handleIpcLedgerAction(cmd, row)"
@@ -6311,7 +7119,11 @@ function formatLocation(item) {
                     <el-button type="primary" :icon="Setting" circle aria-label="Actions" />
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item command="delete">
+                        <el-dropdown-item v-if="canUserEditDisbursement(row)" command="edit">
+                          <el-icon><Edit /></el-icon>
+                          <span class="ipc-dropdown-item-label">Edit</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item v-if="canUserDeleteDisbursement(row)" command="delete">
                           <el-icon><Delete /></el-icon>
                           <span class="ipc-dropdown-item-label">Remove</span>
                         </el-dropdown-item>
@@ -6321,86 +7133,102 @@ function formatLocation(item) {
                 </div>
               </template>
             </el-table-column>
-          </el-table>
-          </div>
-
-          <div
-            v-if="showDisbursementLocationPanel"
-            class="ipc-collapsible"
-          >
-            <div
-              class="ipc-collapsible__head"
-              @click="collapsedSections.disbursementLocations = !collapsedSections.disbursementLocations"
-            >
-              <span>
-                Site progress
-                <small v-if="averageLocationProgress != null">· {{ averageLocationProgress.toFixed(1) }}% avg</small>
-              </span>
-              <Icon :icon="collapsedSections.disbursementLocations ? 'ep:arrow-down' : 'ep:arrow-up'" />
-            </div>
-            <ElCollapseTransition>
-              <div v-show="!collapsedSections.disbursementLocations" class="ipc-location-panel__body">
-                <div
-                  v-for="loc in locationProgressRows"
-                  :key="loc.id"
-                  class="ipc-location-row"
-                >
-                  <span class="ipc-location-row__name">{{ loc.name }}</span>
-                  <el-input-number
-                    :model-value="loc.progress ?? undefined"
-                    :min="0"
-                    :max="100"
-                    :precision="2"
-                    :controls="false"
-                    placeholder="%"
-                    size="small"
-                    class="ipc-location-row__input"
-                    @change="(val) => saveLocationProgress({
-                      id: loc.id,
-                      progress: val == null || val === '' ? null : Number(val),
-                    })"
-                  />
-                  <span class="ipc-location-row__suffix">%</span>
-                </div>
+                </el-table>
               </div>
-            </ElCollapseTransition>
-          </div>
+            </el-tab-pane>
 
-          <div v-if="allIpcDocuments.length" class="ipc-collapsible">
-            <div
-              class="ipc-collapsible__head"
-              @click="collapsedSections.ipcDocuments = !collapsedSections.ipcDocuments"
-            >
-              <span>IPC documents ({{ allIpcDocuments.length }})</span>
-              <Icon :icon="collapsedSections.ipcDocuments ? 'ep:arrow-down' : 'ep:arrow-up'" />
-            </div>
-            <ElCollapseTransition>
-              <el-table
-                v-show="!collapsedSections.ipcDocuments"
-                :data="allIpcDocuments"
-                size="small"
-                class="ipc-docs-table"
-              >
-                <el-table-column prop="type" label="Type" width="120" show-overflow-tooltip />
-                <el-table-column prop="name" label="File" min-width="140" show-overflow-tooltip />
-                <el-table-column label="IPC" width="88" show-overflow-tooltip>
-                  <template #default="{ row }">
-                    {{
-                      sortedProjectDisbursements.find((d) => d.id === row.disbursement_id)?.certificate
-                      || '—'
-                    }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="" width="44" align="center">
-                  <template #default="{ row }">
-                    <el-button type="primary" link size="small" @click="downloadFile(row)">
-                      <Icon icon="material-symbols:download" />
-                    </el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </ElCollapseTransition>
-          </div>
+            <el-tab-pane label="Advances" name="advances">
+              <div class="ipc-table-section">
+                <div v-if="canManageDisbursements" class="ipc-toolbar">
+                  <el-button
+                    plain
+                    :size="isMobile ? 'large' : 'default'"
+                    @click="AddAdvancePayment"
+                  >
+                    <Icon icon="material-symbols:add" style="color: var(--el-color-warning);" />
+                    Add Advance
+                  </el-button>
+                </div>
+
+                <el-table
+                  :data="advanceLedgerRows"
+                  row-key="id"
+                  class="ipc-ledger-table ipc-ledger-table--advances"
+                  style="width: 100%"
+                  border
+                  stripe
+                  show-summary
+                  :summary-method="getAdvanceSummaries"
+                >
+                  <el-table-column prop="disbursement_date" label="Date" min-width="112">
+                    <template #default="{ row }">
+                      {{ formatDateDisplay(row.disbursement_date) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="description" label="Description" min-width="160" show-overflow-tooltip>
+                    <template #default="{ row }">
+                      {{ row.description || 'Advance payment' }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="gross" label="Amount (KES)" align="right" min-width="120">
+                    <template #default="{ row }">
+                      {{ formatCostDisplay(row.gross) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="status" label="Status" min-width="100" align="center">
+                    <template #default="{ row }">
+                      <el-tag size="small" :type="ipcStatusTagType(row.status)" effect="plain">
+                        {{ row.status || 'submitted' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="" width="48" align="center">
+                    <template #default="{ row }">
+                      <span
+                        v-if="(disbursementDocumentsById[row.id] || []).length"
+                        class="ipc-ref-cell__doc"
+                        :title="`${(disbursementDocumentsById[row.id] || []).length} document(s)`"
+                      >
+                        <Icon icon="material-symbols:attach-file" width="14" />
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column
+                    fixed="right"
+                    label=""
+                    width="72"
+                    align="center"
+                    class-name="ipc-col-actions"
+                  >
+                    <template #default="{ row }">
+                      <div class="ipc-row-actions">
+                        <el-dropdown
+                          v-if="canUserEditDisbursement(row) || canUserDeleteDisbursement(row)"
+                          trigger="click"
+                          placement="bottom-end"
+                          @command="(cmd) => handleIpcLedgerAction(cmd, row)"
+                        >
+                          <el-button type="primary" :icon="Setting" circle aria-label="Actions" />
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item v-if="canUserEditDisbursement(row)" command="edit">
+                                <el-icon><Edit /></el-icon>
+                                <span class="ipc-dropdown-item-label">Edit</span>
+                              </el-dropdown-item>
+                              <el-dropdown-item v-if="canUserDeleteDisbursement(row)" command="delete">
+                                <el-icon><Delete /></el-icon>
+                                <span class="ipc-dropdown-item-label">Remove</span>
+                              </el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                      </div>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </el-card>
 
       </el-tab-pane>
@@ -6508,6 +7336,11 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
       <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
         <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
       </el-option-group>
+      <template v-if="canManageDocumentTypes" #footer>
+        <el-button text bg size="small" @click="onAddDocumentTypeOption">
+          Register new document type
+        </el-button>
+      </template>
     </el-select>
 
     <div class="dialog-upload">
@@ -6600,8 +7433,18 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
           @change="rememberTeamRole"
         />
         <p class="contractor-role-hint">
-          Shared across all users. Search the list or type a new role — it is saved when you add the team member.
+          Shared across all users. Search the list, type a new role, or register one below.
         </p>
+        <el-button
+          v-if="canManageProjectTeam"
+          text
+          bg
+          size="small"
+          style="margin-top: 8px;"
+          @click="onAddTeamRoleOption"
+        >
+          Register new role
+        </el-button>
       </el-form-item>
 
       <el-form-item label="Name" prop="name">
@@ -6652,18 +7495,20 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
       class="project-details-form"
     >
       <el-form-item label="Role" prop="role">
-        <el-select
+        <el-select-v2
           v-model="contractorForm.role"
+          :options="contractorRoleOptions.map((role) => ({ label: role, value: role }))"
           filterable
+          allow-create
+          default-first-option
           clearable
-          placeholder="Search role"
+          placeholder="Search or type a role"
           :size="isMobile ? 'large' : 'default'"
           style="width: 100%;"
-        >
-          <el-option v-for="role in contract_roles" :key="role" :label="role" :value="role" />
-        </el-select>
+          @change="rememberContractorRole"
+        />
         <p class="contractor-role-hint">
-          Includes main contractor, subcontractor, consultant, and other roles.
+          Includes main contractor, subcontractor, consultant, and other roles. Type to add a new one.
         </p>
       </el-form-item>
 
@@ -6757,6 +7602,114 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
         <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="createNewContractor">
           <Icon icon="ic:round-save" style="margin-right: 6px;" />
           Save
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+
+
+  <el-dialog
+    v-model="showAddNewDocumentType"
+    title="Register new document type"
+    :width="projectFormDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    destroy-on-close
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+  >
+    <el-form
+      :model="NewDocumentTypeForm"
+      label-width="auto"
+      style="max-width: 600px"
+      label-position="top"
+      ref="NewDocumentTypeRef"
+      :rules="newDocumentTypeRules"
+      class="project-details-form"
+    >
+      <el-form-item label="Category" prop="category_id">
+        <el-select
+          v-model="NewDocumentTypeForm.category_id"
+          filterable
+          placeholder="Select category group"
+          :size="isMobile ? 'large' : 'default'"
+          style="width: 100%;"
+          @change="handleNewDocumentTypeCategory"
+        >
+          <el-option
+            v-for="item in documentCategoryOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Document type" prop="type">
+        <el-input
+          v-model="NewDocumentTypeForm.type"
+          placeholder="e.g. Inception report, Bill of quantities"
+          :size="isMobile ? 'large' : 'default'"
+        />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="showAddNewDocumentType = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="createNewDocumentType">
+          <Icon icon="ic:round-save" style="margin-right: 6px;" />
+          Save
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+
+
+  <el-dialog
+    v-model="showAddNewTeamRole"
+    title="Register new team role"
+    :width="projectFormDialogWidth"
+    :draggable="!isMobile"
+    append-to-body
+    align-center
+    destroy-on-close
+    class="project-details-dialog"
+    :class="{ 'project-details-dialog--mobile': isMobile }"
+  >
+    <el-form
+      :model="newTeamRoleForm"
+      label-width="auto"
+      style="max-width: 600px"
+      label-position="top"
+      ref="NewTeamRoleRef"
+      :rules="newTeamRoleRules"
+      class="project-details-form"
+    >
+      <el-form-item label="Role" prop="role">
+        <el-input
+          v-model="newTeamRoleForm.role"
+          placeholder="e.g. Project Manager, M&amp;E Officer"
+          :size="isMobile ? 'large' : 'default'"
+        />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div
+        class="project-details-dialog-footer"
+        :class="{ 'project-details-dialog-footer--mobile': isMobile }"
+      >
+        <el-button :size="isMobile ? 'large' : 'default'" @click="showAddNewTeamRole = false">Cancel</el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" type="primary" @click="createNewTeamRole">
+          <Icon icon="ic:round-save" style="margin-right: 6px;" />
+          Use role
         </el-button>
       </div>
     </template>
@@ -7005,37 +7958,81 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
     v-model="AddDisbursementTeamDialog"
     direction="rtl"
     :size="isMobile ? '100%' : '45%'"
-    :with-header="false"
+    :show-close="false"
+    :close-on-click-modal="false"
     :before-close="handleIpcDrawerClose"
     class="ipc-drawer"
     destroy-on-close
   >
-    <div class="ipc-drawer-header">
-      <div class="ipc-drawer-header__content">
-        <div class="ipc-drawer-header__icon">
-          <el-icon :size="isMobile ? 20 : 24"><Plus /></el-icon>
+    <template #header>
+      <div class="ipc-drawer-header">
+        <div class="ipc-drawer-header__content">
+          <div class="ipc-drawer-header__icon">
+            <el-icon :size="isMobile ? 20 : 24">
+              <Edit v-if="isEditingIpc" />
+              <Plus v-else />
+            </el-icon>
+          </div>
+          <div>
+            <h3>{{ ipcDrawerTitle }}</h3>
+            <p v-if="!isMobile">{{ ipcDrawerSubtitle }}</p>
+          </div>
         </div>
-        <div>
-          <h3>Add IPC disbursement</h3>
-          <p v-if="!isMobile">Record payment, site progress, and IPC documents</p>
-        </div>
+        <el-button type="danger" size="small" @click="handleIpcDrawerClose">
+          <Icon icon="material-symbols:close" class="el-icon--left" />
+          Close
+        </el-button>
       </div>
-      <el-button type="text" class="ipc-drawer-header__close" @click="handleIpcDrawerClose">
-        <el-icon :size="isMobile ? 18 : 20"><Close /></el-icon>
-      </el-button>
-    </div>
+    </template>
 
     <div class="ipc-drawer-body">
-      <div class="ipc-step-nums" role="navigation" aria-label="IPC form steps">
-        <span
-          v-for="n in IPC_DRAWER_LAST_STEP + 1"
-          :key="n"
-          class="ipc-step-num"
-          :class="{
-            'ipc-step-num--active': ipcDrawerStep === n - 1,
-            'ipc-step-num--done': ipcDrawerStep > n - 1,
-          }"
-        >{{ n }}</span>
+      <div class="ipc-steps-wrapper">
+        <el-steps
+          :active="ipcDrawerStep"
+          finish-status="success"
+          align-center
+          class="ipc-form-steps"
+        >
+          <el-step
+            v-for="(step, index) in activeIpcDrawerSteps"
+            :key="index"
+            :title="isMobile ? `Step ${index + 1}` : step.title"
+            :description="isMobile ? '' : step.description"
+            @click="handleIpcStepClick(index)"
+          />
+        </el-steps>
+      </div>
+      <el-divider class="ipc-steps-divider" />
+
+      <div class="ipc-button-container">
+        <div class="ipc-button-container-actions">
+          <el-button
+            v-if="ipcDrawerStep > 0"
+            type="primary"
+            :icon="ArrowLeft"
+            @click="ipcPrevStep"
+          >
+            Previous
+          </el-button>
+          <el-button
+            v-if="showIpcNextButton"
+            type="primary"
+            class="step-btn-next"
+            :icon="ArrowRight"
+            @click="ipcNextStep"
+          >
+            Next
+          </el-button>
+          <el-button
+            v-if="showIpcSubmitButton"
+            type="success"
+            :icon="Check"
+            :loading="ipcSaving"
+            @click="updateDisbursement"
+          >
+            {{ ipcSubmitLabel }}
+          </el-button>
+        </div>
       </div>
 
       <el-form
@@ -7045,19 +8042,76 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
         :rules="disbursementRules"
         class="ipc-drawer-form"
       >
-        <!-- Step 0: Type & reference -->
+        <!-- Step 0: Payment -->
         <div v-if="ipcDrawerStep === 0" class="ipc-form-step">
+          <!-- Advance: one-off early payment -->
+          <template v-if="isAdvanceDrawer">
+            <p class="contractor-role-hint contractor-role-hint--compact ipc-step-intro">
+              Early advance payment before IPCs. No site progress is recorded here — recover this advance on later IPCs.
+            </p>
+            <el-row :gutter="10">
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="Payment date" prop="disbursement_date">
+                  <el-date-picker
+                    v-model="DisbursementForm.disbursement_date"
+                    :disabled-date="disabledFutureDates"
+                    style="width: 100%;"
+                    size="default"
+                  />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="Advance amount (KSh)" prop="amount">
+                  <el-input
+                    :model-value="disbursementAmountInput"
+                    inputmode="decimal"
+                    placeholder="0"
+                    style="width: 100%;"
+                    size="default"
+                    @update:model-value="(v) => handleDisbursementMoneyInput(v, 'amount')"
+                  />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="Description" prop="description">
+              <el-input
+                v-model="DisbursementForm.description"
+                type="textarea"
+                :rows="2"
+                placeholder="Reason for advance (e.g. mobilisation)"
+                style="width: 100%;"
+                size="default"
+              />
+            </el-form-item>
+            <el-form-item label="Status" prop="status">
+              <el-select v-model="DisbursementForm.status" style="width: 100%;" size="default">
+                <el-option v-for="opt in IPC_STATUSES" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Supporting document (optional)">
+              <el-upload
+                v-model:file-list="ipcFileList"
+                :auto-upload="false"
+                :on-change="handleIpcFileChange"
+                :limit="1"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              >
+                <el-button type="primary" :icon="UploadFilled" size="small">
+                  {{ isEditingIpc && ipcEditingDocuments.length ? 'Replace file' : 'Select file' }}
+                </el-button>
+              </el-upload>
+            </el-form-item>
+          </template>
+
+          <!-- IPC: payment with optional advance recovery -->
+          <template v-else>
           <el-form-item label="Payment type" prop="payment_type">
-            <el-select v-model="DisbursementForm.payment_type" style="width: 100%;" :size="isMobile ? 'large' : 'default'">
-              <el-option v-for="opt in PAYMENT_TYPES" :key="opt.value" :label="opt.label" :value="opt.value" />
+            <el-select v-model="DisbursementForm.payment_type" style="width: 100%;" size="default">
+              <el-option v-for="opt in IPC_PAYMENT_TYPES" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
           </el-form-item>
 
-          <el-form-item
-            v-if="DisbursementForm.payment_type !== 'advance'"
-            label="IPC / Reference"
-            prop="certificate"
-          >
+          <el-form-item label="IPC / Reference" prop="certificate">
             <el-select-v2
               v-model="DisbursementForm.certificate"
               :options="ipcOptions.map((ipc) => ({ label: ipc, value: ipc }))"
@@ -7066,183 +8120,158 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
               default-first-option
               clearable
               placeholder="Search or enter IPC number"
-              :size="isMobile ? 'large' : 'default'"
+              size="default"
               style="width: 100%;"
             />
           </el-form-item>
-        </div>
 
-        <!-- Step 1: Date & amount -->
-        <div v-if="ipcDrawerStep === 1" class="ipc-form-step">
-          <el-form-item label="Payment date" prop="disbursement_date">
-            <el-date-picker
-              v-model="DisbursementForm.disbursement_date"
-              :disabled-date="disabledFutureDates"
-              style="width: 100%;"
-              :size="isMobile ? 'large' : 'default'"
-            />
-          </el-form-item>
+          <el-row :gutter="10">
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="Payment date" prop="disbursement_date">
+                <el-date-picker
+                  v-model="DisbursementForm.disbursement_date"
+                  :disabled-date="disabledFutureDates"
+                  style="width: 100%;"
+                  size="default"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12">
+              <el-form-item label="Gross amount (KSh)" prop="amount">
+                <el-input
+                  :model-value="disbursementAmountInput"
+                  inputmode="decimal"
+                  placeholder="0"
+                  style="width: 100%;"
+                  size="default"
+                  @update:model-value="(v) => handleDisbursementMoneyInput(v, 'amount')"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-          <el-form-item label="Gross amount (KSh)" prop="amount">
-            <el-input
-              :model-value="disbursementAmountInput"
-              inputmode="decimal"
-              placeholder="0"
-              style="width: 100%;"
-              :size="isMobile ? 'large' : 'default'"
-              @update:model-value="(v) => handleDisbursementMoneyInput(v, 'amount')"
-            />
-          </el-form-item>
-        </div>
-
-        <!-- Step 2: Advance & status -->
-        <div v-if="ipcDrawerStep === 2" class="ipc-form-step">
           <el-form-item
             v-if="showAdvanceRecoveryField"
-            label="Advance recovered this certificate (KSh)"
+            label="Advance recovery on this IPC (KSh)"
           >
             <el-input
               :model-value="disbursementAdvanceRecoveredInput"
               inputmode="decimal"
               placeholder="0"
               style="width: 100%;"
-              :size="isMobile ? 'large' : 'default'"
+              size="default"
               @update:model-value="(v) => handleDisbursementMoneyInput(v, 'advance_recovered')"
             />
-            <p class="contractor-role-hint">
-              Advance outstanding before this IPC: {{ formatAmountDisplay(ipcSummary.advanceOutstanding) }}
+            <p class="contractor-role-hint contractor-role-hint--compact">
+              Deducts from advance paid early. Outstanding before this IPC: {{ formatCostDisplay(ipcAdvanceOutstandingForForm) }}
             </p>
           </el-form-item>
 
-          <el-empty
-            v-else-if="DisbursementForm.payment_type === 'advance'"
-            description="Advance payments do not recover prior advance — continue to the next step."
-            :image-size="64"
-          />
-
-          <p
-            v-else-if="ipcSummary.advanceGranted <= 0"
-            class="contractor-role-hint ipc-step-intro"
-          >
-            No advance has been recorded on this project — recovery is not applicable.
-          </p>
-
-          <p
-            v-else-if="ipcSummary.advanceOutstanding <= 0"
-            class="contractor-role-hint ipc-step-intro"
-          >
-            Advance has been fully recovered — leave recovery blank on this certificate.
-          </p>
-
           <el-form-item label="Status" prop="status">
-            <el-select v-model="DisbursementForm.status" style="width: 100%;" :size="isMobile ? 'large' : 'default'">
+            <el-select v-model="DisbursementForm.status" style="width: 100%;" size="default">
               <el-option v-for="opt in IPC_STATUSES" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
           </el-form-item>
+          </template>
         </div>
 
-        <!-- Step 3: Description -->
-        <div v-if="ipcDrawerStep === 3" class="ipc-form-step">
+        <!-- Step 1: IPC details (progress & document) -->
+        <div v-if="ipcDrawerStep === 1 && !isAdvanceDrawer" class="ipc-form-step">
           <el-form-item label="Description" prop="description">
             <el-input
               v-model="DisbursementForm.description"
               type="textarea"
-              :rows="isMobile ? 5 : 6"
-              placeholder="Payment period or works covered by this certificate"
+              :rows="2"
+              placeholder="Payment period or works covered"
               style="width: 100%;"
-              :size="isMobile ? 'large' : 'default'"
+              size="default"
             />
           </el-form-item>
-        </div>
 
-        <!-- Step 4: Site progress -->
-        <div v-if="ipcDrawerStep === 4" class="ipc-form-step">
-          <template v-if="showDisbursementLocationPanel">
-            <p class="contractor-role-hint ipc-step-intro">
-              Current site progress will be saved as a snapshot with this IPC record.
+          <div v-if="showDisbursementLocationPanel" class="ipc-dialog-locations ipc-dialog-locations--inline">
+            <p class="contractor-role-hint contractor-role-hint--compact ipc-step-intro">
+              Site progress (cumulative)
+              <template v-if="ipcLocationProgressAverage != null">
+                · {{ ipcLocationProgressAverage.toFixed(1) }}% avg
+              </template>
+              · {{ ipcLocationProgress.length }} site{{ ipcLocationProgress.length === 1 ? '' : 's' }}
             </p>
-            <div class="ipc-dialog-locations">
-              <div v-for="loc in locationProgressRows" :key="loc.id" class="ipc-dialog-location">
-                <span>{{ loc.name }}</span>
-                <strong>{{ loc.progress != null ? `${loc.progress}%` : '—' }}</strong>
+            <div class="ipc-dialog-locations__scroll">
+              <div
+                v-for="loc in ipcLocationProgress"
+                :key="loc.id"
+                class="ipc-location-row ipc-location-row--compact"
+              >
+                <span class="ipc-location-row__name" :title="loc.name">{{ loc.name }}</span>
+                <el-tooltip
+                  :disabled="ipcLocationProgressFloor(loc.id) <= 0"
+                  :content="`Min ${ipcLocationProgressFloor(loc.id).toFixed(1)}% from earlier IPC`"
+                  placement="top"
+                >
+                  <el-input-number
+                    :model-value="loc.progress ?? undefined"
+                    :min="ipcLocationProgressFloor(loc.id)"
+                    :max="ipcLocationProgressCeiling(loc.id)"
+                    :precision="2"
+                    :controls="false"
+                    placeholder="%"
+                    size="small"
+                    class="ipc-location-row__input"
+                    @change="(val) => setIpcLocationProgress(
+                      loc.id,
+                      val == null || val === '' ? null : Number(val),
+                    )"
+                  />
+                </el-tooltip>
+                <span class="ipc-location-row__suffix">%</span>
               </div>
-              <p v-if="averageLocationProgress != null" class="contractor-role-hint">
-                Average {{ averageLocationProgress.toFixed(1) }}%
-              </p>
             </div>
-          </template>
-          <el-empty
-            v-else
-            description="No project locations — site progress snapshot will not be recorded."
-            :image-size="80"
-          />
-        </div>
+          </div>
 
-        <!-- Step 5: IPC documents -->
-        <div v-if="ipcDrawerStep === 5" class="ipc-form-step">
-          <p class="contractor-role-hint ipc-step-intro">
-            Upload consent memo, IPC certificate, or supporting files.
-          </p>
-
-          <el-form-item label="Default document type">
-            <el-select v-model="ipcDefaultDocType" style="width: 100%;" :size="isMobile ? 'large' : 'default'">
-              <el-option v-for="t in IPC_DOC_TYPES" :key="t" :label="t" :value="t" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="IPC documents">
+          <el-form-item label="Supporting document">
             <el-upload
               v-model:file-list="ipcFileList"
               :auto-upload="false"
               :on-change="handleIpcFileChange"
-              :limit="10"
+              :limit="1"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              drag
-              multiple
             >
-              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-              <div class="el-upload__text">Drop files here or <em>click to upload</em></div>
-              <template #tip>
-                <div class="el-upload__tip">PDF, Word, or images up to 100MB each</div>
-              </template>
+              <el-button type="primary" :icon="UploadFilled" size="small">
+                {{ isEditingIpc && ipcEditingDocuments.length ? 'Replace file' : 'Select file' }}
+              </el-button>
             </el-upload>
+            <p
+              v-if="isEditingIpc && ipcEditingDocuments.length && !ipcFileList.length"
+              class="contractor-role-hint contractor-role-hint--compact"
+            >
+              Current: {{ ipcEditingDocuments[0]?.name }}
+            </p>
           </el-form-item>
-
-          <div v-if="ipcFileList.length" class="ipc-file-types">
-            <div v-for="file in ipcFileList" :key="file.uid" class="ipc-file-type-row">
-              <span class="ipc-file-type-row__name">{{ file.name }}</span>
-              <el-select
-                v-model="file.docType"
-                placeholder="Type"
-                :size="isMobile ? 'default' : 'small'"
-                style="width: 180px;"
-              >
-                <el-option v-for="t in IPC_DOC_TYPES" :key="t" :label="t" :value="t" />
-              </el-select>
-            </div>
-          </div>
         </div>
 
-        <!-- Step 6: Review -->
-        <div v-if="ipcDrawerStep === 6" class="ipc-form-step">
+        <!-- Review -->
+        <div v-if="ipcDrawerStep === ipcDrawerLastStep" class="ipc-form-step">
           <el-descriptions :column="1" border size="small" class="ipc-review">
-            <el-descriptions-item label="Payment type">
+            <el-descriptions-item v-if="!isAdvanceDrawer" label="Payment type">
               {{ disbursementPaymentLabel(DisbursementForm.payment_type) }}
             </el-descriptions-item>
-            <el-descriptions-item v-if="DisbursementForm.payment_type !== 'advance'" label="IPC / Ref">
+            <el-descriptions-item v-if="isAdvanceDrawer" label="Payment">
+              Advance (early payment)
+            </el-descriptions-item>
+            <el-descriptions-item v-if="!isAdvanceDrawer" label="IPC / Ref">
               {{ DisbursementForm.certificate || '—' }}
             </el-descriptions-item>
             <el-descriptions-item label="Date">
               {{ formatDateDisplay(DisbursementForm.disbursement_date) }}
             </el-descriptions-item>
-            <el-descriptions-item label="Gross amount">
+            <el-descriptions-item :label="isAdvanceDrawer ? 'Advance amount' : 'Gross amount'">
               {{ formatAmountDisplay(DisbursementForm.amount) }}
             </el-descriptions-item>
             <el-descriptions-item
-              v-if="DisbursementForm.payment_type !== 'advance'"
-              label="Advance recovered"
+              v-if="!isAdvanceDrawer && parseMoney(DisbursementForm.advance_recovered) > 0"
+              label="Advance recovery"
             >
-              {{ formatAmountDisplay(DisbursementForm.advance_recovered) || '—' }}
+              {{ formatAmountDisplay(DisbursementForm.advance_recovered) }}
             </el-descriptions-item>
             <el-descriptions-item label="Status">
               {{ DisbursementForm.status }}
@@ -7250,59 +8279,25 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
             <el-descriptions-item label="Description">
               {{ DisbursementForm.description || '—' }}
             </el-descriptions-item>
-            <el-descriptions-item v-if="showDisbursementLocationPanel" label="Site progress">
+            <el-descriptions-item v-if="!isAdvanceDrawer && showDisbursementLocationPanel" label="Site progress">
               {{
-                averageLocationProgress != null
-                  ? `${averageLocationProgress.toFixed(1)}% average across ${locationProgressRows.length} site(s)`
+                ipcLocationProgressAverage != null
+                  ? `${ipcLocationProgressAverage.toFixed(1)}% average across ${ipcLocationProgress.length} site(s)`
                   : '—'
               }}
             </el-descriptions-item>
-            <el-descriptions-item label="Documents">
-              {{ ipcFileList.length ? `${ipcFileList.length} file(s)` : 'None attached' }}
+            <el-descriptions-item label="Document">
+              {{
+                ipcFileList.length
+                  ? (ipcFileList[0]?.name || 'New file attached')
+                  : ipcEditingDocuments.length
+                    ? ipcEditingDocuments[0]?.name
+                    : 'None attached'
+              }}
             </el-descriptions-item>
           </el-descriptions>
         </div>
       </el-form>
-
-      <div class="ipc-drawer-footer" :class="{ 'ipc-drawer-footer--mobile': isMobile }">
-        <el-button
-          v-if="ipcDrawerStep === 0"
-          :size="isMobile ? 'default' : 'default'"
-          @click="resetIpcDrawer"
-        >
-          Clear
-        </el-button>
-        <el-button
-          v-if="ipcDrawerStep > 0"
-          :size="isMobile ? 'default' : 'default'"
-          :icon="ArrowLeft"
-          @click="ipcPrevStep"
-        >
-          Previous
-        </el-button>
-        <el-button
-          v-if="ipcDrawerStep < IPC_DRAWER_LAST_STEP"
-          class="step-btn-next"
-          type="primary"
-          :size="isMobile ? 'default' : 'default'"
-          :icon="ArrowRight"
-          @click="ipcNextStep"
-        >
-          Next
-        </el-button>
-        <el-button
-          v-if="ipcDrawerStep === IPC_DRAWER_LAST_STEP"
-          type="primary"
-          :loading="ipcSaving"
-          :size="isMobile ? 'default' : 'default'"
-          @click="updateDisbursement"
-        >
-          Submit IPC
-        </el-button>
-        <el-button :size="isMobile ? 'default' : 'default'" @click="handleIpcDrawerClose">
-          Cancel
-        </el-button>
-      </div>
     </div>
   </el-drawer>
 
@@ -7684,18 +8679,52 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 }
 
 .ipc-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
 }
 
-.ipc-metric em {
-  font-style: normal;
-  font-weight: 500;
+.ipc-metric__label {
   font-size: 11px;
+  font-weight: 500;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
   color: var(--el-text-color-secondary);
-  margin-right: 4px;
+}
+
+.ipc-metric__value {
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  letter-spacing: -0.01em;
+}
+
+.ipc-metric__value--balance {
+  color: var(--el-color-primary);
+}
+
+.ipc-metric--balance {
+  padding: 2px 8px;
+  margin: -2px -8px;
+  border-radius: 4px;
+  background: var(--el-color-primary-light-9);
+}
+
+.ipc-ledger-table :deep(.el-table__body .el-table__cell.is-right .cell) {
+  font-variant-numeric: tabular-nums;
+}
+
+.ipc-ledger-table :deep(.el-table__footer-wrapper .cell:not(:empty)) {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-primary);
+}
+
+.ipc-ledger-table :deep(.el-table__footer-wrapper td.el-table__cell) {
+  background: var(--el-fill-color-light);
+  border-top: 2px solid var(--el-border-color);
 }
 
 .ipc-metric small {
@@ -7706,6 +8735,18 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 .ipc-summary-compact__bar {
   margin: 0;
+}
+
+.ipc-summary-compact__bar--progress {
+  margin-top: 4px;
+}
+
+.ipc-summary-compact__bar--progress :deep(.el-progress-bar__outer) {
+  background-color: var(--el-color-success-light-7);
+}
+
+.ipc-summary-compact__bar--progress :deep(.el-progress-bar__inner) {
+  background-color: var(--el-color-success);
 }
 
 .ipc-summary-alert--compact {
@@ -7719,6 +8760,10 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   gap: 6px;
   width: 100%;
   min-width: 0;
+}
+
+.ipc-inner-tabs :deep(.el-tabs__header) {
+  margin-bottom: 8px;
 }
 
 .ipc-toolbar {
@@ -7766,14 +8811,187 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 .ipc-ref-cell {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   max-width: 100%;
+}
+
+.ipc-ref-cell__ref {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ipc-ref-cell__type {
   flex-shrink: 0;
   padding: 0 4px;
   height: 18px;
+}
+
+.ipc-ref-cell__status {
+  flex-shrink: 0;
+  padding: 0 5px;
+  height: 18px;
+  text-transform: capitalize;
+}
+
+.ipc-ref-cell__doc {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--el-color-info);
+  line-height: 1;
+  cursor: default;
+}
+
+.ipc-nested-detail {
+  padding: 4px 12px 10px 48px;
+}
+
+.ipc-nested-detail__heading {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ipc-nested-detail__heading small {
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.ipc-nested-docs {
+  padding: 0;
+}
+
+.ipc-nested-progress {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.ipc-nested-progress--expand {
+  margin-bottom: 4px;
+}
+
+.ipc-nested-docs--after-progress {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-nested-progress-site {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-nested-progress-site:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ipc-nested-progress-site__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ipc-nested-progress-site__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ipc-nested-progress-site__pct {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-color-success);
+}
+
+.ipc-progress-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 72px;
+  padding: 2px 0;
+}
+
+.ipc-progress-cell__value {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--el-text-color-primary);
+}
+
+.ipc-progress-cell__bar {
+  width: 100%;
+}
+
+.ipc-progress-cell__sites {
+  font-size: 10px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.2;
+}
+
+.ipc-progress-cell__empty {
+  color: var(--el-text-color-placeholder);
+}
+
+.ipc-nested-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.ipc-nested-docs--empty {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-style: italic;
+}
+
+.ipc-nested-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-nested-doc-row:last-child {
+  border-bottom: none;
+}
+
+.ipc-nested-doc-row__type {
+  flex-shrink: 0;
+  width: 140px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.ipc-nested-doc-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ipc-collapsible {
@@ -7813,6 +9031,15 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   align-items: center;
   justify-content: center;
   gap: 4px;
+  min-width: 40px;
+}
+
+.ipc-ledger-table :deep(.ipc-col-actions .cell) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .ipc-dropdown-item-icon {
@@ -7873,6 +9100,18 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   gap: 6px;
 }
 
+.ipc-dialog-locations--inline {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-blank);
+}
+
+.ipc-dialog-locations--inline .ipc-step-intro {
+  margin-bottom: 8px;
+}
+
 .ipc-dialog-location {
   display: flex;
   justify-content: space-between;
@@ -7893,6 +9132,24 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.ipc-drawer-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ipc-drawer-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.ipc-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
   padding: 16px 20px;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
@@ -7915,73 +9172,190 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
   flex-shrink: 0;
 }
 
-.ipc-drawer-header h3 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.ipc-drawer-header p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-}
-
 .ipc-drawer-body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px 20px;
+  padding: 10px 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.ipc-step-nums {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
 }
 
-.ipc-step-num {
-  display: inline-flex;
+.ipc-steps-wrapper {
+  margin-bottom: 0;
+}
+
+.ipc-steps-divider {
+  margin: 6px 0 0;
+}
+
+.ipc-form-steps {
+  width: 100%;
+}
+
+.ipc-form-steps :deep(.el-step__title) {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.ipc-form-steps :deep(.el-step__description) {
+  font-size: 11px;
+  line-height: 1.3;
+  padding-right: 4px;
+}
+
+.ipc-form-steps :deep(.el-step__head) {
+  cursor: pointer;
+}
+
+.ipc-form-steps :deep(.el-step.is-wait .el-step__head) {
+  cursor: default;
+}
+
+.ipc-button-container {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  flex-shrink: 0;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 4px 0 6px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.ipc-step-num--active {
-  color: #fff;
-  background: var(--el-color-primary);
-  border-color: var(--el-color-primary);
-}
-
-.ipc-step-num--done {
-  color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary-light-5);
+.ipc-button-container-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
 }
 
 .ipc-drawer-form {
   flex: 1;
 }
 
+.ipc-drawer-form :deep(.el-form-item) {
+  margin-bottom: 8px;
+}
+
+.ipc-drawer-form :deep(.el-form-item__label) {
+  margin-bottom: 2px;
+  padding-bottom: 0;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
 .ipc-form-step {
-  padding-top: 4px;
+  padding-top: 0;
 }
 
 .ipc-step-intro {
-  margin: 0 0 12px;
+  margin: 0 0 4px;
+}
+
+.contractor-role-hint--compact {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.ipc-dialog-locations--inline {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+}
+
+.ipc-dialog-locations--inline .ipc-step-intro {
+  margin-bottom: 4px;
+}
+
+.ipc-dialog-locations__scroll {
+  max-height: min(200px, 36vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.ipc-dialog-locations__scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ipc-dialog-locations__scroll::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--el-border-color);
+}
+
+.ipc-location-row {
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.ipc-location-row--compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  min-height: 28px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-location-row--compact:last-child {
+  border-bottom: none;
+}
+
+.ipc-location-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+
+.ipc-location-row--stacked:last-child {
+  border-bottom: none;
+}
+
+.ipc-location-row__main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ipc-location-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.ipc-location-row__input {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.ipc-location-row__hint {
+  margin: 0 0 0 2px;
+}
+
+.ipc-nested-progress-site__delta {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--el-color-success);
+}
+
+.ipc-nested-doc-row {
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ipc-nested-doc-row__type {
+  display: none;
 }
 
 .ipc-file-types {
@@ -8011,22 +9385,6 @@ class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'succ
 
 .ipc-review {
   width: 100%;
-}
-
-.ipc-drawer-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--el-border-color-lighter);
-  margin-top: auto;
-}
-
-.ipc-drawer-footer--mobile {
-  position: sticky;
-  bottom: 0;
-  background: var(--el-bg-color);
-  padding-bottom: 4px;
 }
 
 .location-add-dialog-body {
