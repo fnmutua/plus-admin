@@ -133,21 +133,18 @@ exports.modelAllUsers = async (req, res) => {
       offset: (page - 1) * limit,
       order: [['id', 'DESC']],
       distinct: true,
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
+      attributes: { exclude: ['photo', 'password', 'resetPasswordExpires', 'resetPasswordToken'] },
     };
 
     const { count, rows: users } = await db.models[reg_model].findAndCountAll(findAndCountOptions);
 
-    const usersWithCountry = users.map((row) => ({
+    const usersForPage = users.map((row) => ({
       ...row.toJSON(),
-      photo: row.photo
-        ? `data:image/png;base64,${row.photo.toString('base64')}`
-        : row.avatar || '',
       country_name: row.country_name || 'Not specified',
     }));
 
     res.status(200).send({
-      data: usersWithCountry,
+      data: usersForPage,
       total: count,
       code: '0000',
       message: 'Users retrieved successfully',
@@ -337,22 +334,19 @@ exports.modelCountyUsers = async (req, res) => {
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']],
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
+      attributes: { exclude: ['photo', 'password', 'resetPasswordExpires', 'resetPasswordToken'] },
       distinct: true,
     };
 
     const { count, rows: users } = await db.models.users.findAndCountAll(findAndCountOptions);
 
-    const usersWithPhotos = users.map((user) => ({
+    const usersForPage = users.map((user) => ({
       ...user.toJSON(),
-      photo: user.photo
-        ? `data:image/png;base64,${user.photo.toString('base64')}`
-        : '',
       country_name: user.country_name || 'KE',
     }));
 
     res.status(200).send({
-      data: usersWithPhotos,
+      data: usersForPage,
       total: count,
       code: '0000',
       message: 'County Users retrieved successfully',
@@ -367,7 +361,21 @@ exports.modelCountyUsers = async (req, res) => {
 
 exports.modelGRMUsers = async (req, res) => {
   try {
-    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1, searchString, searchField = 'name' } = req.body;
+    const {
+      currentUser,
+      filters = [],
+      filterValues = [],
+      limit = 10,
+      page = 1,
+      searchString,
+      locationLevel,
+    } = req.body;
+    const validLocationLevels = ['national', 'county', 'settlement'];
+    const requestedLocationLevel = validLocationLevels.includes(locationLevel) ? locationLevel : null;
+    const parsedLimit = Number.parseInt(limit, 10);
+    const parsedPage = Number.parseInt(page, 10);
+    const safeLimit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 10;
+    const safePage = Number.isFinite(parsedPage) ? Math.max(parsedPage, 1) : 1;
 
     console.log('=== modelGRMUsers called ===');
     console.log('Request params:', { 
@@ -436,13 +444,30 @@ exports.modelGRMUsers = async (req, res) => {
 
     console.log('Where clause:', JSON.stringify(whereClause, null, 2));
 
-    // Query users with GRM role
+    const grmRoleWhere = { roleid: grmRole.id };
+    if (requestedLocationLevel) grmRoleWhere.location_level = requestedLocationLevel;
+
+    const requesterRoles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+    const requesterHasNationalAccess = requesterRoles.some((role) =>
+      ['super_admin', 'root_admin'].includes(role.name) ||
+      (role.name === 'admin' && role.user_roles?.location_level === 'national')
+    );
+    const requesterCountyRole = requesterRoles.find((role) =>
+      ['admin', 'staff'].includes(role.name) &&
+      role.user_roles?.location_level === 'county' &&
+      role.user_roles?.county_id
+    );
+    if (!requesterHasNationalAccess && requesterCountyRole?.user_roles?.county_id) {
+      grmRoleWhere.county_id = requesterCountyRole.user_roles.county_id;
+    }
+
+    // Query only the active location-level tab and requested page.
     const { count, rows: grmUsers } = await Users.findAndCountAll({
       include: [
         {
           model: db.models.user_roles,
           required: true,
-          where: { roleid: grmRole.id },
+          where: grmRoleWhere,
           include: [
             {
               model: db.models.roles,
@@ -457,10 +482,11 @@ exports.modelGRMUsers = async (req, res) => {
         }
       ],
       where: whereClause,
-      limit,
-      offset: (page - 1) * limit,
+      limit: safeLimit,
+      offset: (safePage - 1) * safeLimit,
       order: [['id', 'DESC']],
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+      distinct: true,
+      attributes: { exclude: ['photo', 'password', 'resetPasswordExpires', 'resetPasswordToken'] }
     });
 
     // Log sample user roles to see what's being returned
@@ -502,146 +528,22 @@ exports.modelGRMUsers = async (req, res) => {
       })));
     }
 
-    // Get total counts for each location level (without pagination)
-    const baseWhereClause = {
-      id: { [Op.ne]: currentUser.id }
-    };
-
-    // Apply search condition if provided
-    if (searchString) {
-      baseWhereClause[Op.or] = [
-        { name: { [Op.iLike]: `%${searchString}%` } },
-        { username: { [Op.iLike]: `%${searchString}%` } },
-        { email: { [Op.iLike]: `%${searchString}%` } },
-        { phone: { [Op.iLike]: `%${searchString}%` } }
-      ];
-    }
-
-    // Apply same filters but without pagination for counting
-    if (filters.length === filterValues.length && filters.length > 0) {
-      const filterConditions = filters.map((filter, index) => {
-        let value = filterValues[index];
-        if (value === 'true' || value === 'false') {
-          value = value === 'true';
-        } else if (!isNaN(value)) {
-          value = Number(value);
-        }
-        return { [filter]: { [Op.eq]: value } };
-      });
-      // Combine with existing conditions
-      if (baseWhereClause[Op.or]) {
-        baseWhereClause[Op.and] = [
-          { [Op.or]: baseWhereClause[Op.or] },
-          ...filterConditions
-        ];
-        delete baseWhereClause[Op.or];
-      } else {
-        baseWhereClause[Op.and] = filterConditions;
-      }
-    }
-
-    // Count national GRM users
-    const { count: totalNational } = await Users.findAndCountAll({
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: { 
-            roleid: grmRole.id,
-            location_level: 'national'
-          }
-        }
-      ],
-      where: baseWhereClause,
-      distinct: true
-    });
-
-    // Count county GRM users
-    const { count: totalCounty } = await Users.findAndCountAll({
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: { 
-            roleid: grmRole.id,
-            location_level: 'county'
-          }
-        }
-      ],
-      where: baseWhereClause,
-      distinct: true
-    });
-
-    // Count settlement GRM users
-    const { count: totalSettlement } = await Users.findAndCountAll({
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: { 
-            roleid: grmRole.id,
-            location_level: 'settlement'
-          }
-        }
-      ],
-      where: baseWhereClause,
-      distinct: true
-    });
-
-    console.log('=== GRM USER TOTALS BY LOCATION LEVEL ===');
-    console.log('Total National GRM Users:', totalNational);
-    console.log('Total County GRM Users:', totalCounty);
-    console.log('Total Settlement GRM Users:', totalSettlement);
-    console.log('===========================================');
-
-    // Convert photo to base64 and filter user_roles to only include GRM roles
-    const usersWithPhotos = grmUsers.map(user => {
+    const usersForPage = grmUsers.map(user => {
       const userObj = user.toJSON ? user.toJSON() : user;
-      userObj.photo = userObj.photo 
-        ? 'data:image/png;base64,' + userObj.photo.toString('base64')
-        : '';
-      
-      // Ensure only GRM roles are included in user_roles (safety filter)
       if (userObj.user_roles && Array.isArray(userObj.user_roles)) {
         userObj.user_roles = userObj.user_roles.filter(ur => ur.roleid === grmRole.id);
       }
-      
       return userObj;
     });
-    
-    // Log settlement roles after filtering
-    const settlementRolesAfterFilter = usersWithPhotos.filter(user => 
-      user.user_roles?.some(ur => ur.location_level === 'settlement')
-    );
-    
-    if (settlementRolesAfterFilter.length > 0) {
-      console.log('After filtering - Users with settlement GRM roles:', settlementRolesAfterFilter.length);
-      console.log('Settlement GRM users:', settlementRolesAfterFilter.map(u => ({
-        id: u.id,
-        name: u.name,
-        settlementRoles: u.user_roles?.filter(ur => ur.location_level === 'settlement')
-      })));
-    } else {
-      console.log('After filtering - No users with settlement GRM roles found');
-    }
 
     console.log('Final response:', {
-      dataCount: usersWithPhotos.length,
+      dataCount: usersForPage.length,
       total: count,
-      totalsByLevel: {
-        national: totalNational,
-        county: totalCounty,
-        settlement: totalSettlement
-      },
-      firstUser: usersWithPhotos[0] ? {
-        id: usersWithPhotos[0].id,
-        name: usersWithPhotos[0].name,
-        user_roles_count: usersWithPhotos[0].user_roles?.length || 0
-      } : null
+      locationLevel: requestedLocationLevel,
     });
 
     res.status(200).send({
-      data: usersWithPhotos,
+      data: usersForPage,
       total: count,
       code: '0000',
       message: 'GRM users retrieved successfully',
@@ -1150,7 +1052,24 @@ exports.getNationalGRMUsers = async (req, res) => {
 
 exports.modelAdminUsers = async (req, res) => {
   try {
-    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1, searchString, searchField = 'name' } = req.body;
+    const {
+      currentUser,
+      filters = [],
+      filterValues = [],
+      limit = 10,
+      page = 1,
+      searchString,
+      locationLevel,
+    } = req.body;
+
+    const validLocationLevels = ['national', 'county', 'settlement'];
+    const requestedLocationLevel = validLocationLevels.includes(locationLevel)
+      ? locationLevel
+      : null;
+    const parsedLimit = Number.parseInt(limit, 10);
+    const parsedPage = Number.parseInt(page, 10);
+    const safeLimit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 10;
+    const safePage = Number.isFinite(parsedPage) ? Math.max(parsedPage, 1) : 1;
 
     console.log('=== modelAdminUsers called ===');
     console.log('Request params:', { 
@@ -1219,13 +1138,35 @@ exports.modelAdminUsers = async (req, res) => {
 
     console.log('Where clause:', JSON.stringify(whereClause, null, 2));
 
-    // Query users with admin role
+    const adminRoleWhere = { roleid: adminRole.id };
+    if (requestedLocationLevel) {
+      adminRoleWhere.location_level = requestedLocationLevel;
+    }
+
+    // County administrators may only list administrators assigned within their county.
+    const requesterRoles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+    const requesterHasNationalAccess = requesterRoles.some((role) =>
+      ['super_admin', 'root_admin'].includes(role.name) ||
+      (role.name === 'admin' && role.user_roles?.location_level === 'national')
+    );
+    const requesterCountyRole = requesterRoles.find((role) =>
+      ['admin', 'staff'].includes(role.name) &&
+      role.user_roles?.location_level === 'county' &&
+      role.user_roles?.county_id
+    );
+    if (!requesterHasNationalAccess && requesterCountyRole?.user_roles?.county_id) {
+      adminRoleWhere.county_id = requesterCountyRole.user_roles.county_id;
+    }
+
+    // Query only the requested tab/page. The photo blob is intentionally excluded:
+    // this administration table does not render avatars and converting thousands of
+    // blobs to Base64 was the main production payload/CPU bottleneck.
     const { count, rows: adminUsers } = await Users.findAndCountAll({
       include: [
         {
           model: db.models.user_roles,
           required: true,
-          where: { roleid: adminRole.id },
+          where: adminRoleWhere,
           include: [
             {
               model: db.models.roles,
@@ -1240,10 +1181,11 @@ exports.modelAdminUsers = async (req, res) => {
         }
       ],
       where: whereClause,
-      limit,
-      offset: (page - 1) * limit,
+      limit: safeLimit,
+      offset: (safePage - 1) * safeLimit,
       order: [['id', 'DESC']],
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+      distinct: true,
+      attributes: { exclude: ['photo', 'password', 'resetPasswordExpires', 'resetPasswordToken'] }
     });
 
     // Log sample user roles to see what's being returned
@@ -1285,105 +1227,8 @@ exports.modelAdminUsers = async (req, res) => {
       })));
     }
 
-    // Get total counts for each location level (without pagination)
-    const baseWhereClause = {
-      id: { [Op.ne]: currentUser.id }
-    };
-
-    // Apply search condition if provided
-    if (searchString) {
-      baseWhereClause[Op.or] = [
-        { name: { [Op.iLike]: `%${searchString}%` } },
-        { username: { [Op.iLike]: `%${searchString}%` } },
-        { email: { [Op.iLike]: `%${searchString}%` } },
-        { phone: { [Op.iLike]: `%${searchString}%` } }
-      ];
-    }
-
-    // Apply same filters but without pagination for counting
-    if (filters.length === filterValues.length && filters.length > 0) {
-      const filterConditions = filters.map((filter, index) => {
-        let value = filterValues[index];
-        if (value === 'true' || value === 'false') {
-          value = value === 'true';
-        } else if (!isNaN(value)) {
-          value = Number(value);
-        }
-        return { [filter]: { [Op.eq]: value } };
-      });
-      // Combine with existing conditions
-      if (baseWhereClause[Op.or]) {
-        baseWhereClause[Op.and] = [
-          { [Op.or]: baseWhereClause[Op.or] },
-          ...filterConditions
-        ];
-        delete baseWhereClause[Op.or];
-      } else {
-        baseWhereClause[Op.and] = filterConditions;
-      }
-    }
-
-    // Count national admin users
-    const { count: totalNational } = await Users.findAndCountAll({
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: { 
-            roleid: adminRole.id,
-            location_level: 'national'
-          }
-        }
-      ],
-      where: baseWhereClause,
-      distinct: true
-    });
-
-    // Count county admin users
-    const { count: totalCounty } = await Users.findAndCountAll({
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: { 
-            roleid: adminRole.id,
-            location_level: 'county'
-          }
-        }
-      ],
-      where: baseWhereClause,
-      distinct: true
-    });
-
-    // Count settlement admin users
-    const { count: totalSettlement } = await Users.findAndCountAll({
-      include: [
-        {
-          model: db.models.user_roles,
-          required: true,
-          where: { 
-            roleid: adminRole.id,
-            location_level: 'settlement'
-          }
-        }
-      ],
-      where: baseWhereClause,
-      distinct: true
-    });
-
-    console.log('=== ADMIN USER TOTALS BY LOCATION LEVEL ===');
-    console.log('Total National Admin Users:', totalNational);
-    console.log('Total County Admin Users:', totalCounty);
-    console.log('Total Settlement Admin Users:', totalSettlement);
-    console.log('===========================================');
-
-    // Convert photo to base64 and filter user_roles to only include admin roles
-    const usersWithPhotos = adminUsers.map(user => {
+    const usersForPage = adminUsers.map(user => {
       const userObj = user.toJSON ? user.toJSON() : user;
-      userObj.photo = userObj.photo 
-        ? 'data:image/png;base64,' + userObj.photo.toString('base64')
-        : '';
-      
       // Ensure only admin roles are included in user_roles (safety filter)
       if (userObj.user_roles && Array.isArray(userObj.user_roles)) {
         userObj.user_roles = userObj.user_roles.filter(ur => ur.roleid === adminRole.id);
@@ -1393,7 +1238,7 @@ exports.modelAdminUsers = async (req, res) => {
     });
     
     // Log settlement roles after filtering
-    const settlementRolesAfterFilter = usersWithPhotos.filter(user => 
+    const settlementRolesAfterFilter = usersForPage.filter(user =>
       user.user_roles?.some(ur => ur.location_level === 'settlement')
     );
     
@@ -1409,22 +1254,18 @@ exports.modelAdminUsers = async (req, res) => {
     }
 
     console.log('Final response:', {
-      dataCount: usersWithPhotos.length,
+      dataCount: usersForPage.length,
       total: count,
-      totalsByLevel: {
-        national: totalNational,
-        county: totalCounty,
-        settlement: totalSettlement
-      },
-      firstUser: usersWithPhotos[0] ? {
-        id: usersWithPhotos[0].id,
-        name: usersWithPhotos[0].name,
-        user_roles_count: usersWithPhotos[0].user_roles?.length || 0
+      locationLevel: requestedLocationLevel,
+      firstUser: usersForPage[0] ? {
+        id: usersForPage[0].id,
+        name: usersForPage[0].name,
+        user_roles_count: usersForPage[0].user_roles?.length || 0
       } : null
     });
 
     res.status(200).send({
-      data: usersWithPhotos,
+      data: usersForPage,
       total: count,
       code: '0000',
       message: 'Admin users retrieved successfully',
@@ -1517,20 +1358,14 @@ exports.modelSuperAdminUsers = async (req, res) => {
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']],
-      attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] },
+      attributes: { exclude: ['photo', 'password', 'resetPasswordExpires', 'resetPasswordToken'] },
       distinct: true,
     });
 
-    const usersWithPhotos = superAdminUsers.map((user) => {
-      const userObj = user.toJSON ? user.toJSON() : user;
-      userObj.photo = userObj.photo
-        ? 'data:image/png;base64,' + userObj.photo.toString('base64')
-        : '';
-      return userObj;
-    });
+    const usersForPage = superAdminUsers.map((user) => user.toJSON ? user.toJSON() : user);
 
     res.status(200).send({
-      data: usersWithPhotos,
+      data: usersForPage,
       total: count,
       code: '0000',
       message: 'Super admin users retrieved successfully',

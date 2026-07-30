@@ -712,11 +712,12 @@ const onProgrammeFilter = () => {
   getFilteredData(filters, filterValues)
 }
 
-// Map needs geometry; review only applies to reports still awaiting a decision.
+// Map needs geometry. New reports can be reviewed for a decision; rejected reports
+// keep the same action as a read-only way to inspect the rejection details.
 const rowActionButtons = (row: Record<string, any>) =>
   action_buttons.value.filter((b) => {
     if (b === 'viewOnMap') return !!row.geom
-    if (b === 'review') return isReportNew(row)
+    if (b === 'review') return isReportNew(row) || row.status === 'Rejected'
     return true
   })
 
@@ -941,37 +942,24 @@ const saveEditedReport = async () => {
 }
 
 
-const DeleteReport = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = 'indicator_category_report'
+const DeleteReport = async (data: TableSlotDefault) => {
+  try {
+    const documents = Array.isArray(data.documents) ? data.documents : []
 
-
-  DeleteRecord(formData)
-  console.log("Docs to de;ete", data.documents.length)
-
-  // Delete docuemnts only if there's any docuemnt to delete 
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
-    deleteDocument(formData)
-
-    // remove the deleted object from array list 
-    let index = tableDataList.value.documents.indexOf(data);
-    if (index !== -1) {
-      tableDataList.value.documents.value.splice(index, 1);
+    // Each report has its own document row, but reports in the same filing can point
+    // at the same stored file. Remove this report's rows before deleting the report;
+    // the server keeps the physical file until its final reference is removed.
+    if (documents.length) {
+      await deleteDocument({ filesToDelete: documents })
     }
+
+    await DeleteRecord({ id: data.id, model: 'indicator_category_report' })
+    ElMessage.success('Report deleted')
+    await getFilteredData(filters, filterValues)
+  } catch (error: any) {
+    console.error('Failed to delete report:', error)
+    ElMessage.error(error.response?.data?.message || 'Failed to delete report')
   }
-
-
-  console.log(tableDataList.value)
-
-  // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
-
 }
 
 
@@ -1843,13 +1831,15 @@ const review = (data: TableSlotDefault) => {
     location: getRowSettlementLabel(data),
     indicator: data.indicator_category?.indicator_name || 'N/A',
     category: data.indicator_category?.category_title || 'N/A',
-    amount: data.amount || 0,
+    amount: reportAmountDisplay(data),
     progress: data.progress || 0,
     date: formatDate(data.date),
     user: data.user?.name || 'N/A',
     phone: data.user?.phone || 'N/A',
     comments: data.comments || 'N/A',
     documents: data.documents || [],
+    status: data.status || 'New',
+    rejectionReason: data.reject_msg || 'No rejection reason provided',
   }
 
   ruleForm.id = data.id
@@ -2964,6 +2954,10 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
       <el-descriptions-item label="Date">{{ report.date }}</el-descriptions-item>
       <el-descriptions-item label="Submitted By">{{ report.user }}</el-descriptions-item>
       <el-descriptions-item label="Telephone">{{ report.phone }}</el-descriptions-item>
+      <el-descriptions-item label="Status" :span="2">{{ report.status }}</el-descriptions-item>
+      <el-descriptions-item v-if="report.status === 'Rejected'" label="Rejection Reason" :span="2">
+        {{ report.rejectionReason }}
+      </el-descriptions-item>
       <el-descriptions-item label="Comments" :span="2">{{ report.comments }}</el-descriptions-item>
       <el-descriptions-item label="Documentation" v-if="report.documents && report.documents.length" :span="2">
         <div v-for="(doc, index) in report.documents" :key="index">

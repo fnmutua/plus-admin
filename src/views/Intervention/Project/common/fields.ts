@@ -8,13 +8,14 @@ import {
 const steps = [
   { title: "Identity", description: "Name and reference" },
   { title: "Implementation", description: "Status and delivery" },
-  { title: "Schedule & Budget", description: "Dates and funding" },
+  { title: "Planning", description: "Dates and funding" },
   { title: "Location", description: "Search and select" },
+  { title: "Activities", description: "Select project activities" },
 ];
 
 /** Edit-only step index (after Location); handled in AddX.vue, not in formFields */
 export const PROGRAMME_COMPONENT_STEP = {
-  title: "Programme & Component",
+  title: "Assignment",
   description: "Optional reassignment",
 };
 
@@ -178,6 +179,7 @@ const formFields = reactive([
     },
   ],
   [],
+  [],
 ]);
 
 const formData: FormData = reactive({});
@@ -229,6 +231,7 @@ const formRules: FormRules = reactive({
   },
   step4: {},
   step5: {},
+  step6: {},
 });
 
 export { formFields, countyOptions, formData, steps, formRules };

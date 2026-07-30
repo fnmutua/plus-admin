@@ -8,7 +8,7 @@ import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol,
   ElDatePicker,
   ElTag,
 } from 'element-plus'
@@ -101,7 +101,6 @@ const AvailableRolesOptions = ref([])
 const superAdminRoleId = ref<number | null>(null)
 
 const settlementOptions = ref([])
-const userOptions = ref([])
 
 const settlements = ref([])
 const filteredSettlements = ref([])
@@ -152,7 +151,6 @@ let tableDataList_orig = ref<any[]>([])
 //// ------------------parameters -----------------------////
 var filters: string[] = []
 var filterValues: any[] = []
-var tblData: any[] = []
 
 const associated_multiple_models = ['county', 'user_roles']
 
@@ -201,7 +199,6 @@ const handleClear = async () => {
   value3.value = ''
   pageSize.value = 5
   currentPage.value = 1
-  tblData = []
   //----run the get data--------
   getInterventionsAll()
 }
@@ -244,21 +241,14 @@ const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
 
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  await getFilteredData(filters, filterValues)
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  page.value = 1
+  currentPage.value = 1
+  await getFilteredData(filters, filterValues)
 }
 
 const getInterventionsAll = async () => {
@@ -416,26 +406,9 @@ const handleForceLogout = async (data: any) => {
   }
 }
 
-const getFilteredBySearchData = async (searchString: any) => {
-  loading.value = true
-  const formData: any = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1
-  formData.model = model
-  formData.searchString = searchString
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.currentUser = currentUser
-
-  const res = await getSuperAdminStaff(formData)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
-  tblData = []
-}
-
+let userRequestId = 0
 const getFilteredData = async (selFilters: any, selfilterValues: any) => {
+  const requestId = ++userRequestId
   loading.value = true
   const formData: any = {}
   formData.limit = pageSize.value
@@ -445,6 +418,7 @@ const getFilteredData = async (selFilters: any, selfilterValues: any) => {
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
+  formData.searchString = searchString.value || ''
   //--Single Filter -----------------------------------------
 
   //formData.assocModel = associated_Model
@@ -458,30 +432,27 @@ const getFilteredData = async (selFilters: any, selfilterValues: any) => {
   formData.currentUser = currentUser
 
   //-------------------------
-  console.log('getting super admin users --->', formData)
-  const res = await getSuperAdminStaff(formData)
-
-  console.log('After getting super admin users', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data
-
-  total.value = res.total
-
-  console.log('TBL-4f', tblData)
-  loading.value = false
+  try {
+    const res = await getSuperAdminStaff(formData)
+    if (requestId !== userRequestId) return
+    tableDataList.value = res.data
+    tableDataList_orig.value = res.data
+    total.value = res.total
+  } catch (error: any) {
+    if (requestId === userRequestId) ElMessage.error(error.response?.data?.message || 'Failed to load super admins')
+  } finally {
+    if (requestId === userRequestId) loading.value = false
+  }
 }
 
-const searchByName = async (filterString: any) => {
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+const searchByName = (filterString: any) => {
   searchString.value = filterString
   page.value = 1
   currentPage.value = 1
 
-  if (!filterString) {
-    getFilteredData(filters, filterValues)
-    return
-  }
-
-  getFilteredBySearchData(searchString.value)
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => getFilteredData(filters, filterValues), 300)
 }
 
 getRoles()
@@ -837,10 +808,10 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
       @header-dragend="onHeaderDragend"
     >
       <UserListAdjustableColumns
+        id-label="User ID"
         :is-column-visible="isColumnVisible"
         :column-width="columnWidth"
         :column-min-width="columnMinWidth"
-        avatar-field="photo"
       />
 
       <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1075,4 +1046,4 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
 :deep(.el-table__body tr.user-list-row-access-expired > td) {
   color: var(--el-text-color-secondary);
 }
-</style> 
+</style>

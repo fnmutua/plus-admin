@@ -16,8 +16,8 @@ const props = defineProps<{
 </script>
 
 <template>
-  <el-table-column v-if="useIndexColumn" type="index" label="#" width="50" fixed="left" />
-  <el-table-column v-else prop="id" label="#" width="50" fixed="left" />
+  <el-table-column v-if="useIndexColumn" type="index" :label="idLabel || '#'" width="70" fixed="left" />
+  <el-table-column v-else prop="id" :label="idLabel || '#'" width="70" fixed="left" />
 
   <el-table-column
     v-if="isColumnVisible('name')"

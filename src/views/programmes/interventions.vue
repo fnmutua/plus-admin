@@ -277,6 +277,35 @@ function locationsForProjectScope(row: any): any[] {
   return locations.filter((location) => location?.location_type === scope)
 }
 
+function projectConfiguration(row: any) {
+  const locationConfigured =
+    normalizeLocationScope(row?.implementation_scope) === 'national' ||
+    locationsForProjectScope(row).length > 0
+  const activitiesConfigured = Array.isArray(row?.activities) && row.activities.length > 0
+  const completed = Number(locationConfigured) + Number(activitiesConfigured)
+
+  if (completed === 2) {
+    return {
+      state: 'full',
+      icon: 'mdi:check-decagram',
+      color: 'var(--el-color-success)',
+      label: 'Fully configured — location and activities are configured',
+    }
+  }
+
+  const missing = [
+    !locationConfigured ? 'location' : '',
+    !activitiesConfigured ? 'activities' : '',
+  ].filter(Boolean)
+
+  return {
+    state: completed === 0 ? 'none' : 'partial',
+    icon: completed === 0 ? 'mdi:close-circle-outline' : 'mdi:alert-circle-outline',
+    color: completed === 0 ? 'var(--el-color-danger)' : 'var(--el-color-warning)',
+    label: `${completed === 0 ? 'Unconfigured' : 'Partially configured'} — missing ${missing.join(' and ')}`,
+  }
+}
+
 const loadProjectsForRoute = async (to = route) => {
   const seq = ++projectsFetchSeq
   loading.value = true
@@ -391,7 +420,7 @@ const buildProjectQueryFilters = (routeLike = route) => {
 }
 let tblData = ref<any[]>([])
 const associated_Model = ''
-const associated_multiple_models = ['programme', 'project_location', 'programme_implementation']
+const associated_multiple_models = ['programme', 'project_location', 'programme_implementation', 'activity']
 
 //// ------------------parameters -----------------------////
 
@@ -2152,6 +2181,18 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
       <el-table-column type="index" label="#" width="50" align="center">
         <template #default="{ $index }">
           <span style="font-weight: 500;">{{$index + 1}}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="" width="48" align="center">
+        <template #default="{ row }">
+          <el-tooltip :content="projectConfiguration(row).label" placement="top">
+            <Icon
+              :icon="projectConfiguration(row).icon"
+              width="20"
+              height="20"
+              :style="{ color: projectConfiguration(row).color }"
+            />
+          </el-tooltip>
         </template>
       </el-table-column>
       <el-table-column

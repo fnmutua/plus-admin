@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
-import { getUserRoles, getByName } from '@/api/users'
+import { getUserRoles } from '@/api/users'
 import { getCountyListApi } from '@/api/counties'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
@@ -10,7 +10,7 @@ import UserTableActions from '@/views/Components/UserTableActions.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,ElDivider,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon, ElTag,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon, ElTag,
   ElDatePicker, ElPopover, ElCheckbox, ElCheckboxGroup,
 } from 'element-plus'
 import {
@@ -125,7 +125,6 @@ const AvailableRolesOptions = ref([]) // Roles that can be assigned (subordinate
 
 
 const settlementOptions = ref([])
-const userOptions = ref([])
 
 const settlements = ref([])
 const filteredSettlements = ref([])
@@ -178,7 +177,6 @@ let tableDataList_orig = ref<UserType[]>([])
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = []
 var filterValues = []
-var tblData = []
 
 const associated_multiple_models = ['county', 'user_roles']
 
@@ -244,7 +242,6 @@ const handleClear = async () => {
   value3.value = ''
   pageSize.value = 5
   currentPage.value = 1
-  tblData = []
   
   // If county admin, re-apply their county filter
   if (isCountyRestricted.value && userCountyId.value) {
@@ -295,21 +292,14 @@ const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
 
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  await getFilteredData(filters, filterValues)
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  page.value = 1
+  currentPage.value = 1
+  await getFilteredData(filters, filterValues)
 }
 
 const getInterventionsAll = async () => {
@@ -468,48 +458,9 @@ const handleForceLogout = async (data: TableSlotDefault) => {
   }
 }
 
-const getFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchString = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
-  formData.currentUser = currentUser
-
-  //-------------------------
-  console.log('getFilteredBySearchData', formData)
-  const res = await getByName(formData)
-
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  res.data.forEach(user => {
-    // keep backend last_login value as-is
-  })
-
-  //tableDataList_orig.value = res.data // back for post filter
-
-  total.value = res.total
-  loading.value = false
-
-  tblData = [] // reset the table data
-}
-
-
+let userRequestId = 0
 const getFilteredData = async (selFilters, selfilterValues) => {
+  const requestId = ++userRequestId
   loading.value = true
   const formData = {}
   formData.limit = pageSize.value
@@ -519,6 +470,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
+  formData.searchString = searchString.value || ''
   //--Single Filter -----------------------------------------
 
   //formData.assocModel = associated_Model
@@ -533,34 +485,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
   //-------------------------
-  console.log('Getting users --->', formData)
-  const res = await getCountyStaff(formData)
-
-  console.log('After getting all users', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
-  res.data.forEach(user => {
-    // keep backend last_login value as-is
-  })
-
-  total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
-
-
-  console.log('After getting all users tableDataList.value ', tableDataList.value )
-
-  res.data.forEach(function (arrayItem) {
-    console.log('arrayItem ----->', arrayItem)
- 
-
-    var opt = {}
-    opt.value = arrayItem.id
-    opt.label = arrayItem.name  
-    //  console.log(countyOpt)
-    userOptions.value.push(opt)
-  })
-
-  console.log('TBL-4f', tblData)
-  loading.value = false
+  try {
+    const res = await getCountyStaff(formData)
+    if (requestId !== userRequestId) return
+    tableDataList.value = res.data
+    tableDataList_orig.value = res.data
+    total.value = res.total
+  } catch (error: any) {
+    if (requestId === userRequestId) ElMessage.error(error.response?.data?.message || 'Failed to load users')
+  } finally {
+    if (requestId === userRequestId) loading.value = false
+  }
 }
 
 // Format date for display
@@ -583,12 +518,13 @@ const formatDate = (dateString: string | Date | null) => {
 }
 
 
-const searchByName = async (filterString: any) => {
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+const searchByName = (filterString: any) => {
   searchString.value = filterString
-
-
-
-  getFilteredBySearchData(searchString.value)
+  page.value = 1
+  currentPage.value = 1
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => getFilteredData(filters, filterValues), 300)
 }
 
 // Initialize county admin restrictions
@@ -1061,12 +997,12 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
       @header-dragend="onHeaderDragend"
     >
       <UserListAdjustableColumns
+        id-label="User ID"
         :is-column-visible="isColumnVisible"
         :column-width="columnWidth"
         :column-min-width="columnMinWidth"
         :access-reason-labels="accessReasonLabels"
         :format-date="formatDate"
-        avatar-field="photo"
       />
 
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">

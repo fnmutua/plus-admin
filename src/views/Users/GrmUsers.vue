@@ -3,12 +3,12 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { getUserRoles, getByName } from '@/api/users'
+import { getUserRoles } from '@/api/users'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElTabs, ElTabPane, ElIcon,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElTabs, ElTabPane, ElIcon,
   ElDatePicker,
   ElTag,
 } from 'element-plus'
@@ -127,7 +127,6 @@ const FilteredRolesOptions = ref([])
 
 
 const settlementOptions = ref([])
-const userOptions = ref([])
 
 const settlements = ref([])
 const filteredSettlements = ref([])
@@ -203,21 +202,10 @@ const filterUsersByLocationLevel = (users: UserType[], level: string) => {
   })
 }
 
-// Helper function to get unique users (in case a user has multiple roles at same level)
-const getUniqueUsers = (users: UserType[]) => {
-  const seen = new Set()
-  return users.filter(user => {
-    if (seen.has(user.id)) return false
-    seen.add(user.id)
-    return true
-  })
-}
-
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = []
 var filterValues = []
-var tblData = []
 
 const associated_multiple_models = ['county', 'user_roles']
 
@@ -263,7 +251,6 @@ const handleClear = async () => {
   currentPageNational.value = 1
   currentPageCounty.value = 1
   currentPageSettlement.value = 1
-  tblData = []
   //----run the get data--------
   getInterventionsAll()
 }
@@ -324,22 +311,14 @@ const onPageChange = async (selPage: any) => {
     currentPageSettlement.value = selPage
   }
 
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  await getFilteredData(filters, filterValues)
 
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  getCurrentPage.value = 1
+  await getFilteredData(filters, filterValues)
 }
 
 const getInterventionsAll = async () => {
@@ -505,128 +484,52 @@ const handleForceLogout = async (data: TableSlotDefault) => {
 
 
 
-const getFilteredBySearchData = async (searchString) => {
-  loading.value = true
-  loadingNational.value = true
-  loadingCounty.value = true
-  loadingSettlement.value = true
-  
-  const formData = {}
-  // Reduce limit on mobile for faster loading - fetch more on desktop
-  formData.limit = isMobile.value ? 200 : 10000 // Get all data to filter client-side on desktop, limited on mobile
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
+const applyGrmPage = (res: any) => {
+  const rows = Array.isArray(res?.data) ? res.data : []
+  const resultTotal = Number(res?.total ?? 0)
+  tableDataList.value = rows
+  tableDataList_orig.value = rows
+  total.value = resultTotal
 
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchString = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  formData.nested_filter = nested_filter
-  formData.currentUser = currentUser
-
-  //-------------------------
-  if (!isMobile.value) {
-    console.log('getFilteredBySearchData', formData)
+  if (activeTab.value === 'national') {
+    tableDataListNational.value = rows
+    totalNational.value = resultTotal
+  } else if (activeTab.value === 'county') {
+    tableDataListCounty.value = rows
+    totalCounty.value = resultTotal
+  } else {
+    tableDataListSettlement.value = rows
+    totalSettlement.value = resultTotal
   }
-  const res = await getByName(formData)
-
-  if (!isMobile.value) {
-    console.log('After -----x ------Querry', res)
-  }
-  
-  // Initialize last_login and filter users by location level
-  // Backend already filters by GRM role, so we only need to check location_level
-  const allNationalUsers: any[] = []
-  const allCountyUsers: any[] = []
-  const allSettlementUsers: any[] = []
-  
-  // Single optimized pass through data
-  res.data.forEach(user => {
-    // keep backend last_login value as-is
-    
-    if (user.user_roles && Array.isArray(user.user_roles)) {
-      // Backend already ensures all user_roles are GRM roles, so just check location_level
-      const hasNational = user.user_roles.some(role => role.location_level === 'national')
-      const hasCounty = user.user_roles.some(role => role.location_level === 'county')
-      const hasSettlement = user.user_roles.some(role => role.location_level === 'settlement')
-      
-      if (hasNational) allNationalUsers.push(user)
-      if (hasCounty) allCountyUsers.push(user)
-      if (hasSettlement) allSettlementUsers.push(user)
-    }
-  })
-  
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
-
-  // Get unique users for each level
-  const uniqueNationalUsers = getUniqueUsers(allNationalUsers)
-  let uniqueCountyUsers = getUniqueUsers(allCountyUsers)
-  let uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
-
-  // Restrict county admins to only see users in their own county
-  if (isCountyRestricted.value && userCountyId.value) {
-    uniqueCountyUsers = uniqueCountyUsers.filter(user =>
-      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
-    )
-    uniqueSettlementUsers = uniqueSettlementUsers.filter(user =>
-      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
-    )
-  }
-
-  // Update totals
-  totalNational.value = uniqueNationalUsers.length
-  totalCounty.value = uniqueCountyUsers.length
-  totalSettlement.value = uniqueSettlementUsers.length
-  total.value = res.total
-
-  // Apply pagination to each level
-  const startIndexNational = (currentPageNational.value - 1) * pageSize.value
-  const endIndexNational = startIndexNational + pageSize.value
-  tableDataListNational.value = uniqueNationalUsers.slice(startIndexNational, endIndexNational)
-
-  const startIndexCounty = (currentPageCounty.value - 1) * pageSize.value
-  const endIndexCounty = startIndexCounty + pageSize.value
-  tableDataListCounty.value = uniqueCountyUsers.slice(startIndexCounty, endIndexCounty)
-
-  const startIndexSettlement = (currentPageSettlement.value - 1) * pageSize.value
-  const endIndexSettlement = startIndexSettlement + pageSize.value
-  tableDataListSettlement.value = uniqueSettlementUsers.slice(startIndexSettlement, endIndexSettlement)
 
   loading.value = false
   loadingNational.value = false
   loadingCounty.value = false
   loadingSettlement.value = false
-
-  tblData = [] // reset the table data
-
 }
 
-
+let grmRequestId = 0
 const getFilteredData = async (selFilters, selfilterValues) => {
+  const requestId = ++grmRequestId
   loading.value = true
   loadingNational.value = true
   loadingCounty.value = true
   loadingSettlement.value = true
   
   const formData = {}
-  // Reduce limit on mobile for faster loading - fetch more on desktop
-  formData.limit = isMobile.value ? 200 : 10000 // Get all data to filter client-side on desktop, limited on mobile
-  formData.page = 1
+  formData.limit = pageSize.value
+  formData.page = activeTab.value === 'national'
+    ? currentPageNational.value
+    : activeTab.value === 'county'
+      ? currentPageCounty.value
+      : currentPageSettlement.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
+  formData.searchString = searchString.value || ''
+  formData.locationLevel = activeTab.value
   //--Single Filter -----------------------------------------
 
   //formData.assocModel = associated_Model
@@ -640,97 +543,32 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.currentUser = currentUser
 
 
-  //-------------------------
-  if (!isMobile.value) {
-    console.log('gettign getGRMStaff users --->', formData)
-  }
-  const res = await getGRMStaff(formData)
-
-  if (!isMobile.value) {
-    console.log('After getting all users', res)
-  }
-  
-  // Initialize last_login and filter users by location level
-  // Backend already filters by GRM role, so we only need to check location_level
-  const allNationalUsers: any[] = []
-  const allCountyUsers: any[] = []
-  const allSettlementUsers: any[] = []
-  
-  // Single optimized pass through data
-  res.data.forEach(user => {
-    // keep backend last_login value as-is
-    
-    if (user.user_roles && Array.isArray(user.user_roles)) {
-      // Backend already ensures all user_roles are GRM roles, so just check location_level
-      const hasNational = user.user_roles.some(role => role.location_level === 'national')
-      const hasCounty = user.user_roles.some(role => role.location_level === 'county')
-      const hasSettlement = user.user_roles.some(role => role.location_level === 'settlement')
-      
-      if (hasNational) allNationalUsers.push(user)
-      if (hasCounty) allCountyUsers.push(user)
-      if (hasSettlement) allSettlementUsers.push(user)
+  try {
+    const res = await getGRMStaff(formData)
+    if (requestId === grmRequestId) applyGrmPage(res)
+  } catch (error: any) {
+    if (requestId === grmRequestId) {
+      console.error('Failed to load GRM users:', error)
+      ElMessage.error(error.response?.data?.message || 'Failed to load GRM users')
     }
-  })
-  
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
-
-  // Get unique users for each level
-  const uniqueNationalUsers = getUniqueUsers(allNationalUsers)
-  let uniqueCountyUsers = getUniqueUsers(allCountyUsers)
-  let uniqueSettlementUsers = getUniqueUsers(allSettlementUsers)
-
-  // Restrict county admins to only see users in their own county
-  if (isCountyRestricted.value && userCountyId.value) {
-    uniqueCountyUsers = uniqueCountyUsers.filter(user =>
-      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
-    )
-    uniqueSettlementUsers = uniqueSettlementUsers.filter(user =>
-      user.user_roles?.some((role: any) => role.county_id === userCountyId.value)
-    )
+  } finally {
+    if (requestId === grmRequestId) {
+      loading.value = false
+      loadingNational.value = false
+      loadingCounty.value = false
+      loadingSettlement.value = false
+    }
   }
-
-  // Update totals
-  totalNational.value = uniqueNationalUsers.length
-  totalCounty.value = uniqueCountyUsers.length
-  totalSettlement.value = uniqueSettlementUsers.length
-  total.value = res.total
-
-  // Apply pagination to each level
-  const startIndexNational = (currentPageNational.value - 1) * pageSize.value
-  const endIndexNational = startIndexNational + pageSize.value
-  tableDataListNational.value = uniqueNationalUsers.slice(startIndexNational, endIndexNational)
-
-  const startIndexCounty = (currentPageCounty.value - 1) * pageSize.value
-  const endIndexCounty = startIndexCounty + pageSize.value
-  tableDataListCounty.value = uniqueCountyUsers.slice(startIndexCounty, endIndexCounty)
-
-  const startIndexSettlement = (currentPageSettlement.value - 1) * pageSize.value
-  const endIndexSettlement = startIndexSettlement + pageSize.value
-  tableDataListSettlement.value = uniqueSettlementUsers.slice(startIndexSettlement, endIndexSettlement)
-
-  // Only populate userOptions if not on mobile (to reduce processing)
-  if (!isMobile.value) {
-    res.data.forEach(function (arrayItem) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name  
-      userOptions.value.push(opt)
-    })
-  }
-  loading.value = false
-  loadingNational.value = false
-  loadingCounty.value = false
-  loadingSettlement.value = false
-
 }
 
-const searchByName = async (filterString: any) => {
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+const searchByName = (filterString: any) => {
   searchString.value = filterString
 
 
 
-  getFilteredBySearchData(searchString.value)
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => getFilteredData(filters, filterValues), 300)
 }
 
 getRoles()
@@ -878,11 +716,10 @@ const getCurrentPage = computed({
 })
 
 // Handle tab change
-const handleTabChange = (tabName: string) => {
+const handleTabChange = async (tabName: string) => {
   console.log('Tab changed to:', tabName)
   activeTab.value = tabName
-  // Data is already loaded and separated, just switch the view
-  // No need to re-fetch from backend - the computed properties will handle the display
+  await getFilteredData(filters, filterValues)
 }
 
 // Format date for display
@@ -1322,11 +1159,11 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
           @header-dragend="extendedColumnControls.onHeaderDragend"
         >
           <UserListAdjustableColumns
+            id-label="User ID"
             :is-column-visible="extendedColumnControls.isColumnVisible"
             :column-width="extendedColumnControls.columnWidth"
             :column-min-width="extendedColumnControls.columnMinWidth"
             :format-date="formatDate"
-            avatar-field="photo"
           />
 
             <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1370,11 +1207,11 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
           @header-dragend="extendedColumnControls.onHeaderDragend"
         >
           <UserListAdjustableColumns
+            id-label="User ID"
             :is-column-visible="extendedColumnControls.isColumnVisible"
             :column-width="extendedColumnControls.columnWidth"
             :column-min-width="extendedColumnControls.columnMinWidth"
             :format-date="formatDate"
-            avatar-field="photo"
           />
 
             <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1418,12 +1255,12 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
           @header-dragend="settlementColumnControls.onHeaderDragend"
         >
           <UserListAdjustableColumns
+            id-label="User ID"
             :is-column-visible="settlementColumnControls.isColumnVisible"
             :column-width="settlementColumnControls.columnWidth"
             :column-min-width="settlementColumnControls.columnMinWidth"
             :format-date="formatDate"
             :get-settlement-label="resolveSettlementLabel"
-            avatar-field="photo"
           />
 
             <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">

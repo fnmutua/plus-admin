@@ -10,8 +10,8 @@
           <el-step
             v-for="(step, index) in displaySteps"
             :key="index"
-            :title="step.title"
-            :description="isMobile ? '' : step.description"
+            :title="isMobile ? `Step ${index + 1}` : step.title"
+            :description="embedded || isMobile ? '' : step.description"
             @click="handleStepClick(index)"
           />
         </el-steps>
@@ -105,6 +105,56 @@
                 </el-checkbox-group>
               </div>
             </template>
+          </div>
+
+          <div v-else-if="isActivityStep" id="activity-step" class="location-step activity-step">
+            <p class="location-step-hint">Select at least one activity implemented by this project.</p>
+            <el-input
+              v-model="activitySearchKeyword"
+              clearable
+              placeholder="Type to search activities…"
+              class="location-search-input"
+              @input="onActivitySearchInput"
+              @clear="searchProjectActivities('')"
+            />
+
+            <div v-if="selectedActivityOptions.length" class="selected-locations">
+              <span class="selected-label">Selected ({{ selectedActivityOptions.length }})</span>
+              <div class="selected-tags">
+                <el-tag
+                  v-for="activity in selectedActivityOptions"
+                  :key="activity.value"
+                  closable
+                  size="small"
+                  @close="removeSelectedActivity(activity.value)"
+                >
+                  {{ activity.label }}
+                </el-tag>
+              </div>
+            </div>
+
+            <div v-loading="activitySearchLoading" class="location-results">
+              <el-empty
+                v-if="!activitySearchLoading && activityOptions.length === 0"
+                description="Search by title to find activities"
+                :image-size="64"
+              />
+              <el-checkbox-group
+                v-else
+                v-model="formData.activities"
+                class="location-checkbox-group"
+              >
+                <div
+                  v-for="activity in activityOptions"
+                  :key="activity.value"
+                  class="location-option"
+                >
+                  <el-checkbox :label="activity.value">
+                    <span class="location-name">{{ activity.label }}</span>
+                  </el-checkbox>
+                </div>
+              </el-checkbox-group>
+            </div>
           </div>
 
           <div v-else-if="isProgrammeStep" id="programme-step" class="programme-component-step">
@@ -840,17 +890,23 @@ const locationSearchLoading = ref(false)
 const locationSearchKeyword = ref('')
 const locationFirstLoad = ref(true)
 let locationSearchTimer: ReturnType<typeof setTimeout> | null = null
+const activityOptions = ref<Array<{ value: number; label: string; code?: string }>>([])
+const activitySearchLoading = ref(false)
+const activitySearchKeyword = ref('')
+let activitySearchTimer: ReturnType<typeof setTimeout> | null = null
 
 const LOCATION_STEP_INDEX = 3
+const ACTIVITY_STEP_INDEX = 4
 
 const displaySteps = computed(() =>
   newRecord.value ? steps : [...steps, PROGRAMME_COMPONENT_STEP],
 )
 
 const isLocationStep = computed(() => currentStep.value === LOCATION_STEP_INDEX)
+const isActivityStep = computed(() => currentStep.value === ACTIVITY_STEP_INDEX)
 
 const isProgrammeStep = computed(
-  () => !newRecord.value && currentStep.value === LOCATION_STEP_INDEX + 1,
+  () => !newRecord.value && currentStep.value === ACTIVITY_STEP_INDEX + 1,
 )
 
 const isNationalScope = computed(() => formData.implementation_scope === 'national')
@@ -878,6 +934,80 @@ function matchesCurrentScope(loc: LocationOption): boolean {
 const scopedSelectedLocations = computed(() =>
   selectedLocations.value.filter(matchesCurrentScope)
 )
+
+function validateProjectLocationSelection(): boolean {
+  const scope = formData.implementation_scope
+  if (!scope) {
+    ElMessage.error('Select an implementation level before continuing')
+    return false
+  }
+  if (scope === 'national') return true
+  if (scopedSelectedLocations.value.length === 0) {
+    ElMessage.error('Configure at least one project location before saving')
+    return false
+  }
+  return true
+}
+
+function validateProjectActivities(): boolean {
+  if (!Array.isArray(formData.activities) || formData.activities.length === 0) {
+    ElMessage.error('Configure at least one project activity before saving')
+    return false
+  }
+  return true
+}
+
+const selectedActivityOptions = computed(() => {
+  const selectedIds = Array.isArray(formData.activities)
+    ? formData.activities.map(Number)
+    : []
+  return activityOptions.value.filter((activity) => selectedIds.includes(activity.value))
+})
+
+function removeSelectedActivity(activityId: number) {
+  formData.activities = (formData.activities || []).filter(
+    (id: number | string) => Number(id) !== activityId
+  )
+}
+
+async function searchProjectActivities(keyword = '') {
+  activitySearchLoading.value = true
+  try {
+    const res = await searchByKeyWord({
+      model: 'activity',
+      searchField: 'title',
+      searchKeyword: keyword,
+      associated_multiple_models: [],
+      filters: [],
+      filterValues: [],
+      limit: 50,
+      offset: 0,
+    } as any)
+    const existing = activityOptions.value.filter((option) =>
+      (formData.activities || []).includes(option.value)
+    )
+    const results = ((res as any).data || []).map((activity: any) => ({
+      value: Number(activity.id),
+      label: activity.title || activity.name || `Activity #${activity.id}`,
+      code: activity.code,
+    }))
+    activityOptions.value = [...existing, ...results]
+      .filter(
+        (option, index, list) => list.findIndex((item) => item.value === option.value) === index
+      )
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+  } catch (error) {
+    console.error('Activity search failed:', error)
+    ElMessage.error('Could not load project activities')
+  } finally {
+    activitySearchLoading.value = false
+  }
+}
+
+function onActivitySearchInput(keyword: string) {
+  if (activitySearchTimer) clearTimeout(activitySearchTimer)
+  activitySearchTimer = setTimeout(() => searchProjectActivities(keyword), 300)
+}
 
 const displayLocationOptions = computed(() => {
   const seen = new Set<string>()
@@ -1289,7 +1419,10 @@ watch(currentStep, (step) => {
     locationFirstLoad.value = true
     searchLocations(locationSearchKeyword.value)
   }
-  if (step === LOCATION_STEP_INDEX + 1 && !newRecord.value) {
+  if (step === ACTIVITY_STEP_INDEX) {
+    void searchProjectActivities('')
+  }
+  if (step === ACTIVITY_STEP_INDEX + 1 && !newRecord.value) {
     void loadEditProgrammeComponentOptions()
   }
 })
@@ -1302,6 +1435,7 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
 
   currentStep.value = 0
   isLoading.value = true
+  activitySearchKeyword.value = ''
 
   try {
     component_id.value = domainId
@@ -1376,6 +1510,15 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
         delete formData[key]
       })
       Object.assign(formData, curData)
+      const existingActivities = Array.isArray(curData.activities) ? curData.activities : []
+      activityOptions.value = existingActivities.map((activity: any) => ({
+        value: Number(activity.id),
+        label: activity.title || activity.name || `Activity #${activity.id}`,
+        code: activity.code,
+      }))
+      formData.activities = existingActivities
+        .map((activity: any) => Number(activity.id))
+        .filter((id: number) => Number.isFinite(id))
       formData.component_id = curData.component_id ?? domainId
       component_id.value = formData.component_id
       component_title.value =
@@ -1406,6 +1549,8 @@ async function initializeForm(domainId: string | number, editProjectId?: string 
         delete formData[key]
       })
       formData.component_id = domainId
+      formData.activities = []
+      activityOptions.value = []
       newRecord.value = true
       resetProgrammeComponentEditState()
       geomScope.value = []
@@ -1731,7 +1876,8 @@ const handleUploadGeo = async (uploadFile) => {
 
 
 const handleStepClick = (index) => {
-
+  if (index > currentStep.value && isLocationStep.value && !validateProjectLocationSelection()) return
+  if (index > currentStep.value && isActivityStep.value && !validateProjectActivities()) return
   currentStep.value = index;
 }
 
@@ -1739,7 +1885,19 @@ const handleStepClick = (index) => {
 const nextStep = async () => {
   if (currentStep.value >= totalSteps.value - 1 || !dynamicFormRef.value) return
 
-  if (isLocationStep.value || isProgrammeStep.value) {
+  if (isLocationStep.value) {
+    if (!validateProjectLocationSelection()) return
+    currentStep.value++
+    return
+  }
+
+  if (isActivityStep.value) {
+    if (!validateProjectActivities()) return
+    currentStep.value++
+    return
+  }
+
+  if (isProgrammeStep.value) {
     currentStep.value++
     return
   }
@@ -2214,10 +2372,8 @@ const submitForm = async () => {
 
       // Perform form submission logic
       const scope = formData.implementation_scope
-      if (scope && scope !== 'national' && scopedSelectedLocations.value.length === 0) {
-        ElMessage.warning('Select at least one location before submitting')
-        return
-      }
+      if (!validateProjectLocationSelection()) return
+      if (!validateProjectActivities()) return
       if (
         !isNationalLocationUser() &&
         scope &&
@@ -2561,6 +2717,8 @@ function resetProjectForm() {
   area_ha.value = 0
   isTourVisible.value = false
   clearLocationSelection()
+  activityOptions.value = []
+  activitySearchKeyword.value = ''
   resetProgrammeComponentEditState()
   dynamicFormRef.value?.clearValidate()
 }
@@ -2738,6 +2896,11 @@ function resetProjectForm() {
 
 .location-name {
   font-weight: 500;
+}
+
+.activity-step .location-name {
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .location-detail {

@@ -1419,6 +1419,21 @@ exports.modelCreateOneRecord = async (req, res) => {
       item.addIndicators(list_indicators);
     } else if (reg_model === 'project') {
       await ensureDefaultProjectLocationForCreator(item.id, req.thisUser.id, req.body);
+
+      const activityIds = Array.isArray(req.body.activities)
+        ? req.body.activities
+            .map((activity) =>
+              typeof activity === 'object' && activity != null ? activity.id : activity
+            )
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
+      if (activityIds.length > 0) {
+        const projectActivities = await db.models.activity.findAll({
+          where: { id: { [Op.in]: [...new Set(activityIds)] } },
+        });
+        await item.setActivities(projectActivities);
+      }
     }
 
     res.status(200).send({
@@ -8727,98 +8742,70 @@ exports.unrevokeDocumentShare = async (req, res) => {
 
 
 exports.RemoveDocument = async (req, res) => {
-  var reg_model = 'document'
-  let errors =[]
+  const errors = []
   let successCount = 0
-  let totalFiles = req.body.filesToDelete.length
-  console.log("Removing files:", req.body.filesToDelete )
+  const filesToDelete = Array.isArray(req.body.filesToDelete) ? req.body.filesToDelete : []
+  const totalFiles = filesToDelete.length
+  console.log('Removing files:', filesToDelete)
 
-  for (let i = 0; i < req.body.filesToDelete.length; i++) {
+  for (const item of filesToDelete) {
+    try {
+      if (typeof item === 'object' && item !== null) {
+        const referenceWhere = item.location
+          ? { location: item.location, id: { [Op.ne]: item.id } }
+          : { name: item.name, id: { [Op.ne]: item.id } }
+        const otherRefs = item.id
+          ? await db.models.document.count({ where: referenceWhere })
+          : 0
 
-    if (typeof(req.body.filesToDelete[i]) == 'object') {
+        await destroyDocumentsWithDependencies(item.id ? { id: item.id } : { name: item.name })
 
-      const item = req.body.filesToDelete[i]
-      const filePath = path.join(uploadDir, item.name );
-
-      // Reports replicated from one bulk submission share a single stored file —
-      // delete only this row when an id is given, and unlink the file only when
-      // no other document row still references that name.
-      const otherRefs = item.id
-        ? await db.models.document.count({
-            where: { name: item.name, id: { [Op.ne]: item.id } }
-          }).catch(() => 1)
-        : 0
-
-      if (otherRefs === 0) {
-        // Try to delete the file, but don't fail if it doesn't exist
-        try {
-          fs.unlinkSync(filePath);
-          console.log('File deleted successfully:', filePath)
-        } catch (fileError) {
-          console.log('File not found or already deleted:', filePath, fileError.message)
-          // Continue with database deletion even if file doesn't exist
+        if (otherRefs === 0) {
+          const uploadRoot = path.resolve(uploadDir)
+          const storedPath = item.location ? path.resolve(item.location) : ''
+          const filePath = storedPath.startsWith(uploadRoot + path.sep)
+            ? storedPath
+            : path.join(uploadRoot, path.basename(item.name))
+          try {
+            await fs.promises.unlink(filePath)
+            console.log('Final reference removed; file deleted:', filePath)
+          } catch (fileError) {
+            if (fileError.code !== 'ENOENT') throw fileError
+            console.log('File already absent:', filePath)
+          }
+        } else {
+          console.log('Document unlinked; file retained for', otherRefs, 'other report(s)')
         }
       } else {
-        console.log('File kept, still referenced by', otherRefs, 'other document(s):', filePath)
+        const filePath = path.join(uploadDir, path.basename(item))
+        await destroyDocumentsWithDependencies({ name: item })
+        await fs.promises.unlink(filePath).catch((error) => {
+          if (error.code !== 'ENOENT') throw error
+        })
       }
-
-      destroyDocumentsWithDependencies(item.id ? { id: item.id } : { name: item.name })
-        .then((result) => {
-          console.log('Database record deleted successfully for:', item.name, 'rows:', result)
-          successCount++
-        })
-        .catch(function (err) {
-          console.log('Database deletion error---------->', err)
-          errors.push(err)
-        })
-    } else {
-
-     // var filePath = './public/' + req.body.filesToDelete[i];
-      const filePath = path.join(uploadDir, req.body.filesToDelete[i]);
-
-      // Try to delete the file, but don't fail if it doesn't exist
-      try {
-        fs.unlinkSync(filePath);
-        console.log('File deleted successfully:', filePath)
-      } catch (fileError) {
-        console.log('File not found or already deleted:', filePath, fileError.message)
-        // Continue with database deletion even if file doesn't exist
-      }
-    
-      destroyDocumentsWithDependencies({ name: req.body.filesToDelete[i] })
-        .then((result) => {
-          console.log('Database record deleted successfully for:', req.body.filesToDelete[i], 'rows:', result)
-          successCount++
-        })
-        .catch(function (err) {
-          console.log('Database deletion error---------->', err)
-          errors.push(err)
-        })
-
+      successCount++
+    } catch (error) {
+      console.error('Document deletion error:', error)
+      errors.push(error.message || String(error))
     }
- 
   }
 
-  // Wait a bit for async operations to complete, then send response
-  setTimeout(() => {
-    if (errors.length === 0) {
-      res.status(200).send({
-        message: 'Delete Successful',
-        code: '0000',
-        deletedCount: successCount,
-        totalFiles: totalFiles
-      })
-    } else {
-      res.status(500).send({
-        message: 'Delete Failed',
-        code: '0000',
-        errors: errors,
-        deletedCount: successCount,
-        totalFiles: totalFiles
-      })
-    }
-  }, 1000) // Wait 1 second for async operations
+  if (errors.length === 0) {
+    return res.status(200).send({
+      message: 'Delete Successful',
+      code: '0000',
+      deletedCount: successCount,
+      totalFiles: totalFiles
+    })
+  }
 
+  return res.status(500).send({
+    message: 'Delete Failed',
+    code: 'DELETE_FAILED',
+    errors,
+    deletedCount: successCount,
+    totalFiles: totalFiles
+  })
 }
 
 
