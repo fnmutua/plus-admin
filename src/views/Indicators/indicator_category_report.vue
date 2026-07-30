@@ -53,24 +53,14 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
-import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
-import "mapbox-layer-switcher/styles.css";
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
+import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import { useAppStore } from '@/store/modules/app'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
 import { Icon as AppIcon } from '@/components/Icon'
 import { useAdjustableTableColumns, type AdjustableColumnSetting } from '@/composables/useAdjustableTableColumns'
 import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
-
-
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
-
-
 
 
 const { wsCache } = useCache()
@@ -1999,6 +1989,32 @@ const fetchCentroid = async (model, id) => {
   }
 }
 
+const resolveProjectCentroid = async (row: Record<string, any>, reportCentroid: any) => {
+  const projectLocationId = row.project_location_id ?? row.project_location?.id
+  const projectLocationCentroid = await fetchCentroid('project_location', projectLocationId)
+  if (projectLocationCentroid) {
+    return { centroid: projectLocationCentroid, source: 'project location' }
+  }
+
+  // Some older project_location records have no geom of their own. Resolve the
+  // administrative geometry at the level where the report was filed instead.
+  const locationCandidates = [
+    ['settlement', row.settlement_id ?? row.settlement?.id ?? row.project_location?.settlement_id],
+    ['ward', row.ward_id ?? row.ward?.id ?? row.project_location?.ward_id],
+    ['subcounty', row.subcounty_id ?? row.subcounty?.id ?? row.project_location?.subcounty_id],
+    ['county', row.county_id ?? row.county?.id ?? row.project_location?.county_id],
+  ] as const
+
+  for (const [model, id] of locationCandidates) {
+    const centroid = await fetchCentroid(model, id)
+    if (centroid) return { centroid, source: model }
+  }
+
+  // The report geometry was copied from the selected project location when the
+  // report was filed, so it remains the best fallback for legacy records.
+  return { centroid: reportCentroid, source: 'recorded report location' }
+}
+
 const showMap = async (row) => {
   reportDetails.value = row
 
@@ -2009,22 +2025,16 @@ const showMap = async (row) => {
   }
   reportGeom.value = centroid
 
-  const proj_centroid = await fetchCentroid('project_location', row.project_location_id)
-  // Without a project location the map still shows the report point; the project
-  // layers below all read projectGeom, so fall back to the report's own centroid.
-  projectGeom.value = proj_centroid || centroid
+  const resolvedProject = await resolveProjectCentroid(row, centroid)
+  const proj_centroid = resolvedProject.centroid
+  projectGeom.value = proj_centroid
 
   dialogMap.value = true
 
-  if (proj_centroid) {
-    const distance = turf.distance(proj_centroid, centroid, { units: 'kilometers' })
-    projectLocationColor.value = distance < 1 ? 'green' : 'red'
-    locationStatus.value =
-      'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
-  } else {
-    projectLocationColor.value = 'red'
-    locationStatus.value = 'Project location geometry is not available for comparison'
-  }
+  const distance = turf.distance(proj_centroid, centroid, { units: 'kilometers' })
+  projectLocationColor.value = distance < 1 ? 'green' : 'red'
+  locationStatus.value =
+    `The report is ${distance.toFixed(2)} kilometers from the center of the ${resolvedProject.source}`
 
   // The map is built on the drawer's @opened event, once the container has its size.
 }
@@ -2036,234 +2046,94 @@ const closeMap = () => {
   dialogMap.value = false
 }
 
-// Held so the drawer can dispose the map on close — re-opening otherwise leaks a
-// WebGL context per view, and browsers cap how many can be live at once.
-const mapInstance = ref(null)
+const mapInstance = ref<google.maps.Map | null>(null)
 
 const destroyMap = () => {
   if (mapInstance.value) {
-    mapInstance.value.remove()
+    window.google?.maps?.event.clearInstanceListeners(mapInstance.value)
     mapInstance.value = null
   }
 }
 
-const loadMap = () => {
+const loadMap = async () => {
   destroyMap()
 
-  var mapCenter = reportGeom.value.geometry.coordinates;
+  try {
+    await loadGoogleMapsApi()
+    const container = document.getElementById('mapContainer')
+    if (!container || !window.google?.maps) return
 
-  var nmap = new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: mapCenter, // starting position
-    zoom: 15,
-  });
+    const [reportLng, reportLat] = reportGeom.value.geometry.coordinates
+    const [projectLng, projectLat] = projectGeom.value.geometry.coordinates
+    const reportPosition = { lat: reportLat, lng: reportLng }
+    const projectPosition = { lat: projectLat, lng: projectLng }
 
+    const map = new window.google.maps.Map(container, {
+      center: reportPosition,
+      zoom: 15,
+      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true,
+    })
 
+    const projectMarker = new window.google.maps.Marker({
+      map,
+      position: projectPosition,
+      title: 'Project Location',
+      label: 'P',
+    })
+    const reportMarker = new window.google.maps.Marker({
+      map,
+      position: reportPosition,
+      title: 'Report Location',
+      label: 'R',
+    })
 
-  nmap.on("load", () => {
-    nmap.addLayer({
-      id: "Satellite",
-      source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
-      type: "raster",
-    });
+    const projectInfoContent = document.createElement('div')
+    projectInfoContent.textContent = `Project Location — ${projectLat.toFixed(6)}, ${projectLng.toFixed(6)}`
+    const projectInfo = new window.google.maps.InfoWindow({ content: projectInfoContent })
+    projectMarker.addListener('click', () => projectInfo.open({ map, anchor: projectMarker }))
 
-    nmap.addLayer({
-      id: "Streets",
-      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
-      type: "raster",
-    });
+    const submittedBy = reportDetails.value?.user?.name || 'Unknown'
+    const phone = reportDetails.value?.user?.phone || 'N/A'
+    const reportDate = formatDate(reportDetails.value?.date)
+    const reportInfoContent = document.createElement('div')
+    reportInfoContent.append(
+      `Submitted By: ${submittedBy}`,
+      document.createElement('br'),
+      `Phone: ${phone}`,
+      document.createElement('br'),
+      `Date: ${reportDate}`,
+    )
+    const reportInfo = new window.google.maps.InfoWindow({ content: reportInfoContent })
+    reportMarker.addListener('click', () => reportInfo.open({ map, anchor: reportMarker }))
 
-    nmap.setLayoutProperty("Satellite", "visibility", "none");
+    new window.google.maps.Polyline({
+      map,
+      path: [projectPosition, reportPosition],
+      strokeColor: projectLocationColor.value,
+      strokeOpacity: 0,
+      icons: [{
+        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 },
+        offset: '0',
+        repeat: '14px',
+      }],
+    })
 
-    const layers = [
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: "none",
-        type: "base",
-      },
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: "none",
-        type: "base",
-      },
-    ];
+    const bounds = new window.google.maps.LatLngBounds()
+    bounds.extend(projectPosition)
+    bounds.extend(reportPosition)
+    map.fitBounds(bounds, 80)
+    window.google.maps.event.addListenerOnce(map, 'idle', () => {
+      if ((map.getZoom() ?? 15) > 15) map.setZoom(15)
+    })
 
-    //     Add point layer
-    nmap.addLayer({
-      id: 'point-layer',
-      type: 'circle',
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'circle-color': 'red',
-        'circle-radius': 6,
-      },
-      filter: ['==', '$type', 'Point'],
-    });
-
-    // Add line layer
-    nmap.addLayer({
-      id: 'line-layer',
-      type: 'line',
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'line-color': projectLocationColor.value,
-        'line-width': 2,
-      },
-      filter: ['==', '$type', 'LineString'],
-    });
-
-    // Add polygon layer as outline
-    nmap.addLayer({
-      id: 'polygon-layer',
-      type: 'line', // Change to 'line' to display the outline
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'line-color': projectLocationColor.value, // Outline color (replace 'green' with your desired color)
-        'line-width': 2, // Outline width in pixels (adjust as needed)
-      },
-      filter: ['in', '$type', 'Polygon'], // Include both Polygon and MultiPolygon types
-    });
-
-
-
-    //     Add Project Location layer
-    nmap.addLayer({
-      id: 'project-layer',
-      type: 'circle',
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'circle-color': 'red',
-        'circle-radius': 6,
-      },
-      filter: ['==', '$type', 'Point'],
-    });
-
-
-    // Add marker to the map
-    // Create a new marker and set its position
-    const proj_marker = new mapboxgl.Marker()
-      .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
-      .addTo(nmap); // Add the marker to the map
-
-    // Create a new popup
-    const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
-      .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
-
-    // Attach the popup to the marker
-    proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
-
-
-
-    const lineString = {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          projectGeom.value.geometry.coordinates, // First point coordinates
-          reportGeom.value.geometry.coordinates  // Second point coordinates
-        ]
-      }
-    };
-
-    nmap.addLayer({
-      id: 'distance-layer',
-      type: 'line', // Change to 'line' to display the outline
-      source: {
-        type: 'geojson',
-        data: lineString
-      },
-      'paint': {
-        'line-color': 'red',
-        'line-width': 1,
-        'line-dasharray': [10, 10],
-
-
-      },
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round'
-      }
-    });
-
-
-    const bounds = turf.bbox((lineString))
-    console.log("From geo", bounds)
-    // maxZoom keeps the view readable when the report sits on (or very near) the
-    // project location — a near-empty bbox would otherwise fit to max zoom.
-    nmap.fitBounds(bounds, { padding: 100, maxZoom: 15 })
-
-
-
-
-
-    console.log(nmap)
-
-    nmap.addControl(new MapboxLayerSwitcherControl(layers));
-
-    const nav = new mapboxgl.NavigationControl();
-    nmap.addControl(nav, "top-left");
-
-    // Add a marker at the geom.value position
-
-    function formatDateToYYYYMMDD(dateString) {
-      const dateObj = new Date(dateString);
-      const year = dateObj.getUTCFullYear();
-      const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-    // Add a marker at the geom.value position
-    var marker = new mapboxgl.Marker().setLngLat(mapCenter).addTo(nmap);
-    // Create the marker and specify the color
-    var marker = new mapboxgl.Marker({
-      color: projectLocationColor.value,
-    }).setLngLat(mapCenter)
-      .addTo(nmap);
-    // Create a simple popup with user information displayed using line breaks
-    var popupContent = document.createElement('div');
-
-    // Sample user information (replace these with actual data)
-    var userName = reportDetails.value.user.name;
-    var phoneNumber = reportDetails.value.user.phone;
-    var date = formatDateToYYYYMMDD(reportDetails.value.date);
-
-    var userInfo = `
-        <div style="text-align: center;">
-          <strong>Submitted By:</strong>
-          <hr style="margin: 5px 0;">
-
-        </div>
-        <strong>Name:</strong> ${userName}<br>
-          <strong>Phone Number:</strong> ${phoneNumber}<br>
-          <strong>Date:</strong> ${date}
-        `;
-
-    popupContent.innerHTML = userInfo;
-
-    var popup = new mapboxgl.Popup({ anchor: 'right', offset: [-20, 0] }).setDOMContent(popupContent);
-
-    // Attach the popup to the marker
-    marker.setPopup(popup);
-    nmap.resize();
-  });
-
-  mapInstance.value = nmap;
+    mapInstance.value = map
+  } catch (error) {
+    console.error('Failed to load Google Map:', error)
+    ElMessage.error('Google Maps could not be loaded')
+  }
 };
 
 
@@ -2532,7 +2402,7 @@ function handleIndicatorsChange(selectedIds) {
         <el-input
           v-model="reportSearchText"
           clearable
-          placeholder="Search by indicator, category, project or location"
+          placeholder="Search by indicator, project, location or submitter"
           :prefix-icon="Search"
           class="report-search-input"
           @input="onReportSearch"
@@ -3282,8 +3152,8 @@ target="#btn13" title="Documentation"
   color: var(--el-text-color-secondary);
 }
 
-/* Fills the remaining drawer height. min-height:0 lets it shrink inside the flex
-   column; without it the flex item keeps its content height and Mapbox overflows. */
+/* Fills the remaining drawer height. min-height:0 lets the Google Map shrink
+   inside the drawer's flex column without overflowing. */
 .report-map-canvas {
   width: 100%;
   flex: 1 1 auto;

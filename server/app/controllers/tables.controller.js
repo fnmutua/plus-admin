@@ -5784,7 +5784,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       }
     }
 
-    // Free-text search for indicator reports: match indicator name/category or project title
+    // Free-text search for indicator reports: match report details, location, or submitter.
     if (
       modelName === 'indicator_category_report' &&
       typeof req.body.reportSearch === 'string' &&
@@ -5801,6 +5801,11 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         OR EXISTS (SELECT 1 FROM ward w WHERE w.id = ${tbl}."ward_id" AND LOWER(w.name) LIKE ${like})
         OR EXISTS (SELECT 1 FROM subcounty sc WHERE sc.id = ${tbl}."subcounty_id" AND LOWER(sc.name) LIKE ${like})
         OR EXISTS (SELECT 1 FROM county c WHERE c.id = ${tbl}."county_id" AND LOWER(c.name) LIKE ${like})
+        OR EXISTS (SELECT 1 FROM users u WHERE u.id = ${tbl}."userId"
+                   AND (LOWER(u.name) LIKE ${like}
+                        OR LOWER(u.username) LIKE ${like}
+                        OR LOWER(u.email) LIKE ${like}
+                        OR LOWER(u.phone) LIKE ${like}))
       )`);
       if (baseQuery.where[Sequelize.Op.and]) {
         baseQuery.where[Sequelize.Op.and].push(searchCond);
