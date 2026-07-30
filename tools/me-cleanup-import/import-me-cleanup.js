@@ -10,6 +10,7 @@ const { Client } = require('pg');
 const XLSX = require('xlsx');
 const {
   PROJECTS_CLEAN_PATH,
+  REPO_ROOT,
   getDB,
   isUuidCode,
   normalizeActivityCodeForImport,
@@ -18,6 +19,10 @@ const {
   loadWorkbook,
   loadActivityMergeMap,
 } = require('./me-cleanup-shared');
+const { inferActivityCodes, inferTenderType } = require(path.join(
+  REPO_ROOT,
+  'server/scripts/project-activity-matching.js'
+));
 
 const APPLY = process.argv.includes('--apply');
 const DRY_RUN = !APPLY;
@@ -33,6 +38,8 @@ const stats = {
   projects_updated: 0,
   project_links_added: 0,
   project_links_removed: 0,
+  project_links_inferred: 0,
+  project_links_unmapped: 0,
   indicators_updated: 0,
   indicators_created: 0,
   indicators_merged: 0,
@@ -464,14 +471,49 @@ async function importProjectActivities(client, workbook, activityIdByCode) {
       .map((part) => part.trim())
       .filter(Boolean);
 
-    const targetCodes = suggested.length ? suggested : missing;
+    // Authoritative target = all suggested links for this project (union missing as fallback).
+    const targetCodes = [...new Set([...suggested, ...missing])];
+    if (!targetCodes.length) continue;
+
+    const targetActivityIds = [];
+    const unresolvedCodes = [];
     for (const code of targetCodes) {
       const activityId = resolveActivityId(code, activityIdByCode, null);
       if (!activityId) {
-        log(`  skip link ${projectId} → ${code} (activity not found)`);
+        unresolvedCodes.push(code);
         continue;
       }
+      targetActivityIds.push(activityId);
+    }
 
+    for (const code of unresolvedCodes) {
+      log(`  skip link ${projectId} → ${code} (activity not found)`);
+    }
+
+    if (!targetActivityIds.length) continue;
+
+    const uniqueTargetIds = [...new Set(targetActivityIds)];
+
+    // Full sync: drop links not in the workbook target set, then ensure all targets exist.
+    if (!DRY_RUN) {
+      const prune = await client.query(
+        `DELETE FROM project_activity
+         WHERE project_id = $1
+           AND NOT (activity_id = ANY($2::int[]))`,
+        [projectId, uniqueTargetIds]
+      );
+      if (prune.rowCount) {
+        stats.project_links_removed += prune.rowCount;
+        log(`  prune project ${projectId}: removed ${prune.rowCount} extra link(s)`);
+      }
+    } else if (extra.length) {
+      stats.project_links_removed += extra.length;
+    }
+
+    for (const activityId of uniqueTargetIds) {
+      const code =
+        [...activityIdByCode.byCode.entries()].find(([, id]) => id === activityId)?.[0] ||
+        `AC${activityId}`;
       log(`  link project ${projectId} → activity ${activityId} (${code})`);
       if (DRY_RUN) {
         stats.project_links_added += 1;
@@ -486,6 +528,7 @@ async function importProjectActivities(client, workbook, activityIdByCode) {
       if (result.rowCount) stats.project_links_added += 1;
     }
 
+    // Explicit extras from sheet (covers codes that could not be resolved during export).
     for (const code of extra) {
       const activityId = resolveActivityId(code, activityIdByCode, null);
       if (!activityId) continue;
@@ -496,6 +539,59 @@ async function importProjectActivities(client, workbook, activityIdByCode) {
         [projectId, activityId]
       );
       stats.project_links_removed += 1;
+    }
+  }
+}
+
+async function allocateUnlinkedProjectActivities(client, activityIdByCode) {
+  log('\n=== Unlinked projects (best-match allocation) ===');
+  const { rows } = await client.query(`
+    SELECT p.id, p.title
+    FROM project p
+    WHERE NOT EXISTS (
+      SELECT 1 FROM project_activity pa WHERE pa.project_id = p.id
+    )
+    ORDER BY p.id
+  `);
+
+  if (!rows.length) {
+    log('  none');
+    return;
+  }
+
+  for (const row of rows) {
+    const projectId = row.id;
+    const title = String(row.title || '').trim();
+    const codes = inferActivityCodes(title);
+    const tenderType = inferTenderType(title);
+    const preview = title.length > 60 ? `${title.slice(0, 60)}…` : title;
+
+    if (!codes.length) {
+      log(`  skip project ${projectId}: no activity match — ${preview}`);
+      stats.project_links_unmapped += 1;
+      continue;
+    }
+
+    log(`  project ${projectId} (${tenderType}): ${codes.join('; ')} — ${preview}`);
+
+    for (const code of codes) {
+      const activityId = resolveActivityId(code, activityIdByCode, null);
+      if (!activityId) {
+        log(`    skip ${code} (activity not found)`);
+        continue;
+      }
+      log(`    link → ${code} (${activityId})`);
+      if (DRY_RUN) {
+        stats.project_links_inferred += 1;
+        continue;
+      }
+      const result = await client.query(
+        `INSERT INTO project_activity (project_id, activity_id, "createdAt", "updatedAt")
+         VALUES ($1, $2, NOW(), NOW())
+         ON CONFLICT (project_id, activity_id) DO NOTHING`,
+        [projectId, activityId]
+      );
+      if (result.rowCount) stats.project_links_inferred += 1;
     }
   }
 }
@@ -905,6 +1001,7 @@ async function main(envPath) {
 
     await importProjects(client, workbook);
     await importProjectActivities(client, workbook, activityIdByCode);
+    await allocateUnlinkedProjectActivities(client, activityIdByCode);
 
     const indicatorMaps = await buildIndicatorIdMap(client);
     await importIndicators(client, workbook, activityIdByCode, indicatorMaps);

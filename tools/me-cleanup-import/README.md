@@ -46,7 +46,7 @@ VUE_APP_DB=kisip
 
 1. **Activities** — titles, new activities, merges
 2. **Projects** — contract numbers (`project_code`)
-3. **Project–activity links** — add/remove links per workbook
+3. **Project–activity links** — full sync from `project_activities` sheet (adds suggested links, removes extras)
 4. **Indicators** — update/create/merge/remove (IND70 removed)
 5. **Indicator categories** — report configuration
 6. **Indicator reports** — relink to correct categories
