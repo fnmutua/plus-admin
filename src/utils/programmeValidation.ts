@@ -108,6 +108,33 @@ export function flattenProgrammeTree(nodes: ProgrammeRecord[]): ProgrammeRecord[
   return rows
 }
 
+export function getProgrammeAncestorIds(
+  programmeId: number,
+  allProgrammes: ProgrammeRecord[]
+): Set<number> {
+  const byId = new Map<number, ProgrammeRecord>()
+  allProgrammes.forEach((row) => {
+    const id = Number(row.id)
+    if (!Number.isNaN(id)) byId.set(id, row)
+  })
+
+  const ancestors = new Set<number>()
+  const visited = new Set<number>()
+  let current = byId.get(programmeId)
+
+  while (current) {
+    const id = Number(current.id)
+    if (Number.isNaN(id) || visited.has(id)) break
+    visited.add(id)
+    ancestors.add(id)
+
+    const parentId = normalizeParentId(current.parentId)
+    current = parentId != null ? byId.get(parentId) : undefined
+  }
+
+  return ancestors
+}
+
 export function getProgrammeDescendantIds(
   programmeId: number,
   allProgrammes: ProgrammeRecord[]

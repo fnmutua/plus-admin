@@ -5767,6 +5767,11 @@ const monitoringReportPeriodFilter = ref('all')
 const projectIndicatorTargets = ref<Array<Record<string, any>>>([])
 const monitoringTargetSavingId = ref<number | null>(null)
 
+function isProjectOrActivityIndicator(option: Record<string, any> | null | undefined): boolean {
+  const level = String(option?.indicator_level || '').toLowerCase()
+  return level === 'project' || level === 'activity'
+}
+
 const fiscalYearOptions = computed(() => {
   const currentStart = new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1
   return [0, 1, 2].map((offset) => {
@@ -5865,7 +5870,9 @@ function computeMonitoringProgress(
 }
 
 const monitoringTargetLedger = computed(() =>
-  (indicatorsOptionsFiltered.value || []).map((opt) => {
+  (indicatorsOptionsFiltered.value || [])
+    .filter((opt) => isProjectOrActivityIndicator(opt))
+    .map((opt) => {
     const targetRow = findConfiguredTarget(opt.value, null)
     const isQual = isQualitativeIndicator(opt)
     const targetQualitative = isQual && targetRow != null
@@ -7858,11 +7865,15 @@ function formatLocation(item) {
 
           <el-tabs v-model="monitoringSubTab" class="monitoring-inner-tabs">
             <el-tab-pane label="Targets" name="targets">
+              <p class="monitoring-targets-help">
+                Set <strong>annual FY targets</strong> for project- and activity-level indicators linked under Scope.
+                Programme-level indicators are tracked elsewhere and may appear blank here.
+              </p>
               <div class="monitoring-table-scroll">
               <el-table
                 :data="monitoringTargetLedger"
                 border
-                empty-text="Link activities under Scope to configure indicators, then set FY targets here."
+                empty-text="Link activities under Scope to configure project- or activity-level indicators, then set FY targets here."
               >
                 <el-table-column label="Indicator" min-width="260">
                   <template #default="{ row }">
@@ -11185,6 +11196,13 @@ function formatLocation(item) {
 .report-value-cell__label {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.monitoring-targets-help {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.45;
 }
 
 .monitoring-toolbar {

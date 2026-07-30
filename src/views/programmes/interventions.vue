@@ -278,6 +278,35 @@ function locationsForProjectScope(row: any): any[] {
   return locations.filter((location) => location?.location_type === scope)
 }
 
+const PROJECT_LIST_LOCATION_PREVIEW_LIMIT = 2
+
+function projectLocationLabels(locations: any[]): string[] {
+  return locations.map(resolveProjectLocationLabel)
+}
+
+function projectLocationsSummary(locations: any[]): string {
+  return projectLocationLabels(locations).join(', ')
+}
+
+function visibleProjectLocations(locations: any[]): any[] {
+  if (locations.length <= PROJECT_LIST_LOCATION_PREVIEW_LIMIT) return locations
+  return locations.slice(0, PROJECT_LIST_LOCATION_PREVIEW_LIMIT)
+}
+
+function hiddenProjectLocationCount(locations: any[]): number {
+  return Math.max(0, locations.length - PROJECT_LIST_LOCATION_PREVIEW_LIMIT)
+}
+
+function getProjectListLocationDisplay(row: any) {
+  const locations = locationsForProjectScope(row)
+  return {
+    locations,
+    visible: visibleProjectLocations(locations),
+    hiddenCount: hiddenProjectLocationCount(locations),
+    summary: projectLocationsSummary(locations),
+  }
+}
+
 function projectConfiguration(row: any) {
   const locationConfigured =
     normalizeLocationScope(row?.implementation_scope) === 'national' ||
@@ -2369,38 +2398,54 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          <div v-if="locationsForProjectScope(row).length > 0" class="locations-container">
-            <div class="location-list">
-              <span 
-                v-for="(location, index) in locationsForProjectScope(row)" 
-                :key="location.id ?? `${location.location_type}-${index}`"
-                class="location-item"
+          <template v-for="display in [getProjectListLocationDisplay(row)]" :key="row.id">
+            <template v-if="display.locations.length > 0">
+              <el-tooltip
+                placement="top"
+                effect="dark"
+                :disabled="display.hiddenCount === 0"
               >
-                <span class="location-item-inner">
-                  <Icon
-                    v-if="locationHasGeoPoint(location)"
-                    icon="mdi:map-marker"
-                    class="location-geo-marker"
-                    title="Pinned map location"
-                  />
-                  <span
-                    v-if="isSettlementLocation(location)"
-                    @click="goToSettlementMap(location)"
-                    class="settlement-link"
-                    :title="`View ${resolveProjectLocationLabel(location)} on map`"
-                  >
-                    {{ resolveProjectLocationLabel(location) }}
-                  </span>
-                  <span v-else class="location-name">
-                    {{ resolveProjectLocationLabel(location) }}
-                  </span>
-                </span>
-                <span v-if="index < locationsForProjectScope(row).length - 1" class="location-separator">, </span>
-              </span>
-            </div>
-          </div>
-          <span v-else-if="row.implementation_scope === 'national'" class="no-locations">National scope</span>
-          <span v-else class="no-locations">No locations configured</span>
+                <template #content>
+                  {{ display.summary }}
+                </template>
+                <div class="locations-container locations-container--ellipsis">
+                  <div class="location-list">
+                    <span
+                      v-for="(location, index) in display.visible"
+                      :key="location.id ?? `${location.location_type}-${index}`"
+                      class="location-item"
+                    >
+                      <span class="location-item-inner">
+                        <Icon
+                          v-if="locationHasGeoPoint(location)"
+                          icon="mdi:map-marker"
+                          class="location-geo-marker"
+                          title="Pinned map location"
+                        />
+                        <span
+                          v-if="isSettlementLocation(location)"
+                          @click.stop="goToSettlementMap(location)"
+                          class="settlement-link"
+                          :title="`View ${resolveProjectLocationLabel(location)} on map`"
+                        >
+                          {{ resolveProjectLocationLabel(location) }}
+                        </span>
+                        <span v-else class="location-name">
+                          {{ resolveProjectLocationLabel(location) }}
+                        </span>
+                      </span>
+                      <span v-if="index < display.visible.length - 1" class="location-separator">, </span>
+                    </span>
+                    <span v-if="display.hiddenCount > 0" class="location-more">
+                      … +{{ display.hiddenCount }} more
+                    </span>
+                  </div>
+                </div>
+              </el-tooltip>
+            </template>
+            <span v-else-if="row.implementation_scope === 'national'" class="no-locations">National scope</span>
+            <span v-else class="no-locations">No locations configured</span>
+          </template>
         </template>
       </el-table-column>
       <el-table-column
@@ -2656,14 +2701,31 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   display: flex;
   flex-wrap: wrap;
   gap: 2px;
+  max-width: 100%;
+}
+
+.locations-container--ellipsis {
+  overflow: hidden;
 }
 
 .location-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   font-size: 13px;
   line-height: 1.4;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location-more {
+  flex-shrink: 0;
+  color: #909399;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 2px;
 }
 
 .interventions-project-table :deep(.el-table__row) {

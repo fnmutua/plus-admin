@@ -379,6 +379,99 @@ function inferActivityCodes(title) {
   return [...matched];
 }
 
+function uniqCodes(codes) {
+  return [...new Set(codes.map(normalizeActivityCode).filter(Boolean))];
+}
+
+/**
+ * Programme-level fallback when title rules alone do not match.
+ */
+function programmeFallbackActivities(programmeAcronym, title) {
+  const prog = String(programmeAcronym || '').toLowerCase();
+  const t = String(title || '');
+
+  if (prog.includes('infra')) {
+    return uniqCodes(KISIP2_INFRASTRUCTURE_BUNDLE);
+  }
+  if (prog.includes('tenure')) {
+    return uniqCodes(PLANNING_SURVEY_BUNDLE);
+  }
+  if (prog.includes('capacity') || prog.includes('institutional')) {
+    if (/mapping|geodatabase|slums\/informal/i.test(t)) return ['AC29'];
+    if (/national slum upgrading/i.test(t)) return ['AC27'];
+    if (/gis|information hub/i.test(t)) return ['AC28'];
+    if (/county-specific strateg|slum prevention|slum upgrading strateg/i.test(t)) return ['AC31'];
+    return inferActivityCodes(t);
+  }
+  if (prog.includes('livelihood')) {
+    if (/vulnerable|safety net/i.test(t)) return ['AC11'];
+    if (/cdp|community development plan|community investment/i.test(t)) return ['AC10', 'AC36'];
+    if (/dpw|digital public works/i.test(t)) return ['AC13'];
+    if (/licw|labour-intensive/i.test(t)) return ['AC12'];
+    return ['AC10'];
+  }
+  return [];
+}
+
+/**
+ * KISIP II project → activity codes with conflict resolution.
+ * Fixes false "Lot N" / cluster matches on infrastructure upgrading projects.
+ */
+function inferKisipProjectActivityCodes(title, programmeAcronym) {
+  const t = String(title || '');
+
+  if (/infrastructures?\s+upgrading|infrastructure upgrading works/i.test(t)) {
+    return uniqCodes(KISIP2_INFRASTRUCTURE_BUNDLE);
+  }
+
+  if (/national slum upgrading strategy|updating of the national slum upgrading/i.test(t)) {
+    return ['AC27'];
+  }
+
+  if (/county-specific strateg|slum prevention and upgrading|county slum upgrading strateg/i.test(t)) {
+    return ['AC31'];
+  }
+
+  if (/mapping of slums|geodatabase for slums|mapping of informal|informal settlements mapped/i.test(t)) {
+    return ['AC29'];
+  }
+
+  if (/gis-based housing|information hub|gis and ict/i.test(t)) {
+    return ['AC28'];
+  }
+
+  if (/community development plan|\bcdp\b|community investment sub-?project/i.test(t)) {
+    return uniqCodes(['AC10', 'AC36']);
+  }
+
+  if (
+    /survey and planning|planning and surveying|physical planning|cadastral survey|topographical survey|consultancy services.*planning|registry index|\brims\b/i.test(
+      t,
+    ) &&
+    !/infrastructure upgrading/i.test(t)
+  ) {
+    return uniqCodes(PLANNING_SURVEY_BUNDLE);
+  }
+
+  if (/preparation of raps|\braps\b|resettlement action plan/i.test(t)) {
+    return uniqCodes(['AC-RAP', ...PLANNING_SURVEY_BUNDLE]);
+  }
+
+  let codes = inferActivityCodes(t);
+  const planningSet = new Set(PLANNING_SURVEY_BUNDLE.map(normalizeActivityCode));
+
+  if (/infrastructure upgrading/i.test(t)) {
+    codes = codes.filter((code) => !planningSet.has(code));
+    if (!codes.length) codes = KISIP2_INFRASTRUCTURE_BUNDLE.map(normalizeActivityCode);
+  }
+
+  if (!codes.length) {
+    codes = programmeFallbackActivities(programmeAcronym, t);
+  }
+
+  return uniqCodes(codes);
+}
+
 
 module.exports = {
   KISIP2_INFRASTRUCTURE_BUNDLE,
@@ -388,4 +481,6 @@ module.exports = {
   normalizeActivityCode,
   inferTenderType,
   inferActivityCodes,
+  inferKisipProjectActivityCodes,
+  programmeFallbackActivities,
 };
