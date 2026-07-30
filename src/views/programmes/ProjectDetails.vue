@@ -7377,6 +7377,18 @@ function addPdfPageFooters(doc: jsPDF, pageWidth: number) {
   }
 }
 
+function truncatePdfLine(doc: jsPDF, text: string, maxWidth: number): string {
+  const normalized = text.trim()
+  if (!normalized) return text
+  if (doc.getTextWidth(normalized) <= maxWidth) return normalized
+  const ellipsis = '…'
+  let truncated = normalized
+  while (truncated.length > 1 && doc.getTextWidth(`${truncated}${ellipsis}`) > maxWidth) {
+    truncated = truncated.slice(0, -1)
+  }
+  return `${truncated.trimEnd()}${ellipsis}`
+}
+
 async function startProjectPaymentPdf(
   reportTitle: string,
   summaryLines: string[],
@@ -7409,9 +7421,8 @@ async function startProjectPaymentPdf(
   doc.setFontSize(11)
   doc.setTextColor(0)
   let contentY = startY + 8
-  const titleLines = doc.splitTextToSize(projectTitle, pageWidth - 28)
-  doc.text(titleLines, pageWidth / 2, contentY, { align: 'center' })
-  contentY += titleLines.length * 5 + 3
+  doc.text(truncatePdfLine(doc, projectTitle, pageWidth - 28), pageWidth / 2, contentY, { align: 'center' })
+  contentY += 6
 
   const metaParts = [
     project.project_code ? `Contract No.: ${project.project_code}` : null,
@@ -7781,7 +7792,7 @@ function formatLocation(item) {
           </el-button>
           <div class="project-title-wrap">
             <div class="project-title-row">
-              <h1 class="project-title">
+              <h1 class="project-title" :title="project_title || 'Project Details'">
                 {{ project_title || 'Project Details' }}
               </h1>
               <div
@@ -10474,7 +10485,7 @@ function formatLocation(item) {
 
 .project-title-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px 12px;
   min-width: 0;
@@ -10488,7 +10499,9 @@ function formatLocation(item) {
   font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.25;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .project-scope-transfer {
@@ -11791,9 +11804,9 @@ function formatLocation(item) {
     flex: 1 1 auto;
     font-size: 0.95rem;
     line-height: 1.35;
-    white-space: normal;
-    word-break: break-word;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .project-header-tags {

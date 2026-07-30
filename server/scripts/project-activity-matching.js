@@ -277,7 +277,7 @@ const TENDER_RULES = [
   },
   {
     type: 'settlement_upgrading',
-    test: /slum upgrading|informal settlement upgrading|settlement upgrading|urban upgrading/i,
+    test: /informal settlement upgrading works|settlement upgrading works|slum upgrading works|urban upgrading works/i,
     codes: KISIP2_INFRASTRUCTURE_BUNDLE,
   },
   {
@@ -367,9 +367,11 @@ function normalizeActivityCode(code) {
 
 function inferActivityCodes(title) {
   const matched = new Set();
+  const t = String(title || '');
 
   for (const rule of TENDER_RULES) {
-    if (rule.test.test(title)) {
+    if (rule.type === 'settlement_upgrading' && isSlumStrategyDocument(t)) continue;
+    if (rule.test.test(t)) {
       for (const code of rule.codes) {
         matched.add(normalizeActivityCode(code));
       }
@@ -381,6 +383,51 @@ function inferActivityCodes(title) {
 
 function uniqCodes(codes) {
   return [...new Set(codes.map(normalizeActivityCode).filter(Boolean))];
+}
+
+/** Physical works contracts — not design/strategy consultancies. */
+function isInfrastructureWorksProject(title) {
+  const t = String(title || '');
+  return (
+    /infrastructures?\s+upgrading\s+works/i.test(t) ||
+    /infrastructure upgrading works/i.test(t) ||
+    /infrastructure upgrading in select settlements/i.test(t)
+  );
+}
+
+/** Consultancy for plans, designs, supervision — not construction outputs. */
+function isInfrastructureConsultancyProject(title) {
+  const t = String(title || '');
+  if (isInfrastructureWorksProject(t)) return false;
+  return (
+    /infrastructure upgrading plans|detailed engineering designs|engineering designs and preparation|preparation of procurement documents.*supervision|construction supervision|supervision of construction|supervision works in selected|review and repackaging of existing engineering/i.test(
+      t,
+    ) || (/consultancy services.*infrastructure upgrading/i.test(t) && /design|supervision|procurement document/i.test(t))
+  );
+}
+
+function designSupervisionConsultancyCodes(title) {
+  const t = String(title || '');
+  const codes = ['AC-DESIGN', 'AC-SUP'];
+  if (/esia|environmental and social impact/i.test(t)) codes.push('AC38');
+  if (/esmp|resettlement action|\brap\b/i.test(t)) codes.push('AC-ESMP');
+  return uniqCodes(codes);
+}
+
+function isNationalSlumStrategyProject(title) {
+  return /national slum upgrading(?:\s+and\s+prevention)?\s+strateg/i.test(String(title || ''));
+}
+
+function isCountySlumStrategyProject(title) {
+  const t = String(title || '');
+  return (
+    /county[-\s]?specific\s+slum|countyspecific\s+slum|slum upgrading and prevent/i.test(t) ||
+    /county slum upgrading strateg|slum prevention and upgrading strateg/i.test(t)
+  );
+}
+
+function isSlumStrategyDocument(title) {
+  return isNationalSlumStrategyProject(title) || isCountySlumStrategyProject(title);
 }
 
 /**
@@ -398,9 +445,9 @@ function programmeFallbackActivities(programmeAcronym, title) {
   }
   if (prog.includes('capacity') || prog.includes('institutional')) {
     if (/mapping|geodatabase|slums\/informal/i.test(t)) return ['AC29'];
-    if (/national slum upgrading/i.test(t)) return ['AC27'];
+    if (isNationalSlumStrategyProject(t)) return ['AC27'];
+    if (isCountySlumStrategyProject(t)) return ['AC31'];
     if (/gis|information hub/i.test(t)) return ['AC28'];
-    if (/county-specific strateg|slum prevention|slum upgrading strateg/i.test(t)) return ['AC31'];
     return inferActivityCodes(t);
   }
   if (prog.includes('livelihood')) {
@@ -420,15 +467,19 @@ function programmeFallbackActivities(programmeAcronym, title) {
 function inferKisipProjectActivityCodes(title, programmeAcronym) {
   const t = String(title || '');
 
-  if (/infrastructures?\s+upgrading|infrastructure upgrading works/i.test(t)) {
+  if (isInfrastructureWorksProject(t)) {
     return uniqCodes(KISIP2_INFRASTRUCTURE_BUNDLE);
   }
 
-  if (/national slum upgrading strategy|updating of the national slum upgrading/i.test(t)) {
+  if (isInfrastructureConsultancyProject(t)) {
+    return designSupervisionConsultancyCodes(t);
+  }
+
+  if (isNationalSlumStrategyProject(t)) {
     return ['AC27'];
   }
 
-  if (/county-specific strateg|slum prevention and upgrading|county slum upgrading strateg/i.test(t)) {
+  if (isCountySlumStrategyProject(t)) {
     return ['AC31'];
   }
 
@@ -460,9 +511,10 @@ function inferKisipProjectActivityCodes(title, programmeAcronym) {
   let codes = inferActivityCodes(t);
   const planningSet = new Set(PLANNING_SURVEY_BUNDLE.map(normalizeActivityCode));
 
+  // Legacy titles mentioning "infrastructure upgrading" without "works" — only design consultancies reach here.
   if (/infrastructure upgrading/i.test(t)) {
     codes = codes.filter((code) => !planningSet.has(code));
-    if (!codes.length) codes = KISIP2_INFRASTRUCTURE_BUNDLE.map(normalizeActivityCode);
+    if (!codes.length) return designSupervisionConsultancyCodes(t);
   }
 
   if (!codes.length) {
@@ -483,4 +535,9 @@ module.exports = {
   inferActivityCodes,
   inferKisipProjectActivityCodes,
   programmeFallbackActivities,
+  isInfrastructureWorksProject,
+  isInfrastructureConsultancyProject,
+  designSupervisionConsultancyCodes,
+  isNationalSlumStrategyProject,
+  isCountySlumStrategyProject,
 };
