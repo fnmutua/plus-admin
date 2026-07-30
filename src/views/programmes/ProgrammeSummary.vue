@@ -14,10 +14,15 @@ import {
   ElTooltip,
   ElPagination,
   ElTreeSelect,
+  ElCheckbox,
 } from 'element-plus'
 import { Icon } from '@/components/Icon'
 import { useAppStoreWithOut } from '@/store/modules/app'
-import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
+import {
+  getProgrammesList,
+  getComponentsList,
+  getOptimizedProjectLocations,
+} from '@/api/project-locations-optimized'
 import { getCountiesList, getSubcountiesList, getWardsList } from '@/api/settlements-optimized'
 import { getSettlementListByCounty, getAllGeo } from '@/api/settlements'
 import { getProgrammeDescendantIds, type ProgrammeRecord } from '@/utils/programmeValidation'
@@ -396,9 +401,108 @@ const projectsWithoutLocation = computed(() => {
 const PALETTE_LIGHT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948']
 const PALETTE_DARK = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767']
 
+// "Other" is a leftover bucket, not a 9th category, so it takes a recessive neutral
+// rather than cycling back onto slot 1's hue (both clear 3:1 on their surface).
+const OTHER_LIGHT = '#7d7d75'
+const OTHER_DARK = '#9b9b93'
+
 const isDark = computed(() => appStore.getIsDark)
 
+// One colour per chart series, shared by the bars and the map dots so a category
+// looks the same in either view.
+const seriesColors = computed(() => {
+  const palette = isDark.value ? PALETTE_DARK : PALETTE_LIGHT
+  const other = isDark.value ? OTHER_DARK : OTHER_LIGHT
+  return chartModel.value.series.map((s, i) =>
+    s.name === 'Other' ? other : palette[i % palette.length]
+  )
+})
+
 const exportBaseName = computed(() => `projects-by-${axisLevel.value}`)
+
+// ---- Dynamic titles ----
+const selectedCountyName = computed(() =>
+  selectedCounty.value == null ? '' : countyNameById.value.get(selectedCounty.value) || ''
+)
+const selectedSubcountyName = computed(() =>
+  selectedSubcounty.value == null ? '' : subcountyNameById.value.get(selectedSubcounty.value) || ''
+)
+const selectedWardName = computed(() =>
+  selectedWard.value == null ? '' : wardNameById.value.get(selectedWard.value) || ''
+)
+const selectedProgrammeName = computed(() => {
+  if (selectedProgramme.value == null) return ''
+  const match = programmes.value.find((p) => Number(p.id) === selectedProgramme.value)
+  return match ? String(match.title || match.acronym || '') : ''
+})
+
+// "Projects by subcounty in Nairobi" — the deepest place named, since a ward
+// already implies its subcounty and county.
+const chartTitle = computed(() => {
+  const level = AXIS_LABEL[axisLevel.value].toLowerCase()
+  const place =
+    selectedWardName.value ||
+    selectedSubcountyName.value ||
+    selectedCountyName.value ||
+    ''
+  const scope = selectedProgrammeName.value
+  let title = `Projects by ${level}`
+  if (place) title += ` in ${place}`
+  if (scope) title += ` · ${scope}`
+  return title
+})
+
+// Kept to the essentials — the caveats (unlocated projects, folded categories)
+// live in the map panel rather than the header.
+const chartSubtitle = computed(
+  () =>
+    `Coloured by ${DIMENSION_LABEL[stackDimension.value].toLowerCase()} · ` +
+    `${chartModel.value.total} of ${totals.value.projectCount} projects`
+)
+
+// The two numbers rarely match, for two opposite reasons: projects with no
+// location drop out, while a project spanning several places is counted in each.
+// Spell that out on hover rather than leaving it to be second-guessed.
+const countExplanation = computed(() => {
+  const shown = chartModel.value.total
+  const all = totals.value.projectCount
+  if (shown === all) return `All ${all} projects appear here.`
+
+  const reasons: string[] = []
+  if (projectsWithoutLocation.value) {
+    reasons.push(
+      `${projectsWithoutLocation.value} project(s) have no recorded location, so they cannot be placed on a ${AXIS_LABEL[axisLevel.value].toLowerCase()}`
+    )
+  }
+  if (hasActiveFilters.value) {
+    reasons.push('the active filters exclude some projects')
+  }
+  if (multiPlaceProjects.value) {
+    reasons.push(
+      `${multiPlaceProjects.value} project(s) span more than one ${AXIS_LABEL[axisLevel.value].toLowerCase()} and are counted once in each`
+    )
+  }
+
+  const why = reasons.length
+    ? reasons.join('; ')
+    : 'some projects fall outside the current view'
+  return `${shown} counted of ${all} total — ${why}.`
+})
+
+// Projects appearing in more than one bucket at the current level
+const multiPlaceProjects = computed(() => {
+  const buckets = new Map<number, Set<string>>()
+  filteredLocations.value.forEach((loc) => {
+    const id = Number(loc.project.id)
+    if (!buckets.has(id)) buckets.set(id, new Set())
+    buckets.get(id)!.add(axisBucketFor(loc))
+  })
+  let n = 0
+  buckets.forEach((set) => {
+    if (set.size > 1) n += 1
+  })
+  return n
+})
 
 // ---- Map (choropleth) ----
 // ApexCharts has no map type, so the map view uses ECharts.
@@ -506,6 +610,83 @@ const mapTotals = computed(() => {
   }
 })
 
+// ---- Project location dots ----
+// Centroids are computed server-side (ST_Centroid) by the optimized endpoint, so
+// no polygon geometry is shipped just to place a marker.
+const showDots = ref(true)
+const locationPoints = ref<Map<number, [number, number]>>(new Map())
+const pointsLoaded = ref(false)
+
+const loadLocationPoints = async () => {
+  if (pointsLoaded.value) return
+  try {
+    const res = await getOptimizedProjectLocations({
+      params: { model: 'project_location', includeCentroids: true },
+    } as any)
+    const fc = (res as any)?.data
+    const features = fc?.features || []
+    const map = new Map<number, [number, number]>()
+    features.forEach((f: any) => {
+      const id = Number(f.properties?.id)
+      const c = f.geometry?.coordinates
+      if (!Number.isNaN(id) && Array.isArray(c) && c.length >= 2) {
+        map.set(id, [Number(c[0]), Number(c[1])])
+      }
+    })
+    locationPoints.value = map
+    pointsLoaded.value = true
+  } catch (error) {
+    console.error('Failed to load project location points:', error)
+  }
+}
+
+watch(
+  [viewMode, showDots],
+  () => {
+    if (viewMode.value === 'map' && showDots.value) loadLocationPoints()
+  },
+  { immediate: true }
+)
+
+// One dot per filtered location that has a centroid
+const dotData = computed(() => {
+  if (!showDots.value || !locationPoints.value.size) return []
+  return filteredLocations.value
+    .map((loc) => {
+      const point = locationPoints.value.get(Number(loc.id))
+      if (!point) return null
+      return {
+        name: loc.project?.title || 'Project',
+        value: [point[0], point[1]],
+        status: loc.project?.status || 'Unspecified',
+        category: dotCategoryFor(loc),
+      }
+    })
+    .filter(Boolean) as any[]
+})
+
+// Dots are grouped by the same dimension (and same folding) the bar chart uses, so
+// a category keeps its colour whichever view you're in.
+const chartCategoryNames = computed(() => new Set(chartModel.value.series.map((s) => s.name)))
+
+const dotCategoryFor = (loc: any) => {
+  const category = categoryForLocation(loc)
+  return chartCategoryNames.value.has(category) ? category : 'Other'
+}
+
+// One scatter series per category — gives each its own palette slot and a legend
+// entry, which a single series with per-point colours would not.
+const dotSeriesByCategory = computed(() => {
+  if (!showDots.value) return []
+  const byCategory = new Map<string, any[]>()
+  chartModel.value.series.forEach((s) => byCategory.set(s.name, []))
+  dotData.value.forEach((dot) => {
+    if (!byCategory.has(dot.category)) byCategory.set(dot.category, [])
+    byCategory.get(dot.category)!.push(dot)
+  })
+  return [...byCategory.entries()].map(([name, data]) => ({ name, data }))
+})
+
 const mapAspect = computed(() => {
   const geo = activeGeo.value
   if (!geo?.features?.length) return 1
@@ -538,14 +719,41 @@ const mapOptions = computed(() => {
   const surface = dark ? '#1a1a19' : '#fcfcfb'
 
   return {
+    // Rendered into the canvas so a saved PNG carries its own context
+    title: {
+      text: chartTitle.value,
+      subtext: chartSubtitle.value,
+      left: 12,
+      top: 4,
+      textStyle: { color: textPrimary, fontSize: 14, fontWeight: 600 },
+      subtextStyle: { color: dark ? '#c3c2b7' : '#52514e', fontSize: 11 },
+    },
     tooltip: {
       trigger: 'item',
       formatter: (params: any) => {
+        if (params.seriesType === 'scatter') {
+          return `${params.name}<br/><span style="opacity:.7">${params.data?.status || ''}</span>`
+        }
         const value = params.value
         if (value == null || Number.isNaN(value)) return `${params.name}<br/>No projects`
         return `${params.name}<br/><strong>${value}</strong> project${value === 1 ? '' : 's'}`
       },
     },
+    // Names the dot colours; the choropleth series is excluded since visualMap
+    // already carries its own scale.
+    legend: showDots.value
+      ? {
+          show: true,
+          // Below the title block, not overlapping it
+          top: 46,
+          left: 12,
+          data: dotSeriesByCategory.value.map((s) => s.name),
+          itemWidth: 10,
+          itemHeight: 10,
+          icon: 'circle',
+          textStyle: { color: textPrimary, fontSize: 11 },
+        }
+      : { show: false },
     // Save-image only; roam already handles pan/zoom and a reset would fight it
     toolbox: {
       show: true,
@@ -557,12 +765,15 @@ const mapOptions = computed(() => {
         saveAsImage: {
           title: 'Download map',
           name: exportBaseName.value,
-          pixelRatio: 2,
+          // 8 matches the app's other ECharts exports (Dashboard/Interventions)
+          pixelRatio: 8,
           backgroundColor: surface,
         },
       },
     },
     visualMap: {
+      // Choropleth only — without this the ramp would also recolour the dots
+      seriesIndex: 0,
       min: 0,
       max: Math.max(1, mapTotals.value.max),
       left: 'left',
@@ -572,22 +783,47 @@ const mapOptions = computed(() => {
       inRange: { color: SEQUENTIAL_RAMP },
       textStyle: { color: textPrimary },
     },
+    // A shared geo component gives the choropleth and the dots one projection, so
+    // markers stay pinned to their region while roaming.
+    geo: {
+      map: registeredMapName.value,
+      roam: true,
+      // Clear the title/legend above and the visualMap below
+      top: showDots.value ? 78 : 56,
+      bottom: 56,
+      // Longitude degrees shrink by cos(latitude); without this the shapes stretch
+      aspectScale: mapAspect.value,
+      itemStyle: { borderColor: surface, borderWidth: 1, areaColor: dark ? '#2a2a28' : '#f0f0ec' },
+      emphasis: {
+        label: { show: true, color: textPrimary },
+        itemStyle: { areaColor: dark ? '#3a3a38' : '#e6e6e2' },
+      },
+      select: { disabled: true },
+    },
     series: [
       {
         type: 'map',
-        map: registeredMapName.value,
-        roam: true,
-        // Longitude degrees shrink by cos(latitude); without this the shapes stretch
-        aspectScale: mapAspect.value,
-        emphasis: {
-          label: { show: true, color: textPrimary },
-          itemStyle: { areaColor: dark ? '#3a3a38' : '#e6e6e2' },
-        },
-        // 2px surface gap so adjacent regions stay separable
-        itemStyle: { borderColor: surface, borderWidth: 1, areaColor: dark ? '#2a2a28' : '#f0f0ec' },
-        select: { disabled: true },
+        geoIndex: 0,
+        name: AXIS_LABEL[axisLevel.value],
         data: mapTotals.value.data,
       },
+      ...dotSeriesByCategory.value.map((s, i) => ({
+        type: 'scatter',
+        coordinateSystem: 'geo',
+        geoIndex: 0,
+        name: s.name,
+        symbolSize: 8,
+        // Same palette slot as this category's bar, so colours agree across views.
+        // The surface ring keeps overlapping dots countable.
+        itemStyle: {
+          color: seriesColors.value[i],
+          borderColor: surface,
+          borderWidth: 2,
+        },
+        emphasis: { scale: 1.4 },
+        z: 5,
+        data: s.data,
+      })),
     ],
   }
 })
@@ -604,7 +840,9 @@ const chartOptions = computed(() => {
       stacked: true,
       height: 420,
       fontFamily: 'inherit',
-      background: 'transparent',
+      // Apex paints the exported PNG with chart.background — 'transparent' produced
+      // a see-through image that's unreadable on white or dark. Matches the card.
+      background: dark ? '#1a1a19' : '#fcfcfb',
       animations: { enabled: true, speed: 250 },
       // Built-in export menu (SVG / PNG / CSV of the plotted series)
       toolbar: {
@@ -619,7 +857,12 @@ const chartOptions = computed(() => {
           pan: false,
           reset: false,
         },
+        // scale/width match the app's other Apex exports (National, DynamicState);
+        // `background` because the chart itself is transparent and a PNG without it
+        // is unreadable pasted onto white or dark.
         export: {
+          scale: 3,
+          width: 1800,
           csv: { filename: exportBaseName.value, headerCategory: AXIS_LABEL[axisLevel.value] },
           svg: { filename: exportBaseName.value },
           png: { filename: exportBaseName.value },
@@ -627,7 +870,20 @@ const chartOptions = computed(() => {
       },
     },
     theme: { mode: dark ? 'dark' : 'light' },
-    colors: dark ? PALETTE_DARK : PALETTE_LIGHT,
+    colors: seriesColors.value,
+    // In the chart itself, so exported PNG/SVG carries its own context
+    title: {
+      text: chartTitle.value,
+      align: 'left',
+      margin: 4,
+      style: { fontSize: '14px', fontWeight: 600, color: textPrimary },
+    },
+    subtitle: {
+      text: chartSubtitle.value,
+      align: 'left',
+      offsetY: 22,
+      style: { fontSize: '11px', color: textSecondary },
+    },
     plotOptions: {
       bar: {
         horizontal: false,
@@ -916,16 +1172,20 @@ const downloadSummaryTable = async () => {
     <el-card v-if="!loading" class="summary-chart-card">
       <div class="chart-toolbar">
         <div class="chart-toolbar-text">
-          <h3 class="chart-title">Projects by {{ AXIS_LABEL[axisLevel].toLowerCase() }}</h3>
+          <h3 class="chart-title">{{ chartTitle }}</h3>
           <p class="chart-subtitle">
-            Stacked by {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} ·
-            {{ chartModel.total }} of {{ totals.projectCount }} projects shown
-            <template v-if="projectsWithoutLocation">
-              ({{ projectsWithoutLocation }} have no location)
-            </template>
-            <template v-if="chartModel.foldedCount">
-              · smallest {{ chartModel.foldedCount }} grouped as “Other”
-            </template>
+            Coloured by {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} ·
+            <el-tooltip
+              :content="countExplanation"
+              placement="bottom"
+              :show-after="150"
+              popper-class="count-hint-popper"
+            >
+              <span class="chart-count-hint">
+                {{ chartModel.total }} of {{ totals.projectCount }} projects
+                <Icon icon="mdi:information-outline" :size="13" class="chart-count-icon" />
+              </span>
+            </el-tooltip>
           </p>
         </div>
 
@@ -1094,6 +1354,17 @@ const downloadSummaryTable = async () => {
                 <span class="map-panel-total">{{ chartModel.total }} projects</span>
               </div>
 
+              <label class="map-dots-toggle">
+                <el-checkbox v-model="showDots" size="small">
+                  <span class="map-dots-label">
+                    Location dots
+                    <span v-if="showDots" class="map-dots-count">
+                      ({{ dotData.length }}, by {{ DIMENSION_LABEL[stackDimension].toLowerCase() }})
+                    </span>
+                  </span>
+                </el-checkbox>
+              </label>
+
               <ul class="map-rank-list">
                 <li v-for="row in mapRanking" :key="row.name" class="map-rank-item">
                   <span class="map-rank-name" :title="row.name">{{ row.name }}</span>
@@ -1110,9 +1381,20 @@ const downloadSummaryTable = async () => {
                 {{ mapTotals.unmapped.map((u) => `${u.name} (${u.value})`).join(', ') }}
               </p>
 
+              <p v-if="chartModel.foldedCount" class="map-note">
+                Smallest {{ chartModel.foldedCount }}
+                {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} grouped as “Other”.
+              </p>
+
               <p class="map-note">
-                Shading is total projects — one colour per region, so the
-                {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} split lives in the Chart view.
+                Shading is total projects per {{ AXIS_LABEL[axisLevel].toLowerCase() }};
+                <template v-if="showDots">
+                  dot colour is {{ DIMENSION_LABEL[stackDimension].toLowerCase() }}.
+                </template>
+                <template v-else>
+                  turn on dots to see the
+                  {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} split.
+                </template>
               </p>
             </aside>
           </div>
@@ -1167,6 +1449,18 @@ const downloadSummaryTable = async () => {
   margin: 0;
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+
+.chart-count-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: help;
+  border-bottom: 1px dotted var(--el-border-color-dark);
+}
+
+.chart-count-icon {
+  color: var(--el-text-color-placeholder);
 }
 
 .chart-toolbar-controls {
@@ -1307,6 +1601,22 @@ const downloadSummaryTable = async () => {
   color: var(--el-text-color-secondary);
 }
 
+.map-dots-toggle {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.map-dots-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.map-dots-count {
+  color: var(--el-text-color-secondary);
+}
+
 .map-rank-list {
   list-style: none;
   margin: 0;
@@ -1364,5 +1674,13 @@ const downloadSummaryTable = async () => {
   margin: 6px 2px 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+</style>
+
+<!-- Poppers are teleported to <body>, so they can't be reached from a scoped block -->
+<style>
+.count-hint-popper.el-popper {
+  max-width: 240px;
+  line-height: 1.45;
 }
 </style>

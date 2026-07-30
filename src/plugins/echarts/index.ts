@@ -10,6 +10,7 @@ import {
   LineChart,
   PieChart,
   MapChart,
+  ScatterChart,
   GaugeChart,
   PictorialBarChart,
   RadarChart
@@ -33,6 +34,7 @@ use([
   LineChart,
   PieChart,
   MapChart,
+  ScatterChart,
   GaugeChart,
   PictorialBarChart,
   RadarChart,
