@@ -287,9 +287,11 @@ const axisLevel = computed<'county' | 'subcounty' | 'ward'>(() => {
   return 'county'
 })
 
+// Display labels only. The keys stay 'subcounty' because they address the backend
+// column (subcounty_id) and model name — this renames the wording, not the data.
 const AXIS_LABEL: Record<string, string> = {
   county: 'County',
-  subcounty: 'Subcounty',
+  subcounty: 'Constituency',
   ward: 'Ward',
 }
 
@@ -299,7 +301,8 @@ const axisBucketFor = (loc: any) => {
   switch (axisLevel.value) {
     case 'subcounty':
       return loc.subcounty_id
-        ? subcountyNameById.value.get(Number(loc.subcounty_id)) || `Subcounty ${loc.subcounty_id}`
+        ? subcountyNameById.value.get(Number(loc.subcounty_id)) ||
+          `Constituency ${loc.subcounty_id}`
         : 'County-wide'
     case 'ward':
       return loc.ward_id
@@ -418,7 +421,10 @@ const seriesColors = computed(() => {
   )
 })
 
-const exportBaseName = computed(() => `projects-by-${axisLevel.value}`)
+// Derived from the label, not the key, so filenames use the displayed wording
+const exportBaseName = computed(
+  () => `projects-by-${AXIS_LABEL[axisLevel.value].toLowerCase()}`
+)
 
 // ---- Dynamic titles ----
 const selectedCountyName = computed(() =>
@@ -1240,7 +1246,7 @@ const downloadSummaryTable = async () => {
           v-model="selectedSubcounty"
           clearable
           filterable
-          placeholder="All subcounties"
+          placeholder="All constituencies"
           size="small"
           class="chart-filter-select"
           :disabled="selectedCounty == null"
