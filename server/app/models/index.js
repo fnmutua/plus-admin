@@ -1086,6 +1086,38 @@ db.models.indicator_category.hasMany(db.models.indicator_category_report, {
  
 })
 
+db.models.indicator_target.belongsTo(db.models.indicator_category, {
+  foreignKey: 'indicator_category_id',
+})
+
+db.models.indicator_category.hasMany(db.models.indicator_target, {
+  foreignKey: 'indicator_category_id',
+})
+
+db.models.indicator_target.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+})
+
+db.models.project.hasMany(db.models.indicator_target, {
+  foreignKey: 'project_id',
+})
+
+db.models.indicator_target.belongsTo(db.models.project_location, {
+  foreignKey: 'project_location_id',
+})
+
+db.models.project_location.hasMany(db.models.indicator_target, {
+  foreignKey: 'project_location_id',
+})
+
+db.models.indicator_target.belongsTo(db.models.programme, {
+  foreignKey: 'programme_id',
+})
+
+db.models.programme.hasMany(db.models.indicator_target, {
+  foreignKey: 'programme_id',
+})
+
 
 // county  - indicator_category_report
 db.models.indicator_category_report.belongsTo(db.models.project, {

@@ -35,6 +35,7 @@ var _category = require('./category')
 var _indicator = require('./indicator')
 var _indicator_category = require('./indicator_category')
 var _indicator_category_report = require('./indicator_category_report')
+var _indicator_target = require('./indicator_target')
 var _project= require('./project')
 var _programme= require('./programme')
 var _document= require('./document')
@@ -177,6 +178,7 @@ function initModels(sequelize) {
   var indicator = _indicator(sequelize, DataTypes)
   var indicator_category = _indicator_category(sequelize, DataTypes)
   var indicator_category_report = _indicator_category_report(sequelize, DataTypes)
+  var indicator_target = _indicator_target(sequelize, DataTypes)
   var project = _project(sequelize, DataTypes)
   var programme = _programme(sequelize, DataTypes)
   var document = _document(sequelize, DataTypes)
@@ -338,6 +340,7 @@ communication_recipient.belongsTo(communication, {
      indicator ,
      indicator_category,
      indicator_category_report,
+     indicator_target,
      project,
     
     document, document_link, document_share, document_share_item, upload_share_link,

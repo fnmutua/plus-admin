@@ -1871,6 +1871,7 @@ const loadProjectDetails = async (id: string | string[]) => {
 
   getprojectDisbursements(id)
   getIndicatorCategoryReports(id)
+  await loadProjectIndicatorTargets(id)
 
   ruleForm.subcounty_id = projectFullData.value.subcounty_id
   ruleForm.ward_id = projectFullData.value.ward_id
@@ -5654,8 +5655,25 @@ function formatDate(dateString: unknown) {
 }
 
 
-function getQuarter(date = new Date()) {
-  return Math.floor(date.getMonth() / 3 + 1);
+/** Fiscal quarter within Jul–Jun FY (Q1 Jul–Sep … Q4 Apr–Jun). */
+function getQuarter(date: Date | string = new Date()) {
+  const d = date instanceof Date ? date : new Date(String(date))
+  const m = d.getMonth()
+  if (m >= 6 && m <= 8) return 1
+  if (m >= 9 && m <= 11) return 2
+  if (m >= 0 && m <= 2) return 3
+  return 4
+}
+
+function formatReportPeriod(date: unknown): string {
+  const d = date ? new Date(String(date)) : null
+  if (!d || Number.isNaN(d.getTime())) return '—'
+  return `Q${getQuarter(d)} ${getFiscalYear(d)}`
+}
+
+function reportPeriodKey(date: unknown): string {
+  const label = formatReportPeriod(date)
+  return label === '—' ? '' : label
 }
 /// here to File a report (m&E)
 
@@ -5713,6 +5731,321 @@ function indicatorValueLabel(option: Record<string, any> | null | undefined): st
   const unit = String(option?.unit || '').trim()
   return unit ? `Amount (${unit})` : 'Amount'
 }
+
+/** Kenya fiscal year (Jul–Jun), e.g. July 2025 → "2025/2026". */
+function getFiscalYear(date: Date = new Date()): string {
+  const month = date.getMonth()
+  const year = date.getFullYear()
+  if (month >= 6) return `${year}/${year + 1}`
+  return `${year - 1}/${year}`
+}
+
+function isDateInFiscalYear(raw: unknown, fiscalYear: string): boolean {
+  const d = raw ? new Date(String(raw)) : null
+  if (!d || Number.isNaN(d.getTime())) return false
+  return getFiscalYear(d) === fiscalYear
+}
+
+function parseTargetValue(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+const monitoringSubTab = ref('targets')
+const monitoringFiscalYear = ref(getFiscalYear())
+const monitoringReportPeriodFilter = ref('all')
+const projectIndicatorTargets = ref<Array<Record<string, any>>>([])
+const monitoringTargetSavingId = ref<number | null>(null)
+
+const fiscalYearOptions = computed(() => {
+  const currentStart = new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1
+  return [0, 1, 2].map((offset) => {
+    const start = currentStart - offset
+    return { label: `${start}/${start + 1}`, value: `${start}/${start + 1}` }
+  })
+})
+
+async function loadProjectIndicatorTargets(projectId?: string | number | null) {
+  const pid = Number(projectId ?? route.params.id)
+  if (!Number.isFinite(pid)) {
+    projectIndicatorTargets.value = []
+    return
+  }
+
+  try {
+    const res = await getSettlementListByCounty({
+      model: 'indicator_target',
+      filters: ['project_id', 'fiscal_year'],
+      filterValues: [[pid], [monitoringFiscalYear.value]],
+      associated_multiple_models: ['indicator_category'],
+      returnAll: true,
+    } as any)
+    projectIndicatorTargets.value = res.data || []
+  } catch {
+    projectIndicatorTargets.value = []
+  }
+}
+
+function findConfiguredTarget(
+  indicatorCategoryId: number,
+  projectLocationId?: number | null,
+): Record<string, any> | null {
+  const icId = Number(indicatorCategoryId)
+  const locId = projectLocationId != null ? Number(projectLocationId) : null
+  const rows = projectIndicatorTargets.value || []
+
+  if (locId) {
+    const locationRow = rows.find(
+      (r) =>
+        Number(r.indicator_category_id) === icId &&
+        r.scope_type === 'project_location' &&
+        Number(r.project_location_id) === locId,
+    )
+    if (locationRow) return locationRow
+  }
+
+  return (
+    rows.find(
+      (r) =>
+        Number(r.indicator_category_id) === icId &&
+        r.scope_type === 'project' &&
+        !r.project_location_id,
+    ) || null
+  )
+}
+
+function latestReportForIndicator(
+  indicatorCategoryId: number,
+  projectLocationId?: number | null,
+) {
+  const icId = Number(indicatorCategoryId)
+  const locId = projectLocationId != null ? Number(projectLocationId) : null
+  const candidates = (indicatorReports.value || []).filter((row: Record<string, any>) => {
+    if (Number(row.indicator_category_id) !== icId) return false
+    if (!isDateInFiscalYear(row.date, monitoringFiscalYear.value)) return false
+    if (locId && row.project_location_id != null) {
+      return Number(row.project_location_id) === locId
+    }
+    return true
+  })
+
+  if (!candidates.length) return null
+  return candidates.reduce((best: Record<string, any>, row: Record<string, any>) =>
+    Number(row.id || 0) > Number(best.id || 0) ? row : best,
+  )
+}
+
+function computeMonitoringProgress(
+  option: Record<string, any>,
+  actual: number,
+  target: number,
+  targetKind?: string,
+): number | null {
+  if (isQualitativeIndicator(option)) return null
+  if (targetKind === 'percent' || isPercentIndicator(option)) {
+    return target > 0 ? (actual / target) * 100 : actual
+  }
+  if (target <= 0) return null
+  return (actual / target) * 100
+}
+
+const monitoringTargetLedger = computed(() =>
+  (indicatorsOptionsFiltered.value || []).map((opt) => {
+    const targetRow = findConfiguredTarget(opt.value, null)
+    const target = parseTargetValue(targetRow?.target_value)
+    const latest = latestReportForIndicator(opt.value, null)
+    const actual = latest
+      ? parseTargetValue(latest.cumAmount ?? latest.amount)
+      : 0
+    const variance = target > 0 ? actual - target : null
+    const progress = computeMonitoringProgress(opt, actual, target, targetRow?.target_kind)
+
+    return {
+      ...opt,
+      targetId: targetRow?.id ?? null,
+      target,
+      targetKind: targetRow?.target_kind || 'absolute',
+      actual,
+      variance,
+      progress,
+    }
+  }),
+)
+
+const reportPeriodFilterOptions = computed(() => {
+  const keys = new Set<string>()
+  for (const row of indicatorReports.value || []) {
+    const key = reportPeriodKey(row.date)
+    if (key) keys.add(key)
+  }
+  return [
+    { label: 'All quarters', value: 'all' },
+    ...Array.from(keys)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => ({ label: value, value })),
+  ]
+})
+
+const filteredIndicatorReports = computed(() => {
+  const rows = [...(indicatorReports.value || [])].sort((a: Record<string, any>, b: Record<string, any>) => {
+    const da = new Date(String(a.date || 0)).getTime()
+    const db = new Date(String(b.date || 0)).getTime()
+    if (da !== db) return db - da
+    return Number(b.id || 0) - Number(a.id || 0)
+  })
+  if (monitoringReportPeriodFilter.value === 'all') return rows
+  return rows.filter((row) => reportPeriodKey(row.date) === monitoringReportPeriodFilter.value)
+})
+
+async function saveMonitoringTarget(row: Record<string, any>) {
+  if (!canAddMonitoringReport.value) {
+    ElMessage.warning('You do not have permission to set targets.')
+    return
+  }
+
+  const indicatorCategoryId = Number(row.value)
+  const targetValue = parseTargetValue(row.target)
+  if (!indicatorCategoryId) return
+  if (targetValue <= 0) {
+    ElMessage.error('Enter a target greater than zero.')
+    return
+  }
+
+  const projectId = Number(route.params.id)
+  const payload: Record<string, unknown> = {
+    model: 'indicator_target',
+    indicator_category_id: indicatorCategoryId,
+    fiscal_year: monitoringFiscalYear.value,
+    scope_type: 'project',
+    project_id: projectId,
+    target_value: targetValue,
+    target_kind: isPercentIndicator(row) ? 'percent' : 'absolute',
+    createdBy: userInfo.id,
+  }
+
+  monitoringTargetSavingId.value = indicatorCategoryId
+  try {
+    if (row.targetId) {
+      await updateOneRecord({
+        model: 'indicator_target',
+        id: row.targetId,
+        target_value: targetValue,
+        target_kind: payload.target_kind,
+      } as any)
+    } else {
+      await CreateRecord(payload as any)
+    }
+    ElMessage.success('Target saved')
+    await loadProjectIndicatorTargets(projectId)
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Could not save target')
+  } finally {
+    monitoringTargetSavingId.value = null
+  }
+}
+
+async function fetchLatestCumulativeForIndicator(
+  indicatorCategoryId: number,
+  projectLocationId?: number | null,
+) {
+  const pid = Number(route.params.id)
+  const filters = ['project_id', 'indicator_category_id']
+  const filterValues: unknown[] = [[pid], [indicatorCategoryId]]
+
+  if (projectLocationId) {
+    filters.push('project_location_id')
+    filterValues.push([projectLocationId])
+  }
+
+  const res = await getSettlementListByCounty({
+    model: 'indicator_category_report',
+    filters,
+    filterValues,
+    returnAll: true,
+  } as any)
+
+  const latest = (res.data || []).reduce(
+    (best: Record<string, any> | null, row: Record<string, any>) => {
+      if (!best || Number(row.id) > Number(best.id)) return row
+      return best
+    },
+    null,
+  )
+
+  if (!latest) {
+    return { cumAmount: 0, amount: 0, target: null as number | null }
+  }
+
+  return {
+    cumAmount: parseTargetValue(latest.cumAmount),
+    amount: parseTargetValue(latest.amount),
+    target: latest.target != null ? parseTargetValue(latest.target) : null,
+  }
+}
+
+async function hydrateIndicatorReportRows(selectedIds: number[]) {
+  const selectedIndicators = indicatorsOptionsFiltered.value.filter((opt) =>
+    selectedIds.includes(opt.value),
+  )
+  const locationId = ruleForm.project_location_id
+  const existingById = new Map(
+    (ruleForm.indicators || []).map((row: Record<string, any>) => [Number(row.value), row]),
+  )
+
+  const rows = []
+  for (const ind of selectedIndicators) {
+    const existing = existingById.get(Number(ind.value))
+    const configured = findConfiguredTarget(ind.value, locationId)
+    const cumulative = await fetchLatestCumulativeForIndicator(ind.value, locationId)
+    const targetValue =
+      configured != null
+        ? parseTargetValue(configured.target_value)
+        : cumulative.target ?? existing?.target ?? null
+
+    rows.push({
+      ...ind,
+      amount: existing?.amount ?? null,
+      qualitative: existing?.qualitative ?? (isQualitativeIndicator(ind) ? 'No' : null),
+      target: targetValue,
+      targetKind: configured?.target_kind || (isPercentIndicator(ind) ? 'percent' : 'absolute'),
+      cumAmount: cumulative.cumAmount,
+      prevAmount: cumulative.amount,
+      date: existing?.date ?? new Date(),
+      cumProgress: existing?.cumProgress ?? null,
+    })
+  }
+
+  ruleForm.indicators = rows
+}
+
+function syncReportIndicatorRows(selectedIds: number[]) {
+  const selectedIndicators = indicatorsOptionsFiltered.value.filter((opt) =>
+    selectedIds.includes(opt.value),
+  )
+  const existingById = new Map(
+    (ruleForm.indicators || []).map((row: Record<string, any>) => [Number(row.value), row]),
+  )
+
+  ruleForm.indicators = selectedIndicators.map((ind) => {
+    const existing = existingById.get(Number(ind.value))
+    if (existing) return existing
+    return {
+      ...ind,
+      amount: null,
+      qualitative: isQualitativeIndicator(ind) ? 'No' : null,
+      target: null,
+      targetKind: isPercentIndicator(ind) ? 'percent' : 'absolute',
+      cumAmount: 0,
+      prevAmount: 0,
+      date: new Date(),
+      cumProgress: null,
+    }
+  })
+}
+
+watch(monitoringFiscalYear, () => {
+  loadProjectIndicatorTargets(route.params.id)
+})
 
 const ReportRules = reactive<FormRules>({
   project_location_id: [
@@ -5781,27 +6114,6 @@ const validateReportStepFields = (fields: string[]): Promise<boolean> =>
     }
   })
 
-// One report per indicator, location and period — mirrors the unique key on
-// indicator_category_report, which would otherwise fail at the database.
-function findDuplicateReport(row: Record<string, any>) {
-  const period = String(getQuarter(new Date(row.date || Date.now())))
-  const year = new Date(row.date || Date.now()).getFullYear()
-  const locationId = ruleForm.project_location_id
-
-  return (indicatorReports.value || []).find((existing: Record<string, any>) => {
-    if (Number(existing?.indicator_category_id) !== Number(row.value)) return false
-    if (locationId && existing.project_location_id != null) {
-      if (Number(existing.project_location_id) !== Number(locationId)) return false
-    }
-    const existingDate = new Date(String(existing?.date || ''))
-    if (Number.isNaN(existingDate.getTime())) return false
-    return (
-      existingDate.getFullYear() === year &&
-      String(getQuarter(existingDate)) === period
-    )
-  })
-}
-
 function validateReportValues(): boolean {
   const rows = ruleForm.indicators || []
   if (!rows.length) {
@@ -5858,19 +6170,12 @@ function validateReportValues(): boolean {
       }
     }
 
-    const duplicate = findDuplicateReport(row)
-    if (duplicate) {
-      ElMessage.error(
-        `${name} has already been reported for this location in Q${getQuarter(new Date(String(row.date)))}.`,
-      )
-      return false
-    }
   }
 
   return true
 }
 
-const validateReportStep = async (step: number): Promise<boolean> => {
+const validateReportStep = async (step: number, opts: { hydrate?: boolean } = {}): Promise<boolean> => {
   switch (step) {
     case 0:
       if (isNationalProject.value) return true
@@ -5878,9 +6183,14 @@ const validateReportStep = async (step: number): Promise<boolean> => {
     case 1: {
       const valid = await validateReportStepFields(['indicator_category_id'])
       if (!valid) return false
-      if (!(ruleForm.indicators || []).length) {
+      const selectedIds = (ruleForm.indicator_category_id || []) as number[]
+      if (!selectedIds.length) {
         ElMessage.error('Select at least one indicator')
         return false
+      }
+      syncReportIndicatorRows(selectedIds)
+      if (opts.hydrate !== false) {
+        await hydrateIndicatorReportRows(selectedIds)
       }
       return true
     }
@@ -6009,8 +6319,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
 
   if (!(await validateReportStep(0))) return;
-  if (!(await validateReportStep(1))) return;
-  if (!(await validateReportStep(2))) return;
+  if (!(await validateReportStep(1, { hydrate: false }))) return;
+  if (!validateReportValues()) return;
 
   const submittedReportIds = [];
 
@@ -6046,7 +6356,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
     const reportPayload = {
       model: 'indicator_category_report',
-      period: String(getQuarter(new Date(reportDate))),
+      period: reportPeriodKey(reportDate) || String(getQuarter(new Date(reportDate))),
       code: filingCode,
       userId: userInfo.id,
       project_id: project_id.value,
@@ -6102,6 +6412,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   AddDialogVisible.value = false;
   handleClose();
   await getIndicatorCategoryReports(route.params.id);
+  await loadProjectIndicatorTargets(route.params.id);
 };
 
 
@@ -6945,26 +7256,8 @@ const changeLocation = async (location: any) => {
 
 
 
-function handleIndicatorsChange(selectedIds) {
-  const selectedIndicators = indicatorsOptionsFiltered.value.filter(opt =>
-    selectedIds.includes(opt.value)
-  ); 
-
- console.log('selectedIds',selectedIds)
-
-  // Qualitative indicators start unanswered so the Yes/No choice is deliberate.
-  ruleForm.indicators = selectedIndicators.map(ind => ({
-    ...ind,
-    amount: null,
-    qualitative: null,
-    baseline: null,
-    target: null,
-    date: new Date(),
-    cumProgress: null
-  }));
-
-
-  console.log('ruleForm.indicators',ruleForm.indicators)
+async function handleIndicatorsChange(selectedIds: number[]) {
+  syncReportIndicatorRows(selectedIds)
 }
 
 
@@ -7488,62 +7781,177 @@ function formatLocation(item) {
 
       <el-tab-pane label="Monitoring" name="Indicator">
         <el-card>
+          <div class="monitoring-toolbar">
+            <el-select
+              v-model="monitoringFiscalYear"
+              size="small"
+              style="width: 140px;"
+              aria-label="Fiscal year"
+            >
+              <el-option
+                v-for="opt in fiscalYearOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
 
-          <el-button v-if="canAddMonitoringReport" @click="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
-            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Report/Achievement
-          </el-button>
+            <el-button
+              v-if="canAddMonitoringReport"
+              plain
+              :size="isMobile ? 'large' : 'default'"
+              @click="AddReport"
+            >
+              <Icon icon="material-symbols:add" style="color: green;" />
+              Add report
+            </el-button>
+          </div>
 
-          <el-table :data="indicatorReports" border :row-class-name="tableRowClassName" ref="tableRef">
-            <el-table-column label="#" width="80" prop="id" sortable>
-              <template #default="scope">
-                <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-                  <span>{{ scope.row.id }}</span>
-                  <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="Indicator  " width="400" sortable>
-              <template #default="{ row }">
-                <div>
-                  <span> {{ row.indicator_category.indicator_name }} {{ row.indicator_category.category_title }} </span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="Date" prop="date" sortable>
-              <template #default="scope">
-                {{ formatDate(scope.row.date) }}
-              </template>
-            </el-table-column>
-            <!-- <el-table-column label="Amount" prop="amount" sortable /> -->
+          <el-tabs v-model="monitoringSubTab" class="monitoring-inner-tabs">
+            <el-tab-pane label="Targets" name="targets">
+              <div class="monitoring-table-scroll">
+              <el-table
+                :data="monitoringTargetLedger"
+                border
+                empty-text="Link activities under Scope to configure indicators, then set FY targets here."
+              >
+                <el-table-column label="Indicator" min-width="260">
+                  <template #default="{ row }">
+                    <span>{{ row.label }}</span>
+                    <el-tag v-if="row.unit" size="small" effect="plain" style="margin-left: 6px;">
+                      {{ row.unit }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="FY target" width="160">
+                  <template #default="{ row }">
+                    <el-input-number
+                      v-if="canAddMonitoringReport"
+                      :model-value="row.target || undefined"
+                      :min="0"
+                      :max="row.targetKind === 'percent' || isPercentIndicator(row) ? 100 : undefined"
+                      :controls="false"
+                      :disabled="monitoringTargetSavingId === row.value"
+                      placeholder="Set target"
+                      style="width: 100%;"
+                      @change="(v: number | undefined) => saveMonitoringTarget({ ...row, target: v })"
+                    />
+                    <span v-else>{{ row.target > 0 ? row.target : '—' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Actual" width="100">
+                  <template #default="{ row }">
+                    {{ row.actual > 0 || row.actual === 0 ? row.actual : '—' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="Variance" width="100">
+                  <template #default="{ row }">
+                    <span
+                      v-if="row.variance != null"
+                      :class="{
+                        'monitoring-variance--behind': row.variance < 0,
+                        'monitoring-variance--ahead': row.variance > 0,
+                      }"
+                    >
+                      {{ Number(row.variance).toFixed(2) }}
+                    </span>
+                    <span v-else>—</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Progress" width="110">
+                  <template #default="{ row }">
+                    <span v-if="row.progress != null">{{ Number(row.progress).toFixed(1) }}%</span>
+                    <span v-else>—</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+              </div>
+            </el-tab-pane>
 
-         
-        <el-table-column label="Qty/Status" sortable>
-            <template #default="{ row }">
-              <span v-if="row.qualitative === 'Yes' || row.qualitative === 'No'">
-                {{ row.qualitative }}
-              </span>
-              <span v-else>
-                {{ row.amount }}
-              </span>
-            </template>
-          </el-table-column>
+            <el-tab-pane label="Reports" name="reports">
+              <div class="monitoring-toolbar monitoring-toolbar--reports">
+                <el-select
+                  v-model="monitoringReportPeriodFilter"
+                  size="small"
+                  style="width: 180px;"
+                  aria-label="Filter by quarter"
+                >
+                  <el-option
+                    v-for="opt in reportPeriodFilterOptions"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+                <span class="monitoring-report-count">
+                  {{ filteredIndicatorReports.length }} report{{ filteredIndicatorReports.length === 1 ? '' : 's' }}
+                </span>
+              </div>
 
-
-
-            <el-table-column label="Cumulative" prop="cumAmount" sortable />
-            <el-table-column label="Status" prop="status" sortable>
-              <template #default="scope">
-                <div v-if="scope.row.status === 'Rejected'">
-                  <el-tooltip :content="'Reason for rejection: ' + scope.row.reject_msg" placement="top">
-                    <span>{{ scope.row.status }}</span>
-                  </el-tooltip>
-                </div>
-                <div v-else>
-                  <span>{{ scope.row.status }}</span>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
+              <div class="monitoring-table-scroll">
+              <el-table :data="filteredIndicatorReports" border :row-class-name="tableRowClassName" ref="tableRef">
+                <el-table-column label="#" width="80" prop="id" sortable>
+                  <template #default="scope">
+                    <div v-if="scope.row.documents?.length > 0" style="display: inline-flex; align-items: center;">
+                      <span>{{ scope.row.id }}</span>
+                      <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+                    </div>
+                    <span v-else>{{ scope.row.id }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Indicator" width="400" sortable>
+                  <template #default="{ row }">
+                    <span>
+                      {{ row.indicator_category?.indicator_name }}
+                      {{ row.indicator_category?.category_title }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Period" width="120" sortable>
+                  <template #default="{ row }">
+                    {{ formatReportPeriod(row.date) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="Date" prop="date" sortable width="112">
+                  <template #default="scope">
+                    {{ formatDate(scope.row.date) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="Qty/Status" sortable>
+                  <template #default="{ row }">
+                    <span v-if="row.qualitative === 'Yes' || row.qualitative === 'No'">
+                      {{ row.qualitative }}
+                    </span>
+                    <span v-else>{{ row.amount }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Target" width="90">
+                  <template #default="{ row }">
+                    {{ row.target ?? '—' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="Cumulative" prop="cumAmount" sortable />
+                <el-table-column label="Progress" width="100">
+                  <template #default="{ row }">
+                    {{ row.progress != null ? `${row.progress}%` : '—' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="Status" prop="status" sortable>
+                  <template #default="scope">
+                    <div v-if="scope.row.status === 'Rejected'">
+                      <el-tooltip :content="'Reason for rejection: ' + scope.row.reject_msg" placement="top">
+                        <span>{{ scope.row.status }}</span>
+                      </el-tooltip>
+                    </div>
+                    <div v-else>
+                      <span>{{ scope.row.status }}</span>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </el-card>
       </el-tab-pane>
 
@@ -8931,188 +9339,200 @@ function formatLocation(item) {
 
 
 
-  <el-dialog
+  <el-drawer
     v-model="AddDialogVisible"
-    title="File a Report"
-    :width="projectWideDialogWidth"
-    :fullscreen="isMobile"
-    :draggable="!isMobile"
+    direction="rtl"
+    :size="isMobile ? '100%' : '50%'"
+    :show-close="false"
+    :close-on-click-modal="false"
     append-to-body
-    align-center
-    class="project-details-dialog project-details-report-dialog"
-    :class="{ 'project-details-dialog--mobile': isMobile, 'project-details-report-dialog--mobile': isMobile }"
-    @close="AddDialogVisible = false"
+    destroy-on-close
+    class="report-drawer"
+    :class="{ 'report-drawer--mobile': isMobile }"
+    @close="handleCancel"
   >
-  <el-steps
-    :active="activeStep"
-    align-center
-    finish-status="success"
-    :direction="isMobile ? 'vertical' : 'horizontal'"
-    class="project-report-steps"
-    style="margin-bottom: 20px;"
-  >
-    <el-step title="Project Details" />
-    <el-step title="Indicator Selection" />
-    <el-step title="Input Values" />
-    <el-step title="Submit" />
-  </el-steps>
+    <template #header>
+      <div class="report-drawer-header">
+        <div class="report-drawer-header__content">
+          <div class="report-drawer-header__icon">
+            <el-icon :size="isMobile ? 20 : 24">
+              <Plus />
+            </el-icon>
+          </div>
+          <div>
+            <h3>File a Report</h3>
+            <p v-if="!isMobile">Submit M&amp;E indicator progress for this project</p>
+          </div>
+        </div>
+        <el-button type="danger" size="small" @click="handleCancel">
+          <Icon icon="material-symbols:close" class="el-icon--left" />
+          Close
+        </el-button>
+      </div>
+    </template>
 
-  <el-form ref="ReportRuleFormRef" :model="ruleForm" :rules="ReportRules" label-width="100px" label-position="top">
-    <!-- Step 0 -->
-    <el-row v-if="activeStep === 0" :gutter="20">
-      <el-col :span="24">
-        
+    <div class="report-drawer-body">
+      <el-steps
+        :active="activeStep"
+        align-center
+        finish-status="success"
+        :direction="isMobile ? 'vertical' : 'horizontal'"
+        class="project-report-steps"
+        style="margin-bottom: 20px;"
+      >
+        <el-step title="Project Details" />
+        <el-step title="Indicator Selection" />
+        <el-step title="Input Values" />
+        <el-step title="Submit" />
+      </el-steps>
 
-        <el-form-item v-if="!isNationalProject" label="Location" prop="project_location_id">
-          <el-select   v-model="ruleForm.project_location_id" value-key="id" placeholder="Select" @change="changeLocation" style="width: 100%;">
-            <el-option v-for="item in projectLocations" :key="item.id" :label="item.location_name" :value="item.id">
-              <div style="display: flex; align-items: center;">
-                <span style="flex: 1; text-align: left;">{{ item.location_name }}</span>
-                <!-- <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
-                  {{ item.ward.name }}, {{ item.subcounty.name }}, {{ item.county.name }}
-                </span> -->
-                <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
+      <el-form ref="ReportRuleFormRef" :model="ruleForm" :rules="ReportRules" label-width="100px" label-position="top">
+        <!-- Step 0 -->
+        <el-row v-if="activeStep === 0" :gutter="20">
+          <el-col :span="24">
+            <el-form-item v-if="!isNationalProject" label="Location" prop="project_location_id">
+              <el-select v-model="ruleForm.project_location_id" value-key="id" placeholder="Select" @change="changeLocation" style="width: 100%;">
+                <el-option v-for="item in projectLocations" :key="item.id" :label="item.location_name" :value="item.id">
+                  <div style="display: flex; align-items: center;">
+                    <span style="flex: 1; text-align: left;">{{ item.location_name }}</span>
+                    <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
                       {{ formatLocation(item) }}
                     </span>
+                  </div>
+                </el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
 
+        <!-- Step 1 -->
+        <el-row v-if="activeStep === 1" :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="Indicators" prop="indicator_category_id">
+              <el-select-v2
+                v-model="ruleForm.indicator_category_id"
+                multiple
+                filterable
+                :options="indicatorsOptionsFiltered"
+                placeholder="Select one or more indicators"
+                style="width: 100%;"
+                @change="handleIndicatorsChange"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
+        <!-- Step 2 -->
+        <el-row v-if="activeStep === 2" :gutter="20">
+          <el-col :span="24">
+            <el-table :data="ruleForm.indicators" style="width: 100%;" border>
+              <el-table-column label="Indicator" prop="label" />
+              <el-table-column label="Reported value" min-width="200">
+                <template #default="{ row, $index }">
+                  <div class="report-value-cell">
+                    <span class="report-value-cell__label">{{ indicatorValueLabel(row) }}</span>
+                    <el-switch
+                      v-if="isQualitativeIndicator(row)"
+                      v-model="ruleForm.indicators[$index].qualitative"
+                      active-value="Yes"
+                      inactive-value="No"
+                    />
+                    <el-input-number
+                      v-else
+                      v-model="ruleForm.indicators[$index].amount"
+                      :min="0"
+                      :max="isPercentIndicator(row) ? 100 : undefined"
+                      :controls="false"
+                      placeholder="Enter value"
+                      style="width: 100%;"
+                    />
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="Date" min-width="160">
+                <template #default="{ $index }">
+                  <el-date-picker
+                    v-model="ruleForm.indicators[$index].date"
+                    type="date"
+                    placeholder="Pick a day"
+                    style="width: 100%;"
+                    :disabled-date="disabledFutureDates"
+                  />
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-col>
+        </el-row>
 
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-      </el-col>
-    </el-row>
+        <!-- Step 3 -->
+        <el-row v-if="activeStep === 3" :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="Comments" prop="comments">
+              <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+            </el-form-item>
 
-    <!-- Step 1 -->
-    <el-row v-if="activeStep === 1" :gutter="20">
-      <el-col :span="24">
-        <el-form-item label="Indicators" prop="indicator_category_id">
-          <el-select-v2
-            v-model="ruleForm.indicator_category_id"
-            multiple
-            filterable
-            :options="indicatorsOptionsFiltered"
-            placeholder="Select one or more indicators"
-            style="width: 100%;"
-            @change="handleIndicatorsChange"
-          />
-        </el-form-item>
-      </el-col>
-    </el-row>
-
-    <!-- Step 2 -->
-    <el-row v-if="activeStep === 2" :gutter="20">
-      <el-col :span="24">
-        <el-table :data="ruleForm.indicators" style="width: 100%;" border>
-          <el-table-column label="Indicator" prop="label" />
-          <!-- <el-table-column label="Amount">
-            <template #default="{ row }">
-              <el-input-number min="0"  v-model="row.amount" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
-
-          <el-table-column label="Reported value" min-width="200">
-            <template #default="{ row }">
-              <div class="report-value-cell">
-                <span class="report-value-cell__label">{{ indicatorValueLabel(row) }}</span>
-                <el-radio-group v-if="isQualitativeIndicator(row)" v-model="row.qualitative">
-                  <el-radio-button value="Yes">Yes</el-radio-button>
-                  <el-radio-button value="No">No</el-radio-button>
-                </el-radio-group>
-                <el-input-number
-                  v-else
-                  v-model="row.amount"
-                  :min="0"
-                  :max="isPercentIndicator(row) ? 100 : undefined"
-                  :controls="false"
-                  placeholder="Enter value"
-                  style="width: 100%;"
-                />
-              </div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="Date" min-width="160">
-            <template #default="{ row }">
-              <el-date-picker  v-model="row.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates" />
-            </template>
-          </el-table-column>
-
-       
-        </el-table>
-      </el-col>
-    </el-row>
-
-    <!-- Step 3 -->
-    <el-row v-if="activeStep === 3" :gutter="20">
-      <el-col :span="24">
-        <el-form-item label="Comments" prop="comments">
-          <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
-        </el-form-item>
-
-        <el-upload
-          v-model:file-list="fileUploadList"
-          class="upload-demo"
-          action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-          multiple
-          :on-preview="handlePreview"
-          :on-remove="handleRemove"
-          :before-remove="beforeRemove"
-          :limit="3"
-          :auto-upload="false"
-          :on-exceed="handleExceed"
-        >
-          <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
-        </el-upload>
-      </el-col>
-    </el-row>
-  </el-form>
-
-  <!-- Footer -->
-  <template #footer>
-    <div
-      class="project-details-dialog-footer project-details-report-footer"
-      :class="{ 'project-details-dialog-footer--mobile': isMobile, 'project-details-report-footer--mobile': isMobile }"
-    >
-      <el-button
-        :size="isMobile ? 'large' : 'default'"
-        :icon="ArrowLeft"
-        @click="prevStep"
-        :disabled="activeStep === 0"
-      >
-        Previous
-      </el-button>
-      <el-button
-        class="step-btn-next"
-        :size="isMobile ? 'large' : 'default'"
-        :icon="ArrowRight"
-        :disabled="disableIndicator"
-        @click="nextStep"
-        v-if="activeStep < 3"
-      >
-        Next
-      </el-button>
-      <el-button :size="isMobile ? 'large' : 'default'" @click="handleCancel">Cancel</el-button>
-      <el-button
-        v-if="showSubmitBtn && activeStep === 3"
-        :size="isMobile ? 'large' : 'default'"
-        type="primary"
-        @click="submitForm(ReportRuleFormRef)"
-      >
-        Submit
-      </el-button>
-      <el-button
-        v-if="showEditSaveButton && activeStep === 3"
-        :size="isMobile ? 'large' : 'default'"
-        type="primary"
-        @click="editForm(ruleFormRef)"
-      >
-        Save
-      </el-button>
+            <el-upload
+              v-model:file-list="fileUploadList"
+              class="upload-demo"
+              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+              multiple
+              :on-preview="handlePreview"
+              :on-remove="handleRemove"
+              :before-remove="beforeRemove"
+              :limit="3"
+              :auto-upload="false"
+              :on-exceed="handleExceed"
+            >
+              <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+            </el-upload>
+          </el-col>
+        </el-row>
+      </el-form>
     </div>
-  </template>
-</el-dialog>
+
+    <template #footer>
+      <div
+        class="report-drawer-footer"
+        :class="{ 'report-drawer-footer--mobile': isMobile }"
+      >
+        <el-button
+          :size="isMobile ? 'large' : 'default'"
+          :icon="ArrowLeft"
+          @click="prevStep"
+          :disabled="activeStep === 0"
+        >
+          Previous
+        </el-button>
+        <el-button
+          class="step-btn-next"
+          :size="isMobile ? 'large' : 'default'"
+          :icon="ArrowRight"
+          :disabled="disableIndicator"
+          @click="nextStep"
+          v-if="activeStep < 3"
+        >
+          Next
+        </el-button>
+        <el-button :size="isMobile ? 'large' : 'default'" @click="handleCancel">Cancel</el-button>
+        <el-button
+          v-if="showSubmitBtn && activeStep === 3"
+          :size="isMobile ? 'large' : 'default'"
+          type="primary"
+          @click="submitForm(ReportRuleFormRef)"
+        >
+          Submit
+        </el-button>
+        <el-button
+          v-if="showEditSaveButton && activeStep === 3"
+          :size="isMobile ? 'large' : 'default'"
+          type="primary"
+          @click="editForm(ruleFormRef)"
+        >
+          Save
+        </el-button>
+      </div>
+    </template>
+  </el-drawer>
 
 
 
@@ -10614,24 +11034,87 @@ function formatLocation(item) {
   line-height: 1.5;
 }
 
-.project-details-report-footer {
-  flex-wrap: wrap;
+.report-drawer :deep(.el-drawer__body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
-.project-details-report-footer--mobile {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.report-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.report-drawer :deep(.el-drawer__footer) {
+  padding: 12px 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.report-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.report-drawer-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.report-drawer-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.report-drawer-header__content {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.report-drawer-header__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  flex-shrink: 0;
+}
+
+.report-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.report-drawer-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   width: 100%;
 }
 
-.project-details-report-footer--mobile .el-button {
-  margin: 0;
-  min-height: 44px;
+.report-drawer-footer--mobile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
-.project-details-report-dialog--mobile :deep(.el-dialog__body) {
-  padding: 12px 16px;
+.report-drawer-footer--mobile .el-button {
+  margin: 0;
+  min-height: 44px;
 }
 
 .report-value-cell {
@@ -10643,6 +11126,39 @@ function formatLocation(item) {
 .report-value-cell__label {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.monitoring-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.monitoring-inner-tabs {
+  margin-top: 4px;
+}
+
+.monitoring-variance--behind {
+  color: var(--el-color-danger);
+}
+
+.monitoring-toolbar--reports {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.monitoring-report-count {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.monitoring-table-scroll {
+  max-height: 55vh;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .project-details-map-dialog--mobile :deep(.el-dialog__body) {
