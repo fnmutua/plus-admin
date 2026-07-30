@@ -622,13 +622,18 @@ const inlineProgrammeOptions = ref<Array<{ label: string; value: number }>>([])
 const inlineProgrammeRecords = ref<Array<Record<string, any>>>([])
 const inlineComponentOptions = ref<Array<{ label: string; value: number; programmeId?: number }>>([])
 
+const projectStatusInlineOptions = computed(() => {
+  const all = ['Planned', 'Ongoing', 'Suspended', 'Completed']
+  const current = normalizeProjectStatus(projectFullData.value?.status)
+  const allowed = PROJECT_STATUS_TRANSITIONS[current]
+  const selectable = allowed
+    ? all.filter((s) => s.toLowerCase() === current || allowed.includes(s.toLowerCase()))
+    : all
+  return selectable.map((s) => ({ label: s, value: s }))
+})
+
 const projectInlineSelectOptions = computed(() => ({
-  status: [
-    { label: 'Planned', value: 'Planned' },
-    { label: 'Ongoing', value: 'Ongoing' },
-    { label: 'Suspended', value: 'Suspended' },
-    { label: 'Completed', value: 'Completed' },
-  ],
+  status: projectStatusInlineOptions.value,
   implementation_scope: [
     { label: 'National', value: 'national' },
     { label: 'County', value: 'county' },
@@ -870,6 +875,14 @@ async function saveProjectInline(payload: { field: string; value: unknown }) {
       ElMessage.error('Completion date must be after commencement date')
       return
     }
+
+    if (field === 'start_date' && !validateStartDateAgainstPayments(start)) {
+      return
+    }
+  }
+
+  if (field === 'status' && !(await validateProjectStatusChange(apiValue))) {
+    return
   }
 
   if (field === 'title' && (apiValue == null || String(apiValue).trim() === '')) {
@@ -1470,8 +1483,7 @@ const getIndicatorCategoryReports = async (projectId) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', projectId)
-  //indicatorReports.value = res.data
-  res.data.forEach(item => indicatorReports.value.push(item));
+  indicatorReports.value = res.data || []
 
   const indicatorReportIds = res.data.map(item => item.id);
   console.log('indicatorReportIds',indicatorReportIds)
@@ -1500,9 +1512,23 @@ const getIndicatorCategoryReports = async (projectId) => {
 const AddDialogVisible = ref(false)
 const showSubmitBtn = ref(false)
 
-const AddReport = () => {
+const AddReport = async () => {
+  if (!indicatorsOptionsFiltered.value.length) {
+    await changeProject(route.params.id)
+  }
+  if (!indicatorsOptionsFiltered.value.length) {
+    ElMessage.warning(
+      'No indicators are configured for this project yet. Link the relevant activities under Scope first.',
+    )
+    return
+  }
+
+  activeStep.value = 0
+  ruleForm.indicator_category_id = []
+  ruleForm.indicators = []
+  ruleForm.comments = ''
+  fileUploadList.value = []
   AddDialogVisible.value = true
-  console.log('addign report')
   showSubmitBtn.value = true
 }
 
@@ -1558,12 +1584,9 @@ const getIndicatorNames = async () => {
       unit: arrayItem.indicator.unit,
     };
 
-    //  console.log(opt)
-    // Collect only output indicators
-    ///if (arrayItem.indicator_level === 'activity') {
+    // The reporting form only offers indicators configured for this project's
+    // activities, so this full catalogue must not feed indicatorsOptionsFiltered.
     indicatorsOptions.value.push(opt);
-    indicatorsOptionsFiltered.value.push(opt);
-    //  }
 
 
   });
@@ -1696,16 +1719,30 @@ const changeProject = async (project: any) => {
 
   console.log('merged_indicators', merged_indicators)
 
-  const transformedArray = merged_indicators.map(item => {
-    //  console.log(item)
-    return {
-      label: item.indicator.name + ' ' + item.category_title,
+  // Indicator name carries the noun phrase and category_title the action verb,
+  // so the two are joined for display rather than stored together.
+  const seenIndicatorCategoryIds = new Set()
+  const transformedArray = merged_indicators.reduce((options, item) => {
+    if (!item?.id || seenIndicatorCategoryIds.has(item.id)) return options
+    seenIndicatorCategoryIds.add(item.id)
+
+    const indicator = item.indicator || {}
+    const indicatorName = indicator.name || item.indicator_name || ''
+    const action = item.category_title || ''
+
+    options.push({
+      label: [indicatorName, action].filter(Boolean).join(' '),
       value: item.id,
       project_id: item.project_id,
-      unit: item.indicator.unit,
+      unit: indicator.unit || '',
+      format: String(indicator.format || '').toLowerCase(),
+      indicator_level: item.indicator_level || indicator.level || '',
+      category_title: action,
+      frequency: item.frequency ?? null,
       activity_id: item.activity_id,
-     };
-  });
+    })
+    return options
+  }, [])
 
   indicatorsOptionsFiltered.value = transformedArray
 
@@ -2867,6 +2904,37 @@ const IPC_STATUSES = [
   { label: 'Paid', value: 'paid' },
 ] as const
 
+const IPC_TIMELINE_STAGES = ['submitted', 'approved', 'paid'] as const
+
+function ipcTimelineStageIndex(status: unknown): number {
+  const normalized = String(status || 'submitted').trim().toLowerCase()
+  if (normalized === 'draft') return -1
+  const idx = IPC_TIMELINE_STAGES.indexOf(normalized as (typeof IPC_TIMELINE_STAGES)[number])
+  return idx >= 0 ? idx : 0
+}
+
+function ipcTimelineStageLabel(stage: string): string {
+  return IPC_STATUSES.find((opt) => opt.value === stage)?.label || stage
+}
+
+function ipcStageTimelineType(stage: string): ProjectTimelineEvent['type'] {
+  if (stage === 'paid') return 'success'
+  if (stage === 'approved') return 'primary'
+  return 'warning'
+}
+
+function ipcStageTimelineDate(
+  row: Record<string, unknown>,
+  stageIdx: number,
+  currentIdx: number,
+) {
+  const disbursementDate = row.disbursement_date
+  const created = row.createdAt || row.created_at
+  const updated = row.updatedAt || row.updated_at
+  if (stageIdx === currentIdx && updated) return updated
+  return disbursementDate || created || updated
+}
+
 function parseMoney(v: unknown): number {
   if (v === null || v === undefined || v === '') return 0
   const n = Number(String(v).replace(/,/g, ''))
@@ -2900,6 +2968,7 @@ function ipcTimelineLabel(row: Record<string, unknown>): string {
 type ProjectTimelineEvent = {
   id: string
   kind: 'start' | 'ipc' | 'closure'
+  stage?: string
   date: unknown
   title: string
   detail?: string
@@ -2908,6 +2977,224 @@ type ProjectTimelineEvent = {
 
 const projectTimelineLoading = ref(false)
 const projectCompletionDate = ref<string | null>(null)
+const ipcStageUpdatingId = ref<number | null>(null)
+
+function normalizeProjectStatus(status: unknown) {
+  return String(status || '').trim().toLowerCase()
+}
+
+// Money can only move against a project that has actually commenced.
+const disbursementBlockReason = computed(() => {
+  const data = projectFullData.value
+  if (!data?.id) {
+    return 'Project details are still loading.'
+  }
+  const status = normalizeProjectStatus(data.status)
+  if (!status) {
+    return 'Set the project status before recording payments.'
+  }
+  if (status === 'planned') {
+    return 'This project is still Planned. Set the status to Ongoing before recording payments.'
+  }
+  if (status === 'suspended') {
+    return 'This project is Suspended. Resume it before recording payments.'
+  }
+  return ''
+})
+
+const canRecordDisbursements = computed(() => !disbursementBlockReason.value)
+
+function assertProjectCanReceiveDisbursements(): boolean {
+  if (canRecordDisbursements.value) return true
+  ElMessage.warning(disbursementBlockReason.value)
+  return false
+}
+
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  planned: 'Planned',
+  ongoing: 'Ongoing',
+  suspended: 'Suspended',
+  completed: 'Completed',
+}
+
+// Statuses each status may legitimately move to. A completed project has to be
+// reopened as Ongoing before it can go anywhere else.
+const PROJECT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  planned: ['ongoing', 'suspended'],
+  ongoing: ['planned', 'suspended', 'completed'],
+  suspended: ['planned', 'ongoing', 'completed'],
+  completed: ['ongoing', 'suspended'],
+}
+
+function projectStatusLabel(status: unknown) {
+  const normalized = normalizeProjectStatus(status)
+  return PROJECT_STATUS_LABELS[normalized] || String(status ?? '').trim() || 'Unknown'
+}
+
+// Keeps the commencement date consistent with payments already booked, so the
+// payment-date rule cannot be sidestepped by moving the start date afterwards.
+function validateStartDateAgainstPayments(nextStart: string | null | undefined): boolean {
+  const rows = projectDisbursements.value || []
+  if (!rows.length) return true
+
+  const status = normalizeProjectStatus(projectFullData.value?.status)
+  if (!nextStart) {
+    if (status !== 'planned') {
+      ElMessage.error(
+        'The commencement date cannot be cleared while payments are recorded against this project.',
+      )
+      return false
+    }
+    return true
+  }
+
+  const startDate = new Date(String(nextStart))
+  if (Number.isNaN(startDate.getTime())) return true
+  startDate.setHours(0, 0, 0, 0)
+
+  let earliest: Date | null = null
+  for (const row of rows) {
+    if (!row?.disbursement_date) continue
+    const d = new Date(String(row.disbursement_date))
+    if (Number.isNaN(d.getTime())) continue
+    if (!earliest || d < earliest) earliest = d
+  }
+
+  if (earliest && earliest < startDate) {
+    ElMessage.error(
+      `The commencement date cannot be after the earliest recorded payment (${formatDateDisplay(earliest)}).`,
+    )
+    return false
+  }
+  return true
+}
+
+function countUnpaidDisbursements(): number {
+  return (projectDisbursements.value || []).filter(
+    (row: Record<string, any>) => String(row?.status || '').trim().toLowerCase() !== 'paid',
+  ).length
+}
+
+async function confirmProjectStatusChange(message: string): Promise<boolean> {
+  try {
+    await ElMessageBox.confirm(message, 'Confirm status change', {
+      type: 'warning',
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'No',
+      width: CONFIRM_BOX_WIDTH,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function validateProjectStatusChange(nextStatus: unknown): Promise<boolean> {
+  const data = projectFullData.value
+  const next = normalizeProjectStatus(nextStatus)
+  const current = normalizeProjectStatus(data?.status)
+  if (!next || next === current) return true
+
+  const nextLabel = projectStatusLabel(nextStatus)
+  const allowed = PROJECT_STATUS_TRANSITIONS[current]
+  if (current && allowed && !allowed.includes(next)) {
+    ElMessage.error(
+      `A ${projectStatusLabel(current)} project cannot move straight to ${nextLabel}. Set it to Ongoing first.`,
+    )
+    return false
+  }
+
+  // Reverting to Planned would strand the payments already booked against the project.
+  if (next === 'planned') {
+    const paymentCount = (projectDisbursements.value || []).length
+    if (paymentCount > 0) {
+      ElMessage.error(
+        `This project already has ${paymentCount} payment${paymentCount === 1 ? '' : 's'} recorded and cannot be moved back to Planned.`,
+      )
+      return false
+    }
+  }
+
+  if ((next === 'ongoing' || next === 'completed') && !data?.start_date) {
+    ElMessage.error(`Set the commencement date before marking this project ${nextLabel}.`)
+    return false
+  }
+
+  if (next === 'completed') {
+    const unpaid = countUnpaidDisbursements()
+    if (unpaid > 0) {
+      return await confirmProjectStatusChange(
+        `${unpaid} payment${unpaid === 1 ? ' is' : 's are'} not yet marked paid. Mark this project Completed anyway?`,
+      )
+    }
+  }
+
+  if (current === 'completed') {
+    return await confirmProjectStatusChange(
+      `Reopening this project as ${nextLabel} removes the closure entry from the timeline. Continue?`,
+    )
+  }
+
+  return true
+}
+
+const IPC_STAGE_TRANSITIONS: Record<string, { label: string; nextStatus: string }> = {
+  draft: { label: 'Mark submitted', nextStatus: 'submitted' },
+  submitted: { label: 'Mark approved', nextStatus: 'approved' },
+  approved: { label: 'Mark paid', nextStatus: 'paid' },
+}
+
+function getIpcStageAction(row: Record<string, unknown> | null | undefined) {
+  if (!row) return null
+  const status = String(row.status || 'submitted').trim().toLowerCase()
+  return IPC_STAGE_TRANSITIONS[status] || null
+}
+
+function canAdvanceIpcStage(row: Record<string, unknown> | null | undefined): boolean {
+  return Boolean(getIpcStageAction(row) && canUserEditDisbursement(row))
+}
+
+async function advanceIpcStage(row: Record<string, unknown>) {
+  const action = getIpcStageAction(row)
+  if (!action || !row?.id) return
+
+  if (!canUserEditDisbursement(row)) {
+    ElMessage.warning('You do not have permission to update this disbursement.')
+    return
+  }
+
+  if (!assertProjectCanReceiveDisbursements()) return
+
+  try {
+    await ElMessageBox.confirm(
+      `${action.label} ${ipcTimelineLabel(row)}?`,
+      'Confirm',
+      {
+        type: 'warning',
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No',
+        width: CONFIRM_BOX_WIDTH,
+      },
+    )
+  } catch {
+    return
+  }
+
+  ipcStageUpdatingId.value = Number(row.id)
+  try {
+    await updateOneRecord({
+      model: 'disbursement',
+      id: Number(row.id),
+      status: action.nextStatus,
+    } as any)
+    await getprojectDisbursements(route.params.id)
+    ElMessage.success(`Marked as ${ipcTimelineStageLabel(action.nextStatus)}`)
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to update status')
+  } finally {
+    ipcStageUpdatingId.value = null
+  }
+}
 
 const projectTimelineEvents = computed<ProjectTimelineEvent[]>(() => {
   const events: ProjectTimelineEvent[] = []
@@ -2924,15 +3211,24 @@ const projectTimelineEvents = computed<ProjectTimelineEvent[]>(() => {
 
   for (const row of sortedProjectDisbursements.value) {
     if (isAdvanceDisbursementRow(row)) continue
-    const status = String(row.status || 'submitted').toLowerCase()
-    events.push({
-      id: `ipc-${row.id}`,
-      kind: 'ipc',
-      date: row.disbursement_date,
-      title: ipcTimelineLabel(row),
-      detail: `${formatCostDisplay(row.amount)}${status ? ` · ${status}` : ''}`,
-      type: status === 'paid' ? 'success' : 'primary',
-    })
+    const label = ipcTimelineLabel(row)
+    const currentStatus = String(row.status || 'submitted').toLowerCase()
+    const currentIdx = ipcTimelineStageIndex(currentStatus)
+    if (currentIdx < 0) continue
+    const amountDetail = formatCostDisplay(row.amount)
+
+    for (let stageIdx = 0; stageIdx <= currentIdx; stageIdx += 1) {
+      const stage = IPC_TIMELINE_STAGES[stageIdx]
+      events.push({
+        id: `ipc-${row.id}-${stage}`,
+        kind: 'ipc',
+        stage,
+        date: ipcStageTimelineDate(row, stageIdx, currentIdx),
+        title: `${label} · ${ipcTimelineStageLabel(stage)}`,
+        detail: amountDetail,
+        type: ipcStageTimelineType(stage),
+      })
+    }
   }
 
   if (isCompletedProjectStatus(projectFullData.value?.status)) {
@@ -2957,9 +3253,39 @@ const projectTimelineEvents = computed<ProjectTimelineEvent[]>(() => {
       const da = parseDisplayDate(a.date)?.getTime() ?? 0
       const db = parseDisplayDate(b.date)?.getTime() ?? 0
       if (da !== db) return da - db
-      const order = { start: 0, ipc: 1, closure: 2 }
-      return order[a.kind] - order[b.kind]
+      const kindOrder = { start: 0, ipc: 1, closure: 2 }
+      if (kindOrder[a.kind] !== kindOrder[b.kind]) {
+        return kindOrder[a.kind] - kindOrder[b.kind]
+      }
+      if (a.kind === 'ipc' && b.kind === 'ipc') {
+        const stageA = IPC_TIMELINE_STAGES.indexOf(String(a.stage || '') as (typeof IPC_TIMELINE_STAGES)[number])
+        const stageB = IPC_TIMELINE_STAGES.indexOf(String(b.stage || '') as (typeof IPC_TIMELINE_STAGES)[number])
+        if (stageA !== stageB) return stageA - stageB
+      }
+      return String(a.id).localeCompare(String(b.id))
     })
+})
+
+// Wrap long timelines into side-by-side columns so the whole lifecycle stays visible
+// without scrolling. Events read top-to-bottom, then continue in the next column.
+const PROJECT_TIMELINE_COLUMN_CAPACITY = 8
+
+const projectTimelineColumns = computed<ProjectTimelineEvent[][]>(() => {
+  const events = projectTimelineEvents.value
+  if (!events.length) return []
+
+  const maxColumns = isMobile.value ? 1 : 4
+  const columnCount = Math.min(
+    maxColumns,
+    Math.max(1, Math.ceil(events.length / PROJECT_TIMELINE_COLUMN_CAPACITY)),
+  )
+  const perColumn = Math.ceil(events.length / columnCount)
+
+  const columns: ProjectTimelineEvent[][] = []
+  for (let i = 0; i < events.length; i += perColumn) {
+    columns.push(events.slice(i, i + perColumn))
+  }
+  return columns
 })
 
 async function loadProjectTimelineCompletion(projectId: string | string[]) {
@@ -3615,6 +3941,8 @@ const resetIpcDrawer = () => {
 }
 
 const openIpcDrawer = async (mode: 'ipc' | 'advance' = 'ipc') => {
+  if (!assertProjectCanReceiveDisbursements()) return
+
   await getprojectDisbursements(route.params.id)
   if (mode === 'ipc' && !isNationalProject.value) {
     await loadAllProjectLocationsForIpc(route.params.id)
@@ -3786,12 +4114,35 @@ const validateIpcAdvanceStep = (): boolean => {
   return true
 }
 
+// A payment cannot predate the commencement of the works it pays for.
+function validateDisbursementDate(): boolean {
+  const raw = DisbursementForm.value.disbursement_date
+  const projectStart = projectFullData.value?.start_date
+  if (!raw || !projectStart) return true
+
+  const paymentDate = new Date(String(raw))
+  const startDate = new Date(String(projectStart))
+  if (Number.isNaN(paymentDate.getTime()) || Number.isNaN(startDate.getTime())) return true
+
+  startDate.setHours(0, 0, 0, 0)
+  if (paymentDate < startDate) {
+    ElMessage.error(
+      `Payment date cannot be before the project commencement date (${formatDateDisplay(projectStart)}).`,
+    )
+    return false
+  }
+  return true
+}
+
 const validateIpcStep = async (step: number): Promise<boolean> => {
   switch (step) {
     case 0: {
+      if (!assertProjectCanReceiveDisbursements()) return false
+
       if (isAdvanceDrawer.value) {
         const valid = await validateIpcStepFields(['disbursement_date', 'amount', 'description'])
-        return valid
+        if (!valid) return false
+        return validateDisbursementDate()
       }
       const valid = await validateIpcStepFields([
         'payment_type',
@@ -3800,6 +4151,7 @@ const validateIpcStep = async (step: number): Promise<boolean> => {
         'amount',
       ])
       if (!valid) return false
+      if (!validateDisbursementDate()) return false
       return validateIpcAdvanceStep()
     }
     case 1: {
@@ -4179,6 +4531,11 @@ const handleUnlinkDocument = async (row: any) => {
 }
 
 const handleIpcLedgerAction = async (command: string, row: any) => {
+  if (command === 'advance-stage') {
+    await advanceIpcStage(row)
+    return
+  }
+
   if (command === 'edit') {
     await openIpcDrawerForEdit(row)
     return
@@ -5337,36 +5694,40 @@ const ruleForm = reactive({
   cumUnits: 'Cumulative(qty)'
 })
 
+// The cleanup expresses an indicator's entry shape through indicator.format,
+// with unit kept as the display label ('Yes/No', '%', 'Km', 'No.').
+function isQualitativeIndicator(option: Record<string, any> | null | undefined): boolean {
+  const format = String(option?.format || '').trim().toLowerCase()
+  const unit = String(option?.unit || '').trim().toLowerCase()
+  return format === 'boolean' || unit === 'yes/no'
+}
+
+function isPercentIndicator(option: Record<string, any> | null | undefined): boolean {
+  const format = String(option?.format || '').trim().toLowerCase()
+  const unit = String(option?.unit || '').trim()
+  return format === 'percent' || unit === '%'
+}
+
+function indicatorValueLabel(option: Record<string, any> | null | undefined): string {
+  if (isQualitativeIndicator(option)) return 'Status'
+  const unit = String(option?.unit || '').trim()
+  return unit ? `Amount (${unit})` : 'Amount'
+}
+
 const ReportRules = reactive<FormRules>({
-  project_id: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
   project_location_id: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-
-  activity_id: [
-    { required: true, message: 'Required', trigger: 'blur' },
+    { required: true, message: 'Select the location being reported on', trigger: 'change' },
   ],
 
   indicator_category_id: [
-    { required: true, message: 'Required', trigger: 'blur' },
+    {
+      required: true,
+      type: 'array',
+      min: 1,
+      message: 'Select at least one indicator',
+      trigger: 'change',
+    },
   ],
-
-
-
-
-  amount: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-  date: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-
 })
 
 
@@ -5402,17 +5763,139 @@ const changeIndicator = async (indicator_category_id: any) => {
 
 const activeStep = ref(0)
 
-const nextStep = async () => {
-  console.log(ruleFormRef.value)
-  await ReportRuleFormRef.value?.validate((valid) => {
-    if (valid) {
-      if (activeStep.value < 3) {
-        activeStep.value++
-      }
+const validateReportStepFields = (fields: string[]): Promise<boolean> =>
+  new Promise((resolve) => {
+    const form = ReportRuleFormRef.value
+    if (!form || !fields.length) {
+      resolve(true)
+      return
+    }
+    let pending = fields.length
+    let allValid = true
+    for (const field of fields) {
+      form.validateField(field, (valid: boolean) => {
+        if (!valid) allValid = false
+        pending -= 1
+        if (pending === 0) resolve(allValid)
+      })
     }
   })
 
+// One report per indicator, location and period — mirrors the unique key on
+// indicator_category_report, which would otherwise fail at the database.
+function findDuplicateReport(row: Record<string, any>) {
+  const period = String(getQuarter(new Date(row.date || Date.now())))
+  const year = new Date(row.date || Date.now()).getFullYear()
+  const locationId = ruleForm.project_location_id
 
+  return (indicatorReports.value || []).find((existing: Record<string, any>) => {
+    if (Number(existing?.indicator_category_id) !== Number(row.value)) return false
+    if (locationId && existing.project_location_id != null) {
+      if (Number(existing.project_location_id) !== Number(locationId)) return false
+    }
+    const existingDate = new Date(String(existing?.date || ''))
+    if (Number.isNaN(existingDate.getTime())) return false
+    return (
+      existingDate.getFullYear() === year &&
+      String(getQuarter(existingDate)) === period
+    )
+  })
+}
+
+function validateReportValues(): boolean {
+  const rows = ruleForm.indicators || []
+  if (!rows.length) {
+    ElMessage.error('Select at least one indicator')
+    return false
+  }
+
+  const projectStart = projectFullData.value?.start_date
+  const startDate = projectStart ? new Date(String(projectStart)) : null
+  if (startDate && !Number.isNaN(startDate.getTime())) startDate.setHours(0, 0, 0, 0)
+
+  for (const row of rows) {
+    const name = row.label || 'indicator'
+
+    if (!row.date) {
+      ElMessage.error(`Enter a reporting date for ${name}.`)
+      return false
+    }
+
+    const reportDate = new Date(String(row.date))
+    if (Number.isNaN(reportDate.getTime())) {
+      ElMessage.error(`Enter a valid reporting date for ${name}.`)
+      return false
+    }
+    if (reportDate.getTime() > Date.now()) {
+      ElMessage.error(`The reporting date for ${name} cannot be in the future.`)
+      return false
+    }
+    if (startDate && !Number.isNaN(startDate.getTime()) && reportDate < startDate) {
+      ElMessage.error(
+        `${name} cannot be reported before the project commenced (${formatDateDisplay(projectStart)}).`,
+      )
+      return false
+    }
+
+    if (isQualitativeIndicator(row)) {
+      if (row.qualitative !== 'Yes' && row.qualitative !== 'No') {
+        ElMessage.error(`Choose Yes or No for ${name}.`)
+        return false
+      }
+    } else {
+      const amount = Number(row.amount)
+      if (row.amount === null || row.amount === undefined || row.amount === '') {
+        ElMessage.error(`Enter an amount for ${name}.`)
+        return false
+      }
+      if (!Number.isFinite(amount) || amount < 0) {
+        ElMessage.error(`Enter a valid amount for ${name}.`)
+        return false
+      }
+      if (isPercentIndicator(row) && amount > 100) {
+        ElMessage.error(`${name} is reported as a percentage, so it cannot exceed 100.`)
+        return false
+      }
+    }
+
+    const duplicate = findDuplicateReport(row)
+    if (duplicate) {
+      ElMessage.error(
+        `${name} has already been reported for this location in Q${getQuarter(new Date(String(row.date)))}.`,
+      )
+      return false
+    }
+  }
+
+  return true
+}
+
+const validateReportStep = async (step: number): Promise<boolean> => {
+  switch (step) {
+    case 0:
+      if (isNationalProject.value) return true
+      return await validateReportStepFields(['project_location_id'])
+    case 1: {
+      const valid = await validateReportStepFields(['indicator_category_id'])
+      if (!valid) return false
+      if (!(ruleForm.indicators || []).length) {
+        ElMessage.error('Select at least one indicator')
+        return false
+      }
+      return true
+    }
+    case 2:
+      return validateReportValues()
+    default:
+      return true
+  }
+}
+
+const nextStep = async () => {
+  if (!(await validateReportStep(activeStep.value))) return
+  if (activeStep.value < 3) {
+    activeStep.value++
+  }
 }
 
 
@@ -5525,100 +6008,100 @@ const disableIndicator = ref(false)
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
 
-  await formEl.validate(async (valid, fields) => {
-    if (!valid) {
-      console.log('Form validation failed:', fields);
-      return;
+  if (!(await validateReportStep(0))) return;
+  if (!(await validateReportStep(1))) return;
+  if (!(await validateReportStep(2))) return;
+
+  const submittedReportIds = [];
+
+  // One filing code is shared by every indicator row in this submission.
+  const filingCode = uuid.v4();
+
+  for (const indicator of ruleForm.indicators) {
+    const qualitative = isQualitativeIndicator(indicator)
+      ? indicator.qualitative === 'Yes'
+        ? 'Yes'
+        : 'No'
+      : null;
+
+    // Yes/No indicators carry no quantity, so the amount stays at zero and
+    // progress reflects whether the milestone was reached.
+    const amount = qualitative ? 0 : Number(indicator.amount) || 0;
+
+    const updatedCumAmount = (indicator.cumAmount || 0) + amount;
+
+    const target = Number(indicator.target) || 0;
+    let progress: string;
+    if (qualitative) {
+      progress = qualitative === 'Yes' ? '100.00' : '0.00';
+    } else if (isPercentIndicator(indicator)) {
+      progress = amount.toFixed(2);
+    } else if (target > 0) {
+      progress = ((updatedCumAmount / target) * 100).toFixed(2);
+    } else {
+      progress = '0.00';
     }
 
-    const submittedReportIds = [];
+    const reportDate = indicator.date || new Date();
 
-    for (const indicator of ruleForm.indicators) {
-      // Calculate new cumulative amount
-     
-      const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
+    const reportPayload = {
+      model: 'indicator_category_report',
+      period: String(getQuarter(new Date(reportDate))),
+      code: filingCode,
+      userId: userInfo.id,
+      project_id: project_id.value,
+      project_location_id: ruleForm.project_location_id,
+      indicator_category_id: indicator.value,
+      amount,
+      target,
+      date: reportDate,
+      cumAmount: updatedCumAmount,
+      cumProgress: progress,
+      progress: progress,
+      comments: ruleForm.comments,
+      programme_implementation_id: programme_implementation_id.value,
+      settlement_id: ruleForm.settlement_id,
+      county_id: ruleForm.county_id,
+      subcounty_id: ruleForm.subcounty_id,
+      ward_id: ruleForm.ward_id,
+      activity_id: indicator.activity_id,
+      qualitative,
+      geom: ruleForm.geom,
+    };
 
-      // Calculate progress = 100 * (cumAmount / target)
-      const progress = isFinite(updatedCumAmount / (indicator.target || 1))
-        ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
-        : '0.00';
+    const report = await CreateRecord(reportPayload);
+    submittedReportIds.push(report.data.id);
+  }
 
-      const reportPayload = {
-        model: 'indicator_category_report',
-        period: getQuarter(),
-        code: uuid.v4(),
-        userId: userInfo.id,
-        project_id: project_id.value,
-        project_location_id: ruleForm.project_location_id,
-        indicator_category_id: indicator.value,
-        amount: indicator.amount || 0,
-        baseline: indicator.baseline || 0,
-        target: indicator.target || 0,
-        date: indicator.date || new Date(),
-        cumAmount: updatedCumAmount,
-        cumProgress: progress,
-        progress:progress,
-        comments: ruleForm.comments,
-        programme_implementation_id: programme_implementation_id.value,
-        settlement_id: ruleForm.settlement_id,
-        county_id: ruleForm.county_id,
-        subcounty_id: ruleForm.subcounty_id,
-        ward_id: ruleForm.ward_id,
-        activity_id: indicator.activity_id,
-        qualitative: indicator.qualitative,
-        geom: ruleForm.geom,
-  
- 
-      };
+  // Upload files for each created report
+  if (submittedReportIds.length && fileUploadList.value.length) {
+    for (const reportId of submittedReportIds) {
+      const formData = new FormData();
 
-      console.log('reportPayload>>',reportPayload)
+      fileUploadList.value.forEach((file) => {
+        formData.append('files', file.raw);
+        formData.append('format', file.name.split('.').pop());
+        formData.append('field_id', 'report_id');
+        formData.append('category', 56);   // 56 is montiroing reports
+        formData.append('report_id', parseInt(reportId));
+        formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
+        formData.append('createdBy', userInfo.id);
+        formData.append('protected', false);
+      });
 
-      // Submit individual indicator report
-      const report = await CreateRecord(reportPayload);
-      //console.log(`Report created for indicator ${indicator.label}: ID ${report.data.id} :${report.data}`);
+      formData.append('code', uuid.v4());
 
- 
-      submittedReportIds.push(report.data.id);
-       console.log('After push:', indicatorReports.value);
- 
-       
+      await uploadFilesBatch(formData);
     }
+  }
 
-    // Upload files for each created report
-    if (submittedReportIds.length && fileUploadList.value.length) {
-      for (const reportId of submittedReportIds) {
-        const formData = new FormData();
+  ElMessage.success(
+    `Filed ${submittedReportIds.length} report${submittedReportIds.length === 1 ? '' : 's'}`,
+  );
 
-        fileUploadList.value.forEach((file) => {
-          formData.append('files', file.raw);
-          formData.append('format', file.name.split('.').pop());
-          formData.append('field_id', 'report_id');
-          formData.append('category', 56);   // 56 is montiroing reports
-          formData.append('report_id', parseInt(reportId));
-          formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
-          formData.append('createdBy', userInfo.id);
-          formData.append('protected', false);
-        });
-
-        formData.append('code', uuid.v4());
-
-        const uploaded = await uploadFilesBatch(formData);
-        console.log(`Files uploaded for report ID ${reportId}:`, uploaded.data);
-      }
-    }
-
-
-    AddDialogVisible.value = false;
-    handleClose();
-
-
-  //  emptyRuleForm();
- 
-
-  });
-
-
- 
+  AddDialogVisible.value = false;
+  handleClose();
+  await getIndicatorCategoryReports(route.params.id);
 };
 
 
@@ -6469,9 +6952,11 @@ function handleIndicatorsChange(selectedIds) {
 
  console.log('selectedIds',selectedIds)
 
+  // Qualitative indicators start unanswered so the Yes/No choice is deliberate.
   ruleForm.indicators = selectedIndicators.map(ind => ({
     ...ind,
     amount: null,
+    qualitative: null,
     baseline: null,
     target: null,
     date: new Date(),
@@ -7034,8 +7519,8 @@ function formatLocation(item) {
          
         <el-table-column label="Qty/Status" sortable>
             <template #default="{ row }">
-              <span v-if="row.qualitative !== null">
-                {{ row.qualitative === 'Yes' ? 'Yes' : 'No' }}
+              <span v-if="row.qualitative === 'Yes' || row.qualitative === 'No'">
+                {{ row.qualitative }}
               </span>
               <span v-else>
                 {{ row.amount }}
@@ -7045,7 +7530,7 @@ function formatLocation(item) {
 
 
 
-            <el-table-column label="Amount (cumulutaive)" prop="cumAmount" sortable />
+            <el-table-column label="Cumulative" prop="cumAmount" sortable />
             <el-table-column label="Status" prop="status" sortable>
               <template #default="scope">
                 <div v-if="scope.row.status === 'Rejected'">
@@ -7360,7 +7845,7 @@ function formatLocation(item) {
       </el-tab-pane>
 
 
-      <el-tab-pane label="Contractors & Consultants" name="contractor">
+      <el-tab-pane label="Contractors" name="contractor">
         <el-card>
 
           <el-button v-if="canManageProjectContractors" @click="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
@@ -7469,14 +7954,23 @@ function formatLocation(item) {
             <el-tab-pane label="IPCs" name="ipcs">
               <div class="ipc-table-section">
                 <div v-if="canManageDisbursements" class="ipc-toolbar">
-                  <el-button
-                    plain
-                    :size="isMobile ? 'large' : 'default'"
-                    @click="AddDisbursement"
+                  <el-tooltip
+                    :disabled="canRecordDisbursements"
+                    :content="disbursementBlockReason"
+                    placement="top"
                   >
-                    <Icon icon="material-symbols:add" style="color: green;" />
-                    Add IPC disbursement
-                  </el-button>
+                    <span>
+                      <el-button
+                        plain
+                        :size="isMobile ? 'large' : 'default'"
+                        :disabled="!canRecordDisbursements"
+                        @click="AddDisbursement"
+                      >
+                        <Icon icon="material-symbols:add" style="color: green;" />
+                        Add IPC disbursement
+                      </el-button>
+                    </span>
+                  </el-tooltip>
                 </div>
 
                 <el-table
@@ -7707,9 +8201,19 @@ function formatLocation(item) {
                     placement="bottom-end"
                     @command="(cmd) => handleIpcLedgerAction(cmd, row)"
                   >
-                    <el-button type="primary" :icon="Setting" circle aria-label="Actions" />
+                    <el-button
+                      type="primary"
+                      :icon="Setting"
+                      circle
+                      aria-label="Actions"
+                      :loading="ipcStageUpdatingId === row.id"
+                    />
                     <template #dropdown>
                       <el-dropdown-menu>
+                        <el-dropdown-item v-if="canAdvanceIpcStage(row)" command="advance-stage" divided>
+                          <el-icon><Check /></el-icon>
+                          <span class="ipc-dropdown-item-label">{{ getIpcStageAction(row)?.label }}</span>
+                        </el-dropdown-item>
                         <el-dropdown-item v-if="canUserEditDisbursement(row)" command="edit">
                           <el-icon><Edit /></el-icon>
                           <span class="ipc-dropdown-item-label">Edit</span>
@@ -7731,14 +8235,23 @@ function formatLocation(item) {
             <el-tab-pane label="Advances" name="advances">
               <div class="ipc-table-section">
                 <div v-if="canManageDisbursements" class="ipc-toolbar">
-                  <el-button
-                    plain
-                    :size="isMobile ? 'large' : 'default'"
-                    @click="AddAdvancePayment"
+                  <el-tooltip
+                    :disabled="canRecordDisbursements"
+                    :content="disbursementBlockReason"
+                    placement="top"
                   >
-                    <Icon icon="material-symbols:add" style="color: var(--el-color-warning);" />
-                    Add Advance
-                  </el-button>
+                    <span>
+                      <el-button
+                        plain
+                        :size="isMobile ? 'large' : 'default'"
+                        :disabled="!canRecordDisbursements"
+                        @click="AddAdvancePayment"
+                      >
+                        <Icon icon="material-symbols:add" style="color: var(--el-color-warning);" />
+                        Add Advance
+                      </el-button>
+                    </span>
+                  </el-tooltip>
                 </div>
 
                 <el-table
@@ -7799,9 +8312,19 @@ function formatLocation(item) {
                           placement="bottom-end"
                           @command="(cmd) => handleIpcLedgerAction(cmd, row)"
                         >
-                          <el-button type="primary" :icon="Setting" circle aria-label="Actions" />
+                          <el-button
+                            type="primary"
+                            :icon="Setting"
+                            circle
+                            aria-label="Actions"
+                            :loading="ipcStageUpdatingId === row.id"
+                          />
                           <template #dropdown>
                             <el-dropdown-menu>
+                              <el-dropdown-item v-if="canAdvanceIpcStage(row)" command="advance-stage" divided>
+                                <el-icon><Check /></el-icon>
+                                <span class="ipc-dropdown-item-label">{{ getIpcStageAction(row)?.label }}</span>
+                              </el-dropdown-item>
                               <el-dropdown-item v-if="canUserEditDisbursement(row)" command="edit">
                                 <el-icon><Edit /></el-icon>
                                 <span class="ipc-dropdown-item-label">Edit</span>
@@ -7832,20 +8355,32 @@ function formatLocation(item) {
             v-if="!projectTimelineLoading && !projectTimelineEvents.length"
             description="No timeline events yet."
           />
-          <el-timeline v-else class="project-lifecycle-timeline">
-            <el-timeline-item
-              v-for="event in projectTimelineEvents"
-              :key="event.id"
-              :timestamp="formatDateDisplay(event.date)"
-              :type="event.type"
-              placement="top"
-            >
-              <div class="project-timeline-event">
-                <span class="project-timeline-event__title">{{ event.title }}</span>
-                <span v-if="event.detail" class="project-timeline-event__detail">{{ event.detail }}</span>
+          <div v-else class="project-lifecycle-timeline-columns">
+            <template v-for="(column, columnIndex) in projectTimelineColumns" :key="columnIndex">
+              <el-timeline class="project-lifecycle-timeline">
+                <el-timeline-item
+                  v-for="event in column"
+                  :key="event.id"
+                  :timestamp="formatDateDisplay(event.date)"
+                  :type="event.type"
+                  placement="top"
+                >
+                  <div class="project-timeline-event">
+                    <span class="project-timeline-event__title">{{ event.title }}</span>
+                    <span v-if="event.detail" class="project-timeline-event__detail">{{ event.detail }}</span>
+                  </div>
+                </el-timeline-item>
+              </el-timeline>
+
+              <div
+                v-if="columnIndex < projectTimelineColumns.length - 1"
+                class="project-timeline-continues"
+                aria-hidden="true"
+              >
+                <Icon icon="ep:arrow-right" width="14" />
               </div>
-            </el-timeline-item>
-          </el-timeline>
+            </template>
+          </div>
         </div>
       </el-tab-pane>
 
@@ -8422,7 +8957,7 @@ function formatLocation(item) {
     <el-step title="Submit" />
   </el-steps>
 
-  <el-form ref="ReportRuleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
+  <el-form ref="ReportRuleFormRef" :model="ruleForm" :rules="ReportRules" label-width="100px" label-position="top">
     <!-- Step 0 -->
     <el-row v-if="activeStep === 0" :gutter="20">
       <el-col :span="24">
@@ -8477,33 +9012,28 @@ function formatLocation(item) {
             </template>
           </el-table-column> -->
 
-          <el-table-column>
-            <template #header>
-              <span v-if="ruleForm.indicators.some(i => i.unit === 'Yes/No')">Status</span>
-              <span v-else>Amount</span>
-            </template>
+          <el-table-column label="Reported value" min-width="200">
             <template #default="{ row }">
-              <template v-if="row.unit === 'Yes/No'">
-                <el-switch
-                  v-model="row.qualitative"
-                  active-value="Yes"
-                  inactive-value="No"
-                />
-              </template>
-              <template v-else>
+              <div class="report-value-cell">
+                <span class="report-value-cell__label">{{ indicatorValueLabel(row) }}</span>
+                <el-radio-group v-if="isQualitativeIndicator(row)" v-model="row.qualitative">
+                  <el-radio-button value="Yes">Yes</el-radio-button>
+                  <el-radio-button value="No">No</el-radio-button>
+                </el-radio-group>
                 <el-input-number
-                  min="0"
+                  v-else
                   v-model="row.amount"
+                  :min="0"
+                  :max="isPercentIndicator(row) ? 100 : undefined"
+                  :controls="false"
+                  placeholder="Enter value"
                   style="width: 100%;"
                 />
-              </template>
+              </div>
             </template>
           </el-table-column>
 
-
-
-         
-          <el-table-column label="Date">
+          <el-table-column label="Date" min-width="160">
             <template #default="{ row }">
               <el-date-picker  v-model="row.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates" />
             </template>
@@ -10104,6 +10634,17 @@ function formatLocation(item) {
   padding: 12px 16px;
 }
 
+.report-value-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-value-cell__label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
 .project-details-map-dialog--mobile :deep(.el-dialog__body) {
   padding: 0 12px 12px;
 }
@@ -10520,7 +11061,7 @@ function formatLocation(item) {
 <style scoped>
 .basemap {
   width: 100%;
-  height: 65vh;
+  height: 55vh;
 }
 
 .basemap--mobile {
@@ -10536,8 +11077,33 @@ function formatLocation(item) {
 }
 
 .project-lifecycle-timeline-wrap {
-  max-width: 560px;
-  padding: 8px 4px 0;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 8px 4px 12px;
+  box-sizing: border-box;
+}
+
+.project-lifecycle-timeline-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 4px 14px;
+}
+
+.project-lifecycle-timeline {
+  flex: 1 1 220px;
+  min-width: 200px;
+  max-width: 340px;
+}
+
+.project-timeline-continues {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 8px;
+  border-left: 1px dashed var(--el-border-color);
+  color: var(--el-text-color-secondary);
 }
 
 .project-lifecycle-timeline :deep(.el-timeline-item__timestamp) {
