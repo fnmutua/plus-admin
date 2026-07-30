@@ -118,6 +118,19 @@ const PROJECT_INDICATORS = {
   53: { name: 'Implementation status', type: 'output', format: 'boolean', unit: 'Yes/No', level: 'project' },
 };
 
+// KISIP II results-framework programme targets (see configure-kisip2-missing-indicators.js).
+const PROGRAMME_INDICATORS = {
+  'KISIP2-RF-01': { name: 'Tenure security beneficiaries', type: 'outcome', format: 'number', unit: 'People', level: 'programme' },
+  'KISIP2-RF-02': { name: 'Urban living conditions beneficiaries', type: 'outcome', format: 'number', unit: 'People', level: 'programme' },
+  'KISIP2-RF-09': { name: 'Sewerage access beneficiaries', type: 'outcome', format: 'number', unit: 'People', level: 'programme' },
+  'KISIP2-RF-12': { name: 'Beneficiary lists for titling', type: 'output', format: 'number', unit: 'No.', level: 'programme' },
+  'KISIP2-RF-18': { name: 'Women among youth engaged', type: 'outcome', format: 'percent', unit: '%', level: 'programme' },
+  'KISIP2-RF-19': { name: 'CDP women empowerment contribution', type: 'outcome', format: 'percent', unit: '%', level: 'programme' },
+  'KISIP2-RF-21': { name: 'Women among safety net identifications', type: 'outcome', format: 'percent', unit: '%', level: 'programme' },
+  'KISIP2-RF-26': { name: 'Counties with O&M budget provision', type: 'output', format: 'number', unit: 'No.', level: 'programme' },
+  'KISIP2-RF-28': { name: 'Female SEC members share', type: 'outcome', format: 'percent', unit: '%', level: 'programme' },
+};
+
 // Redundant DB indicators to drop on import (covered by other master-list entries).
 const INDICATOR_REMOVES = {
   70: 'Redundant — use Skilled jobs (32) + Unskilled jobs (33)',
@@ -283,8 +296,33 @@ function buildMasterIndicatorList(masterActivities, mergeMap, dbIndicators, cate
     });
   }
 
+  // Programme-level indicators (KISIP II RF and similar)
+  for (const [code, template] of Object.entries(PROGRAMME_INDICATORS)) {
+    const db = dbIndicators.find((row) => row.code === code || row.name === template.name);
+    if (db) usedDbIds.add(db.id);
+    masterRows.push({
+      id: db?.id || '',
+      name: template.name,
+      db_name: db?.name || '',
+      type: template.type,
+      format: template.format,
+      unit: template.unit,
+      level: template.level,
+      code: db?.code || code,
+      indicator_code: code,
+      activity_id: '',
+      activity_code: '',
+      activity_title: '',
+      category_count: db ? categoriesByIndicator.get(db.id) || 0 : 0,
+      master_list: 'Y',
+      keep: db ? 'Y' : 'N',
+      action: db ? 'keep' : 'add_new',
+      notes: 'Programme-level indicator (KISIP II RF)',
+    });
+  }
+
   masterRows.sort((a, b) => {
-    const levelOrder = { activity: 0, project: 1 };
+    const levelOrder = { activity: 0, project: 1, programme: 2 };
     const la = levelOrder[a.level] ?? 0;
     const lb = levelOrder[b.level] ?? 0;
     if (la !== lb) return la - lb;

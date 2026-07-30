@@ -5751,6 +5751,16 @@ function parseTargetValue(v: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+function qualitativeTargetLabel(v: unknown): 'Yes' | 'No' | null {
+  if (v === 'Yes' || v === true || v === 1 || v === '1') return 'Yes'
+  if (v === 'No' || v === false || v === 0 || v === '0') return 'No'
+  return null
+}
+
+function qualitativeTargetToValue(v: unknown): number {
+  return qualitativeTargetLabel(v) === 'Yes' ? 1 : 0
+}
+
 const monitoringSubTab = ref('targets')
 const monitoringFiscalYear = ref(getFiscalYear())
 const monitoringReportPeriodFilter = ref('all')
@@ -5840,8 +5850,13 @@ function computeMonitoringProgress(
   actual: number,
   target: number,
   targetKind?: string,
+  actualQualitative?: 'Yes' | 'No' | null,
+  targetQualitative?: 'Yes' | 'No' | null,
 ): number | null {
-  if (isQualitativeIndicator(option)) return null
+  if (isQualitativeIndicator(option)) {
+    if (!targetQualitative || !actualQualitative) return null
+    return targetQualitative === actualQualitative ? 100 : 0
+  }
   if (targetKind === 'percent' || isPercentIndicator(option)) {
     return target > 0 ? (actual / target) * 100 : actual
   }
@@ -5852,20 +5867,38 @@ function computeMonitoringProgress(
 const monitoringTargetLedger = computed(() =>
   (indicatorsOptionsFiltered.value || []).map((opt) => {
     const targetRow = findConfiguredTarget(opt.value, null)
-    const target = parseTargetValue(targetRow?.target_value)
+    const isQual = isQualitativeIndicator(opt)
+    const targetQualitative = isQual && targetRow != null
+      ? qualitativeTargetLabel(targetRow.target_value)
+      : null
+    const target = isQual ? 0 : parseTargetValue(targetRow?.target_value)
     const latest = latestReportForIndicator(opt.value, null)
-    const actual = latest
-      ? parseTargetValue(latest.cumAmount ?? latest.amount)
-      : 0
-    const variance = target > 0 ? actual - target : null
-    const progress = computeMonitoringProgress(opt, actual, target, targetRow?.target_kind)
+    const actualQualitative = isQual && latest?.qualitative
+      ? qualitativeTargetLabel(latest.qualitative)
+      : null
+    const actual = isQual
+      ? 0
+      : latest
+        ? parseTargetValue(latest.cumAmount ?? latest.amount)
+        : 0
+    const variance = isQual || target <= 0 ? null : actual - target
+    const progress = computeMonitoringProgress(
+      opt,
+      actual,
+      target,
+      targetRow?.target_kind,
+      actualQualitative,
+      targetQualitative,
+    )
 
     return {
       ...opt,
       targetId: targetRow?.id ?? null,
       target,
+      targetQualitative,
       targetKind: targetRow?.target_kind || 'absolute',
       actual,
+      actualQualitative,
       variance,
       progress,
     }
@@ -5904,11 +5937,27 @@ async function saveMonitoringTarget(row: Record<string, any>) {
   }
 
   const indicatorCategoryId = Number(row.value)
-  const targetValue = parseTargetValue(row.target)
   if (!indicatorCategoryId) return
-  if (targetValue <= 0) {
-    ElMessage.error('Enter a target greater than zero.')
-    return
+
+  const isQual = isQualitativeIndicator(row)
+  let targetValue: number
+  let targetKind: string
+
+  if (isQual) {
+    const targetQualitative = qualitativeTargetLabel(row.targetQualitative)
+    if (!targetQualitative) {
+      ElMessage.error('Choose Yes or No as the target.')
+      return
+    }
+    targetValue = qualitativeTargetToValue(targetQualitative)
+    targetKind = 'absolute'
+  } else {
+    targetValue = parseTargetValue(row.target)
+    if (targetValue <= 0) {
+      ElMessage.error('Enter a target greater than zero.')
+      return
+    }
+    targetKind = isPercentIndicator(row) ? 'percent' : 'absolute'
   }
 
   const projectId = Number(route.params.id)
@@ -5919,7 +5968,7 @@ async function saveMonitoringTarget(row: Record<string, any>) {
     scope_type: 'project',
     project_id: projectId,
     target_value: targetValue,
-    target_kind: isPercentIndicator(row) ? 'percent' : 'absolute',
+    target_kind: targetKind,
     createdBy: userInfo.id,
   }
 
@@ -5930,7 +5979,7 @@ async function saveMonitoringTarget(row: Record<string, any>) {
         model: 'indicator_target',
         id: row.targetId,
         target_value: targetValue,
-        target_kind: payload.target_kind,
+        target_kind: targetKind,
       } as any)
     } else {
       await CreateRecord(payload as any)
@@ -7356,7 +7405,7 @@ function formatLocation(item) {
     </template>
 
     <el-tabs v-model="activeName" type="border-card" class="demo-tabs" tab-position="top" @tab-click="handleTabClick">
-      <el-tab-pane label="Project Details" name="details">
+      <el-tab-pane label="Details" name="details">
         <div v-if="isLoading" class="profile-tab-panel__loading">
           <div class="profile-tab-panel__spinner">
             <el-icon class="is-loading"><Loading /></el-icon>
@@ -7825,8 +7874,19 @@ function formatLocation(item) {
                 </el-table-column>
                 <el-table-column label="FY target" width="160">
                   <template #default="{ row }">
+                    <el-select
+                      v-if="canAddMonitoringReport && isQualitativeIndicator(row)"
+                      :model-value="row.targetQualitative ?? undefined"
+                      placeholder="Set target"
+                      :disabled="monitoringTargetSavingId === row.value"
+                      style="width: 100%;"
+                      @change="(v: 'Yes' | 'No') => saveMonitoringTarget({ ...row, targetQualitative: v })"
+                    >
+                      <el-option label="Yes" value="Yes" />
+                      <el-option label="No" value="No" />
+                    </el-select>
                     <el-input-number
-                      v-if="canAddMonitoringReport"
+                      v-else-if="canAddMonitoringReport"
                       :model-value="row.target || undefined"
                       :min="0"
                       :max="row.targetKind === 'percent' || isPercentIndicator(row) ? 100 : undefined"
@@ -7836,12 +7896,14 @@ function formatLocation(item) {
                       style="width: 100%;"
                       @change="(v: number | undefined) => saveMonitoringTarget({ ...row, target: v })"
                     />
+                    <span v-else-if="isQualitativeIndicator(row)">{{ row.targetQualitative ?? '—' }}</span>
                     <span v-else>{{ row.target > 0 ? row.target : '—' }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="Actual" width="100">
                   <template #default="{ row }">
-                    {{ row.actual > 0 || row.actual === 0 ? row.actual : '—' }}
+                    <span v-if="isQualitativeIndicator(row)">{{ row.actualQualitative ?? '—' }}</span>
+                    <span v-else>{{ row.actual > 0 || row.actual === 0 ? row.actual : '—' }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="Variance" width="100">
@@ -9941,19 +10003,19 @@ function formatLocation(item) {
 
 .card-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: var(--card-header-color, #333);
-  background-color: var(--card-header-bg, #f9f9f9);
+  color: var(--el-text-color-primary);
+  background-color: var(--el-fill-color-light);
   padding: 12px 14px;
   border-radius: 5px;
 }
 
 .card-header-main {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   flex: 1;
   min-width: 0;
 }
@@ -9968,16 +10030,12 @@ function formatLocation(item) {
 
 .back-button {
   flex-shrink: 0;
-  margin-top: 2px;
+  align-self: center;
 }
 
 .project-title-wrap {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
 }
 
 .project-title-row {
@@ -9985,16 +10043,17 @@ function formatLocation(item) {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  width: 100%;
+  min-width: 0;
 }
 
 .project-title {
-  flex: 1 1 12rem;
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
+  padding: 0;
   font-size: 1.125rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
   word-break: break-word;
 }
 
@@ -11196,11 +11255,11 @@ function formatLocation(item) {
 }
 
 .project-header-tags {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .project-header-tags.project-header-tags--prominent :deep(.el-tag) {
@@ -11269,20 +11328,10 @@ function formatLocation(item) {
   color: var(--el-text-color-secondary);
 }
 
-:root {
-  --card-header-color: #333;
-  --card-header-bg: #f9f9f9;
-}
-
-[data-theme="dark"] {
-  --card-header-color: #ddd;
-  --card-header-bg: #222;
-}
-
 @media (max-width: 768px) {
   .card-header,
   .card-header--mobile {
-    align-items: flex-start;
+    align-items: center;
     padding: 10px 12px;
     gap: 8px;
   }
@@ -11293,25 +11342,17 @@ function formatLocation(item) {
     min-width: 0;
   }
 
-  .back-button {
-    margin-top: 0;
-  }
-
-  .project-title-wrap {
-    gap: 4px;
-  }
-
   .project-title-row {
-    gap: 6px;
+    gap: 6px 8px;
   }
 
   .project-title {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     font-size: 0.95rem;
     line-height: 1.35;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
