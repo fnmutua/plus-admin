@@ -300,6 +300,7 @@ function hiddenProjectLocationCount(locations: any[]): number {
 function getProjectListLocationDisplay(row: any) {
   const locations = locationsForProjectScope(row)
   return {
+    rowKey: row?.id ?? row?.title ?? projectLocationsSummary(locations),
     locations,
     visible: visibleProjectLocations(locations),
     hiddenCount: hiddenProjectLocationCount(locations),
@@ -2363,7 +2364,7 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
         label="Project Title"
         prop="title"
         min-width="250"
-        show-overflow-tooltip
+        class-name="project-title-column"
       >
         <template #default="{ row }">
           <el-tooltip placement="top" effect="dark">
@@ -2375,9 +2376,7 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
                 <span>End: {{ row.end_date }}</span><br />
               </div>
             </template>
-            <span class="project-title">{{ row.title }}
-             
-            </span>
+            <span class="project-title">{{ row.title }}</span>
           </el-tooltip>
         </template>
       </el-table-column>
@@ -2398,7 +2397,7 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          <template v-for="display in [getProjectListLocationDisplay(row)]" :key="row.id">
+          <template v-for="display in [getProjectListLocationDisplay(row)]" :key="display.rowKey">
             <template v-if="display.locations.length > 0">
               <el-tooltip
                 placement="top"
@@ -2683,8 +2682,19 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 }
 
 .project-title {
+  display: block;
   font-weight: 400;
   font-size: 13px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.interventions-project-table :deep(.project-title-column .cell) {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
 }
 .programme {
   color: #888;

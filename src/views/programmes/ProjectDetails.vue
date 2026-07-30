@@ -76,6 +76,8 @@ import { getModelSpecs, getUniqueFieldValues } from '@/api/fields'
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const mobileBreakpoint = 768
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= mobileBreakpoint : false)
@@ -7284,6 +7286,393 @@ const getAdvanceSummaries = (param) => {
   return sums
 }
 
+const ipcPdfLoading = ref(false)
+const advancePdfLoading = ref(false)
+const timelinePdfLoading = ref(false)
+
+const loadImageAsBase64 = (url: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      try {
+        resolve(canvas.toDataURL('image/png'))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    img.onerror = reject
+    img.src = url
+  })
+
+function formatIpcStatus(status: unknown) {
+  const s = String(status || 'submitted').trim()
+  if (!s) return 'Submitted'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function formatIpcRefCell(row: Record<string, unknown>) {
+  const cert = String(row.certificate || '—')
+  const status = formatIpcStatus(row.status)
+  const paymentType = String(row.payment_type || 'ipc').toLowerCase()
+  if (paymentType !== 'ipc') {
+    return `${disbursementPaymentLabel(row.payment_type)} · ${cert} (${status})`
+  }
+  return `${cert} (${status})`
+}
+
+function formatIpcGrossCell(row: Record<string, unknown>) {
+  let text = formatCostDisplay(row.gross)
+  if (row.contractBalanceAfter != null) {
+    text += `\nBalance ${formatCostDisplay(row.contractBalanceAfter)}`
+  }
+  return text
+}
+
+function formatIpcAdvanceRecoveryCell(row: Record<string, unknown>) {
+  const recovered = Number(row.advanceRecoveredThisRow) || 0
+  const balance = Number(row.advanceBalance) || 0
+  if (recovered <= 0 && balance <= 0) return '—'
+  let text = recovered > 0 ? formatCostDisplay(row.advanceRecoveredThisRow) : '—'
+  if (balance > 0) {
+    text += `\nBalance ${formatCostDisplay(row.advanceBalance)}`
+  }
+  return text
+}
+
+function formatIpcCumulativeCell(row: Record<string, unknown>) {
+  let text = formatCostDisplay(row.cumulative)
+  if (row.pctOfContract != null) {
+    text += `\n${Number(row.pctOfContract).toFixed(1)}%`
+  }
+  return text
+}
+
+function formatIpcProgressCell(row: Record<string, unknown>) {
+  const pct = ipcLocationSnapshotProgressPct(row)
+  if (pct == null) return '—'
+  const sites = ipcLocationSnapshotRows(row).length
+  let text = `${pct.toFixed(1)}%`
+  if (sites > 1) text += `\n${sites} sites`
+  return text
+}
+
+function addPdfPageFooters(doc: jsPDF, pageWidth: number) {
+  const pageCount = doc.getNumberOfPages()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  for (let i = 1; i <= pageCount; i += 1) {
+    doc.setPage(i)
+    doc.setFontSize(8)
+    doc.setTextColor(120)
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: 'center' })
+  }
+}
+
+async function startProjectPaymentPdf(
+  reportTitle: string,
+  summaryLines: string[],
+  orientation: 'portrait' | 'landscape' = 'portrait',
+) {
+  const project = projectFullData.value || {}
+  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a4' })
+
+  let logoBase64: string | null = null
+  try {
+    logoBase64 = await loadImageAsBase64('/gok.png')
+    if (logoBase64) {
+      const logoWidth = 28
+      const logoHeight = logoWidth * 0.75
+      const pageWidth = doc.internal.pageSize.getWidth()
+      doc.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 8, logoWidth, logoHeight)
+    }
+  } catch {
+    logoBase64 = null
+  }
+
+  const startY = logoBase64 ? 32 : 14
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const projectTitle = String(project.title || project_title.value || 'Project')
+
+  doc.setFontSize(16)
+  doc.setTextColor(41, 128, 185)
+  doc.text(reportTitle, pageWidth / 2, startY, { align: 'center' })
+
+  doc.setFontSize(11)
+  doc.setTextColor(0)
+  let contentY = startY + 8
+  const titleLines = doc.splitTextToSize(projectTitle, pageWidth - 28)
+  doc.text(titleLines, pageWidth / 2, contentY, { align: 'center' })
+  contentY += titleLines.length * 5 + 3
+
+  const metaParts = [
+    project.project_code ? `Contract No.: ${project.project_code}` : null,
+    project.programme?.acronym ? `Programme: ${project.programme.acronym}` : null,
+  ].filter(Boolean)
+  if (metaParts.length) {
+    doc.setFontSize(9)
+    doc.setTextColor(80)
+    doc.text(metaParts.join('  ·  '), pageWidth / 2, contentY, { align: 'center' })
+    contentY += 6
+  }
+
+  doc.setFontSize(8)
+  doc.setTextColor(100)
+  doc.text(`Generated on ${formatDateDisplay(new Date())}`, pageWidth / 2, contentY, { align: 'center' })
+  contentY += 6
+
+  doc.setDrawColor(41, 128, 185)
+  doc.line(14, contentY, pageWidth - 14, contentY)
+  contentY += 6
+
+  if (summaryLines.length) {
+    doc.setFontSize(9)
+    doc.setTextColor(0)
+    doc.text(summaryLines.join('    '), 14, contentY)
+    contentY += 6
+  }
+
+  return { doc, tableStartY: contentY + 4, pageWidth, projectTitle, project }
+}
+
+function saveProjectPaymentPdf(
+  doc: jsPDF,
+  pageWidth: number,
+  filePrefix: string,
+  projectTitle: string,
+  project: Record<string, unknown>,
+  successMessage: string,
+) {
+  addPdfPageFooters(doc, pageWidth)
+  const safeTitle = projectTitle.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 40)
+  doc.save(`${filePrefix}-${safeTitle || project.id || 'project'}-${formatDateForInput(new Date())}.pdf`)
+  ElMessage.success(successMessage)
+}
+
+const generateIpcListPdf = async () => {
+  ipcPdfLoading.value = true
+  try {
+    const rows = ipcLedgerRows.value
+    const summary = ipcSummary.value
+    const includeAdvance = showIpcAdvanceColumns.value
+    const includeProgress = showDisbursementLocationPanel.value
+
+    const head = ['#', 'IPC / Ref', 'Date', 'Gross (KES)']
+    if (includeAdvance) head.push('Advance recovery')
+    head.push('Cumulative (KES)')
+    if (includeProgress) head.push('Progress')
+
+    const summaryLines = [
+      `Contract: ${summary.contract > 0 ? formatCostDisplay(summary.contract) : '—'}`,
+      `Paid: ${formatCostDisplay(summary.paidGross)}${summary.pctPaid != null ? ` (${summary.pctPaid.toFixed(1)}%)` : ''}`,
+      `Balance: ${summary.balance != null ? formatCostDisplay(Math.max(0, summary.balance)) : '—'}`,
+    ]
+    if (includeAdvance) {
+      summaryLines.push(`Advance outstanding: ${formatCostDisplay(summary.advanceOutstanding)}`)
+    }
+
+    const { doc, tableStartY, pageWidth, projectTitle, project } = await startProjectPaymentPdf(
+      'Interim Payment Certificates (IPCs)',
+      summaryLines,
+      head.length >= 6 ? 'landscape' : 'portrait',
+    )
+
+    const body = rows.map((row, idx) => {
+      const cells: string[] = [
+        String(idx + 1),
+        formatIpcRefCell(row),
+        formatDateDisplay(row.disbursement_date),
+        formatIpcGrossCell(row),
+      ]
+      if (includeAdvance) cells.push(formatIpcAdvanceRecoveryCell(row))
+      cells.push(formatIpcCumulativeCell(row))
+      if (includeProgress) cells.push(formatIpcProgressCell(row))
+      return cells
+    })
+
+    const lastRow = rows.length ? rows[rows.length - 1] : null
+    const footRow: Array<
+      string | { content: string; colSpan: number; styles?: Record<string, unknown> }
+    > = [
+      {
+        content: 'Total',
+        colSpan: 3,
+        styles: { halign: 'right', fontStyle: 'bold', overflow: 'visible' },
+      },
+      lastRow?.contractBalanceAfter != null
+        ? formatCostDisplay(lastRow.contractBalanceAfter)
+        : '',
+    ]
+    if (includeAdvance) {
+      footRow.push(
+        summary.advanceGranted > 0 || summary.advanceRecovered > 0
+          ? formatCostDisplay(summary.advanceOutstanding)
+          : '',
+      )
+    }
+    footRow.push(lastRow?.cumulative != null ? formatCostDisplay(lastRow.cumulative) : '')
+    if (includeProgress) footRow.push('')
+
+    const columnStyles: Record<number, { halign?: 'left' | 'center' | 'right'; cellWidth?: number }> = {
+      0: { cellWidth: 10, halign: 'center' },
+      2: { cellWidth: 22 },
+      3: { halign: 'right' },
+    }
+    let colIdx = 4
+    if (includeAdvance) {
+      columnStyles[colIdx] = { halign: 'right' }
+      colIdx += 1
+    }
+    columnStyles[colIdx] = { halign: 'right' }
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [head],
+      body: body.length
+        ? body
+        : [[{ content: 'No IPC disbursements recorded', colSpan: head.length, styles: { halign: 'center' } }]],
+      foot: body.length ? [footRow] : undefined,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 9 },
+      footStyles: { fillColor: [245, 247, 250], textColor: 0, fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+      columnStyles,
+      margin: { left: 14, right: 14 },
+    })
+
+    saveProjectPaymentPdf(doc, pageWidth, 'IPC-List', projectTitle, project, 'IPC list PDF downloaded')
+  } catch (error) {
+    console.error('Failed to generate IPC PDF', error)
+    ElMessage.error('Failed to generate IPC PDF')
+  } finally {
+    ipcPdfLoading.value = false
+  }
+}
+
+const generateAdvanceListPdf = async () => {
+  advancePdfLoading.value = true
+  try {
+    const rows = advanceLedgerRows.value
+    const summary = ipcSummary.value
+    const head = ['Date', 'Description', 'Amount (KES)', 'Status']
+
+    const summaryLines = [
+      `Advance granted: ${formatCostDisplay(summary.advanceGranted)}`,
+      `Recovered: ${formatCostDisplay(summary.advanceRecovered)}`,
+      `Outstanding: ${formatCostDisplay(summary.advanceOutstanding)}`,
+    ]
+
+    const { doc, tableStartY, pageWidth, projectTitle, project } = await startProjectPaymentPdf(
+      'Advance Payments',
+      summaryLines,
+    )
+
+    const body = rows.map((row) => [
+      formatDateDisplay(row.disbursement_date),
+      String(row.description || 'Advance payment'),
+      formatCostDisplay(row.gross),
+      formatIpcStatus(row.status),
+    ])
+
+    const total = rows.reduce((sum, row) => sum + parseMoney(row.gross ?? row.amount), 0)
+    const footRow: Array<
+      string | { content: string; colSpan?: number; styles?: Record<string, unknown> }
+    > = [
+      '',
+      { content: 'Total', styles: { halign: 'left', fontStyle: 'bold', overflow: 'visible' } },
+      formatCostDisplay(total),
+      '',
+    ]
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [head],
+      body: body.length
+        ? body
+        : [[{ content: 'No advance payments recorded', colSpan: head.length, styles: { halign: 'center' } }]],
+      foot: body.length ? [footRow] : undefined,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 9 },
+      footStyles: { fillColor: [245, 247, 250], textColor: 0, fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        2: { halign: 'right' },
+        3: { halign: 'center' },
+      },
+      margin: { left: 14, right: 14 },
+    })
+
+    saveProjectPaymentPdf(doc, pageWidth, 'Advance-List', projectTitle, project, 'Advance list PDF downloaded')
+  } catch (error) {
+    console.error('Failed to generate advance PDF', error)
+    ElMessage.error('Failed to generate advance PDF')
+  } finally {
+    advancePdfLoading.value = false
+  }
+}
+
+const generateTimelinePdf = async () => {
+  timelinePdfLoading.value = true
+  try {
+    if (route.params.id) {
+      await loadProjectTimeline(route.params.id)
+    }
+
+    const events = projectTimelineEvents.value
+    const projectData = projectFullData.value || {}
+    const summaryLines = [
+      projectData.status ? `Status: ${projectStatusLabel(projectData.status)}` : null,
+      projectData.start_date ? `Commenced: ${formatDateDisplay(projectData.start_date)}` : null,
+      projectData.end_date ? `Completion: ${formatDateDisplay(projectData.end_date)}` : null,
+      `${events.length} event${events.length === 1 ? '' : 's'}`,
+    ].filter(Boolean) as string[]
+
+    const { doc, tableStartY, pageWidth, projectTitle, project } = await startProjectPaymentPdf(
+      'Project Timeline',
+      summaryLines,
+    )
+
+    const head = ['Date', 'Event', 'Detail']
+    const body = events.map((event) => [
+      formatDateDisplay(event.date),
+      event.title,
+      event.detail || '—',
+    ])
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [head],
+      body: body.length
+        ? body
+        : [[{ content: 'No timeline events recorded', colSpan: head.length, styles: { halign: 'center' } }]],
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        1: { cellWidth: 72 },
+      },
+      margin: { left: 14, right: 14 },
+    })
+
+    saveProjectPaymentPdf(doc, pageWidth, 'Project-Timeline', projectTitle, project, 'Timeline PDF downloaded')
+  } catch (error) {
+    console.error('Failed to generate timeline PDF', error)
+    ElMessage.error('Failed to generate timeline PDF')
+  } finally {
+    timelinePdfLoading.value = false
+  }
+}
+
 
 const changeLocation = async (location: any) => {
   console.log('changeLocation', location)
@@ -8434,8 +8823,9 @@ function formatLocation(item) {
           <el-tabs v-model="ipcDisbursementSubTab" class="ipc-inner-tabs">
             <el-tab-pane label="IPCs" name="ipcs">
               <div class="ipc-table-section">
-                <div v-if="canManageDisbursements" class="ipc-toolbar">
+                <div class="ipc-toolbar">
                   <el-tooltip
+                    v-if="canManageDisbursements"
                     :disabled="canRecordDisbursements"
                     :content="disbursementBlockReason"
                     placement="top"
@@ -8452,6 +8842,16 @@ function formatLocation(item) {
                       </el-button>
                     </span>
                   </el-tooltip>
+                  <el-button
+                    plain
+                    :size="isMobile ? 'large' : 'default'"
+                    :loading="ipcPdfLoading"
+                    :disabled="ipcPdfLoading"
+                    @click="generateIpcListPdf"
+                  >
+                    <Icon icon="mdi:file-pdf-box" />
+                    Download PDF
+                  </el-button>
                 </div>
 
                 <el-table
@@ -8715,8 +9115,9 @@ function formatLocation(item) {
 
             <el-tab-pane label="Advances" name="advances">
               <div class="ipc-table-section">
-                <div v-if="canManageDisbursements" class="ipc-toolbar">
+                <div class="ipc-toolbar">
                   <el-tooltip
+                    v-if="canManageDisbursements"
                     :disabled="canRecordDisbursements"
                     :content="disbursementBlockReason"
                     placement="top"
@@ -8733,6 +9134,16 @@ function formatLocation(item) {
                       </el-button>
                     </span>
                   </el-tooltip>
+                  <el-button
+                    plain
+                    :size="isMobile ? 'large' : 'default'"
+                    :loading="advancePdfLoading"
+                    :disabled="advancePdfLoading"
+                    @click="generateAdvanceListPdf"
+                  >
+                    <Icon icon="mdi:file-pdf-box" />
+                    Download PDF
+                  </el-button>
                 </div>
 
                 <el-table
@@ -8831,6 +9242,18 @@ function formatLocation(item) {
 
 
       <el-tab-pane label="Timeline" name="timeline">
+        <div class="ipc-toolbar project-timeline-toolbar">
+          <el-button
+            plain
+            :size="isMobile ? 'large' : 'default'"
+            :loading="timelinePdfLoading"
+            :disabled="timelinePdfLoading"
+            @click="generateTimelinePdf"
+          >
+            <Icon icon="mdi:file-pdf-box" />
+            Download PDF
+          </el-button>
+        </div>
         <div v-loading="projectTimelineLoading" class="project-lifecycle-timeline-wrap">
           <el-empty
             v-if="!projectTimelineLoading && !projectTimelineEvents.length"
@@ -11368,11 +11791,9 @@ function formatLocation(item) {
     flex: 1 1 auto;
     font-size: 0.95rem;
     line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .project-header-tags {
@@ -11656,6 +12077,10 @@ function formatLocation(item) {
   overflow-y: auto;
   padding: 8px 4px 12px;
   box-sizing: border-box;
+}
+
+.project-timeline-toolbar {
+  margin-bottom: 8px;
 }
 
 .project-lifecycle-timeline-columns {
