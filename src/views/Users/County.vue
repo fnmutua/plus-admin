@@ -25,13 +25,14 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow, ElTag } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue'
 import UserTableActions from '@/views/Components/UserTableActions.vue'
+import { loadRoleNameMap, gateActivationOnRole, getActorRoleNames, canActivateDeactivateUser, assertCanActivateDeactivateUser } from '@/utils/userRoleAssignment'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import { useAdjustableTableColumns } from '@/composables/useAdjustableTableColumns'
 import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
@@ -132,7 +133,7 @@ const {
   visibleColumnKeys,
   onHeaderDragend,
   resetColumns,
-} = useAdjustableTableColumns('countyUsersTableColumns', userTableColumnPresets.minimal)
+} = useAdjustableTableColumns('countyUsersTableColumns', userTableColumnPresets.standard)
 
 const { t } = useI18n()
 
@@ -358,8 +359,31 @@ const makeSettlementOptions = (list) => {
   })
 }
 
-const activateDeactivate = (data: TableSlotDefault) => {
+const activateDeactivate = async (data: TableSlotDefault) => {
+  if (
+    !assertCanActivateDeactivateUser({
+      actorRoleNames: actorRoleNames.value,
+      actorUserId: currentUser?.id,
+      targetUser: data.row,
+      roleNameById: roleNameById.value,
+    })
+  ) {
+    return
+  }
+
+  const activating = !data.row.isactive
   data.row.isactive = !data.row.isactive
+
+  // A role must be confirmed before the account is first switched on
+  if (activating) {
+    const gate = await gateActivationOnRole(data.row)
+    if (gate !== 'ok') {
+      data.row.isactive = false
+      if (gate === 'assign-role') EditUser(data)
+      return
+    }
+  }
+
   console.log('Activating user.....', data.row)
   activateUserApi(data.row, { model: 'users' })
     .then(() => {})
@@ -503,6 +527,19 @@ const searchByName = async (filterString: any) => {
 }
 
 getRoles()
+const roleNameById = ref<Record<number, string>>({})
+loadRoleNameMap().then((map) => { roleNameById.value = map })
+
+const actorRoleNames = computed(() => getActorRoleNames(currentUser))
+
+const canToggleUserActivation = (row: any) =>
+  canActivateDeactivateUser({
+    actorRoleNames: actorRoleNames.value,
+    actorUserId: currentUser?.id,
+    targetUser: row,
+    roleNameById: roleNameById.value,
+  })
+
 getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
@@ -641,6 +678,7 @@ const search = ref('')
         :is-column-visible="isColumnVisible"
         :column-width="columnWidth"
         :column-min-width="columnMinWidth"
+        :role-name-by-id="roleNameById"
         avatar-field="avatar"
         use-index-column
       />
@@ -650,6 +688,7 @@ const search = ref('')
           <UserTableActions
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :show-force-logout="false"
             :show-reset-password="false"
             @activate="activateDeactivate(scope as TableSlotDefault)"

@@ -302,10 +302,14 @@ exports.getSubordinateRoles = async (req, res) => {
     // Step 4: Collect all unique subordinate IDs
     const uniqueSubordinates = [...new Set(allSubordinateIds)];
 
+    const isRootAdminActor = currentUserRoles.some((role) => role.name === 'root_admin')
+
     // Step 5: Find roles corresponding to these subordinate IDs
-    const subordinateRoles = roles.filter(role =>
-      uniqueSubordinates.includes(role.id) && role.name !== 'root_admin'
-    );
+    const subordinateRoles = roles.filter(role => {
+      if (role.name === 'root_admin') return false
+      if (role.name === 'super_admin' && !isRootAdminActor) return false
+      return uniqueSubordinates.includes(role.id)
+    })
 
     // Send the subordinate roles array in the response
     res.status(200).send({

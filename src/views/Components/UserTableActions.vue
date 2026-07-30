@@ -15,7 +15,7 @@
         <template v-if="showActivate">
           <PermissionWrapper v-if="showAdminButtons" :permissions="['user:activate']">
             <el-dropdown-item
-              :disabled="activateLoading"
+              :disabled="activateLoading || activateDisabled"
               @click="handleActivate"
             >
               <el-icon><Switch /></el-icon>
@@ -91,6 +91,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  activateDisabled: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['activate', 'edit', 'forceLogout', 'resetPassword'])
@@ -98,7 +102,7 @@ const emit = defineEmits(['activate', 'edit', 'forceLogout', 'resetPassword'])
 const isMobile = computed(() => window.innerWidth <= 768)
 
 const handleActivate = () => {
-  if (props.activateLoading || !props.showAdminButtons) return
+  if (props.activateLoading || !props.showAdminButtons || props.activateDisabled) return
   emit('activate')
 }
 </script>

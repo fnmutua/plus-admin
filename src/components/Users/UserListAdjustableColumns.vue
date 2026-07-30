@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ElTableColumn, ElTag } from 'element-plus'
+import { ElTableColumn, ElTag, ElTooltip } from 'element-plus'
+import { Icon } from '@/components/Icon'
 import type { AdjustableColumnKey } from '@/composables/useAdjustableTableColumns'
 import { isUserAccessFullyExpired } from '@/utils/userAccessExpiryDisplay'
+import { getAssignedRoleNames } from '@/utils/userRoleAssignment'
 
 const props = defineProps<{
   isColumnVisible: (key: AdjustableColumnKey) => boolean
@@ -12,7 +14,28 @@ const props = defineProps<{
   idLabel?: string
   useIndexColumn?: boolean
   getSettlementLabel?: (row: any) => string
+  // id -> role name. Powers the role icon beside the name. Omit it and the icon
+  // simply doesn't render — existing callers that haven't wired role names yet
+  // are unaffected.
+  roleNameById?: Record<number, string>
 }>()
+
+const rowRoleNames = (row: any) => getAssignedRoleNames(row, props.roleNameById || {})
+
+// One icon per user, picked by the most senior role they hold — every row gets
+// one, not just admin/support, so 'other' still needs a fallback (mdi:user).
+// super_admin is grouped with admin (both read as "elevated admin" at a glance);
+// there's no separate icon requested for it.
+const roleIconFor = (row: any) => {
+  const names = rowRoleNames(row).map((n) => n.toLowerCase())
+  if (names.includes('root_admin')) return { icon: 'eos-icons:admin', color: 'danger' as const }
+  if (names.includes('admin') || names.includes('super_admin'))
+    return { icon: 'ri:admin-line', color: 'warning' as const }
+  if (names.includes('support')) return { icon: 'ix:support', color: 'success' as const }
+  return { icon: 'mdi:user', color: 'info' as const }
+}
+
+const roleIconTooltip = (row: any) => rowRoleNames(row).join(', ') || 'No role assigned'
 </script>
 
 <template>
@@ -32,11 +55,50 @@ const props = defineProps<{
   >
     <template #default="scope">
       <span class="name-with-access-tag">
+        <el-tooltip v-if="roleNameById" :content="roleIconTooltip(scope.row)" placement="top">
+          <Icon
+            :icon="roleIconFor(scope.row).icon"
+            :size="16"
+            :class="['name-role-icon', `name-role-icon--${roleIconFor(scope.row).color}`]"
+          />
+        </el-tooltip>
         <span>{{ scope.row.name }}</span>
         <el-tag v-if="isUserAccessFullyExpired(scope.row)" type="danger" effect="plain" size="small">
           Access expired
         </el-tag>
       </span>
+    </template>
+  </el-table-column>
+
+  <el-table-column
+    v-if="isColumnVisible('email')"
+    column-key="email"
+    label="Email"
+    prop="email"
+    :width="columnWidth('email')"
+    :min-width="columnMinWidth('email')"
+    sortable
+    resizable
+    show-overflow-tooltip
+  >
+    <template #default="scope">
+      {{ scope.row.email || '—' }}
+    </template>
+  </el-table-column>
+
+  <el-table-column
+    v-if="isColumnVisible('phone')"
+    column-key="phone"
+    label="Phone"
+    prop="phone"
+    :width="columnWidth('phone')"
+    :min-width="columnMinWidth('phone')"
+    sortable
+    resizable
+    show-overflow-tooltip
+  >
+    <template #default="scope">
+      {{ scope.row.phone || '—' }}
     </template>
   </el-table-column>
 
@@ -143,7 +205,27 @@ const props = defineProps<{
 .name-with-access-tag {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+}
+
+.name-role-icon {
+  flex-shrink: 0;
+}
+
+.name-role-icon--warning {
+  color: var(--el-color-warning);
+}
+
+.name-role-icon--danger {
+  color: var(--el-color-danger);
+}
+
+.name-role-icon--success {
+  color: var(--el-color-success);
+}
+
+.name-role-icon--info {
+  color: var(--el-color-info);
 }
 </style>

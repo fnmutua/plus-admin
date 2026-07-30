@@ -1485,6 +1485,7 @@ db.models.settlement.hasMany(db.models.document, {
 
 db.models.document.belongsTo(db.models.users, {
   foreignKey: 'createdBy',
+  as: 'user',
 })
 
 db.models.users.hasMany(db.models.document, {

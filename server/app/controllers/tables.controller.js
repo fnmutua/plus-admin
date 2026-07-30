@@ -10101,7 +10101,8 @@ exports.getDocumentRepository = async (req, res) => {
       {
         model: db.models.users,
         as: 'user',
-        attributes: ['id', 'name']
+        attributes: ['id', 'name', 'username', 'email'],
+        required: false,
       },
       {
         model: db.models.document_link,
@@ -10118,6 +10119,7 @@ exports.getDocumentRepository = async (req, res) => {
       attributes: [
         'id', 'name', 'category', 'format', 'size', 'location',
         'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'downloadCount',
+        'uploader_name',
         'settlement_id', 'project_id', 'health_facility_id', 'education_facility_id',
         'road_id', 'road_asset_id', 'water_point_id', 'sewer_id',
         'other_facility_id', 'contractor_id'
@@ -10152,17 +10154,39 @@ exports.getDocumentRepository = async (req, res) => {
         : { protectedFile: true };
     }
 
-    // Add search conditions
+    // Add search conditions (title, type, location, format, and uploader name/username/email)
     const searchConditions = [];
-    if (searchTerm) {
+    if (searchTerm && String(searchTerm).trim()) {
+      const term = String(searchTerm).trim();
+      const like = `%${term}%`;
       searchConditions.push(
-        { name: { [Op.iLike]: `%${searchTerm}%` } },
-        { '$document_type.type$': { [Op.iLike]: `%${searchTerm}%` } },
-        { '$document_type.group$': { [Op.iLike]: `%${searchTerm}%` } },
-        { '$settlement.name$': { [Op.iLike]: `%${searchTerm}%` } },
-        { '$settlement.county.name$': { [Op.iLike]: `%${searchTerm}%` } },
-        { '$user.name$': { [Op.iLike]: `%${searchTerm}%` } }
+        { name: { [Op.iLike]: like } },
+        { format: { [Op.iLike]: like } },
+        { uploader_name: { [Op.iLike]: like } },
+        { '$document_type.type$': { [Op.iLike]: like } },
+        { '$document_type.group$': { [Op.iLike]: like } },
+        { '$settlement.name$': { [Op.iLike]: like } },
+        { '$settlement.county.name$': { [Op.iLike]: like } },
+        { '$user.name$': { [Op.iLike]: like } },
+        { '$user.username$': { [Op.iLike]: like } },
+        { '$user.email$': { [Op.iLike]: like } }
       );
+
+      const matchingUploaders = await db.models.users.findAll({
+        where: {
+          [Op.or]: [
+            { name: { [Op.iLike]: like } },
+            { username: { [Op.iLike]: like } },
+            { email: { [Op.iLike]: like } },
+          ],
+        },
+        attributes: ['id'],
+        raw: true,
+      });
+      const uploaderIds = matchingUploaders.map((row) => row.id).filter((id) => id != null);
+      if (uploaderIds.length > 0) {
+        searchConditions.push({ createdBy: { [Op.in]: uploaderIds } });
+      }
     }
 
     // Add format inclusion filter (for photos tab - include only specific formats)
@@ -10494,7 +10518,8 @@ exports.getDocumentRepository = async (req, res) => {
           {
             model: db.models.users,
             as: 'user',
-            attributes: ['id', 'name']
+            attributes: ['id', 'name', 'username', 'email'],
+            required: false,
           },
           {
             model: db.models.document_link,
@@ -10506,7 +10531,7 @@ exports.getDocumentRepository = async (req, res) => {
         ],
         attributes: [
           'id', 'name', 'category', 'format', 'size', 'location',
-          'protectedFile', 'createdBy', 'createdAt', 'updatedAt',
+          'protectedFile', 'createdBy', 'createdAt', 'updatedAt', 'uploader_name',
           'settlement_id', 'project_id', 'health_facility_id', 'education_facility_id',
           'road_id', 'road_asset_id', 'water_point_id', 'sewer_id',
           'other_facility_id', 'contractor_id'
@@ -10693,7 +10718,8 @@ exports.getDocumentRepository = async (req, res) => {
         'document_type.type': flatDoc.document_type?.type,
         'document_type.group': flatDoc.document_type?.group,
         'user.id': flatDoc.user?.id,
-        'user.name': flatDoc.user?.name,
+        'user.name': flatDoc.user?.name || flatDoc.uploader_name || null,
+        uploader_name: flatDoc.uploader_name || null,
         downloadCount: flatDoc.downloadCount || 0
       };
 

@@ -3,78 +3,35 @@ import type { AdjustableColumnSetting } from '@/composables/useAdjustableTableCo
 const col = (
   key: string,
   label: string,
-  width: number,
-  opts?: { minWidth?: number; hideable?: boolean; visible?: boolean }
+  minWidth: number,
+  opts?: { hideable?: boolean; visible?: boolean }
 ): AdjustableColumnSetting => ({
   key,
   label,
-  width,
-  minWidth: opts?.minWidth,
+  minWidth,
   visible: opts?.visible !== false,
   hideable: opts?.hideable !== false,
 })
 
 export const userTableColumnPresets = {
-  /** User.vue, AllUsers.vue */
-  full: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('country', 'Country', 120, { minWidth: 90 }),
-    col('organization', 'Organization', 180, { minWidth: 120 }),
-    col('access_reason', 'Reason for Access', 180, { minWidth: 140 }),
-    col('county', 'County', 140, { minWidth: 100 }),
-    col('last_login', 'Last Login', 180, { minWidth: 130 }),
-  ],
-
-  /** NewAccounts.vue */
-  newAccounts: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('country', 'Country', 120, { minWidth: 90 }),
-    col('county', 'County', 140, { minWidth: 100 }),
-    col('organization', 'Organization', 180, { minWidth: 120 }),
-    col('access_reason', 'Reason for Access', 180, { minWidth: 140 }),
-  ],
-
-  /** County.vue, SupportUsers.vue */
-  minimal: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('county', 'County', 140, { minWidth: 100 }),
-  ],
-
-  /** AdminUsers national + county tabs */
-  adminExtended: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('country', 'Country', 120, { minWidth: 90 }),
-    col('county', 'County', 140, { minWidth: 100 }),
-    col('organization', 'Organization', 180, { minWidth: 120 }),
-    col('last_login', 'Last Login', 180, { minWidth: 130 }),
-  ],
-
-  /** AdminUsers settlement tab */
-  adminSettlement: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('settlement', 'Settlement', 180, { minWidth: 120 }),
-    col('organization', 'Organization', 180, { minWidth: 120 }),
-    col('last_login', 'Last Login', 180, { minWidth: 130 }),
-  ],
-
-  /** GrmUsers national + county tabs */
-  grmExtended: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('county', 'County', 140, { minWidth: 100 }),
-    col('last_login', 'Last Login', 180, { minWidth: 130 }),
-  ],
-
-  /** GrmUsers settlement tab */
-  grmSettlement: (): AdjustableColumnSetting[] => [
-    col('name', 'Name', 280, { minWidth: 160, hideable: false }),
-    col('username', 'Username', 140, { minWidth: 100 }),
-    col('settlement', 'Settlement', 180, { minWidth: 120 }),
-    col('last_login', 'Last Login', 180, { minWidth: 130 }),
+  /**
+   * Shared across every user list page (User, AllUsers, County, NewAccounts,
+   * AdminUsers, GrmUsers, SuperAdminUsers, SupportUsers) so the default view is
+   * identical everywhere: Name, Email, Phone, Last Login — role now shows as an
+   * icon beside the name (see UserListAdjustableColumns) rather than its own
+   * column. Everything else is defined once here and reachable via the column
+   * picker on every page, hidden by default rather than page-specific.
+   */
+  standard: (): AdjustableColumnSetting[] => [
+    col('name', 'Name', 160, { hideable: false }),
+    col('email', 'Email', 160),
+    col('phone', 'Phone', 120),
+    col('last_login', 'Last Login', 130),
+    col('username', 'Username', 100, { visible: false }),
+    col('country', 'Country', 90, { visible: false }),
+    col('organization', 'Organization', 120, { visible: false }),
+    col('access_reason', 'Reason for Access', 140, { visible: false }),
+    col('county', 'County', 100, { visible: false }),
+    col('settlement', 'Settlement', 120, { visible: false }),
   ],
 }

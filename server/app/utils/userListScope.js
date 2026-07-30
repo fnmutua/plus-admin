@@ -190,14 +190,33 @@ async function buildUserListWhere(viewerId, options = {}) {
   }
 
   if (filters.length === filterValues.length && filters.length > 0) {
-    filters.forEach((filter, index) => {
+    for (let index = 0; index < filters.length; index++) {
+      const filter = filters[index];
       const value = filterValues[index];
+
+      // 'roleid' lives on user_roles, not users — resolve it to the matching user
+      // ids the same way the visibility check above does, rather than letting the
+      // generic column-equality branch below throw on an unknown column.
+      if (filter === 'roleid') {
+        const roleIds = uniqueInts(Array.isArray(value) ? value : [value]);
+        if (roleIds.length === 0) continue;
+        const rows = await db.models.user_roles.findAll({
+          where: { roleid: { [Op.in]: roleIds } },
+          attributes: ['userid'],
+          raw: true,
+        });
+        // Empty match set must still constrain the query (id IN ()) rather than
+        // being skipped, or the filter would silently return everyone.
+        whereParts.push({ id: { [Op.in]: uniqueInts(rows.map((r) => r.userid)) } });
+        continue;
+      }
+
       if (Array.isArray(value)) {
         whereParts.push({ [filter]: { [Op.in]: value } });
       } else {
         whereParts.push({ [filter]: { [Op.eq]: normalizeFilter(filter, value) } });
       }
-    });
+    }
   }
 
   return whereParts.length === 1 ? whereParts[0] : { [Op.and]: whereParts };

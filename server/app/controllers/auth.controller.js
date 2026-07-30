@@ -512,6 +512,31 @@ async function getUserRoleSnapshot(userId) {
   }))
 }
 
+function getActorRoleNamesFromRequest(req) {
+  const raw = Array.isArray(req.roles) ? req.roles : []
+  return raw.map((roleName) => String(roleName).trim().toLowerCase()).filter(Boolean)
+}
+
+function canActorActivateDeactivateTarget(actorRoleNames, actorUserId, targetUserId, targetRoleNames) {
+  if (
+    actorUserId != null &&
+    targetUserId != null &&
+    String(actorUserId) === String(targetUserId)
+  ) {
+    return true
+  }
+
+  const names = (targetRoleNames || []).map((name) => String(name || '').trim().toLowerCase())
+
+  if (names.includes('root_admin')) return false
+
+  if (names.includes('super_admin') && !actorRoleNames.includes('root_admin')) {
+    return false
+  }
+
+  return true
+}
+
 function diffRoleSnapshots(beforeRoles, afterRoles) {
   const normalizeKey = (role) =>
     [
@@ -760,8 +785,9 @@ exports.updateUser = async (req, res) => {
 
     if (req.body.roles && req.body.roles.length > 0) {
       // Step 1: Delete existing user roles with protected-role guard.
-      // - root_admin can remove super_admin from users
-      // - non-root users cannot remove super_admin/root_admin assignments
+      // - root_admin is always preserved on the target user
+      // - super_admin is preserved unless the actor is root_admin
+      // - non-root actors cannot assign or strip top-level admin roles
       const protectedRoles = await Role.findAll({
         where: { name: { [Op.in]: ['super_admin', 'root_admin'] } },
         attributes: ['id', 'name']
@@ -770,13 +796,21 @@ exports.updateUser = async (req, res) => {
         acc[role.name] = role.id
         return acc
       }, {})
+      const protectedRoleNameById = protectedRoles.reduce((acc, role) => {
+        acc[role.id] = role.name
+        return acc
+      }, {})
 
       const currentUserRolesRaw = Array.isArray(req.roles) ? req.roles : []
       const currentUserRolesAsStrings = currentUserRolesRaw.map((r) => String(r))
       const rootRoleId = protectedRoleIdByName.root_admin
+      const superRoleId = protectedRoleIdByName.super_admin
       const isRootAdminActor =
         currentUserRolesAsStrings.includes('root_admin') ||
         (rootRoleId != null && currentUserRolesRaw.some((r) => Number(r) === Number(rootRoleId)))
+      const isSuperAdminActor =
+        currentUserRolesAsStrings.includes('super_admin') ||
+        (superRoleId != null && currentUserRolesRaw.some((r) => Number(r) === Number(superRoleId)))
 
       const protectedRoleIds = []
       if (protectedRoleIdByName.root_admin != null) {
@@ -784,6 +818,29 @@ exports.updateUser = async (req, res) => {
       }
       if (!isRootAdminActor && protectedRoleIdByName.super_admin != null) {
         protectedRoleIds.push(protectedRoleIdByName.super_admin)
+      }
+
+      const submittedRoleIds = new Set(
+        req.body.roles.map((role) => Number(role.roleid)).filter((id) => !Number.isNaN(id))
+      )
+      const targetProtectedBefore = (user.user_roles || []).filter((ur) =>
+        protectedRoleIds.includes(ur.roleid)
+      )
+      for (const existing of targetProtectedBefore) {
+        if (submittedRoleIds.has(Number(existing.roleid))) continue
+        const roleName = protectedRoleNameById[existing.roleid]
+        if (roleName === 'root_admin') {
+          return res.status(403).send({
+            message: 'Root admin role cannot be removed from another root admin.',
+            code: '4031',
+          })
+        }
+        if (roleName === 'super_admin' && isSuperAdminActor && !isRootAdminActor) {
+          return res.status(403).send({
+            message: 'Super admin role cannot be removed from another super admin.',
+            code: '4031',
+          })
+        }
       }
 
       const destroyWhere = protectedRoleIds.length > 0
@@ -797,8 +854,15 @@ exports.updateUser = async (req, res) => {
         preservedRoleIds: protectedRoleIds
       });
 
-      // Step 2: Insert new roles
-      const rolesToInsert = req.body.roles.map((role) => ({
+      const preservedAssignments = protectedRoleIds.length > 0
+        ? await db.models.user_roles.findAll({
+            where: { userid: user.id, roleid: { [Op.in]: protectedRoleIds } },
+          })
+        : []
+      const preservedRoleIdSet = new Set(preservedAssignments.map((r) => Number(r.roleid)))
+
+      // Step 2: Insert new roles (non-root actors cannot assign top-level admin roles)
+      let rolesToInsert = req.body.roles.map((role) => ({
         roleid: role.roleid,
         userid: user.id,
         location_level: role.location_level,
@@ -811,9 +875,22 @@ exports.updateUser = async (req, res) => {
         county_id: role.county_id || null,
         settlement_id: role.settlement_id || null,
         expires_at: parseExpiresAtInput(role.expires_at),
-      }));
+      }))
 
-      await db.models.user_roles.bulkCreate(rolesToInsert);
+      rolesToInsert = rolesToInsert.filter((role) => {
+        const name = protectedRoleNameById[role.roleid]
+        if (name === 'root_admin') return false
+        if (name === 'super_admin' && !isRootAdminActor) return false
+        return true
+      })
+
+      rolesToInsert = rolesToInsert.filter(
+        (role) => !preservedRoleIdSet.has(Number(role.roleid))
+      )
+
+      if (rolesToInsert.length > 0) {
+        await db.models.user_roles.bulkCreate(rolesToInsert)
+      }
 
       console.log("Roles inserted successfully.");
     } else {
@@ -891,6 +968,22 @@ exports.modelActivateUser = async (req, res) => {
         message: 'User not found',
         code: '0001'
       });
+    }
+
+    const actorRoleNames = getActorRoleNamesFromRequest(req)
+    const targetRoleSnapshot = await getUserRoleSnapshot(user.id)
+    const targetRoleNames = targetRoleSnapshot
+      .map((role) => role.roleName)
+      .filter((name) => name)
+
+    if (!canActorActivateDeactivateTarget(actorRoleNames, req.userid, user.id, targetRoleNames)) {
+      const blockedAsRoot = targetRoleNames.some((name) => String(name).toLowerCase() === 'root_admin')
+      return res.status(403).send({
+        message: blockedAsRoot
+          ? 'You cannot activate or deactivate another root admin.'
+          : 'You cannot activate or deactivate another super admin.',
+        code: '4031',
+      })
     }
 
     console.log(`[User Activation] User found: ${user.name} (ID: ${user.id}), current isactive: ${user.isactive}, phone: ${user.phone || 'N/A'}`);

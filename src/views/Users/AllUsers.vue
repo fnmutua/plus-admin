@@ -29,6 +29,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import UserTableActions from '@/views/Components/UserTableActions.vue';
+import { loadRoleNameMap, gateActivationOnRole, getActorRoleNames, canActivateDeactivateUser, assertCanActivateDeactivateUser } from '@/utils/userRoleAssignment'
 
 import { searchByKeyWord } from '@/api/settlements'
 import {
@@ -128,7 +129,7 @@ const {
   onHeaderDragend,
   resetColumns,
 } = useAdjustableTableColumns('allUsersTableColumns', () =>
-  userTableColumnPresets.full().filter((col) => col.key !== 'last_login')
+  userTableColumnPresets.standard()
 )
 
 const form = reactive({
@@ -381,16 +382,39 @@ const makeSettlementOptions = (list) => {
 }
 
 const activateDeactivate = async (data: TableSlotDefault) => {
+  if (
+    !assertCanActivateDeactivateUser({
+      actorRoleNames: actorRoleNames.value,
+      actorUserId: currentUser?.id,
+      targetUser: data.row,
+      roleNameById: roleNameById.value,
+    })
+  ) {
+    return
+  }
+
   const userId = data.row.id
+  const activating = !data.row.isactive
   data.row.isactive = !data.row.isactive
-  
+
   // Check if user has permission to activate/deactivate
   const currentUserInfo = wsCache.get(appStore.getUserInfo)
   const userPermissions = currentUserInfo && currentUserInfo.permissions ? currentUserInfo.permissions : []
-  
+
   if (!userPermissions.includes('user:activate')) {
     ElMessage.error('You do not have permission to activate/deactivate users')
+    data.row.isactive = !data.row.isactive
     return
+  }
+
+  // A role must be confirmed before the account is first switched on
+  if (activating) {
+    const gate = await gateActivationOnRole(data.row)
+    if (gate !== 'ok') {
+      data.row.isactive = false
+      if (gate === 'assign-role') EditUser(data)
+      return
+    }
   }
   
   // Set loading state for this specific user
@@ -521,6 +545,19 @@ const searchByName = async (filterString: any) => {
 }
 
 getRoles()
+const roleNameById = ref<Record<number, string>>({})
+loadRoleNameMap().then((map) => { roleNameById.value = map })
+
+const actorRoleNames = computed(() => getActorRoleNames(currentUser))
+
+const canToggleUserActivation = (row: any) =>
+  canActivateDeactivateUser({
+    actorRoleNames: actorRoleNames.value,
+    actorUserId: currentUser?.id,
+    targetUser: row,
+    roleNameById: roleNameById.value,
+  })
+
 getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
@@ -705,6 +742,7 @@ const updateUser = () => {
         :column-width="columnWidth"
         :column-min-width="columnMinWidth"
         :access-reason-labels="accessReasonLabels"
+        :role-name-by-id="roleNameById"
         avatar-field="avatar"
         use-index-column
       />
@@ -715,6 +753,7 @@ const updateUser = () => {
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :show-reset-password="false"
             @activate="activateDeactivate(scope as TableSlotDefault)"
             @edit="EditUser(scope as TableSlotDefault)"

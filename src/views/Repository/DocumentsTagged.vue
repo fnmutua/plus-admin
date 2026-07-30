@@ -548,7 +548,7 @@ const customDateRange = ref<[Date | string, Date | string] | undefined>(undefine
 // Note: Using customDateRange directly for the date picker
 
 // Mobile / compact toolbar
-const COMPACT_TOOLBAR_BREAKPOINT = 992
+const COMPACT_TOOLBAR_BREAKPOINT = 768
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : COMPACT_TOOLBAR_BREAKPOINT)
 const isMobile = computed(() => appStore.getMobile)
 const isCompactToolbar = computed(() => isMobile.value || windowWidth.value < COMPACT_TOOLBAR_BREAKPOINT)
@@ -825,6 +825,9 @@ const formatText = (str: string | number) => {
   })
 }
 
+const getUploaderLabel = (row: any) =>
+  row['user.name'] || row.user?.name || row.uploader_name || '—'
+
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /** Inclusive calendar-day bounds for the API (handles Date presets and YYYY-MM-DD strings from the custom picker). */
@@ -972,9 +975,13 @@ const loadDocumentRepository = async (params: any = {}) => {
       categoryCounts.value = responseData.categoryCounts || {}
       // uploaderCounts now loaded separately via dedicated endpoint
       
-      // Keep the original total count for pagination, but update the displayed count
-      totalDocuments.value = responseData.totalDocuments || responseData.total || allDocuments.length
-      totalDocs.value = responseData.pagination?.totalItems || responseData.totalDocuments || responseData.total || allDocuments.length
+      // Pagination total matches the filtered repository query; category totalDocuments can differ.
+      const repositoryTotal =
+        responseData.pagination?.totalItems ??
+        responseData.total ??
+        allDocuments.length
+      totalDocuments.value = repositoryTotal
+      totalDocs.value = repositoryTotal
       
       console.log('Final documents array length:', documents.value.length)
       console.log('Total docs:', totalDocs.value)
@@ -2609,9 +2616,7 @@ onMounted(async () => {
 
   restoreShareSelectionIds()
 
-  await loadDocumentRepository()
-  // Load documents based on current tab after loading
-  await loadDocumentsByTab()
+  await Promise.all([loadDocumentRepository(), fetchProtectedTabTotal()])
   await nextTick()
   syncDocumentsTableSelection()
 
@@ -3187,8 +3192,45 @@ const filteredProtected = ref<Document[]>([])
 const protectedLoading = ref(false)
 const totalProtectedDocs = ref(0)
 
-const documentsCount = computed(() => filteredDocuments.value.length)
+const documentsCount = computed(() => totalDocuments.value)
 const protectedCount = computed(() => totalProtectedDocs.value)
+
+const parseRepositoryTotal = (responseData: any, fallback = 0): number => {
+  const n = Number(
+    responseData?.pagination?.totalItems ?? responseData?.total ?? fallback
+  )
+  return Number.isFinite(n) && n >= 0 ? n : fallback
+}
+
+/** Lightweight count for the Protected tab badge before that tab is opened. */
+const fetchProtectedTabTotal = async () => {
+  try {
+    const response: any = await getDocumentRepository({
+      page: 1,
+      limit: 1,
+      protectedOnly: true,
+      userFilters: roles_filters.length > 0 ? roles_filters : undefined,
+    })
+
+    let responseData: any
+    if (response && typeof response === 'object') {
+      if ('success' in response) {
+        if (!(response as any).success) return
+        responseData = (response as any).data || (response as any).results || response
+      } else if ('data' in response) {
+        responseData = (response as any).data
+      } else {
+        responseData = response
+      }
+    } else {
+      return
+    }
+
+    totalProtectedDocs.value = parseRepositoryTotal(responseData, 0)
+  } catch (error) {
+    console.warn('Failed to prefetch protected document count:', error)
+  }
+}
 
 const canViewProtectedTab = computed(() => {
   const elevatedRoleNames = ['admin', 'staff', 'super_admin', 'root_admin']
@@ -3266,11 +3308,7 @@ const loadProtectedDocuments = async () => {
         doc.deletable = canUserDeleteDocument(doc)
       })
 
-      totalProtectedDocs.value =
-        responseData.pagination?.totalItems ||
-        responseData.totalDocuments ||
-        responseData.total ||
-        docs.length
+      totalProtectedDocs.value = parseRepositoryTotal(responseData, docs.length)
       totalDocs.value = totalProtectedDocs.value
 
       if (totalDocs.value < pageSize.value) {
@@ -3340,11 +3378,11 @@ const handleTabChange = async (tabName: string) => {
 </script>
 
 <template>
-  <el-card v-loading="loading && activeTab !== 'protected'" :element-loading-text="loadingText">
+  <el-card class="documents-repo-card" v-loading="loading && activeTab !== 'protected'" :element-loading-text="loadingText">
     <template #header>
       <div class="controls-container controls-container--in-header">
-        <el-row :gutter="16" class="controls-row">
-          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 16 : 14" :lg="isCompactToolbar ? 16 : 14" :xl="14" class="search-col">
+        <div class="controls-toolbar">
+          <div class="controls-toolbar__search">
             <el-input
               v-model="searchTerm"
               placeholder="Search documents by name, settlement, county, format, or uploader..."
@@ -3369,9 +3407,9 @@ const handleTabChange = async (tabName: string) => {
                 </el-button>
               </template>
             </el-input>
-          </el-col>
+          </div>
 
-          <el-col :xs="24" :sm="24" :md="isCompactToolbar ? 8 : 10" :lg="isCompactToolbar ? 8 : 10" :xl="10" class="actions-col">
+          <div class="controls-toolbar__actions">
             <!-- Small screens: Sort, Upload, Filters collapsed into dropdown -->
             <div class="action-buttons action-buttons--compact" :class="{ 'is-compact-visible': isCompactToolbar }">
               <el-dropdown trigger="click" @command="handleToolbarAction">
@@ -3424,7 +3462,7 @@ const handleTabChange = async (tabName: string) => {
                   v-model="sortOption"
                   @change="handleSortChange"
                   size="small"
-                  style="width: 120px;"
+                  class="sort-select"
                 >
                   <el-option label="Date" value="date" />
                   <el-option label="Popularity" value="popularity" />
@@ -3470,8 +3508,8 @@ const handleTabChange = async (tabName: string) => {
                 <span class="btn-text">Clear</span>
               </el-button>
             </div>
-          </el-col>
-        </el-row>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -3609,7 +3647,9 @@ const handleTabChange = async (tabName: string) => {
                   </template>
                 </el-table-column>
       <el-table-column prop="createdAt" label="Date Uploaded" :formatter="formatEndDate" min-width="120" />
-                 <el-table-column prop="user.name" label="Uploader" min-width="100" show-overflow-tooltip />
+                 <el-table-column label="Uploader" min-width="120" show-overflow-tooltip>
+                   <template #default="{ row }">{{ getUploaderLabel(row) }}</template>
+                 </el-table-column>
                 <el-table-column prop="size" label="Size(Mb)" min-width="80" />
                 <el-table-column label="Downloads"  prop="downloadCount"  min-width="70" align="center"/>
               
@@ -3715,7 +3755,9 @@ const handleTabChange = async (tabName: string) => {
              </template>
            </el-table-column>
            <el-table-column prop="createdAt" label="Date Uploaded" :formatter="formatEndDate" min-width="120" />
-           <el-table-column prop="user.name" label="Uploader" min-width="100" show-overflow-tooltip />
+           <el-table-column label="Uploader" min-width="120" show-overflow-tooltip>
+             <template #default="{ row }">{{ getUploaderLabel(row) }}</template>
+           </el-table-column>
            <el-table-column prop="size" label="Size(Mb)" min-width="80" />
            <el-table-column label="Downloads" prop="downloadCount" min-width="70" align="center" />
            <el-table-column label="Actions" :width="actionColumnWidth">
@@ -4795,12 +4837,23 @@ const handleTabChange = async (tabName: string) => {
   border-radius: 0;
 }
 
-.controls-row {
-  align-items: flex-end;
+.controls-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
 }
 
-.search-col {
-  margin-bottom: 12px;
+.controls-toolbar__search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.controls-toolbar__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .search-input {
@@ -4827,10 +4880,27 @@ const handleTabChange = async (tabName: string) => {
 
 .action-buttons {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+}
+
+.sort-options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sort-label {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.sort-select {
+  width: 110px;
 }
 
 .action-buttons--compact {
@@ -4847,7 +4917,7 @@ const handleTabChange = async (tabName: string) => {
 
 .compact-actions-btn {
   flex-shrink: 0;
-  min-width: 120px;
+  min-width: 100px;
 }
 
 .toolbar-actions-badge {
@@ -4857,11 +4927,14 @@ const handleTabChange = async (tabName: string) => {
 .action-btn {
   position: relative;
   transition: all 0.3s ease;
-  min-width: 100px;
+  min-width: auto;
+  padding-left: 12px;
+  padding-right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .action-btn .btn-text {
@@ -4906,6 +4979,16 @@ const handleTabChange = async (tabName: string) => {
     padding: 12px;
   }
 
+  .controls-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .controls-toolbar__search,
+  .controls-toolbar__actions {
+    flex: 1 1 100%;
+  }
+
   /* Always collapse Upload/Filters into Actions dropdown on small screens */
   .action-buttons--full {
     display: none !important;
@@ -4914,12 +4997,7 @@ const handleTabChange = async (tabName: string) => {
   .action-buttons--compact {
     display: flex !important;
     justify-content: flex-end;
-    margin-top: 0;
-  }
-
-  .search-col,
-  .actions-col {
-    margin-bottom: 8px;
+    width: 100%;
   }
 }
 
@@ -4940,12 +5018,20 @@ const handleTabChange = async (tabName: string) => {
 }
 
 /* Documents Tabs Styles */
-.documents-tabs {
-  margin-top: 20px;
+.documents-repo-card :deep(.el-card__header) {
+  padding-bottom: 10px;
 }
 
-.documents-tabs .el-tabs__header {
-  margin-bottom: 20px;
+.documents-repo-card :deep(.el-card__body) {
+  padding-top: 8px;
+}
+
+.documents-tabs {
+  margin-top: 0;
+}
+
+.documents-tabs :deep(.el-tabs__header) {
+  margin-bottom: 12px;
 }
 
 .documents-tabs .el-tabs__nav-wrap::after {

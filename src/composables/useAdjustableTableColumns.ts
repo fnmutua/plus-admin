@@ -6,10 +6,17 @@ export type AdjustableColumnKey = string
 export type AdjustableColumnSetting = {
   key: AdjustableColumnKey
   label: string
-  width: number
+  // Undefined by default so el-table's `fit` distributes the container's full
+  // width across visible columns (via their minWidth) instead of leaving a gap
+  // or overflowing — regardless of how many columns are toggled on. A concrete
+  // number only appears once the user drags that column's border (see
+  // widthCustomized below); presets should not set one.
+  width?: number
   minWidth?: number
   visible: boolean
   hideable: boolean
+  /** True once the user has manually dragged this column — see width above. */
+  widthCustomized?: boolean
 }
 
 /** Removed from user tables; strip from cached column prefs. */
@@ -41,9 +48,18 @@ export function useAdjustableTableColumns(
     const merged = defaults.map((col) => {
       const match = cleanedSaved.find((s) => s.key === col.key)
       if (!match) return col
+      // Only a genuinely user-resized width survives the merge. Older cached
+      // entries were saved back with whatever fixed default width the preset
+      // had at the time (pre-dating widthCustomized) — honouring those would
+      // silently reintroduce the fixed-width layout this flag exists to avoid.
+      const widthCustomized = match.widthCustomized === true
       return {
         ...col,
-        width: typeof match.width === 'number' && match.width > 40 ? match.width : col.width,
+        width:
+          widthCustomized && typeof match.width === 'number' && match.width > 40
+            ? match.width
+            : col.width,
+        widthCustomized,
         visible: !col.hideable ? true : match.visible !== false,
       }
     })
@@ -51,7 +67,12 @@ export function useAdjustableTableColumns(
     if (hadDeprecated || cleanedSaved.length !== saved.length) {
       wsCache.set(
         storageKey,
-        merged.map(({ key, width, visible }) => ({ key, width, visible }))
+        merged.map(({ key, width, visible, widthCustomized }) => ({
+          key,
+          width,
+          visible,
+          widthCustomized,
+        }))
       )
     }
 
@@ -64,10 +85,11 @@ export function useAdjustableTableColumns(
   const saveColumns = () => {
     wsCache.set(
       storageKey,
-      withoutDeprecatedColumns(columns.value).map(({ key, width, visible }) => ({
+      withoutDeprecatedColumns(columns.value).map(({ key, width, visible, widthCustomized }) => ({
         key,
         width,
         visible,
+        widthCustomized,
       }))
     )
   }
@@ -107,6 +129,7 @@ export function useAdjustableTableColumns(
     const col = columns.value.find((c) => c.key === key)
     if (!col) return
     col.width = Math.max(col.minWidth ?? 60, Math.round(newWidth))
+    col.widthCustomized = true
     saveColumns()
   }
 

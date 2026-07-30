@@ -16,7 +16,9 @@
       "Bash(node -e ' *)",
       "Bash(node c:/Users/USER/plus-admin/_add_components_controller.js)",
       "Bash(node c:/Users/USER/plus-admin/_fix_components_controller.js)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -)"
     ]
   }
 }

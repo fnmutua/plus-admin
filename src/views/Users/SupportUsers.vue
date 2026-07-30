@@ -43,6 +43,7 @@ import { useAdjustableTableColumns } from '@/composables/useAdjustableTableColum
 import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
 import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
 import UserListAdjustableColumns from '@/components/Users/UserListAdjustableColumns.vue'
+import { loadRoleNameMap, getActorRoleNames, canModifyUserRoleAssignment, tryRemoveUserRoleRow, canActivateDeactivateUser, assertCanActivateDeactivateUser } from '@/utils/userRoleAssignment'
 import UserListCardToolbar from '@/components/Users/UserListCardToolbar.vue'
 
 interface Params {
@@ -202,7 +203,7 @@ const {
   visibleColumnKeys,
   onHeaderDragend,
   resetColumns,
-} = useAdjustableTableColumns('supportUsersTableColumns', userTableColumnPresets.minimal)
+} = useAdjustableTableColumns('supportUsersTableColumns', userTableColumnPresets.standard)
 
 const { t } = useI18n()
 
@@ -388,6 +389,17 @@ const makeSettlementOptions = (list: any) => {
 }
 
 const activateDeactivate = async (data: any) => {
+  if (
+    !assertCanActivateDeactivateUser({
+      actorRoleNames: actorRoleNames.value,
+      actorUserId: currentUser?.id,
+      targetUser: data.row,
+      roleNameById: roleNameById.value,
+    })
+  ) {
+    return
+  }
+
   const userId = data.row.id
   data.row.isactive = !data.row.isactive
   
@@ -397,6 +409,7 @@ const activateDeactivate = async (data: any) => {
   
   if (!userPermissions.includes('user:activate')) {
     ElMessage.error('You do not have permission to activate/deactivate users')
+    data.row.isactive = !data.row.isactive
     return
   }
   
@@ -527,6 +540,28 @@ const searchByName = async (filterString: any) => {
 }
 
 getRoles()
+const roleNameById = ref<Record<number, string>>({})
+loadRoleNameMap().then((map) => { roleNameById.value = map })
+
+const actorRoleNames = computed(() => getActorRoleNames(currentUser))
+
+const canModifyRoleRow = (roleId: number | string | null | undefined) =>
+  canModifyUserRoleAssignment({
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleId,
+    roleNameById: roleNameById.value,
+  })
+
+const canToggleUserActivation = (row: any) =>
+  canActivateDeactivateUser({
+    actorRoleNames: actorRoleNames.value,
+    actorUserId: currentUser?.id,
+    targetUser: row,
+    roleNameById: roleNameById.value,
+  })
+
 getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
@@ -696,8 +731,12 @@ const addRole = () => {
 }
 
 const removeRole = (index: number) => {
-  // Remove the role object at the specified index from the roles array
-  tmp_roles.value.splice(index, 1);
+  tryRemoveUserRoleRow(index, tmp_roles.value, {
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleNameById: roleNameById.value,
+  })
 }
 
 const validateForm = () => {
@@ -882,6 +921,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
         :is-column-visible="isColumnVisible"
         :column-width="columnWidth"
         :column-min-width="columnMinWidth"
+        :role-name-by-id="roleNameById"
         avatar-field="photo"
       />
 
@@ -891,6 +931,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :reset-password-loading="resetPasswordLoadingStates[scope.row.id]"
             @activate="activateDeactivate(scope as TableSlotDefault)"
             @edit="EditUser(scope as TableSlotDefault)"
@@ -974,7 +1015,8 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
                 size="small" 
                 style="width:80%" 
                 searchable
-                filterable>
+                filterable
+                :disabled="!canModifyRoleRow(row.roleid)">
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -1047,8 +1089,13 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
           </el-table-column>
 
           <el-table-column label="Actions">
-            <template #default="{ $index }">
-              <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
+            <template #default="{ row, $index }">
+              <el-button
+                @click="removeRole($index)"
+                type="danger"
+                size="small"
+                :disabled="!canModifyRoleRow(row.roleid)"
+              >Remove</el-button>
             </template>
           </el-table-column>
         </el-table>

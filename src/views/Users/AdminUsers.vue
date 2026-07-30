@@ -44,6 +44,7 @@ import type { AdjustableColumnKey } from '@/composables/useAdjustableTableColumn
 import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
 import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
 import UserListAdjustableColumns from '@/components/Users/UserListAdjustableColumns.vue'
+import { loadRoleNameMap, getActorRoleNames, canModifyUserRoleAssignment, tryRemoveUserRoleRow, canActivateDeactivateUser, assertCanActivateDeactivateUser } from '@/utils/userRoleAssignment'
 import UserListCardToolbar from '@/components/Users/UserListCardToolbar.vue'
 
 interface Params {
@@ -441,6 +442,17 @@ const makeSettlementOptions = (list) => {
 }
 
 const activateDeactivate = async (data: TableSlotDefault) => {
+  if (
+    !assertCanActivateDeactivateUser({
+      actorRoleNames: actorRoleNames.value,
+      actorUserId: currentUser?.id,
+      targetUser: data.row,
+      roleNameById: roleNameById.value,
+    })
+  ) {
+    return
+  }
+
   const userId = data.row.id
   data.row.isactive = !data.row.isactive
   
@@ -450,6 +462,7 @@ const activateDeactivate = async (data: TableSlotDefault) => {
   
   if (!userPermissions.includes('user:activate')) {
     ElMessage.error('You do not have permission to activate/deactivate users')
+    data.row.isactive = !data.row.isactive
     return
   }
   
@@ -662,11 +675,11 @@ const formatDate = (dateString: string | Date | null) => {
 
 const extendedColumnControls = useAdjustableTableColumns(
   'adminUsersTableColumns.extended',
-  userTableColumnPresets.adminExtended
+  userTableColumnPresets.standard
 )
 const settlementColumnControls = useAdjustableTableColumns(
   'adminUsersTableColumns.settlement',
-  userTableColumnPresets.adminSettlement
+  userTableColumnPresets.standard
 )
 
 const getActiveColumnControls = () =>
@@ -697,6 +710,28 @@ const resolveSettlementLabel = (row: any) => {
 
 
 getRoles()
+const roleNameById = ref<Record<number, string>>({})
+loadRoleNameMap().then((map) => { roleNameById.value = map })
+
+const actorRoleNames = computed(() => getActorRoleNames(currentUser))
+
+const canModifyRoleRow = (roleId: number | string | null | undefined) =>
+  canModifyUserRoleAssignment({
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleId,
+    roleNameById: roleNameById.value,
+  })
+
+const canToggleUserActivation = (row: any) =>
+  canActivateDeactivateUser({
+    actorRoleNames: actorRoleNames.value,
+    actorUserId: currentUser?.id,
+    targetUser: row,
+    roleNameById: roleNameById.value,
+  })
+
 getCountyNames()
 // Settlements load on demand via searchSettlements when editing roles
 
@@ -945,8 +980,12 @@ const addRole = () => {
 
 
 const removeRole = (index) => {
-  // Remove the role object at the specified index from the roles array
-  tmp_roles.value.splice(index, 1);
+  tryRemoveUserRoleRow(index, tmp_roles.value, {
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleNameById: roleNameById.value,
+  })
 }
 
 
@@ -1185,6 +1224,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :column-width="extendedColumnControls.columnWidth"
             :column-min-width="extendedColumnControls.columnMinWidth"
             :format-date="formatDate"
+            :role-name-by-id="roleNameById"
           />
 
       <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1193,6 +1233,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :reset-password-loading="resetPasswordLoadingStates[scope.row.id]"
             @activate="activateDeactivate(scope as TableSlotDefault)"
             @edit="EditUser(scope as TableSlotDefault)"
@@ -1233,6 +1274,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :column-width="extendedColumnControls.columnWidth"
             :column-min-width="extendedColumnControls.columnMinWidth"
             :format-date="formatDate"
+            :role-name-by-id="roleNameById"
           />
 
       <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1241,6 +1283,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :reset-password-loading="resetPasswordLoadingStates[scope.row.id]"
             @activate="activateDeactivate(scope as TableSlotDefault)"
             @edit="EditUser(scope as TableSlotDefault)"
@@ -1282,6 +1325,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :column-min-width="settlementColumnControls.columnMinWidth"
             :format-date="formatDate"
             :get-settlement-label="resolveSettlementLabel"
+            :role-name-by-id="roleNameById"
           />
 
       <el-table-column v-if="!isCountyRestricted" fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1290,6 +1334,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :reset-password-loading="resetPasswordLoadingStates[scope.row.id]"
             @activate="activateDeactivate(scope as TableSlotDefault)"
             @edit="EditUser(scope as TableSlotDefault)"
@@ -1381,7 +1426,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             <template #default="{ row }">
               <el-select
 v-model="row.roleid" placeholder="Select Role" size="small" :style="{ width: isMobile ? '100%' : '100%' }" searchable
-                filterable>
+                filterable :disabled="!canModifyRoleRow(row.roleid)">
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -1459,8 +1504,13 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
           </el-table-column>
 
           <el-table-column label="Actions" :width="isMobile ? 80 : 120" fixed="right">
-            <template #default="{ $index }">
-              <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
+            <template #default="{ row, $index }">
+              <el-button
+                @click="removeRole($index)"
+                type="danger"
+                size="small"
+                :disabled="!canModifyRoleRow(row.roleid)"
+              >Remove</el-button>
             </template>
           </el-table-column>
         </el-table>

@@ -40,6 +40,7 @@ import {
 } from '@/utils/userAccessExpiryDisplay'
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import UserTableActions from '@/views/Components/UserTableActions.vue';
+import { loadRoleNameMap, gateActivationOnRole, getActorRoleNames, canModifyUserRoleAssignment, tryRemoveUserRoleRow, canActivateDeactivateUser, assertCanActivateDeactivateUser } from '@/utils/userRoleAssignment'
 import { useAdjustableTableColumns } from '@/composables/useAdjustableTableColumns'
 import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
 import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
@@ -193,7 +194,7 @@ const {
   visibleColumnKeys,
   onHeaderDragend,
   resetColumns,
-} = useAdjustableTableColumns('newAccountsTableColumns', userTableColumnPresets.newAccounts)
+} = useAdjustableTableColumns('newAccountsTableColumns', userTableColumnPresets.standard)
 
 const form = ref({
   id: '',
@@ -410,16 +411,39 @@ const makeSettlementOptions = (list) => {
 }
 
 const activateDeactivate = async (data: TableSlotDefault) => {
+  if (
+    !assertCanActivateDeactivateUser({
+      actorRoleNames: actorRoleNames.value,
+      actorUserId: currentUser?.id,
+      targetUser: data.row,
+      roleNameById: roleNameById.value,
+    })
+  ) {
+    return
+  }
+
   const userId = data.row.id
+  const activating = !data.row.isactive
   data.row.isactive = !data.row.isactive
-  
+
   // Check if user has permission to activate/deactivate
   const currentUserInfo = wsCache.get(appStore.getUserInfo)
   const userPermissions = currentUserInfo && currentUserInfo.permissions ? currentUserInfo.permissions : []
-  
+
   if (!userPermissions.includes('user:activate')) {
     ElMessage.error('You do not have permission to activate/deactivate users')
+    data.row.isactive = !data.row.isactive
     return
+  }
+
+  // A role must be confirmed before the account is first switched on
+  if (activating) {
+    const gate = await gateActivationOnRole(data.row)
+    if (gate !== 'ok') {
+      data.row.isactive = false
+      if (gate === 'assign-role') EditUser(data)
+      return
+    }
   }
   
   // Set loading state for this specific user
@@ -549,6 +573,28 @@ const searchByName = async (filterString: any) => {
 }
 
 getRoles()
+const roleNameById = ref<Record<number, string>>({})
+loadRoleNameMap().then((map) => { roleNameById.value = map })
+
+const actorRoleNames = computed(() => getActorRoleNames(currentUser))
+
+const canModifyRoleRow = (roleId: number | string | null | undefined) =>
+  canModifyUserRoleAssignment({
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleId,
+    roleNameById: roleNameById.value,
+  })
+
+const canToggleUserActivation = (row: any) =>
+  canActivateDeactivateUser({
+    actorRoleNames: actorRoleNames.value,
+    actorUserId: currentUser?.id,
+    targetUser: row,
+    roleNameById: roleNameById.value,
+  })
+
 getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
@@ -840,8 +886,12 @@ const addRole = () => {
 
 
 const removeRole = (index) => {
-  // Remove the role object at the specified index from the roles array
-  tmp_roles.value.splice(index, 1);
+  tryRemoveUserRoleRow(index, tmp_roles.value, {
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleNameById: roleNameById.value,
+  })
 }
 
 
@@ -982,6 +1032,7 @@ const updateUser = () => {
         :column-width="columnWidth"
         :column-min-width="columnMinWidth"
         :access-reason-labels="accessReasonLabels"
+        :role-name-by-id="roleNameById"
         avatar-field="photo"
       />
 
@@ -991,6 +1042,7 @@ const updateUser = () => {
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :show-force-logout="false"
             :show-reset-password="false"
             @activate="activateDeactivate(scope as TableSlotDefault)"
@@ -1096,7 +1148,7 @@ const updateUser = () => {
             <template #default="{ row }">
               <el-select
 v-model="row.roleid" placeholder="Select Role" size="small" :style="{ width: isMobile ? '100%' : '100%' }" searchable
-                filterable>
+                filterable :disabled="!canModifyRoleRow(row.roleid)">
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -1174,8 +1226,13 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
           </el-table-column>
 
           <el-table-column label="Actions" :width="isMobile ? 80 : 120" fixed="right">
-            <template #default="{ $index }">
-              <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
+            <template #default="{ row, $index }">
+              <el-button
+                @click="removeRole($index)"
+                type="danger"
+                size="small"
+                :disabled="!canModifyRoleRow(row.roleid)"
+              >Remove</el-button>
             </template>
           </el-table-column>
         </el-table>

@@ -9,7 +9,7 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import UserTableActions from '@/views/Components/UserTableActions.vue';
 
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,ElDivider,
+  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage, ElDivider,
   ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol, ElIcon, ElTag,
   ElDatePicker, ElPopover, ElCheckbox, ElCheckboxGroup,
 } from 'element-plus'
@@ -44,6 +44,7 @@ import { userTableColumnPresets } from '@/constants/userTableColumnPresets'
 import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
 import UserListAdjustableColumns from '@/components/Users/UserListAdjustableColumns.vue'
 import UserListCardToolbar from '@/components/Users/UserListCardToolbar.vue'
+import { loadRoleNameMap, gateActivationOnRole, getActorRoleNames, canModifyUserRoleAssignment, tryRemoveUserRoleRow, canActivateDeactivateUser, assertCanActivateDeactivateUser } from '@/utils/userRoleAssignment'
 
 
 const { wsCache } = useCache()
@@ -118,6 +119,7 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
+const value4 = ref([]) // role filter selection
 const countiesOptions = ref([])
 const RolesOptions = ref([])
 const FilteredRolesOptions = ref([])
@@ -208,7 +210,7 @@ const {
   visibleColumnKeys,
   onHeaderDragend,
   resetColumns,
-} = useAdjustableTableColumns('usersTableColumns', userTableColumnPresets.full)
+} = useAdjustableTableColumns('usersTableColumns', userTableColumnPresets.standard)
 
 const form = ref({
   id: '',
@@ -240,9 +242,10 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
+  value4.value = []
   pageSize.value = 5
   currentPage.value = 1
-  
+
   // If county admin, re-apply their county filter
   if (isCountyRestricted.value && userCountyId.value) {
     handleSelectCounty([userCountyId.value])
@@ -286,7 +289,31 @@ const handleSelectCounty = async (county_id: any) => {
   getFilteredData(filters, filterValues)
 }
 
+// Role filter — options come from AvailableRolesOptions (the viewer's subordinate
+// roles), so an admin can only ever filter by roles they're allowed to see anyway.
+const handleSelectRoleFilter = async (roleIds: any) => {
+  var selectOption = 'roleid'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption)
 
+  if (filterValues[index]) {
+    filterValues.splice(index, 1)
+  }
+
+  if (roleIds && roleIds.length > 0) {
+    filterValues.splice(index, 0, roleIds)
+  }
+
+  if (!roleIds || roleIds.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  page.value = 1
+  currentPage.value = 1
+  getFilteredData(filters, filterValues)
+}
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -394,6 +421,34 @@ const getRoles = async () => {
 const getSettlementsOptions = async () => {
 }
 
+// id -> role name, passed to UserListAdjustableColumns which owns all role
+// display (the Role column, the No-role warning, and the admin/support icon
+// beside the name) so every user list page renders roles identically.
+const roleNameById = ref<Record<number, string>>({})
+
+const actorRoleNames = computed(() => getActorRoleNames(currentUser))
+
+const canModifyRoleRow = (roleId: number | string | null | undefined) =>
+  canModifyUserRoleAssignment({
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleId,
+    roleNameById: roleNameById.value,
+  })
+
+const canToggleUserActivation = (row: any) =>
+  canActivateDeactivateUser({
+    actorRoleNames: actorRoleNames.value,
+    actorUserId: currentUser?.id,
+    targetUser: row,
+    roleNameById: roleNameById.value,
+  })
+
+const getAllRoleNames = async () => {
+  roleNameById.value = await loadRoleNameMap()
+}
+
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
@@ -408,18 +463,41 @@ const makeSettlementOptions = (list) => {
 }
 
 const activateDeactivate = async (data: TableSlotDefault) => {
+  if (
+    !assertCanActivateDeactivateUser({
+      actorRoleNames: actorRoleNames.value,
+      actorUserId: currentUser?.id,
+      targetUser: data.row,
+      roleNameById: roleNameById.value,
+    })
+  ) {
+    return
+  }
+
   const userId = data.row.id
+  const activating = !data.row.isactive
   data.row.isactive = !data.row.isactive
-  
+
   // Check if user has permission to activate/deactivate
   const currentUserInfo = wsCache.get(appStore.getUserInfo)
   const userPermissions = currentUserInfo && currentUserInfo.permissions ? currentUserInfo.permissions : []
-  
+
   if (!userPermissions.includes('user:activate')) {
     ElMessage.error('You do not have permission to activate/deactivate users')
+    data.row.isactive = !data.row.isactive
     return
   }
-  
+
+  // A role must be confirmed before the account is first switched on
+  if (activating) {
+    const gate = await gateActivationOnRole(data.row)
+    if (gate !== 'ok') {
+      data.row.isactive = false
+      if (gate === 'assign-role') EditUser(data)
+      return
+    }
+  }
+
   // If county admin, validate that the user belongs to their county
   if (isCountyRestricted.value && userCountyId.value) {
     const userCountyIdFromRow = data.row.county_id || data.row.county?.id
@@ -530,6 +608,7 @@ const searchByName = (filterString: any) => {
 // Initialize county admin restrictions
 const initializeCountyAdminRestrictions = async () => {
   await getRoles()
+  await getAllRoleNames()
   await getCountyNames()
   await getSettlementsOptions()
   
@@ -764,8 +843,12 @@ const addRole = () => {
 
 
 const removeRole = (index) => {
-  // Remove the role object at the specified index from the roles array
-  tmp_roles.value.splice(index, 1);
+  tryRemoveUserRoleRow(index, tmp_roles.value, {
+    actorRoleNames: actorRoleNames.value,
+    targetUserId: form.value.id,
+    actorUserId: currentUser?.id,
+    roleNameById: roleNameById.value,
+  })
 }
 
 
@@ -943,6 +1026,24 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
         </el-tooltip>
 
         <el-select
+          v-model="value4"
+          :onChange="handleSelectRoleFilter"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by Role"
+          class="users-toolbar__role-select"
+        >
+          <el-option
+            v-for="item in AvailableRolesOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+
+        <el-select
           v-model="value3"
           multiple
           clearable
@@ -989,8 +1090,9 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
 
 
     <el-table
+      class="users-page-table"
       :data="tableDataList"
-      style="width: 100% ; margin-top: 30px"
+      style="width: 100%"
       border
       v-loading="loading"
       :row-class-name="userListRowAccessClassName"
@@ -1003,6 +1105,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
         :column-min-width="columnMinWidth"
         :access-reason-labels="accessReasonLabels"
         :format-date="formatDate"
+        :role-name-by-id="roleNameById"
       />
 
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
@@ -1011,6 +1114,7 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
             :row="scope.row"
             :show-admin-buttons="showAdminButtons"
             :activate-loading="userLoadingStates[scope.row.id]"
+            :activate-disabled="!canToggleUserActivation(scope.row)"
             :reset-password-loading="resetPasswordLoadingStates[scope.row.id]"
             @activate="activateDeactivate(scope as TableSlotDefault)"
             @edit="EditUser(scope as TableSlotDefault)"
@@ -1119,18 +1223,19 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
         </template>
 
         <!-- Table for roles management -->
-        <div :style="{ overflowX: 'auto', width: '100%' }">
-          <el-table :data="tmp_roles" style="width: 100%; min-width: 780px" size="small">
+        <div class="roles-table-wrap">
+          <el-table :data="tmp_roles" class="roles-table" style="width: 100%" size="small">
 
-          <el-table-column prop="role" label="Role" :width="isMobile ? 120 : 150">
+          <el-table-column prop="role" label="Role">
             <template #default="{ row }">
               <el-select
                 v-model="row.roleid" 
                 placeholder="Select Role" 
                 size="small" 
-                :style="{ width: isMobile ? '100%' : '100%' }" 
+                style="width: 100%"
                 searchable
-                filterable>
+                filterable
+                :disabled="!canModifyRoleRow(row.roleid)">
                 <!-- Use AvailableRolesOptions (subordinate roles) instead of all roles -->
                 <el-option 
                   v-for="item in AvailableRolesOptions.length > 0 ? AvailableRolesOptions : RolesOptions" 
@@ -1140,17 +1245,17 @@ const handleRowPasswordReset = async (row: { id: number; email?: string; phone?:
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column prop="level" label="Level" :width="isMobile ? 100 : 120">
+          <el-table-column prop="level" label="Level">
             <template #default="{ row }">
               <el-select
 v-model="row.location_level" placeholder="Select level" size="small" filterable
-                @change="handleChangeLevel(row.location_level)" :style="{ width: '100%' }">
+                @change="handleChangeLevel(row.location_level)" style="width: 100%">
                 <el-option v-for="item in availableLocationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
 
-          <el-table-column prop="county_id" label="County" :width="isMobile ? 120 : 150">
+          <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
               <el-select
                 v-model="row.county_id" 
@@ -1169,7 +1274,7 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
                   }
                 }" 
                 size="small" 
-                :style="{ width: '100%' }">
+                style="width: 100%">
                 <!-- If county admin, only show their county -->
                 <template v-if="isCountyRestricted && userCountyId">
                   <el-option 
@@ -1188,14 +1293,14 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
             </template>
           </el-table-column>
 
-          <el-table-column prop="settlement_id" label="Settlement" :width="isMobile ? 140 : 180">
+          <el-table-column prop="settlement_id" label="Settlement">
             <template #default="{ row }">
               <el-select
                 v-model="row.settlement_id" 
                 placeholder="Search settlements" 
                 size="small"
                 :disabled="!isSettlementLevel || !row.county_id" 
-                :style="{ width: '100%' }" 
+                style="width: 100%" 
                 filterable 
                 remote
                 :remote-method="(query) => searchSettlements(query, row.county_id)"
@@ -1212,7 +1317,7 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
             </template>
           </el-table-column>
 
-          <el-table-column prop="expires_at" label="Access expires" :width="isMobile ? 170 : 220">
+          <el-table-column prop="expires_at" label="Access expires" :min-width="isMobile ? 170 : 220">
             <template #default="{ row }">
               <el-date-picker
                 v-model="row.expires_at"
@@ -1229,9 +1334,14 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
             </template>
           </el-table-column>
 
-          <el-table-column label="Actions" :width="isMobile ? 80 : 120" fixed="right">
-            <template #default="{ $index }">
-              <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
+          <el-table-column label="Actions" :min-width="isMobile ? 80 : 120" fixed="right">
+            <template #default="{ row, $index }">
+              <el-button
+                @click="removeRole($index)"
+                type="danger"
+                size="small"
+                :disabled="!canModifyRoleRow(row.roleid)"
+              >Remove</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -1258,12 +1368,24 @@ v-model="row.location_level" placeholder="Select level" size="small" filterable
   margin-right: 15px;
 }
 
-.el-select {
-  width: 300px;
+.el-form > .el-row .el-select,
+.el-form > .el-row .el-input {
+  width: 100%;
 }
 
-.el-input {
-  width: 300px;
+.roles-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.roles-table :deep(.el-select),
+.roles-table :deep(.el-date-editor) {
+  width: 100%;
+}
+
+.users-page-table {
+  width: 100%;
+  margin-top: 30px;
 }
 
 .dialog-footer button:first-child {
