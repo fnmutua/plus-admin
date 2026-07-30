@@ -7,14 +7,36 @@ const path = require('path');
 const XLSX = require('xlsx');
 
 const PROJECTS_CLEAN_PATH = path.join(__dirname, 'projects-clean.xlsx');
+const REPO_ROOT = path.resolve(__dirname, '../..');
 
-const DB = {
-  host: process.env.VUE_APP_DB_HOST || process.env.DB_HOST || 'localhost',
-  port: Number(process.env.VUE_APP_DB_PORT || process.env.DB_PORT || 5432),
-  user: process.env.VUE_APP_USER || process.env.DB_USER || 'postgres',
-  password: process.env.VUE_APP_PASSWORD || process.env.DB_PASSWORD || '',
-  database: process.env.VUE_APP_DB || process.env.DB_NAME || 'kisip',
-};
+function loadRepoEnv(repoRoot = REPO_ROOT) {
+  const envPath = path.join(repoRoot, '.env');
+  if (fs.existsSync(envPath)) {
+    const dotenv = require('dotenv');
+    const envContent = fs.readFileSync(envPath, 'utf8').replace(/\r/g, '');
+    Object.assign(process.env, dotenv.parse(envContent));
+  } else {
+    console.warn(`Warning: .env not found at ${envPath}`);
+  }
+  return envPath;
+}
+
+function bootstrapModulePaths(repoRoot = REPO_ROOT) {
+  const nodeModules = path.join(repoRoot, 'node_modules');
+  if (fs.existsSync(nodeModules)) {
+    module.paths.unshift(nodeModules);
+  }
+}
+
+function getDB() {
+  return {
+    host: process.env.VUE_APP_DB_HOST || process.env.DB_HOST || 'localhost',
+    port: Number(process.env.VUE_APP_DB_PORT || process.env.DB_PORT || 5432),
+    user: process.env.VUE_APP_USER || process.env.DB_USER || 'postgres',
+    password: process.env.VUE_APP_PASSWORD || process.env.DB_PASSWORD || '',
+    database: process.env.VUE_APP_DB || process.env.DB_NAME || 'kisip',
+  };
+}
 
 const ACTIVITY_MERGES = {
   9: 1,
@@ -57,8 +79,11 @@ function loadActivityMergeMap(workbook) {
 }
 
 module.exports = {
+  REPO_ROOT,
   PROJECTS_CLEAN_PATH,
-  DB,
+  bootstrapModulePaths,
+  loadRepoEnv,
+  getDB,
   isUuidCode,
   loadWorkbook,
   loadActivityMergeMap,

@@ -1,34 +1,16 @@
-#!/usr/bin/env node
 /**
  * Import M&E cleanup master lists from projects-clean.xlsx into PostgreSQL.
  *
- * Usage:
- *   ./tools/me-cleanup-import/run-import.sh              # dry-run
- *   ./tools/me-cleanup-import/run-import.sh --apply      # commit changes
- *   node tools/me-cleanup-import/import-me-cleanup.js [--apply] [workbook.xlsx]
- *
- * Default is dry-run (no writes). Pass --apply to commit changes.
+ * Run via run-import.js (recommended):
+ *   node tools/me-cleanup-import/run-import.js [--apply] [workbook.xlsx]
  */
 
 const path = require('path');
-const fs = require('fs');
-
-// Resolve pg/xlsx from repo root node_modules when run standalone.
-const REPO_ROOT = path.resolve(__dirname, '../..');
-if (fs.existsSync(path.join(REPO_ROOT, 'node_modules'))) {
-  module.paths.unshift(path.join(REPO_ROOT, 'node_modules'));
-}
-
-try {
-  require('dotenv').config({ path: path.join(REPO_ROOT, '.env') });
-} catch {
-  // dotenv optional
-}
 const { Client } = require('pg');
 const XLSX = require('xlsx');
 const {
   PROJECTS_CLEAN_PATH,
-  DB,
+  getDB,
   isUuidCode,
   loadWorkbook,
   loadActivityMergeMap,
@@ -83,8 +65,66 @@ async function query(client, sql, params = []) {
   return client.query(sql, params);
 }
 
+async function findActivityId(client, code, title, activityIdByCode) {
+  if (code) {
+    const normalized = String(code).trim();
+    const fromMap =
+      activityIdByCode.byCode.get(normalized) ||
+      activityIdByCode.byCode.get(normalized.toUpperCase());
+    if (fromMap) return fromMap;
+  }
+  if (DRY_RUN) return null;
+
+  if (code) {
+    const { rows } = await client.query(
+      `SELECT id FROM activity WHERE code = $1 LIMIT 1`,
+      [String(code)]
+    );
+    if (rows.length) return rows[0].id;
+  }
+  if (title) {
+    const { rows } = await client.query(
+      `SELECT id FROM activity WHERE title = $1 LIMIT 1`,
+      [title]
+    );
+    if (rows.length) return rows[0].id;
+  }
+  return null;
+}
+
+async function findIndicatorIdByCode(client, code, indicatorMaps) {
+  if (code && indicatorMaps.byCode.has(String(code))) {
+    return indicatorMaps.byCode.get(String(code));
+  }
+  if (DRY_RUN || !code) return null;
+  const { rows } = await client.query(
+    `SELECT id FROM indicator WHERE code = $1 LIMIT 1`,
+    [String(code)]
+  );
+  return rows.length ? rows[0].id : null;
+}
+
+async function findCategoryId(client, indicatorId, categoryId, frequencyId, level) {
+  if (DRY_RUN) return null;
+  const { rows } = await client.query(
+    `SELECT id FROM indicator_category
+     WHERE indicator_id = $1 AND category_id = $2 AND frequency = $3 AND indicator_level = $4
+     LIMIT 1`,
+    [indicatorId, categoryId, frequencyId, level]
+  );
+  return rows.length ? rows[0].id : null;
+}
+
 async function mergeActivity(client, duplicateId, targetId, activityIdByCode) {
   if (!duplicateId || !targetId || duplicateId === targetId) return;
+
+  if (!DRY_RUN) {
+    const { rows } = await client.query(`SELECT id FROM activity WHERE id = $1`, [duplicateId]);
+    if (!rows.length) {
+      log(`  skip merge activity ${duplicateId} → ${targetId} (already merged)`);
+      return;
+    }
+  }
 
   log(`  merge activity ${duplicateId} → ${targetId}`);
 
@@ -136,6 +176,14 @@ async function mergeActivity(client, duplicateId, targetId, activityIdByCode) {
 
 async function mergeIndicator(client, duplicateId, targetId) {
   if (!duplicateId || !targetId || duplicateId === targetId) return;
+
+  if (!DRY_RUN) {
+    const { rows } = await client.query(`SELECT id FROM indicator WHERE id = $1`, [duplicateId]);
+    if (!rows.length) {
+      log(`  skip merge indicator ${duplicateId} → ${targetId} (already merged)`);
+      return;
+    }
+  }
 
   log(`  merge indicator ${duplicateId} → ${targetId}`);
 
@@ -210,6 +258,15 @@ async function mergeIndicator(client, duplicateId, targetId) {
 
 async function removeIndicator(client, indicatorId) {
   if (!indicatorId) return;
+
+  if (!DRY_RUN) {
+    const { rows } = await client.query(`SELECT id FROM indicator WHERE id = $1`, [indicatorId]);
+    if (!rows.length) {
+      log(`  skip remove indicator ${indicatorId} (already removed)`);
+      return;
+    }
+  }
+
   log(`  remove indicator ${indicatorId}`);
 
   const cats = DRY_RUN
@@ -298,6 +355,23 @@ async function importActivities(client, workbook, activityIdByCode, mergeMap) {
     }
 
     if (action === 'add_to_master' || action === 'anticipated' || action === 'add_new') {
+      const existingId = await findActivityId(client, code, title, activityIdByCode);
+
+      if (existingId) {
+        log(`  update existing activity ${existingId} (${code}): ${shortTitle}`);
+        await query(
+          client,
+          `UPDATE activity
+           SET title = $2, "shortTitle" = $3, code = $4, "updatedAt" = NOW()
+           WHERE id = $1`,
+          [existingId, title, shortTitle, code]
+        );
+        activityIdByCode.byId.set(existingId, { id: existingId, code });
+        activityIdByCode.byCode.set(String(code), existingId);
+        stats.activities_updated += 1;
+        continue;
+      }
+
       log(`  create activity ${code}: ${shortTitle}`);
       if (DRY_RUN) {
         const fakeId = 900000 + stats.activities_created;
@@ -483,7 +557,35 @@ async function importIndicators(client, workbook, activityIdByCode, indicatorMap
     }
 
     if (action === 'add_new' || action === 'add_with_activity') {
-      log(`  create indicator ${row.indicator_code}: ${row.name}`);
+      const indicatorCode = row.indicator_code || row.code;
+      const existingId = await findIndicatorIdByCode(client, indicatorCode, indicatorMaps);
+
+      if (existingId) {
+        log(`  update existing indicator ${existingId} (${indicatorCode}): ${row.name}`);
+        await query(
+          client,
+          `UPDATE indicator
+           SET name = $2, type = $3, format = $4, unit = $5, level = $6,
+               activity_id = $7, code = COALESCE(NULLIF($8, ''), code), "updatedAt" = NOW()
+           WHERE id = $1`,
+          [
+            existingId,
+            row.name,
+            row.type || 'output',
+            row.format || 'number',
+            row.unit || 'No.',
+            row.level || 'activity',
+            activityId,
+            indicatorCode,
+          ]
+        );
+        indicatorMaps.byId.set(existingId, { id: existingId, code: indicatorCode });
+        if (indicatorCode) indicatorMaps.byCode.set(String(indicatorCode), existingId);
+        stats.indicators_updated += 1;
+        continue;
+      }
+
+      log(`  create indicator ${indicatorCode}: ${row.name}`);
       if (DRY_RUN) {
         const fakeId = 900000 + stats.indicators_created;
         indicatorMaps.byId.set(fakeId, { id: fakeId, code: row.indicator_code });
@@ -551,6 +653,18 @@ async function importIndicatorCategories(
   for (const row of removals) {
     const id = num(row.id);
     if (!id) continue;
+
+    if (!DRY_RUN) {
+      const { rows } = await client.query(
+        `SELECT id FROM indicator_category WHERE id = $1`,
+        [id]
+      );
+      if (!rows.length) {
+        log(`  skip remove category config ${id} (already removed)`);
+        continue;
+      }
+    }
+
     log(`  remove category config ${id} (IND${row.indicator_id} ${row.category_title})`);
     await query(
       client,
@@ -614,6 +728,31 @@ async function importIndicatorCategories(
         log(`  skip new category — indicator not created yet: ${row.indicator_code}`);
         continue;
       }
+
+      const level = row.indicator_level || 'activity';
+      const existingCategoryId = await findCategoryId(
+        client,
+        indicatorId,
+        categoryId,
+        frequencyId,
+        level
+      );
+
+      if (existingCategoryId) {
+        log(`  update existing category ${existingCategoryId}: IND${indicatorId} ${row.category_title}`);
+        await query(
+          client,
+          `UPDATE indicator_category
+           SET indicator_name = $2, activity_id = $3, category_title = $4, "updatedAt" = NOW()
+           WHERE id = $1`,
+          [existingCategoryId, row.indicator_name, activityId, row.category_title]
+        );
+        categoryMaps.byId.set(existingCategoryId, row);
+        categoryMaps.byIndicatorTitle.set(`${indicatorId}:${row.category_title}`, existingCategoryId);
+        stats.categories_updated += 1;
+        continue;
+      }
+
       log(`  create category IND${indicatorId} ${row.category_title}`);
       if (DRY_RUN) {
         stats.categories_created += 1;
@@ -650,6 +789,18 @@ async function importIndicatorReports(client, workbook, activityIdByCode, catego
   for (const row of removals) {
     const id = num(row.id);
     if (!id) continue;
+
+    if (!DRY_RUN) {
+      const { rows } = await client.query(
+        `SELECT id FROM indicator_category_report WHERE id = $1`,
+        [id]
+      );
+      if (!rows.length) {
+        log(`  skip remove report ${id} (already removed)`);
+        continue;
+      }
+    }
+
     log(`  remove report ${id} (IND${row.indicator_id} ${row.category_title})`);
     await query(client, `DELETE FROM indicator_category_report WHERE id = $1`, [id]);
     stats.reports_removed += 1;
@@ -705,9 +856,13 @@ async function refreshIndicatorIdMap(client, indicatorMaps) {
   indicatorMaps.byCode = refreshed.byCode;
 }
 
-async function main() {
-  log(`Reading ${workbookPath}`);
-  log(DRY_RUN ? 'DRY RUN — pass --apply to write changes\n' : 'APPLY MODE — writing to database\n');
+async function main(envPath) {
+  const DB = getDB();
+
+  log(`Env:      ${envPath}`);
+  log(`Database: ${DB.user}@${DB.host}:${DB.port}/${DB.database}`);
+  log(`Reading:  ${workbookPath}`);
+  log(DRY_RUN ? 'Mode:     DRY RUN — pass --apply to write changes\n' : 'Mode:     APPLY — writing to database\n');
 
   const workbook = loadWorkbook(workbookPath);
   const mergeMap = loadActivityMergeMap(workbook);
@@ -776,8 +931,4 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('Import failed:', err.message);
-  if (err.stack) console.error(err.stack);
-  process.exit(1);
-});
+module.exports = { main };

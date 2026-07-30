@@ -1,4 +1,5 @@
 # Force Unix line endings for scripts in this folder
-*.sh text eol=lf
-*.js text eol=lf
+run-import.js text eol=lf
+import-me-cleanup.js text eol=lf
+me-cleanup-shared.js text eol=lf
 *.md text eol=lf

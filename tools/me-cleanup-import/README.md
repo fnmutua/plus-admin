@@ -6,36 +6,40 @@ Import master lists from `projects-clean.xlsx` into the KeSMIS PostgreSQL databa
 
 | File | Purpose |
 |------|---------|
-| `projects-clean.xlsx` | Master workbook (projects, activities, indicators, categories, reports) |
-| `import-me-cleanup.js` | Import script |
-| `me-cleanup-shared.js` | DB config and workbook helpers |
-| `run-import.sh` | Shell wrapper (recommended) |
+| `run-import.js` | Entry point — run this |
+| `import-me-cleanup.js` | Import logic |
+| `me-cleanup-shared.js` | .env loading, DB config, workbook helpers |
+| `projects-clean.xlsx` | Master workbook |
 
 ## Prerequisites
 
 - Node.js 18+
-- `npm install` run in the repo root (needs `pg` and `xlsx`)
-- PostgreSQL access to the target `kisip` database
+- `npm install` in repo root (needs `pg`, `xlsx`, `dotenv`)
+- Repo root `.env` with DB credentials
 
-## Quick start (on the live server)
+## Quick start
 
 ```bash
-cd /path/to/plus-admin
+cd /data/plus-admin/tools/me-cleanup-import
 
-export VUE_APP_DB_HOST=localhost      # or kesmis.go.ke if DB is local to server
-export VUE_APP_DB_PORT=5432
-export VUE_APP_USER=postgres
-export VUE_APP_PASSWORD='your-password'
-export VUE_APP_DB=kisip
+node run-import.js              # dry-run
+node run-import.js --apply      # commit
+```
 
-# 1. Dry-run first — review the summary, no writes
-./tools/me-cleanup-import/run-import.sh
+Or from repo root:
 
-# Or run the script directly:
-# ./tools/me-cleanup-import/import-me-cleanup.js
+```bash
+node tools/me-cleanup-import/run-import.js --apply
+```
 
-# 2. Apply when satisfied
-./tools/me-cleanup-import/run-import.sh --apply
+Required in repo root `.env`:
+
+```
+VUE_APP_DB_HOST=localhost
+VUE_APP_DB_PORT=5432
+VUE_APP_USER=postgres
+VUE_APP_PASSWORD=...
+VUE_APP_DB=kisip
 ```
 
 ## What it updates
@@ -52,15 +56,5 @@ All writes run in a single transaction; rolls back on error.
 ## Custom workbook
 
 ```bash
-./tools/me-cleanup-import/run-import.sh --apply /path/to/custom.xlsx
+node run-import.js --apply /path/to/custom.xlsx
 ```
-
-## Copy folder only
-
-If deploying just this folder to a server that already has the repo:
-
-```bash
-scp -r tools/me-cleanup-import user@kesmis.go.ke:/path/to/plus-admin/tools/
-```
-
-Then SSH in and run from the repo root as above.
