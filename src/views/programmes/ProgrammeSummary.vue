@@ -19,8 +19,12 @@ import { Icon } from '@/components/Icon'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
 import { getCountiesList, getSubcountiesList, getWardsList } from '@/api/settlements-optimized'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getAllGeo } from '@/api/settlements'
 import { getProgrammeDescendantIds, type ProgrammeRecord } from '@/utils/programmeValidation'
+// `v-chart` is registered globally in plugins/setupCharts.ts
+import { registerMap } from 'echarts/core'
+import { ensureDashboardGeoBundleLoaded, subsetGeoFromCache, applyGeoAspect } from '@/utils/dashboardGeo'
+import { geoCache } from '@/utils/dashboardCache'
 // Browser-safe writer (same one DownloadCustom.vue uses); json-as-xlsx routes
 // through Node's fs and throws once bundled for the browser.
 import writeXlsxFile from 'write-excel-file'
@@ -38,7 +42,8 @@ const projectLocations = ref<any[]>([])
 
 // ---- Chart: stack dimension + cascading location filter ----
 const stackDimension = ref<'programme' | 'component' | 'status' | 'scope'>('programme')
-const showChartTable = ref(false)
+const viewMode = ref<'chart' | 'table' | 'map'>('chart')
+const showChartTable = computed(() => viewMode.value === 'table')
 
 // Programme filter — a parent programme includes its sub-programmes
 const selectedProgramme = ref<number | null>(null)
@@ -395,6 +400,198 @@ const isDark = computed(() => appStore.getIsDark)
 
 const exportBaseName = computed(() => `projects-by-${axisLevel.value}`)
 
+// ---- Map (choropleth) ----
+// ApexCharts has no map type, so the map view uses ECharts.
+//
+// Geometry source differs by level on purpose. The Redis bundle simplifies at
+// 0.005deg (~550m), which is tuned for a whole-country choropleth — fine for the
+// 47 counties, but it destroys urban subcounties (Nairobi's Mathare is 4.5x1.5km
+// and survives as ~10 vertices). Once drilled into one parent the subset is small
+// (~48KB for Nairobi's 17 subcounties), so those levels fetch full precision.
+const geoLoading = ref(false)
+const activeGeo = ref<any>(null)
+const registeredMapName = ref('')
+
+const mapName = computed(() => {
+  if (axisLevel.value === 'subcounty') return `PS_sub_${selectedCounty.value}`
+  if (axisLevel.value === 'ward') return `PS_ward_${selectedSubcounty.value}`
+  return 'PS_county'
+})
+
+const loadGeoForLevel = async () => {
+  geoLoading.value = true
+  try {
+    if (axisLevel.value === 'county') {
+      const ok = await ensureDashboardGeoBundleLoaded()
+      activeGeo.value = ok && geoCache.has('county') ? geoCache.get('county') : null
+      if (!activeGeo.value) ElMessage.error('Could not load map boundaries')
+      return
+    }
+
+    const model = axisLevel.value === 'subcounty' ? 'subcounty' : 'ward'
+    const field = axisLevel.value === 'subcounty' ? 'county_id' : 'subcounty_id'
+    const parentId =
+      axisLevel.value === 'subcounty' ? selectedCounty.value : selectedSubcounty.value
+    if (parentId == null) {
+      activeGeo.value = null
+      return
+    }
+
+    const cacheKey = `detail:${model}:${parentId}`
+    if (geoCache.has(cacheKey)) {
+      activeGeo.value = geoCache.get(cacheKey)
+      return
+    }
+
+    const res = await getAllGeo({ model, filters: [field], filterValues: [[parentId]] } as any)
+    const fc = (res as any)?.data?.[0]?.json_build_object
+    if (!fc?.features?.length) {
+      // Fall back to the simplified bundle rather than showing nothing
+      const ok = await ensureDashboardGeoBundleLoaded()
+      activeGeo.value = ok
+        ? subsetGeoFromCache(model, [field], [parentId])
+        : null
+      return
+    }
+
+    // row_to_json repeats the full geometry inside properties.geom — drop it so
+    // the cache doesn't hold two copies of every polygon.
+    const clean = {
+      type: 'FeatureCollection',
+      features: fc.features.map((f: any) => ({
+        type: 'Feature',
+        geometry: f.geometry,
+        properties: { id: f.properties?.id, name: f.properties?.name },
+      })),
+    }
+    geoCache.set(cacheKey, clean)
+    activeGeo.value = clean
+  } catch (error) {
+    console.error('Failed to load map boundaries:', error)
+    activeGeo.value = null
+  } finally {
+    geoLoading.value = false
+  }
+}
+
+watch(
+  [viewMode, axisLevel, selectedCounty, selectedSubcounty],
+  () => {
+    if (viewMode.value === 'map') loadGeoForLevel()
+  },
+  { immediate: true }
+)
+
+// Register lazily; ECharts keys maps by name so each level/parent gets its own.
+watch(
+  [activeGeo, mapName],
+  ([geo, name]) => {
+    if (!geo?.features?.length || !name) return
+    registerMap(name as string, geo as any)
+    registeredMapName.value = name as string
+  },
+  { immediate: true }
+)
+
+// Totals per bucket, and which buckets have no boundary to shade
+const mapTotals = computed(() => {
+  const rows = chartTableRows.value.map((r) => ({ name: r.county, value: r.__total }))
+  const geoNames = new Set(
+    ((activeGeo.value?.features || []) as any[]).map((f) => String(f.properties?.name ?? ''))
+  )
+  return {
+    data: rows.filter((r) => geoNames.has(r.name)),
+    unmapped: rows.filter((r) => !geoNames.has(r.name)),
+    max: rows.reduce((m, r) => Math.max(m, r.value), 0),
+  }
+})
+
+const mapAspect = computed(() => {
+  const geo = activeGeo.value
+  if (!geo?.features?.length) return 1
+  try {
+    return applyGeoAspect(geo)
+  } catch {
+    return 1
+  }
+})
+
+// Side panel: every bucket ranked, with its share of the filtered total
+const mapRanking = computed(() => {
+  const rows = [...chartTableRows.value].sort((a, b) => b.__total - a.__total)
+  const max = rows.reduce((m, r) => Math.max(m, r.__total), 0)
+  const total = rows.reduce((s, r) => s + r.__total, 0)
+  return rows.map((r) => ({
+    name: r.county,
+    value: r.__total,
+    pct: total ? Math.round((r.__total / total) * 100) : 0,
+    barPct: max ? Math.round((r.__total / max) * 100) : 0,
+  }))
+})
+
+// Sequential ramp: one hue, light→dark (verified monotonic in lightness)
+const SEQUENTIAL_RAMP = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b']
+
+const mapOptions = computed(() => {
+  const dark = isDark.value
+  const textPrimary = dark ? '#ffffff' : '#0b0b0b'
+  const surface = dark ? '#1a1a19' : '#fcfcfb'
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: (params: any) => {
+        const value = params.value
+        if (value == null || Number.isNaN(value)) return `${params.name}<br/>No projects`
+        return `${params.name}<br/><strong>${value}</strong> project${value === 1 ? '' : 's'}`
+      },
+    },
+    // Save-image only; roam already handles pan/zoom and a reset would fight it
+    toolbox: {
+      show: true,
+      right: 12,
+      top: 0,
+      iconStyle: { borderColor: dark ? '#c3c2b7' : '#52514e' },
+      emphasis: { iconStyle: { borderColor: '#3987e5' } },
+      feature: {
+        saveAsImage: {
+          title: 'Download map',
+          name: exportBaseName.value,
+          pixelRatio: 2,
+          backgroundColor: surface,
+        },
+      },
+    },
+    visualMap: {
+      min: 0,
+      max: Math.max(1, mapTotals.value.max),
+      left: 'left',
+      bottom: 20,
+      text: ['High', 'Low'],
+      calculable: true,
+      inRange: { color: SEQUENTIAL_RAMP },
+      textStyle: { color: textPrimary },
+    },
+    series: [
+      {
+        type: 'map',
+        map: registeredMapName.value,
+        roam: true,
+        // Longitude degrees shrink by cos(latitude); without this the shapes stretch
+        aspectScale: mapAspect.value,
+        emphasis: {
+          label: { show: true, color: textPrimary },
+          itemStyle: { areaColor: dark ? '#3a3a38' : '#e6e6e2' },
+        },
+        // 2px surface gap so adjacent regions stay separable
+        itemStyle: { borderColor: surface, borderWidth: 1, areaColor: dark ? '#2a2a28' : '#f0f0ec' },
+        select: { disabled: true },
+        data: mapTotals.value.data,
+      },
+    ],
+  }
+})
+
 const chartOptions = computed(() => {
   const dark = isDark.value
   const textPrimary = dark ? '#ffffff' : '#0b0b0b'
@@ -740,13 +937,11 @@ const downloadSummaryTable = async () => {
             <el-radio-button label="scope">Scope</el-radio-button>
           </el-radio-group>
 
-          <el-button
-            size="small"
-            :type="showChartTable ? 'primary' : 'default'"
-            @click="showChartTable = !showChartTable"
-          >
-            {{ showChartTable ? 'Chart' : 'Table' }}
-          </el-button>
+          <el-radio-group v-model="viewMode" size="small">
+            <el-radio-button label="chart">Chart</el-radio-button>
+            <el-radio-button label="table">Table</el-radio-button>
+            <el-radio-button label="map">Map</el-radio-button>
+          </el-radio-group>
 
           <el-tooltip
             :content="
@@ -886,6 +1081,44 @@ const downloadSummaryTable = async () => {
         />
       </div>
 
+      <template v-else-if="viewMode === 'map'">
+        <el-skeleton v-if="geoLoading" :rows="6" animated />
+        <div v-else-if="!registeredMapName" class="chart-empty">Map boundaries unavailable</div>
+        <template v-else>
+          <div class="map-layout">
+            <v-chart class="summary-map" :option="mapOptions" autoresize />
+
+            <aside class="map-panel">
+              <div class="map-panel-head">
+                <span class="map-panel-title">By {{ AXIS_LABEL[axisLevel].toLowerCase() }}</span>
+                <span class="map-panel-total">{{ chartModel.total }} projects</span>
+              </div>
+
+              <ul class="map-rank-list">
+                <li v-for="row in mapRanking" :key="row.name" class="map-rank-item">
+                  <span class="map-rank-name" :title="row.name">{{ row.name }}</span>
+                  <span class="map-rank-bar">
+                    <span class="map-rank-bar-fill" :style="{ width: `${row.barPct}%` }"></span>
+                  </span>
+                  <span class="map-rank-value">{{ row.value }}</span>
+                  <span class="map-rank-pct">{{ row.pct }}%</span>
+                </li>
+              </ul>
+
+              <p v-if="mapTotals.unmapped.length" class="map-note">
+                No boundary to shade:
+                {{ mapTotals.unmapped.map((u) => `${u.name} (${u.value})`).join(', ') }}
+              </p>
+
+              <p class="map-note">
+                Shading is total projects — one colour per region, so the
+                {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} split lives in the Chart view.
+              </p>
+            </aside>
+          </div>
+        </template>
+      </template>
+
       <apexchart
         v-else
         type="bar"
@@ -1012,5 +1245,124 @@ const downloadSummaryTable = async () => {
 .chart-table-pagination {
   margin-top: 12px;
   justify-content: flex-end;
+}
+
+/* A roughly-square country in a full-width box letterboxes badly; the panel takes
+   the space the map can't use instead of leaving it blank. */
+.map-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.is-mobile .map-layout {
+  flex-direction: column;
+}
+
+.summary-map {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 520px;
+}
+
+.is-mobile .summary-map {
+  height: 340px;
+}
+
+.map-panel {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-left: 1px solid var(--el-border-color-lighter);
+  padding-left: 14px;
+}
+
+.is-mobile .map-panel {
+  flex: 1 1 auto;
+  border-left: none;
+  border-top: 1px solid var(--el-border-color-lighter);
+  padding-left: 0;
+  padding-top: 12px;
+}
+
+.map-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.map-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.map-panel-total {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.map-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  max-height: 420px;
+}
+
+.is-mobile .map-rank-list {
+  max-height: 240px;
+}
+
+.map-rank-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 28px 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.map-rank-name {
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-rank-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--el-fill-color);
+  overflow: hidden;
+}
+
+.map-rank-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #3987e5;
+}
+
+.map-rank-value {
+  text-align: right;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.map-rank-pct {
+  text-align: right;
+  color: var(--el-text-color-secondary);
+}
+
+.map-note {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
