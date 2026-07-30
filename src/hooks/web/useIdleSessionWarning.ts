@@ -3,9 +3,8 @@ import { ElMessageBox } from 'element-plus'
 import request from '@/config/axios'
 import { apiOrigin as prod } from '@/config/apiBase'
 import { handleSessionExpired } from '@/config/axios/service'
-import { useCache } from '@/hooks/web/useCache'
-import { useAppStoreWithOut } from '@/store/modules/app'
 import {
+  SESSION_CHECK_INTERVAL_MS,
   getMsUntilIdleLogout,
   isIdleLogoutDue,
   isSessionRenewalPaused,
@@ -14,11 +13,11 @@ import {
   pauseSessionRenewal,
   setSessionWarningOpen,
   shouldWarnBeforeIdleLogout,
-  updateCachedAccessToken
+  updateCachedAccessToken,
+  applySessionIdleConfig
 } from '@/hooks/web/sessionActivity'
-
-const CHECK_INTERVAL_MS = 15_000
-const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'] as const
+import { getAuthUserInfo } from '@/hooks/web/authStorage'
+const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'touchmove', 'scroll', 'click'] as const
 
 function formatMinutesLeft(ms: number) {
   const minutes = Math.max(1, Math.ceil(ms / 60_000))
@@ -39,8 +38,6 @@ async function refreshSessionNow() {
 export function useIdleSessionWarning() {
   let timer: ReturnType<typeof setInterval> | null = null
   let logoutTimer: ReturnType<typeof setTimeout> | null = null
-  const { wsCache } = useCache()
-  const appStore = useAppStoreWithOut()
 
   const clearLogoutTimer = () => {
     if (logoutTimer) {
@@ -106,7 +103,7 @@ export function useIdleSessionWarning() {
   }
 
   const evaluateSession = async () => {
-    const userInfo = wsCache.get(appStore.getUserInfo)
+    const userInfo = getAuthUserInfo()
     if (!userInfo?.id) return
 
     if (isIdleLogoutDue()) {
@@ -127,7 +124,7 @@ export function useIdleSessionWarning() {
   }
 
   const onActivity = () => {
-    if (!wsCache.get(appStore.getUserInfo)?.id) return
+    if (!getAuthUserInfo()?.id) return
     markSessionActive()
     if (!isSessionRenewalPaused()) {
       clearLogoutTimer()
@@ -139,7 +136,7 @@ export function useIdleSessionWarning() {
       window.addEventListener(eventName, onActivity, { passive: true })
     })
     evaluateSession()
-    timer = setInterval(evaluateSession, CHECK_INTERVAL_MS)
+    timer = setInterval(evaluateSession, SESSION_CHECK_INTERVAL_MS)
   })
 
   onUnmounted(() => {

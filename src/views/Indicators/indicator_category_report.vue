@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard, ElTour, ElTourStep, ElText,ElSwitch } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElTreeSelect, ElStep, ElSteps, FormInstance, ElCard, ElTour, ElTourStep, ElText,ElSwitch } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -15,14 +15,15 @@ import {
   Filter,
   Download,
   Files,
-  View
+  View,
+  Search
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDialog, ElDrawer, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow, ElDescriptions, ElDescriptionsItem
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElDrawer, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow, ElDescriptions, ElDescriptionsItem, ElBadge
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
@@ -55,12 +56,14 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import * as turf from '@turf/turf'
 import { useAppStore } from '@/store/modules/app'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColumnPicker.vue'
 import { Icon as AppIcon } from '@/components/Icon'
 import { useAdjustableTableColumns, type AdjustableColumnSetting } from '@/composables/useAdjustableTableColumns'
+import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
 
 
 const MapBoxToken =
@@ -105,6 +108,64 @@ console.log('indicator_category_report.vue - User location info:', {
   isCountyRestricted: isCountyRestricted.value
 })
 
+const getProjectLocationOptionLabel = (item: Record<string, any>) => {
+  const primary =
+    item.settlement?.name ??
+    item.settlementName ??
+    item.location_name
+  if (primary) return primary
+  if (item.ward?.name && item.county?.name) return `${item.ward.name}, ${item.county.name}`
+  if (item.county?.name) return item.county.name
+  return item.id ? `Location #${item.id}` : 'Unknown location'
+}
+
+const getProjectLocationOptionSubLabel = (item: Record<string, any>) => {
+  const ward = item.ward?.name ?? item.settlement?.ward?.name ?? ''
+  const subcounty = item.subcounty?.name ?? item.settlement?.subcounty?.name ?? ''
+  const county = item.county?.name ?? item.settlement?.county?.name ?? ''
+  return [ward, subcounty, county].filter(Boolean).join(', ')
+}
+
+// Label the location with the level it was reported at, e.g. "Kibera Settlement",
+// "Langata Subcounty" — the most specific level present wins.
+const getRowSettlementLabel = (row: Record<string, any>) => {
+  const settlement = row.settlement?.name ?? row.project_location?.settlement?.name
+  if (settlement) return `${settlement} Settlement`
+
+  const ward = row.ward?.name ?? row.project_location?.ward?.name
+  if (ward) return `${ward} Ward`
+
+  const subcounty = row.subcounty?.name ?? row.project_location?.subcounty?.name
+  if (subcounty) return `${subcounty} Subcounty`
+
+  const county = row.county?.name ?? row.project_location?.county?.name
+  if (county) return `${county} County`
+
+  if (row.project_location?.location_name) return row.project_location.location_name
+  if (row.settlement_id) return `Settlement #${row.settlement_id}`
+  return 'National'
+}
+
+const applyProjectLocationFields = (selected: Record<string, any> | undefined | null) => {
+  if (!selected) return
+  // project_location only carries its own county/subcounty/ward FKs when location_type
+  // matches that level; for a settlement-level location, fall back to the settlement's
+  // own hierarchy (nested by the backend alongside project_location).
+  ruleForm.county_id = selected.county_id ?? selected.county?.id ?? selected.settlement?.county?.id ?? null
+  ruleForm.subcounty_id = selected.subcounty_id ?? selected.subcounty?.id ?? selected.settlement?.subcounty?.id ?? null
+  ruleForm.ward_id = selected.ward_id ?? selected.ward?.id ?? selected.settlement?.ward?.id ?? null
+  ruleForm.settlement_id = selected.settlement_id ?? selected.settlement?.id ?? null
+  ruleForm.geom = selected.geom ?? null
+}
+
+const ensureLocationFieldsFromSelection = () => {
+  if (!ruleForm.project_location_id || isNationalProject.value) return
+  const selected = project_locations.value.find((item) => item.id === ruleForm.project_location_id)
+  applyProjectLocationFields(selected)
+}
+
+const isReportNew = (row: Record<string, any>) => (row.status || 'New') === 'New'
+
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 const downloadLoading = ref(false)
@@ -117,13 +178,13 @@ console.log("showAdminButtons--->", showAdminButtons.value)
 
 const action_buttons = ref([])
 if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'delete', 'viewOnMap', 'preview']
+  action_buttons.value = ['edit', 'delete', 'viewOnMap', 'review']
 } else if (showEditButtons.value) {
 
-  action_buttons.value = ['edit', 'viewOnMap', 'preview']
+  action_buttons.value = ['edit', 'viewOnMap', 'review']
 }
 else {
-  action_buttons.value = ['viewOnMap', 'preview']
+  action_buttons.value = ['viewOnMap']
 
 }
 
@@ -148,7 +209,7 @@ const total = ref(0)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 10;
+const defaultPageSize = 5;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 
@@ -212,7 +273,9 @@ const ruleForm = reactive({
   comments: '',
   units: 'Quantity',
   qualitative:'',
-  cumUnits: 'Cumulative(qty)'
+  cumUnits: 'Cumulative(qty)',
+  status: '',
+  reject_msg: '',
 })
 
 const rules = reactive<FormRules>({
@@ -258,7 +321,9 @@ const rules = reactive<FormRules>({
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
-const PreviewDialog = ref(false)
+const ReviewDialog = ref(false)
+const RejectDialog = ref(false)
+const rejectReason = ref('')
 const formHeader = ref('Add M&E Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
@@ -266,9 +331,45 @@ const addMoreDocuments = ref(false)
 
 
 
-const showEditSaveButton = ref(false)
 
 let tableDataList = ref<UserType[]>([])
+
+// One "filing" = one bulk submission; all its per-indicator reports share a code.
+// Older/imported rows without a shared code fall back to standalone one-report filings.
+const filingGroups = computed(() => {
+  const groups = new Map<string, { code: string; first: Record<string, any>; reports: any[] }>()
+  for (const row of tableDataList.value as any[]) {
+    const key = row.code || `report-${row.id}`
+    let group = groups.get(key)
+    if (!group) {
+      group = { code: key, first: row, reports: [] }
+      groups.set(key, group)
+    }
+    group.reports.push(row)
+  }
+  return [...groups.values()]
+})
+
+const filingStatusCounts = (group: { reports: any[] }) => {
+  const counts: Record<string, number> = {}
+  for (const r of group.reports) {
+    const s = r.status || 'New'
+    counts[s] = (counts[s] || 0) + 1
+  }
+  return counts
+}
+
+const statusTagType = (status: string) =>
+  status === 'Approved' ? 'success' : status === 'Rejected' ? 'danger' : 'warning'
+
+// Filing row color: any rejection needs attention first, then fully-approved,
+// otherwise the filing still has pending reports.
+const filingRowClassName = ({ row }: { row: { reports: any[] } }) => {
+  const statuses = row.reports.map((r) => r.status || 'New')
+  if (statuses.some((s) => s === 'Rejected')) return 'danger-row'
+  if (statuses.every((s) => s === 'Approved')) return 'success-row'
+  return ''
+}
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = []
@@ -276,7 +377,7 @@ var filterValues = []  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'indicator_category']
+const associated_multiple_models = ['document', 'settlement', 'county', 'ward', 'subcounty', 'users', 'indicator_category', 'activity', 'project', 'project_location']
 //const nested_models = ['indicator_category', 'indicator', 'category']  // The mother, then followed by the child
 const nested_models = ['activity', 'project']  // The mother, then followed by the child
 
@@ -302,8 +403,9 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
-  selectedSettlements.value = []
-  selectedIndicators.value = []
+  locationLevel.value = null
+  filterProgrammeId.value = null
+  reportSearchText.value = ''
   pageSize.value = 5
   currentPage.value = 1
   tblData = []
@@ -356,46 +458,6 @@ const DownloadXlsx = async () => {
 
   // Download the file
   xlsx([dataObj], { fileName: "Indicator_Category_Reports.xlsx" })
-}
-
-const handleSettlementFilter = async (settlements: any) => {
-  var selectOption = 'settlement_id'
-  var index = filters.indexOf(selectOption)
-  
-  // Remove existing filter if present
-  if (index !== -1) {
-    filters.splice(index, 1)
-    filterValues.splice(index, 1)
-  }
-  
-  // Add new filter if settlements selected
-  if (settlements && settlements.length > 0) {
-    filters.push(selectOption)
-    filterValues.push(settlements)
-  }
-  
-  console.log('Settlement Filter:', settlements)
-  getFilteredData(filters, filterValues)
-}
-
-const handleIndicatorFilter = async (indicators: any) => {
-  var selectOption = 'indicator_category_id'
-  var index = filters.indexOf(selectOption)
-  
-  // Remove existing filter if present
-  if (index !== -1) {
-    filters.splice(index, 1)
-    filterValues.splice(index, 1)
-  }
-  
-  // Add new filter if indicators selected
-  if (indicators && indicators.length > 0) {
-    filters.push(selectOption)
-    filterValues.push(indicators)
-  }
-  
-  console.log('Indicator Filter:', indicators)
-  getFilteredData(filters, filterValues)
 }
 
 const handleSelectIndicatorCategory = async (indicator: any) => {
@@ -527,6 +589,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  // Page by filing (shared code), not by individual report row
+  formData.groupByCode = true
+
+  if (filterProgrammeId.value != null) {
+    formData.programmeId = filterProgrammeId.value
+  }
+
+  // Free-text search across indicator name/category and project title
+  if (reportSearchText.value?.trim()) {
+    formData.reportSearch = reportSearchText.value.trim()
+  }
 
   //-------------------------
   //console.log(formData)
@@ -551,100 +624,186 @@ const projectOptionsAll = ref([])
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
+const selectedProgrammeId = ref<number | null>(null)
+const selectedComponentId = ref<number | null>(null)
+const programmeList = ref<Array<{ id: number; title: string; acronym: string; parentId: number | string | null }>>([])
+const componentFilterOptions = ref<Array<{ value: number; label: string; programmeId: number }>>([])
+
+const programmeTreeData = computed(() => {
+  const roots = programmeList.value.filter((p) => p.parentId == null || p.parentId === '')
+  return roots.map((root) => ({
+    value: root.id,
+    label: root.title || root.acronym,
+    children: programmeList.value
+      .filter((p) => String(p.parentId) === String(root.id))
+      .map((p) => ({
+        value: p.id,
+        label: p.title || p.acronym,
+      })),
+  }))
+})
+
+const loadProgrammeOptions = async () => {
+  try {
+    const res = await getProgrammesList({})
+    programmeList.value = Array.isArray(res?.data) ? res.data : []
+  } catch (error) {
+    console.error('Failed to load programme options:', error)
+    programmeList.value = []
+  }
+}
+
+const loadComponentFilterOptions = async () => {
+  if (selectedProgrammeId.value == null) {
+    componentFilterOptions.value = []
+    return
+  }
+  try {
+    const res = await getComponentsList({
+      params: { programme_ids: String(selectedProgrammeId.value) },
+    })
+    const rows = Array.isArray(res?.data) ? res.data : []
+    componentFilterOptions.value = rows.map((c: any) => ({
+      value: c.id,
+      label: c.title || c.acronym,
+      programmeId: c.programme_id,
+    }))
+  } catch (error) {
+    console.error('Failed to load component options:', error)
+    componentFilterOptions.value = []
+  }
+}
+
+const projectMatchesProgrammeComponent = (project: Record<string, any>) => {
+  if (selectedComponentId.value != null) {
+    return project.component_id === selectedComponentId.value
+  }
+  if (selectedProgrammeId.value != null) {
+    const allowedIds = componentFilterOptions.value.map((c) => c.value)
+    if (!allowedIds.length) return false
+    return project.component_id != null && allowedIds.includes(project.component_id)
+  }
+  return true
+}
+
+const onProgrammeFilterChange = async () => {
+  selectedComponentId.value = null
+  prj_obj.value = null
+  ruleForm.project_id = null
+  ruleForm.project_location_id = null
+  project_locations.value = []
+  await loadComponentFilterOptions()
+  projectOptions.value = getFilteredProjects('')
+}
+
+const onComponentFilterChange = () => {
+  prj_obj.value = null
+  ruleForm.project_id = null
+  ruleForm.project_location_id = null
+  project_locations.value = []
+  projectOptions.value = getFilteredProjects('')
+}
+
 // Filter options and selections
 const allProjectLocations = ref([])
-const settlementFilterOptions = ref([])
-const indicatorFilterOptions = ref([])
-const selectedSettlements = ref([])
-const selectedIndicators = ref([])
+
+// Location level filter: which administrative level the report was filed at.
+// null scalar filters as IS NULL, '__not_null__' as IS NOT NULL (backend sentinel).
+const locationLevel = ref<string | null>(null)
+const reportSearchText = ref('')
+
+// Programme filter — resolved server-side through project -> component -> programme;
+// picking a parent programme includes its sub-programmes.
+const filterProgrammeId = ref<number | null>(null)
+
+const onProgrammeFilter = () => {
+  page.value = 1
+  currentPage.value = 1
+  getFilteredData(filters, filterValues)
+}
+
+// Map needs geometry; review only applies to reports still awaiting a decision.
+const rowActionButtons = (row: Record<string, any>) =>
+  action_buttons.value.filter((b) => {
+    if (b === 'viewOnMap') return !!row.geom
+    if (b === 'review') return isReportNew(row)
+    return true
+  })
+
+// Clicking anywhere on a filing row expands/collapses it, except on the row's own
+// controls (e.g. the Documents button), which keep their own behaviour.
+// Accordion: expand-row-keys is the single source of truth, so opening one filing
+// closes any other.
+const expandedFilingKeys = ref<string[]>([])
+
+const setExpandedFiling = (code: string | null) => {
+  expandedFilingKeys.value = code ? [code] : []
+}
+
+const onFilingRowClick = (row: any, _column: any, event: MouseEvent) => {
+  const target = event?.target as HTMLElement | null
+  if (target?.closest('button, a, input, .el-tag')) return
+  setExpandedFiling(expandedFilingKeys.value.includes(row.code) ? null : row.code)
+}
+
+// Fires for the expand arrow too, keeping it in step with row clicks
+const onFilingExpandChange = (row: any, expanded: boolean) => {
+  setExpandedFiling(expanded ? row.code : null)
+}
+
+const locationLevelFields = ['county_id', 'subcounty_id', 'ward_id', 'settlement_id']
+const levelFilterSpecs: Record<string, Record<string, any>> = {
+  national: { county_id: null },
+  county: { county_id: '__not_null__', subcounty_id: null, ward_id: null, settlement_id: null },
+  subcounty: { subcounty_id: '__not_null__', ward_id: null, settlement_id: null },
+  ward: { ward_id: '__not_null__', settlement_id: null },
+  settlement: { settlement_id: '__not_null__' },
+}
 
 const hasActiveFilters = computed(
   () =>
-    (Array.isArray(selectedSettlements.value) && selectedSettlements.value.length > 0) ||
-    (Array.isArray(selectedIndicators.value) && selectedIndicators.value.length > 0) ||
+    locationLevel.value != null ||
+    filterProgrammeId.value != null ||
+    reportSearchText.value.trim() !== '' ||
     filters.length > 0
 )
 
-
-// Borrowed word for word from ProjectDetails.vue
-const firstLoad = ref(true)
-
-const remoteMethodSettlement = async (keyword) => {
-  loading.value = true
-  let model = 'settlement' // Always search settlements for this filter
-
-  // Dynamically assign associated models
-  const associatedModels = ['county', 'subcounty', 'ward']
-
-  const formData = {
-    model: model,
-    searchField: 'name',
-    searchKeyword: firstLoad.value ? '' : keyword, // only empty search on first load
-    excludeGeom: false,
-    excludeGeomAssoc: true,
-    associated_multiple_models: associatedModels,
-    filters: [],
-    filterValues: [],
-    limit: 50, // Limit to first 50 records
-    offset: 0
-  }
-
-  try {
-    const res = await searchByKeyWord(formData)
-
-    if (res.data && res.data.length > 0) {
-      settlementFilterOptions.value = res.data.map(item => {
-        const base = {
-          value: item.id,
-          label: item.name,
-          name: item.name,
-          geom: item.geom,
-        }
-
-        return {
-          ...base,
-          settlement_id: item.id,
-          county: item.county?.name,
-          subcounty: item.subcounty?.name,
-          ward: item.ward?.name,
-          county_id: item.county?.id,
-          subcounty_id: item.subcounty?.id,
-          ward_id: item.ward?.id
-        }
-      })
+const clearLocationFilters = () => {
+  for (const field of locationLevelFields) {
+    const idx = filters.indexOf(field)
+    if (idx !== -1) {
+      filters.splice(idx, 1)
+      filterValues.splice(idx, 1)
     }
-
-    firstLoad.value = false // Disable first load flag after first run
-    
-  } catch (error) {
-    console.error("Settlement search error:", error)
   }
-
-  loading.value = false
 }
 
+const onLocationLevelChange = (level: string | null) => {
+  clearLocationFilters()
 
-const getIndicatorFilterOptions = async () => {
-  const formData = {
-    curUser: 1,
-    model: 'indicator_category',
-    searchField: 'indicator_name',
-    searchKeyword: '',
-    assocModel: '',
-    filters: [],
-    filterValues: [],
-    associated_multiple_models: [],
-    nested_models: [],
-  };
+  const spec = level ? levelFilterSpecs[level] : null
+  if (spec) {
+    for (const [field, value] of Object.entries(spec)) {
+      filters.push(field)
+      filterValues.push(value)
+    }
+  }
 
-  const res = await getSettlementListByCounty(formData);
-  console.log('Indicator Filter Options Response:', res);
+  page.value = 1
+  currentPage.value = 1
+  getFilteredData(filters, filterValues)
+}
 
-  indicatorFilterOptions.value = res.data.map((item) => ({
-    value: item.id,
-    label: `${item.indicator_name} | ${item.category_title}`,
-  }));
-};
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+const onReportSearch = () => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    page.value = 1
+    currentPage.value = 1
+    getFilteredData(filters, filterValues)
+  }, 350)
+}
+
 
 const getIndicatorNames = async () => {
   console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>');
@@ -657,16 +816,14 @@ const getIndicatorNames = async () => {
     assocModel: '',
     filters: [],
     filterValues: [],
-    associated_multiple_models: ['project', 'category', 'activity', 'indicator'],
-    nested_models: ['activity', 'project'],
+    associated_multiple_models: ['category', 'activity', 'indicator'],
+    nested_models: [],
   };
 
   const res = await getSettlementListByCounty(formData);
   console.log('indicator_category Response:', res);
 
   res.data.forEach((arrayItem) => {
-    //console.log('=====>', arrayItem);
-
     const opt = {
       value: arrayItem.id,
       label: `${arrayItem.indicator_name} | ${arrayItem.category.category}`,
@@ -675,33 +832,38 @@ const getIndicatorNames = async () => {
       unit: arrayItem.indicator.unit,
     };
 
-    // Collect only output indicators
-    ///if (arrayItem.indicator_level === 'activity') {
     indicatorsOptions.value.push(opt);
     indicatorsOptionsFiltered.value.push(opt);
-    //  }
-
-    // Check if `activity` exists and has `projects`
-    if (arrayItem.activity && Array.isArray(arrayItem.activity.projects)) {
-      arrayItem.activity.projects.forEach((project) => {
-        const prj = {
-          value: project.id,
-          label: project.title,
-          implementation_scope: project.implementation_scope,
-          programme_implementation_id: project.implementation_id,
-        };
-        projectOptions.value.push(prj);
-        projectOptionsAll.value.push(prj);
-
-      });
-    } else {
-      console.log('No projects found for this activity');
-
-    }
   });
 
- 
+};
 
+// Load every project with its project_locations bundled in one request — the backend
+// nests settlement/ward/subcounty/county (and settlement's own hierarchy for
+// settlement-level locations) on each project_location, so selecting a project for
+// reporting needs no follow-up location fetch or client-side matching.
+const loadProjectsWithLocations = async () => {
+  const formData = {
+    model: 'project',
+    searchField: 'title',
+    searchKeyword: '',
+    filters: [],
+    filterValues: [],
+    associated_multiple_models: ['project_location'],
+    returnAll: true,
+  };
+
+  const res = await getSettlementListByCounty(formData);
+
+  projectOptionsAll.value = (res.data || []).map((project) => ({
+    value: project.id,
+    label: project.title,
+    implementation_scope: project.implementation_scope,
+    programme_implementation_id: project.implementation_id,
+    component_id: project.component_id ?? null,
+    project_locations: project.project_locations ?? [],
+  }));
+  projectOptions.value = getFilteredProjects('');
 };
 
 
@@ -709,96 +871,84 @@ const getIndicatorNames = async () => {
 
 
 
-const editReport = async (data: TableSlotDefault) => {
-  showSubmitBtn.value = false;
-  await getProjectLocations(data.project_id); // Ensure you have project locations if needed
+// Editing a filed report only changes its reported values — project, location and
+// indicator are fixed at filing time, so this uses a small dedicated drawer instead
+// of the multi-step add wizard.
+const EditReportVisible = ref(false)
+const editRow = ref<Record<string, any> | null>(null)
+const editSaving = ref(false)
+const editModel = reactive({
+  amount: 0,
+  qualitative: 'No',
+  date: null as any,
+  comments: '',
+})
 
-  showEditSaveButton.value = true;
-  console.log('editReport', data);
+// Unit lives on `indicator`; indicatorsOptions maps indicator_category id -> unit.
+const unitForIndicatorCategory = (id: number) =>
+  indicatorsOptions.value.find((o: any) => o.value === id)?.unit ?? ''
 
-  // Pre-populate form fields except for indicators
-  ruleForm.id = data.id;
-  ruleForm.county_id = data.county_id;
-  ruleForm.subcounty_id = data.subcounty_id;
-  ruleForm.settlement_id = data.settlement_id;
-   ruleForm.activity_id = data.activity_id;
-  ruleForm.date = data.date;
-  ruleForm.amount = data.amount;
-  ruleForm.indicator_category_id = [data.indicator_category_id];
-  ruleForm.programme_implementation_id = data.programme_implementation_id;
-  ruleForm.project_location_id = data.project_location_id;
-  ruleForm.ward_id = data.ward_id;
-  ruleForm.code = data.code;
-  ruleForm.progress = data.progress;
-  ruleForm.project_status = data.project_status;
-  ruleForm.disbursement = data.disbursement;
-  ruleForm.comments = data.comments;
-  ruleForm.project_id = data.project_id;
-  ruleForm.qualitative= data.qualitative;
+const isQualitativeReport = (row: Record<string, any>) =>
+  unitForIndicatorCategory(row.indicator_category_id) === 'Yes/No' ||
+  ['yes', 'no', 'true', 'false'].includes(String(row.qualitative ?? '').toLowerCase())
 
- // handleIndicatorsChange([data.indicator_category_id])
+const reportAmountDisplay = (row: Record<string, any>) => {
+  if (!isQualitativeReport(row)) return row.amount ?? 0
+  return ['yes', 'true', '1'].includes(String(row.qualitative ?? '').toLowerCase())
+    ? 'True'
+    : 'False'
+}
 
+const editIsQualitative = computed(
+  () => unitForIndicatorCategory(editRow.value?.indicator_category_id) === 'Yes/No'
+)
 
-   // Get the project object from projectOptions that matches the project_id
-   const selectedProject = projectOptionsAll.value.find(project => project.value === data.project_id);
-  if (selectedProject) {
-    prj_obj.value = selectedProject;  // Assign the full project object, not just the ID
+const editReport = (data: Record<string, any>) => {
+  editRow.value = data
+  editModel.amount = Number(data.amount ?? 0)
+  editModel.qualitative = data.qualitative ?? 'No'
+  editModel.date = data.date ?? new Date()
+  editModel.comments = data.comments ?? ''
+  EditReportVisible.value = true
+}
+
+const saveEditedReport = async () => {
+  const row = editRow.value
+  if (!row) return
+
+  editSaving.value = true
+  try {
+    // The row's stored cumAmount already includes its own amount, so removing it
+    // gives the cumulative base carried in from earlier reports.
+    const base = Number(row.cumAmount ?? 0) - Number(row.amount ?? 0)
+    const amount = editIsQualitative.value ? 0 : Number(editModel.amount ?? 0)
+    const cumAmount = base + amount
+    const target = Number(row.target ?? 0)
+    const progress = target > 0 ? ((cumAmount / target) * 100).toFixed(2) : '0.00'
+
+    await updateOneRecord({
+      model,
+      id: row.id,
+      amount,
+      qualitative: editIsQualitative.value ? editModel.qualitative : row.qualitative,
+      date: editModel.date,
+      comments: editModel.comments,
+      cumAmount,
+      cumProgress: progress,
+      progress,
+    })
+
+    ElMessage.success('Report updated')
+    EditReportVisible.value = false
+    await getFilteredData(filters, filterValues)
+    syncDrawerRow()
+  } catch (error: any) {
+    console.error('Failed to update report:', error)
+    ElMessage.error(error.response?.data?.message || 'Failed to update report')
+  } finally {
+    editSaving.value = false
   }
-
-
-
-  // Files/Documents linked to this report
-  fileUploadList.value = data.documents;
-
-  // Now handle the indicators separately, populating dynamic data
-     handleIndicatorsChange([data.indicator_category_id]) // If indicators data is passed, map it. If not, leave it empty.
-
-     changeIndicator(data.indicator_category_id)
-
-     // Ensure indicators have default values if necessary
-      ruleForm.indicators = ruleForm.indicators.map((indicator: any) => ({
-        ...indicator,
-        cumAmount: ruleForm.cumAmount || 0,
-        amount: ruleForm.amount || 0,
-        progress: ruleForm.progress || '0.00',
-        cumProgress: ruleForm.cumProgress || '0.00',
-        date: ruleForm.date || new Date(),
-        target: ruleForm.target || 0,
-        baseline: ruleForm.baseline || 0,
-       qualitative: ruleForm.qualitative || 'No',
-        activity_id: ruleForm.activity_id || ruleForm.activity_id, // If needed
-      }));
-
-      console.log('ruleForm.indicators', ruleForm.indicators);
-
-
-
-  console.log('ruleForm.indicatorsEditing', ruleForm.indicator_category_id);
-
-   
-
-  // Header for the dialog when editing
-  formHeader.value = 'Edit Report';
-
-  // Fetch cumulative progress for editing indicators
-  getCumulativeProgressEditPhase(data.indicator_category_id);
-  changeIndicator(data.indicator_category_id); // This might depend on the `indicator_category_id`
-
-  // Check if project scope is National (optional for the form)
-  const thisProject = projectOptionsAll.value.filter(prj => prj.value == data.project_id);
-  console.log('Edit thisProject', thisProject);
-  isNationalProject.value = thisProject && thisProject[0].implementation_scope === 'National';
-
-  // Open the dialog for editing
-  activeStep.value = 0
-  AddDialogVisible.value = true
-};
-
-
-
-
-
- 
+}
 
 
 const DeleteReport = (data: TableSlotDefault) => {
@@ -839,7 +989,6 @@ const currentRow = ref()
 
 const handleClose = () => {
   showSubmitBtn.value = true
-  showEditSaveButton.value = false
   activeStep.value = 0
   ruleForm.indicator_category_id = null
   ruleForm.date = null
@@ -855,58 +1004,29 @@ const handleClose = () => {
 
 const project_locations = ref([])
 const getProjectLocations = async (project_id) => {
-  console.log('project_id', project_id);
-  console.log("Get Locations for  proejct : ", project_id)
+  console.log("Get Locations for project:", project_id)
 
-  // Get the project settlement ids
+  // Locations arrive bundled with the projects (loadProjectsWithLocations), fully
+  // resolved by the backend — just pick them off the selected project option.
+  const bundled = projectOptionsAll.value.find((p) => p.value === project_id)
+  if (bundled?.project_locations?.length) {
+    project_locations.value = bundled.project_locations
+    return
+  }
+
+  // Fallback (e.g. options not loaded yet): fetch this one project with its locations.
   const formData = {
-    model: 'project_location',
+    model: 'project',
     searchField: 'name',
     searchKeyword: '',
-    filters: ['project_id'],
+    filters: ['id'],
     filterValues: [[project_id]],
-    associated_multiple_models: []
+    associated_multiple_models: ['project_location']
   };
 
   const res = await getSettlementListByCounty(formData);
-  const sett_ids = res.data.map(item => item.settlement_id); // Extract settlement_id
-  console.log('sett_ids', sett_ids);
 
-  // Fetch settlements and their details
-  const form = {
-    model: 'settlement',
-    filters: ['id'],
-    filterValues: [sett_ids],
-    excludeGeom: true,
-    associated_multiple_models: ['county', 'subcounty', 'ward']
-  };
-
-  const setts = await getSettlementListByCounty(form);
-  console.log('setts', setts);
-
-  // Map settlements to include additional details
-  const settlements = setts.data.map(item => ({
-    county: item.county.name,
-    subcounty: item.subcounty.name,
-    ward: item.ward.name,
-    settlement: item.name,
-    settlement_id: item.id
-  }));
-
-  // Join project locations with settlement details based on settlement_id
-  project_locations.value = res.data.map(projectLocation => {
-    const settlement = settlements.find(sett => sett.settlement_id === projectLocation.settlement_id);
-    return {
-      ...projectLocation,
-      county: settlement ? settlement.county : null,
-      subcounty: settlement ? settlement.subcounty : null,
-      ward: settlement ? settlement.ward : null,
-      settlementName: settlement ? settlement.settlement : null
-    };
-  });
-
-
-  console.log('project_locations', project_locations.value);
+  project_locations.value = res.data?.[0]?.project_locations ?? [];
 };
 
 
@@ -1036,7 +1156,12 @@ const changeProject = async (project: any) => {
 
 
   // Merging the two arrays
-  const merged_indicators = [...sel_indicators, ...outcome_indicators];
+  // An indicator_category can be reached from both sources (activity-level and
+  // project-level), so drop repeats — a duplicated option lets the same indicator be
+  // picked twice, which files two reports for it.
+  const merged_indicators = [...sel_indicators, ...outcome_indicators].filter(
+    (item, i, arr) => arr.findIndex((other) => other.id === item.id) === i
+  );
 
   console.log('merged_indicators', merged_indicators)
 
@@ -1081,25 +1206,24 @@ const changeProject = async (project: any) => {
 
 
 const changeLocation = async (location: any) => {
-  console.log('changeLocation', location)
-
   const selected_location = project_locations.value.find(
     (item) => item.id === location
   );
 
-  console.log('selected_location', selected_location)
+  if (!selected_location) return
 
+  // Bundled locations arrive without geom (stripped for payload size) — fetch it once
+  // and cache it on the location so re-applies (e.g. on submit) keep it.
+  if (!selected_location.geom) {
+    try {
+      const res = await getOneGeo({ model: 'project_location', id: selected_location.id })
+      selected_location.geom = res.data?.[0]?.json_build_object?.features?.[0]?.geometry ?? null
+    } catch (error) {
+      console.error('Failed to fetch project location geometry:', error)
+    }
+  }
 
-  ruleForm.county_id = selected_location.county_id
-  ruleForm.subcounty_id = selected_location.subcounty_id
-  ruleForm.ward_id = selected_location.ward_id
-  ruleForm.settlement_id = selected_location.settlement_id
-  ruleForm.geom = selected_location.geom
-  //ruleForm.project_location_id = location.id
-
-
-  console.log('changeLocationruleForm', ruleForm)
-
+  applyProjectLocationFields(selected_location)
 }
 
 
@@ -1157,7 +1281,11 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       return;
     }
 
+    ensureLocationFieldsFromSelection()
+
     const submittedReportIds = [];
+    // One filing = one submission; every indicator report in it shares this code.
+    const filingCode = uuid.v4();
 
     for (const indicator of ruleForm.indicators) {
       // Calculate new cumulative amount
@@ -1171,7 +1299,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       const reportPayload = {
         model: 'indicator_category_report',
         period: getQuarter(),
-        code: uuid.v4(),
+        code: filingCode,
         userId: userInfo.id,
         project_id: prj_obj.value.value,
         project_location_id: ruleForm.project_location_id,
@@ -1208,6 +1336,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
     // Upload files for each created report
     if (submittedReportIds.length && fileUploadList.value.length) {
+      let totalSkipped = 0
       for (const reportId of submittedReportIds) {
         const formData = new FormData();
 
@@ -1225,7 +1354,11 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         formData.append('code', uuid.v4());
 
         const uploaded = await uploadFilesBatch(formData);
+        totalSkipped += uploaded?.stats?.skipped ?? 0
         console.log(`Files uploaded for report ID ${reportId}:`, uploaded.data);
+      }
+      if (totalSkipped > 0) {
+        ElMessage.warning(`${totalSkipped} duplicate document(s) skipped — already attached`)
       }
     }
 
@@ -1240,97 +1373,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
  
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
-
-  await formEl.validate(async (valid, fields) => {
-    if (!valid) {
-      console.log('Form validation failed:', fields);
-      return;
-    }
-
-    const updatedReportIds = [];
-
-    console.log('ruleForm.indicators',ruleForm.indicators)
-
-    for (const indicator of ruleForm.indicators) {
-      // Calculate new cumulative amount
-      const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
-
-      // Calculate progress = 100 * (cumAmount / target)
-      const progress = isFinite(updatedCumAmount / (indicator.target || 1))
-        ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
-        : '0.00';
-
-      console.log(ruleForm.qualitative,ruleForm.qualitative,)
-      const reportPayload = {
-        model: 'indicator_category_report',
-        id: ruleForm.id, // Use existing report ID to update
-        period: getQuarter(),
-        code: uuid.v4(),
-        userId: userInfo.id,
-        project_id: prj_obj.value.value,
-        project_location_id: ruleForm.project_location_id,
-        indicator_category_id: indicator.id,
-        amount: indicator.amount || 0,
-        baseline: indicator.baseline || 0,
-        target: indicator.target || 0,
-        date: indicator.date || new Date(),
-        cumAmount: updatedCumAmount,
-        cumProgress: progress,
-        progress: progress,
-        comments: ruleForm.comments,
-        programme_implementation_id: ruleForm.programme_implementation_id,
-        settlement_id: ruleForm.settlement_id,
-        county_id: ruleForm.county_id,
-        subcounty_id: ruleForm.subcounty_id,
-        ward_id: ruleForm.ward_id,
-        activity_id: ruleForm.activity_id,
-        qualitative: indicator.qualitative,
-
-      };
-
-      // Update individual indicator report
-      const updatedReport = await updateOneRecord(reportPayload);  // Assuming `UpdateRecord` is the function to update the report
-      console.log(`Report updated for indicator ${indicator.label}: ID ${updatedReport.data.id}`);
-
-      updatedReportIds.push(updatedReport.data.id);
-    }
-
-    // Upload files for each updated report
-    if (updatedReportIds.length && fileUploadList.value.length) {
-      for (const reportId of updatedReportIds) {
-        const formData = new FormData();
-
-        fileUploadList.value.forEach((file) => {
-          formData.append('files', file.raw);
-          formData.append('format', file.name.split('.').pop());
-          formData.append('field_id', 'report_id');
-          formData.append('category', 56);
-          formData.append('report_id', parseInt(reportId));
-          formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
-          formData.append('createdBy', userInfo.id);
-          formData.append('protected', false);
-        });
-
-        formData.append('code', uuid.v4());
-
-        const uploaded = await uploadFilesBatch(formData);
-        console.log(`Files uploaded for report ID ${reportId}:`, uploaded.data);
-      }
-    }
-
-    // Reset the form
-    emptyRuleForm();
-    page.value = 1
-    currentPage.value = 1
-    await getFilteredData(filters, filterValues)
-    AddDialogVisible.value = false;
-    handleClose();
-  });
-};
-
-
 const batchData = ref([])
 const submitBatchImport = async () => {
   console.log('upload--->', uploadedData.value)
@@ -1392,6 +1434,11 @@ const getCumulativeProgress = async () => {
   if (ruleForm.settlement_id) {
     filters.push('settlement_id')
     filterValues.push([ruleForm.settlement_id])
+  }
+
+  if (ruleForm.project_location_id) {
+    filters.push('project_location_id')
+    filterValues.push([ruleForm.project_location_id])
   }
 
 
@@ -1460,87 +1507,6 @@ const getCumulativeProgress = async () => {
 }
 
 
-const getCumulativeProgressEditPhase = async (indicator_category_id) => {
-
-  console.log('programme_implementation_id', [ruleForm.programme_implementation_id])
-  var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
-  ]
-
-  var filterValues = [[userInfo.id], [indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
-
-
-  if (ruleForm.settlement_id) {
-    filters.push('settlement_id')
-    filterValues.push([ruleForm.settlement_id])
-
-
-  }
-
-
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = []
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = []
-  formData.nested_models = nested_models
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-
-  console.log('Editing.. Get Last Report', res.data)
-
-
-  function getReportBeforeCurrentID(dataList, currentID) {
-    if (dataList.length === 0) {
-      return null;
-    }
-
-    // Filter the dataList to get records with IDs less than currentID
-    const filteredRecords = dataList.filter((obj) => obj.id < currentID);
-
-    if (filteredRecords.length === 0) {
-      return null; // No record before the currentID
-    }
-
-    // Find the object with the maximum ID from the filtered records
-    const objectWithLatestID = filteredRecords.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj));
-
-    // Return the object with the maximum ID (last record before currentID)
-    return objectWithLatestID;
-  }
-
-
-  // Get the object with the latest date
-
-  const objectWithLatestDate = getReportBeforeCurrentID(res.data, ruleForm.id);
-  console.log('objectWithLatestDate', objectWithLatestDate);
-
-
-  //ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  //ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
-  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
-  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
-
-  console.log('cumProgress ats tart', ruleForm);
-
-
-
-}
 /// Import multiple reports - ----------------
 // ----------------------------------------------
 //const parentModels = ['county']
@@ -1751,14 +1717,8 @@ const submitFiles = async () => {
 getModeldefinition(model)
 
 getIndicatorNames()
-
-// Load filter options - initialize settlement search
-remoteMethodSettlement('').then(() => {
-  console.log('Settlement filter options loaded successfully')
-}).catch(err => {
-  console.error('Failed to load settlement filter options:', err)
-})
-getIndicatorFilterOptions()
+loadProjectsWithLocations()
+loadProgrammeOptions()
 
 //getCategoryOptions()
 getInterventionsAll()
@@ -1777,6 +1737,7 @@ const tableRowClassName = (data) => {
     return 'success-row'
   }
 
+  // New / not-yet-reviewed reports stay unstyled
   return ''
 }
 
@@ -1799,27 +1760,22 @@ console.log('IsMobile', isMobile)
 
 const dialogWidth = ref()
 const actionColumnWidth = ref()
-const previewWindowWidth = ref('40%')
+const reviewWindowWidth = ref('40%')
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
-  previewWindowWidth.value = "100%"
+  reviewWindowWidth.value = "100%"
 } else {
   dialogWidth.value = "45%"
   actionColumnWidth.value = "160px"
-  previewWindowWidth.value = "40%"
+  reviewWindowWidth.value = "40%"
 }
 
 const reportColumnDefaults = (): AdjustableColumnSetting[] => [
   { key: 'indicator', label: 'Indicator', width: undefined as any, minWidth: 160, visible: true, hideable: true },
   { key: 'category', label: 'Category', width: undefined as any, minWidth: 140, visible: true, hideable: true },
-  { key: 'settlement', label: 'Settlement', width: undefined as any, minWidth: 160, visible: true, hideable: true },
   { key: 'amount', label: 'Amount', width: undefined as any, minWidth: 100, visible: true, hideable: true },
-  { key: 'progress', label: 'Progress %', width: undefined as any, minWidth: 110, visible: true, hideable: true },
-  { key: 'date', label: 'Date', width: undefined as any, minWidth: 110, visible: true, hideable: true },
-  { key: 'status', label: 'Status', width: undefined as any, minWidth: 100, visible: true, hideable: true },
-  { key: 'documents', label: 'Documents', width: 120, minWidth: 100, visible: true, hideable: true },
 ]
 
 const {
@@ -1834,18 +1790,15 @@ const {
 } = useAdjustableTableColumns('indicatorCategoryReportTableColumnsV1', reportColumnDefaults)
 
 const equalDataColumnsVisible = computed(
-  () =>
-    isColumnVisible('indicator') &&
-    isColumnVisible('category') &&
-    isColumnVisible('settlement')
+  () => isColumnVisible('indicator') && isColumnVisible('category')
 )
 
-const flexColumnMinWidth = (key: 'indicator' | 'category' | 'settlement' | 'amount' | 'progress' | 'date' | 'status') => {
+const flexColumnMinWidth = (key: 'indicator' | 'category' | 'amount') => {
   const min = columnMinWidth(key) ?? 120
   const w = columnWidth(key)
   if (typeof w === 'number' && w > 40) {
-    if (equalDataColumnsVisible.value && ['indicator', 'category', 'settlement'].includes(key)) {
-      const saved = (['indicator', 'category', 'settlement'] as const)
+    if (equalDataColumnsVisible.value && ['indicator', 'category'].includes(key)) {
+      const saved = (['indicator', 'category'] as const)
         .map((k) => columnWidth(k))
         .filter((n): n is number => typeof n === 'number' && n > 40)
       if (saved.length) return Math.max(min, ...saved)
@@ -1855,10 +1808,6 @@ const flexColumnMinWidth = (key: 'indicator' | 'category' | 'settlement' | 'amou
   return min
 }
 
-const documentsColumnWidth = () => {
-  const w = columnWidth('documents')
-  return typeof w === 'number' && w > 40 ? w : 120
-}
 
 
 
@@ -1898,13 +1847,10 @@ function disabledFutureDates(date) {
 
 const report = ref({})
 
-const preview = (data: TableSlotDefault) => {
-  console.log('Previewing report:', data)
-  
-  // Populate report data for the preview dialog
+const review = (data: TableSlotDefault) => {
   report.value = {
     project: data.project?.title || 'N/A',
-    location: data.settlement?.name || 'N/A',
+    location: getRowSettlementLabel(data),
     indicator: data.indicator_category?.indicator_name || 'N/A',
     category: data.indicator_category?.category_title || 'N/A',
     amount: data.amount || 0,
@@ -1913,11 +1859,59 @@ const preview = (data: TableSlotDefault) => {
     user: data.user?.name || 'N/A',
     phone: data.user?.phone || 'N/A',
     comments: data.comments || 'N/A',
-    documents: data.documents || []
+    documents: data.documents || [],
   }
-  
-  // Open the preview dialog
-  PreviewDialog.value = true
+
+  ruleForm.id = data.id
+  ruleForm.status = data.status || 'New'
+  ruleForm.reject_msg = data.reject_msg || ''
+
+  ReviewDialog.value = true
+}
+
+const approve = async () => {
+  const approvalPayload = {
+    id: ruleForm.id,
+    status: 'Approved',
+    model: 'indicator_category_report',
+    userId: userInfo.id,
+  }
+
+  try {
+    await updateOneRecord(approvalPayload)
+    ReviewDialog.value = false
+    await getFilteredData(filters, filterValues)
+    ElMessage.success('Report approved successfully')
+  } catch (error) {
+    console.error('Error approving report:', error)
+    ElMessage.error('Failed to approve report')
+  }
+}
+
+const reject = () => {
+  RejectDialog.value = true
+}
+
+const confirmReject = async () => {
+  const rejectionPayload = {
+    id: ruleForm.id,
+    status: 'Rejected',
+    reject_msg: rejectReason.value,
+    model: 'indicator_category_report',
+    userId: userInfo.id,
+  }
+
+  try {
+    await updateOneRecord(rejectionPayload)
+    RejectDialog.value = false
+    ReviewDialog.value = false
+    rejectReason.value = ''
+    await getFilteredData(filters, filterValues)
+    ElMessage.success('Report rejected')
+  } catch (error) {
+    console.error('Error rejecting report:', error)
+    ElMessage.error('Failed to reject report')
+  }
 }
 
 
@@ -1941,17 +1935,27 @@ const closeDocumentDrawer = () => {
   selectedRowData.value = null
 }
 
+// After a refetch, re-point the open drawer at the fresh row — otherwise it keeps
+// showing the stale row object and new/removed documents never appear.
+const syncDrawerRow = () => {
+  if (!selectedRowData.value?.id) return
+  const updated = tableDataList.value.find((r: any) => r.id === selectedRowData.value.id)
+  if (updated) selectedRowData.value = updated
+}
+
 // Handle document drawer events
-const handleDocumentRefresh = () => {
+const handleDocumentRefresh = async () => {
   // Refresh the table data when documents are modified
-  getFilteredData(filters, filterValues)
+  await getFilteredData(filters, filterValues)
+  syncDrawerRow()
 }
 
 // Handle upload completion
-const handleUploadComplete = (response) => {
+const handleUploadComplete = async (response) => {
   console.log('Upload completed:', response)
   // Refresh the table data to show new documents
-  getFilteredData(filters, filterValues)
+  await getFilteredData(filters, filterValues)
+  syncDrawerRow()
   // Close the upload dialog
   addMoreDocuments.value = false
 }
@@ -1980,57 +1984,49 @@ const reportDetails = ref();
 const locationStatus = ref('')
 const projectLocationColor = ref('red')
 
+// getOneGeo returns a FeatureCollection whose `features` is null when the record has
+// no geometry — turf.centroid() crashes on that, so resolve it safely here.
+const fetchCentroid = async (model, id) => {
+  if (id == null) return null
+  try {
+    const res = await getOneGeo({ model, id })
+    const fc = res.data?.[0]?.json_build_object
+    if (!fc?.features?.length) return null
+    return turf.centroid(fc)
+  } catch (error) {
+    console.error(`Failed to load geometry for ${model} ${id}:`, error)
+    return null
+  }
+}
+
 const showMap = async (row) => {
   reportDetails.value = row
 
-
-  // get the geometry of teh reprot 
-  const formData = {}
-  formData.model = 'indicator_category_report'
-  formData.id = row.id
-  console.log(formData)
-  const res = await getOneGeo(formData)
-  const loc_geom = res.data[0].json_build_object
-  var centroid = turf.centroid(loc_geom);
-  console.log('centroid', centroid)
+  const centroid = await fetchCentroid('indicator_category_report', row.id)
+  if (!centroid) {
+    ElMessage.warning('This report has no location geometry to display on the map')
+    return
+  }
   reportGeom.value = centroid
 
-
-  // now get the geometry of the project lcoation 
-  console.log(row)
-  const projLocFormData = {}
-  projLocFormData.model = 'project_location'
-  projLocFormData.id = row.project_location_id
-
-  const prj_res = await getOneGeo(projLocFormData)
-  const proj_geom = prj_res.data[0].json_build_object
-  var proj_centroid = turf.centroid(proj_geom);
-  console.log('centroid', proj_centroid)
-  projectGeom.value = proj_centroid
-
-
-  console.log('  projectGeom.value', projectGeom.value)
-  console.log('  projectGeom.value', projectGeom.value)
-
+  const proj_centroid = await fetchCentroid('project_location', row.project_location_id)
+  // Without a project location the map still shows the report point; the project
+  // layers below all read projectGeom, so fall back to the report's own centroid.
+  projectGeom.value = proj_centroid || centroid
 
   dialogMap.value = true
 
-  //   projectGeom.value = reportDetails.value.project.geom
-
-
-
-  var options = { units: 'kilometers' };
-
-  var distance = turf.distance(proj_centroid, centroid, options);
-  console.log('distance , ', distance)
-
-  if (distance < 1) {
-    projectLocationColor.value = 'green'
+  if (proj_centroid) {
+    const distance = turf.distance(proj_centroid, centroid, { units: 'kilometers' })
+    projectLocationColor.value = distance < 1 ? 'green' : 'red'
+    locationStatus.value =
+      'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
+  } else {
+    projectLocationColor.value = 'red'
+    locationStatus.value = 'Project location geometry is not available for comparison'
   }
 
-  locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
-  setTimeout(loadMap, 100); // delay for the dialog to fully load
-  //loadMap()
+  // The map is built on the drawer's @opened event, once the container has its size.
 }
 
 
@@ -2040,14 +2036,27 @@ const closeMap = () => {
   dialogMap.value = false
 }
 
+// Held so the drawer can dispose the map on close — re-opening otherwise leaks a
+// WebGL context per view, and browsers cap how many can be live at once.
+const mapInstance = ref(null)
+
+const destroyMap = () => {
+  if (mapInstance.value) {
+    mapInstance.value.remove()
+    mapInstance.value = null
+  }
+}
+
 const loadMap = () => {
+  destroyMap()
+
   var mapCenter = reportGeom.value.geometry.coordinates;
 
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
     center: mapCenter, // starting position
-    zoom: 18,
+    zoom: 15,
   });
 
 
@@ -2195,7 +2204,9 @@ const loadMap = () => {
 
     const bounds = turf.bbox((lineString))
     console.log("From geo", bounds)
-    nmap.fitBounds(bounds, { padding: 100 })
+    // maxZoom keeps the view readable when the report sits on (or very near) the
+    // project location — a near-empty bbox would otherwise fit to max zoom.
+    nmap.fitBounds(bounds, { padding: 100, maxZoom: 15 })
 
 
 
@@ -2251,6 +2262,8 @@ const loadMap = () => {
     marker.setPopup(popup);
     nmap.resize();
   });
+
+  mapInstance.value = nmap;
 };
 
 
@@ -2352,6 +2365,9 @@ const validateCurrentStep = async () => {
 
 const nextStep = async () => {
   const valid = await validateCurrentStep()
+  if (valid && activeStep.value === 0) {
+    ensureLocationFieldsFromSelection()
+  }
   if (valid && activeStep.value < 3) {
     activeStep.value++
   }
@@ -2393,28 +2409,25 @@ const _getFilteredProjects = (query) => {
 
 
 const getFilteredProjects = (query) => {
-  let filteredProjects = [];
+  let filteredProjects = projectOptionsAll.value.filter(projectMatchesProgrammeComponent);
 
-  // If the query is not provided, return the first 10 projects
   if (!query) {
-    filteredProjects = projectOptionsAll.value.slice(0, 10);
+    filteredProjects = filteredProjects.slice(0, 10);
   } else {
-    // Otherwise, filter the projects based on the query
-    filteredProjects = projectOptionsAll.value.filter(project =>
-      project.label.toLowerCase().includes(query.toLowerCase())
+    const q = query.toLowerCase()
+    filteredProjects = filteredProjects.filter(project =>
+      project.label.toLowerCase().includes(q)
     );
   }
 
-  // Create a new Map to store unique project labels
   const uniqueProjects = new Map();
 
   filteredProjects.forEach(project => {
-    if (!uniqueProjects.has(project.label)) {
-      uniqueProjects.set(project.label, project);
+    if (!uniqueProjects.has(project.value)) {
+      uniqueProjects.set(project.value, project);
     }
   });
 
-  // Return the unique projects as an array
   return Array.from(uniqueProjects.values());
 };
 
@@ -2448,9 +2461,13 @@ const searchProject = (query) => {
 
 
 function handleIndicatorsChange(selectedIds) {
-  const selectedIndicators = indicatorsOptionsFiltered.value.filter(opt =>
-    selectedIds.includes(opt.value)
-  ); 
+  // One row per indicator_category, even if the option list or the selection repeats it
+  const seen = new Set()
+  const selectedIndicators = indicatorsOptionsFiltered.value.filter((opt) => {
+    if (!selectedIds.includes(opt.value) || seen.has(opt.value)) return false
+    seen.add(opt.value)
+    return true
+  });
 
  console.log('selectedIds',selectedIds)
 
@@ -2483,49 +2500,44 @@ function handleIndicatorsChange(selectedIds) {
       </div>
 
       <div class="sett-toolbar-col sett-toolbar-col--search report-toolbar-filters">
-        <el-select
-          v-model="selectedSettlements"
-          @change="handleSettlementFilter"
-          @clear="handleClear"
-          multiple
+        <el-tree-select
+          v-model="filterProgrammeId"
+          :data="programmeTreeData"
           clearable
           filterable
-          remote
-          reserve-keyword
-          :loading="loading"
-          collapse-tags
-          placeholder="Search Settlement"
-          :remote-method="remoteMethodSettlement"
-          style="width: 100%;"
-        >
-          <el-option
-            v-for="item in settlementFilterOptions"
-            :key="item.id"
-            :label="item.label"
-            :value="item.value"
-          >
-            <div style="display: flex; align-items: center;">
-              <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-              <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
-                {{ item.ward ? item.ward + ', ' : '' }}{{ item.subcounty ? item.subcounty + ', ' : '' }}{{ item.county }}
-              </span>
-            </div>
-          </el-option>
-        </el-select>
+          check-strictly
+          default-expand-all
+          node-key="value"
+          value-key="value"
+          :props="{ label: 'label', children: 'children', value: 'value' }"
+          placeholder="All programmes"
+          class="programme-filter-select"
+          @change="onProgrammeFilter"
+        />
 
         <el-select
-          v-model="selectedIndicators"
-          @change="handleIndicatorFilter"
-          @clear="handleClear"
-          multiple
+          v-model="locationLevel"
           clearable
-          filterable
-          collapse-tags
-          placeholder="Filter by Indicator"
-          style="width: 100%;"
+          placeholder="Location level"
+          class="location-level-select"
+          @change="onLocationLevelChange"
         >
-          <el-option v-for="item in indicatorFilterOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option label="National" value="national" />
+          <el-option label="County" value="county" />
+          <el-option label="Subcounty" value="subcounty" />
+          <el-option label="Ward" value="ward" />
+          <el-option label="Settlement" value="settlement" />
         </el-select>
+
+        <el-input
+          v-model="reportSearchText"
+          clearable
+          placeholder="Search by indicator, category, project or location"
+          :prefix-icon="Search"
+          class="report-search-input"
+          @input="onReportSearch"
+          @clear="onReportSearch"
+        />
       </div>
 
       <div class="sett-toolbar-col sett-toolbar-col--actions">
@@ -2569,17 +2581,55 @@ function handleIndicatorsChange(selectedIds) {
       <el-table
         fit
         table-layout="fixed"
-        :data="tableDataList"
+        :data="filingGroups"
         :loading="loading"
         border
-        show-summary
-        :summary-method="getSummaries"
-        :show-overflow-tooltip="true"
-        class="indicator-category-report-table"
+        :row-class-name="filingRowClassName"
+        :expand-row-keys="expandedFilingKeys"
+        class="indicator-category-report-table filing-table-clickable"
         style="width: 100%; margin-top: 10px;"
-        row-key="id"
-        @header-dragend="onHeaderDragend"
+        row-key="code"
+        @row-click="onFilingRowClick"
+        @expand-change="onFilingExpandChange"
       >
+        <el-table-column type="expand" width="40">
+          <template #default="{ row: filing }">
+            <div class="filing-nested-table" style="padding: 8px 12px 8px 48px">
+              <div class="filing-meta-row">
+                <span class="filing-meta-item">
+                  <AppIcon icon="mdi:account-outline" width="14" height="14" />
+                  {{ filing.first.user?.name || 'Unknown' }}
+                </span>
+                <span class="filing-meta-sep">|</span>
+                <span class="filing-meta-item">
+                  <AppIcon icon="mdi:calendar-outline" width="14" height="14" />
+                  {{ formatDate(filing.first.date) }}
+                </span>
+                <span class="filing-meta-sep">|</span>
+                <el-tag
+                  v-for="(count, status) in filingStatusCounts(filing)"
+                  :key="status"
+                  :type="statusTagType(String(status))"
+                  size="small"
+                  class="filing-status-tag"
+                >
+                  {{ status }}<template v-if="filing.reports.length > 1"> ×{{ count }}</template>
+                </el-tag>
+              </div>
+
+              <el-table
+                fit
+                table-layout="fixed"
+                :data="filing.reports"
+                border
+                show-summary
+                :summary-method="getSummaries"
+                :show-overflow-tooltip="true"
+                :row-class-name="tableRowClassName"
+                style="width: 100%"
+                row-key="id"
+                @header-dragend="onHeaderDragend"
+              >
         <el-table-column
           v-if="isColumnVisible('indicator')"
           column-key="indicator"
@@ -2609,20 +2659,6 @@ function handleIndicatorsChange(selectedIds) {
           </template>
         </el-table-column>
         <el-table-column
-          v-if="isColumnVisible('settlement')"
-          column-key="settlement"
-          label="Settlement"
-          class-name="report-col-equal"
-          :min-width="flexColumnMinWidth('settlement')"
-          sortable
-          resizable
-          show-overflow-tooltip
-        >
-          <template #default="{ row }">
-            {{ row.settlement?.name || 'N/A' }}
-          </template>
-        </el-table-column>
-        <el-table-column
           v-if="isColumnVisible('amount')"
           column-key="amount"
           label="Amount"
@@ -2630,69 +2666,9 @@ function handleIndicatorsChange(selectedIds) {
           :min-width="flexColumnMinWidth('amount')"
           sortable
           resizable
-        />
-        <el-table-column
-          v-if="isColumnVisible('progress')"
-          column-key="progress"
-          label="Progress %"
-          prop="progress"
-          :min-width="flexColumnMinWidth('progress')"
-          sortable
-          resizable
         >
           <template #default="{ row }">
-            {{ isFinite(Number(row.progress || 0)) ? Number(row.progress || 0).toFixed(1) : '0.0' }}%
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnVisible('date')"
-          column-key="date"
-          label="Date"
-          prop="date"
-          :min-width="flexColumnMinWidth('date')"
-          sortable
-          resizable
-        >
-          <template #default="{ row }">
-            {{ formatDate(row.date) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnVisible('status')"
-          column-key="status"
-          label="Status"
-          prop="status"
-          :min-width="flexColumnMinWidth('status')"
-          sortable
-          resizable
-        >
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'info'">
-              {{ row.status || 'New' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isColumnVisible('documents')"
-          column-key="documents"
-          label="Documents"
-          :width="documentsColumnWidth()"
-          :min-width="columnMinWidth('documents')"
-          align="center"
-          resizable
-        >
-          <template #default="{ row }">
-            <div class="documents-cell">
-              <el-button
-                type="primary"
-                size="small"
-                :icon="Files"
-                @click="openDocumentDrawer(row)"
-                class="documents-button"
-              >
-                {{ row.documents?.length || 0 }}
-              </el-button>
-            </div>
+            {{ reportAmountDisplay(row) }}
           </template>
         </el-table-column>
         <el-table-column label="Actions" :width="actionColumnWidth">
@@ -2700,14 +2676,67 @@ function handleIndicatorsChange(selectedIds) {
             <PermissionWrapper :permissions="['indicator_category_report:update', 'indicator_category_report:delete']">
               <TableActions
                 :item="row"
-                :buttons="action_buttons"
+                :buttons="rowActionButtons(row)"
                 @edit="editReport"
                 @delete="DeleteReport"
                 @view-on-map="showMap"
-                @preview="preview"
-                :disabled-buttons="row.geom ? [] : ['viewOnMap']"
+                @review="review"
               />
             </PermissionWrapper>
+          </template>
+        </el-table-column>
+              </el-table>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="Date" min-width="110" sortable :sort-method="(a, b) => String(a.first.date || '').localeCompare(String(b.first.date || ''))">
+          <template #default="{ row }">
+            <el-badge is-dot :hidden="!row.reports.some(isReportNew)" class="report-new-badge">
+              {{ formatDate(row.first.date) }}
+            </el-badge>
+          </template>
+        </el-table-column>
+        <el-table-column label="Project" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.first.project?.title || row.first.activity?.project?.title || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Location" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ getRowSettlementLabel(row.first) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Indicators" width="110" align="center">
+          <template #default="{ row }">
+            {{ row.reports.length }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Status" min-width="160">
+          <template #default="{ row }">
+            <el-tag
+              v-for="(count, status) in filingStatusCounts(row)"
+              :key="status"
+              :type="statusTagType(String(status))"
+              class="filing-status-tag"
+              size="small"
+            >
+              {{ status }}<template v-if="row.reports.length > 1"> ×{{ count }}</template>
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Documents" width="110" align="center">
+          <template #default="{ row }">
+            <div class="documents-cell">
+              <el-button
+                type="primary"
+                size="small"
+                :icon="Files"
+                @click="openDocumentDrawer(row.first)"
+                class="documents-button"
+              >
+                {{ row.first.documents?.length || 0 }}
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -2745,6 +2774,47 @@ function handleIndicatorsChange(selectedIds) {
     <!-- Step 0 -->
     <el-row v-if="activeStep === 0" :gutter="20">
       <el-col :span="24">
+        <el-row :gutter="12">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Programme">
+              <el-tree-select
+                v-model="selectedProgrammeId"
+                :data="programmeTreeData"
+                clearable
+                filterable
+                check-strictly
+                default-expand-all
+                node-key="value"
+                value-key="value"
+                :props="{ label: 'label', children: 'children', value: 'value' }"
+                placeholder="All programmes"
+                style="width: 100%"
+                @change="onProgrammeFilterChange"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="Component">
+              <el-select
+                v-model="selectedComponentId"
+                clearable
+                filterable
+                placeholder="All components"
+                :disabled="selectedProgrammeId == null"
+                style="width: 100%"
+                @change="onComponentFilterChange"
+              >
+                <el-option
+                  v-for="item in componentFilterOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <el-form-item label="Project" prop="project_id">
         
           <el-select
@@ -2780,11 +2850,11 @@ function handleIndicatorsChange(selectedIds) {
 
         <el-form-item v-if="!isNationalProject" label="Location" prop="project_location_id">
           <el-select :disabled="disableIndicator" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select" @change="changeLocation" style="width: 100%;">
-            <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
+            <el-option v-for="item in project_locations" :key="item.id" :label="getProjectLocationOptionLabel(item)" :value="item.id">
               <div style="display: flex; align-items: center;">
-                <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                <span style="flex: 1; text-align: left;">{{ getProjectLocationOptionLabel(item) }}</span>
                 <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
-                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                  {{ getProjectLocationOptionSubLabel(item) }}
                 </span>
               </div>
             </el-option>
@@ -2887,7 +2957,6 @@ function handleIndicatorsChange(selectedIds) {
       <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
       <el-button @click="handleCancel">Cancel</el-button>
       <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-      <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
     </div>
   </template>
 </el-drawer>
@@ -2928,32 +2997,100 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
         <el-button @click="ImportDialogVisible = false">Cancel</el-button>
         <el-button v-if="showProcessBtn" type="secondary" @click="submitFiles()">Process</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitBatchImport()">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
   </el-dialog>
 
-  <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
-    <template #header="{ titleId, titleClass }">
-      <div class="my-header">
-        <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
-        <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2>
-        <!-- Use the 'italicizedColor' variable -->
-        <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
+  <!-- Minimal edit: only the reported values are changeable -->
+  <el-drawer
+    v-model="EditReportVisible"
+    direction="rtl"
+    :size="isMobile ? '100%' : '420px'"
+    title="Edit Report"
+  >
+    <div v-if="editRow" class="edit-report-body">
+      <div class="edit-report-context">
+        <div class="edit-context-item">
+          <span class="edit-context-label">Indicator</span>
+          <span class="edit-context-value">{{ editRow.indicator_category?.indicator_name || 'N/A' }}</span>
+        </div>
+        <div class="edit-context-item">
+          <span class="edit-context-label">Category</span>
+          <span class="edit-context-value">{{ editRow.indicator_category?.category_title || 'N/A' }}</span>
+        </div>
+        <div class="edit-context-item">
+          <span class="edit-context-label">Project</span>
+          <span class="edit-context-value">{{ editRow.project?.title || 'N/A' }}</span>
+        </div>
+        <div class="edit-context-item">
+          <span class="edit-context-label">Location</span>
+          <span class="edit-context-value">{{ getRowSettlementLabel(editRow) }}</span>
+        </div>
+      </div>
+
+      <el-form label-position="top" class="edit-report-form">
+        <el-form-item :label="editIsQualitative ? 'Implementation Status' : 'Amount'">
+          <el-switch
+            v-if="editIsQualitative"
+            v-model="editModel.qualitative"
+            active-value="Yes"
+            inactive-value="No"
+          />
+          <el-input-number v-else v-model="editModel.amount" :min="0" style="width: 100%" />
+        </el-form-item>
+
+        <el-form-item label="Date">
+          <el-date-picker
+            v-model="editModel.date"
+            type="date"
+            placeholder="Pick a day"
+            style="width: 100%"
+            :disabled-date="disabledFutureDates"
+          />
+        </el-form-item>
+
+        <el-form-item label="Comments">
+          <el-input v-model="editModel.comments" type="textarea" :rows="3" placeholder="Any comments?" />
+        </el-form-item>
+      </el-form>
+    </div>
+
+    <template #footer>
+      <div class="drawer-footer-bar">
+        <el-button @click="EditReportVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="editSaving" @click="saveEditedReport">Save</el-button>
       </div>
     </template>
-    <div id="mapContainer" class="basemap"></div>
+  </el-drawer>
 
-  </el-dialog>
+  <el-drawer
+    v-model="dialogMap"
+    direction="rtl"
+    :size="isMobile ? '100%' : '45%'"
+    :with-header="false"
+    class="report-map-drawer"
+    @opened="loadMap"
+    @closed="destroyMap"
+  >
+    <div class="report-map-header">
+      <div class="report-map-header-text">
+        <h4 class="report-map-title">Reporting Location</h4>
+        <span class="report-map-status" :style="`color: ${projectLocationColor}`">{{ locationStatus }}</span>
+      </div>
+      <el-button text circle class="report-map-close" @click="closeMap">
+        <AppIcon icon="mdi:close" width="20" height="20" />
+      </el-button>
+    </div>
+    <div id="mapContainer" class="report-map-canvas"></div>
+  </el-drawer>
 
-  <el-dialog v-model="PreviewDialog" title="Report Preview" :width="previewWindowWidth" draggable>
+  <el-dialog v-model="ReviewDialog" title="Review Report" :width="reviewWindowWidth" draggable>
     <el-descriptions title="" direction="vertical" :column="2" size="small" border>
       <el-descriptions-item label="Project">{{ report.project }}</el-descriptions-item>
-      <el-descriptions-item label="Settlement">{{ report.location }}</el-descriptions-item>
+      <el-descriptions-item label="Location">{{ report.location }}</el-descriptions-item>
       <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
       <el-descriptions-item label="Category" :span="2">{{ report.category }}</el-descriptions-item>
       <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
-      <el-descriptions-item label="Progress">{{ report.progress }}%</el-descriptions-item>
       <el-descriptions-item label="Date">{{ report.date }}</el-descriptions-item>
       <el-descriptions-item label="Submitted By">{{ report.user }}</el-descriptions-item>
       <el-descriptions-item label="Telephone">{{ report.phone }}</el-descriptions-item>
@@ -2965,8 +3102,23 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
       </el-descriptions-item>
     </el-descriptions>
     <template #footer>
+      <span v-if="showAdminButtons && isReportNew({ status: ruleForm.status })" class="dialog-footer">
+        <el-button @click="ReviewDialog = false">Close</el-button>
+        <el-button type="success" @click="approve">Approve</el-button>
+        <el-button type="danger" @click="reject">Reject</el-button>
+      </span>
+      <span v-else class="dialog-footer">
+        <el-button @click="ReviewDialog = false">Close</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <el-dialog v-model="RejectDialog" title="Reason for rejection" width="420px">
+    <el-input v-model="rejectReason" type="textarea" placeholder="Enter rejection reason" />
+    <template #footer>
       <span class="dialog-footer">
-        <el-button @click="PreviewDialog = false">Close</el-button>
+        <el-button @click="RejectDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="confirmReject">Confirm</el-button>
       </span>
     </template>
   </el-dialog>
@@ -3041,11 +3193,174 @@ target="#btn13" title="Documentation"
 
 
 <style scoped>
-.basemap {
+.report-new-badge {
+  max-width: 100%;
+}
+
+.filing-table-clickable :deep(.el-table__body-wrapper .el-table__row) {
+  cursor: pointer;
+}
+
+/* The expanded panel is a row too — don't imply it's clickable */
+.filing-table-clickable :deep(.el-table__expanded-cell) {
+  cursor: default;
+}
+
+.edit-report-context {
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+
+.edit-context-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.edit-context-label {
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.edit-context-value {
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+  text-align: right;
+  min-width: 0;
+}
+
+.programme-filter-select {
+  width: 190px;
+  flex-shrink: 0;
+}
+
+.location-level-select {
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.report-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
-  height: 450px;
-  border: 1px solid #e2dcdc;
-  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Map drawer ---- */
+.report-map-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.report-map-header-text {
+  min-width: 0;
+}
+
+.report-map-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.report-map-status {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.report-map-close {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+}
+
+/* Fills the remaining drawer height. min-height:0 lets it shrink inside the flex
+   column; without it the flex item keeps its content height and Mapbox overflows. */
+.report-map-canvas {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .report-map-header {
+    padding-bottom: 10px;
+  }
+
+  .report-map-title {
+    font-size: 15px;
+  }
+
+  .report-map-status {
+    font-size: 12px;
+  }
+
+  .report-map-canvas {
+    margin-top: 8px;
+    border-radius: 6px;
+  }
+}
+
+/* ---- Nested per-indicator table ---- */
+.filing-nested-table :deep(.el-table) {
+  font-size: 12px;
+}
+
+.filing-nested-table :deep(.el-table th),
+.filing-nested-table :deep(.el-table td) {
+  padding: 4px 0;
+}
+
+.filing-nested-table :deep(.el-table .cell) {
+  line-height: 1.4;
+}
+
+/* Summary row reads as a note, not data */
+.filing-nested-table :deep(.el-table__footer .cell) {
+  font-style: italic;
+  text-align: right;
+  color: var(--el-text-color-secondary);
+}
+
+.filing-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.filing-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filing-meta-sep {
+  color: var(--el-border-color);
+}
+
+.report-new-badge :deep(.el-badge__content.is-dot) {
+  right: -2px;
+  top: 2px;
+}
+
+.filing-status-tag {
+  margin-right: 4px;
 }
 
 .sett-toolbar-row {
@@ -3072,14 +3387,14 @@ target="#btn13" title="Documentation"
   flex: 0 0 auto;
 }
 
+/* Filters take all space up to the action buttons, which keep their natural width */
 .sett-toolbar-row--wide .sett-toolbar-col--search {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 160px;
-  max-width: 520px;
 }
 
 .sett-toolbar-row--wide .sett-toolbar-col--actions {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   margin-left: auto;
 }
@@ -3207,5 +3522,20 @@ target="#btn13" title="Documentation"
   justify-content: center;
   align-items: center;
   opacity: 0.5;
+}
+
+/* Map drawer: body is a column so the map canvas can fill the remaining height */
+.report-map-drawer .el-drawer__body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .report-map-drawer .el-drawer__body {
+    padding: 12px;
+  }
 }
 </style>

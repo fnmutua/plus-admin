@@ -16,6 +16,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import './permission'
 import { createHead } from '@unhead/vue'
+import { restoreAuthSessionFromLocalStorage } from '@/hooks/web/authStorage'
 
 const head = createHead()
 
@@ -25,6 +26,7 @@ export async function setupAdminApp() {
   await setupI18n(app)
 
   setupStore(app)
+  restoreAuthSessionFromLocalStorage()
   applyElementPlusSize(useAppStoreWithOut().getCurrentSize)
   setupGlobCom(app)
   setupElementPlus(app)

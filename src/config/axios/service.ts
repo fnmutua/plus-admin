@@ -6,6 +6,7 @@ import { config } from './config'
 
 import { ElMessage, ElMessageBox } from 'element-plus'
 import router from '@/router'
+import { clearAuthUserInfo } from '@/hooks/web/authStorage'
 
 const { result_code, base_url } = config
 
@@ -36,8 +37,8 @@ function handleSessionExpired(customMessage?: string, isAdminLogout = false) {
 
   // Kill the token immediately so no further requests sneak through
   try {
-    sessionStorage.clear()
-    localStorage.clear()
+    clearAuthUserInfo()
+    sessionStorage.removeItem('roleRouters')
   } catch { /* ignore storage errors */ }
 
   const currentPath = router.currentRoute.value.fullPath

@@ -6,6 +6,7 @@ import {
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { getFile } from '@/api/summary'
+import { getCountyListApi } from '@/api/counties'
 import { deleteDocument, unlinkDocument } from '@/api/settlements'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -136,14 +137,16 @@ const getFileTypeColor = (filename) => {
   return colorMap[ext] || 'info'
 }
 
-// Format file size
-const formatFileSize = (bytes) => {
-  if (!bytes) return 'Unknown size'
-  
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
+// Document size is stored in MB (see upload flows)
+const formatDocSize = (size) => {
+  const mb = Number(size)
+  if (!isFinite(mb) || mb <= 0) return ''
+  if (mb < 1) return `${Math.max(1, Math.round(mb * 1024))} KB`
+  return `${mb.toFixed(2)} MB`
 }
+
+// Tag type ('' means default) → CSS suffix for the icon tile
+const tileColor = (filename) => getFileTypeColor(filename) || 'neutral'
 
 // Format date
 const formatDate = (dateString) => {
@@ -312,10 +315,39 @@ const handleAddDocument = () => {
   emit('open-dialog')
 }
 
-// Watch for visibility changes
-watch(() => props.visible, (newVal) => {
-  // Reset any state when drawer opens
-})
+// document.category is a document_type id — resolve it to the type name once
+const docTypeNames = ref({})
+const loadDocTypes = async () => {
+  if (Object.keys(docTypeNames.value).length) return
+  try {
+    const res = await getCountyListApi({
+      params: {
+        pageIndex: 1,
+        limit: 200,
+        curUser: 1,
+        model: 'document_type',
+        searchField: 'name',
+        searchKeyword: '',
+        sort: 'ASC'
+      }
+    })
+    const map = {}
+    ;(res.data || []).forEach((t) => {
+      map[t.id] = t.type
+    })
+    docTypeNames.value = map
+  } catch (error) {
+    console.error('Failed to load document types:', error)
+  }
+}
+
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) loadDocTypes()
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -330,69 +362,95 @@ watch(() => props.visible, (newVal) => {
     :with-header="false"
   >
 
-    <!-- Header with Close Button and Add Button -->
-    <div class="drawer-header">
-      <el-button 
-        type="primary" 
-        @click="handleAddDocument"
-        class="add-button"
-      >
-        <Icon icon="mdi:plus" />
-        Add Document
-      </el-button>
-      <el-button 
-        type="text" 
-        @click="handleClose"
-        class="close-button"
-      >
-        <Icon icon="mdi:close" />
-      </el-button>
+    <!-- Header -->
+    <div class="dd-header">
+      <div class="dd-header-text">
+        <div class="dd-title-row">
+          <Icon icon="mdi:paperclip" class="dd-title-icon" />
+          <span class="dd-title">Documents</span>
+          <el-tag size="small" round effect="plain" class="dd-count">{{ localDocuments.length }}</el-tag>
+        </div>
+        <span class="dd-subtitle">Files attached to this report</span>
+      </div>
+      <div class="dd-header-actions">
+        <el-button type="primary" @click="handleAddDocument">
+          <Icon icon="mdi:plus" class="dd-btn-icon" />
+          Add
+        </el-button>
+        <el-button text circle class="dd-close" @click="handleClose">
+          <Icon icon="mdi:close" />
+        </el-button>
+      </div>
     </div>
 
     <!-- Documents List -->
-    <div v-if="localDocuments.length > 0" class="documents-list">
-      <div 
-        v-for="(document, index) in localDocuments" 
+    <div v-if="localDocuments.length > 0" class="dd-list">
+      <div
+        v-for="(document, index) in localDocuments"
         :key="document.id || index"
-        class="document-item"
+        class="dd-item"
       >
-        <div class="document-info">
-          <Icon :icon="getFileIcon(document.name)" class="file-icon" />
-          <span class="document-name">{{ document.name }}</span>
+        <div class="dd-tile" :class="`dd-tile--${tileColor(document.name)}`">
+          <Icon :icon="getFileIcon(document.name)" class="dd-tile-icon" />
         </div>
-        
-        <div class="document-actions">
-          <el-tooltip content="View" placement="top">
-            <el-button 
+
+        <div class="dd-item-body">
+          <el-tooltip :content="document.name" placement="top" :show-after="400">
+            <span class="dd-name">{{ document.name }}</span>
+          </el-tooltip>
+          <div class="dd-meta">
+            <el-tag
               size="small"
+              effect="light"
+              round
+              :type="getFileTypeColor(document.name) || 'info'"
+            >
+              {{ getFileType(document.name) }}
+            </el-tag>
+            <span v-if="formatDocSize(document.size)" class="dd-meta-text">{{ formatDocSize(document.size) }}</span>
+            <span v-if="document.createdAt" class="dd-meta-text">{{ formatDate(document.createdAt) }}</span>
+          </div>
+          <div v-if="docTypeNames[document.category]" class="dd-cat-row">
+            <el-tag size="small" effect="plain" round class="dd-cat-tag">
+              {{ docTypeNames[document.category] }}
+            </el-tag>
+          </div>
+        </div>
+
+        <div class="dd-actions">
+          <el-tooltip content="View" placement="top">
+            <el-button
+              circle
+              text
+              class="dd-action"
               :loading="viewingDocId === document.id"
               @click="viewDocument(document)"
-              class="action-button"
             >
-              <Icon v-if="viewingDocId !== document.id" icon="mdi:eye" />
+              <Icon v-if="viewingDocId !== document.id" icon="mdi:eye-outline" />
             </el-button>
           </el-tooltip>
-          
+
           <el-tooltip content="Download" placement="top">
-            <el-button 
-              size="small"
+            <el-button
+              circle
+              text
+              class="dd-action"
               :loading="downloadingDocId === document.id"
               @click="downloadFile(document)"
-              class="action-button"
             >
-              <Icon v-if="downloadingDocId !== document.id" icon="mdi:download" />
+              <Icon v-if="downloadingDocId !== document.id" icon="mdi:download-outline" />
             </el-button>
           </el-tooltip>
-          
+
           <PermissionWrapper :permissions="permissions">
             <el-tooltip v-if="canDeleteDocument(document)" content="Delete" placement="top">
-              <el-button 
-                size="small"
-                type="danger"
-                class="action-button"
+              <el-button
+                circle
+                text
+                class="dd-action dd-action--danger"
                 @click="removeDocument(document)"
               >
-                <Icon icon="mdi:delete" />
+                <Icon icon="mdi:trash-can-outline" />
               </el-button>
             </el-tooltip>
           </PermissionWrapper>
@@ -401,19 +459,16 @@ watch(() => props.visible, (newVal) => {
     </div>
 
     <!-- Empty State -->
-    <div v-else class="empty-container">
-      <el-empty 
-        :image-size="120"
-        description="No documents found"
-      >
-        <template #image>
-          <Icon icon="mdi:folder-open" :size="120" color="#c0c4cc" />
-        </template>
-        
-        <template #description>
-          <p>No documents found</p>
-        </template>
-      </el-empty>
+    <div v-else class="dd-empty">
+      <div class="dd-empty-icon">
+        <Icon icon="mdi:file-document-multiple-outline" />
+      </div>
+      <p class="dd-empty-title">No documents yet</p>
+      <p class="dd-empty-hint">Attach reports, photos or supporting evidence.</p>
+      <el-button type="primary" plain @click="handleAddDocument">
+        <Icon icon="mdi:plus" class="dd-btn-icon" />
+        Add Document
+      </el-button>
     </div>
   </el-drawer>
 </template>
@@ -423,109 +478,229 @@ watch(() => props.visible, (newVal) => {
   --el-drawer-padding-primary: 0;
 }
 
-.drawer-header {
+/* ---------- Header ---------- */
+.dd-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 20px 24px;
+  gap: 12px;
+  padding: 20px 20px 16px 24px;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.add-button {
-  flex: 1;
-  margin-right: 12px;
+.dd-header-text {
+  min-width: 0;
 }
 
-.close-button {
-  padding: 8px;
+.dd-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dd-title-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--el-color-primary);
+}
+
+.dd-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.dd-count {
+  font-weight: 600;
+}
+
+.dd-subtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.dd-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
 
+.dd-close {
+  font-size: 18px;
+  color: var(--el-text-color-secondary);
+}
 
-.documents-list {
-  padding: 0;
-  max-height: calc(100vh - 200px);
+.dd-btn-icon {
+  margin-right: 4px;
+}
+
+/* ---------- List ---------- */
+.dd-list {
+  padding: 8px 12px;
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
 }
 
-.document-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  transition: background-color 0.2s ease;
-}
-
-.document-item:hover {
-  background-color: var(--el-fill-color-light);
-}
-
-.document-item:last-child {
-  border-bottom: none;
-}
-
-.document-info {
+.dd-item {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background-color 0.15s ease;
+}
+
+.dd-item:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.dd-item:hover .dd-actions {
+  opacity: 1;
+}
+
+/* File-type icon tile */
+.dd-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.dd-tile-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.dd-tile--primary { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
+.dd-tile--success { background: var(--el-color-success-light-9); color: var(--el-color-success); }
+.dd-tile--warning { background: var(--el-color-warning-light-9); color: var(--el-color-warning); }
+.dd-tile--danger  { background: var(--el-color-danger-light-9);  color: var(--el-color-danger); }
+.dd-tile--info,
+.dd-tile--neutral { background: var(--el-fill-color); color: var(--el-text-color-secondary); }
+
+.dd-item-body {
   flex: 1;
   min-width: 0;
 }
 
-.file-icon {
-  color: var(--el-color-primary);
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.document-name {
+.dd-name {
+  display: block;
   font-size: 14px;
+  font-weight: 500;
   color: var(--el-text-color-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.document-actions {
+.dd-meta {
   display: flex;
+  align-items: center;
   gap: 8px;
+  margin-top: 3px;
+}
+
+.dd-meta-text {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.dd-cat-row {
+  margin-top: 4px;
+}
+
+.dd-cat-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--el-text-color-secondary);
+}
+
+/* ---------- Actions ---------- */
+.dd-actions {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
 }
 
-.action-button {
-  transition: all 0.2s ease;
+.dd-action {
+  font-size: 17px;
+  color: var(--el-text-color-secondary);
 }
 
-.action-button:hover {
-  transform: scale(1.05);
+.dd-action:hover {
+  color: var(--el-color-primary);
 }
 
-.empty-container {
+.dd-action--danger:hover {
+  color: var(--el-color-danger);
+}
+
+.dd-actions .el-button + .el-button {
+  margin-left: 2px;
+}
+
+/* ---------- Empty state ---------- */
+.dd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 24px;
+  text-align: center;
+}
+
+.dd-empty-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
-  padding: 20px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-placeholder);
+  font-size: 36px;
+  margin-bottom: 16px;
 }
 
-/* Custom scrollbar */
-.documents-list::-webkit-scrollbar {
+.dd-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin: 0 0 4px;
+}
+
+.dd-empty-hint {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin: 0 0 16px;
+}
+
+/* ---------- Scrollbar ---------- */
+.dd-list::-webkit-scrollbar {
   width: 6px;
 }
 
-.documents-list::-webkit-scrollbar-track {
-  background: var(--el-fill-color-lighter);
-  border-radius: 3px;
+.dd-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.documents-list::-webkit-scrollbar-thumb {
+.dd-list::-webkit-scrollbar-thumb {
   background: var(--el-border-color);
   border-radius: 3px;
 }
 
-.documents-list::-webkit-scrollbar-thumb:hover {
+.dd-list::-webkit-scrollbar-thumb:hover {
   background: var(--el-border-color-dark);
 }
 </style>

@@ -1,23 +1,20 @@
 import { onMounted, onUnmounted } from 'vue'
 import request from '@/config/axios'
 import { apiOrigin as prod } from '@/config/apiBase'
-import { useCache } from '@/hooks/web/useCache'
-import { useAppStoreWithOut } from '@/store/modules/app'
 import {
   SESSION_CHECK_INTERVAL_MS,
   applySessionIdleConfig,
   shouldRenewSession,
   updateCachedAccessToken
 } from '@/hooks/web/sessionActivity'
+import { getAuthUserInfo } from '@/hooks/web/authStorage'
 
 /** Poll session validity; extend sliding sessions only while the user is active. */
 export function useSessionGuard() {
   let timer: ReturnType<typeof setInterval> | null = null
-  const { wsCache } = useCache()
-  const appStore = useAppStoreWithOut()
 
   const tick = async () => {
-    const userInfo = wsCache.get(appStore.getUserInfo)
+    const userInfo = getAuthUserInfo()
     if (!userInfo?.id) return
     if (!shouldRenewSession()) return
 
@@ -34,12 +31,20 @@ export function useSessionGuard() {
     }
   }
 
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+      tick()
+    }
+  }
+
   onMounted(() => {
     tick()
     timer = setInterval(tick, SESSION_CHECK_INTERVAL_MS)
+    document.addEventListener('visibilitychange', onVisible)
   })
 
   onUnmounted(() => {
     if (timer) clearInterval(timer)
+    document.removeEventListener('visibilitychange', onVisible)
   })
 }

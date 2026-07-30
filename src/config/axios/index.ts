@@ -2,27 +2,15 @@ import { service } from './service'
 
 import { config } from './config'
 
-import { useAppStoreWithOut, useAppStore } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
-import { markSessionActive } from '@/hooks/web/sessionActivity'
-import { ref } from 'vue'
-
-const { wsCache } = useCache()
-const appStore = useAppStore()
-const token = ref(null)
+import { markSessionActive, getAccessTokenFromCache } from '@/hooks/web/sessionActivity'
+import { getOrCreateDeviceId } from '@/hooks/web/authStorage'
 
 const { default_headers } = config
 
 const request = (option: any) => {
   const { url, method, params, data, headersType, responseType, headers, silent, timeout } = option
 
-  // get local storage variable for the logged in user, else pass empty token
-  if (wsCache.storage.userInfo) {
-    const loggedInUser = JSON.parse(wsCache.storage.userInfo)
-    token.value = JSON.parse(loggedInUser.v).data
-  } else {
-    token.value = null
-  }
+  const token = getAccessTokenFromCache()
 
   const isForm = typeof FormData !== 'undefined' && data instanceof FormData
   const isBlob = typeof Blob !== 'undefined' && data instanceof Blob
@@ -33,10 +21,11 @@ const request = (option: any) => {
   const finalHeaders: Record<string, string> = {
     ...(headers || {})
   }
-  if (token.value) {
-    finalHeaders['x-access-token'] = String(token.value)
+  if (token) {
+    finalHeaders['x-access-token'] = token
     markSessionActive()
   }
+  finalHeaders['x-device-id'] = getOrCreateDeviceId()
   if (contentType) {
     finalHeaders['Content-Type'] = contentType
   }

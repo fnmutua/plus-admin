@@ -427,7 +427,7 @@ const allNavGroups: NavGroup[] = [
             <li>Maintain a <strong>national geodatabase</strong> of all slums and informal settlements, including their locations, boundaries, demographics and linked infrastructure</li>
             <li>Support <strong>evidence-based planning</strong> and decision-making for urban development interventions by national and county governments</li>
             <li>Enable the public to <strong>file grievances</strong> and <strong>report incidents</strong> related to KISIP projects through transparent, accessible channels</li>
-            <li>Track <strong>project performance</strong> through a structured Monitoring &amp; Evaluation (M&amp;E) framework with indicators, activities and evaluation reports</li>
+            <li>Track <strong>project performance</strong> through a structured Monitoring &amp; Evaluation (M&amp;E) framework with activities, indicators, configurations, and periodic reports</li>
             <li>Conduct <strong>climate risk and vulnerability assessments</strong> for informal settlements to inform resilience planning — including multi-group field filing via SlumMapper and versioned submission history on the web</li>
           </ul>
           <h2>Core modules</h2>
@@ -436,7 +436,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Dashboard</strong></td><td>Interactive visualisations &mdash; status cards, charts (bar, pie, line, treemap, choropleth map) and filterable analytics.</td></tr>
             <tr><td><strong>GRM</strong></td><td>Electronic Grievance Redress Mechanism &mdash; public grievance submission, tracking, referral, and resolution workflow.</td></tr>
             <tr><td><strong>Incidents</strong></td><td>Public incident reporting for accidents, disasters and safety events affecting settlements or project areas.</td></tr>
-            <tr><td><strong>M&amp;E</strong></td><td>Monitoring &amp; Evaluation &mdash; indicators, activities, reports, evaluations and beneficiary tracking.</td></tr>
+            <tr><td><strong>M&amp;E</strong></td><td>Monitoring &amp; Evaluation &mdash; activities, indicators, configurations, reports, and beneficiary tracking.</td></tr>
             <tr><td><strong>Climate Assessment</strong></td><td>Structured questionnaire-based climate risk and vulnerability scoring for settlements.</td></tr>
             <tr><td><strong>Surveys</strong></td><td>Integration with ODK Central for field data collection, with table/map views and attachment downloads.</td></tr>
             <tr><td><strong>Data requests</strong></td><td>Public application form for formal access to settlement data; internal review (DPO / coordinator), document attachments, and secure share links for approved releases.</td></tr>
@@ -2212,13 +2212,14 @@ const allNavGroups: NavGroup[] = [
     children: [
       {
         id: 'mne-overview',
-        label: 'Overview',
+        label: 'Structure',
         content: `
-          <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across KISIP using structured indicators, activities, and evaluation reports. It is accessible from the sidebar under <strong>M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
+          <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across KISIP using a structured chain: <strong>Project &rarr; Activity &rarr; Indicator &rarr; Configuration &rarr; Report</strong>. It is accessible from the sidebar under <strong>M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
 
           <h2>Module structure</h2>
-          <p>The M&amp;E module is organised into four main areas:</p>
+          <p>The M&amp;E module is organised into five main areas:</p>
           <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><strong>Structure</strong></td><td>Visual overview of how projects, activities, indicators, configurations, and reports connect</td></tr>
             <tr><td><strong>Activities</strong></td><td>Define programme-level activities that indicators are tracked against</td></tr>
             <tr><td><strong>Framework</strong></td><td>Configure the indicator hierarchy &mdash; indicators, configurations (dimensions), and categories</td></tr>
             <tr><td><strong>Monitoring</strong></td><td>Submit and review indicator reports, track progress, and manage supporting documents</td></tr>
@@ -2227,13 +2228,12 @@ const allNavGroups: NavGroup[] = [
 
           <h2>How it works</h2>
           <ol>
-            <li><strong>Define Activities</strong> &mdash; create the programme activities that form the top level of the results framework</li>
-            <li><strong>Create Indicators</strong> &mdash; define measurable indicators and link each to an activity</li>
-            <li><strong>Configure Dimensions</strong> &mdash; for each indicator, set up one or more configurations (dimensions) specifying the target, baseline, reporting frequency, and linked settlement or project</li>
-            <li><strong>Submit Reports</strong> &mdash; periodically report actual values against configured indicators, attach supporting documents, and track progress toward targets</li>
-            <li><strong>Evaluate</strong> &mdash; create formal evaluations (mid-term, end-term) that compile indicator data into structured assessment reports</li>
+            <li><strong>Define Activities</strong> &mdash; create the programme activities that form the implementation layer of the results framework</li>
+            <li><strong>Create Indicators</strong> &mdash; define measurable indicators at project or activity level</li>
+            <li><strong>Configure dimensions</strong> &mdash; for each indicator, set up one or more configurations linking it to a reporting category and frequency</li>
+            <li><strong>Submit reports</strong> &mdash; periodically report actual values against configured indicators, attach supporting documents, and track progress toward targets</li>
           </ol>
-          <p>All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>M&amp;E tab</strong> in the Settlement Details page.</p>
+          <p>Start from <strong>M&amp;E &rarr; Structure</strong> for a worked example of the full chain. All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>M&amp;E tab</strong> in the Settlement Details page.</p>
         `
       },
       {
@@ -2300,13 +2300,17 @@ const allNavGroups: NavGroup[] = [
 
           <h3>Adding an indicator</h3>
           <img class="docs-screenshot" src="${meIndicatorAdd1Img}" alt="M&E Add Indicator — form step 1" />
-          <p>Click the <strong>+</strong> button to open the Add Indicator dialog. Fill in the following fields:</p>
+          <p>Click the <strong>+</strong> button to open the Add Indicator drawer. The form has two steps:</p>
+          <p><strong>Step 1 — Indicator details</strong></p>
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Level</strong></td><td>Select <em>Activity</em> or <em>Project</em>. This determines whether the indicator is tracked at the activity or project level.</td></tr>
             <tr><td><strong>Activity</strong></td><td>Appears when Level is "Activity". Select the parent activity from the dropdown. You can also create a new activity inline using the <strong>+</strong> button next to the dropdown.</td></tr>
             <tr><td><strong>Title</strong></td><td>The base name of the indicator without the verb/dimension (e.g. "Settlements", "Households", "Roads"). The specific dimension (e.g. "profiled", "mapped", "constructed") is defined separately in Configuration. Required field.</td></tr>
+          </tbody></table>
+          <p><strong>Step 2 — Measurement</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Type</strong></td><td>Select <em>Output</em> (direct deliverable) or <em>Impact</em> (outcome / longer-term effect)</td></tr>
-            <tr><td><strong>Measurement</strong></td><td>How the indicator is quantified: <em>Number</em>, <em>Percent</em>, or <em>Yes/No (true/false)</em></td></tr>
+            <tr><td><strong>Format</strong></td><td>How the indicator is quantified: <em>Number</em> or <em>Percent</em></td></tr>
             <tr><td><strong>Unit</strong></td><td>The unit of measurement: Kilometre (Km), Number (No.), Yes/No, Household (HH), or type a custom unit</td></tr>
           </tbody></table>
           <img class="docs-screenshot" src="${meIndicatorAdd2Img}" alt="M&E Add Indicator — form step 2" />
@@ -2329,27 +2333,28 @@ const allNavGroups: NavGroup[] = [
           <h3>Listing</h3>
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Id</strong></td><td>Record identifier</td></tr>
-            <tr><td><strong>Activity</strong></td><td>Parent activity</td></tr>
+            <tr><td><strong>Activity</strong></td><td>Parent activity, or <em>Project level</em> for project-scoped configurations</td></tr>
             <tr><td><strong>Indicator</strong></td><td>The indicator being configured</td></tr>
             <tr><td><strong>Dimension</strong></td><td>Category title / dimension label for this configuration</td></tr>
+            <tr><td><strong>Location</strong></td><td>Linked settlement or project location, when applicable</td></tr>
             <tr><td><strong>Actions</strong></td><td>Edit and Delete</td></tr>
           </tbody></table>
           <img class="docs-screenshot" src="${meIndicatorConfigImg}" alt="M&E Indicator Configuration listing" />
 
           <h3>Creating a configuration</h3>
-          <p>Click <strong>+</strong> to open the dialog. The form fields are:</p>
+          <p>Click <strong>+</strong> to open the drawer. The form has two steps:</p>
+          <p><strong>Step 1 — Indicator setup</strong></p>
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Activity</strong></td><td>Select the parent activity</td></tr>
-            <tr><td><strong>Indicator</strong></td><td>Select the indicator (list filters based on the chosen activity)</td></tr>
-            <tr><td><strong>Category / Dimension</strong></td><td>Select or create the reporting dimension</td></tr>
-            <tr><td><strong>Indicator Level</strong></td><td>The scope level for this configuration</td></tr>
-            <tr><td><strong>Frequency</strong></td><td>How often reports are expected (e.g. monthly, quarterly, annually)</td></tr>
-            <tr><td><strong>Target</strong></td><td>The target value to achieve</td></tr>
-            <tr><td><strong>Baseline</strong></td><td>The starting value</td></tr>
-            <tr><td><strong>Project</strong></td><td>Optionally link to a specific KISIP project</td></tr>
-            <tr><td><strong>Location</strong></td><td>Optionally link to a specific settlement or project area</td></tr>
+            <tr><td><strong>Indicator level</strong></td><td><em>Project</em> (applies across the whole project) or <em>Activity</em> (tied to one implementation activity)</td></tr>
+            <tr><td><strong>Activity</strong></td><td>Required when level is Activity. Select the work package this indicator tracks.</td></tr>
+            <tr><td><strong>Indicator</strong></td><td>Select the indicator. The list filters based on the chosen level and activity. Use <strong>+</strong> to create a new indicator inline.</td></tr>
           </tbody></table>
-          <p>A unique code is generated from the combination of indicator, activity, project, and category IDs. Configurations can also be <strong>bulk imported</strong> from Excel using the built-in import wizard (Upload File &rarr; Match Fields &rarr; Review &rarr; Import).</p>
+          <p><strong>Step 2 — Reporting</strong></p>
+          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Category / Dimension</strong></td><td>Select or create the reporting dimension (e.g. Male/Female, Trained/Untrained)</td></tr>
+            <tr><td><strong>Frequency</strong></td><td>How often reports are expected (e.g. monthly, quarterly, annually)</td></tr>
+          </tbody></table>
+          <p>A unique code is generated from the combination of indicator, activity, and category IDs. Use the column picker in the toolbar to show or hide table columns. Configurations can also be <strong>bulk imported</strong> from Excel using the built-in import wizard (Upload File &rarr; Match Fields &rarr; Review &rarr; Import).</p>
 
           <h3>Editing &amp; deleting configurations</h3>
           <ul>
@@ -2365,52 +2370,46 @@ const allNavGroups: NavGroup[] = [
       },
       {
         id: 'mne-reports',
-        label: 'Reports & Evaluations',
+        label: 'Reports',
         content: `
-          <p>The <strong>Monitoring</strong> section is where indicator data is actually reported and tracked. It contains three sub-pages: <strong>Reports (New)</strong>, <strong>Reports</strong> (past), and <strong>Evaluations</strong>.</p>
+          <p>The <strong>Monitoring</strong> section is where indicator data is reported and tracked. It contains two sub-pages: <strong>Reports (New)</strong> for active submission and review, and <strong>Reports</strong> for the historical archive.</p>
 
           <h2>Submitting reports (New)</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports (New)</strong> to file indicator reports. The listing shows all indicator configurations with their current reporting status:</p>
+          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports (New)</strong> to file indicator reports. The listing shows submitted reports with their current status:</p>
           <img class="docs-screenshot" src="${meReportsImg}" alt="M&E Reports (New) listing" />
           <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Indicator</strong></td><td>Name of the indicator</td></tr>
             <tr><td><strong>Category</strong></td><td>Dimension / category title</td></tr>
+            <tr><td><strong>Activity</strong></td><td>Linked activity, or <em>Project level</em> for project-scoped configurations</td></tr>
             <tr><td><strong>Settlement</strong></td><td>The settlement or area the report covers</td></tr>
-            <tr><td><strong>Qty / Status</strong></td><td>The reported quantity or current status value</td></tr>
+            <tr><td><strong>Qty / Status</strong></td><td>The reported quantity or qualitative status value</td></tr>
             <tr><td><strong>Progress %</strong></td><td>Percentage progress toward the target</td></tr>
             <tr><td><strong>Date</strong></td><td>Date of the report</td></tr>
-            <tr><td><strong>Status</strong></td><td>Approval status (Pending, Approved, Rejected)</td></tr>
+            <tr><td><strong>Status</strong></td><td>Approval status (New, Approved, Rejected)</td></tr>
             <tr><td><strong>Documents</strong></td><td>Count of attached supporting documents, with a button to view them</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit, Delete, and document management</td></tr>
+            <tr><td><strong>Actions</strong></td><td>Review, view on map, documents, and delete (permission-gated)</td></tr>
           </tbody></table>
 
           <h3>Filing a report</h3>
           <img class="docs-screenshot" src="${meReportsAddImg}" alt="M&E filing a report form" />
-          <p>Click the <strong>+</strong> button to open the <strong>Add Report</strong> dialog. Fill in the form in order (each dropdown filters the next):</p>
+          <p>Click the <strong>+</strong> button to open the <strong>Add Report</strong> drawer. Fill in the form in order (each dropdown filters the next):</p>
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Project</strong></td><td>Select the KISIP project. Options are filterable.</td></tr>
+            <tr><td><strong>Location</strong></td><td>Select the project location / settlement (hidden for national-scope projects).</td></tr>
             <tr><td><strong>Activity</strong></td><td>Select the activity; the list is filtered by the selected project.</td></tr>
-            <tr><td><strong>Indicator</strong></td><td>Select the indicator configuration (indicator + dimension). The list is filtered by the selected activity. The chosen configuration determines the settlement/location for the report.</td></tr>
+            <tr><td><strong>Indicator</strong></td><td>Select the indicator configuration (indicator + dimension). The list is filtered by the selected activity.</td></tr>
             <tr><td><strong>Date</strong></td><td>Pick the reporting date.</td></tr>
             <tr><td><strong>Quantity</strong></td><td>Enter the reported amount (number).</td></tr>
             <tr><td><strong>Progress %</strong></td><td>Optional. Enter progress toward target (0–100).</td></tr>
             <tr><td><strong>Comments</strong></td><td>Optional. Free-text comments.</td></tr>
           </tbody></table>
-          <p>Click <strong>Submit</strong> to save. The report is created in <em>Pending</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>M&amp;E tab</strong> in Settlement Details.</p>
+          <p>Click <strong>Submit</strong> to save. The report is created in <em>New</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>M&amp;E tab</strong> in Settlement Details.</p>
 
           <h3>Filtering</h3>
-          <p>Filter reports by <strong>county</strong> (multi-select, available to national users), <strong>settlement</strong> (searchable), or <strong>indicator</strong>. County-level users automatically see only reports for their assigned county.</p>
+          <p>Filter reports by <strong>settlement</strong> (searchable remote lookup) or <strong>indicator</strong>. County-level users automatically see only reports for their assigned county.</p>
 
           <h2>Past reports</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports</strong> to view historical reports. This provides a read-only archive of all previously submitted and approved indicator reports with the same column structure. Use this view to track trends and cumulative progress over time.</p>
-
-          <h2>Evaluations</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Evaluations</strong> to manage formal programme evaluations (e.g. mid-term reviews, end-term assessments, annual reviews).</p>
-          <ul>
-            <li><strong>View evaluations</strong> &mdash; the listing shows all created evaluations with their title, type, date, and status</li>
-            <li><strong>Add evaluation</strong> &mdash; click <strong>Add Evaluation</strong> to create a new evaluation record, selecting the type and providing the assessment narrative</li>
-          </ul>
-          <p>Evaluations compile indicator data into structured assessment documents that can be exported and shared with stakeholders.</p>
+          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports</strong> to view and manage the full report archive. This page uses the same column structure as Reports (New) and supports add, edit, review, and export workflows for historical indicator reports.</p>
 
           <h2>Export</h2>
           <p>All report listings can be exported to Excel. Use the <strong>Download</strong> button in the toolbar. A custom field selector lets you choose which columns to include in the export.</p>
@@ -3774,7 +3773,7 @@ const allNavGroups: NavGroup[] = [
           <p>The <strong>Common</strong> hub (<strong>Settings &rarr; Common</strong>) manages reference data used across documents, M&amp;E, and projects. Tabs include:</p>
           <ul>
             <li><strong>Document Categories</strong> and <strong>Document Types</strong> &mdash; classification for the repository (documented below)</li>
-            <li><strong>Evaluation Types</strong> &mdash; templates for formal M&amp;E evaluations</li>
+            <li><strong>Evaluation Types</strong> &mdash; classification labels for formal assessment reference data</li>
             <li><strong>Categories</strong> &mdash; indicator category groupings</li>
             <li><strong>Contractors</strong> &mdash; contractor registry for intervention projects</li>
             <li><strong>Domains</strong> &mdash; intervention area domains linked to programme components</li>
@@ -4149,6 +4148,7 @@ function toggleGroup(id: string) {
 }
 
 function selectSection(id: string) {
+  if (!allPages.value.some((p) => p.id === id)) return
   activeSection.value = id
   sidebarOpen.value = false
   for (const g of navGroups.value) {
@@ -4362,7 +4362,9 @@ onMounted(async () => {
   if (target) {
     // Wait one tick so navGroups (which depends on userRoleNames) has filtered correctly
     await nextTick()
-    selectSection(target)
+    if (allPages.value.some((p) => p.id === target)) {
+      selectSection(target)
+    }
   }
 })
 onBeforeUnmount(() => window.removeEventListener('resize', closeSidebarOnResize))

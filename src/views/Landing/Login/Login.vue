@@ -15,6 +15,7 @@ import { getUserPermissions, resetUserPassword } from '@/api/users'
 import { validateKenyanPhone } from '@/utils/phoneValidation'
 import BaseLayout from './../BaseLayout.vue'
 import { finishLoginNavigation } from '@/utils/bootstrapNavigation'
+import { setAuthUserInfo } from '@/hooks/web/authStorage'
 
 const { required } = useValidator()
 const appStore = useAppStore()
@@ -121,17 +122,17 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
     if (permissionsRes.data && Array.isArray(permissionsRes.data)) {
       ;(formData as any).permissions = permissionsRes.data
       const updatedUserInfo = { ...authenticatedUser, permissions: permissionsRes.data }
-      wsCache.set(appStore.getUserInfo, updatedUserInfo)
+      setAuthUserInfo(updatedUserInfo)
     } else {
       ;(formData as any).permissions = ['*.*.*']
       const updatedUserInfo = { ...authenticatedUser, permissions: ['*.*.*'] }
-      wsCache.set(appStore.getUserInfo, updatedUserInfo)
+      setAuthUserInfo(updatedUserInfo)
     }
   } catch (error) {
     console.error('Error fetching user permissions:', error)
     ;(formData as any).permissions = ['*.*.*']
     const updatedUserInfo = { ...authenticatedUser, permissions: ['*.*.*'] }
-    wsCache.set(appStore.getUserInfo, updatedUserInfo)
+    setAuthUserInfo(updatedUserInfo)
   }
 
   if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
@@ -225,7 +226,7 @@ const signIn = async () => {
         const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) => 
           ({ id, name, roles, data, county_id, avatar, phone, photo }))(res)
         if (selUserDetails) {
-          wsCache.set(appStore.getUserInfo, selUserDetails)
+          setAuthUserInfo(selUserDetails)
           const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
 
           // Set admin flag in localStorage for cross-tab access (e.g. docs page)
@@ -281,7 +282,7 @@ const guestLogin = async () => {
     if (selUserDetails) {
       // Use permissions embedded in the guest response — no separate getUserPermissions call needed
       const guestPermissions: string[] = Array.isArray(res.permissions) ? res.permissions : []
-      wsCache.set(appStore.getUserInfo, { ...selUserDetails, permissions: guestPermissions })
+      setAuthUserInfo({ ...selUserDetails, permissions: guestPermissions })
 
       try { localStorage.setItem('kesmis_is_admin', '0') } catch {}
       appStore.setAdminButtons(false)

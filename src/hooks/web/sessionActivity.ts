@@ -1,5 +1,4 @@
-import { useCache } from '@/hooks/web/useCache'
-import { useAppStoreWithOut } from '@/store/modules/app'
+import { getAuthUserInfo, setAuthUserInfo } from '@/hooks/web/authStorage'
 
 export type SessionIdleConfig = {
   idleEnforcementEnabled: boolean
@@ -101,9 +100,7 @@ export function isSessionWarningOpen() {
 
 export function getAccessTokenFromCache(): string | null {
   try {
-    const appStore = useAppStoreWithOut()
-    const { wsCache } = useCache()
-    const userInfo = wsCache.get(appStore.getUserInfo)
+    const userInfo = getAuthUserInfo<{ data?: string }>()
     const token = userInfo?.data
     if (!token || typeof token !== 'string') return null
     const trimmed = token.trim()
@@ -115,9 +112,7 @@ export function getAccessTokenFromCache(): string | null {
 }
 
 export function updateCachedAccessToken(token: string) {
-  const appStore = useAppStoreWithOut()
-  const { wsCache } = useCache()
-  const userInfo = wsCache.get(appStore.getUserInfo)
+  const userInfo = getAuthUserInfo<Record<string, unknown>>()
   if (!userInfo?.id) return
-  wsCache.set(appStore.getUserInfo, { ...userInfo, data: token })
+  setAuthUserInfo({ ...userInfo, data: token })
 }

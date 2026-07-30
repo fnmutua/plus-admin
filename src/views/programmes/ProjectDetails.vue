@@ -5193,9 +5193,12 @@ const changeLocation = async (location: any) => {
   console.log('selected_location', selected_location)
 
 
-  ruleForm.county_id = selected_location.county_id
-  ruleForm.subcounty_id = selected_location.subcounty_id
-  ruleForm.ward_id = selected_location.ward_id
+  // A project_location row only has its own county/subcounty/ward FKs populated when
+  // location_type matches that level; for a settlement-level location, fall back to the
+  // settlement's own hierarchy (nested by the backend alongside project_location).
+  ruleForm.county_id = selected_location.county_id ?? selected_location.settlement?.county?.id ?? null
+  ruleForm.subcounty_id = selected_location.subcounty_id ?? selected_location.settlement?.subcounty?.id ?? null
+  ruleForm.ward_id = selected_location.ward_id ?? selected_location.settlement?.ward?.id ?? null
   ruleForm.settlement_id = selected_location.settlement_id
   ruleForm.geom = selected_location.geom
   //ruleForm.project_location_id = location.id

@@ -7,7 +7,7 @@ import { Layout } from '@/utils/routerHelper'
 import { ref } from 'vue'
 import { getRoutesList } from '@/api/settlements'
 // import { useAppStore} from '@/store/modules/app' // Removed unused import
-import { useCache } from '@/hooks/web/useCache'
+import { getAuthUserInfo } from '@/hooks/web/authStorage'
 
 // Define proper types for the API responses
 interface RouteRequestData {
@@ -98,18 +98,6 @@ function toTitleCase(str) {
 
 // const userInfo = wsCache.get(appStore.getUserInfo)
  
-  
-import { useAppStoreWithOut } from '@/store/modules/app'
-
-
-
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-// Don't read userInfo at module load - it may not be available yet
-// const userInfo = wsCache.get(appStore.getUserInfo)
-
-
-
 
  
 
@@ -437,8 +425,8 @@ const getComponents = async (): Promise<void> => {
  
   const getDynamicDashboards = async (): Promise<void> => {
     // Get userInfo dynamically when called, not at module load
-    const currentUserInfo = wsCache.get(appStore.getUserInfo)
-    if (!currentUserInfo || !currentUserInfo.id) {
+    const currentUserInfo = getAuthUserInfo<{ id?: number; roles?: { name: string }[] }>()
+    if (!currentUserInfo?.id) {
       console.warn('Cannot load dynamic dashboards: user not logged in');
       return;
     }
@@ -569,8 +557,8 @@ const getComponents = async (): Promise<void> => {
 // Initialize loading with proper sequencing
 const initializeRoutes = async () => {
   try {
-    const currentUserInfo = wsCache.get(appStore.getUserInfo)
-    if (!currentUserInfo) {
+    const currentUserInfo = getAuthUserInfo()
+    if (!currentUserInfo?.id) {
       console.log('User not logged in, skipping route initialization');
       return;
     }
@@ -692,10 +680,7 @@ export const usePermissionStore = defineStore('permission', {
         }
 
         // Filter routes by permissions and optional role restrictions.
-        const { wsCache } = useCache()
-        const { useAppStoreWithOut } = await import('@/store/modules/app')
-        const appStore = useAppStoreWithOut()
-        const currentUserInfo = wsCache.get(appStore.getUserInfo)
+        const currentUserInfo = getAuthUserInfo<{ roles?: { name: string }[] }>()
         const userRoleNames: string[] = (currentUserInfo?.roles || []).map((r: any) => r.name)
 
         const filterRoutes = (routes) => {

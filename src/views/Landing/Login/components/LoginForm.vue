@@ -16,6 +16,7 @@ import { validateKenyanPhone } from '@/utils/phoneValidation'
 import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 import { finishLoginNavigation } from '@/utils/bootstrapNavigation'
+import { setAuthUserInfo } from '@/hooks/web/authStorage'
 
 const { required } = useValidator()
  
@@ -121,8 +122,8 @@ const signIn = async () => {
         console.log('After Login', res)
         const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) => ({ id, name, roles, data, county_id, avatar, phone, photo }))(res);
         if (selUserDetails) {
-          wsCache.set(appStore.getUserInfo, selUserDetails)
-          const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
+          setAuthUserInfo(selUserDetails)
+          const userDeatilsAfterLogin = selUserDetails
 
           // Set admin flag in localStorage for cross-tab access (e.g. docs page)
           const userRoles = Array.isArray(selUserDetails.roles) ? selUserDetails.roles : []
@@ -172,13 +173,13 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
       formData.permissions = permissionsRes.data;
       // Update cached user info with permissions
       const updatedUserInfo = { ...authenticatedUser, permissions: permissionsRes.data };
-      wsCache.set(appStore.getUserInfo, updatedUserInfo);
+      setAuthUserInfo(updatedUserInfo);
       console.log('User permissions fetched and stored:', permissionsRes.data);
     } else {
       // Fallback to default permissions if API fails
       formData.permissions = ['*.*.*'];
       const updatedUserInfo = { ...authenticatedUser, permissions: ['*.*.*'] };
-      wsCache.set(appStore.getUserInfo, updatedUserInfo);
+      setAuthUserInfo(updatedUserInfo);
       console.log('Using fallback permissions');
     }
   } catch (error) {
@@ -186,7 +187,7 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
     // Fallback to default permissions if API fails
     formData.permissions = ['*.*.*'];
     const updatedUserInfo = { ...authenticatedUser, permissions: ['*.*.*'] };
-    wsCache.set(appStore.getUserInfo, updatedUserInfo);
+    setAuthUserInfo(updatedUserInfo);
     console.log('Using fallback permissions due to error');
   }
 

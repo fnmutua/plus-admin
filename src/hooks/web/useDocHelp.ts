@@ -1,7 +1,7 @@
-import { useRouter } from 'vue-router'
+import { openDocsSection } from '@/config/docsRouteMap'
 
 /**
- * Returns a function that navigates to a specific section in the documentation.
+ * Returns a function that opens documentation for a specific section in a new tab.
  *
  * Usage in any view:
  *   const goToDoc = useDocHelp('grm-grievances')
@@ -10,6 +10,5 @@ import { useRouter } from 'vue-router'
  * Section IDs map to the `id` fields on NavPage/NavSubGroup/NavGroup in Docs.vue.
  */
 export function useDocHelp(sectionId: string) {
-  const router = useRouter()
-  return () => router.push({ path: '/docs', query: { section: sectionId } })
+  return () => openDocsSection(sectionId)
 }

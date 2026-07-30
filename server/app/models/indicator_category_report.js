@@ -114,10 +114,11 @@ module.exports = function (sequelize, DataTypes) {
       },
    
       code: {
+        // Filing code — shared by every indicator report created in one bulk
+        // submission, so it must not be unique.
         type: DataTypes.STRING,
-        allowNull: false,
-        unique:true
-      },  
+        allowNull: false
+      },
       
     
       cumProgress: {

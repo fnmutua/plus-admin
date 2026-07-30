@@ -66,7 +66,7 @@ const routeSteps = [
   { name: 'Activity', route: 'ProgrammeActivity', icon: 'icon-park-outline:activity-source', desc: 'A unit of implementation work within the Project.' },
   { name: 'Indicator', route: 'Indicators', icon: 'cil:gauge', desc: 'The subject being counted — e.g. "Beneficiaries", not yet qualified.' },
   { name: 'Indicator Category', route: 'IndicatorConfigs', icon: 'material-symbols:settings', desc: 'Pairs the Indicator with a qualifying category (e.g. "Trained") and binds it to this Activity — now reportable.' },
-  { name: 'Report', route: 'NewReports', icon: 'mdi:file-document-plus', desc: 'The periodic value someone submits, New → Approved.' },
+  { name: 'Report', route: 'PastReports', icon: 'mdi:file-document-plus', desc: 'The periodic value someone submits, New → Approved.' },
 ]
 
 // /subprogrammes is built at login time (see store/modules/permission.ts,

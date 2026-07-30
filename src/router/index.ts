@@ -677,16 +677,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
        },
 
-       {
-        path: 'activity',
-        component: () => import('@/views/Indicators/Activity.vue'),
-       name: 'ProgrammeActivity',
-       meta: {
-         title: 'Activities',
-         icon:'icon-park-outline:activity-source',
-         permissions: ['activity:read'],
-       }
-       },
          {
         path: 'framework',
         //component: 'views/Facilities/Water/Water',
@@ -699,6 +689,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Framework'
         },
         children: [
+          {
+            path: 'activity',
+            component: () => import('@/views/Indicators/Activity.vue'),
+            name: 'ProgrammeActivity',
+            meta: {
+              title: 'Activities',
+              icon:'icon-park-outline:activity-source',
+              permissions: ['activity:read'],
+            }
+          },
           {
             path: 'indicators',
          //   component: 'views/Indicators/indicator',
@@ -753,26 +753,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         children: [
           {
             path: 'new',
-          //  component: 'views/Indicators/indicator_category_report',
-            component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
-            name: 'NewReports',
+            redirect: { name: 'PastReports' },
             meta: {
-              title: 'Reports(New)',
-              permissions: ['indicator_category_report:read'],
-              icon:'carbon:result-new',
-            }
+              hidden: true,
+            },
           },
-
           {
             path: 'past',
-          //  component: 'views/Indicators/indicator_category_report',
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
               title: 'Reports',
               permissions: ['indicator_category_report:read'],
-              icon:'mdi:file-document-plus',
-            }
+              icon: 'mdi:file-document-plus',
+            },
           },
         ]
       },

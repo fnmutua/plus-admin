@@ -34,8 +34,7 @@ const handleCommand = (command: string | number | object) => {
 
   if (command == 'Reports') {
     push({
-      path: '/mne/new',
-      name: 'NewReports'
+      name: 'PastReports',
     })
   }
   else if (command == 'Accounts') {

@@ -5747,9 +5747,65 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
               // Treat an array of values as an IN clause
               return { [field]: { [Sequelize.Op.in]: value } };
             }
+            if (value === '__not_null__') {
+              return { [field]: { [Sequelize.Op.ne]: null } };
+            }
             return { [field]: value };
           }),
         };
+      }
+    }
+
+    // Programme filter for indicator reports: reports reach a programme through
+    // project -> component -> programme. Selecting a parent programme also matches its
+    // sub-programmes, mirroring the tree picker's semantics.
+    if (
+      modelName === 'indicator_category_report' &&
+      req.body.programmeId != null &&
+      req.body.programmeId !== ''
+    ) {
+      const programmeId = parseInt(req.body.programmeId, 10);
+      if (!Number.isNaN(programmeId)) {
+        const tbl = `"${Model.tableName}"`;
+        const programmeTbl = db.models.programme.tableName;
+        const componentTbl = db.models.component.tableName;
+        const programmeCond = db.sequelize.literal(`EXISTS (
+          SELECT 1 FROM project p
+          JOIN "${componentTbl}" c ON c.id = p.component_id
+          WHERE p.id = ${tbl}."project_id"
+            AND (c.programme_id = ${programmeId}
+                 OR c.programme_id IN (SELECT id FROM "${programmeTbl}" WHERE "parentId" = ${programmeId}))
+        )`);
+        if (baseQuery.where[Sequelize.Op.and]) {
+          baseQuery.where[Sequelize.Op.and].push(programmeCond);
+        } else {
+          baseQuery.where[Sequelize.Op.and] = [programmeCond];
+        }
+      }
+    }
+
+    // Free-text search for indicator reports: match indicator name/category or project title
+    if (
+      modelName === 'indicator_category_report' &&
+      typeof req.body.reportSearch === 'string' &&
+      req.body.reportSearch.trim() !== ''
+    ) {
+      const kw = req.body.reportSearch.trim().toLowerCase().replace(/'/g, "''");
+      const like = `'%${kw}%'`;
+      const tbl = `"${Model.tableName}"`;
+      const searchCond = db.sequelize.literal(`(
+        EXISTS (SELECT 1 FROM indicator_category ic WHERE ic.id = ${tbl}."indicator_category_id"
+                AND (LOWER(ic.indicator_name) LIKE ${like} OR LOWER(ic.category_title) LIKE ${like}))
+        OR EXISTS (SELECT 1 FROM project p WHERE p.id = ${tbl}."project_id" AND LOWER(p.title) LIKE ${like})
+        OR EXISTS (SELECT 1 FROM settlement s WHERE s.id = ${tbl}."settlement_id" AND LOWER(s.name) LIKE ${like})
+        OR EXISTS (SELECT 1 FROM ward w WHERE w.id = ${tbl}."ward_id" AND LOWER(w.name) LIKE ${like})
+        OR EXISTS (SELECT 1 FROM subcounty sc WHERE sc.id = ${tbl}."subcounty_id" AND LOWER(sc.name) LIKE ${like})
+        OR EXISTS (SELECT 1 FROM county c WHERE c.id = ${tbl}."county_id" AND LOWER(c.name) LIKE ${like})
+      )`);
+      if (baseQuery.where[Sequelize.Op.and]) {
+        baseQuery.where[Sequelize.Op.and].push(searchCond);
+      } else {
+        baseQuery.where[Sequelize.Op.and] = [searchCond];
       }
     }
 
@@ -5804,8 +5860,21 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         attributes: relatedHasGeom && stripAssociatedGeom ? { exclude: ['geom'] } : undefined
       };
       if (assocModel === 'project_location') {
+        // A project_location row only has its own county/subcounty/ward FKs populated when
+        // location_type matches that level; when location_type is 'settlement', those FKs are
+        // null and the hierarchy must be resolved through the settlement's own associations —
+        // nest them here so callers get the full chain in one query instead of a second lookup.
         const projectLocationNested = [
-          { model: db.models.settlement, attributes: ['id', 'name'], required: false },
+          {
+            model: db.models.settlement,
+            attributes: ['id', 'name'],
+            required: false,
+            include: [
+              { model: db.models.ward, attributes: ['id', 'name'], required: false },
+              { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
+              { model: db.models.county, attributes: ['id', 'name'], required: false },
+            ],
+          },
           { model: db.models.ward, attributes: ['id', 'name'], required: false },
           { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
           { model: db.models.county, attributes: ['id', 'name'], required: false },
@@ -5844,6 +5913,16 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       // Household listing only needs lightweight settlement metadata.
       if (isHouseholdsModel && assocModel === 'settlement') {
         modelIncl.attributes = ['id', 'name', 'area'];
+      }
+      // project_location itself queried directly (not nested under 'project'): nest
+      // settlement's own ward/subcounty/county too, since a settlement-scoped location
+      // only has its settlement_id FK populated on the project_location row itself.
+      if (modelName === 'project_location' && assocModel === 'settlement') {
+        modelIncl.include = [
+          { model: db.models.ward, attributes: ['id', 'name'], required: false },
+          { model: db.models.subcounty, attributes: ['id', 'name'], required: false },
+          { model: db.models.county, attributes: ['id', 'name'], required: false },
+        ];
       }
       if (assocModel === 'users') {
         modelIncl.attributes = ['name', 'email', 'phone'];
@@ -5994,12 +6073,42 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       }
     }
 
-    if (!returnAll) {
+    // Filing-grouped pagination: for indicator reports a "page" is N filings (rows
+    // sharing a `code`), not N report rows — otherwise a filing's indicators split
+    // across two pages. Page the distinct codes, then fetch all rows for those codes.
+    const groupByCode = modelName === 'indicator_category_report' && req.body.groupByCode === true;
+    let filingTotal = null;
+
+    if (groupByCode && !returnAll) {
+      const maxCreated = db.sequelize.fn('MAX', db.sequelize.col(`${Model.tableName}.createdAt`));
+
+      const codeRows = await Model.findAll({
+        attributes: ['code'],
+        where: baseQuery.where,
+        group: ['code'],
+        order: [[maxCreated, 'DESC']],
+        limit: parsedLimit,
+        offset: (parsedPage - 1) * parsedLimit,
+        raw: true,
+      });
+
+      filingTotal = await Model.count({
+        where: baseQuery.where,
+        distinct: true,
+        col: 'code',
+      });
+
+      const pageCodes = codeRows.map((r) => r.code).filter((c) => c != null);
+      query.where = {
+        [Sequelize.Op.and]: [
+          baseQuery.where,
+          pageCodes.length ? { code: { [Sequelize.Op.in]: pageCodes } } : { id: null },
+        ],
+      };
+    } else if (!returnAll) {
       query.limit = parsedLimit;
       query.offset = (parsedPage - 1) * parsedLimit;
     }
-
-
 
     if (cache_key) {
       const cacheDuration = 3600;
@@ -6024,12 +6133,12 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       }
 
     const response = await Model.findAndCountAll(query);
-    
+
     const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
-    
+
     const cacheData = {
       data: processedData,
-      total: response.count,
+      total: filingTotal ?? response.count,
       lastModified: Date.now(),
     };
     await redisClient.set(cache_key, JSON.stringify(cacheData), { EX: cacheDuration });
@@ -6038,7 +6147,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       fromCache: false,
       cache_key,
       data: processedData,
-      total: response.count,
+      total: cacheData.total,
       code: '0000',
     });
   }
@@ -6047,12 +6156,14 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
   const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
 
-  console.log(`[modelPaginatedDatafilterByColumn] model=${modelName} returnAll=${returnAll} total=${response.count} returned=${processedData.length}`)
+  const totalOut = filingTotal ?? response.count;
+
+  console.log(`[modelPaginatedDatafilterByColumn] model=${modelName} returnAll=${returnAll} total=${totalOut} returned=${processedData.length}`)
 
   return res.status(200).json({
     fromCache: false,
     data: processedData,
-    total: response.count,
+    total: totalOut,
     code: '0000',
   });
 
@@ -7012,16 +7123,36 @@ exports.batchDocumentsUpload = (req, res) => {
 
     try {
       for (const nobj of objs) {
+        // The same filename is allowed once per report (unique index on name+report_id),
+        // so for report uploads scope the duplicate check to the owning report.
         const existingDoc = await db.models[reg_model].findOne({
-          where: {
-            name: nobj.name
-          }
+          where: nobj.report_id
+            ? { name: nobj.name, report_id: nobj.report_id }
+            : { name: nobj.name }
         });
+
+        // Report replica: the file is already stored under another report/entity —
+        // point this report's row at the stored copy instead of processing it again.
+        let reuseSource = null;
+        if (!existingDoc && nobj.report_id) {
+          reuseSource = await db.models[reg_model].findOne({ where: { name: nobj.name } });
+          if (reuseSource) {
+            try { if (nobj.location && nobj.location !== reuseSource.location && fs.existsSync(nobj.location)) fs.unlinkSync(nobj.location) } catch (_) {}
+            nobj.location = reuseSource.location;
+            nobj.aiProcessed = reuseSource.aiProcessed;
+            nobj.aiProcessedAt = reuseSource.aiProcessedAt;
+            nobj.aiChunks = reuseSource.aiChunks;
+            nobj.aiDocumentId = reuseSource.aiDocumentId;
+            nobj.aiWarning = reuseSource.aiWarning;
+          }
+        }
 
         if (existingDoc) {
           console.log(`Document already exists: ${nobj.name} — checking document_link`);
-          // Remove the duplicate uploaded file since we'll use the existing document's location
-          try { if (nobj.location && fs.existsSync(nobj.location)) fs.unlinkSync(nobj.location) } catch (_) {}
+          // Files are stored under their original name, so a re-upload of the same
+          // filename lands on the existing document's path — only unlink when the
+          // duplicate was written somewhere else.
+          try { if (nobj.location && nobj.location !== existingDoc.location && fs.existsSync(nobj.location)) fs.unlinkSync(nobj.location) } catch (_) {}
           // Document exists; ensure the entity link is created if it isn't already
           const linkEntityType = nobj.settlement_id ? 'settlement'
             : nobj.project_id ? 'project'
@@ -7081,7 +7212,11 @@ exports.batchDocumentsUpload = (req, res) => {
             }).catch(e => console.log('document_link mirror error:', e))
           }
 
-          // Process document with AI (asynchronous, don't wait for completion)
+          // Process document with AI (asynchronous, don't wait for completion).
+          // Replicas of an already-processed file carry its AI fields over — skip reprocessing.
+          if (reuseSource?.aiProcessed) {
+            uploadStats.aiProcessed++;
+          } else {
           processDocumentWithAI(nobj.location, nobj.name, nobj.size)
             .then(aiResult => {
               if (aiResult.success) {
@@ -7108,6 +7243,7 @@ exports.batchDocumentsUpload = (req, res) => {
               uploadStats.aiFailed++;
               console.log(`❌ AI processing error for ${nobj.name}:`, aiError);
             });
+          }
 
         } catch (error) {
           console.log(`Failed to insert document: ${nobj.name}`, error);
@@ -8585,33 +8721,45 @@ exports.unrevokeDocumentShare = async (req, res) => {
 
 
 
-exports.RemoveDocument = (req, res) => {
-  var reg_model = 'document'  
+exports.RemoveDocument = async (req, res) => {
+  var reg_model = 'document'
   let errors =[]
   let successCount = 0
   let totalFiles = req.body.filesToDelete.length
   console.log("Removing files:", req.body.filesToDelete )
- 
+
   for (let i = 0; i < req.body.filesToDelete.length; i++) {
 
-    if (typeof(req.body.filesToDelete[i]) == 'object') { 
+    if (typeof(req.body.filesToDelete[i]) == 'object') {
 
-    //  var filePath = './public/' + req.body.filesToDelete[i].name;
+      const item = req.body.filesToDelete[i]
+      const filePath = path.join(uploadDir, item.name );
 
-    const filePath = path.join(uploadDir, req.body.filesToDelete[i].name );
+      // Reports replicated from one bulk submission share a single stored file —
+      // delete only this row when an id is given, and unlink the file only when
+      // no other document row still references that name.
+      const otherRefs = item.id
+        ? await db.models.document.count({
+            where: { name: item.name, id: { [Op.ne]: item.id } }
+          }).catch(() => 1)
+        : 0
 
-      // Try to delete the file, but don't fail if it doesn't exist
-      try {
-        fs.unlinkSync(filePath);
-        console.log('File deleted successfully:', filePath)
-      } catch (fileError) {
-        console.log('File not found or already deleted:', filePath, fileError.message)
-        // Continue with database deletion even if file doesn't exist
+      if (otherRefs === 0) {
+        // Try to delete the file, but don't fail if it doesn't exist
+        try {
+          fs.unlinkSync(filePath);
+          console.log('File deleted successfully:', filePath)
+        } catch (fileError) {
+          console.log('File not found or already deleted:', filePath, fileError.message)
+          // Continue with database deletion even if file doesn't exist
+        }
+      } else {
+        console.log('File kept, still referenced by', otherRefs, 'other document(s):', filePath)
       }
-    
-      destroyDocumentsWithDependencies({ name: req.body.filesToDelete[i].name })
+
+      destroyDocumentsWithDependencies(item.id ? { id: item.id } : { name: item.name })
         .then((result) => {
-          console.log('Database record deleted successfully for:', req.body.filesToDelete[i].name, 'rows:', result)
+          console.log('Database record deleted successfully for:', item.name, 'rows:', result)
           successCount++
         })
         .catch(function (err) {

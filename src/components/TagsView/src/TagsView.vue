@@ -15,6 +15,7 @@ import { useScrollTo } from '@/hooks/event/useScrollTo'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
 
 import { Drawer } from '@/components/Setting'
+import { openDocsForRoute } from '@/config/docsRouteMap'
 const { getPrefixCls } = useDesign()
 
 
@@ -266,46 +267,8 @@ const toggleDynamicStateFilters = () => {
   window.dispatchEvent(new CustomEvent('toggle-dynamic-state-filters'))
 }
 
-// Help / Documentation deep-link
-const ROUTE_TO_DOC_SECTION: Record<string, string> = {
-  LandingPage: 'dash-home', National: 'dash-home', LandingMap: 'dash-map', ProjectMap: 'dash-projects',
-  Settlements: 'data-settlements-listing', List: 'data-settlements-listing',
-  SettlementDetails: 'data-settlements-details',
-  AddSettlement: 'data-settlements-creating', AddSettlementX: 'data-settlements-creating', AddSettlementNew: 'data-settlements-creating',
-  ClimateAssessmentList: 'data-climate-overview', ClimateAssessmentSettlement: 'data-climate-questionnaire',
-  Facilities: 'data-facilities-overview', Health: 'data-facilities-overview', Education: 'data-facilities-overview',
-  Road: 'data-facilities-overview', Water: 'data-facilities-overview', WaterPoint: 'data-facilities-overview', PipedWater: 'data-facilities-overview',
-  SEC: 'data-community-sec', GRCView: 'data-community-grc',
-  kisipInterventions: 'data-projects-listing', ProjectDetails: 'data-projects-details', AddProject: 'data-projects-add',
-  NewReports: 'mne-reports', PastReports: 'mne-reports',
-  BeneficiaryConfigs: 'mne-beneficiaries', IndicatorCategory: 'mne-framework',
-  Grievances: 'grm-grievances', OpenGrievances: 'grm-grievances', ReferredGrievances: 'grm-grievances',
-  GrievanceDetails: 'grm-details', xGBVGrievances: 'grm-gbv', GBVGrievanceDetails: 'grm-gbv',
-  Incidents: 'incidents-management', OpenIncidents: 'incidents-management',
-  Roles: 'admin-roles',
-  AdminDataRequests: 'data-requests-management',
-  AdminDataRequestDetail: 'data-requests-management',
-  AdminCommunications: 'admin-communications',
-  Feedback: 'admin-feedback',
-  Logs: 'admin-logs',
-  Repository: 'repo-documents', RepositoryTagged: 'repo-documents', ImportDocuments: 'repo-documents',
-  DroneImagery: 'repo-imagery', DocumentShares: 'repo-shares',
-  Media: 'media-overview', Video: 'media-videos', LiveStreams: 'media-live', Articles: 'media-articles',
-  systemUsers: 'users-listing', staff: 'users-listing', AdminStaff: 'users-listing', SuperAdminStaff: 'users-listing', GRM_Staff: 'users-listing', NewAccounts: 'users-activation',
-  Settings: 'settings-sms', SettingsPlatform: 'settings-system', SettingsAnalytics: 'config-dashboards-list',
-  ModuleSettings: 'settings-sms', SystemSettings: 'settings-system', ClimateSettings: 'settings-climate',
-  PopulationSettings: 'settings-population', DataCleanupSettings: 'settings-data-cleanup', PageVisits: 'settings-page-visits',
-  ReferenceDataSettings: 'config-common', CommonSettings: 'config-common',
-  ProgrammeSettings: 'config-programme', ProjectsProgrammes: 'config-programme', ProgrammeComponents: 'config-programme', ProgrammeImplementation: 'config-programme',
-  DashboardSettings: 'config-dashboards-list', DynamicDashboards: 'config-dashboards-list',
-  DashboardCards: 'config-dashboards-cards', DashboardSections: 'config-dashboards-sections', DashboardSectionCharts: 'config-dashboards-charts',
-  GeographySettings: 'config-admin-units', AdminUnits: 'config-admin-units', Counties: 'config-admin-units', Subcounties: 'config-admin-units', Wards: 'config-admin-units',
-}
-
 const openDocs = () => {
-  const section = ROUTE_TO_DOC_SECTION[currentRoute.value.name as string]
-  const query = section ? `?section=${section}` : ''
-  window.open(`/#/docs${query}`, '_blank')
+  openDocsForRoute(currentRoute.value.name as string)
 }
 
 // Check if current route is a DynamicState route

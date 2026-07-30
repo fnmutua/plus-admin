@@ -1,6 +1,6 @@
 <script setup>
 import { ref, toRefs, onMounted, computed, watch } from 'vue'
-import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElTooltip, ElOption, ElOptionGroup, ElCheckbox, ElTag, ElIcon, ElDivider } from 'element-plus';
+import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElTreeSelect, ElTooltip, ElOption, ElOptionGroup, ElCheckbox, ElTag, ElIcon, ElDivider, ElForm, ElFormItem, ElInput } from 'element-plus';
 import {
   Position, View, Plus, User, Download, Briefcase, Delete, Edit,
   Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled, CircleCloseFilled,
@@ -9,7 +9,7 @@ import {
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElMessage } from 'element-plus'
 import { uuid } from 'vue-uuid'
-import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
+import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch, CreateRecord } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -50,6 +50,62 @@ const dragActive = ref(false)
 const DocTypes = ref([])
 const DocTypesFiltered = ref([])
 const DocTypesAll = ref([])
+
+// Add-new-type dialog
+const showAddTypeDialog = ref(false)
+const newTypeName = ref('')
+const newTypeGroup = ref('')
+const savingType = ref(false)
+
+const typeGroupOptions = computed(() => DocTypes.value.map((g) => g.label))
+
+// Tree data for the type picker: groups are expandable but not selectable
+const docTypeTree = computed(() =>
+  DocTypes.value.map((g) => ({
+    value: `group:${g.label}`,
+    label: g.label,
+    disabled: true,
+    children: g.options.map((o) => ({ value: o.value, label: o.label }))
+  }))
+)
+
+const openAddTypeDialog = () => {
+  newTypeName.value = ''
+  newTypeGroup.value = props.filterOptions || ''
+  showAddTypeDialog.value = true
+}
+
+const saveNewType = async () => {
+  const type = newTypeName.value.trim()
+  const group = newTypeGroup.value.trim()
+  if (!type || !group) {
+    ElMessage.warning('Enter both a group and a type name')
+    return
+  }
+  savingType.value = true
+  try {
+    const res = await CreateRecord({
+      model: 'document_type',
+      type,
+      group,
+      code: uuid.v4(),
+      createdBy: userInfo?.id
+    })
+    // Reload options (getDocumentTypes appends, so clear first) and select the new type
+    DocTypes.value = []
+    DocTypesFiltered.value = []
+    DocTypesAll.value = []
+    await getDocumentTypes()
+    documentCategory.value = res?.data?.id ?? null
+    showAddTypeDialog.value = false
+    ElMessage.success('Document type added')
+  } catch (error) {
+    console.error('Failed to add document type:', error)
+    ElMessage.error(error.response?.data?.message || 'Failed to add document type')
+  } finally {
+    savingType.value = false
+  }
+}
 
 // File validation
 const maxFileSize = 5 * 1024 * 1024 * 1024 // 5GB
@@ -295,7 +351,19 @@ const uploadFiles = async () => {
     
     if (response.code === "0000") {
       uploadStatus.value = 'success'
-      ElMessage.success(`Successfully uploaded ${selectedFiles.value.length} file(s)`)
+      const stats = response.stats || {}
+      const uploaded = stats.uploaded ?? selectedFiles.value.length
+      const skipped = stats.skipped ?? 0
+      const failed = stats.failed ?? 0
+      if (uploaded > 0) {
+        ElMessage.success(`Successfully uploaded ${uploaded} file(s)`)
+      }
+      if (skipped > 0) {
+        ElMessage.warning(`${skipped} duplicate file(s) skipped — already attached to this record`)
+      }
+      if (failed > 0) {
+        ElMessage.error(`${failed} file(s) failed to upload`)
+      }
       emit('upload-complete', response)
       
       // Reset form
@@ -369,24 +437,61 @@ onMounted(() => {
         <!-- Step 1: Document Type Selection -->
         <div class="upload-step">
           <h4>1. Select Document Type</h4>
-      <el-select
-        v-model="documentCategory"
-            placeholder="Choose document type"
-            class="full-width"
-        clearable
-        filterable
-            :disabled="isUploading"
-      >
-        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-              <el-option 
-                v-for="item in group.options" 
-                :key="item.value" 
-                :label="item.label" 
-                :value="item.value" 
-              />
-        </el-option-group>
-      </el-select>
+          <div class="type-select-row">
+            <el-tree-select
+              v-model="documentCategory"
+              :data="docTypeTree"
+              placeholder="Choose document type"
+              class="full-width"
+              clearable
+              filterable
+              default-expand-all
+              node-key="value"
+              value-key="value"
+              :props="{ label: 'label', children: 'children', disabled: 'disabled' }"
+              :disabled="isUploading"
+            />
+            <el-tooltip content="Add a new document type" placement="top">
+              <el-button :disabled="isUploading" @click="openAddTypeDialog">
+                <el-icon><Plus /></el-icon>
+              </el-button>
+            </el-tooltip>
+          </div>
         </div>
+
+        <!-- Add Document Type Dialog -->
+        <el-dialog
+          v-model="showAddTypeDialog"
+          title="Add Document Type"
+          width="420px"
+          append-to-body
+        >
+          <el-form label-position="top" @submit.prevent>
+            <el-form-item label="Group">
+              <el-select
+                v-model="newTypeGroup"
+                filterable
+                allow-create
+                default-first-option
+                placeholder="Select or type a new group"
+                class="full-width"
+              >
+                <el-option v-for="g in typeGroupOptions" :key="g" :label="g" :value="g" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Type name">
+              <el-input
+                v-model="newTypeName"
+                placeholder="e.g. Completion Certificate"
+                @keyup.enter="saveNewType"
+              />
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="showAddTypeDialog = false">Cancel</el-button>
+            <el-button type="primary" :loading="savingType" @click="saveNewType">Add Type</el-button>
+          </template>
+        </el-dialog>
 
         <!-- Step 2: File Selection -->
         <div class="upload-step" v-if="documentCategory">
@@ -541,6 +646,16 @@ onMounted(() => {
 
 .full-width {
   width: 100%;
+}
+
+.type-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-select-row .el-select {
+  flex: 1;
 }
 
 .drop-zone {

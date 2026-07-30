@@ -15,6 +15,7 @@ import { createApp } from 'vue'
 import App from '@/AppPublic.vue'
 import './permission-public'
 import { createHead } from '@unhead/vue'
+import { restoreAuthSessionFromLocalStorage } from '@/hooks/web/authStorage'
 
 const head = createHead()
 
@@ -24,6 +25,7 @@ export async function setupPublicApp() {
   await setupI18n(app)
 
   setupStore(app)
+  restoreAuthSessionFromLocalStorage()
   applyElementPlusSize(useAppStoreWithOut().getCurrentSize)
   setupGlobCom(app)
   setupElementPlusPublic(app)
