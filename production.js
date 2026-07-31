@@ -266,6 +266,8 @@ require('./server/app/routes/incident.routes')(app)
 require('./server/app/routes/pdf.routes')(app)
 require('./server/app/routes/docsPdf.routes')(app)
 require('./server/app/routes/geoserver.routes')(app)
+// Project task/details/clock JSON responses — gzip only, no caching. Skip /api/v1/ipc (file upload/download).
+app.use('/api/v1/project', createCompressionMiddleware())
 require('./server/app/routes/project.routes')(app)
 require('./server/app/routes/videoStream.routes')(app)
 require('./server/app/routes/adminunits.routes')(app)

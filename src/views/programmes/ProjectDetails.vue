@@ -1027,6 +1027,8 @@ const DocTypesFiltered = ref([])
 const DocTypesAll = ref([])
 const DocCategories= ref([])
 const getDocumentTypes = async () => {
+  if (DocTypes.value.length > 0) return
+
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
@@ -1088,6 +1090,8 @@ console.log(  'DocCategories.value',  DocCategories.value)
 const documentCategoryOptions = ref<Array<{ value: number; label: string; group: string }>>([])
 
 const loadDocumentCategories = async () => {
+  if (documentCategoryOptions.value.length > 0) return
+
   try {
     const response = await getCountyListApi({
       params: {
@@ -1299,15 +1303,18 @@ const getprojectDisbursements = async (project_id) => {
 const getLocations = async (
   project_id,
   page = locationCurrentPage.value,
-  size = locationPageSize.value
+  size = locationPageSize.value,
+  options: { excludeGeom?: boolean; returnAll?: boolean } = {},
 ) => {
   const formData: Record<string, unknown> = {}
   formData.model = 'project_location'
-  formData.excludeGeom = false
+  formData.excludeGeom = options.excludeGeom ?? false
   formData.associated_multiple_models = ['county', 'subcounty', 'ward', 'settlement']
   formData.filters = ['project_id']
   formData.filterValues = [[project_id]]
-  if (page && size) {
+  if (options.returnAll) {
+    formData.returnAll = true
+  } else if (page && size) {
     formData.page = page
     formData.limit = size
   }
@@ -1326,6 +1333,82 @@ const getLocations = async (
     projectLocations.value = incoming
   }
   projectLocationsTotal.value = res.total ?? projectLocations.value.length
+}
+
+function seedProjectLocationsFromGetOne(data: Record<string, any> | null | undefined) {
+  const embedded = data?.project_locations
+  if (!Array.isArray(embedded) || !embedded.length) return false
+  projectLocations.value = embedded
+  projectLocationsTotal.value = embedded.length
+  return true
+}
+
+async function ensureLocationsWithGeometry(projectId: string | string[]) {
+  const list = projectLocations.value || []
+  if (list.length > 0 && list.some((loc: any) => loc?.geom != null)) return
+  await getLocations(projectId, 1, locationPageSize.value, { excludeGeom: false, returnAll: true })
+}
+
+let documentCatalogLoadPromise: Promise<void> | null = null
+async function ensureDocumentCatalogLoaded() {
+  if (DocTypes.value.length && documentCategoryOptions.value.length) return
+  if (!documentCatalogLoadPromise) {
+    documentCatalogLoadPromise = Promise.all([
+      getDocumentTypes(),
+      loadDocumentCategories(),
+    ]).then(() => undefined).finally(() => {
+      documentCatalogLoadPromise = null
+    })
+  }
+  await documentCatalogLoadPromise
+}
+
+async function ensureActivityOptionsLoaded() {
+  if (activityOptions.value.length) return
+  await getActivities()
+}
+
+async function ensureContractorOptionsLoaded() {
+  if (contractorOptions.value.length) return
+  await getContractors(route.params.id)
+}
+
+let projectIndicatorsLoadPromise: Promise<void> | null = null
+async function ensureProjectIndicatorsLoaded() {
+  if (indicatorsOptionsFiltered.value.length) return
+  if (!projectIndicatorsLoadPromise) {
+    projectIndicatorsLoadPromise = changeProject(route.params.id)
+      .finally(() => {
+        projectIndicatorsLoadPromise = null
+      })
+  }
+  await projectIndicatorsLoadPromise
+}
+
+async function loadLazyDataForTab(tabName: string) {
+  if (tabName === 'Scope') {
+    await ensureActivityOptionsLoaded()
+  } else if (tabName === 'contractor') {
+    await ensureContractorOptionsLoaded()
+  } else if (tabName === 'documents') {
+    await ensureDocumentCatalogLoaded()
+    await refreshProjectDocuments()
+  } else if (tabName === 'Indicator') {
+    await ensureProjectIndicatorsLoaded()
+    await getIndicatorCategoryReports(route.params.id)
+    await loadProjectIndicatorTargets(route.params.id)
+  } else if (tabName === 'disbursement') {
+    await getprojectDisbursements(route.params.id)
+  } else if (tabName === 'clockin') {
+    getProjectClockIns(route.params.id)
+  } else if (tabName === 'timeline') {
+    await loadProjectTimeline(route.params.id)
+  } else if (tabName === 'history') {
+    await getProjectHistory(route.params.id)
+  } else if (tabName === 'Locations' && locationSubTab.value === 'map') {
+    await ensureLocationsWithGeometry(route.params.id)
+    loadLocationsMapView()
+  }
 }
 
 async function loadAllProjectLocationsForIpc(projectId: string | string[]) {
@@ -1515,9 +1598,7 @@ const AddDialogVisible = ref(false)
 const showSubmitBtn = ref(false)
 
 const AddReport = async () => {
-  if (!indicatorsOptionsFiltered.value.length) {
-    await changeProject(route.params.id)
-  }
+  await ensureProjectIndicatorsLoaded()
   if (!indicatorsOptionsFiltered.value.length) {
     ElMessage.warning(
       'No indicators are configured for this project yet. Link the relevant activities under Scope first.',
@@ -1675,51 +1756,33 @@ const getProjectActivities = async (project_id) => {
 
 
 
-const changeProject = async (project: any) => {
-
+const changeProject = async (project: string | number | string[]) => {
 
   ruleForm.project_location_id = null
   ruleForm.project_id = project
 
+  let project_activities = (projectScope.value || [])
+    .map((activity: { id?: number; activity_id?: number }) => activity.id ?? activity.activity_id)
+    .filter((id): id is number => id != null && Number.isFinite(Number(id)))
+    .map(Number)
 
-  let project_activities = []
-  let sel_indicators = []
-  let outcome_indicators = []
+  if (!project_activities.length) {
+    project_activities = await getProjectActivities(project)
+  }
 
-  console.log('changeProject', project)
-
-
-
-
-  project_activities = await getProjectActivities(project)
   scopeHydrating.value = true
   projectScopeChecked.value = project_activities
   scopeHydrating.value = false
-  sel_indicators = await getProjectActivityIndicators(project_activities)
 
-  console.log('project_activities', project_activities)
-
-
-
-
-  outcome_indicators = await getProjectProjectOutcomeIndicators()
-
-  console.log('outcome_indicators', outcome_indicators)
-
-
-
-
-  console.log('sel_indicators', sel_indicators)
-
-
-
-  console.log('outcome_indicators', outcome_indicators)
-
+  const [sel_indicators, outcome_indicators] = await Promise.all([
+    project_activities.length
+      ? getProjectActivityIndicators(project_activities)
+      : Promise.resolve([]),
+    getProjectProjectOutcomeIndicators(),
+  ])
 
   // Merging the two arrays
   const merged_indicators = [...sel_indicators, ...outcome_indicators];
-
-  console.log('merged_indicators', merged_indicators)
 
   // Indicator name carries the noun phrase and category_title the action verb,
   // so the two are joined for display rather than stored together.
@@ -1747,16 +1810,6 @@ const changeProject = async (project: any) => {
   }, [])
 
   indicatorsOptionsFiltered.value = transformedArray
-
-  console.log('transformedArray', transformedArray)
-
-
-
-
-
-
-
-
 }
 
 
@@ -1809,6 +1862,9 @@ const locationSubTab = ref(typeof route.query.tab === 'string' && route.query.ta
 const loadProjectDetails = async (id: string | string[]) => {
   isLoading.value = true
   project_id.value = id
+  projectIndicatorsLoadPromise = null
+  indicatorsOptionsFiltered.value = []
+
   const formData: Record<string, any> = {}
   formData.model = 'project'
   formData.id = id
@@ -1816,74 +1872,45 @@ const loadProjectDetails = async (id: string | string[]) => {
   formData.nested_models = nested_models
 
   const res = await getOneSettlement(formData)
+  const data = res.data
 
-  await enrichProjectProgrammeComponent(res.data)
-  await loadInlineProgrammeOptions()
-  await loadInlineComponentOptions()
-  projectFullData.value = res.data
+  await Promise.all([
+    enrichProjectProgrammeComponent(data),
+    loadInlineComponentOptions(),
+    loadProjectMetadata(data),
+  ])
+
+  projectFullData.value = data
   project_title.value = projectFullData.value?.title
-  syncProjectProfileFromData(res.data)
-  await loadProjectMetadata(res.data)
+  syncProjectProfileFromData(data)
   projectDocuments.value = []
   projectDocumentsTotal.value =
-    res.data?.total_documents ??
-    res.data?.documents?.length ??
-    projectDocuments.value.length
-  projectScope.value = res.data.activities
-  projectTeamData.value = res.data.project_teams
-  await loadSharedTeamRoles()
-  syncTeamRolesFromMembers(res.data.project_teams)
-  projectContractors.value = res.data.project_contractors
+    data?.total_documents ??
+    data?.documents?.length ??
+    0
+  projectScope.value = data.activities
+  projectTeamData.value = data.project_teams ?? []
+  syncTeamRolesFromMembers(data.project_teams)
+  projectContractors.value = data.project_contractors ?? []
 
-  const scope = normalizeImplementationScope(res.data?.implementation_scope)
+  const scope = normalizeImplementationScope(data?.implementation_scope)
   implementation_scope.value = scope || 'settlement'
   isNationalProject.value = scope === 'national'
 
-  programme_implementation_id.value = res.data.implementation_id
+  programme_implementation_id.value = data.implementation_id
 
-  await getDocumentTypes()
-  await loadDocumentCategories()
-
-  getActivities()
-  getContractors(id)
-  await getLocations(id, locationCurrentPage.value, locationPageSize.value)
-  getProjecteam(id)
-  getProjecContractors(id)
-  projectDocuments.value = await getProjectDocuments(
-    'project_id',
-    [id],
-    { paginate: true, page: docsCurrentPage.value, size: docsPageSize.value }
-  )
-
-  try {
-    const linkedRes: any = await getLinkedDocuments({ entity_type: 'project', entity_id: Number(id) })
-    if (linkedRes?.data?.length) {
-      const existingIds = new Set((projectDocuments.value as any[]).map((d: any) => d.id))
-      const extras = linkedRes.data
-        .filter((d: any) => !existingIds.has(d.id))
-        .map((d: any) => ({ ...d, _isLinked: true, deletable: false }))
-      if (extras.length) {
-        projectDocuments.value = [...(projectDocuments.value as any[]), ...extras]
-        projectDocumentsTotal.value = (projectDocumentsTotal.value || 0) + extras.length
-      }
-    }
-  } catch {
-    // non-fatal
+  if (!seedProjectLocationsFromGetOne(data)) {
+    await getLocations(id, locationCurrentPage.value, locationPageSize.value, { excludeGeom: true })
   }
 
-  getprojectDisbursements(id)
-  getIndicatorCategoryReports(id)
-  await loadProjectIndicatorTargets(id)
+  loadSharedTeamRoles().then(() => syncTeamRolesFromMembers(data.project_teams))
 
   ruleForm.subcounty_id = projectFullData.value.subcounty_id
   ruleForm.ward_id = projectFullData.value.ward_id
   ruleForm.county_id = projectFullData.value.county_id
 
-  getIndicatorNames()
-  projectGeom.value = res.data
+  projectGeom.value = data
   isLoading.value = false
-
-  changeProject(id)
 
   const savedTab = localStorage.getItem(projectTabStorageKey(id))
   if (savedTab === 'map') {
@@ -1896,9 +1923,11 @@ const loadProjectDetails = async (id: string | string[]) => {
     if (route.query.tab === 'map') locationSubTab.value = 'map'
   }
 
+  void loadLazyDataForTab(activeName.value)
+
   if (locationSubTab.value === 'map' && projectLocations.value.length > 0) {
     await nextTick()
-    loadLocationsMapView()
+    await loadLocationsMapView()
   }
 }
 
@@ -2206,13 +2235,19 @@ const paginatedProjectDocuments = computed(() => {
 // Pagination handlers
 const handleLocationPageChange = async (page: number) => {
   locationCurrentPage.value = page
-  await getLocations(project_id.value, page, locationPageSize.value)
+  const total = projectLocationsTotal.value || 0
+  const loaded = projectLocations.value?.length || 0
+  if (loaded >= total && total > 0) return
+  await getLocations(project_id.value, page, locationPageSize.value, { excludeGeom: true })
 }
 
 const handleLocationSizeChange = async (size: number) => {
   locationPageSize.value = size
   locationCurrentPage.value = 1
-  await getLocations(project_id.value, locationCurrentPage.value, size)
+  const total = projectLocationsTotal.value || 0
+  const loaded = projectLocations.value?.length || 0
+  if (loaded >= total && total > 0) return
+  await getLocations(project_id.value, locationCurrentPage.value, size, { excludeGeom: true })
 }
 
 const handleDocsPageChange = async (page: number) => {
@@ -2239,7 +2274,8 @@ const rowNumber = (index: number, page: number, size: number) => {
   return (page - 1) * size + index + 1
 }
 
-const loadLocationsMapView = () => {
+const loadLocationsMapView = async () => {
+  await ensureLocationsWithGeometry(route.params.id)
   locationsGeometry.value = toFeatureCollection(projectLocations.value)
   setTimeout(() => {
     loadAllLocationsMap(locationsGeometry.value)
@@ -2248,18 +2284,15 @@ const loadLocationsMapView = () => {
 
 watch(locationSubTab, (tab) => {
   if (tab === 'map' && projectLocations.value.length > 0) {
-    loadLocationsMapView()
+    void loadLocationsMapView()
   }
 })
 
 const handleTabClick = async (tab) => {
   localStorage.setItem(projectTabStorageKey(route.params.id), tab.props.name);
 
-  if (tab.props.name === 'Locations' && locationSubTab.value === 'map') {
-    loadLocationsMapView()
-  }
-
   if (tab.props.name === 'Scope') {
+    await ensureActivityOptionsLoaded()
     scopeHydrating.value = true
     projectScopeChecked.value = projectScope.value.map((activity) => activity.id)
     nextTick(() => {
@@ -2267,25 +2300,7 @@ const handleTabClick = async (tab) => {
     })
   }
 
-  if (tab.props.name === 'documents') {
-    await refreshProjectDocuments()
-  }
-
-  if (tab.props.name === 'disbursement') {
-    await getprojectDisbursements(route.params.id)
-  }
-
-  if (tab.props.name === 'clockin') {
-    getProjectClockIns(route.params.id);
-  }
-
-  if (tab.props.name === 'timeline') {
-    await loadProjectTimeline(route.params.id)
-  }
-
-  if (tab.props.name === 'history') {
-    await getProjectHistory(route.params.id)
-  }
+  await loadLazyDataForTab(tab.props.name)
 };
 
 const addMoreDocuments = ref(false)
@@ -2301,6 +2316,7 @@ function resetUploadDialog() {
 function toggleComponent() {
   resetUploadDialog()
   addMoreDocuments.value = true
+  void ensureDocumentCatalogLoaded()
 }
 
 
@@ -3415,15 +3431,62 @@ const ipcLedgerRows = computed(() => {
     })
 })
 
-const advanceLedgerRows = computed(() =>
-  sortedProjectDisbursements.value
-    .filter((row) => isAdvanceDisbursementRow(row))
-    .map((row) => ({
-      ...row,
-      gross: parseMoney(row.advance_amount ?? row.amount),
-      isAdvanceGrant: true,
-    })),
-)
+type AdvanceRecoveryLedgerRow = {
+  id: string
+  disbursement_date: unknown
+  reference: string
+  notes: string
+  granted: number
+  recovered: number
+  balance: number
+  status: string
+  isGrant: boolean
+  sourceRow: Record<string, unknown>
+}
+
+const advanceRecoveryLedgerRows = computed((): AdvanceRecoveryLedgerRow[] => {
+  const entries: AdvanceRecoveryLedgerRow[] = []
+  let balance = 0
+
+  for (const row of sortedProjectDisbursements.value) {
+    if (isAdvanceDisbursementRow(row)) {
+      const granted = parseMoney(row.advance_amount ?? row.amount)
+      balance += granted
+      entries.push({
+        id: `grant-${row.id}`,
+        disbursement_date: row.disbursement_date,
+        reference: String(row.certificate || 'Advance'),
+        notes: String(row.description || ''),
+        granted,
+        recovered: 0,
+        balance,
+        status: String(row.status || 'submitted'),
+        isGrant: true,
+        sourceRow: row,
+      })
+      continue
+    }
+
+    const recovered = parseMoney(row.advance_recovered)
+    if (recovered <= 0) continue
+
+    balance = Math.max(0, balance - recovered)
+    entries.push({
+      id: `recovery-${row.id}`,
+      disbursement_date: row.disbursement_date,
+      reference: String(row.certificate || 'IPC'),
+      notes: String(row.description || ''),
+      granted: 0,
+      recovered,
+      balance,
+      status: '',
+      isGrant: false,
+      sourceRow: row,
+    })
+  }
+
+  return entries
+})
 
 const ipcSummary = computed(() => {
   const contract = parseMoney(projectFullData.value?.cost)
@@ -4211,7 +4274,7 @@ const ipcOptions = computed(() => {
 
 const disbursementRules = computed(() => ({
   amount: [{ required: true, message: 'Amount is required', trigger: 'blur' }],
-  description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
+  description: [{ required: true, message: 'Notes are required', trigger: 'blur' }],
   payment_type: [{ required: true, message: 'Payment type is required', trigger: 'change' }],
   disbursement_date: [{ required: true, message: 'Payment date is required', trigger: 'change' }],
   certificate: isAdvanceDrawer.value
@@ -7267,23 +7330,75 @@ const getSummaries = (param) => {
 const getAdvanceSummaries = (param) => {
   const { columns, data } = param
   const sums = []
-  const total = data.reduce((sum, row) => sum + parseMoney(row.gross ?? row.amount), 0)
+  const totalGranted = data.reduce((sum, row) => sum + parseMoney(row.granted), 0)
+  const totalRecovered = data.reduce((sum, row) => sum + parseMoney(row.recovered), 0)
+  const lastRow = data.length ? data[data.length - 1] : null
+  const { advanceOutstanding } = ipcSummary.value
 
   columns.forEach((column, index) => {
     if (!column.property) {
       sums[index] = ''
       return
     }
-    if (column.property === 'description') {
+    if (column.property === 'reference') {
       sums[index] = 'Total'
-    } else if (column.property === 'gross' || column.property === 'amount') {
-      sums[index] = formatCostDisplay(total)
+    } else if (column.property === 'granted') {
+      sums[index] = totalGranted > 0 ? formatCostDisplay(totalGranted) : ''
+    } else if (column.property === 'recovered') {
+      sums[index] = totalRecovered > 0 ? formatCostDisplay(totalRecovered) : ''
+    } else if (column.property === 'balance') {
+      sums[index] =
+        lastRow != null && (totalGranted > 0 || totalRecovered > 0)
+          ? formatCostDisplay(advanceOutstanding)
+          : ''
     } else {
       sums[index] = ''
     }
   })
 
   return sums
+}
+
+function resolvePhysicalProgressToDate(): number | null {
+  const fromLocations = averageLocationProgress.value
+  if (fromLocations != null && Number.isFinite(fromLocations)) return fromLocations
+
+  const locationSources = [
+    ...(projectLocations.value || []),
+    ...(projectFullData.value?.project_locations || []),
+  ]
+  const progressVals = locationSources
+    .map((loc: Record<string, unknown>) =>
+      loc.physical_progress_pct != null && loc.physical_progress_pct !== ''
+        ? Number(loc.physical_progress_pct)
+        : null,
+    )
+    .filter((v): v is number => v != null && Number.isFinite(v))
+  if (progressVals.length) {
+    return progressVals.reduce((a, b) => a + b, 0) / progressVals.length
+  }
+
+  const ipcRows = ipcLedgerRows.value || []
+  for (let i = ipcRows.length - 1; i >= 0; i -= 1) {
+    const avg = ipcLocationSnapshotAverage(ipcRows[i])
+    if (avg != null && Number.isFinite(avg)) return avg
+  }
+
+  return null
+}
+
+function buildPaymentPdfSummaryLines(parts: Array<string | null | undefined>): string[] {
+  const financial = parts.map((p) => String(p || '').trim()).filter(Boolean)
+  const progressPct = resolvePhysicalProgressToDate()
+  const progressPart =
+    progressPct != null ? `Physical progress to date: ${progressPct.toFixed(1)}%` : null
+
+  if (progressPart && financial.length) {
+    return [[`${progressPart}  ·  ${financial.join('  ·  ')}`]]
+  }
+  if (progressPart) return [progressPart]
+  if (financial.length) return [financial.join('  ·  ')]
+  return []
 }
 
 const ipcPdfLoading = ref(false)
@@ -7447,8 +7562,18 @@ async function startProjectPaymentPdf(
   if (summaryLines.length) {
     doc.setFontSize(9)
     doc.setTextColor(0)
-    doc.text(summaryLines.join('    '), 14, contentY)
-    contentY += 6
+    const summaryText = summaryLines.join('    ')
+    const maxWidth = pageWidth - 28
+    if (doc.getTextWidth(summaryText) <= maxWidth) {
+      doc.text(summaryText, pageWidth / 2, contentY, { align: 'center' })
+      contentY += 6
+    } else {
+      for (const line of summaryLines) {
+        doc.text(truncatePdfLine(doc, line, maxWidth), pageWidth / 2, contentY, { align: 'center' })
+        contentY += 5
+      }
+      contentY += 1
+    }
   }
 
   return { doc, tableStartY: contentY + 4, pageWidth, projectTitle, project }
@@ -7481,14 +7606,12 @@ const generateIpcListPdf = async () => {
     head.push('Cumulative (KES)')
     if (includeProgress) head.push('Progress')
 
-    const summaryLines = [
+    const summaryLines = buildPaymentPdfSummaryLines([
       `Contract: ${summary.contract > 0 ? formatCostDisplay(summary.contract) : '—'}`,
       `Paid: ${formatCostDisplay(summary.paidGross)}${summary.pctPaid != null ? ` (${summary.pctPaid.toFixed(1)}%)` : ''}`,
       `Balance: ${summary.balance != null ? formatCostDisplay(Math.max(0, summary.balance)) : '—'}`,
-    ]
-    if (includeAdvance) {
-      summaryLines.push(`Advance outstanding: ${formatCostDisplay(summary.advanceOutstanding)}`)
-    }
+      includeAdvance ? `Advance outstanding: ${formatCostDisplay(summary.advanceOutstanding)}` : null,
+    ])
 
     const { doc, tableStartY, pageWidth, projectTitle, project } = await startProjectPaymentPdf(
       'Interim Payment Certificates (IPCs)',
@@ -7571,35 +7694,42 @@ const generateIpcListPdf = async () => {
 const generateAdvanceListPdf = async () => {
   advancePdfLoading.value = true
   try {
-    const rows = advanceLedgerRows.value
+    const rows = advanceRecoveryLedgerRows.value
     const summary = ipcSummary.value
-    const head = ['Date', 'Description', 'Amount (KES)', 'Status']
+    const head = ['Date', 'Reference', 'Notes', 'Granted (KES)', 'Recovered (KES)', 'Balance (KES)', 'Status']
 
-    const summaryLines = [
+    const summaryLines = buildPaymentPdfSummaryLines([
       `Advance granted: ${formatCostDisplay(summary.advanceGranted)}`,
       `Recovered: ${formatCostDisplay(summary.advanceRecovered)}`,
       `Outstanding: ${formatCostDisplay(summary.advanceOutstanding)}`,
-    ]
+    ])
 
     const { doc, tableStartY, pageWidth, projectTitle, project } = await startProjectPaymentPdf(
       'Advance Payments',
       summaryLines,
+      'landscape',
     )
 
     const body = rows.map((row) => [
       formatDateDisplay(row.disbursement_date),
-      String(row.description || 'Advance payment'),
-      formatCostDisplay(row.gross),
-      formatIpcStatus(row.status),
+      row.isGrant ? row.reference : `Recovery · ${row.reference}`,
+      row.notes || (row.isGrant ? 'Advance payment' : 'Advance recovery on IPC'),
+      row.granted > 0 ? formatCostDisplay(row.granted) : '—',
+      row.recovered > 0 ? formatCostDisplay(row.recovered) : '—',
+      formatCostDisplay(row.balance),
+      row.isGrant ? formatIpcStatus(row.status) : '—',
     ])
 
-    const total = rows.reduce((sum, row) => sum + parseMoney(row.gross ?? row.amount), 0)
+    const lastRow = rows.length ? rows[rows.length - 1] : null
     const footRow: Array<
       string | { content: string; colSpan?: number; styles?: Record<string, unknown> }
     > = [
       '',
       { content: 'Total', styles: { halign: 'left', fontStyle: 'bold', overflow: 'visible' } },
-      formatCostDisplay(total),
+      '',
+      summary.advanceGranted > 0 ? formatCostDisplay(summary.advanceGranted) : '',
+      summary.advanceRecovered > 0 ? formatCostDisplay(summary.advanceRecovered) : '',
+      lastRow != null ? formatCostDisplay(summary.advanceOutstanding) : '',
       '',
     ]
 
@@ -7615,9 +7745,11 @@ const generateAdvanceListPdf = async () => {
       footStyles: { fillColor: [245, 247, 250], textColor: 0, fontStyle: 'bold', fontSize: 9 },
       styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
       columnStyles: {
-        0: { cellWidth: 24 },
-        2: { halign: 'right' },
-        3: { halign: 'center' },
+        0: { cellWidth: 22 },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right' },
+        6: { halign: 'center' },
       },
       margin: { left: 14, right: 14 },
     })
@@ -8853,16 +8985,17 @@ function formatLocation(item) {
                       </el-button>
                     </span>
                   </el-tooltip>
-                  <el-button
-                    plain
-                    :size="isMobile ? 'large' : 'default'"
-                    :loading="ipcPdfLoading"
-                    :disabled="ipcPdfLoading"
-                    @click="generateIpcListPdf"
-                  >
-                    <Icon icon="mdi:file-pdf-box" />
-                    Download PDF
-                  </el-button>
+                  <el-tooltip content="Download IPC list PDF" placement="top">
+                    <el-button
+                      plain
+                      :size="isMobile ? 'large' : 'default'"
+                      :loading="ipcPdfLoading"
+                      :disabled="ipcPdfLoading"
+                      :icon="Download"
+                      aria-label="Download IPC list PDF"
+                      @click="generateIpcListPdf"
+                    />
+                  </el-tooltip>
                 </div>
 
                 <el-table
@@ -9145,20 +9278,21 @@ function formatLocation(item) {
                       </el-button>
                     </span>
                   </el-tooltip>
-                  <el-button
-                    plain
-                    :size="isMobile ? 'large' : 'default'"
-                    :loading="advancePdfLoading"
-                    :disabled="advancePdfLoading"
-                    @click="generateAdvanceListPdf"
-                  >
-                    <Icon icon="mdi:file-pdf-box" />
-                    Download PDF
-                  </el-button>
+                  <el-tooltip content="Download advance list PDF" placement="top">
+                    <el-button
+                      plain
+                      :size="isMobile ? 'large' : 'default'"
+                      :loading="advancePdfLoading"
+                      :disabled="advancePdfLoading"
+                      :icon="Download"
+                      aria-label="Download advance list PDF"
+                      @click="generateAdvanceListPdf"
+                    />
+                  </el-tooltip>
                 </div>
 
                 <el-table
-                  :data="advanceLedgerRows"
+                  :data="advanceRecoveryLedgerRows"
                   row-key="id"
                   class="ipc-ledger-table ipc-ledger-table--advances"
                   style="width: 100%"
@@ -9172,29 +9306,64 @@ function formatLocation(item) {
                       {{ formatDateDisplay(row.disbursement_date) }}
                     </template>
                   </el-table-column>
-                  <el-table-column prop="description" label="Description" min-width="160" show-overflow-tooltip>
+                  <el-table-column prop="reference" label="Reference" min-width="140" show-overflow-tooltip>
                     <template #default="{ row }">
-                      {{ row.description || 'Advance payment' }}
+                      <span class="ipc-ref-cell">
+                        <el-tag
+                          v-if="!row.isGrant"
+                          size="small"
+                          type="warning"
+                          effect="plain"
+                          class="ipc-ref-cell__type"
+                        >
+                          Recovery
+                        </el-tag>
+                        <span class="ipc-ref-cell__ref">{{ row.reference }}</span>
+                      </span>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="gross" label="Amount (KES)" align="right" min-width="120">
+                  <el-table-column prop="notes" label="Notes" min-width="160" show-overflow-tooltip>
                     <template #default="{ row }">
-                      {{ formatCostDisplay(row.gross) }}
+                      {{ row.notes || (row.isGrant ? 'Advance payment' : 'Advance recovery on IPC') }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="granted" label="Granted (KES)" align="right" min-width="120">
+                    <template #default="{ row }">
+                      {{ row.granted > 0 ? formatCostDisplay(row.granted) : '—' }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="recovered" label="Recovered (KES)" align="right" min-width="128">
+                    <template #default="{ row }">
+                      <div>{{ row.recovered > 0 ? formatCostDisplay(row.recovered) : '—' }}</div>
+                      <div v-if="row.balance > 0 && !row.isGrant" class="ipc-table-sub">
+                        Balance {{ formatCostDisplay(row.balance) }}
+                      </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="balance" label="Balance (KES)" align="right" min-width="120">
+                    <template #default="{ row }">
+                      {{ formatCostDisplay(row.balance) }}
                     </template>
                   </el-table-column>
                   <el-table-column prop="status" label="Status" min-width="100" align="center">
                     <template #default="{ row }">
-                      <el-tag size="small" :type="ipcStatusTagType(row.status)" effect="plain">
+                      <el-tag
+                        v-if="row.isGrant"
+                        size="small"
+                        :type="ipcStatusTagType(row.status)"
+                        effect="plain"
+                      >
                         {{ row.status || 'submitted' }}
                       </el-tag>
+                      <span v-else>—</span>
                     </template>
                   </el-table-column>
                   <el-table-column label="" width="48" align="center">
                     <template #default="{ row }">
                       <span
-                        v-if="(disbursementDocumentsById[row.id] || []).length"
+                        v-if="(disbursementDocumentsById[row.sourceRow.id] || []).length"
                         class="ipc-ref-cell__doc"
-                        :title="`${(disbursementDocumentsById[row.id] || []).length} document(s)`"
+                        :title="`${(disbursementDocumentsById[row.sourceRow.id] || []).length} document(s)`"
                       >
                         <Icon icon="material-symbols:attach-file" width="14" />
                       </span>
@@ -9210,29 +9379,29 @@ function formatLocation(item) {
                     <template #default="{ row }">
                       <div class="ipc-row-actions">
                         <el-dropdown
-                          v-if="canUserEditDisbursement(row) || canUserDeleteDisbursement(row)"
+                          v-if="canUserEditDisbursement(row.sourceRow) || canUserDeleteDisbursement(row.sourceRow)"
                           trigger="click"
                           placement="bottom-end"
-                          @command="(cmd) => handleIpcLedgerAction(cmd, row)"
+                          @command="(cmd) => handleIpcLedgerAction(cmd, row.sourceRow)"
                         >
                           <el-button
                             type="primary"
                             :icon="Setting"
                             circle
                             aria-label="Actions"
-                            :loading="ipcStageUpdatingId === row.id"
+                            :loading="ipcStageUpdatingId === row.sourceRow.id"
                           />
                           <template #dropdown>
                             <el-dropdown-menu>
-                              <el-dropdown-item v-if="canAdvanceIpcStage(row)" command="advance-stage" divided>
+                              <el-dropdown-item v-if="canAdvanceIpcStage(row.sourceRow)" command="advance-stage" divided>
                                 <el-icon><Check /></el-icon>
-                                <span class="ipc-dropdown-item-label">{{ getIpcStageAction(row)?.label }}</span>
+                                <span class="ipc-dropdown-item-label">{{ getIpcStageAction(row.sourceRow)?.label }}</span>
                               </el-dropdown-item>
-                              <el-dropdown-item v-if="canUserEditDisbursement(row)" command="edit">
+                              <el-dropdown-item v-if="canUserEditDisbursement(row.sourceRow)" command="edit">
                                 <el-icon><Edit /></el-icon>
                                 <span class="ipc-dropdown-item-label">Edit</span>
                               </el-dropdown-item>
-                              <el-dropdown-item v-if="canUserDeleteDisbursement(row)" command="delete">
+                              <el-dropdown-item v-if="canUserDeleteDisbursement(row.sourceRow)" command="delete">
                                 <el-icon><Delete /></el-icon>
                                 <span class="ipc-dropdown-item-label">Remove</span>
                               </el-dropdown-item>
@@ -9254,16 +9423,17 @@ function formatLocation(item) {
 
       <el-tab-pane label="Timeline" name="timeline">
         <div class="ipc-toolbar project-timeline-toolbar">
-          <el-button
-            plain
-            :size="isMobile ? 'large' : 'default'"
-            :loading="timelinePdfLoading"
-            :disabled="timelinePdfLoading"
-            @click="generateTimelinePdf"
-          >
-            <Icon icon="mdi:file-pdf-box" />
-            Download PDF
-          </el-button>
+          <el-tooltip content="Download timeline PDF" placement="top">
+            <el-button
+              plain
+              :size="isMobile ? 'large' : 'default'"
+              :loading="timelinePdfLoading"
+              :disabled="timelinePdfLoading"
+              :icon="Download"
+              aria-label="Download timeline PDF"
+              @click="generateTimelinePdf"
+            />
+          </el-tooltip>
         </div>
         <div v-loading="projectTimelineLoading" class="project-lifecycle-timeline-wrap">
           <el-empty
@@ -10163,16 +10333,6 @@ function formatLocation(item) {
                 </el-form-item>
               </el-col>
             </el-row>
-            <el-form-item label="Description" prop="description">
-              <el-input
-                v-model="DisbursementForm.description"
-                type="textarea"
-                :rows="2"
-                placeholder="Reason for advance (e.g. mobilisation)"
-                style="width: 100%;"
-                size="default"
-              />
-            </el-form-item>
             <el-form-item label="Status" prop="status">
               <el-select v-model="DisbursementForm.status" style="width: 100%;" size="default">
                 <el-option v-for="opt in IPC_STATUSES" :key="opt.value" :label="opt.label" :value="opt.value" />
@@ -10190,6 +10350,16 @@ function formatLocation(item) {
                   {{ isEditingIpc && ipcEditingDocuments.length ? 'Replace file' : 'Select file' }}
                 </el-button>
               </el-upload>
+            </el-form-item>
+            <el-form-item label="Notes" prop="description">
+              <el-input
+                v-model="DisbursementForm.description"
+                type="textarea"
+                :rows="2"
+                placeholder="Reason for advance (e.g. mobilisation)"
+                style="width: 100%;"
+                size="default"
+              />
             </el-form-item>
           </template>
 
@@ -10267,17 +10437,6 @@ function formatLocation(item) {
 
         <!-- Step 1: IPC details (progress & document) -->
         <div v-if="ipcDrawerStep === 1 && !isAdvanceDrawer" class="ipc-form-step">
-          <el-form-item label="Description" prop="description">
-            <el-input
-              v-model="DisbursementForm.description"
-              type="textarea"
-              :rows="2"
-              placeholder="Payment period or works covered"
-              style="width: 100%;"
-              size="default"
-            />
-          </el-form-item>
-
           <div v-if="showDisbursementLocationPanel" class="ipc-dialog-locations ipc-dialog-locations--inline">
             <p class="contractor-role-hint contractor-role-hint--compact ipc-step-intro">
               Site progress (cumulative)
@@ -10338,6 +10497,17 @@ function formatLocation(item) {
               Current: {{ ipcEditingDocuments[0]?.name }}
             </p>
           </el-form-item>
+
+          <el-form-item label="Notes" prop="description">
+            <el-input
+              v-model="DisbursementForm.description"
+              type="textarea"
+              :rows="2"
+              placeholder="Payment period or works covered"
+              style="width: 100%;"
+              size="default"
+            />
+          </el-form-item>
         </div>
 
         <!-- Review -->
@@ -10367,7 +10537,7 @@ function formatLocation(item) {
             <el-descriptions-item label="Status">
               {{ DisbursementForm.status }}
             </el-descriptions-item>
-            <el-descriptions-item label="Description">
+            <el-descriptions-item label="Notes">
               {{ DisbursementForm.description || '—' }}
             </el-descriptions-item>
             <el-descriptions-item v-if="!isAdvanceDrawer && showDisbursementLocationPanel" label="Site progress">
