@@ -5932,6 +5932,23 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       }
     }
 
+    // Free-text search for projects: match title.
+    if (
+      modelName === 'project' &&
+      typeof req.body.projectSearch === 'string' &&
+      req.body.projectSearch.trim() !== ''
+    ) {
+      const kw = req.body.projectSearch.trim().toLowerCase().replace(/'/g, "''");
+      const like = `'%${kw}%'`;
+      const tbl = `"${Model.tableName}"`;
+      const searchCond = db.sequelize.literal(`LOWER(${tbl}."title") LIKE ${like}`);
+      if (baseQuery.where[Sequelize.Op.and]) {
+        baseQuery.where[Sequelize.Op.and].push(searchCond);
+      } else {
+        baseQuery.where[Sequelize.Op.and] = [searchCond];
+      }
+    }
+
     // Handle date range filter for createdAt
     if (Array.isArray(dateRange) && dateRange.length === 2) {
       const startDate = new Date(dateRange[0]);
@@ -12308,10 +12325,57 @@ exports.findPotentialDuplicates = async (req, res) => {
     });
 };
 
-
+// Matches unique_project_location index: COALESCE(null ids, -1), COALESCE(location_type, '')
+function projectLocationMergeKey(row) {
+  const wardId = row.ward_id ?? -1;
+  const settlementId = row.settlement_id ?? -1;
+  const subcountyId = row.subcounty_id ?? -1;
+  const countyId = row.county_id ?? -1;
+  const locationType = row.location_type ?? '';
+  return `${wardId}|${settlementId}|${subcountyId}|${countyId}|${locationType}`;
+}
 
 exports.mergeDuplicates = async (req, res) => {
   const { primaryId, duplicateIds, model } = req.body;
+
+  const mergeProjectActivities = async (primaryProjectId, duplicateProjectIds, affectedAssociationsOut) => {
+    const ProjectActivity = db.models.project_activity;
+    if (!ProjectActivity) return;
+
+    const primaryRows = await ProjectActivity.findAll({
+      where: { project_id: primaryProjectId },
+      attributes: ['activity_id'],
+      raw: true,
+    });
+    const seenActivityIds = new Set(primaryRows.map((row) => row.activity_id));
+
+    for (const duplicateProjectId of duplicateProjectIds) {
+      const duplicateRows = await ProjectActivity.findAll({
+        where: { project_id: duplicateProjectId },
+      });
+
+      for (const row of duplicateRows) {
+        if (seenActivityIds.has(row.activity_id)) {
+          await row.destroy();
+          continue;
+        }
+
+        if (!affectedAssociationsOut[duplicateProjectId]) {
+          affectedAssociationsOut[duplicateProjectId] = {};
+        }
+        if (!affectedAssociationsOut[duplicateProjectId].project_activity) {
+          affectedAssociationsOut[duplicateProjectId].project_activity = {
+            foreignKey: 'project_id',
+            primaryKey: 'id',
+            recordIds: [],
+          };
+        }
+        affectedAssociationsOut[duplicateProjectId].project_activity.recordIds.push(row.id);
+        await row.update({ project_id: primaryProjectId });
+        seenActivityIds.add(row.activity_id);
+      }
+    }
+  };
   
   // Try multiple ways to get user ID (set by authJwt.verifyToken middleware)
   const userId = req.thisUser?.id || req.userid || req.body.userId;
@@ -12352,8 +12416,56 @@ exports.mergeDuplicates = async (req, res) => {
       });
     }
 
+    const normalizedDuplicateIds = (Array.isArray(duplicateIds) ? duplicateIds : [duplicateIds])
+      .map((id) => parseInt(id, 10))
+      .filter((id) => !Number.isNaN(id) && id !== Number(primaryId));
+
+    if (!normalizedDuplicateIds.length) {
+      return res.status(400).send({
+        message: 'At least one duplicate record is required',
+        code: '1002',
+      });
+    }
+
+    if (model === 'project') {
+      const duplicateRecordsForValidation = await Model.findAll({
+        where: { id: normalizedDuplicateIds },
+      });
+
+      if (duplicateRecordsForValidation.length !== normalizedDuplicateIds.length) {
+        return res.status(404).send({
+          message: 'One or more duplicate projects were not found',
+          code: '1001',
+        });
+      }
+
+      const primaryComponentId = Number(primaryRecord.component_id);
+      const crossComponent = duplicateRecordsForValidation.some(
+        (record) => Number(record.component_id) !== primaryComponentId
+      );
+      if (crossComponent) {
+        return res.status(400).send({
+          message: 'Projects must belong to the same component to merge',
+          code: '1002',
+        });
+      }
+    }
+
+    const historyModelName = model === 'project' ? 'project_history' : 'settlement_history';
+    const HistoryModel = db.models[historyModelName];
+    if (!HistoryModel) {
+      return res.status(400).send({
+        message: `History model for "${model}" is not configured`,
+        code: '1002',
+      });
+    }
+
     // Store affected associations for each duplicate (for restoration)
     const affectedAssociations = {};
+
+    if (model === 'project') {
+      await mergeProjectActivities(Number(primaryId), normalizedDuplicateIds, affectedAssociations);
+    }
     
     // Loop through all associations of the model
     for (const associationName in Model.associations) {
@@ -12369,13 +12481,13 @@ exports.mergeDuplicates = async (req, res) => {
 
         // Determine if model has project_location composite fields
         const hasProjectLocationFields =
-          ['project_id', 'ward_id', 'subcounty_id', 'county_id', 'location_type']
+          ['project_id', 'ward_id', 'settlement_id', 'subcounty_id', 'county_id', 'location_type']
             .every(f => Object.prototype.hasOwnProperty.call(associatedModel.rawAttributes || {}, f));
 
         // Build attributes list safely
         const baseAttributes = [primaryKeyField];
         const extraProjectLocationAttrs = hasProjectLocationFields
-          ? ['project_id', 'ward_id', 'subcounty_id', 'county_id', 'location_type']
+          ? ['project_id', 'ward_id', 'settlement_id', 'subcounty_id', 'county_id', 'location_type']
           : [];
         const isSettlementPopulation = associatedModel.tableName === 'settlement_population';
         const extraSettlementPopulationAttrs = isSettlementPopulation ? ['year'] : [];
@@ -12397,11 +12509,7 @@ exports.mergeDuplicates = async (req, res) => {
             attributes,
             raw: true
           });
-          existingKeys = new Set(
-            primaryExisting.map(r =>
-              `${r.project_id}|${r.ward_id}|${r.subcounty_id}|${r.county_id}|${r.location_type}`
-            )
-          );
+          existingKeys = new Set(primaryExisting.map(projectLocationMergeKey));
           batchKeys = new Set();
         }
 
@@ -12418,7 +12526,7 @@ exports.mergeDuplicates = async (req, res) => {
           batchYears = new Set();
         }
 
-        for (const duplicateId of duplicateIds) {
+        for (const duplicateId of normalizedDuplicateIds) {
           const affectedRecords = await associatedModel.findAll({
             where: { [association.foreignKey]: duplicateId },
             attributes,
@@ -12444,7 +12552,7 @@ exports.mergeDuplicates = async (req, res) => {
             // If moving rows would violate unique_project_location, SKIP those duplicate rows (do not update them).
             if (associatedModel.tableName === 'project_location' && hasProjectLocationFields) {
               for (const row of affectedRecords) {
-                const key = `${row.project_id}|${row.ward_id}|${row.subcounty_id}|${row.county_id}|${row.location_type}`;
+                const key = projectLocationMergeKey(row);
 
                 // If key already exists on primary or within duplicates being processed, skip updating this row
                 if ((existingKeys && existingKeys.has(key)) || (batchKeys && batchKeys.has(key))) {
@@ -12484,12 +12592,22 @@ exports.mergeDuplicates = async (req, res) => {
           }
         }
 
+        if (skipRecordIds.length > 0) {
+          const skipSet = new Set(skipRecordIds);
+          for (const duplicateId of normalizedDuplicateIds) {
+            const assoc = affectedAssociations[duplicateId]?.[associatedModel.name];
+            if (assoc?.recordIds?.length) {
+              assoc.recordIds = assoc.recordIds.filter((id) => !skipSet.has(id));
+            }
+          }
+        }
+
         // Update the foreign key in the associated model to point to the primary record
         // This changes settlement_id from duplicateIds to primaryId in all related tables
-        const updateWhere = { [association.foreignKey]: duplicateIds };
+        const updateWhere = { [association.foreignKey]: normalizedDuplicateIds };
         // If we have skipRecordIds (unique constraint conflicts), exclude them from update
         if (skipRecordIds.length > 0) {
-          updateWhere[primaryKeyField] = { [op.notIn]: skipRecordIds };
+          updateWhere[primaryKeyField] = { [op.notIn]: [...new Set(skipRecordIds)] };
         }
 
         const updateResult = await associatedModel.update(
@@ -12509,35 +12627,41 @@ exports.mergeDuplicates = async (req, res) => {
     }
 
     // Get duplicate records data before deletion (for history)
-    const duplicateRecords = await Model.findAll({ where: { id: duplicateIds } });
+    const duplicateRecords = await Model.findAll({ where: { id: normalizedDuplicateIds } });
     
     // Create history records for each duplicate being merged
     for (const duplicate of duplicateRecords) {
-      const historyRecord = await db.models.settlement_history.create({
-        settlement_id: null, // Settlement is being deleted
+      const historyPayload = {
         changed_by: finalUserId,
         change_type: 'Merge',
         changes: {
-          before: duplicate.toJSON(), // The duplicate settlement data
-          after: null, // Settlement is deleted
-          primary_record: primaryRecord.toJSON(), // The primary settlement it's merged into
+          before: duplicate.toJSON(),
+          after: null,
+          primary_record: primaryRecord.toJSON(),
           duplicate_id: duplicate.id,
           primary_id: primaryId,
           merged_at: new Date().toISOString(),
-          // Store affected associations for restoration
           affected_associations: affectedAssociations[duplicate.id] || {}
         },
         status: 'Open'
-      });
+      };
+
+      if (model === 'project') {
+        historyPayload.project_id = null;
+      } else {
+        historyPayload.settlement_id = null;
+      }
+
+      const historyRecord = await HistoryModel.create(historyPayload);
       mergeHistoryRecords.push({
         history_id: historyRecord.id,
         duplicate_id: duplicate.id,
-        duplicate_name: duplicate.name || `ID: ${duplicate.id}`
+        duplicate_name: duplicate.title || duplicate.name || `ID: ${duplicate.id}`
       });
     }
 
     // Delete the duplicate records
-    await Model.destroy({ where: { id: duplicateIds } });
+    await Model.destroy({ where: { id: normalizedDuplicateIds } });
 
     res.status(200).send({
       message: "Records merged successfully.",
@@ -13090,7 +13214,7 @@ exports.revertEdits = async (req, res) => {
 };
 
 exports.revertMerge = async (req, res) => {
-  const { history_id } = req.body;
+  const { history_id, model: requestModel } = req.body;
   
   // Try multiple ways to get user ID (set by authJwt.verifyToken middleware)
   let userId = req.thisUser?.id || req.userid || req.body.userId;
@@ -13117,14 +13241,17 @@ exports.revertMerge = async (req, res) => {
   }
 
   try {
-    // Find the history record by primary key
-    const history = await db.models.settlement_history.findByPk(history_id);
-    if (!history) {
+    const resolved = await resolveHistoryRecord(history_id, requestModel);
+    if (!resolved) {
       return res.status(404).send({
         message: 'History record not found',
         code: '1001'
       });
     }
+
+    const { history, config, historyModel } = resolved;
+    const HistoryModel = db.models[historyModel];
+    const EntityModel = db.models[config.entityModel];
 
     // Verify this is a merge operation
     if (history.change_type !== 'Merge') {
@@ -13143,8 +13270,8 @@ exports.revertMerge = async (req, res) => {
     }
 
     const { changes } = history;
-    const beforeData = changes.before; // The duplicate settlement data before merge
-    const primaryData = changes.primary_record; // The primary settlement it was merged into
+    const beforeData = changes.before;
+    const primaryData = changes.primary_record;
     const duplicateId = changes.duplicate_id;
 
     if (!beforeData || !primaryData) {
@@ -13154,31 +13281,31 @@ exports.revertMerge = async (req, res) => {
       });
     }
 
-    // Check if primary settlement still exists
-    const primarySettlement = await db.models.settlement.findByPk(primaryData.id);
-    if (!primarySettlement) {
+    // Check if primary record still exists
+    const primaryEntity = await EntityModel.findByPk(primaryData.id);
+    if (!primaryEntity) {
       return res.status(404).send({
-        message: 'Primary settlement no longer exists. Cannot revert merge.',
+        message: `Primary ${config.entityLabel.toLowerCase()} no longer exists. Cannot revert merge.`,
         code: '1005'
       });
     }
 
-    // Check if duplicate settlement already exists (shouldn't happen, but safety check)
-    const existingDuplicate = await db.models.settlement.findByPk(duplicateId);
+    // Check if duplicate already exists (shouldn't happen, but safety check)
+    const existingDuplicate = await EntityModel.findByPk(duplicateId);
     if (existingDuplicate) {
       return res.status(400).send({
-        message: 'Settlement with this ID already exists. Cannot restore.',
+        message: `${config.entityLabel} with this ID already exists. Cannot restore.`,
         code: '1006'
       });
     }
 
-    // Recreate the duplicate settlement from beforeData
-    const restoredSettlement = await db.models.settlement.create({
-      ...beforeData,
-      id: duplicateId // Preserve original ID
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...restBefore } = beforeData;
+    const restoredEntity = await EntityModel.create({
+      ...restBefore,
+      id: duplicateId,
     });
 
-    // Restore affected associations back to the restored settlement
+    // Restore affected associations back to the restored record
     const affectedAssociations = changes.affected_associations || {};
     const restoredAssociations = {};
     let totalRestored = 0;
@@ -13199,15 +13326,12 @@ exports.revertMerge = async (req, res) => {
       const recordIds = associationData.recordIds;
 
       try {
-        // Restore associations: update records that were moved to primary back to restored settlement
-        // Only restore records that currently point to the primary settlement
-        // (they might have been manually changed, so we only restore what we moved)
         const restoreResult = await AssociatedModel.update(
           { [foreignKey]: duplicateId },
           { 
             where: { 
               [primaryKeyField]: recordIds,
-              [foreignKey]: primaryData.id // Only restore records that still point to primary
+              [foreignKey]: primaryData.id
             }
           }
         );
@@ -13231,45 +13355,45 @@ exports.revertMerge = async (req, res) => {
       }
     }
 
-    // Update history status to Reverted
     await history.update({ 
       status: 'Reverted',
       changes: {
         ...changes,
         reverted_at: new Date().toISOString(),
         reverted_by: userId,
-        restored_settlement_id: duplicateId,
+        [`restored_${config.entityModel}_id`]: duplicateId,
         restored_associations: restoredAssociations,
         total_associations_restored: totalRestored
       }
     });
 
-    // Create a new history entry for the restore operation
-    await db.models.settlement_history.create({
-      settlement_id: duplicateId,
+    await HistoryModel.create({
+      [config.fkField]: duplicateId,
       changed_by: userId,
       change_type: 'Restore',
       changes: {
-        before: null, // Settlement didn't exist
-        after: restoredSettlement.toJSON(),
+        before: null,
+        after: restoredEntity.toJSON(),
         restored_from_merge: history_id,
         original_primary: primaryData.id
       },
       status: 'Open'
     });
 
+    const restoredLabel = restoredEntity.title || restoredEntity.name || `ID: ${restoredEntity.id}`;
+
     res.status(200).send({
-      message: 'Merge reverted successfully. Settlement and associations restored.',
+      message: `Merge reverted successfully. ${config.entityLabel} and associations restored.`,
       code: '0000',
-      restored_settlement: {
-        id: restoredSettlement.id,
-        name: restoredSettlement.name
+      restored_entity: {
+        id: restoredEntity.id,
+        name: restoredLabel,
       },
       restored_associations: restoredAssociations,
       total_associations_restored: totalRestored,
       note: totalRestored > 0 
-        ? `Settlement has been restored along with ${totalRestored} association(s) (documents, roads, projects, facilities, etc.) that were moved back to this settlement.`
-        : 'Settlement has been restored. Some associations may have been manually changed and were not automatically restored.',
+        ? `${config.entityLabel} has been restored along with ${totalRestored} linked record(s) that were moved back from the primary.`
+        : `${config.entityLabel} has been restored. Some linked records may have changed and were not automatically restored.`,
     });
 
   } catch (error) {

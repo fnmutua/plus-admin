@@ -797,7 +797,7 @@ module.exports = function (app) {
    *       404:
    *         description: One or more records not found
    */
-  app.post('/api/v1/data/merge',  controller.mergeDuplicates)
+  app.post('/api/v1/data/merge', [authJwt.verifyToken, hasDynamicPermission('update')], controller.mergeDuplicates)
 
   /**
    * @swagger

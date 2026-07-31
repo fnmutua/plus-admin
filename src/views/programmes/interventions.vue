@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { getSettlementListByCounty, getRoutesList, revertHistory } from '@/api/settlements'
+import { getSettlementListByCounty, getRoutesList, revertHistory, mergeDuplicates, revertMerge } from '@/api/settlements'
 
 import {
   ElButton, ElSelect, ElDialog, ElCard,ElDrawer,
-  ElUpload, ElTable, ElTableColumn, ElAlert, ElSegmented, ElMessageBox
+  ElUpload, ElTable, ElTableColumn, ElAlert, ElSegmented, ElMessageBox,
+  ElRadioGroup, ElRadio, ElDescriptions, ElDescriptionsItem, ElRow, ElCol
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Plus, Back, Download, Loading } from '@element-plus/icons-vue'
+import { Plus, Back, Download, Loading, Filter, TakeawayBox } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
+import { ref, reactive, computed, watch, onMounted, onActivated, nextTick } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElBadge } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { updateOneRecord, BatchImportUpsert } from '@/api/settlements'
 
@@ -27,13 +28,9 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { getModelSpecs } from '@/api/fields'
 
-import { implementationOptions } from './common/index'
-
-
-
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
-import { onMounted, onActivated } from 'vue';
+import { useWindowSize } from '@vueuse/core'
 import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import SettlementMap from '@/views/Components/SettlementMap.vue';
 import ProjectFormDrawer from '@/views/Intervention/Project/ProjectFormDrawer.vue';
@@ -44,8 +41,6 @@ import TableActions from '@/views/Components/TableActions.vue';
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
-
-import { computed, watch } from 'vue'
 
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -65,10 +60,13 @@ mapboxgl.accessToken = MapBoxToken;
 const route = useRoute()
 
 
-const searchString = ref()
+const searchString = ref('')
+const value3 = ref<any[]>([])
+const projectFiltersDrawerVisible = ref(false)
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const isMobile = computed(() => appStore.getMobile)
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 const router = useRouter()
@@ -86,25 +84,25 @@ const goBack = () => {
 
 }
 
-const mobileBreakpoint = 768;
 const defaultPageSize = 10;
-const mobilePageSize = 3;
+const compactPageSize = 5;
+/** Viewports below this width use compactPageSize (mobile + tablet / small laptop). */
+const largeScreenMinWidth = 1280;
 const pageSize = ref(defaultPageSize);
+const { width: windowWidth } = useWindowSize();
 
-// Function to update pageSize based on window width
-const updatePageSize = () => {
-  if (window.innerWidth <= mobileBreakpoint) {
-    pageSize.value = mobilePageSize;
-  } else {
-    pageSize.value = defaultPageSize;
-  }
-};
+function getResponsivePageSize(viewportWidth = windowWidth.value) {
+  return viewportWidth >= largeScreenMinWidth ? defaultPageSize : compactPageSize;
+}
+
+function applyResponsivePageSize() {
+  pageSize.value = getResponsivePageSize();
+}
 
 // Set up event listener on mount
 onMounted(async () => {
-  window.addEventListener('resize', updatePageSize);
-  updatePageSize(); // Initial check
-  
+  applyResponsivePageSize()
+
   // Initialize role-based filters
   await getUserRoles();
   
@@ -215,10 +213,8 @@ const pushRoleFilters = () => {
 const { push } = useRouter()
 const value1 = ref<any[]>([])
 const value2 = ref<any[]>([])
-const value3 = ref<any[]>([])
 const value4 = ref<any[]>([])
 const value5 = ref<any[]>([])
-const value40 = ref<any[]>([])
 
 
 const component_id = ref()
@@ -318,9 +314,9 @@ function projectConfiguration(row: any) {
   if (completed === 2) {
     return {
       state: 'full',
-      icon: 'mdi:check-decagram',
-      color: 'var(--el-color-success)',
-      label: 'Fully configured — location and activities are configured',
+      icon: 'mdi:check-circle-outline',
+      color: 'var(--el-text-color-secondary)',
+      label: 'Scope set up — location and activities defined',
     }
   }
 
@@ -331,11 +327,80 @@ function projectConfiguration(row: any) {
 
   return {
     state: completed === 0 ? 'none' : 'partial',
-    icon: completed === 0 ? 'mdi:close-circle-outline' : 'mdi:alert-circle-outline',
-    color: completed === 0 ? 'var(--el-color-danger)' : 'var(--el-color-warning)',
+    icon: 'mdi:alert-circle-outline',
+    color: 'var(--el-text-color-secondary)',
     label: `${completed === 0 ? 'Unconfigured' : 'Partially configured'} — missing ${missing.join(' and ')}`,
   }
 }
+
+const projectStatusFilterOptions = [
+  { label: 'Planned', value: 'Planned' },
+  { label: 'Ongoing', value: 'Ongoing' },
+  { label: 'Suspended', value: 'Suspended' },
+  { label: 'Completed', value: 'Completed' },
+]
+
+const projectScopeFilterOptions = [
+  { label: 'National', value: 'national' },
+  { label: 'County', value: 'county' },
+  { label: 'Subcounty', value: 'subcounty' },
+  { label: 'Ward', value: 'ward' },
+  { label: 'Settlement', value: 'settlement' },
+]
+
+const projectConfigurationFilterOptions = [
+  { label: 'Scope set up', value: 'full' },
+  { label: 'Partially missing', value: 'partial' },
+  { label: 'Unconfigured', value: 'none' },
+]
+
+const filterStatus = ref<string[]>([])
+const filterScope = ref<string[]>([])
+const filterConfiguration = ref<string[]>([])
+
+const activeProjectFilterCount = computed(() =>
+  filterStatus.value.length + filterConfiguration.value.length + filterScope.value.length
+)
+
+function setQueryFilter(field: string, values: unknown[] | null | undefined) {
+  const normalized = Array.isArray(values)
+    ? values.filter((value) => value !== null && value !== undefined && value !== '')
+    : []
+  const idx = filters.indexOf(field)
+
+  if (!normalized.length) {
+    if (idx !== -1) {
+      filters.splice(idx, 1)
+      filterValues.splice(idx, 1)
+    }
+    return
+  }
+
+  if (idx === -1) {
+    filters.push(field)
+    filterValues.push(normalized)
+  } else {
+    filterValues[idx] = normalized
+  }
+}
+
+function syncProjectListQueryFilters() {
+  setQueryFilter('status', filterStatus.value)
+  setQueryFilter('implementation_scope', filterScope.value)
+}
+
+const needsClientSideProjectFilter = computed(() => filterConfiguration.value.length > 0)
+
+function matchesConfigurationFilter(row: any): boolean {
+  if (!filterConfiguration.value.length) return true
+  return filterConfiguration.value.includes(projectConfiguration(row).state)
+}
+
+const clientFilteredProjects = computed(() => {
+  const rows = tableDataList_orig.value || []
+  if (!needsClientSideProjectFilter.value) return rows
+  return rows.filter(matchesConfigurationFilter)
+})
 
 const loadProjectsForRoute = async (to = route) => {
   const seq = ++projectsFetchSeq
@@ -345,6 +410,7 @@ const loadProjectsForRoute = async (to = route) => {
     applyRouteContext(to)
     page.value = 1
     searchString.value = ''
+    value3.value = []
 
     if (to.meta.component_id == null || to.meta.component_id === '') {
       if (seq === projectsFetchSeq) {
@@ -491,7 +557,10 @@ const handleClear = async () => {
     value3.value = []
     value4.value = []
     value5.value = []
-    value40.value = []
+    filterStatus.value = []
+    filterScope.value = []
+    filterConfiguration.value = []
+    searchString.value = ''
 
     // Restore role-based filters
     roleBasedFilters.forEach((filterField, index) => {
@@ -505,7 +574,7 @@ const handleClear = async () => {
       filterValues.splice(filterIndex, 0, roleBasedFilterValues[index])
     })
 
-    pageSize.value = 5
+    applyResponsivePageSize()
     currentPage.value = 1
     tblData.value = []
 
@@ -527,6 +596,10 @@ const addMoreDocuments = ref()
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
+  currentPage.value = selPage
+
+  if (needsClientSideProjectFilter.value) return
+
   loading.value = true
 
   try {
@@ -540,10 +613,13 @@ const onPageChange = async (selPage: any) => {
   }
 }
 
-
-
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
+  page.value = 1
+  currentPage.value = 1
+
+  if (needsClientSideProjectFilter.value) return
+
   loading.value = true
 
   try {
@@ -582,10 +658,30 @@ const destructure = (obj) => {
   return simpleObj
 }
 
+const buildProjectListRequest = (routeLike = route) => {
+  const { queryFilters, queryFilterValues, activeComponentId } = buildProjectQueryFilters(routeLike)
+  const formData: any = {
+    limit: needsClientSideProjectFilter.value ? undefined : pageSize.value,
+    page: needsClientSideProjectFilter.value ? undefined : page.value,
+    curUser: 1,
+    model: model,
+    assocModel: associated_Model,
+    filters: queryFilters,
+    filterValues: queryFilterValues,
+    associated_multiple_models: associated_multiple_models,
+  }
+
+  if (needsClientSideProjectFilter.value) {
+    formData.returnAll = true
+  }
+
+  return { formData, activeComponentId }
+}
+
 const getFilteredData = async (requestSeq?: number, routeLike = route) => {
   const seq = requestSeq ?? ++projectsFetchSeq
   try {
-    const { queryFilters, queryFilterValues, activeComponentId } = buildProjectQueryFilters(routeLike)
+    const { formData, activeComponentId } = buildProjectListRequest(routeLike)
 
     if (activeComponentId == null) {
       if (seq === projectsFetchSeq) {
@@ -595,19 +691,6 @@ const getFilteredData = async (requestSeq?: number, routeLike = route) => {
         tblData.value = []
       }
       return
-    }
-
-    const formData: any = {
-      limit: pageSize.value,
-      page: page.value,
-      curUser: 1,
-      model: model,
-      searchField: 'name',
-      searchKeyword: '',
-      assocModel: associated_Model,
-      filters: queryFilters,
-      filterValues: queryFilterValues,
-      associated_multiple_models: associated_multiple_models
     }
 
     // NOTE: Backend handles county_id/settlement_id filters for 'project' by joining project_location
@@ -666,6 +749,28 @@ const getFilteredData = async (requestSeq?: number, routeLike = route) => {
 
 
 
+
+watch(windowWidth, async () => {
+  const nextSize = getResponsivePageSize()
+  if (pageSize.value === nextSize) return
+
+  applyResponsivePageSize()
+  page.value = 1
+  currentPage.value = 1
+
+  if (activeSegment.value === 'Deleted' || needsClientSideProjectFilter.value) return
+
+  loading.value = true
+  try {
+    if (searchString.value) {
+      await getFilteredBySearchData(searchString.value)
+    } else {
+      await getFilteredData()
+    }
+  } finally {
+    loading.value = false
+  }
+})
 
 const nmap = ref()
 const loadMap = () => {
@@ -899,7 +1004,7 @@ const showUploadDialog = ref(false)
  
 
 
-const getFilteredBySearchData = async (searchString, requestSeq?: number) => {
+const getFilteredBySearchData = async (searchKeyword: string, requestSeq?: number) => {
   const seq = requestSeq ?? ++projectsFetchSeq
   try {
     const { queryFilters, queryFilterValues, activeComponentId } = buildProjectQueryFilters()
@@ -915,29 +1020,29 @@ const getFilteredBySearchData = async (searchString, requestSeq?: number) => {
     }
 
     const formData: any = {
-      limit: pageSize.value,
-      page: page.value,
-      curUser: 1, // Id for logged in user
+      limit: needsClientSideProjectFilter.value ? undefined : pageSize.value,
+      page: needsClientSideProjectFilter.value ? undefined : page.value,
+      curUser: 1,
       model: model,
       searchField: 'title',
-      searchKeyword: searchString,
+      searchKeyword,
       filters: queryFilters,
       filterValues: queryFilterValues,
-      associated_multiple_models: associated_multiple_models
+      associated_multiple_models: associated_multiple_models,
     }
 
-    //-------------------------
-    console.log('Searching with minimal associations...', formData)
+    if (needsClientSideProjectFilter.value) {
+      formData.returnAll = true
+    }
+
     const res = await searchByKeyWord(formData as any)
 
     if (seq !== projectsFetchSeq) return
 
-    console.log('After search query', res)
     tableDataList.value = (res as any).data || []
-    tableDataList_orig.value = (res as any).data || [] // back for post filter
-
+    tableDataList_orig.value = (res as any).data || []
     total.value = (res as any).total || 0
-    tblData.value = [] // reset the table data
+    tblData.value = []
   } catch (error) {
     console.error('Error searching data:', error)
     tableDataList.value = []
@@ -949,6 +1054,8 @@ const getFilteredBySearchData = async (searchString, requestSeq?: number) => {
 
 const searchByName = async (filterString: any) => {
   searchString.value = filterString
+  page.value = 1
+  currentPage.value = 1
   loading.value = true
 
   try {
@@ -1057,16 +1164,26 @@ const projectFormComponentId = ref<string | number | null>(null)
 const projectFormProjectId = ref<string | number | null>(null)
 const projectFormMode = ref<'add' | 'edit'>('add')
 
+function hasProjectUpdatePermission(): boolean {
+  const perms = userInfo?.permissions ?? []
+  return perms[0] === '*.*.*' || perms.includes('project:update')
+}
+
+const canUpdateProjects = computed(() => hasProjectUpdatePermission())
+
 const projectActionButtons = computed(() => {
   const buttons = ['preview']
-  const perms = userInfo?.permissions ?? []
-  if (perms[0] === '*.*.*' || perms.includes('project:update')) {
-    buttons.push('edit')
+  if (canUpdateProjects.value) {
+    buttons.push('edit', 'merge')
   }
   return buttons
 })
 
-const showDeletedProjectsTab = computed(() => isSuperAdmin.value || isNationalStaff.value || isCountyStaff.value)
+const canMergeProjects = computed(() => canUpdateProjects.value)
+
+const showDeletedProjectsTab = computed(
+  () => canUpdateProjects.value && (isSuperAdmin.value || isNationalStaff.value || isCountyStaff.value)
+)
 
 const projectSegments = computed(() => {
   const segments = [{ label: 'Projects', value: 'Projects' }]
@@ -1076,9 +1193,49 @@ const projectSegments = computed(() => {
   return segments
 })
 
-const displayTableData = computed(() =>
-  activeSegment.value === 'Deleted' ? deletedProjects.value : tableDataList.value
-)
+const displayTableData = computed(() => {
+  if (activeSegment.value === 'Deleted') return deletedProjects.value
+  if (needsClientSideProjectFilter.value) {
+    const start = (currentPage.value - 1) * pageSize.value
+    return clientFilteredProjects.value.slice(start, start + pageSize.value)
+  }
+  return tableDataList.value
+})
+
+const displayTotal = computed(() => {
+  if (activeSegment.value === 'Deleted') return deletedProjects.value.length
+  if (needsClientSideProjectFilter.value) return clientFilteredProjects.value.length
+  return total.value
+})
+
+async function applyProjectListFilters() {
+  syncProjectListQueryFilters()
+  page.value = 1
+  currentPage.value = 1
+  loading.value = true
+
+  try {
+    if (searchString.value) {
+      await getFilteredBySearchData(searchString.value)
+    } else {
+      await getFilteredData()
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+async function applyProjectFiltersFromDrawer() {
+  projectFiltersDrawerVisible.value = false
+  await applyProjectListFilters()
+}
+
+async function clearProjectFiltersFromDrawer() {
+  filterStatus.value = []
+  filterScope.value = []
+  filterConfiguration.value = []
+  await applyProjectListFilters()
+}
 
 async function fetchDeletedProjectHistory(): Promise<any[]> {
   const formData: any = {
@@ -1087,7 +1244,7 @@ async function fetchDeletedProjectHistory(): Promise<any[]> {
     excludeGeom: true,
     associated_multiple_models: ['users'],
     filters: ['change_type', 'status'],
-    filterValues: [['Delete'], ['Open']],
+    filterValues: [['Delete', 'Merge'], ['Open']],
     returnAll: true,
   }
   const res = await getSettlementListByCounty(formData)
@@ -1112,6 +1269,9 @@ async function fetchDeletedProjectHistory(): Promise<any[]> {
     out.push({
       ...beforeObject,
       history_id: item.id,
+      _changeType: item.change_type || 'Delete',
+      _mergedInto: item.changes?.primary_record?.title || null,
+      _primaryProjectId: item.changes?.primary_id || item.changes?.primary_record?.id || null,
       _deletedAt: item.createdAt,
       _deletedBy: item.user?.username || item.users?.username || 'Unknown',
     })
@@ -1141,6 +1301,11 @@ async function loadDeletedProjects() {
 
 const onProjectSegmentChange = async (val: string) => {
   if (val === 'Deleted') {
+    if (!showDeletedProjectsTab.value) {
+      activeSegment.value = 'Projects'
+      ElMessage.warning('You do not have permission to view deleted projects.')
+      return
+    }
     await loadDeletedProjects()
     return
   }
@@ -1153,10 +1318,18 @@ const onProjectSegmentChange = async (val: string) => {
 }
 
 const restoreDeletedProject = async (row: any) => {
+  if (!canUpdateProjects.value) {
+    ElMessage.warning('You do not have permission to restore projects.')
+    return
+  }
+
+  const isMerge = row._changeType === 'Merge'
   try {
     await ElMessageBox.confirm(
-      `Restore project "${row.title}"? Locations, activities, disbursements, and other records saved at delete time will be recreated where possible.`,
-      'Restore Project',
+      isMerge
+        ? `Restore merged project "${row.title}"? Linked records that were moved to "${row._mergedInto || 'the primary project'}" will be moved back where possible.`
+        : `Restore project "${row.title}"? Locations, activities, disbursements, and other records saved at delete time will be recreated where possible.`,
+      isMerge ? 'Restore merged project' : 'Restore Project',
       {
         type: 'warning',
         confirmButtonText: 'Restore',
@@ -1164,7 +1337,9 @@ const restoreDeletedProject = async (row: any) => {
         width: 420,
       },
     )
-    const res = await revertHistory({ model: 'project', history_id: row.history_id } as any)
+    const res = isMerge
+      ? await revertMerge({ model: 'project', history_id: row.history_id } as any)
+      : await revertHistory({ model: 'project', history_id: row.history_id } as any)
     if (res.code === '0000') {
       ElMessage.success(res.message || 'Project restored successfully.')
       await loadDeletedProjects()
@@ -1172,13 +1347,13 @@ const restoreDeletedProject = async (row: any) => {
         await getFilteredData()
       }
     } else if (res.code === '1003') {
-      ElMessage.info('This project was already restored.')
+      ElMessage.info(isMerge ? 'This merge was already reverted.' : 'This project was already restored.')
       await loadDeletedProjects()
     }
   } catch (error: any) {
     const code = error?.response?.data?.code
     if (code === '1003') {
-      ElMessage.info('This project was already restored.')
+      ElMessage.info(row._changeType === 'Merge' ? 'This merge was already reverted.' : 'This project was already restored.')
       await loadDeletedProjects()
       return
     }
@@ -1526,8 +1701,6 @@ const DownloadXlsx = async () => {
 
 
 
-const isMobile = computed(() => appStore.getMobile)
-
 const dialogWidth = ref()
 
 if (isMobile.value) {
@@ -1747,30 +1920,6 @@ const readShp = async (file) => {
 
 
 
-
-const value6 = ref()
-
-
-
-const filterByProgramme = async (prog_id: any) => {
-  value5.value = [] // clear the subcounty 
-  value6.value = []   // clear the ward sr
-  loading.value = true
-
-  try {
-    if (prog_id.length > 0) {
-      filters.push('implementation_id')
-      filterValues.push(prog_id)
-      await getFilteredData()
-    } else {
-      filters.splice(filters.indexOf('implementation_id'), 1);
-      filterValues.splice(filterValues.indexOf(prog_id), 1);
-      await getFilteredData()
-    }
-  } finally {
-    loading.value = false
-  }
-}
 
 
 
@@ -2090,6 +2239,242 @@ const handleCloseAdd = () => {
 
 const tableRef = ref(null);
 
+const selectedProjects = ref<any[]>([])
+const mergeDialogVisible = ref(false)
+const mergeOpenLoading = ref(false)
+const mergeLoading = ref(false)
+const currentProjectForMerge = ref<any>(null)
+const selectedProjectForMerge = ref<any>(null)
+const mergePrimaryId = ref<number | null>(null)
+const mergeSearchQuery = ref('')
+const mergeSearchResults = ref<any[]>([])
+const mergeSearchLoading = ref(false)
+
+const mergeDrawerSize = computed(() => (isMobile.value ? '100%' : '720px'))
+
+function formatProjectMergeLabel(project: any) {
+  const programme = project?.programme?.acronym ? ` · ${project.programme.acronym}` : ''
+  return `${project?.title || 'Untitled'} (ID: ${project?.id})${programme}`
+}
+
+const handleProjectSelectionChange = (selection: any[]) => {
+  if (activeSegment.value !== 'Deleted') {
+    selectedProjects.value = selection
+  }
+}
+
+const handleMerge = async (project: any) => {
+  if (!canMergeProjects.value) {
+    ElMessage.warning('You do not have permission to merge projects.')
+    return
+  }
+
+  mergeOpenLoading.value = true
+  currentProjectForMerge.value = project
+  mergePrimaryId.value = Number(project.id)
+  selectedProjectForMerge.value = null
+  mergeSearchQuery.value = ''
+  mergeSearchResults.value = []
+  mergeDialogVisible.value = true
+
+  try {
+    await nextTick()
+  } finally {
+    mergeOpenLoading.value = false
+  }
+}
+
+const searchProjectsForMerge = async (keyword = '') => {
+  const query = String(keyword ?? mergeSearchQuery.value ?? '').trim()
+  mergeSearchQuery.value = query
+
+  if (!query || query.length < 2) {
+    mergeSearchResults.value = []
+    return
+  }
+
+  mergeSearchLoading.value = true
+  try {
+    const { queryFilters, queryFilterValues, activeComponentId } = buildProjectQueryFilters()
+    if (activeComponentId == null || !currentProjectForMerge.value) {
+      mergeSearchResults.value = []
+      return
+    }
+
+    const formData: any = {
+      curUser: 1,
+      model: 'project',
+      searchField: 'title',
+      searchKeyword: query,
+      excludeGeom: true,
+      filters: queryFilters,
+      filterValues: queryFilterValues,
+      associated_multiple_models: ['programme'],
+      limit: 20,
+      page: 1,
+    }
+
+    const res = await searchByKeyWord(formData)
+    mergeSearchResults.value = (res.data || []).filter(
+      (project: any) => Number(project.id) !== Number(currentProjectForMerge.value.id)
+    )
+  } catch (error) {
+    console.error('Error searching projects for merge:', error)
+    ElMessage.error('Failed to search projects')
+    mergeSearchResults.value = []
+  } finally {
+    mergeSearchLoading.value = false
+  }
+}
+
+watch(selectedProjectForMerge, (newValue, oldValue) => {
+  if (newValue && !oldValue && currentProjectForMerge.value) {
+    mergePrimaryId.value = Number(currentProjectForMerge.value.id)
+  }
+})
+
+const clearMergeSearchSelection = () => {
+  mergeSearchResults.value = []
+  selectedProjectForMerge.value = null
+  mergeSearchQuery.value = ''
+  if (currentProjectForMerge.value) {
+    mergePrimaryId.value = Number(currentProjectForMerge.value.id)
+  }
+}
+
+async function executeProjectMerge(primaryId: number, duplicateIds: number[]) {
+  if (!canMergeProjects.value) {
+    ElMessage.warning('You do not have permission to merge projects.')
+    return
+  }
+
+  mergeLoading.value = true
+  try {
+    const res = await mergeDuplicates({
+      model: 'project',
+      primaryId,
+      duplicateIds,
+    } as any)
+
+    if (res.code === '0000') {
+      const mergeHistoryInfo = res.mergeHistory || []
+      const historyMessage = mergeHistoryInfo.length > 0
+        ? ` Tracked in history (ID: ${mergeHistoryInfo[0].history_id}).`
+        : ''
+
+      ElMessage.success({
+        message: `Projects merged successfully. Related locations, activities, reports, and documents were moved to the primary project.${historyMessage}`,
+        duration: 6000,
+        showClose: true,
+      })
+
+      mergeDialogVisible.value = false
+      currentProjectForMerge.value = null
+      selectedProjectForMerge.value = null
+      mergeSearchQuery.value = ''
+      mergeSearchResults.value = []
+      selectedProjects.value = []
+      tableRef.value?.clearSelection?.()
+
+      if (searchString.value) {
+        await getFilteredBySearchData(searchString.value)
+      } else {
+        await getFilteredData()
+      }
+      void refreshDeletedProjectCount()
+    } else {
+      ElMessage.error('Failed to merge projects')
+    }
+  } catch (error: any) {
+    console.error('Error merging projects:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to merge projects')
+  } finally {
+    mergeLoading.value = false
+  }
+}
+
+const confirmProjectMerge = async () => {
+  if (!canMergeProjects.value) {
+    ElMessage.warning('You do not have permission to merge projects.')
+    return
+  }
+
+  if (!selectedProjectForMerge.value || !currentProjectForMerge.value || !mergePrimaryId.value) {
+    ElMessage.warning('Select a project to merge with and choose the primary record')
+    return
+  }
+
+  const primaryId = Number(mergePrimaryId.value)
+  const duplicateId = primaryId === Number(currentProjectForMerge.value.id)
+    ? Number(selectedProjectForMerge.value.id)
+    : Number(currentProjectForMerge.value.id)
+
+  const primaryProject = primaryId === Number(currentProjectForMerge.value.id)
+    ? currentProjectForMerge.value
+    : selectedProjectForMerge.value
+  const duplicateProject = duplicateId === Number(currentProjectForMerge.value.id)
+    ? currentProjectForMerge.value
+    : selectedProjectForMerge.value
+
+  try {
+    await ElMessageBox.confirm(
+      `Merge project "${duplicateProject.title}" into "${primaryProject.title}"?\n\nThe primary project will be kept. Locations, activities, indicators, reports, and other linked records will move to it.`,
+      'Confirm merge',
+      {
+        type: 'warning',
+        confirmButtonText: 'Merge',
+        cancelButtonText: 'Cancel',
+      }
+    )
+  } catch {
+    return
+  }
+
+  await executeProjectMerge(primaryId, [duplicateId])
+}
+
+const clearProjectMergeSelection = () => {
+  selectedProjects.value = []
+  tableRef.value?.clearSelection?.()
+}
+
+const handleMergeFromSelection = async () => {
+  if (!canMergeProjects.value) {
+    ElMessage.warning('You do not have permission to merge projects.')
+    return
+  }
+
+  if (selectedProjects.value.length < 2) {
+    ElMessage.warning('Select at least 2 projects to merge')
+    return
+  }
+
+  const primary = selectedProjects.value[0]
+  const duplicates = selectedProjects.value.slice(1)
+  const componentIds = new Set(selectedProjects.value.map((project) => Number(project.component_id)))
+
+  if (componentIds.size > 1) {
+    ElMessage.warning('Selected projects must belong to the same component')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `Merge ${selectedProjects.value.length} projects?\n\nPrimary (kept): ${primary.title} (ID: ${primary.id})\nMerged into it: ${duplicates.map((project) => `${project.title} (ID: ${project.id})`).join(', ')}\n\nLinked records will move to the primary project.`,
+      'Confirm merge',
+      {
+        type: 'warning',
+        confirmButtonText: 'Merge',
+        cancelButtonText: 'Cancel',
+      }
+    )
+  } catch {
+    return
+  }
+
+  await executeProjectMerge(Number(primary.id), duplicates.map((project) => Number(project.id)))
+}
+
 
 
 
@@ -2256,13 +2641,10 @@ function onLayersLoaded() {
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center; width: 100%;">
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-           Back
-        </el-button>
-      </div>
-      <!-- Title Search -->
+    <div class="project-list-toolbar">
+      <el-button type="primary" plain :icon="Back" @click="goBack">
+        Back
+      </el-button>
       <el-select
         v-model="value3"
         multiple
@@ -2272,83 +2654,255 @@ function onLayersLoaded() {
         :remote-method="searchByName"
         reserve-keyword
         placeholder="Search by Title"
-        style="flex: 1; min-width: 220px; margin-right: 10px;"
+        class="project-list-search"
       />
-      <el-select
-        size="default"
-        v-model="value40"
-        @change="filterByProgramme"
-        @clear="handleClear"
-        multiple
-        clearable
-        filterable
-        collapse-tags
-        placeholder="By Programme"
-        style="width: 180px; margin-right: 10px;"
+      <el-badge
+        v-if="activeSegment !== 'Deleted'"
+        :value="activeProjectFilterCount"
+        :hidden="activeProjectFilterCount === 0"
+        class="project-list-filter-badge"
       >
-        <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-          <PermissionWrapper :permissions="['project:create']">
+        <el-tooltip content="Filters" placement="top">
+          <el-button :icon="Filter" @click="projectFiltersDrawerVisible = true" />
+        </el-tooltip>
+      </el-badge>
+      <div class="project-list-actions">
+        <PermissionWrapper :permissions="['project:create']">
           <el-tooltip content="Add Project" placement="top">
             <el-button @click="AddProject" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
         <PermissionWrapper :permissions="['project:create']">
-          <!-- <el-tooltip content="Import Data" placement="top">
-            <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
-          </el-tooltip> -->
-            <!-- Download All Component -->
-            <!-- <DownloadCustom
-:data="tableDataList" :model="model"
-            :associated_models="associated_multiple_models" /> -->
-            
-            <!-- Enhanced Project Data Download -->
-            <el-tooltip content="Download Project Data" placement="top">
-              <el-button @click="DownloadXlsx" type="success" :icon="Download" />
-            </el-tooltip>
-            
+          <el-tooltip content="Download Project Data" placement="top">
+            <el-button @click="DownloadXlsx" type="success" :icon="Download" />
+          </el-tooltip>
         </PermissionWrapper>
-    
       </div>
- 
- 
-    </el-row>
+    </div>
 
-    <el-segmented
-      v-if="showDeletedProjectsTab"
-      v-model="activeSegment"
-      :options="projectSegments"
-      style="margin-top: 10px; margin-bottom: 4px;"
-      @change="onProjectSegmentChange"
-    />
-
-    <el-alert
-      type="info"
-      :closable="false"
-      :show-icon="false"
-      style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;"
+    <el-drawer
+      v-model="projectFiltersDrawerVisible"
+      title="Project filters"
+      direction="rtl"
+      size="320px"
+      class="project-filters-drawer"
     >
-      <template #default>
-        <span v-if="activeSegment === 'Deleted'" style="font-size: 12px;">💡 Deleted projects can be restored with their associated records. Double-click a row to open details after restore.</span>
-        <span v-else style="font-size: 12px;">💡 Double-click on any row to view project details</span>
+      <div class="project-filters-drawer__body">
+        <label class="project-filters-drawer__label">Status</label>
+        <el-select
+          v-model="filterStatus"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="Status"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in projectStatusFilterOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+
+        <label class="project-filters-drawer__label">Configuration</label>
+        <el-select
+          v-model="filterConfiguration"
+          multiple
+          clearable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="Configuration"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in projectConfigurationFilterOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+
+        <label class="project-filters-drawer__label">Scope</label>
+        <el-select
+          v-model="filterScope"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="Scope"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="item in projectScopeFilterOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </div>
+
+      <template #footer>
+        <div class="project-filters-drawer__footer">
+          <el-button @click="clearProjectFiltersFromDrawer">Clear</el-button>
+          <el-button type="primary" @click="applyProjectFiltersFromDrawer">Apply</el-button>
+        </div>
       </template>
-    </el-alert>
+    </el-drawer>
+
+    <el-drawer
+      v-model="mergeDialogVisible"
+      title="Merge project"
+      direction="rtl"
+      :size="mergeDrawerSize"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div v-if="currentProjectForMerge" v-loading="mergeOpenLoading">
+        <el-radio-group v-model="mergePrimaryId" class="merge-primary-group">
+          <el-row :gutter="20">
+            <el-col :xs="24" :md="12">
+              <el-card
+                shadow="hover"
+                :class="{ 'merge-primary-card': mergePrimaryId === Number(currentProjectForMerge.id) }"
+              >
+                <template #header>
+                  <div class="merge-card-header">
+                    <span><strong>Current project</strong></span>
+                    <el-radio :value="Number(currentProjectForMerge.id)">Set as primary</el-radio>
+                  </div>
+                </template>
+                <el-descriptions :column="1" border size="small">
+                  <el-descriptions-item label="ID">{{ currentProjectForMerge.id }}</el-descriptions-item>
+                  <el-descriptions-item label="Title">{{ currentProjectForMerge.title }}</el-descriptions-item>
+                  <el-descriptions-item label="Status">{{ currentProjectForMerge.status || 'N/A' }}</el-descriptions-item>
+                  <el-descriptions-item label="Programme">{{ currentProjectForMerge.programme?.acronym || 'N/A' }}</el-descriptions-item>
+                  <el-descriptions-item label="Scope">{{ currentProjectForMerge.implementation_scope || 'N/A' }}</el-descriptions-item>
+                </el-descriptions>
+              </el-card>
+            </el-col>
+
+            <el-col :xs="24" :md="12">
+              <el-card
+                shadow="hover"
+                :class="{ 'merge-primary-card': selectedProjectForMerge && mergePrimaryId === Number(selectedProjectForMerge.id) }"
+              >
+                <template #header>
+                  <div class="merge-card-header">
+                    <span><strong>Merge with</strong></span>
+                    <el-radio
+                      v-if="selectedProjectForMerge"
+                      :value="Number(selectedProjectForMerge.id)"
+                    >
+                      Set as primary
+                    </el-radio>
+                  </div>
+                </template>
+
+                <p class="merge-search-heading">Search by title</p>
+                <el-select
+                  v-model="selectedProjectForMerge"
+                  filterable
+                  remote
+                  :remote-method="searchProjectsForMerge"
+                  :loading="mergeSearchLoading"
+                  placeholder="Search project to merge with..."
+                  clearable
+                  value-key="id"
+                  style="width: 100%;"
+                  @clear="clearMergeSearchSelection"
+                >
+                  <el-option
+                    v-for="item in mergeSearchResults"
+                    :key="item.id"
+                    :label="formatProjectMergeLabel(item)"
+                    :value="item"
+                  />
+                </el-select>
+                <p class="merge-search-hint">Type at least 2 characters to search projects in this component.</p>
+
+                <div v-if="selectedProjectForMerge" class="merge-selected-details">
+                  <el-descriptions :column="1" border size="small" title="Selected project">
+                    <el-descriptions-item label="ID">{{ selectedProjectForMerge.id }}</el-descriptions-item>
+                    <el-descriptions-item label="Title">{{ selectedProjectForMerge.title }}</el-descriptions-item>
+                    <el-descriptions-item label="Status">{{ selectedProjectForMerge.status || 'N/A' }}</el-descriptions-item>
+                    <el-descriptions-item label="Programme">{{ selectedProjectForMerge.programme?.acronym || 'N/A' }}</el-descriptions-item>
+                    <el-descriptions-item label="Scope">{{ selectedProjectForMerge.implementation_scope || 'N/A' }}</el-descriptions-item>
+                  </el-descriptions>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </el-radio-group>
+
+        <el-alert
+          v-if="selectedProjectForMerge && mergePrimaryId"
+          :title="`Project ID ${mergePrimaryId === Number(currentProjectForMerge.id) ? selectedProjectForMerge.id : currentProjectForMerge.id} will be merged into project ID ${mergePrimaryId}`"
+          type="warning"
+          :closable="false"
+          style="margin-top: 20px;"
+        />
+      </div>
+
+      <template #footer>
+        <div class="project-filters-drawer__footer">
+          <el-button :disabled="mergeLoading || mergeOpenLoading" @click="mergeDialogVisible = false">Cancel</el-button>
+          <el-button
+            type="primary"
+            :disabled="!selectedProjectForMerge || !mergePrimaryId || mergeLoading || mergeOpenLoading"
+            :loading="mergeLoading"
+            @click="confirmProjectMerge"
+          >
+            Merge projects
+          </el-button>
+        </div>
+      </template>
+    </el-drawer>
+
+    <div class="project-list-hint-row">
+      <el-alert
+        type="info"
+        :closable="false"
+        :show-icon="false"
+        class="project-list-hint"
+      >
+        <template #default>
+          <span v-if="activeSegment === 'Deleted'" style="font-size: 12px;">💡 Deleted and merged projects appear here and can be restored. Merged projects restore their linked records from the primary project where possible.</span>
+          <span v-else style="font-size: 12px;">💡 Double-click on any row to view project details</span>
+        </template>
+      </el-alert>
+      <el-segmented
+        v-if="showDeletedProjectsTab"
+        v-model="activeSegment"
+        :options="projectSegments"
+        class="project-list-segments"
+        @change="onProjectSegmentChange"
+      />
+    </div>
 
     <el-table
 ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-top: 10px;" border
       :row-class-name="tableRowClassName" :row-style="{ height: '40px' }"
       v-loading="loading"
-      class="interventions-project-table"
+      :class="['interventions-project-table', { 'interventions-project-table--deleted': activeSegment === 'Deleted' }]"
       @row-dblclick="handleRowDblClick"
+      @selection-change="handleProjectSelectionChange"
     >
+      <el-table-column
+        v-if="activeSegment !== 'Deleted' && canMergeProjects"
+        type="selection"
+        width="48"
+        align="center"
+      />
       <el-table-column type="index" label="#" width="50" align="center">
         <template #default="{ $index }">
           <span style="font-weight: 500;">{{$index + 1}}</span>
         </template>
       </el-table-column>
-      <el-table-column label="" width="48" align="center">
+      <el-table-column v-if="activeSegment !== 'Deleted'" label="" width="48" align="center">
         <template #default="{ row }">
           <el-tooltip :content="projectConfiguration(row).label" placement="top">
             <Icon
@@ -2363,7 +2917,7 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
       <el-table-column
         label="Project Title"
         prop="title"
-        min-width="250"
+        :min-width="activeSegment === 'Deleted' ? 180 : 250"
         class-name="project-title-column"
       >
         <template #default="{ row }">
@@ -2381,6 +2935,7 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
         </template>
       </el-table-column>
       <el-table-column
+        v-if="activeSegment !== 'Deleted'"
         label="Programme"
         prop="programme.acronym"
         max-width="100"
@@ -2391,6 +2946,7 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
         </template>
       </el-table-column>
       <el-table-column
+        v-if="activeSegment !== 'Deleted'"
         label="Locations"
         prop="project_location"
         min-width="200"
@@ -2449,23 +3005,53 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
       </el-table-column>
       <el-table-column
         v-if="activeSegment === 'Deleted'"
-        label="Deleted By"
+        label="Reason"
+        width="90"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <span>{{ row._changeType === 'Merge' ? 'Merged' : 'Deleted' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-if="activeSegment === 'Deleted'"
+        label="Merged into"
+        min-width="140"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          <span v-if="row._changeType === 'Merge' && row._mergedInto">{{ row._mergedInto }}</span>
+          <span v-else class="no-locations">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-if="activeSegment === 'Deleted'"
+        label="Removed By"
         prop="_deletedBy"
-        min-width="120"
+        width="120"
         show-overflow-tooltip
       />
       <el-table-column
         v-if="activeSegment === 'Deleted'"
-        label="Deleted At"
+        label="Removed At"
         prop="_deletedAt"
-        min-width="140"
+        width="110"
         show-overflow-tooltip
-      />
-      <el-table-column label="" width="68" align="center" fixed="right">
+      >
+        <template #default="{ row }">
+          <span>{{ row._deletedAt ? moment(row._deletedAt).format('DD/MM/YYYY') : '—' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-if="activeSegment === 'Deleted' && canUpdateProjects"
+        label="Restore"
+        width="100"
+        align="center"
+        class-name="project-restore-column"
+      >
         <template #default="{ row }">
           <div @click.stop>
             <el-button
-              v-if="activeSegment === 'Deleted'"
               type="success"
               size="small"
               plain
@@ -2473,21 +3059,52 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
             >
               Restore
             </el-button>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column v-else label="" width="68" align="center" fixed="right">
+        <template #default="{ row }">
+          <div @click.stop>
             <TableActions
-              v-else
               :item="row"
               :buttons="projectActionButtons"
               @preview="viewProject"
               @edit="editProjectFromList"
+              @merge="handleMerge"
             />
           </div>
         </template>
       </el-table-column>
     </el-table>
+
+    <div
+      v-if="activeSegment !== 'Deleted' && canMergeProjects && selectedProjects.length >= 2"
+      class="project-merge-selection-bar"
+    >
+      <el-button
+        type="danger"
+        plain
+        :icon="mergeLoading ? undefined : TakeawayBox"
+        :loading="mergeLoading"
+        :disabled="mergeLoading"
+        @click="handleMergeFromSelection"
+      >
+        Merge {{ selectedProjects.length }} projects
+      </el-button>
+      <el-button
+        type="info"
+        plain
+        :disabled="mergeLoading"
+        @click="clearProjectMergeSelection"
+      >
+        Clear selection
+      </el-button>
+    </div>
+
     <ElPagination
 v-if="activeSegment !== 'Deleted'"
 :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="displayTotal" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4"
       :small="isMobile"
       :pager-count="isMobile ? 3 : 7" />
@@ -2646,6 +3263,114 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   width: 100%;
   height: 75vh;
 }
+
+.project-list-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.project-list-search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.project-list-filter-badge {
+  flex-shrink: 0;
+}
+
+.project-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.project-list-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.project-list-hint {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 12px;
+}
+
+.project-list-hint :deep(.el-alert__content) {
+  padding: 0;
+}
+
+.project-list-segments {
+  flex-shrink: 0;
+}
+
+.project-filters-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-filters-drawer__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.project-filters-drawer__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.project-merge-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.merge-primary-group {
+  width: 100%;
+}
+
+.merge-primary-card {
+  border-color: var(--el-color-primary-light-5);
+}
+
+.merge-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.merge-search-heading {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.merge-search-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.merge-selected-details {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
 </style>
 
 <style>
@@ -2695,6 +3420,17 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
+}
+
+.interventions-project-table--deleted :deep(.project-title-column .cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.interventions-project-table--deleted :deep(.project-restore-column .cell) {
+  overflow: visible;
+  padding-right: 8px !important;
 }
 .programme {
   color: #888;
@@ -2758,7 +3494,7 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  color: #e6a23c;
+  color: var(--el-text-color-secondary);
 }
 
 .settlement-link {
