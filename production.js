@@ -245,6 +245,9 @@ function initial() {
 
 require('./server/app/routes/auth.routes')(app)
 require('./server/app/routes/user.routes')(app)
+// Large JSON list payloads (settlements, projects, etc.) — gzip only, no response caching.
+app.use('/api/v1/data', createCompressionMiddleware())
+app.use('/api/v1/hh', createCompressionMiddleware())
 require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/summary.routes')(app)
 

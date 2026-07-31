@@ -112,6 +112,9 @@ db.sequelize.sync()
 // Register all API routes BEFORE static middleware
 require('./server/app/routes/auth.routes')(app)
 require('./server/app/routes/user.routes')(app)
+// Large JSON list payloads (settlements, projects, etc.) — gzip only, no response caching.
+app.use('/api/v1/data', require('./server/app/middleware/staticAssets').createCompressionMiddleware())
+app.use('/api/v1/hh', require('./server/app/middleware/staticAssets').createCompressionMiddleware())
 require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/summary.routes')(app)
 
