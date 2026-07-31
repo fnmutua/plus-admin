@@ -203,6 +203,127 @@ const selectedConfirmationStatus = ref<string | null>(null)
 const selectedProjectPhase = ref<string | null>(null)
 // Default landing segment: show all received (non-deleted) grievances
 const activeSegment = ref('ReceivedAll')
+/** Sub-view within Resolved: all resolved vs national confirmation queue */
+const resolvedSubFilter = ref<'all' | 'awaiting_confirmation'>('all')
+/** Sub-view within Rejected segment (includes deleted records when permitted) */
+const rejectedDeletedSubFilter = ref<'all' | 'rejected' | 'deleted'>('all')
+
+/** Every non-deleted DB status — each appears in exactly one workflow segment below. */
+const NON_DELETED_GRIEVANCE_STATUSES = [
+  'Sorting',
+  'Under Review',
+  'Investigation',
+  'Returned',
+  'Escalated',
+  'In Court',
+  'Resolved',
+  'Referred',
+  'ExternalReferral',
+  'Closed',
+  'Rejected',
+] as const
+
+/** UI segment → DB status filters (segmentation only; statuses unchanged). */
+const GRIEVANCE_SEGMENT_STATUSES: Record<string, string[] | 'excludeDeleted'> = {
+  ReceivedAll: 'excludeDeleted',
+  Sorting: ['Sorting'],
+  'Under Review': ['Under Review', 'Investigation', 'Returned'],
+  Pending: ['Escalated', 'In Court'],
+  Resolved: ['Resolved'],
+  Referred: ['Referred', 'ExternalReferral'],
+  Closed: ['Closed'],
+  Rejected: ['Rejected', 'Deleted'],
+}
+
+const LEGACY_GRIEVANCE_SEGMENT_MAP: Record<string, string> = {
+  All: 'ReceivedAll',
+  Escalated: 'Pending',
+  'In Court': 'Pending',
+  ExternalReferral: 'Referred',
+  AwaitingConfirmation: 'Resolved',
+  RejectedDeleted: 'Rejected',
+  Deleted: 'Rejected',
+}
+
+function normalizeGrievanceSegment(segment: string | null | undefined): string {
+  const raw = String(segment || 'ReceivedAll')
+  return LEGACY_GRIEVANCE_SEGMENT_MAP[raw] || raw
+}
+
+function segmentUsesHistory(segment: string): boolean {
+  return segment === 'Rejected' || segment === 'Resolved'
+}
+
+function rejectedDeletedStatusFilter(): string[] {
+  if (rejectedDeletedSubFilter.value === 'rejected') {
+    return ['Rejected']
+  }
+  if (rejectedDeletedSubFilter.value === 'deleted' && canViewDeletedGrievances.value) {
+    return ['Deleted']
+  }
+  if (canViewDeletedGrievances.value) {
+    return ['Rejected', 'Deleted']
+  }
+  return ['Rejected']
+}
+
+function pushStatusFilter(
+  operator: 'in' | 'notIn',
+  values: string[],
+  filtersOut = filters.value,
+  filterValuesOut = filterValues.value,
+  filterFunctionOut = filterFunction.value,
+) {
+  const selectOption = 'status'
+  if (!filtersOut.includes(selectOption)) {
+    filtersOut.push(selectOption)
+    filterFunctionOut.push(operator)
+  }
+  const index = filtersOut.indexOf(selectOption)
+  filterValuesOut[index] = values
+  filterFunctionOut[index] = operator
+}
+
+function applyActiveSegmentStatusFilters() {
+  const statusIndex = filters.value.indexOf('status')
+  if (statusIndex !== -1) {
+    filters.value.splice(statusIndex, 1)
+    filterValues.value.splice(statusIndex, 1)
+    filterFunction.value.splice(statusIndex, 1)
+  }
+
+  for (const field of ['confirmed_by_national_grm', 'current_level']) {
+    const fieldIndex = filters.value.indexOf(field)
+    if (fieldIndex !== -1) {
+      filters.value.splice(fieldIndex, 1)
+      filterValues.value.splice(fieldIndex, 1)
+      filterFunction.value.splice(fieldIndex, 1)
+    }
+  }
+
+  const segment = activeSegment.value
+  const mapping = GRIEVANCE_SEGMENT_STATUSES[segment]
+
+  if (mapping === 'excludeDeleted') {
+    pushStatusFilter('notIn', ['Deleted'])
+  } else if (segment === 'Rejected') {
+    pushStatusFilter('in', rejectedDeletedStatusFilter())
+  } else if (Array.isArray(mapping)) {
+    pushStatusFilter('in', mapping)
+  }
+
+  if (segment === 'Resolved' && resolvedSubFilter.value === 'awaiting_confirmation') {
+    const confirmationOption = 'confirmed_by_national_grm'
+    filters.value.push(confirmationOption)
+    filterFunction.value.push('eq')
+    filterValues.value.push([false])
+
+    const levelOption = 'current_level'
+    filters.value.push(levelOption)
+    filterFunction.value.push('in')
+    filterValues.value.push(['settlement', 'county'])
+  }
+}
 
 
 
@@ -234,15 +355,21 @@ const canViewDeletedGrievances = computed(() => {
   return Array.isArray(permissions) && permissions.includes('grievance:viewDeleted');
 })
 
+const isRejectedSegment = computed(() => activeSegment.value === 'Rejected')
+
+const showsDeletedGrievanceActions = computed(
+  () =>
+    isRejectedSegment.value &&
+    canViewDeletedGrievances.value &&
+    rejectedDeletedSubFilter.value !== 'rejected',
+)
+
+const rejectedSegmentDeletedCount = computed(() => {
+  const rejectedSegment = Statuses.value.find((s) => s.value === 'Rejected')
+  return Number(rejectedSegment?.deletedCount ?? 0)
+})
+
 const Statuses = ref([
-  {
-    label: 'All Grievances',
-    value: 'All',
-    icon: Postcard,
-    count: 0,
-    hidden: false,
-    description: 'All grievances regardless of status'
-  },
   {
     label: 'Received (All)',
     value: 'ReceivedAll',
@@ -259,42 +386,38 @@ const Statuses = ref([
     hidden: false,
     description: 'Grievance has been received on the system but not acted on'
   },
-
   {
     label: 'Under Review',
     value: 'Under Review',
     icon: View,
     count: 0,
     hidden: false,
-    description: 'Grievance is being worked on. The complainant has been informed of the same'
+    description: 'Grievance is being worked on, under investigation, or returned for further action'
   },
-
-
+  {
+    label: 'Pending',
+    value: 'Pending',
+    icon: TopRight,
+    count: 0,
+    hidden: false,
+    description: 'Escalated for further review or pending court determination'
+  },
   {
     label: 'Resolved',
     value: 'Resolved',
     icon: CircleCheck,
     count: 0,
+    awaitingCount: 0,
     hidden: false,
     description: 'Grievance has been resolved and a corrective action recommended/implemented'
   },
   {
-    label: 'Awaiting Confirmation',
-    value: 'AwaitingConfirmation',
-    icon: Clock,
+    label: 'Referred',
+    value: 'Referred',
+    icon: Guide,
     count: 0,
     hidden: false,
-    description: 'Resolved at settlement or county level, pending national GRM confirmation'
-  },
-
- 
-  {
-    label: 'Escalated',
-    value: 'Escalated',
-    icon: TopRight,
-    count: 0,
-    hidden: false,
-    description: 'The grievance has been escalated to a higher level for resolution (e.g., SEC → County GRM → NPCT)'
+    description: 'Referred internally or to an external agency for resolution'
   },
   {
     label: 'Closed',
@@ -303,54 +426,33 @@ const Statuses = ref([
     count: 0,
     hidden: false,
     description: 'Grievance has been resolved and the complainant has accepted the resolution'
- 
-
   },
-  {
-    label: 'Referred',
-    value: 'Referred',
-    icon: Guide,
-    count: 0,
-    hidden: false,
-    description: 'Reviewed and referred: 1) to a specific officer (CPCT/NPCT), or 2) to an external entity for resolution'
-  },
-  {
-    label: 'External Referral',
-    value: 'ExternalReferral',
-    icon: Share,
-    count: 0,
-    hidden: false,
-    description: 'Referred to an external agency for resolution'
-  },
-
-  {
-    label: 'In Court',
-    value: 'In Court',
-    icon: TakeawayBox,
-    count: 0,
-    hidden: false,
-    description: 'The case is in court pending determination'
-  },
-
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: Warning,
     count: 0,
+    rejectedCount: 0,
+    deletedCount: 0,
     hidden: false,
-    description: 'The grievance is fake or does not qualify (e.g., testing/training data)'
-  },
-  {
-    label: 'Deleted',
-    value: 'Deleted',
-    icon: Delete,
-    count: 0,
-    hidden: true, // Will be updated reactively via watch
-    description: 'Grievance has been deleted (mostly training/dummy data)'
+    description: 'Invalid or disqualified grievances, and deleted training or dummy records'
   },
 ])
 
-const visibleStatuses = computed(() => Statuses.value.filter(status => !status.hidden))
+const visibleStatuses = computed(() =>
+  Statuses.value.filter((status) => {
+    if (status.hidden) return false
+    if (status.value === 'Rejected' && (status.count ?? 0) === 0) return false
+    return true
+  }),
+)
+
+const filteredSegments = computed(() => visibleStatuses.value)
+
+const resolvedAwaitingCount = computed(() => {
+  const resolvedSegment = Statuses.value.find((s) => s.value === 'Resolved')
+  return Number(resolvedSegment?.awaitingCount || 0)
+})
 
 // Tooltip visibility map for status cards (manual control)
 const statusTooltipVisible = ref<Record<string, boolean>>({})
@@ -447,14 +549,6 @@ const canSeeDeletedStatus = computed(() => {
   )
 })
 
-// Watch for permission/location changes and update Deleted status visibility
-watch(canSeeDeletedStatus, (canSee) => {
-  const deletedStatus = Statuses.value.find(s => s.value === 'Deleted')
-  if (deletedStatus) {
-    deletedStatus.hidden = !canSee
-  }
-}, { immediate: true })
-
 // Computed properties for download filters - always exclude "Deleted" status
 const {
   downloadAllFilters: downloadFilters,
@@ -475,7 +569,7 @@ const filteredDownloadFilters = computed(() => {
     searchString: search_string.value?.trim() || '',
     page: 1,
     limit: total.value > 0 ? total.value : 10000,
-    includeHistory: ['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)
+    includeHistory: segmentUsesHistory(activeSegment.value)
   })
 
   return {
@@ -491,11 +585,11 @@ const fetchFilteredGrievancesForDownload = async (selectedFieldsList: string[] =
     searchString: search_string.value?.trim() || '',
     page: 1,
     limit: total.value > 0 ? total.value : 10000,
-    includeHistory: ['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)
+    includeHistory: segmentUsesHistory(activeSegment.value)
   })
 
   formData.associated_multiple_models = [...associated_multiple_models]
-  if (['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)) {
+  if (['Rejected', 'Resolved'].includes(activeSegment.value)) {
     if (!formData.associated_multiple_models.includes('grievance_history')) {
       formData.associated_multiple_models.push('grievance_history')
     }
@@ -713,6 +807,77 @@ const updatePageSize = () => {
 
 
  
+function validateGrievanceSegmentTallies(
+  leafCountMap: Record<string, number>,
+  segments: typeof Statuses.value,
+  options: { includeDeletedInRejected?: boolean } = {},
+) {
+  const includeDeleted = options.includeDeletedInRejected !== false
+  const sumStatuses = (statuses: readonly string[] | string[]) =>
+    statuses.reduce((sum, status) => sum + (leafCountMap[status] || 0), 0)
+
+  const receivedAll =
+    segments.find((s) => s.value === 'ReceivedAll')?.count ?? 0
+  const rejectedSegment = segments.find((s) => s.value === 'Rejected')
+  const rejectedLeaf = leafCountMap.Rejected || 0
+  const deletedLeaf = includeDeleted ? (leafCountMap.Deleted || 0) : 0
+
+  const workflowRollup =
+    (segments.find((s) => s.value === 'Sorting')?.count ?? 0) +
+    (segments.find((s) => s.value === 'Under Review')?.count ?? 0) +
+    (segments.find((s) => s.value === 'Pending')?.count ?? 0) +
+    (segments.find((s) => s.value === 'Resolved')?.count ?? 0) +
+    (segments.find((s) => s.value === 'Referred')?.count ?? 0) +
+    (segments.find((s) => s.value === 'Closed')?.count ?? 0) +
+    rejectedLeaf
+
+  const issues: string[] = []
+  const knownStatuses = new Set([...NON_DELETED_GRIEVANCE_STATUSES, 'Deleted'])
+
+  for (const [status, count] of Object.entries(leafCountMap)) {
+    if (!knownStatuses.has(status)) {
+      issues.push(`Unknown status "${status}" (${count})`)
+    }
+  }
+
+  if (workflowRollup !== receivedAll) {
+    issues.push(
+      `Workflow segments sum (${workflowRollup}) != Received (All) (${receivedAll})`,
+    )
+  }
+
+  if (sumStatuses(NON_DELETED_GRIEVANCE_STATUSES) !== receivedAll) {
+    issues.push('Non-deleted DB total != Received (All)')
+  }
+
+  if (rejectedSegment) {
+    const rejectedCount = rejectedSegment.rejectedCount ?? rejectedLeaf
+    const deletedCount = rejectedSegment.deletedCount ?? deletedLeaf
+    if ((rejectedSegment.count ?? 0) !== rejectedCount + deletedCount) {
+      issues.push('Rejected segment total != rejectedCount + deletedCount')
+    }
+  }
+
+  for (const segment of segments) {
+    if (segment.hidden || segment.value === 'ReceivedAll') continue
+    const mapping = GRIEVANCE_SEGMENT_STATUSES[segment.value]
+    if (!Array.isArray(mapping)) continue
+    const expected = sumStatuses(mapping)
+    if ((segment.count ?? 0) !== expected) {
+      issues.push(`Segment "${segment.label}" (${segment.count}) != leaf sum (${expected})`)
+    }
+  }
+
+  return {
+    ok: issues.length === 0,
+    issues,
+    receivedAll,
+    workflowRollup,
+    deletedLeaf,
+    leafCountMap,
+  }
+}
+
 const getCounts = async () => {
   console.log('Fetching grievance counts...', filterValues.value, filters.value, 'search:', search_string.value);
 
@@ -768,91 +933,82 @@ const getCounts = async () => {
       filterOperator.push('in')
     }
 
-    // Get counts for each specific status (exclude pseudo-segments and hidden statuses)
-    const PSEUDO_SEGMENT_VALUES = new Set(['ReceivedAll', 'AwaitingConfirmation'])
-    const statusesForCounts = Statuses.value.filter(
-      s => s.value !== 'All' && !s.hidden && !PSEUDO_SEGMENT_VALUES.has(s.value)
-    );
-    const statusCounts = await Promise.all(
-      statusesForCounts.map(async (status) => {
+    // Count each DB status once, then roll up to UI segments (mutually exclusive partition).
+    const leafStatuses = [...NON_DELETED_GRIEVANCE_STATUSES, 'Deleted']
+    const leafCountEntries = await Promise.all(
+      leafStatuses.map(async (status) => {
         const formData = {
           model: 'grievance',
           summaryField: 'id',
           summaryFunction: 'count',
           filterField: [...filterField, 'status'],
-          filterValue: [...filterValue, [status.value]],
+          filterValue: [...filterValue, [status]],
           filterOperator: [...filterOperator, 'in']
-        };
-
-        // Include search string if active
-        if (search_string.value && search_string.value.trim()) {
-          formData.searchField = 'name';
-          formData.searchString = search_string.value.trim();
         }
 
-        const response = await getSummarybyFieldFromMultipleIncludes(formData);
+        if (search_string.value && search_string.value.trim()) {
+          formData.searchField = 'name'
+          formData.searchString = search_string.value.trim()
+        }
+
+        const response = await getSummarybyFieldFromMultipleIncludes(formData)
         return {
-          status: status.value,
+          status,
           count: parseInt(response?.Total?.[0]?.count || '0', 10)
-        };
+        }
       })
-    );
+    )
 
-    // Update status counts
-    statusCounts.forEach(({ status, count }) => {
-      const statusObj = Statuses.value.find(s => s.value === status);
-      if (statusObj) {
-        statusObj.count = count;
-      }
-    });
+    const leafCountMap: Record<string, number> = {}
+    leafCountEntries.forEach(({ status, count }) => {
+      leafCountMap[status] = count
+    })
 
-    // Query for "Returned" status count separately (since it's not in Statuses array)
-    let returnedCount = 0;
-    try {
-      const returnedFormData = {
-        model: 'grievance',
-        summaryField: 'id',
-        summaryFunction: 'count',
-        filterField: [...filterField, 'status'],
-        filterValue: [...filterValue, ['Returned']],
-        filterOperator: [...filterOperator, 'in']
-      };
+    const sumStatuses = (statuses: readonly string[] | string[]) =>
+      statuses.reduce((sum, status) => sum + (leafCountMap[status] || 0), 0)
 
-      if (search_string.value && search_string.value.trim()) {
-        returnedFormData.searchField = 'name';
-        returnedFormData.searchString = search_string.value.trim();
+    Statuses.value.forEach((segment) => {
+      if (segment.hidden) return
+
+      if (segment.value === 'ReceivedAll') {
+        segment.count = sumStatuses(NON_DELETED_GRIEVANCE_STATUSES)
+        return
       }
 
-      const returnedResponse = await getSummarybyFieldFromMultipleIncludes(returnedFormData);
-      returnedCount = parseInt(returnedResponse?.Total?.[0]?.count || '0', 10);
-    } catch (error) {
-      console.error('Error fetching Returned status count:', error);
+      if (segment.value === 'Rejected') {
+        const rejectedCount = leafCountMap.Rejected || 0
+        const deletedCount = canViewDeletedGrievances.value ? (leafCountMap.Deleted || 0) : 0
+        segment.rejectedCount = rejectedCount
+        segment.deletedCount = deletedCount
+        segment.count = rejectedCount + deletedCount
+        return
+      }
+
+      const mapping = GRIEVANCE_SEGMENT_STATUSES[segment.value]
+      if (Array.isArray(mapping)) {
+        segment.count = sumStatuses(mapping)
+      }
+    })
+
+    const receivedAllCount =
+      Statuses.value.find((s) => s.value === 'ReceivedAll')?.count ?? 0
+    const tally = validateGrievanceSegmentTallies(leafCountMap, Statuses.value, {
+      includeDeletedInRejected: canViewDeletedGrievances.value,
+    })
+    if (!tally.ok) {
+      console.warn('[GRM] Segment tally mismatch:', tally.issues, tally.leafCountMap)
+    } else {
+      console.log(
+        '[GRM] Segment totals OK — Received (All):',
+        tally.receivedAll,
+        '| workflow rollup:',
+        tally.workflowRollup,
+        '| deleted:',
+        tally.deletedLeaf,
+      )
     }
 
-    // Special handling: Include "Returned" status in "Under Review" count
-    const underReviewStatus = Statuses.value.find(s => s.value === 'Under Review');
-    const investigationCount = statusCounts.find(sc => sc.status === 'Investigation')?.count || 0;
-    const underReviewCount = statusCounts.find(sc => sc.status === 'Under Review')?.count || 0;
-    if (underReviewStatus) {
-      underReviewStatus.count = underReviewCount + investigationCount + returnedCount;
-    }
-
-    // Set 'All' as sum of all non-deleted statuses (including Returned)
-    const totalExcludingDeleted = statusCounts
-      .filter(sc => sc.status !== 'Deleted')
-      .reduce((sum, sc) => sum + sc.count, 0) + returnedCount;
-    const allStatus = Statuses.value.find(s => s.value === 'All');
-    if (allStatus) {
-      allStatus.count = totalExcludingDeleted;
-    }
-    
-    // Set 'ReceivedAll' count same as 'All' (all non-deleted statuses)
-    const receivedAllStatus = Statuses.value.find(s => s.value === 'ReceivedAll');
-    if (receivedAllStatus) {
-      receivedAllStatus.count = totalExcludingDeleted;
-    }
-
-    // Awaiting Confirmation: Resolved + not confirmed + settlement/county level
+    // Awaiting Confirmation: subset of Resolved (not additive to ReceivedAll)
     try {
       const awaitingFormData: Record<string, any> = {
         model: 'grievance',
@@ -861,23 +1017,35 @@ const getCounts = async () => {
         filterField: [...filterField, 'status', 'confirmed_by_national_grm', 'current_level'],
         filterValue: [...filterValue, ['Resolved'], [false], ['settlement', 'county']],
         filterOperator: [...filterOperator, 'in', 'eq', 'in']
-      };
+      }
 
       if (search_string.value && search_string.value.trim()) {
-        awaitingFormData.searchField = 'name';
-        awaitingFormData.searchString = search_string.value.trim();
+        awaitingFormData.searchField = 'name'
+        awaitingFormData.searchString = search_string.value.trim()
       }
 
-      const awaitingResponse = await getSummarybyFieldFromMultipleIncludes(awaitingFormData);
-      const awaitingStatus = Statuses.value.find(s => s.value === 'AwaitingConfirmation');
-      if (awaitingStatus) {
-        awaitingStatus.count = parseInt(awaitingResponse?.Total?.[0]?.count || '0', 10);
+      const awaitingResponse = await getSummarybyFieldFromMultipleIncludes(awaitingFormData)
+      const resolvedSegment = Statuses.value.find((s) => s.value === 'Resolved')
+      if (resolvedSegment) {
+        resolvedSegment.awaitingCount = parseInt(awaitingResponse?.Total?.[0]?.count || '0', 10)
       }
     } catch (error) {
-      console.error('Error fetching Awaiting Confirmation count:', error);
+      console.error('Error fetching Awaiting Confirmation count:', error)
     }
 
-    console.log('Updated status counts:', statusCounts, 'All:', totalExcludingDeleted);
+    console.log('Updated segment counts:', leafCountMap, 'ReceivedAll:', receivedAllCount)
+
+    const rejectedSegment = Statuses.value.find((s) => s.value === 'Rejected')
+    if (activeSegment.value === 'Rejected' && (rejectedSegment?.count ?? 0) === 0) {
+      activeSegment.value = 'ReceivedAll'
+      rejectedDeletedSubFilter.value = 'all'
+      applyActiveSegmentStatusFilters()
+      if (search_string.value && search_string.value.trim()) {
+        await getFilteredBySearchData(search_string.value)
+      } else {
+        await getFilteredData(filters.value, filterValues.value)
+      }
+    }
   } catch (error) {
     console.error('Error fetching status counts:', error);
     // Reset all counts to 0 on error
@@ -904,6 +1072,8 @@ const saveFiltersToLocalStorage = () => {
     selectedConfirmationStatus: selectedConfirmationStatus.value,
     selectedProjectPhase: selectedProjectPhase.value,
     activeSegment: activeSegment.value,
+    resolvedSubFilter: resolvedSubFilter.value,
+    rejectedDeletedSubFilter: rejectedDeletedSubFilter.value,
   }));
 };
 
@@ -935,7 +1105,30 @@ const loadFiltersFromLocalStorage = async () => {
       normalizeSelectedCategoriesToOptionValues();
       selectedConfirmationStatus.value = parsed.selectedConfirmationStatus || null;
       selectedProjectPhase.value = parsed.selectedProjectPhase || null;
-      activeSegment.value = parsed.activeSegment || 'All';
+      activeSegment.value = normalizeGrievanceSegment(parsed.activeSegment)
+      if (activeSegment.value === 'Resolved' && parsed.activeSegment === 'AwaitingConfirmation') {
+        resolvedSubFilter.value = 'awaiting_confirmation'
+      } else {
+        resolvedSubFilter.value = parsed.resolvedSubFilter === 'awaiting_confirmation'
+          ? 'awaiting_confirmation'
+          : 'all'
+      }
+
+      if (activeSegment.value === 'Rejected') {
+        if (parsed.activeSegment === 'Deleted') {
+          rejectedDeletedSubFilter.value = 'deleted'
+        } else if (parsed.activeSegment === 'Rejected' || parsed.rejectedDeletedSubFilter === 'rejected') {
+          rejectedDeletedSubFilter.value = 'rejected'
+        } else if (parsed.rejectedDeletedSubFilter === 'deleted' || parsed.rejectedDeletedSubFilter === 'all') {
+          rejectedDeletedSubFilter.value = canViewDeletedGrievances.value
+            ? parsed.rejectedDeletedSubFilter
+            : 'rejected'
+        } else {
+          rejectedDeletedSubFilter.value = canViewDeletedGrievances.value ? 'all' : 'rejected'
+        }
+      } else {
+        rejectedDeletedSubFilter.value = 'all'
+      }
 
       console.log('Mounting gettign',selectedCounty.value )
 
@@ -987,8 +1180,7 @@ const loadFiltersFromLocalStorage = async () => {
 
       restoreGrievanceTimeFilterUiFromArrays()
 
-
-            
+      applyActiveSegmentStatusFilters()
 
         if (search_string.value) {
           await getFilteredBySearchData(search_string.value)
@@ -1439,9 +1631,7 @@ const buildGrievanceRequestFormData = (
 
   const shouldIncludeHistory =
     options.includeHistory ||
-    activeSegment.value === 'Deleted' ||
-    activeSegment.value === 'Resolved' ||
-    activeSegment.value === 'AwaitingConfirmation'
+    segmentUsesHistory(activeSegment.value)
   if (
     shouldIncludeHistory &&
     !formData.associated_multiple_models.includes('grievance_history')
@@ -1468,7 +1658,7 @@ const buildGrievanceRequestFormData = (
     }
 
     if (normalizedField === 'status') {
-      const pseudoStatuses = ['ReceivedAll', 'All']
+      const pseudoStatuses = ['ReceivedAll']
       const hasPseudoStatus = value.some((v: any) => pseudoStatuses.includes(String(v)))
       if (hasPseudoStatus) {
         // "ReceivedAll" means all except deleted.
@@ -1550,38 +1740,34 @@ const buildGrievanceRequestFormData = (
     }
   }
 
-  // Don't exclude deleted when "All" is selected and user has permission
-  const shouldExcludeDeleted =
-    (activeSegment.value === 'All' && canViewDeletedGrievances.value) 
-      ? false // Don't exclude deleted when "All" is selected and user has permission
-      : ((!canViewDeletedGrievances.value && activeSegment.value !== 'Deleted') ||
-         options.excludeDeleted)
+  const includesDeletedStatuses =
+    activeSegment.value === 'Rejected' &&
+    canViewDeletedGrievances.value &&
+    rejectedDeletedSubFilter.value !== 'rejected'
+
+  const shouldExcludeDeleted = includesDeletedStatuses
+    ? false
+    : ((!canViewDeletedGrievances.value && activeSegment.value !== 'Rejected') ||
+       options.excludeDeleted)
 
   if (shouldExcludeDeleted) {
     const statusIndex = formData.filters.indexOf('status')
     if (statusIndex !== -1) {
       const statusValues = formData.filterValues[statusIndex]
       if (Array.isArray(statusValues)) {
-        // For "All" segment, if user has permission, don't filter out 'Deleted' (it's already in the list)
-        // For other segments or if user doesn't have permission, filter out 'Deleted'
-        if (activeSegment.value !== 'All' || !canViewDeletedGrievances.value) {
-          formData.filterValues[statusIndex] = statusValues.filter(
-            (s: string) => s !== 'Deleted'
-          )
-          if (formData.filterValues[statusIndex].length === 0) {
-            formData.filters.splice(statusIndex, 1)
-            formData.filterValues.splice(statusIndex, 1)
-            formData.filterFunctions.splice(statusIndex, 1)
-          }
+        formData.filterValues[statusIndex] = statusValues.filter(
+          (s: string) => s !== 'Deleted'
+        )
+        if (formData.filterValues[statusIndex].length === 0) {
+          formData.filters.splice(statusIndex, 1)
+          formData.filterValues.splice(statusIndex, 1)
+          formData.filterFunctions.splice(statusIndex, 1)
         }
       }
-    } else {
-      // Only add notIn filter if "All" is not selected, or if user doesn't have permission
-      if (activeSegment.value !== 'All' || !canViewDeletedGrievances.value) {
-        formData.filters.push('status')
-        formData.filterValues.push(['Deleted'])
-        formData.filterFunctions.push('notIn')
-      }
+    } else if (activeSegment.value !== 'ReceivedAll') {
+      formData.filters.push('status')
+      formData.filterValues.push(['Deleted'])
+      formData.filterFunctions.push('notIn')
     }
   }
 
@@ -1646,7 +1832,7 @@ const getGrievancesWithMultiCountyFallback = async (formData: any) => {
 const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) => {
   loading.value = true
   const formData = buildGrievanceRequestFormData(selFilters, selfilterValues, {
-    includeHistory: ['Deleted', 'Resolved', 'AwaitingConfirmation'].includes(activeSegment.value)
+    includeHistory: segmentUsesHistory(activeSegment.value)
   })
 
   try {
@@ -1668,7 +1854,7 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 
     await fetchSupportingStaffData()
 
-    if (activeSegment.value === 'Deleted') {
+    if (activeSegment.value === 'Rejected' && showsDeletedGrievanceActions.value) {
       await fetchDeletionHistory()
     }
 
@@ -2904,7 +3090,7 @@ const getFilteredBySearchData = async (searchKey) => {
   formData.filterFunctions = alignedFns
 
   const associatedModels = [...associated_multiple_models]
-  if (activeSegment.value === 'Deleted') {
+  if (segmentUsesHistory(activeSegment.value)) {
     associatedModels.push('grievance_history')
   }
   formData.associated_multiple_models = associatedModels
@@ -2939,7 +3125,7 @@ const getFilteredBySearchData = async (searchKey) => {
     tableDataList.value = res.data
     total.value = res.total
     
-    if (activeSegment.value === 'Deleted') {
+    if (activeSegment.value === 'Rejected' && showsDeletedGrievanceActions.value) {
       await fetchDeletionHistory()
     }
     
@@ -3001,10 +3187,6 @@ const grv_name =ref()
 
 
 
-const filteredSegments = computed(() => {
-  return Statuses.value.filter(option => !option.hidden);
-});
-
 const deletedGrievances =ref([])
 const deletedGrievancesCount =ref()
 
@@ -3012,7 +3194,16 @@ const deletedGrievancesCount =ref()
 
 const onSegmentClick = async (statusValue?: string) => {
   if (statusValue) {
-    activeSegment.value = statusValue
+    const normalized = normalizeGrievanceSegment(statusValue)
+    activeSegment.value = normalized
+    if (normalized !== 'Resolved' && normalized !== 'Rejected') {
+      resolvedSubFilter.value = 'all'
+      rejectedDeletedSubFilter.value = 'all'
+    } else if (statusValue === 'Resolved') {
+      resolvedSubFilter.value = 'all'
+    } else if (statusValue === 'Rejected') {
+      rejectedDeletedSubFilter.value = canViewDeletedGrievances.value ? 'all' : 'rejected'
+    }
   }
   console.log(activeSegment.value)
   tableDataList.value=[]
@@ -3026,170 +3217,11 @@ const onSegmentClick = async (statusValue?: string) => {
   originalTableData.value = []
   
   // Clear deletion history map when switching segments
-  if (activeSegment.value !== 'Deleted') {
+  if (!showsDeletedGrievanceActions.value) {
     deletionHistoryMap.value = {}
   }
 
-  // Clear existing status filters
-  const statusIndex = filters.value.indexOf('status')
-  if (statusIndex !== -1) {
-    filters.value.splice(statusIndex, 1)
-    filterValues.value.splice(statusIndex, 1)
-    filterFunction.value.splice(statusIndex, 1)
-  }
-
-  for (const field of ['confirmed_by_national_grm', 'current_level']) {
-    const fieldIndex = filters.value.indexOf(field)
-    if (fieldIndex !== -1) {
-      filters.value.splice(fieldIndex, 1)
-      filterValues.value.splice(fieldIndex, 1)
-      filterFunction.value.splice(fieldIndex, 1)
-    }
-  }
-
-  if (activeSegment.value === "All") {
-    // For "All" grievances, explicitly include all statuses
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    // Include all statuses - the shouldExcludeDeleted logic will handle deleted if needed
-    const allStatuses = ['Sorting', 'Under Review', 'Investigation', 'Returned', 'Resolved', 'Escalated', 'Closed', 'Referred', 'ExternalReferral', 'In Court', 'Rejected']
-    // Only include 'Deleted' if user has permission to view deleted grievances
-    if (canViewDeletedGrievances.value) {
-      allStatuses.push('Deleted')
-    }
-    filterValues.value[index] = allStatuses
-    console.log('Showing all grievances with all statuses:', allStatuses, 'filters:', filters.value, 'filterValues:', filterValues.value)
-  } else if (activeSegment.value === "ReceivedAll") {
-    // For "Received (All)", exclude deleted items explicitly
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('notIn')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Deleted']
-    console.log('Showing all received grievances excluding deleted')
-  } else if (activeSegment.value === "Sorting") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Sorting']
-
-  } else if (activeSegment.value === "Under Review") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Under Review', 'Investigation', 'Returned']
-
-  } else if (activeSegment.value === "Resolved") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Resolved']
-
-  } else if (activeSegment.value === "AwaitingConfirmation") {
-    selectedConfirmationStatus.value = null
-
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Resolved']
-
-    var confirmationOption = 'confirmed_by_national_grm'
-    if (!filters.value.includes(confirmationOption)) {
-      filters.value.push(confirmationOption)
-      filterFunction.value.push('eq')
-    }
-    var confirmationIndex = filters.value.indexOf(confirmationOption)
-    filterValues.value[confirmationIndex] = [false]
-
-    var levelOption = 'current_level'
-    if (!filters.value.includes(levelOption)) {
-      filters.value.push(levelOption)
-      filterFunction.value.push('in')
-    }
-    var levelIndex = filters.value.indexOf(levelOption)
-    filterValues.value[levelIndex] = ['settlement', 'county']
-
-  } else if (activeSegment.value === "Escalated") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Escalated']
-
-  } else if (activeSegment.value === "Closed") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Closed']
-
-  } else if (activeSegment.value === "Referred") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Referred', 'ExternalReferral']
-
-  } else if (activeSegment.value === "ExternalReferral") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['ExternalReferral']
-
-  } else if (activeSegment.value === "In Court") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['In Court']
-
-  } else if (activeSegment.value === "Rejected") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Rejected']
-
-  } else if (activeSegment.value === "Deleted") {
-    var selectOption = 'status'
-    if (!filters.value.includes(selectOption)) {
-      filters.value.push(selectOption)
-      filterFunction.value.push('in')
-    }
-    var index = filters.value.indexOf(selectOption)
-    filterValues.value[index] = ['Deleted']
-  }
+  applyActiveSegmentStatusFilters()
 
   // Check if there's an active search and use the appropriate data fetching method
   if (search_string.value && search_string.value.trim()) {
@@ -3197,9 +3229,63 @@ const onSegmentClick = async (statusValue?: string) => {
   } else {
   await getFilteredData(filters.value, filterValues.value)
   }
+
+  if (showsDeletedGrievanceActions.value) {
+    await fetchDeletionHistory()
+  }
   
   // Force a fresh count calculation after segment switch to ensure counts are accurate
   // Small delay to ensure filters are fully applied before counting
+  await nextTick()
+  await getCounts()
+}
+
+const setResolvedSubFilter = async (mode: 'all' | 'awaiting_confirmation') => {
+  if (activeSegment.value !== 'Resolved') {
+    activeSegment.value = 'Resolved'
+  }
+  resolvedSubFilter.value = mode
+  tableDataList.value = []
+  currentPage.value = 1
+  page.value = 1
+  applyActiveSegmentStatusFilters()
+
+  if (search_string.value && search_string.value.trim()) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+  }
+
+  await nextTick()
+  await getCounts()
+}
+
+const setRejectedSubFilter = async (mode: 'all' | 'rejected' | 'deleted') => {
+  if (mode !== 'rejected' && !canViewDeletedGrievances.value) {
+    return
+  }
+
+  if (activeSegment.value !== 'Rejected') {
+    activeSegment.value = 'Rejected'
+  }
+  rejectedDeletedSubFilter.value = mode
+  tableDataList.value = []
+  currentPage.value = 1
+  page.value = 1
+  applyActiveSegmentStatusFilters()
+
+  if (search_string.value && search_string.value.trim()) {
+    await getFilteredBySearchData(search_string.value)
+  } else {
+    await getFilteredData(filters.value, filterValues.value)
+  }
+
+  if (showsDeletedGrievanceActions.value) {
+    await fetchDeletionHistory()
+  } else {
+    deletionHistoryMap.value = {}
+  }
+
   await nextTick()
   await getCounts()
 }
@@ -3791,9 +3877,9 @@ const cascadeDeleteGrievances = async (ids: Array<string | number>) => {
 }
 
 const permanentlyDeleteSelected = async () => {
-  if (!isRootAdmin.value || activeSegment.value !== 'Deleted') {
+  if (!isRootAdmin.value || !showsDeletedGrievanceActions.value) {
     ElMessage({
-      message: 'Permanent delete is only available for root admins in the Deleted segment',
+      message: 'Permanent delete is only available for root admins in the deleted view',
       type: 'warning'
     })
     return
@@ -3825,13 +3911,31 @@ const permanentlyDeleteSelected = async () => {
   await cascadeDeleteGrievances(ids)
 }
 
+const forceDeletedStatusFilter = (formData: {
+  filters: string[]
+  filterValues: any[][]
+  filterFunctions: string[]
+}) => {
+  const statusIndex = formData.filters.indexOf('status')
+  if (statusIndex === -1) {
+    formData.filters.push('status')
+    formData.filterValues.push(['Deleted'])
+    formData.filterFunctions.push('in')
+  } else {
+    formData.filterValues[statusIndex] = ['Deleted']
+    formData.filterFunctions[statusIndex] = 'in'
+  }
+}
+
 const fetchAllDeletedGrievanceIds = async (): Promise<Array<string | number>> => {
-  const limit = total.value > 0 ? total.value : 1000
+  const deletedTotal = rejectedSegmentDeletedCount.value
+  const limit = deletedTotal > 0 ? deletedTotal : 1000
   const formData = buildGrievanceRequestFormData(filters.value, filterValues.value, {
     includeHistory: true,
     limit,
     page: 1
   })
+  forceDeletedStatusFilter(formData)
 
   const res = await getGrievances(formData)
   if (res?.data && Array.isArray(res.data)) {
@@ -3842,17 +3946,26 @@ const fetchAllDeletedGrievanceIds = async (): Promise<Array<string | number>> =>
 }
 
 const permanentlyDeleteAll = async () => {
-  if (!isRootAdmin.value || activeSegment.value !== 'Deleted') {
+  if (!isRootAdmin.value || !showsDeletedGrievanceActions.value) {
     ElMessage({
-      message: 'Permanent delete is only available for root admins in the Deleted segment',
+      message: 'Permanent delete is only available for root admins in the deleted view',
       type: 'warning'
+    })
+    return
+  }
+
+  const deletedTotal = rejectedSegmentDeletedCount.value
+  if (deletedTotal === 0) {
+    ElMessage({
+      message: 'No deleted grievances to remove',
+      type: 'info'
     })
     return
   }
 
   try {
     await ElMessageBox.confirm(
-      'This will permanently delete all deleted grievances in the current filter. This action cannot be undone. Continue?',
+      `This will permanently delete ${deletedTotal} deleted grievance(s) matching the current filter. This action cannot be undone. Continue?`,
       'Delete All Permanently',
       {
         confirmButtonText: 'Delete All',
@@ -4015,14 +4128,17 @@ const ReferralRef = ref<FormInstance>()
 
 
 const canUseRowSelection = computed(() => {
-  if (activeSegment.value === 'Deleted') {
-    return isRootAdmin.value
+  if (isRejectedSegment.value) {
+    if (rejectedDeletedSubFilter.value === 'deleted') {
+      return isRootAdmin.value
+    }
+    return false
   }
-  return !['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(activeSegment.value)
+  return !['Closed', 'Resolved'].includes(activeSegment.value)
 })
 
 const isRowSelectable = () => {
-  if (activeSegment.value === 'Deleted') {
+  if (isRejectedSegment.value && rejectedDeletedSubFilter.value === 'deleted') {
     return isRootAdmin.value
   }
   return isCountyOrNational.value;
@@ -5176,7 +5292,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                       :all-filter-values="downloadFilters.filterValues"
                       :all-filter-functions="downloadFilters.filterFunctions"
                       :allow-all-download="canDownloadAllGrievances"
-                      :include-history="activeSegment === 'Deleted' || activeSegment === 'Resolved'"
+                      :include-history="activeSegment === 'Rejected' || activeSegment === 'Resolved'"
                       :filtered-data-fetcher="fetchFilteredGrievancesForDownload"
                       class="action-button"
                     />
@@ -5208,7 +5324,6 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 :manual="true"
                 trigger="manual"
                 v-model:visible="statusTooltipVisible[status.value]"
-                v-if="!['All', 'Deleted'].includes(status.value) && status.value !== 'Rejected'"
               >
                 <div 
                   :class="['status-card', { active: activeSegment === status.value }]"
@@ -5225,63 +5340,63 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                   </div>
                 </div>
               </el-tooltip>
-              
-              <el-tooltip
-                v-else-if="status.value === 'Rejected'"
-                :content="status.description"
-                placement="bottom"
-                effect="light"
-                popper-class="status-success-tooltip"
-                :manual="true"
-                trigger="manual"
-                v-model:visible="statusTooltipVisible[status.value]"
-              >
-                <div 
-                  :class="['status-card', { active: activeSegment === status.value }]"
-                  @click="onSegmentClick(status.value); showStatusTip(status.value)"
-                >
-                  <div class="status-icon">
-                    <el-icon :size="18">
-                      <component :is="status.icon" />
-                    </el-icon>
-                  </div>
-                  <div class="status-info">
-                    <div class="status-label">{{ status.label }}</div>
-                    <div class="status-count">{{ status.count }}</div>
-                  </div>
-                </div>
-              </el-tooltip>
-              <PermissionWrapper 
-                v-else-if="status.value === 'Deleted'"
-                :permissions="['grievance:viewDeleted']"
-              >
-                <el-tooltip
-                  :content="status.description"
-                  placement="top"
-                  effect="light"
-                  popper-class="status-success-tooltip"
-                  :manual="true"
-                  trigger="manual"
-                  v-model:visible="statusTooltipVisible[status.value]"
-                >
-                  <div 
-                    :class="['status-card', { active: activeSegment === status.value }]"
-                    @click="onSegmentClick(status.value); showStatusTip(status.value)"
-                  >
-                    <div class="status-icon">
-                      <el-icon :size="18">
-                        <component :is="status.icon" />
-                      </el-icon>
-                    </div>
-                    <div class="status-info">
-                      <div class="status-label">{{ status.label }}</div>
-                      <div class="status-count">{{ status.count }}</div>
-                    </div>
-                  </div>
-                </el-tooltip>
-              </PermissionWrapper>
             </template>
           </div>
+        </div>
+
+        <div v-if="activeSegment === 'Resolved'" class="segment-subfilters">
+          <el-button
+            size="small"
+            :type="resolvedSubFilter === 'all' ? 'primary' : 'default'"
+            plain
+            @click="setResolvedSubFilter('all')"
+          >
+            All resolved
+          </el-button>
+          <el-button
+            size="small"
+            :type="resolvedSubFilter === 'awaiting_confirmation' ? 'primary' : 'default'"
+            plain
+            @click="setResolvedSubFilter('awaiting_confirmation')"
+          >
+            Awaiting confirmation
+            <el-badge
+              v-if="resolvedAwaitingCount > 0"
+              :value="resolvedAwaitingCount"
+              class="segment-subfilter-badge"
+            />
+          </el-button>
+        </div>
+
+        <div v-if="activeSegment === 'Rejected'" class="segment-subfilters">
+          <el-button
+            size="small"
+            :type="rejectedDeletedSubFilter === 'rejected' ? 'primary' : 'default'"
+            plain
+            @click="setRejectedSubFilter('rejected')"
+          >
+            Rejected
+          </el-button>
+          <PermissionWrapper :permissions="['grievance:viewDeleted']">
+            <el-button
+              size="small"
+              :type="rejectedDeletedSubFilter === 'deleted' ? 'primary' : 'default'"
+              plain
+              @click="setRejectedSubFilter('deleted')"
+            >
+              Deleted
+            </el-button>
+          </PermissionWrapper>
+          <PermissionWrapper :permissions="['grievance:viewDeleted']">
+            <el-button
+              size="small"
+              :type="rejectedDeletedSubFilter === 'all' ? 'primary' : 'default'"
+              plain
+              @click="setRejectedSubFilter('all')"
+            >
+              All
+            </el-button>
+          </PermissionWrapper>
         </div>
       </div>
       </template>
@@ -5407,7 +5522,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
             Add
             </el-button>
             <el-button 
-              v-if="selectedRows.length > 0 && !['Closed', 'Resolved', 'In Court', 'Deleted', 'Rejected'].includes(activeSegment)"
+              v-if="selectedRows.length > 0 && !['Closed', 'Resolved', 'Rejected'].includes(activeSegment)"
               type="primary" 
               :icon="Share"
               size="small"
@@ -5416,7 +5531,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               Refer ({{ selectedRows.length }})
             </el-button>
             <el-button 
-              v-if="selectedRows.length > 0 && isSuperAdmin && !['Deleted'].includes(activeSegment)"
+              v-if="selectedRows.length > 0 && isSuperAdmin && !['Rejected'].includes(activeSegment)"
               type="danger" 
               :icon="Delete"
               size="small"
@@ -5425,7 +5540,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               Delete ({{ selectedRows.length }})
             </el-button>
             <el-button
-              v-if="activeSegment === 'Deleted' && isRootAdmin"
+              v-if="showsDeletedGrievanceActions && isRootAdmin"
               type="danger"
               :icon="Delete"
               size="small"
@@ -5436,14 +5551,15 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
               Delete Selected Permanently ({{ selectedRows.length }})
             </el-button>
             <el-button
-              v-if="activeSegment === 'Deleted' && isRootAdmin"
+              v-if="showsDeletedGrievanceActions && isRootAdmin"
               type="danger"
               :icon="Delete"
               size="small"
               :loading="permanentDeleting"
+              :disabled="rejectedSegmentDeletedCount === 0"
               @click="permanentlyDeleteAll"
             >
-              Delete All ({{ total }})
+              Delete All ({{ rejectedSegmentDeletedCount }})
             </el-button>
         </div>
       </div>
@@ -5507,7 +5623,7 @@ const isAwaitingConfirmation = (grievance: GrievanceType): boolean => {
                 </el-tag>
               </div>
               <!-- Show deleter name in Deleted tab -->
-              <div v-if="activeSegment === 'Deleted'" class="deleter-info" style="margin-top: 6px; font-size: 12px; color: #909399;">
+              <div v-if="row.status === 'Deleted' && isRejectedSegment" class="deleter-info" style="margin-top: 6px; font-size: 12px; color: #909399;">
                 <span style="font-weight: 500;">Deleted by:</span> {{ getDeleterName(row) }}
               </div>
             </div>
@@ -6776,6 +6892,18 @@ type="textarea" :rows="2" placeholder="Provide instructions here..."
 .status-cards-container {
   width: 100%;
   padding-bottom: 4px;
+}
+
+.segment-subfilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.segment-subfilter-badge {
+  margin-left: 6px;
 }
 
 .status-cards-container--scroll {
