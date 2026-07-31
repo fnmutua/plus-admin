@@ -2702,7 +2702,7 @@ const formData = {}
 </script>
 
 <template>
-  <el-card v-loading="loading">
+  <el-card v-loading="loading" class="grievance-details-page">
  
     <template #header>
       <div class="card-header">
@@ -2850,8 +2850,8 @@ const formData = {}
 
       </el-tab-pane>
       <el-tab-pane label="Supporting Documentation" name="documents">
-        <el-card>
-          <div style="margin-bottom: 15px;">
+        <el-card class="tab-panel-card documents-tab-card">
+          <div class="tab-toolbar">
             <PermissionWrapper :permissions="['grievance:update']">
               <el-button type="primary" @click="showSupportingDocDialog = true">
                 <Icon icon="fa-solid:upload" style="margin-right: 5px;" />
@@ -2859,7 +2859,7 @@ const formData = {}
               </el-button>
             </PermissionWrapper>
           </div>
-          <el-table :data="GrievanceDocuments" style="width: 100%">
+          <el-table :data="GrievanceDocuments" style="width: 100%" size="small" class="documents-table">
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="type" label="Type" width="180">
@@ -2886,18 +2886,18 @@ const formData = {}
 
       </el-tab-pane>
       <el-tab-pane label="Action Logs" name="timeline">
-        <div class="mb-4">
+        <div class="tab-toolbar">
           <PermissionWrapper :permissions="['grievance:read']">
             <el-button @click="handleDownlaod"  type="primary" :icon="Download"   plain>Download Timeline</el-button>
           </PermissionWrapper>
         </div>
      
-        <el-timeline style="max-width: 100%;">
+        <el-timeline class="action-logs-timeline">
           <el-timeline-item
 v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
             :timestamp="formatDate(log.date_actioned)" timestamp-class="timestamp-class">
 
-            <el-collapse accordion>
+            <el-collapse accordion class="action-log-collapse">
               <el-collapse-item :title="log.action_type" :name="log.action_type" :icon="CaretRight">
                 <!-- Scoped slot for custom title -->
                 <template #title>
@@ -3108,7 +3108,7 @@ class="notification-custom-card" shadow="hover" :class="log.action_type === 'Res
 
       <el-tab-pane label="Settings" name="settings"  >
  
-        <div class="flex justify-end p-2">
+        <div class="settings-toolbar">
           <PermissionWrapper :permissions="['grievance:delete']">
             <el-popconfirm
 width="340"
@@ -3122,7 +3122,7 @@ width="340"
             </el-popconfirm>
           </PermissionWrapper>
        </div>
-       <el-card v-if="editHistory.length > 0" shadow="never"  >
+       <el-card v-if="editHistory.length > 0" shadow="never" class="history-card">
           
           <el-table 
             :data="editHistory" 
@@ -3163,7 +3163,7 @@ width="340"
                     type="warning"
                     :closable="false"
                     show-icon
-                    style="margin: 10px 0;"
+                    class="history-revert-alert"
                   />
                 </div>
               </template>
@@ -4232,7 +4232,7 @@ width="340"
   font-size: 1.2rem;
   color: var(--card-header-color);
   background-color: var(--card-header-bg);
-  padding: 10px;
+  padding: 6px 8px;
   border-radius: 5px;
 }
 
@@ -4265,21 +4265,25 @@ width="340"
 .documents-header {
   font-size: 0.95rem;
   font-weight: bold;
-  margin-bottom: 1px;
+  margin: 0 0 2px;
   color: #837f7f;
+  line-height: 1.3;
 }
 
 .action-body {
   font-size: 1rem;
   font-weight: 200;
   color: #666;
+  margin: 0;
+  line-height: 1.35;
 }
 
 .action-footer {
   font-size: 0.98rem;
-  margin-top: 2px;
+  margin: 2px 0 0;
   font-weight: 300;
   color: #2e0dc2;
+  line-height: 1.35;
 }
 
 .success-background {
@@ -4287,7 +4291,7 @@ width="340"
   /* Light green with 80% opacity */
   color: #1bd847;
   /* Dark green text */
-  padding: 10px;
+  padding: 6px 8px;
   border-radius: 5px;
   border: 1px solid #c3e6cb;
   /* Border color */
@@ -4299,7 +4303,7 @@ width="340"
   /* Light yellow with 80% opacity */
   color: #856404;
   /* Dark yellow text */
-  padding: 10px;
+  padding: 6px 8px;
   border-radius: 5px;
   border: 1px solid #ffeeba;
   /* Border color */
@@ -4310,7 +4314,7 @@ width="340"
   /* Red with 80% opacity */
   color: #fa0707;
   /* Darker text for contrast */
-  padding: 10px;
+  padding: 6px 8px;
   border-radius: 5px;
   border: 1px solid #fb050552;
   /* Lighter red border */
@@ -4321,7 +4325,7 @@ width="340"
   /* Pink with 20% opacity */
   color: rgb(255, 192, 254);
   /* Same text color */
-  padding: 10px;
+  padding: 6px 8px;
   border-radius: 5px;
   border: 1px solid #d6d6d6;
   /* Lighter pink border */
@@ -4467,19 +4471,19 @@ width="340"
 .mobile-notifications-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 8px;
+  padding: 4px 0;
 }
 
 .mobile-notification-card {
   background-color: var(--el-bg-color);
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  padding: 12px 14px;
+  padding: 8px 10px;
   border-left: 4px solid transparent;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .mobile-notification-success {
@@ -4598,7 +4602,7 @@ width="340"
 }
 
 .notification-timeline-item {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .notification-collapse {
@@ -4648,8 +4652,8 @@ width="340"
 }
 
 .notification-custom-card {
-  padding: 12px;
-  margin: 4px 0;
+  padding: 6px 8px;
+  margin: 2px 0;
   min-height: auto;
   border-radius: 6px;
 }
@@ -4657,17 +4661,17 @@ width="340"
 .notification-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
 }
 
 .notification-detail-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   align-items: flex-start;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .notification-detail-label {
@@ -5507,7 +5511,7 @@ width="340"
 
 /* Edit History Styles */
 .history-card {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .history-header {
@@ -5618,19 +5622,19 @@ width="340"
 
 /* Confirmation Card Styles - Improved and Dark Mode Friendly */
 .confirmation-status-card {
-  margin-top: 12px;
+  margin-top: 6px;
   border-radius: 8px;
   transition: all 0.3s ease;
 }
 
 .confirmation-status-card :deep(.el-card__header) {
-  padding: 10px 16px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--el-border-color-lighter);
   background-color: var(--el-bg-color-page);
 }
 
 .confirmation-status-card :deep(.el-card__body) {
-  padding: 12px 16px;
+  padding: 6px 10px;
 }
 
 .confirmation-header {
@@ -5653,15 +5657,15 @@ width="340"
 .confirmation-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
 
 .confirmation-detail-item {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .confirmation-label {
@@ -5731,12 +5735,25 @@ width="340"
 }
 
 .details-table-card :deep(.el-card__body) {
-  padding: 12px;
+  padding: 4px 0 0;
+}
+
+.details-table-card :deep(.el-card__header) {
+  padding: 4px 0 6px;
+  border-bottom: none;
 }
 
 /* Desktop Table View */
 .grievance-details-table.desktop-table {
   font-size: 13px;
+}
+
+.grievance-details-table.desktop-table :deep(.el-table__cell) {
+  padding: 2px 8px;
+}
+
+.grievance-details-table.desktop-table :deep(.cell) {
+  line-height: 1.35;
 }
 
 .grievance-details-table.desktop-table :deep(.el-table__header) {
@@ -5767,15 +5784,15 @@ width="340"
   color: var(--el-text-color-primary);
   white-space: normal;
   word-break: break-word;
-  line-height: 1.5;
-  padding: 2px 0;
+  line-height: 1.35;
+  padding: 0;
 }
 
 .detail-value-resolution {
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.4;
   color: var(--el-text-color-primary);
-  padding: 4px 0;
+  padding: 1px 0;
 }
 
 /* Mobile Card View */
@@ -5784,7 +5801,7 @@ width="340"
 }
 
 .mobile-detail-item {
-  padding: 12px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--el-border-color-lighter);
   background-color: var(--el-bg-color);
   transition: background-color 0.2s ease;
@@ -5804,8 +5821,8 @@ width="340"
   color: var(--el-text-color-regular);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 6px;
-  line-height: 1.4;
+  margin-bottom: 2px;
+  line-height: 1.3;
 }
 
 .mobile-detail-value {
@@ -5813,14 +5830,14 @@ width="340"
   color: var(--el-text-color-primary);
   white-space: normal;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: 1.35;
   padding: 0;
 }
 
 .mobile-detail-resolution .mobile-detail-value {
   font-size: 12px;
-  line-height: 1.6;
-  padding: 4px 0;
+  line-height: 1.4;
+  padding: 1px 0;
 }
 
 /* Responsive adjustments */
@@ -5854,17 +5871,17 @@ width="340"
   }
   
   .details-table-card :deep(.el-card__body) {
-    padding: 8px;
+    padding: 2px 0 0;
   }
   
   .mobile-detail-item {
-    padding: 10px 8px;
+    padding: 5px 6px;
     margin-bottom: 0;
   }
   
   .mobile-detail-label {
     font-size: 10px;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
   }
   
   .mobile-detail-value {
@@ -5878,16 +5895,16 @@ width="340"
 
 @media (max-width: 480px) {
   .details-table-card :deep(.el-card__body) {
-    padding: 6px;
+    padding: 2px 0 0;
   }
   
   .mobile-detail-item {
-    padding: 8px 6px;
+    padding: 4px 4px;
   }
   
   .mobile-detail-label {
     font-size: 9px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
   
   .mobile-detail-value {
@@ -5953,5 +5970,220 @@ width="340"
   .grievance-description {
     font-size: 12px;
   }
+}
+
+/* Page-level spacing — tighter details tab, less vertical scroll */
+.grievance-details-page :deep(> .el-card__header) {
+  padding: 8px 12px;
+}
+
+.grievance-details-page :deep(> .el-card__body) {
+  padding: 8px 12px 12px;
+}
+
+.grievance-details-page .demo-tabs :deep(.el-tabs__content) {
+  padding: 8px;
+}
+
+.grievance-details-page .details-table-card {
+  box-shadow: none;
+}
+
+.grievance-details-page .details-table-card :deep(.el-card__body) {
+  padding-top: 0;
+}
+
+.grievance-details-page .dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Shared tab spacing */
+.grievance-details-page .tab-toolbar {
+  margin-bottom: 6px;
+}
+
+.grievance-details-page .settings-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 6px;
+}
+
+.grievance-details-page .tab-panel-card {
+  box-shadow: none;
+}
+
+.grievance-details-page .tab-panel-card :deep(.el-card__body) {
+  padding: 4px 0 0;
+}
+
+.grievance-details-page .documents-table :deep(.el-table__cell) {
+  padding: 4px 8px;
+}
+
+.grievance-details-page .history-table :deep(.el-table__cell) {
+  padding: 4px 8px;
+}
+
+.grievance-details-page .history-card :deep(.el-card__body) {
+  padding: 4px 0 0;
+}
+
+.grievance-details-page .history-revert-alert {
+  margin: 4px 0;
+}
+
+.grievance-details-page .expand-content {
+  padding: 4px 0;
+}
+
+.grievance-details-page .differences-table :deep(.el-table__cell) {
+  padding: 3px 6px;
+}
+
+/* Action logs timeline */
+.grievance-details-page .action-logs-timeline {
+  max-width: 100%;
+  padding: 0;
+}
+
+.grievance-details-page .action-logs-timeline :deep(.el-timeline-item__wrapper) {
+  padding-bottom: 8px;
+}
+
+.grievance-details-page .action-logs-timeline :deep(.el-timeline-item__timestamp) {
+  margin-bottom: 2px;
+  line-height: 1.3;
+  font-size: 11px;
+}
+
+.grievance-details-page .action-log-collapse :deep(.el-collapse-item__header) {
+  padding: 5px 8px;
+  min-height: 32px;
+  height: auto;
+  line-height: 1.35;
+  font-size: 12px;
+}
+
+.grievance-details-page .action-log-collapse .action-body {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.grievance-details-page .action-log-collapse .action-footer {
+  font-size: 11px;
+}
+
+.grievance-details-page .action-log-collapse .documents-header {
+  font-size: 11px;
+}
+
+.grievance-details-page .action-log-collapse :deep(.el-button.is-link) {
+  font-size: 11px;
+}
+
+.grievance-details-page .action-log-collapse :deep(.el-collapse-item__content) {
+  padding: 4px 8px 6px;
+}
+
+.grievance-details-page .action-log-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+
+.grievance-details-page .notification-collapse :deep(.el-collapse-item__header) {
+  padding: 5px 8px;
+  min-height: 32px;
+  height: auto;
+  line-height: 1.35;
+  font-size: 12px;
+}
+
+.grievance-details-page .notification-collapse :deep(.el-collapse-item__content) {
+  padding: 4px 8px 6px;
+}
+
+.grievance-details-page .notification-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+
+.grievance-details-page .notifications-timeline :deep(.el-timeline-item__wrapper) {
+  padding-bottom: 8px;
+}
+
+.grievance-details-page .notifications-timeline :deep(.el-timeline-item__timestamp) {
+  margin-bottom: 2px;
+}
+
+.grievance-details-page .notification-custom-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+.grievance-details-page .action-log-collapse .notification-custom-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+.grievance-details-page .action-log-collapse p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.grievance-details-page .action-log-collapse .documents-header + p,
+.grievance-details-page .action-log-collapse .documents-header ~ p {
+  margin-top: 0;
+}
+
+/* Notifications tab — slightly smaller type */
+.grievance-details-page .notifications-timeline :deep(.el-timeline-item__timestamp),
+.grievance-details-page .notifications-wrapper .timestamp-class {
+  font-size: 11px;
+}
+
+.grievance-details-page .notification-title-text {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.grievance-details-page .notification-status-icon {
+  font-size: 14px;
+}
+
+.grievance-details-page .notifications-wrapper .notification-detail-row {
+  font-size: 12px;
+}
+
+.grievance-details-page .notifications-wrapper .notification-detail-label {
+  font-size: 11px;
+}
+
+.grievance-details-page .notifications-wrapper .notification-detail-value {
+  font-size: 12px;
+}
+
+.grievance-details-page .notifications-wrapper .notification-status-tag :deep(.el-tag__content) {
+  font-size: 11px;
+}
+
+.grievance-details-page .mobile-notification-date {
+  font-size: 11px;
+}
+
+.grievance-details-page .mobile-notification-message {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.grievance-details-page .mobile-notification-meta .meta-label,
+.grievance-details-page .mobile-notification-meta .meta-value,
+.grievance-details-page .mobile-notification-reference {
+  font-size: 11px;
+}
+
+.grievance-details-page .mobile-notifications-list .status-icon {
+  font-size: 14px;
+}
+
+.grievance-details-page .mobile-notifications-list .mobile-notification-tag :deep(.el-tag__content) {
+  font-size: 10px;
 }
 </style>

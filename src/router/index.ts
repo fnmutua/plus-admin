@@ -771,20 +771,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         ]
       },
  
- 
-
-      {
-        path: 'ben',
-     //   component: 'views/Indicators/indicator_category',
-        component: () => import('@/views/Indicators/Beneficiary.vue'),
-        name: 'BeneficiaryConfigs',
-        meta: {
-          title: 'Beneficiaries',
-          icon:'ph:users-fill',
-          permissions: ['beneficiary:read'],
-          hidden: false
-        }
-      },
 
     ]
   },
@@ -972,18 +958,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'OpenGrievances',
         meta: {
           title: 'Grievances',
-          icon:'oui:security-signal',
-          permissions: ['grievance:read'],
-
-        }
-       },
-
-       {
-        path: 'referred',
-        component: () => import('@/views/Grievances/Referred.vue'),
-        name: 'ReferredGrievances',
-        meta: {
-          title: 'Referred Grievances',
           icon:'oui:security-signal',
           permissions: ['grievance:read'],
 

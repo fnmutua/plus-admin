@@ -1300,6 +1300,7 @@ async function loadDeletedProjects() {
 }
 
 const onProjectSegmentChange = async (val: string) => {
+  clearProjectMergeSelection()
   if (val === 'Deleted') {
     if (!showDeletedProjectsTab.value) {
       activeSegment.value = 'Projects'
@@ -1316,6 +1317,18 @@ const onProjectSegmentChange = async (val: string) => {
     loading.value = false
   }
 }
+
+async function restoreDeletedProjectRow(row: any): Promise<'success' | 'already' | 'failed'> {
+  const isMerge = row._changeType === 'Merge'
+  const res = isMerge
+    ? await revertMerge({ model: 'project', history_id: row.history_id } as any)
+    : await revertHistory({ model: 'project', history_id: row.history_id } as any)
+  if (res.code === '0000') return 'success'
+  if (res.code === '1003') return 'already'
+  return 'failed'
+}
+
+const restoreDeletedProjectLoading = ref(false)
 
 const restoreDeletedProject = async (row: any) => {
   if (!canUpdateProjects.value) {
@@ -1337,18 +1350,18 @@ const restoreDeletedProject = async (row: any) => {
         width: 420,
       },
     )
-    const res = isMerge
-      ? await revertMerge({ model: 'project', history_id: row.history_id } as any)
-      : await revertHistory({ model: 'project', history_id: row.history_id } as any)
-    if (res.code === '0000') {
-      ElMessage.success(res.message || 'Project restored successfully.')
+    const result = await restoreDeletedProjectRow(row)
+    if (result === 'success') {
+      ElMessage.success('Project restored successfully.')
       await loadDeletedProjects()
       if (activeSegment.value !== 'Deleted') {
         await getFilteredData()
       }
-    } else if (res.code === '1003') {
+    } else if (result === 'already') {
       ElMessage.info(isMerge ? 'This merge was already reverted.' : 'This project was already restored.')
       await loadDeletedProjects()
+    } else {
+      ElMessage.error('Failed to restore project.')
     }
   } catch (error: any) {
     const code = error?.response?.data?.code
@@ -1361,6 +1374,84 @@ const restoreDeletedProject = async (row: any) => {
       ElMessage.error(error?.response?.data?.message || error?.message || 'Failed to restore project.')
     }
   }
+}
+
+const restoreSelectedDeletedProjects = async () => {
+  if (!canUpdateProjects.value) {
+    ElMessage.warning('You do not have permission to restore projects.')
+    return
+  }
+
+  const rows = [...selectedProjects.value]
+  if (rows.length === 0) {
+    ElMessage.warning('Select at least one project to restore')
+    return
+  }
+
+  const mergeCount = rows.filter((row) => row._changeType === 'Merge').length
+  const deleteCount = rows.length - mergeCount
+  let detail = 'Saved locations, activities, and other records will be recreated where possible.'
+  if (mergeCount > 0 && deleteCount > 0) {
+    detail = `Includes ${deleteCount} deleted and ${mergeCount} merged project(s). Linked records will be restored or moved back where possible.`
+  } else if (mergeCount > 0) {
+    detail = 'Merged projects will move linked records back to the restored project where possible.'
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `Restore ${rows.length} selected project(s)?\n\n${detail}`,
+      'Restore selected projects',
+      {
+        type: 'warning',
+        confirmButtonText: 'Restore all',
+        cancelButtonText: 'Cancel',
+        width: 460,
+      },
+    )
+  } catch {
+    return
+  }
+
+  restoreDeletedProjectLoading.value = true
+  let success = 0
+  let already = 0
+  let failed = 0
+
+  try {
+    for (const row of rows) {
+      try {
+        const result = await restoreDeletedProjectRow(row)
+        if (result === 'success') success += 1
+        else if (result === 'already') already += 1
+        else failed += 1
+      } catch (error: any) {
+        if (error?.response?.data?.code === '1003') {
+          already += 1
+        } else {
+          failed += 1
+        }
+      }
+    }
+
+    if (success > 0 && failed === 0 && already === 0) {
+      ElMessage.success(`Restored ${success} project(s) successfully.`)
+    } else if (success > 0) {
+      ElMessage.warning(`Restored ${success}, ${already} already restored, ${failed} failed.`)
+    } else if (already > 0 && failed === 0) {
+      ElMessage.info('Selected project(s) were already restored.')
+    } else {
+      ElMessage.error('Failed to restore selected projects.')
+    }
+
+    clearProjectMergeSelection()
+    await loadDeletedProjects()
+  } finally {
+    restoreDeletedProjectLoading.value = false
+  }
+}
+
+function getProjectTableRowKey(row: any) {
+  return activeSegment.value === 'Deleted' ? row.history_id : row.id
 }
 
 const handleRowDblClick = (row: any) => {
@@ -2258,9 +2349,7 @@ function formatProjectMergeLabel(project: any) {
 }
 
 const handleProjectSelectionChange = (selection: any[]) => {
-  if (activeSegment.value !== 'Deleted') {
-    selectedProjects.value = selection
-  }
+  selectedProjects.value = selection
 }
 
 const handleMerge = async (project: any) => {
@@ -2884,7 +2973,7 @@ function onLayersLoaded() {
     </div>
 
     <el-table
-ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-top: 10px;" border
+ref="tableRef" :row-key="getProjectTableRowKey" :data="displayTableData" style="width: 100%; margin-top: 10px;" border
       :row-class-name="tableRowClassName" :row-style="{ height: '40px' }"
       v-loading="loading"
       :class="['interventions-project-table', { 'interventions-project-table--deleted': activeSegment === 'Deleted' }]"
@@ -2892,16 +2981,11 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
       @selection-change="handleProjectSelectionChange"
     >
       <el-table-column
-        v-if="activeSegment !== 'Deleted' && canMergeProjects"
+        v-if="(activeSegment !== 'Deleted' && canMergeProjects) || (activeSegment === 'Deleted' && canUpdateProjects)"
         type="selection"
         width="48"
         align="center"
       />
-      <el-table-column type="index" label="#" width="50" align="center">
-        <template #default="{ $index }">
-          <span style="font-weight: 500;">{{$index + 1}}</span>
-        </template>
-      </el-table-column>
       <el-table-column v-if="activeSegment !== 'Deleted'" label="" width="48" align="center">
         <template #default="{ row }">
           <el-tooltip :content="projectConfiguration(row).label" placement="top">
@@ -3076,6 +3160,29 @@ ref="tableRef" row-key="id" :data="displayTableData" style="width: 100%; margin-
         </template>
       </el-table-column>
     </el-table>
+
+    <div
+      v-if="activeSegment === 'Deleted' && canUpdateProjects && selectedProjects.length > 0"
+      class="project-merge-selection-bar"
+    >
+      <el-button
+        type="success"
+        plain
+        :loading="restoreDeletedProjectLoading"
+        :disabled="restoreDeletedProjectLoading"
+        @click="restoreSelectedDeletedProjects"
+      >
+        Restore {{ selectedProjects.length }} project(s)
+      </el-button>
+      <el-button
+        type="info"
+        plain
+        :disabled="restoreDeletedProjectLoading"
+        @click="clearProjectMergeSelection"
+      >
+        Clear selection
+      </el-button>
+    </div>
 
     <div
       v-if="activeSegment !== 'Deleted' && canMergeProjects && selectedProjects.length >= 2"
@@ -3420,6 +3527,18 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
+}
+
+.interventions-project-table--deleted :deep(.el-table__body .cell) {
+  color: var(--el-text-color-secondary);
+}
+
+.interventions-project-table--deleted :deep(.project-title) {
+  color: var(--el-text-color-secondary);
+}
+
+.interventions-project-table--deleted :deep(.no-locations) {
+  color: var(--el-text-color-placeholder);
 }
 
 .interventions-project-table--deleted :deep(.project-title-column .cell) {
