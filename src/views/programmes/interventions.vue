@@ -1185,8 +1185,13 @@ const showDeletedProjectsTab = computed(
   () => canUpdateProjects.value && (isSuperAdmin.value || isNationalStaff.value || isCountyStaff.value)
 )
 
+const activeProjectsCount = computed(() => {
+  if (needsClientSideProjectFilter.value) return clientFilteredProjects.value.length
+  return total.value
+})
+
 const projectSegments = computed(() => {
-  const segments = [{ label: 'Projects', value: 'Projects' }]
+  const segments = [{ label: `Projects (${activeProjectsCount.value})`, value: 'Projects' }]
   if (showDeletedProjectsTab.value) {
     segments.push({ label: `Deleted (${deletedProjectsCount.value})`, value: 'Deleted' })
   }
@@ -1318,6 +1323,55 @@ const onProjectSegmentChange = async (val: string) => {
   }
 }
 
+type ProjectConfirmSection = {
+  title: string
+  lines: string[]
+}
+
+function escapeConfirmHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function buildProjectConfirmMessage(
+  intro: string,
+  sections: ProjectConfirmSection[],
+  bullets: string[] = [],
+): string {
+  let html = `<p class="project-confirm-intro">${escapeConfirmHtml(intro)}</p>`
+
+  for (const section of sections) {
+    if (!section.lines.length) continue
+    html += `<p class="project-confirm-section-title">${escapeConfirmHtml(section.title)}</p>`
+    html += '<ul class="project-confirm-list">'
+    for (const line of section.lines) {
+      html += `<li>${escapeConfirmHtml(line)}</li>`
+    }
+    html += '</ul>'
+  }
+
+  if (bullets.length) {
+    html += '<p class="project-confirm-section-title">This will:</p>'
+    html += '<ul class="project-confirm-list project-confirm-list--bullets">'
+    for (const bullet of bullets) {
+      html += `<li>${escapeConfirmHtml(bullet)}</li>`
+    }
+    html += '</ul>'
+  }
+
+  return html
+}
+
+const projectConfirmBoxOptions = {
+  dangerouslyUseHTMLString: true,
+  customClass: 'project-confirm-box',
+  type: 'warning' as const,
+  cancelButtonText: 'Cancel',
+}
+
 async function restoreDeletedProjectRow(row: any): Promise<'success' | 'already' | 'failed'> {
   const isMerge = row._changeType === 'Merge'
   const res = isMerge
@@ -1339,15 +1393,32 @@ const restoreDeletedProject = async (row: any) => {
   const isMerge = row._changeType === 'Merge'
   try {
     await ElMessageBox.confirm(
-      isMerge
-        ? `Restore merged project "${row.title}"? Linked records that were moved to "${row._mergedInto || 'the primary project'}" will be moved back where possible.`
-        : `Restore project "${row.title}"? Locations, activities, disbursements, and other records saved at delete time will be recreated where possible.`,
-      isMerge ? 'Restore merged project' : 'Restore Project',
+      buildProjectConfirmMessage(
+        isMerge ? 'Restore this merged project?' : 'Restore this deleted project?',
+        [
+          {
+            title: 'Project',
+            lines: [`${row.title} (ID: ${row.id})`],
+          },
+          ...(isMerge
+            ? [{
+                title: 'Previously merged into',
+                lines: [row._mergedInto || 'Primary project'],
+              }]
+            : []),
+        ],
+        isMerge
+          ? ['Move linked records back to the restored project where possible']
+          : [
+              'Recreate locations, activities, disbursements, and other saved records where possible',
+              'Return the project to the active projects list',
+            ],
+      ),
+      isMerge ? 'Restore merged project' : 'Restore project',
       {
-        type: 'warning',
+        ...projectConfirmBoxOptions,
         confirmButtonText: 'Restore',
-        cancelButtonText: 'Cancel',
-        width: 420,
+        width: 440,
       },
     )
     const result = await restoreDeletedProjectRow(row)
@@ -1390,22 +1461,43 @@ const restoreSelectedDeletedProjects = async () => {
 
   const mergeCount = rows.filter((row) => row._changeType === 'Merge').length
   const deleteCount = rows.length - mergeCount
-  let detail = 'Saved locations, activities, and other records will be recreated where possible.'
+  const sections: ProjectConfirmSection[] = [
+    {
+      title: 'Selected projects',
+      lines: rows.map((row) => `${row.title} (ID: ${row.id})`),
+    },
+  ]
   if (mergeCount > 0 && deleteCount > 0) {
-    detail = `Includes ${deleteCount} deleted and ${mergeCount} merged project(s). Linked records will be restored or moved back where possible.`
-  } else if (mergeCount > 0) {
-    detail = 'Merged projects will move linked records back to the restored project where possible.'
+    sections.unshift({
+      title: 'Breakdown',
+      lines: [`${deleteCount} deleted`, `${mergeCount} merged`],
+    })
   }
+  const bullets =
+    mergeCount > 0 && deleteCount > 0
+      ? [
+          'Restore deleted projects with saved records where possible',
+          'Move linked records back for merged projects where possible',
+        ]
+      : mergeCount > 0
+        ? ['Move linked records back to each restored project where possible']
+        : [
+            'Recreate locations, activities, disbursements, and other saved records where possible',
+            'Return restored projects to the active projects list',
+          ]
 
   try {
     await ElMessageBox.confirm(
-      `Restore ${rows.length} selected project(s)?\n\n${detail}`,
+      buildProjectConfirmMessage(
+        `Restore ${rows.length} selected project(s)?`,
+        sections,
+        bullets,
+      ),
       'Restore selected projects',
       {
-        type: 'warning',
+        ...projectConfirmBoxOptions,
         confirmButtonText: 'Restore all',
-        cancelButtonText: 'Cancel',
-        width: 460,
+        width: 480,
       },
     )
   } catch {
@@ -2341,7 +2433,7 @@ const mergeSearchQuery = ref('')
 const mergeSearchResults = ref<any[]>([])
 const mergeSearchLoading = ref(false)
 
-const mergeDrawerSize = computed(() => (isMobile.value ? '100%' : '720px'))
+const mergeDrawerSize = computed(() => (isMobile.value ? '100%' : '640px'))
 
 function formatProjectMergeLabel(project: any) {
   const programme = project?.programme?.acronym ? ` · ${project.programme.acronym}` : ''
@@ -2507,13 +2599,30 @@ const confirmProjectMerge = async () => {
 
   try {
     await ElMessageBox.confirm(
-      `Merge project "${duplicateProject.title}" into "${primaryProject.title}"?\n\nThe primary project will be kept. Locations, activities, indicators, reports, and other linked records will move to it.`,
+      buildProjectConfirmMessage(
+        'You are about to merge these projects:',
+        [
+          {
+            title: 'Primary (kept)',
+            lines: [`${primaryProject.title} (ID: ${primaryProject.id})`],
+          },
+          {
+            title: 'Merged into primary',
+            lines: [`${duplicateProject.title} (ID: ${duplicateProject.id})`],
+          },
+        ],
+        [
+          'Keep the primary project record',
+          'Move locations, activities, indicators, reports, and linked records to the primary project',
+          'Remove the merged project from the active list',
+        ],
+      ),
       'Confirm merge',
       {
-        type: 'warning',
+        ...projectConfirmBoxOptions,
         confirmButtonText: 'Merge',
-        cancelButtonText: 'Cancel',
-      }
+        width: 480,
+      },
     )
   } catch {
     return
@@ -2549,13 +2658,30 @@ const handleMergeFromSelection = async () => {
 
   try {
     await ElMessageBox.confirm(
-      `Merge ${selectedProjects.value.length} projects?\n\nPrimary (kept): ${primary.title} (ID: ${primary.id})\nMerged into it: ${duplicates.map((project) => `${project.title} (ID: ${project.id})`).join(', ')}\n\nLinked records will move to the primary project.`,
+      buildProjectConfirmMessage(
+        `Merge ${selectedProjects.value.length} selected projects?`,
+        [
+          {
+            title: 'Primary (kept)',
+            lines: [`${primary.title} (ID: ${primary.id})`],
+          },
+          {
+            title: 'Merged into primary',
+            lines: duplicates.map((project) => `${project.title} (ID: ${project.id})`),
+          },
+        ],
+        [
+          'Keep the primary project record',
+          'Move locations, activities, indicators, reports, and linked records to the primary project',
+          'Remove merged projects from the active list',
+        ],
+      ),
       'Confirm merge',
       {
-        type: 'warning',
+        ...projectConfirmBoxOptions,
         confirmButtonText: 'Merge',
-        cancelButtonText: 'Cancel',
-      }
+        width: 480,
+      },
     )
   } catch {
     return
@@ -2849,10 +2975,11 @@ function onLayersLoaded() {
       :size="mergeDrawerSize"
       :close-on-click-modal="false"
       destroy-on-close
+      class="merge-project-drawer"
     >
-      <div v-if="currentProjectForMerge" v-loading="mergeOpenLoading">
+      <div v-if="currentProjectForMerge" v-loading="mergeOpenLoading" class="merge-drawer-scroll">
         <el-radio-group v-model="mergePrimaryId" class="merge-primary-group">
-          <el-row :gutter="20">
+          <el-row :gutter="12">
             <el-col :xs="24" :md="12">
               <el-card
                 shadow="hover"
@@ -2932,12 +3059,12 @@ function onLayersLoaded() {
           :title="`Project ID ${mergePrimaryId === Number(currentProjectForMerge.id) ? selectedProjectForMerge.id : currentProjectForMerge.id} will be merged into project ID ${mergePrimaryId}`"
           type="warning"
           :closable="false"
-          style="margin-top: 20px;"
+          class="merge-drawer-alert"
         />
       </div>
 
       <template #footer>
-        <div class="project-filters-drawer__footer">
+        <div class="merge-drawer-footer">
           <el-button :disabled="mergeLoading || mergeOpenLoading" @click="mergeDialogVisible = false">Cancel</el-button>
           <el-button
             type="primary"
@@ -2963,13 +3090,60 @@ function onLayersLoaded() {
           <span v-else style="font-size: 12px;">💡 Double-click on any row to view project details</span>
         </template>
       </el-alert>
-      <el-segmented
-        v-if="showDeletedProjectsTab"
-        v-model="activeSegment"
-        :options="projectSegments"
-        class="project-list-segments"
-        @change="onProjectSegmentChange"
-      />
+      <div class="project-list-segment-controls">
+        <div class="project-segment-toolbar">
+          <div
+            v-if="activeSegment === 'Deleted' && canUpdateProjects && selectedProjects.length > 0"
+            class="project-selection-actions"
+          >
+            <el-button
+              type="success"
+              plain
+              :loading="restoreDeletedProjectLoading"
+              :disabled="restoreDeletedProjectLoading"
+              @click="restoreSelectedDeletedProjects"
+            >
+              Restore {{ selectedProjects.length }}
+            </el-button>
+            <el-button
+              plain
+              :disabled="restoreDeletedProjectLoading"
+              @click="clearProjectMergeSelection"
+            >
+              Clear
+            </el-button>
+          </div>
+          <div
+            v-if="activeSegment !== 'Deleted' && canMergeProjects && selectedProjects.length >= 2"
+            class="project-selection-actions"
+          >
+            <el-button
+              type="danger"
+              plain
+              :icon="mergeLoading ? undefined : TakeawayBox"
+              :loading="mergeLoading"
+              :disabled="mergeLoading"
+              @click="handleMergeFromSelection"
+            >
+              Merge {{ selectedProjects.length }}
+            </el-button>
+            <el-button
+              plain
+              :disabled="mergeLoading"
+              @click="clearProjectMergeSelection"
+            >
+              Clear
+            </el-button>
+          </div>
+          <el-segmented
+            v-if="showDeletedProjectsTab"
+            v-model="activeSegment"
+            :options="projectSegments"
+            class="project-list-segments"
+            @change="onProjectSegmentChange"
+          />
+        </div>
+      </div>
     </div>
 
     <el-table
@@ -3160,53 +3334,6 @@ ref="tableRef" :row-key="getProjectTableRowKey" :data="displayTableData" style="
         </template>
       </el-table-column>
     </el-table>
-
-    <div
-      v-if="activeSegment === 'Deleted' && canUpdateProjects && selectedProjects.length > 0"
-      class="project-merge-selection-bar"
-    >
-      <el-button
-        type="success"
-        plain
-        :loading="restoreDeletedProjectLoading"
-        :disabled="restoreDeletedProjectLoading"
-        @click="restoreSelectedDeletedProjects"
-      >
-        Restore {{ selectedProjects.length }} project(s)
-      </el-button>
-      <el-button
-        type="info"
-        plain
-        :disabled="restoreDeletedProjectLoading"
-        @click="clearProjectMergeSelection"
-      >
-        Clear selection
-      </el-button>
-    </div>
-
-    <div
-      v-if="activeSegment !== 'Deleted' && canMergeProjects && selectedProjects.length >= 2"
-      class="project-merge-selection-bar"
-    >
-      <el-button
-        type="danger"
-        plain
-        :icon="mergeLoading ? undefined : TakeawayBox"
-        :loading="mergeLoading"
-        :disabled="mergeLoading"
-        @click="handleMergeFromSelection"
-      >
-        Merge {{ selectedProjects.length }} projects
-      </el-button>
-      <el-button
-        type="info"
-        plain
-        :disabled="mergeLoading"
-        @click="clearProjectMergeSelection"
-      >
-        Clear selection
-      </el-button>
-    </div>
 
     <ElPagination
 v-if="activeSegment !== 'Deleted'"
@@ -3403,6 +3530,60 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   margin-top: 8px;
   margin-bottom: 4px;
   width: 100%;
+  flex-wrap: wrap;
+}
+
+.project-list-segment-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.project-segment-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.project-selection-actions {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  background-color: var(--el-fill-color-light);
+  border-radius: var(--el-border-radius-base);
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.project-selection-actions :deep(.el-button) {
+  height: 28px;
+  padding: 0 12px;
+  margin: 0;
+  border: none;
+  border-radius: calc(var(--el-border-radius-base) - 2px);
+  font-size: var(--el-font-size-base);
+  font-weight: 400;
+}
+
+.project-selection-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.project-list-segments {
+  flex-shrink: 0;
+}
+
+.project-list-segments :deep(.el-segmented) {
+  --el-segmented-item-selected-color: var(--el-color-white);
+}
+
+.project-list-segments :deep(.el-segmented__item) {
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: var(--el-font-size-base);
 }
 
 .project-list-hint {
@@ -3414,10 +3595,6 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 
 .project-list-hint :deep(.el-alert__content) {
   padding: 0;
-}
-
-.project-list-segments {
-  flex-shrink: 0;
 }
 
 .project-filters-drawer__body {
@@ -3438,15 +3615,74 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   gap: 8px;
 }
 
-.project-merge-selection-bar {
+.merge-primary-group {
+  width: 100%;
+}
+
+.merge-project-drawer {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  height: 45vh !important;
+  max-height: 45vh;
+  top: 27.5vh;
+  bottom: auto;
+}
+
+.merge-project-drawer :deep(.el-drawer__header) {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding: 10px 16px;
+}
+
+.merge-project-drawer :deep(.el-drawer__body) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.merge-drawer-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 14px 12px;
+}
+
+.merge-drawer-alert {
   margin-top: 10px;
 }
 
-.merge-primary-group {
+.merge-drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
   width: 100%;
+}
+
+.merge-project-drawer :deep(.el-drawer__footer) {
+  flex-shrink: 0;
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.merge-project-drawer :deep(.el-card__header) {
+  padding: 8px 12px;
+}
+
+.merge-project-drawer :deep(.el-card__body) {
+  padding: 10px 12px;
+}
+
+.merge-project-drawer :deep(.el-descriptions__cell) {
+  padding: 4px 8px !important;
+}
+
+.merge-project-drawer :deep(.el-descriptions__label),
+.merge-project-drawer :deep(.el-descriptions__content) {
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .merge-primary-card {
@@ -3457,30 +3693,70 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  font-size: 13px;
 }
 
 .merge-search-heading {
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 6px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--el-text-color-regular);
 }
 
 .merge-search-hint {
-  margin: 8px 0 0;
-  font-size: 12px;
+  margin: 6px 0 0;
+  font-size: 11px;
   color: var(--el-text-color-secondary);
+  line-height: 1.35;
 }
 
 .merge-selected-details {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.merge-selected-details :deep(.el-descriptions__header) {
+  margin-bottom: 6px;
 }
 </style>
 
 <style>
+/* Project merge/restore confirm dialogs */
+.project-confirm-box .el-message-box__message {
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.project-confirm-box .project-confirm-intro {
+  margin: 0 0 10px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.project-confirm-box .project-confirm-section-title {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+.project-confirm-box .project-confirm-list {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.project-confirm-box .project-confirm-list li {
+  margin: 2px 0;
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.project-confirm-box .project-confirm-list--bullets li {
+  list-style: disc;
+}
+
 /* Compact table styling */
 .el-table .el-table__cell {
   padding: 8px 0 !important;
