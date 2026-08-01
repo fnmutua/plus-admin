@@ -69,6 +69,7 @@ import {
   formatProgrammeComponentSelectLabel,
 } from '@/views/Intervention/Project/common/index.ts'
 import { getProgrammePathLabels } from '@/utils/programmeComponentTree'
+import { PROJECT_REGION_OPTIONS } from '@/constants/projectRegions'
 import { useDesign } from '@/hooks/web/useDesign'
 
 import type { FormInstance } from 'element-plus'
@@ -597,6 +598,7 @@ const descriptionSchema = [
 const implementationSchema = [
   { field: 'status', label: 'Status' },
   { field: 'implementation_scope', label: 'Implementation Level' },
+  { field: 'region', label: 'Region' },
 ]
 
 const scheduleSchema = [
@@ -617,7 +619,8 @@ const inlineTextareaFields = ['title', 'description']
 const inlineClampFields = ['description']
 const inlineNumberFields = ['cost']
 const inlineDateFields = ['start_date', 'end_date']
-const inlineSelectFields = ['status', 'implementation_scope']
+const inlineSelectFields = ['status', 'implementation_scope', 'region']
+const inlineSelectAllowCreateFields = ['region']
 const inlineDescriptionSelectFields = ['programme_id', 'component_id']
 
 const inlineProgrammeOptions = ref<Array<{ label: string; value: number }>>([])
@@ -643,6 +646,7 @@ const projectInlineSelectOptions = computed(() => ({
     { label: 'Ward', value: 'ward' },
     { label: 'Settlement', value: 'settlement' },
   ],
+  region: PROJECT_REGION_OPTIONS,
   programme_id: inlineProgrammeOptions.value,
   component_id: inlineComponentOptions.value,
 }))
@@ -671,6 +675,7 @@ const projectProfile = reactive({
   description: '',
   status: '',
   implementation_scope: '',
+  region: '',
   start_date: '',
   end_date: '',
   cost: null as number | null,
@@ -815,6 +820,7 @@ function syncProjectProfileFromData(data: Record<string, any> | null | undefined
   projectProfile.description = data.description ?? ''
   projectProfile.status = data.status ?? ''
   projectProfile.implementation_scope = normalizeImplementationScope(data.implementation_scope) || ''
+  projectProfile.region = data.region ?? ''
   projectProfile.start_date = formatDateForInput(data.start_date)
   projectProfile.end_date = formatDateForInput(data.end_date)
   const costNum = data.cost != null && data.cost !== '' ? Number(data.cost) : null
@@ -838,6 +844,7 @@ function buildInlineProjectPayload(field: string, value: unknown) {
     end_date: d.end_date,
     cost: d.cost,
     implementation_scope: d.implementation_scope,
+    region: d.region,
     sourceFunding: d.sourceFunding,
     [field]: value,
   }
@@ -885,6 +892,11 @@ async function saveProjectInline(payload: { field: string; value: unknown }) {
 
   if (field === 'status' && !(await validateProjectStatusChange(apiValue))) {
     return
+  }
+
+  if (field === 'region') {
+    apiValue =
+      value == null || String(value).trim() === '' ? null : String(value).trim()
   }
 
   if (field === 'title' && (apiValue == null || String(apiValue).trim() === '')) {
@@ -8035,6 +8047,7 @@ function formatLocation(item) {
                   :editable="canEditProjectInline"
                   :select-options="projectInlineSelectOptions"
                   :select-fields="inlineSelectFields"
+                  :select-allow-create-fields="inlineSelectAllowCreateFields"
                   :saving-field="inlineSavingField"
                   :column="isMobile ? 1 : 2"
                   @save="saveProjectInline"

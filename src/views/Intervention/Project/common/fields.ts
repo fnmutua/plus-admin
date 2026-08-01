@@ -4,6 +4,7 @@ import {
   countyOptions,
   implementationOptions,
 } from "./index.ts";
+import { PROJECT_REGION_OPTIONS } from '@/constants/projectRegions'
 
 const steps = [
   { title: "Identity", description: "Name and reference" },
@@ -30,6 +31,7 @@ interface Field {
   placeholder?: string;
   min?: string | number;
   max?: number;
+  allowCreate?: boolean;
 }
 
 interface FormRules {
@@ -132,6 +134,17 @@ const formFields = reactive([
       adminUnit: false,
       options: scope,
       placeholder: "Lowest level covered — National to Settlement",
+    },
+    {
+      name: "region",
+      label: "Region",
+      id: "btn42",
+      type: "select",
+      multiselect: "false",
+      adminUnit: false,
+      allowCreate: true,
+      options: PROJECT_REGION_OPTIONS,
+      placeholder: "SUD regional tracker region (optional)",
     },
   ],
   [

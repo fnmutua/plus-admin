@@ -252,6 +252,8 @@
           v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
           v-model="formData[field.name]"
           :filterable="true"
+          :allow-create="Boolean(field.allowCreate)"
+          :default-first-option="Boolean(field.allowCreate)"
           collapse-tags
           :placeholder="field.placeholder || 'Select'"
           style="width: 100%"

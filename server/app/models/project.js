@@ -76,6 +76,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
      },
 
+    region: {
+      type: DataTypes.STRING(120),
+      allowNull: true,
+    },
 
     code: {
       type: DataTypes.STRING,

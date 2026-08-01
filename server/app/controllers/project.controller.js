@@ -807,7 +807,7 @@ exports.getProjectDetails = async (req, res) => {
       attributes: [
         'id', 'title', 'project_code', 'component_id', 'implementation_id',
         'status', 'description', 'start_date', 'end_date', 'cost',
-        'sourceFunding', 'contractor_id', 'implementation_scope', 'code', 'geom'
+        'sourceFunding', 'contractor_id', 'implementation_scope', 'region', 'code', 'geom'
       ],
       include: [
         {

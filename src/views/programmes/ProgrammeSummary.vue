@@ -15,6 +15,7 @@ import {
   ElPagination,
   ElTreeSelect,
   ElCheckbox,
+  ElDialog,
 } from 'element-plus'
 import { Icon } from '@/components/Icon'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -26,6 +27,7 @@ import {
 import { getCountiesList, getSubcountiesList, getWardsList } from '@/api/settlements-optimized'
 import { getSettlementListByCounty, getAllGeo } from '@/api/settlements'
 import { getProgrammeDescendantIds, type ProgrammeRecord } from '@/utils/programmeValidation'
+import { CANONICAL_REGION_ORDER } from '@/constants/projectRegions'
 // `v-chart` is registered globally in plugins/setupCharts.ts
 import { registerMap } from 'echarts/core'
 import { ensureDashboardGeoBundleLoaded, subsetGeoFromCache, applyGeoAspect } from '@/utils/dashboardGeo'
@@ -33,12 +35,64 @@ import { geoCache } from '@/utils/dashboardCache'
 // Browser-safe writer (same one DownloadCustom.vue uses); json-as-xlsx routes
 // through Node's fs and throws once bundled for the browser.
 import writeXlsxFile from 'write-excel-file'
+import { saveAs } from 'file-saver'
+import {
+  buildRegionalTrackerWorkbook,
+  filterProjectsForRegionalTracker,
+  getMonitoringFiscalYear,
+  summaryColumnWidths,
+  trackerColumnWidths,
+} from '@/utils/sudRegionalTrackerExport'
+import { fixXlsxWorkbookSheetNames } from '@/utils/xlsxWorkbookFix'
 
 const appStore = useAppStoreWithOut()
 const isMobile = computed(() => appStore.getMobile)
 
 const loading = ref(true)
 const downloading = ref(false)
+const trackerExportDialogVisible = ref(false)
+const trackerExportProgrammeId = ref<number | null>(null)
+const trackerExportRegions = ref<string[]>([])
+
+const trackerRegionOptions = CANONICAL_REGION_ORDER.map((region) => ({
+  label: region,
+  value: region,
+}))
+
+const trackerExportComponentIds = computed<Set<number> | null>(() => {
+  if (trackerExportProgrammeId.value == null) return null
+  const scope = new Set<number>([trackerExportProgrammeId.value])
+  getProgrammeDescendantIds(trackerExportProgrammeId.value, programmes.value).forEach((id) =>
+    scope.add(id),
+  )
+  return new Set(
+    components.value
+      .filter((component) => scope.has(Number(component.programme_id)))
+      .map((component) => Number(component.id)),
+  )
+})
+
+const trackerExportProjects = computed(() =>
+  filterProjectsForRegionalTracker(projects.value, projectLocations.value, counties.value, {
+    componentIds: trackerExportComponentIds.value,
+    regions: trackerExportRegions.value.length ? trackerExportRegions.value : null,
+  }),
+)
+
+const trackerExportHasFilters = computed(
+  () => trackerExportProgrammeId.value != null || trackerExportRegions.value.length > 0,
+)
+
+const openTrackerExportDialog = () => {
+  trackerExportProgrammeId.value = selectedProgramme.value
+  trackerExportRegions.value = []
+  trackerExportDialogVisible.value = true
+}
+
+const resetTrackerExportDialog = () => {
+  trackerExportProgrammeId.value = null
+  trackerExportRegions.value = []
+}
 
 const programmes = ref<ProgrammeRecord[]>([])
 const components = ref<any[]>([])
@@ -126,6 +180,7 @@ const loadData = async () => {
         'start_date',
         'end_date',
         'cost',
+        'region',
       ],
       excludeGeom: true,
     } as any)
@@ -965,109 +1020,6 @@ watch([stackDimension, selectedCounty, selectedSubcounty, selectedWard, selected
   tablePage.value = 1
 })
 
-// Programme path for a component, e.g. "KISIP2 > Infrastructure" — export only.
-const programmePathFor = (componentId: number) => {
-  const component = componentsById.value.get(Number(componentId))
-  if (!component) return 'Unassigned'
-
-  const byId = new Map<number, ProgrammeRecord>()
-  programmes.value.forEach((p) => {
-    const id = Number(p.id)
-    if (!Number.isNaN(id)) byId.set(id, p)
-  })
-
-  const labels: string[] = []
-  const seen = new Set<number>()
-  let current = byId.get(Number(component.programme_id))
-  while (current) {
-    const id = Number(current.id)
-    if (seen.has(id)) break
-    seen.add(id)
-    labels.unshift(String(current.title || current.acronym || id))
-    const parentId = current.parentId
-    current = parentId == null || parentId === '' ? undefined : byId.get(Number(parentId))
-  }
-
-  return labels.length ? labels.join(' > ') : 'Unassigned'
-}
-
-const formatDate = (value: any) => {
-  if (!value) return ''
-  const d = new Date(value)
-  return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
-}
-
-// The export mirrors the chart's filters. With nothing filtered it covers every
-// project — including those with no location, which the chart can't show.
-const exportProjects = computed(() => {
-  if (!hasActiveFilters.value) return projects.value
-  const ids = new Set(filteredLocations.value.map((loc) => Number(loc.project.id)))
-  return projects.value.filter((p) => ids.has(Number(p.id)))
-})
-
-const buildProjectRows = () =>
-  exportProjects.value.map((p, index) => ({
-    index: index + 1,
-    programme: programmePathFor(p.component_id),
-    component: componentsById.value.get(Number(p.component_id))?.title || 'Unassigned',
-    title: p.title || '',
-    project_code: p.project_code || '',
-    status: p.status || '',
-    scope: p.implementation_scope || '',
-    start_date: formatDate(p.start_date),
-    end_date: formatDate(p.end_date),
-    cost: Number(p.cost || 0),
-    activity_count: (p.activities || []).length,
-    activities: (p.activities || []).map((a: any) => a.title).join('; '),
-  }))
-
-// One row per project-activity link
-const buildActivityRows = () => {
-  const rows: any[] = []
-  exportProjects.value.forEach((p) => {
-    ;(p.activities || []).forEach((a: any) => {
-      rows.push({
-        index: rows.length + 1,
-        programme: programmePathFor(p.component_id),
-        component: componentsById.value.get(Number(p.component_id))?.title || 'Unassigned',
-        project: p.title || '',
-        project_code: p.project_code || '',
-        project_status: p.status || '',
-        activity: a.title || '',
-        activity_short: a.shortTitle || '',
-        activity_code: a.code || '',
-      })
-    })
-  })
-  return rows
-}
-
-const PROJECT_COLUMNS: { label: string; key: string; numeric?: boolean }[] = [
-  { label: 'S/No', key: 'index', numeric: true },
-  { label: 'Programme', key: 'programme' },
-  { label: 'Component', key: 'component' },
-  { label: 'Project', key: 'title' },
-  { label: 'Project Code', key: 'project_code' },
-  { label: 'Status', key: 'status' },
-  { label: 'Scope', key: 'scope' },
-  { label: 'Start Date', key: 'start_date' },
-  { label: 'End Date', key: 'end_date' },
-  { label: 'Cost', key: 'cost', numeric: true },
-  { label: 'Activities', key: 'activity_count', numeric: true },
-]
-
-const ACTIVITY_COLUMNS: { label: string; key: string; numeric?: boolean }[] = [
-  { label: 'S/No', key: 'index', numeric: true },
-  { label: 'Programme', key: 'programme' },
-  { label: 'Component', key: 'component' },
-  { label: 'Project', key: 'project' },
-  { label: 'Project Code', key: 'project_code' },
-  { label: 'Project Status', key: 'project_status' },
-  { label: 'Activity', key: 'activity' },
-  { label: 'Short Title', key: 'activity_short' },
-  { label: 'Activity Code', key: 'activity_code' },
-]
-
 // write-excel-file's schema-less form: row 1 is the bold header, then one array
 // of cells per record.
 const toSheetData = (
@@ -1100,34 +1052,138 @@ const columnWidths = (
   })
 
 const downloadProjectList = async () => {
-  if (!exportProjects.value.length) {
-    ElMessage.warning('No projects to download')
+  if (!trackerExportProjects.value.length) {
+    ElMessage.warning('No projects match the selected programme and region filters')
     return
   }
 
   downloading.value = true
   try {
-    // Projects and activities always go to their own sheets
-    const projectRows = buildProjectRows()
-    const activityRows = buildActivityRows()
+    const exportIds = new Set(trackerExportProjects.value.map((p) => Number(p.id)))
 
-    await writeXlsxFile(
-      [toSheetData(projectRows, PROJECT_COLUMNS), toSheetData(activityRows, ACTIVITY_COLUMNS)] as any,
-      {
-        fileName: hasActiveFilters.value
-          ? 'Programme_Projects_filtered.xlsx'
-          : 'Programme_Projects.xlsx',
-        sheets: ['Projects', 'Activities'],
-        columns: [
-          columnWidths(projectRows, PROJECT_COLUMNS),
-          columnWidths(activityRows, ACTIVITY_COLUMNS),
+    const [projRes, locRes, reportRes, targetRes] = await Promise.all([
+      getSettlementListByCounty({
+        model: 'project',
+        searchField: 'title',
+        searchKeyword: '',
+        filters: [],
+        filterValues: [],
+        associated_multiple_models: ['activity', 'project_contractor', 'disbursement'],
+        returnAll: true,
+        excludeGeom: true,
+        fields: [
+          'id',
+          'title',
+          'project_code',
+          'status',
+          'description',
+          'start_date',
+          'end_date',
+          'cost',
+          'region',
+          'updatedAt',
         ],
-      } as any
+      } as any),
+      getSettlementListByCounty({
+        model: 'project_location',
+        searchField: 'location_name',
+        searchKeyword: '',
+        filters: [],
+        filterValues: [],
+        associated_multiple_models: ['county', 'subcounty', 'ward', 'settlement'],
+        returnAll: true,
+        excludeGeom: true,
+        excludeGeomAssoc: true,
+      } as any),
+      getSettlementListByCounty({
+        model: 'indicator_category_report',
+        searchField: 'comments',
+        searchKeyword: '',
+        filters: ['project_id'],
+        filterValues: [[...exportIds]],
+        returnAll: true,
+        excludeGeom: true,
+        fields: [
+          'id',
+          'project_id',
+          'project_location_id',
+          'indicator_category_id',
+          'cumProgress',
+          'progress',
+          'status',
+          'date',
+        ],
+      } as any),
+      getSettlementListByCounty({
+        model: 'indicator_target',
+        searchField: 'notes',
+        searchKeyword: '',
+        filters: ['project_id', 'fiscal_year'],
+        filterValues: [[...exportIds], [getMonitoringFiscalYear()]],
+        associated_multiple_models: ['indicator_category'],
+        returnAll: true,
+        fields: [
+          'id',
+          'project_id',
+          'project_location_id',
+          'indicator_category_id',
+          'fiscal_year',
+          'scope_type',
+          'target_value',
+          'target_kind',
+        ],
+      } as any),
+    ])
+
+    const allProjects = Array.isArray((projRes as any)?.data) ? (projRes as any).data : []
+    const scopedProjects = allProjects.filter((p: any) => exportIds.has(Number(p.id)))
+    const allLocations = Array.isArray((locRes as any)?.data) ? (locRes as any).data : []
+    const scopedLocations = allLocations.filter((loc: any) =>
+      exportIds.has(Number(loc.project_id ?? loc.project?.id)),
+    )
+    const allReports = Array.isArray((reportRes as any)?.data) ? (reportRes as any).data : []
+    const scopedReports = allReports.filter((report: any) =>
+      exportIds.has(Number(report.project_id ?? report.project?.id)),
+    )
+    const allTargets = Array.isArray((targetRes as any)?.data) ? (targetRes as any).data : []
+    const scopedTargets = allTargets.filter((target: any) =>
+      exportIds.has(Number(target.project_id)),
     )
 
-    ElMessage.success(`Downloading ${projectRows.length} project(s)`)
+    const workbook = buildRegionalTrackerWorkbook(
+      scopedProjects,
+      scopedLocations,
+      counties.value,
+      scopedReports,
+      scopedTargets,
+    )
+    if (!workbook.sheetNames.length) {
+      ElMessage.warning('No regional projects match the current filter')
+      return
+    }
+
+    const projectCount = workbook.projectCount
+
+    const fileName = trackerExportHasFilters.value
+      ? 'SUD_Regional_Tracker_filtered.xlsx'
+      : 'SUD_Regional_Tracker.xlsx'
+
+    const blob = await writeXlsxFile(workbook.sheets as any, {
+      sheets: workbook.sheetNames,
+      columns: workbook.sheetNames.map((name) =>
+        name === 'SUMMARY' ? summaryColumnWidths() : trackerColumnWidths(),
+      ),
+    } as any)
+
+    const fixedBlob = await fixXlsxWorkbookSheetNames(blob as Blob)
+    saveAs(fixedBlob, fileName)
+
+    ElMessage.success(
+      `Downloading ${projectCount} project(s) across ${workbook.sheetNames.length - 1} region sheet(s) + summary`,
+    )
+    trackerExportDialogVisible.value = false
   } catch (error) {
-    console.error('Failed to build project export:', error)
+    console.error('Failed to build regional tracker export:', error)
     ElMessage.error('Failed to build download')
   } finally {
     downloading.value = false
@@ -1209,20 +1265,13 @@ const downloadSummaryTable = async () => {
             <el-radio-button label="map">Map</el-radio-button>
           </el-radio-group>
 
-          <el-tooltip
-            :content="
-              hasActiveFilters
-                ? 'Download filtered projects & activities (XLSX)'
-                : 'Download all projects & activities (XLSX)'
-            "
-            placement="top"
-          >
+          <el-tooltip content="Download SUD regional tracker (Excel)" placement="top">
             <el-button
               size="small"
               type="primary"
               :loading="downloading"
-              :disabled="!exportProjects.length"
-              @click="downloadProjectList"
+              :disabled="!projects.length"
+              @click="openTrackerExportDialog"
             >
               <Icon v-if="!downloading" icon="mdi:file-excel-outline" :size="16" />
             </el-button>
@@ -1416,6 +1465,77 @@ const downloadSummaryTable = async () => {
         :series="chartModel.series"
       />
     </el-card>
+
+    <el-dialog
+      v-model="trackerExportDialogVisible"
+      title="Download SUD Regional Tracker"
+      width="480px"
+      :close-on-click-modal="!downloading"
+    >
+      <p class="tracker-export-intro">
+        Choose which projects to include. The workbook contains a SUMMARY sheet plus one tab per
+        region with data.
+      </p>
+
+      <div class="tracker-export-field">
+        <label class="tracker-export-label">Programme</label>
+        <el-tree-select
+          v-model="trackerExportProgrammeId"
+          :data="programmeTreeData"
+          clearable
+          filterable
+          check-strictly
+          default-expand-all
+          node-key="value"
+          value-key="value"
+          :props="{ label: 'label', children: 'children', value: 'value' }"
+          placeholder="All programmes"
+          class="tracker-export-control"
+        />
+      </div>
+
+      <div class="tracker-export-field">
+        <label class="tracker-export-label">Regions</label>
+        <el-select
+          v-model="trackerExportRegions"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          collapse-tags-tooltip
+          placeholder="All regions"
+          class="tracker-export-control"
+        >
+          <el-option
+            v-for="option in trackerRegionOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </div>
+
+      <p class="tracker-export-summary">
+        <strong>{{ trackerExportProjects.length }}</strong>
+        project(s) will be exported
+        <span v-if="!trackerExportProjects.length"> — adjust the filters above</span>
+      </p>
+
+      <template #footer>
+        <el-button text @click="resetTrackerExportDialog">Reset</el-button>
+        <el-button @click="trackerExportDialogVisible = false" :disabled="downloading">
+          Cancel
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="downloading"
+          :disabled="!trackerExportProjects.length"
+          @click="downloadProjectList"
+        >
+          Download
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -1680,6 +1800,35 @@ const downloadSummaryTable = async () => {
   margin: 6px 2px 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.tracker-export-intro {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+
+.tracker-export-field {
+  margin-bottom: 16px;
+}
+
+.tracker-export-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.tracker-export-control {
+  width: 100%;
+}
+
+.tracker-export-summary {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
 }
 </style>
 

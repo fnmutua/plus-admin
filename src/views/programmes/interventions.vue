@@ -3179,17 +3179,7 @@ ref="tableRef" :row-key="getProjectTableRowKey" :data="displayTableData" style="
         class-name="project-title-column"
       >
         <template #default="{ row }">
-          <el-tooltip placement="top" effect="dark">
-            <template #content>
-              <div style="min-width: 260px; max-width: 340px;">
-                <strong>{{ row.title }}</strong><br />
-                <span>Status: <b>{{ row.status }}</b></span><br />
-                <span>Start: {{ row.start_date }}</span><br />
-                <span>End: {{ row.end_date }}</span><br />
-              </div>
-            </template>
-            <span class="project-title">{{ row.title }}</span>
-          </el-tooltip>
+          <span class="project-title">{{ row.title }}</span>
         </template>
       </el-table-column>
       <el-table-column

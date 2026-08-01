@@ -30,6 +30,8 @@ const props = withDefaults(
     selectOptions?: Record<string, Array<{ label: string; value: string | number | boolean }>>
     /** When set, only these fields render as selects (requires matching selectOptions). */
     selectFields?: string[]
+    /** Select fields that allow typing a custom value (Element Plus allow-create). */
+    selectAllowCreateFields?: string[]
     multiselectFields?: string[]
     savingField?: string | null
     /** Optional per-field class for the read-only value text (e.g. climate risk tone). */
@@ -54,6 +56,7 @@ const props = withDefaults(
     booleanFields: () => [],
     selectOptions: () => ({}),
     selectFields: () => [],
+    selectAllowCreateFields: () => [],
     multiselectFields: () => [],
     savingField: null,
     cellTextClass: undefined,
@@ -77,6 +80,7 @@ const numberSet = computed(() => new Set(props.numberFields || []))
 const dateSet = computed(() => new Set(props.dateFields || []))
 const booleanSet = computed(() => new Set(props.booleanFields || []))
 const selectFieldSet = computed(() => new Set(props.selectFields || []))
+const selectAllowCreateSet = computed(() => new Set(props.selectAllowCreateFields || []))
 const multiselectSet = computed(() => new Set(props.multiselectFields || []))
 const clampSet = computed(() => new Set(props.clampFields || []))
 
@@ -421,6 +425,8 @@ function booleanTagType(field: string): 'success' | 'danger' | 'info' {
               :multiple="multiselectSet.has(item.field)"
               filterable
               clearable
+              :allow-create="selectAllowCreateSet.has(item.field)"
+              :default-first-option="selectAllowCreateSet.has(item.field)"
               teleported
               popper-class="inline-editable-select-popper"
               class="inline-cell__input"
