@@ -301,6 +301,7 @@ const {
   cacheControlMiddleware,
   createDistStatic,
   registerSpaShellRoutes,
+  registerMissingAssetHandler,
 } = require('./server/app/middleware/staticAssets')
 
 const distDir = path.join(__dirname, 'dist')
@@ -310,6 +311,7 @@ app.use(createCompressionMiddleware())
 app.use(cacheControlMiddleware)
 app.use(createDistStatic(distDir))
 app.use(express.static('public'))
+registerMissingAssetHandler(app, distDir)
 registerSpaShellRoutes(app, distDir)
 
 const PORT = process.env.PORT || 80

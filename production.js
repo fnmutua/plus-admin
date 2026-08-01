@@ -57,6 +57,7 @@ const {
   cacheControlMiddleware,
   createDistStatic,
   registerSpaShellRoutes,
+  registerMissingAssetHandler,
 } = require('./server/app/middleware/staticAssets')
 
 const uploadsDir = path.join(__dirname, '..', 'uploads'); // path to the uploads folder
@@ -432,4 +433,5 @@ app.use(createCompressionMiddleware())
 app.use(cacheControlMiddleware)
 app.use(createDistStatic(distDir))
 app.use(express.static('public'))
+registerMissingAssetHandler(app, distDir)
 registerSpaShellRoutes(app, distDir)

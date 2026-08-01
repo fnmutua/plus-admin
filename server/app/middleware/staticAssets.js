@@ -78,6 +78,26 @@ function sendSpaShell(req, res, distDir) {
   res.sendFile(path.resolve(shell))
 }
 
+function registerMissingAssetHandler(app, distDir) {
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+
+    const urlPath = req.path || ''
+    if (!urlPath.startsWith('/assets/')) return next()
+
+    const rel = urlPath.replace(/^\//, '')
+    const filePath = path.join(distDir, rel)
+    if (fs.existsSync(filePath)) return next()
+
+    if (/\.[a-z0-9]+$/i.test(urlPath)) {
+      res.status(404).type('text/plain').send('Not Found')
+      return
+    }
+
+    next()
+  })
+}
+
 function registerSpaShellRoutes(app, distDir) {
   app.get('/', (req, res) => sendSpaShell(req, res, distDir))
 
@@ -103,5 +123,6 @@ module.exports = {
   createDistStatic,
   sendSpaShell,
   registerSpaShellRoutes,
+  registerMissingAssetHandler,
   resolveSpaShell,
 }

@@ -11,7 +11,10 @@ REMOTE_DIR="${DEPLOY_DIR:-/data/plus-admin/dist}"
 echo "Building frontend..."
 npm run build
 
+echo "Verifying dist asset integrity..."
+node tools/verify-dist-assets.mjs
+
 echo "Syncing dist/ -> ${REMOTE}:${REMOTE_DIR}/"
 rsync -avz --delete "${ROOT}/dist/" "${REMOTE}:${REMOTE_DIR}/"
 
-echo "Done. Restart nginx or your static file server if needed."
+echo "Done. Restart production PM2 if needed: ./startStopServer.sh restart"
