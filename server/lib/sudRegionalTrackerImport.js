@@ -368,6 +368,112 @@ function getUnmatchedTrackerEntries(entries, projects) {
   return unmatched;
 }
 
+function sanitizeContractNo(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\.+$/, '');
+}
+
+function normalizeContractNo(value) {
+  return sanitizeContractNo(value).toLowerCase();
+}
+
+function isPlaceholderContractNo(value) {
+  const normalized = normalizeContractNo(value);
+  if (!normalized) return true;
+  if (normalized === 'tbd' || normalized === 'n/a' || normalized === 'na') return true;
+  if (/\/tbd$/i.test(normalized)) return true;
+  if (/\/trk-/i.test(normalized)) return true;
+  if (/^kisip\/sud\/\d{4}\/\d{3,}$/i.test(normalized)) return true;
+  if (/^mlpwhud\/sdhud\/(sud|ahp|udd)\/[-–—]+$/i.test(normalized)) return true;
+  return false;
+}
+
+function shouldSyncProjectCode(currentCode, trackerCode) {
+  const tracker = sanitizeContractNo(trackerCode);
+  if (!tracker) return false;
+
+  const current = sanitizeContractNo(currentCode);
+  if (!current) return true;
+  if (normalizeContractNo(current) === normalizeContractNo(tracker)) return false;
+  if (isPlaceholderContractNo(current)) return true;
+
+  return normalizeContractNo(current) !== normalizeContractNo(tracker);
+}
+
+function countyMatchesProject(entry, project) {
+  const county = normalizeCountyKey(entry.county);
+  if (!county) return true;
+
+  const countyToken = county.replace(/\s*county\s*/g, ' ').trim();
+  if (!countyToken) return true;
+
+  const hay = normalizeKey(project.title);
+  if (hay.includes(normalizeKey(countyToken))) return true;
+
+  const words = countyToken.split(/\s+/).filter((word) => word.length > 3);
+  if (words.length > 1) {
+    return words.every((word) => hay.includes(normalizeKey(word)));
+  }
+
+  return false;
+}
+
+function scoreTrackerProjectMatch(entry, project) {
+  let score = 0;
+  const dbCode = sanitizeContractNo(project.project_code);
+  const entryCode = sanitizeContractNo(entry.contractNo);
+
+  if (dbCode && entryCode && normalizeContractNo(dbCode) === normalizeContractNo(entryCode)) {
+    score += 120;
+  }
+  if (normalizeTitleKey(entry.projectName) === normalizeTitleKey(project.title)) {
+    score += 80;
+  }
+
+  score += titleSimilarity(entry.projectName, project.title) * 60;
+
+  if (countyMatchesProject(entry, project)) {
+    score += 25;
+  } else {
+    score -= 100;
+  }
+
+  return score;
+}
+
+function setTrackerContractCandidate(map, project, contractNo, entry, score) {
+  const projectId = Number(project.id);
+  const existing = map.get(projectId);
+  if (!existing || score > existing.score) {
+    map.set(projectId, { contractNo, entry, project, score });
+  }
+}
+
+/**
+ * Map project id → authoritative tracker contract number (best county/title match).
+ */
+function buildTrackerContractByProject(entries, projects) {
+  const indexes = buildProjectIndexes(projects);
+  const byProject = new Map();
+  const MIN_SCORE = 35;
+
+  for (const entry of entries) {
+    const contractNo = sanitizeContractNo(entry.contractNo);
+    if (!contractNo) continue;
+
+    const project = findMatchingProject(entry, projects, indexes);
+    if (!project || !countyMatchesProject(entry, project)) continue;
+
+    const score = scoreTrackerProjectMatch(entry, project);
+    if (score < MIN_SCORE) continue;
+    setTrackerContractCandidate(byProject, project, contractNo, entry, score);
+  }
+
+  return byProject;
+}
+
 module.exports = {
   TRACKER_FILE,
   SHEET_TO_REGION,
@@ -392,4 +498,9 @@ module.exports = {
   generateUniqueProjectCode,
   generateInternalCode,
   getUnmatchedTrackerEntries,
+  sanitizeContractNo,
+  normalizeContractNo,
+  isPlaceholderContractNo,
+  shouldSyncProjectCode,
+  buildTrackerContractByProject,
 };

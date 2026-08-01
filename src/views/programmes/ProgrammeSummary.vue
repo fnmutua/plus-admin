@@ -38,6 +38,9 @@ import writeXlsxFile from 'write-excel-file'
 import { saveAs } from 'file-saver'
 import {
   buildRegionalTrackerWorkbook,
+  buildTrackerExportFileName,
+  buildTrackerExportUi,
+  classifyTrackerProgrammeFamily,
   filterProjectsForRegionalTracker,
   getMonitoringFiscalYear,
   summaryColumnWidths,
@@ -81,6 +84,29 @@ const trackerExportProjects = computed(() =>
 
 const trackerExportHasFilters = computed(
   () => trackerExportProgrammeId.value != null || trackerExportRegions.value.length > 0,
+)
+
+const trackerExportProgrammeRecord = computed(() => {
+  if (trackerExportProgrammeId.value == null) return null
+  return (
+    programmes.value.find((programme) => Number(programme.id) === trackerExportProgrammeId.value) ||
+    null
+  )
+})
+
+const trackerExportProgrammeFamily = computed(() =>
+  classifyTrackerProgrammeFamily(trackerExportProgrammeId.value, programmes.value),
+)
+
+const trackerExportUi = computed(() =>
+  buildTrackerExportUi(trackerExportProgrammeFamily.value, trackerExportProgrammeRecord.value),
+)
+
+const trackerExportFileName = computed(() =>
+  buildTrackerExportFileName(trackerExportProgrammeFamily.value, {
+    filtered: trackerExportHasFilters.value,
+    programmeAcronym: trackerExportProgrammeRecord.value?.acronym || null,
+  }),
 )
 
 const openTrackerExportDialog = () => {
@@ -1163,10 +1189,7 @@ const downloadProjectList = async () => {
     }
 
     const projectCount = workbook.projectCount
-
-    const fileName = trackerExportHasFilters.value
-      ? 'SUD_Regional_Tracker_filtered.xlsx'
-      : 'SUD_Regional_Tracker.xlsx'
+    const fileName = trackerExportFileName.value
 
     const blob = await writeXlsxFile(workbook.sheets as any, {
       sheets: workbook.sheetNames,
@@ -1179,7 +1202,7 @@ const downloadProjectList = async () => {
     saveAs(fixedBlob, fileName)
 
     ElMessage.success(
-      `Downloading ${projectCount} project(s) across ${workbook.sheetNames.length - 1} region sheet(s) + summary`,
+      `Downloading ${trackerExportUi.value.shortLabel} tracker — ${projectCount} project(s) across ${workbook.sheetNames.length - 1} region sheet(s) + summary`,
     )
     trackerExportDialogVisible.value = false
   } catch (error) {
@@ -1265,7 +1288,7 @@ const downloadSummaryTable = async () => {
             <el-radio-button label="map">Map</el-radio-button>
           </el-radio-group>
 
-          <el-tooltip content="Download SUD regional tracker (Excel)" placement="top">
+          <el-tooltip :content="trackerExportUi.tooltip" placement="top">
             <el-button
               size="small"
               type="primary"
@@ -1468,13 +1491,12 @@ const downloadSummaryTable = async () => {
 
     <el-dialog
       v-model="trackerExportDialogVisible"
-      title="Download SUD Regional Tracker"
+      :title="trackerExportUi.dialogTitle"
       width="480px"
       :close-on-click-modal="!downloading"
     >
       <p class="tracker-export-intro">
-        Choose which projects to include. The workbook contains a SUMMARY sheet plus one tab per
-        region with data.
+        {{ trackerExportUi.intro }}
       </p>
 
       <div class="tracker-export-field">
@@ -1489,7 +1511,7 @@ const downloadSummaryTable = async () => {
           node-key="value"
           value-key="value"
           :props="{ label: 'label', children: 'children', value: 'value' }"
-          placeholder="All programmes"
+          placeholder="All programmes (SUD & KISIP)"
           class="tracker-export-control"
         />
       </div>
@@ -1518,7 +1540,12 @@ const downloadSummaryTable = async () => {
       <p class="tracker-export-summary">
         <strong>{{ trackerExportProjects.length }}</strong>
         project(s) will be exported
+        <span v-if="trackerExportProgrammeFamily">
+          as <strong>{{ trackerExportProgrammeFamily }}</strong> regional tracker
+        </span>
         <span v-if="!trackerExportProjects.length"> — adjust the filters above</span>
+        <br />
+        <span class="tracker-export-filename">File: {{ trackerExportFileName }}</span>
       </p>
 
       <template #footer>
@@ -1532,7 +1559,7 @@ const downloadSummaryTable = async () => {
           :disabled="!trackerExportProjects.length"
           @click="downloadProjectList"
         >
-          Download
+          {{ trackerExportUi.downloadLabel }}
         </el-button>
       </template>
     </el-dialog>
@@ -1829,6 +1856,11 @@ const downloadSummaryTable = async () => {
   margin: 4px 0 0;
   font-size: 13px;
   color: var(--el-text-color-regular);
+}
+
+.tracker-export-filename {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
 

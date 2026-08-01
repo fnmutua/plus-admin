@@ -1,4 +1,4 @@
-/** SUD Regional Tracker layout (matches tools/SUD Regional Tracker (1).xlsx). */
+/** Regional tracker layout (SUD & KISIP; based on tools/SUD Regional Tracker (1).xlsx). */
 
 import {
   CANONICAL_REGION_ORDER,
@@ -7,6 +7,7 @@ import {
   regionToSheetTitle,
   resolveCanonicalRegion,
 } from '@/constants/projectRegions'
+import { normalizeParentId, type ProgrammeRecord } from '@/utils/programmeValidation'
 
 export const S_RIFT_REGION_LABEL = 'SOUTH RIFT REGION'
 export const S_RIFT_SHEET_NAME = 'S.RIFT'
@@ -918,4 +919,134 @@ export function trackerColumnWidths(): { width: number }[] {
     6, 48, 12, 16, 18, 14, 22, 28, 22, 16, 12, 14, 14, 14, 18, 18, 18, 14, 14, 12, 16, 12, 16,
     20,
   ].map((width) => ({ width }))
+}
+
+export type TrackerProgrammeFamily = 'SUD' | 'KISIP'
+
+const SUD_PROGRAMME_PATTERN =
+  /\bsud\b|slum upgrading|slum upgr|sdhud|mlhud\/sdhud|state department for housing/i
+const KISIP_PROGRAMME_PATTERN =
+  /\bkisip\b|informal settlement improvement|informal settlements improvement/i
+
+function programmeSearchText(record: ProgrammeRecord): string {
+  return `${record.title || ''} ${record.acronym || ''}`.trim().toLowerCase()
+}
+
+function collectProgrammeChain(
+  programmeId: number | null | undefined,
+  programmes: ProgrammeRecord[],
+): ProgrammeRecord[] {
+  if (programmeId == null) return []
+
+  const byId = new Map<number, ProgrammeRecord>()
+  programmes.forEach((row) => {
+    const id = Number(row.id)
+    if (Number.isFinite(id)) byId.set(id, row)
+  })
+
+  const chain: ProgrammeRecord[] = []
+  const visited = new Set<number>()
+  let node = byId.get(Number(programmeId))
+
+  while (node) {
+    const id = Number(node.id)
+    if (!Number.isFinite(id) || visited.has(id)) break
+    visited.add(id)
+    chain.push(node)
+
+    const parentId = normalizeParentId(node.parentId)
+    if (parentId == null) break
+    node = byId.get(parentId)
+  }
+
+  return chain
+}
+
+export function classifyTrackerProgrammeFamily(
+  programmeId: number | null | undefined,
+  programmes: ProgrammeRecord[],
+): TrackerProgrammeFamily | null {
+  const chain = collectProgrammeChain(programmeId, programmes)
+  if (!chain.length) return null
+
+  const text = chain.map(programmeSearchText).join(' ')
+  const isSud = SUD_PROGRAMME_PATTERN.test(text)
+  const isKisip = KISIP_PROGRAMME_PATTERN.test(text)
+
+  if (isSud && !isKisip) return 'SUD'
+  if (isKisip && !isSud) return 'KISIP'
+  if (isSud && isKisip) {
+    const direct = programmeSearchText(chain[0])
+    if (KISIP_PROGRAMME_PATTERN.test(direct)) return 'KISIP'
+    if (SUD_PROGRAMME_PATTERN.test(direct)) return 'SUD'
+  }
+  return null
+}
+
+export type TrackerExportUi = {
+  shortLabel: string
+  dialogTitle: string
+  tooltip: string
+  intro: string
+  downloadLabel: string
+}
+
+export function buildTrackerExportUi(
+  family: TrackerProgrammeFamily | null,
+  programme?: ProgrammeRecord | null,
+): TrackerExportUi {
+  const programmeName = String(programme?.title || programme?.acronym || '').trim()
+
+  if (family === 'SUD') {
+    return {
+      shortLabel: 'SUD',
+      dialogTitle: 'Download SUD Regional Tracker',
+      tooltip: 'Download SUD regional tracker (Excel)',
+      intro:
+        'Export Kenya Slum Upgrading Programme (SUD) projects by programme and region. The workbook contains a SUMMARY sheet plus one tab per region.',
+      downloadLabel: 'Download SUD tracker',
+    }
+  }
+
+  if (family === 'KISIP') {
+    return {
+      shortLabel: 'KISIP',
+      dialogTitle: 'Download KISIP Regional Tracker',
+      tooltip: 'Download KISIP regional tracker (Excel)',
+      intro:
+        'Export Kenya Informal Settlements Improvement Project (KISIP) projects by programme and region. The workbook contains a SUMMARY sheet plus one tab per region.',
+      downloadLabel: 'Download KISIP tracker',
+    }
+  }
+
+  const programmeHint = programmeName
+    ? ` for ${programmeName}`
+    : ' — select a SUD or KISIP programme to label the export'
+
+  return {
+    shortLabel: 'Regional',
+    dialogTitle: 'Download Regional Tracker',
+    tooltip: 'Download regional tracker for SUD or KISIP (Excel)',
+    intro: `Choose a programme and regions to include${programmeHint}. The workbook contains a SUMMARY sheet plus one tab per region.`,
+    downloadLabel: 'Download tracker',
+  }
+}
+
+function sanitizeFileToken(value: string): string {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40)
+}
+
+export function buildTrackerExportFileName(
+  family: TrackerProgrammeFamily | null,
+  options: { filtered?: boolean; programmeAcronym?: string | null } = {},
+): string {
+  const acronym = sanitizeFileToken(String(options.programmeAcronym || ''))
+  const prefix = family || acronym || 'Regional'
+  const parts = [prefix, 'Regional_Tracker']
+  if (options.filtered) parts.push('filtered')
+  return `${parts.join('_')}.xlsx`
 }
