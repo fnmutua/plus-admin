@@ -17,6 +17,7 @@ import {
   applySessionIdleConfig
 } from '@/hooks/web/sessionActivity'
 import { getAuthUserInfo } from '@/hooks/web/authStorage'
+import { isAnonymousPublicPage } from '@/shared/publicPaths'
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'touchmove', 'scroll', 'click'] as const
 
 function formatMinutesLeft(ms: number) {
@@ -103,6 +104,8 @@ export function useIdleSessionWarning() {
   }
 
   const evaluateSession = async () => {
+    if (isAnonymousPublicPage()) return
+
     const userInfo = getAuthUserInfo()
     if (!userInfo?.id) return
 
@@ -124,6 +127,7 @@ export function useIdleSessionWarning() {
   }
 
   const onActivity = () => {
+    if (isAnonymousPublicPage()) return
     if (!getAuthUserInfo()?.id) return
     markSessionActive()
     if (!isSessionRenewalPaused()) {

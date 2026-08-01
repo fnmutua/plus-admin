@@ -326,6 +326,82 @@ let tableDataList = ref<UserType[]>([])
 
 // One "filing" = one bulk submission; all its per-indicator reports share a code.
 // Older/imported rows without a shared code fall back to standalone one-report filings.
+function isRegionalReportRow(row: Record<string, any>) {
+  return String(row?.comments || '').includes('[Regional report')
+}
+
+function filingSortTimestamp(group: { reports: any[] }) {
+  let max = 0
+  for (const row of group.reports || []) {
+    const created = new Date(row?.createdAt || 0).getTime()
+    const dated = new Date(row?.date || 0).getTime()
+    const ts = Math.max(
+      Number.isFinite(created) ? created : 0,
+      Number.isFinite(dated) ? dated : 0,
+    )
+    if (ts > max) max = ts
+  }
+  return max
+}
+
+function pickFilingRepresentative(reports: any[]) {
+  if (!reports.length) return null
+  return reports.reduce((best, row) => {
+    const bestTs = filingSortTimestamp({ reports: [best] })
+    const rowTs = filingSortTimestamp({ reports: [row] })
+    return rowTs > bestTs ? row : best
+  }, reports[0])
+}
+
+function filingSubmitterName(group: { first: Record<string, any>; reports: any[] }) {
+  const first = group.first || {}
+  if (first.user?.name) return String(first.user.name)
+  for (const row of group.reports || []) {
+    const match = String(row?.comments || '').match(/Submitted by ([^·]+)/)
+    if (match?.[1]) return match[1].trim()
+  }
+  return 'Unknown'
+}
+
+function filingProjectLabel(group: { first: Record<string, any>; reports: any[] }) {
+  const reports = group.reports || []
+  if (!reports.length) return '—'
+
+  const regional = reports.filter(isRegionalReportRow)
+  if (regional.length) {
+    if (regional.length === 1) {
+      return regional[0].project?.title || 'Regional report'
+    }
+    return `Regional report · ${regional.length} projects`
+  }
+
+  const first = group.first || {}
+  return first.project?.title || first.activity?.project?.title || '—'
+}
+
+// A percentage only means something against a target. `progress` is NOT NULL in the
+// DB, so a report filed for an indicator with no target set is stored as 0 — which
+// reads as "no progress" when it actually means "not measurable". Treat that pairing
+// (zero progress + no target) as unknown so it shows "—" and stays out of the average.
+function reportProgressValue(row: Record<string, any>) {
+  const raw = row?.cumProgress ?? row?.progress
+  if (raw == null || raw === '') return null
+  const value = Number(raw)
+  if (!Number.isFinite(value)) return null
+
+  if (value === 0 && !isQualitativeReport(row)) {
+    // Yes/No indicators are exempt: "No" is a real 0%, not a missing measurement.
+    const target = Number(row?.target)
+    if (!Number.isFinite(target) || target <= 0) return null
+  }
+  return value
+}
+
+function formatReportProgress(row: Record<string, any>) {
+  const value = reportProgressValue(row)
+  return value == null ? '—' : `${value}%`
+}
+
 const filingGroups = computed(() => {
   const groups = new Map<string, { code: string; first: Record<string, any>; reports: any[] }>()
   for (const row of tableDataList.value as any[]) {
@@ -337,7 +413,20 @@ const filingGroups = computed(() => {
     }
     group.reports.push(row)
   }
+
   return [...groups.values()]
+    .map((group) => {
+      group.reports.sort((a, b) =>
+        String(a.project?.title || '').localeCompare(String(b.project?.title || '')),
+      )
+      const representative = pickFilingRepresentative(group.reports) || group.first
+      return {
+        ...group,
+        first: representative,
+        sortTimestamp: filingSortTimestamp(group),
+      }
+    })
+    .sort((a, b) => b.sortTimestamp - a.sortTimestamp)
 })
 
 const filingStatusCounts = (group: { reports: any[] }) => {
@@ -885,9 +974,20 @@ const isQualitativeReport = (row: Record<string, any>) =>
 
 const reportAmountDisplay = (row: Record<string, any>) => {
   if (!isQualitativeReport(row)) return row.amount ?? 0
-  return ['yes', 'true', '1'].includes(String(row.qualitative ?? '').toLowerCase())
-    ? 'True'
-    : 'False'
+
+  const amount = Number(row.amount ?? 0)
+  if (Number.isFinite(amount) && amount > 0) return amount
+
+  const qualitative = String(row.qualitative ?? '').trim()
+  if (qualitative) {
+    return ['yes', 'true', '1'].includes(qualitative.toLowerCase()) ? 'True' : 'False'
+  }
+
+  // Regional physical progress uses indicator 47 with completion % in progress fields.
+  const progress = row.cumProgress ?? row.progress
+  if (progress != null && progress !== '') return progress
+
+  return row.amount ?? 0
 }
 
 const editIsQualitative = computed(
@@ -1754,6 +1854,7 @@ const reportColumnDefaults = (): AdjustableColumnSetting[] => [
   { key: 'indicator', label: 'Indicator', width: undefined as any, minWidth: 160, visible: true, hideable: true },
   { key: 'category', label: 'Category', width: undefined as any, minWidth: 140, visible: true, hideable: true },
   { key: 'amount', label: 'Amount', width: undefined as any, minWidth: 100, visible: true, hideable: true },
+  { key: 'progress', label: 'Progress %', width: undefined as any, minWidth: 100, visible: true, hideable: true },
 ]
 
 const {
@@ -1771,7 +1872,7 @@ const equalDataColumnsVisible = computed(
   () => isColumnVisible('indicator') && isColumnVisible('category')
 )
 
-const flexColumnMinWidth = (key: 'indicator' | 'category' | 'amount') => {
+const flexColumnMinWidth = (key: 'indicator' | 'category' | 'amount' | 'progress') => {
   const min = columnMinWidth(key) ?? 120
   const w = columnWidth(key)
   if (typeof w === 'number' && w > 40) {
@@ -2153,29 +2254,27 @@ const getSummaries = (param) => {
       return;
     }
 
-    // Calculate total for Amount column
+    // Calculate total for Amount column (use display value for Yes/No / regional rows)
     if (column.property === 'amount') {
       const total = data.reduce((sum, row) => {
-        const value = Number(row[column.property]);
-        return isNaN(value) ? sum : sum + value;
-      }, 0);
-      sums[index] = total.toLocaleString();
-    } 
+        const displayed = reportAmountDisplay(row)
+        const value = Number(displayed)
+        return Number.isFinite(value) ? sum + value : sum
+      }, 0)
+      sums[index] = total.toLocaleString()
+    }
     // Calculate average for Progress column
     else if (column.label === 'Progress %') {
-      const validProgressValues = data.filter(row => {
-        const progress = Number(row.progress || 0);
-        return !isNaN(progress) && isFinite(progress);
-      });
-      
+      const validProgressValues = data
+        .map((row) => reportProgressValue(row))
+        .filter((value) => value != null)
+
       if (validProgressValues.length > 0) {
-        const averageProgress = validProgressValues.reduce((sum, row) => {
-          return sum + Number(row.progress || 0);
-        }, 0) / validProgressValues.length;
-        
-        sums[index] = `Avg: ${averageProgress.toFixed(1)}%`;
+        const averageProgress =
+          validProgressValues.reduce((sum, value) => sum + value, 0) / validProgressValues.length
+        sums[index] = `Avg: ${averageProgress.toFixed(1)}%`
       } else {
-        sums[index] = 'Avg: 0.0%';
+        sums[index] = 'Avg: 0.0%'
       }
     }
     // For other columns, show empty
@@ -2457,8 +2556,13 @@ function handleIndicatorsChange(selectedIds) {
             <div class="filing-nested-table" style="padding: 8px 12px 8px 48px">
               <div class="filing-meta-row">
                 <span class="filing-meta-item">
+                  <AppIcon icon="mdi:tag-outline" width="14" height="14" />
+                  {{ filing.code }}
+                </span>
+                <span class="filing-meta-sep">|</span>
+                <span class="filing-meta-item">
                   <AppIcon icon="mdi:account-outline" width="14" height="14" />
-                  {{ filing.first.user?.name || 'Unknown' }}
+                  {{ filingSubmitterName(filing) }}
                 </span>
                 <span class="filing-meta-sep">|</span>
                 <span class="filing-meta-item">
@@ -2505,6 +2609,15 @@ function handleIndicatorsChange(selectedIds) {
           </template>
         </el-table-column>
         <el-table-column
+          label="Project"
+          min-width="180"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            {{ row.project?.title || row.activity?.project?.title || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column
           v-if="isColumnVisible('category')"
           column-key="category"
           label="Category"
@@ -2531,6 +2644,18 @@ function handleIndicatorsChange(selectedIds) {
             {{ reportAmountDisplay(row) }}
           </template>
         </el-table-column>
+        <el-table-column
+          v-if="isColumnVisible('progress')"
+          column-key="progress"
+          label="Progress %"
+          :min-width="flexColumnMinWidth('progress')"
+          sortable
+          resizable
+        >
+          <template #default="{ row }">
+            {{ formatReportProgress(row) }}
+          </template>
+        </el-table-column>
         <el-table-column label="Actions" :width="actionColumnWidth">
           <template #default="{ row }">
             <PermissionWrapper :permissions="['indicator_category_report:update', 'indicator_category_report:delete']">
@@ -2549,7 +2674,7 @@ function handleIndicatorsChange(selectedIds) {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Date" min-width="110" sortable :sort-method="(a, b) => String(a.first.date || '').localeCompare(String(b.first.date || ''))">
+        <el-table-column label="Date" min-width="110" sortable :sort-method="(a, b) => b.sortTimestamp - a.sortTimestamp">
           <template #default="{ row }">
             <el-badge is-dot :hidden="!row.reports.some(isReportNew)" class="report-new-badge">
               {{ formatDate(row.first.date) }}
@@ -2558,7 +2683,7 @@ function handleIndicatorsChange(selectedIds) {
         </el-table-column>
         <el-table-column label="Project" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.first.project?.title || row.first.activity?.project?.title || '—' }}
+            {{ filingProjectLabel(row) }}
           </template>
         </el-table-column>
         <el-table-column label="Location" min-width="160" show-overflow-tooltip>

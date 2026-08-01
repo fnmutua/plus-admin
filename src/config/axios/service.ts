@@ -7,6 +7,7 @@ import { config } from './config'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import router from '@/router'
 import { clearAuthUserInfo } from '@/hooks/web/authStorage'
+import { isAnonymousPublicPage } from '@/shared/publicPaths'
 
 const { result_code, base_url } = config
 
@@ -33,6 +34,16 @@ function isSessionAuthFailure(status: number | undefined, message: string, code:
 
 function handleSessionExpired(customMessage?: string, isAdminLogout = false) {
   if (isHandlingExpiry) return
+
+  // Public forms (regional report, data request, etc.) must work without login.
+  if (isAnonymousPublicPage()) {
+    try {
+      clearAuthUserInfo()
+      sessionStorage.removeItem('roleRouters')
+    } catch { /* ignore storage errors */ }
+    return
+  }
+
   isHandlingExpiry = true
 
   // Kill the token immediately so no further requests sneak through

@@ -114,6 +114,16 @@ export const publicRoutes: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/regional-report',
+    component: () => import('@/views/Public/RegionalReportPublic.vue'),
+    name: 'RegionalReportPublic',
+    meta: {
+      hidden: true,
+      title: 'Regional Progress Report',
+      noTagsView: true
+    }
+  },
+  {
     path: '/upload-share/:token',
     component: () => import('@/views/Public/UploadSharePublic.vue'),
     name: 'UploadSharePublic',

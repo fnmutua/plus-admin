@@ -222,6 +222,10 @@ async function seedPermissions() {
       { name: 'data_request:read', description: 'View public data requests' },
       { name: 'data_request:update', description: 'Review and update data request status' },
 
+      // Regional progress reports (public submit; national admin review inbox)
+      { name: 'regional_report_submission:read', description: 'View regional progress report submissions' },
+      { name: 'regional_report_submission:review', description: 'Review regional progress report submissions and linked M&E reports' },
+
       // Communications (admin SMS/email broadcasts)
       { name: 'communication:read', description: 'View communications and delivery status' },
       { name: 'communication:send', description: 'Send SMS / email broadcasts to users and groups' },
@@ -959,6 +963,8 @@ async function seedPermissions() {
     "feedback:delete",
     "data_request:read",
     "data_request:update",
+    "regional_report_submission:read",
+    "regional_report_submission:review",
     "floodlight:create",
     "floodlight:delete",
     "floodlight:read",
@@ -1399,6 +1405,8 @@ async function seedPermissions() {
     "feedback:delete",
     "data_request:read",
     "data_request:update",
+    "regional_report_submission:read",
+    "regional_report_submission:review",
     "floodlight:create",
     "floodlight:delete",
     "floodlight:read",
@@ -1996,6 +2004,8 @@ async function seedPermissions() {
     "railway:delete",
     "railway:read",
     "railway:update",
+    "regional_report_submission:read",
+    "regional_report_submission:review",
     "report:export",
     "road:create",
     "road:delete",

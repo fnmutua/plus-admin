@@ -6115,7 +6115,14 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     const query = {
       where: baseQuery.where,
       include: includeModels,
-      order: [['createdAt', 'DESC']],
+      order:
+        modelName === 'indicator_category_report'
+          ? [
+              ['date', 'DESC NULLS LAST'],
+              ['createdAt', 'DESC'],
+              ['id', 'DESC'],
+            ]
+          : [['createdAt', 'DESC']],
       distinct: true,
     };
 
@@ -6220,13 +6227,17 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     let filingTotal = null;
 
     if (groupByCode && !returnAll) {
+      const maxDate = db.sequelize.fn('MAX', db.sequelize.col(`${Model.tableName}.date`));
       const maxCreated = db.sequelize.fn('MAX', db.sequelize.col(`${Model.tableName}.createdAt`));
 
       const codeRows = await Model.findAll({
         attributes: ['code'],
         where: baseQuery.where,
         group: ['code'],
-        order: [[maxCreated, 'DESC']],
+        order: [
+          [maxDate, 'DESC NULLS LAST'],
+          [maxCreated, 'DESC'],
+        ],
         limit: parsedLimit,
         offset: (parsedPage - 1) * parsedLimit,
         raw: true,

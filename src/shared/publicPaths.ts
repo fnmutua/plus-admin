@@ -13,6 +13,7 @@ export const PUBLIC_PATH_PREFIXES = [
   '/docs',
   '/delete',
   '/data-request',
+  '/regional-report',
   '/api-docs',
   '/404',
 ] as const
@@ -36,9 +37,19 @@ export function isPublicBootstrapPath(path: string): boolean {
   return false
 }
 
+export function getCurrentRoutePath(): string {
+  if (typeof window === 'undefined') return '/landing'
+  const hash = window.location.hash || '#/landing'
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash
+  return normalizePublicPath(raw)
+}
+
 export function shouldUsePublicBootstrap(): boolean {
   if (typeof window === 'undefined') return true
-  const hash = window.location.hash || '#/landing'
-  const path = hash.startsWith('#') ? hash.slice(1) : hash
-  return isPublicBootstrapPath(path)
+  return isPublicBootstrapPath(getCurrentRoutePath())
+}
+
+/** Skip login/session enforcement on anonymous public pages (even if stale auth exists in storage). */
+export function isAnonymousPublicPage(path?: string): boolean {
+  return isPublicBootstrapPath(path ?? getCurrentRoutePath())
 }

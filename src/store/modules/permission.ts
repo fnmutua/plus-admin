@@ -270,12 +270,25 @@ const summaryRouteChild = {
   }
 }
 
+const regionalReportsRouteChild = {
+  path: 'regional-reports',
+  name: 'RegionalReportSubmissions',
+  component: () => import('@/views/programmes/RegionalReportSubmissions.vue'),
+  meta: {
+    title: 'Reports',
+    hidden: false,
+    icon: 'mdi:file-document-check-outline',
+    permissions: ['regional_report_submission:read'],
+    nationalAdminOnly: true,
+  }
+}
+
 // Idempotently insert the /subprogrammes parent route into adminRoutes.
 // Done unconditionally so deep links like /subprogrammes/<programme>/<component>
 // at least resolve to the parent layout (or fall through to the wildcard 404)
 // rather than producing a blank <router-view/> when the dynamic API fails.
 const ensureSubprogrammesRoute = () => {
-  subprograms.value[0].children = [summaryRouteChild, ...(((programmeComponentOptions.value as any) || []))]
+  subprograms.value[0].children = [summaryRouteChild, regionalReportsRouteChild, ...(((programmeComponentOptions.value as any) || []))]
   const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes')
   if (existingIndex >= 0) {
     adminRoutes[existingIndex] = subprograms.value[0]
@@ -706,6 +719,17 @@ export const usePermissionStore = defineStore('permission', {
                   userRoleNames.includes(roleName)
                 )
                 if (!hasRequiredRole) return false
+              }
+              if (route.meta?.nationalAdminOnly) {
+                const isNationalReviewer =
+                  userRoleNames.includes('root_admin') ||
+                  userRoleNames.includes('super_admin') ||
+                  (currentUserInfo?.roles || []).some(
+                    (r: any) =>
+                      (r.name === 'admin' || r.name === 'slum_upgrading') &&
+                      r.user_roles?.location_level === 'national',
+                  )
+                if (!isNationalReviewer) return false
               }
               if (!route.meta?.permissions?.length) return true
               return route.meta.permissions.some((p: string) => userPermissions.includes(p))

@@ -19,7 +19,7 @@ const { loadStart, loadDone } = usePageLoading();
 const whiteList = [
   '/api-docs', '/login', '/register', '/logoff', '/privacy', '/status', '/status/:id',
   '/grm', '/incidents', '/landing', '/about', '/contact', '/faqs', '/delete', '/docs',
-  '/data-request', '/dr-share', '/dr-clarify'
+  '/data-request', '/dr-share', '/dr-clarify', '/regional-report'
 ]
 
 /** Public routes — no login required (anonymous or logged-in). */
@@ -31,7 +31,8 @@ const isPublicPath = (path: string): boolean =>
   path.startsWith('/share/') ||
   path.startsWith('/upload-share/') ||
   path.startsWith('/dr-share/') ||
-  path.startsWith('/dr-clarify/')
+  path.startsWith('/dr-clarify/') ||
+  path === '/regional-report'
 
 router.beforeEach(async (to, from, next) => {
   start();

@@ -1,8 +1,9 @@
 /* eslint-disable prettier/prettier */
 const { authJwt } = require('../middleware')
 const controller = require('../controllers/tables.controller')
-const { hasDynamicPermission, hasPermission } = require('../middleware/permission')
+const { hasDynamicPermission, hasPermission, requireRegionalReportSubmissionRead, requireRegionalReportSubmissionReview } = require('../middleware/permission')
 const dataRequestController = require('../controllers/data_request.controller')
+const regionalReportController = require('../controllers/regional_report.controller')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -3119,6 +3120,16 @@ module.exports = function (app) {
   // Anonymous share-upload links (public, no auth)
   app.get('/api/public/upload-share/:token', controller.getPublicUploadShare)
   app.post('/api/public/upload-share/:token/upload', controller.submitPublicUpload)
+
+  app.get('/api/public/regional-report/meta', regionalReportController.getPublicRegionalReportMeta)
+  app.get('/api/public/regional-report/programmes', regionalReportController.getPublicRegionalReportProgrammes)
+  app.get('/api/public/regional-report/projects', regionalReportController.getPublicRegionalReportProjects)
+  app.get('/api/public/regional-report/indicators', regionalReportController.getPublicRegionalReportProjectIndicators)
+  app.get('/api/public/regional-report/history', regionalReportController.getPublicRegionalReportProjectHistory)
+  app.post('/api/public/regional-report/submit', regionalReportController.submitPublicRegionalReport)
+  app.get('/api/v1/regional-report-submissions', [authJwt.verifyToken, requireRegionalReportSubmissionRead()], regionalReportController.getRegionalReportSubmissions)
+  app.get('/api/v1/regional-report-submissions/:id', [authJwt.verifyToken, requireRegionalReportSubmissionRead()], regionalReportController.getRegionalReportSubmissionById)
+  app.put('/api/v1/regional-report-submissions/:id/review', [authJwt.verifyToken, requireRegionalReportSubmissionReview()], regionalReportController.reviewRegionalReportSubmission)
 
   /**
    * @swagger

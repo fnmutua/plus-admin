@@ -1,5 +1,6 @@
 const db = require('../models');
 const User = db.user;
+const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry');
 
 // Sequelize model names that map to a different permission resource (e.g. users -> user:read).
 const MODEL_PERMISSION_ALIASES = {
@@ -69,6 +70,99 @@ async function loadUserWithPermissions(userid) {
 
   return { user, roleNames, permissions };
 }
+
+async function loadUserWithPermissionsAndRoles(userid) {
+  const user = await User.findByPk(userid, {
+    include: [{
+      model: db.role,
+      ...getActiveRolesGetOptions(),
+      include: [db.permission],
+    }],
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  const roles = user.roles || [];
+  const roleNames = roles.map((role) => role.name);
+  const permissions = roles.flatMap((role) =>
+    (role.permissions ? role.permissions.map((p) => p.name) : []),
+  );
+
+  return { user, roles, roleNames, permissions };
+}
+
+function isNationalRegionalReportReviewer(roleNames, roles) {
+  if (roleNames.includes('root_admin') || roleNames.includes('super_admin')) {
+    return true;
+  }
+
+  return (roles || []).some(
+    (role) =>
+      (role.name === 'admin' || role.name === 'slum_upgrading') &&
+      role.user_roles?.location_level === 'national',
+  );
+}
+
+async function evaluateRegionalReportSubmissionAccess(req, permissionName) {
+  if (!req.userid) {
+    return { allowed: false, status: 401, message: 'User not authenticated' };
+  }
+
+  const loaded = await loadUserWithPermissionsAndRoles(req.userid);
+  if (!loaded) {
+    return { allowed: false, status: 401, message: 'User not found' };
+  }
+
+  const { roleNames, roles, permissions } = loaded;
+
+  if (!permissions.includes(permissionName)) {
+    return { allowed: false, status: 403, message: 'Forbidden: insufficient permissions' };
+  }
+
+  if (!isNationalRegionalReportReviewer(roleNames, roles)) {
+    return {
+      allowed: false,
+      status: 403,
+      message: 'Forbidden: national administrator access required',
+    };
+  }
+
+  return { allowed: true };
+}
+
+const requireRegionalReportSubmissionRead = () => async (req, res, next) => {
+  try {
+    const result = await evaluateRegionalReportSubmissionAccess(
+      req,
+      'regional_report_submission:read',
+    );
+    if (result.allowed) {
+      return next();
+    }
+    return res.status(result.status).json({ message: result.message });
+  } catch (error) {
+    console.error('Error in requireRegionalReportSubmissionRead middleware:', error);
+    return res.status(500).json({ message: 'Error checking permissions', error: error.message });
+  }
+};
+
+const requireRegionalReportSubmissionReview = () => async (req, res, next) => {
+  try {
+    const result = await evaluateRegionalReportSubmissionAccess(
+      req,
+      'regional_report_submission:review',
+    );
+    if (result.allowed) {
+      return next();
+    }
+    return res.status(result.status).json({ message: result.message });
+  } catch (error) {
+    console.error('Error in requireRegionalReportSubmissionReview middleware:', error);
+    return res.status(500).json({ message: 'Error checking permissions', error: error.message });
+  }
+};
 
 async function evaluatePermission(req, permissionName, options = {}) {
   const { allowReferenceRead = false, model = null } = options;
@@ -188,7 +282,11 @@ module.exports = {
   hasPermission,
   hasAnyPermission,
   hasDynamicPermission,
+  requireRegionalReportSubmissionRead,
+  requireRegionalReportSubmissionReview,
   loadUserWithPermissions,
+  loadUserWithPermissionsAndRoles,
+  isNationalRegionalReportReviewer,
   REFERENCE_DATA_MODELS,
   CONTEXT_READ_PERMISSIONS,
   resolvePermissionName,

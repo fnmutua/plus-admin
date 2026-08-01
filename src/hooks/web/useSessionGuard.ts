@@ -8,12 +8,15 @@ import {
   updateCachedAccessToken
 } from '@/hooks/web/sessionActivity'
 import { getAuthUserInfo } from '@/hooks/web/authStorage'
+import { isAnonymousPublicPage } from '@/shared/publicPaths'
 
 /** Poll session validity; extend sliding sessions only while the user is active. */
 export function useSessionGuard() {
   let timer: ReturnType<typeof setInterval> | null = null
 
   const tick = async () => {
+    if (isAnonymousPublicPage()) return
+
     const userInfo = getAuthUserInfo()
     if (!userInfo?.id) return
     if (!shouldRenewSession()) return

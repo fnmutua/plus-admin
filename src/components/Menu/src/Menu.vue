@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
 import type { LayoutType } from '@/config/app'
 import { useRenderMenuItem } from './components/useRenderMenuItem'
+import { getMenuOpenPaths } from './helper'
 import { useRouter } from 'vue-router'
 import { isUrl } from '@/utils/is'
 import { useDesign } from '@/hooks/web/useDesign'
@@ -58,6 +59,10 @@ export default defineComponent({
       return path
     })
 
+    const defaultOpeneds = computed(() =>
+      getMenuOpenPaths(unref(routers), unref(activeMenu)),
+    )
+
     const menuSelect = (index: string) => {
       if (props.menuSelect) {
         props.menuSelect(index)
@@ -81,7 +86,9 @@ export default defineComponent({
     const renderMenu = () => {
       return (
         <ElMenu
+          key={unref(activeMenu)}
           defaultActive={unref(activeMenu)}
+          default-openeds={unref(defaultOpeneds)}
           mode={unref(menuMode)}
           collapse={
             unref(layout) === 'top' || unref(layout) === 'cutMenu' ? false : unref(collapse)

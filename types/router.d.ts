@@ -36,6 +36,8 @@ declare module 'vue-router' {
   interface RouteMeta extends Record<string | number | symbol, unknown> {
     hidden?: boolean
     alwaysShow?: boolean
+    /** When true, sidebar keeps this submenu collapsed unless the active route is inside it. */
+    menuCollapse?: boolean
     title?: string
     icon?: string
     noCache?: boolean

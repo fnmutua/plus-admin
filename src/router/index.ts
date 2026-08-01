@@ -25,7 +25,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: t('Dashboards'),
       icon: 'ant-design:dashboard-filled',
-      alwaysShow: true,
+      menuCollapse: true,
       // we have removed roles here to make it public
      },
  
@@ -743,32 +743,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
  
       {
         path: 'reports',
- 
-        component: Layout,
-        name: 'Reports',
+        component: () => import('@/views/Indicators/indicator_category_report.vue'),
+        name: 'PastReports',
         meta: {
-          icon: 'ic:baseline-monitor-heart',
-          title: 'Monitoring'
+          title: 'Reports',
+          permissions: ['indicator_category_report:read'],
+          icon: 'mdi:file-document-plus',
         },
-        children: [
-          {
-            path: 'new',
-            redirect: { name: 'PastReports' },
-            meta: {
-              hidden: true,
-            },
-          },
-          {
-            path: 'past',
-            component: () => import('@/views/Indicators/indicator_category_report.vue'),
-            name: 'PastReports',
-            meta: {
-              title: 'Reports',
-              permissions: ['indicator_category_report:read'],
-              icon: 'mdi:file-document-plus',
-            },
-          },
-        ]
+      },
+      {
+        path: 'reports/past',
+        redirect: '/mne/reports',
+        meta: {
+          hidden: true,
+        },
       },
  
 
