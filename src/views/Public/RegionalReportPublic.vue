@@ -18,10 +18,12 @@ import { Icon } from '@iconify/vue'
 import {
   getRegionalReportMeta,
   getRegionalReportProgrammes,
+  getRegionalReportProjectHistory,
   getRegionalReportProjectIndicators,
   getRegionalReportProjects,
   submitRegionalReport,
   type RegionalReportComponent,
+  type RegionalReportHistoryEntry,
   type RegionalReportMeta,
   type RegionalReportProgramme,
   type RegionalReportProject,
@@ -82,7 +84,10 @@ const projectReports = ref<ProjectReportEntry[]>([])
 const activeSection = ref<'details' | 'projects'>('details')
 /** Auto-advance past "Report details" only once, so reopening it isn't fought. */
 const hasAutoAdvanced = ref(false)
-const projectTab = ref<'progress' | 'indicators'>('progress')
+const projectTab = ref<'progress' | 'indicators' | 'history'>('progress')
+const historyEntries = ref<RegionalReportHistoryEntry[]>([])
+const loadingHistory = ref(false)
+const historyProjectId = ref<number | null>(null)
 // The indicator table needs ~570px of columns; below that it becomes stacked cards.
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 const pickerProjectId = ref<number | null>(null)
@@ -347,9 +352,50 @@ watch(selectedProgramme, () => {
   if (!stillVisible) pickerProjectId.value = null
 })
 
+function formatHistoryDate(value: string) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10)
+}
+
+/**
+ * Same rule the M&E report page uses: a percentage needs a target to mean anything, so
+ * zero-progress-with-no-target reads as "not measurable" rather than "no progress".
+ */
+function formatHistoryProgress(row: RegionalReportHistoryEntry) {
+  if (row.progress == null) return '—'
+  if (row.progress === 0 && !row.qualitative && !(row.target && row.target > 0)) return '—'
+  return `${row.progress}%`
+}
+
+/** Loaded lazily — only when the History tab is actually opened for a project. */
+async function loadProjectHistory() {
+  const projectId = pickerProjectId.value
+  if (!projectId || !form.region) return
+  if (historyProjectId.value === projectId) return
+
+  loadingHistory.value = true
+  try {
+    const res = await getRegionalReportProjectHistory({ region: form.region, projectId })
+    historyEntries.value = res.entries
+    historyProjectId.value = projectId
+  } catch {
+    historyEntries.value = []
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+watch([projectTab, pickerProjectId], ([tab]) => {
+  if (tab === 'history') loadProjectHistory()
+})
+
 watch(
   () => pickerProjectId.value,
   async (projectId) => {
+    historyEntries.value = []
+    historyProjectId.value = null
+
     if (!projectId) {
       draft.completionPct = null
       draft.remarks = ''
@@ -911,6 +957,69 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
                       </div>
                       <p v-else class="projects-empty">Select a project above.</p>
                     </el-tab-pane>
+
+                    <el-tab-pane label="History" name="history">
+                      <div v-if="selectedPickerProject" v-loading="loadingHistory">
+                        <p class="tab-intro">
+                          Previously filed updates for this project, newest first.
+                        </p>
+
+                        <template v-if="historyEntries.length">
+                          <!-- Phones: stacked cards, same reason as the indicator table. -->
+                          <div v-if="isMobile" class="history-cards">
+                            <div v-for="entry in historyEntries" :key="entry.id" class="history-card">
+                              <div class="history-card__head">
+                                <span class="history-card__label">{{ entry.label }}</span>
+                                <span class="history-card__date">{{ formatHistoryDate(entry.date) }}</span>
+                              </div>
+                              <p class="history-card__meta">
+                                {{ entry.code }} · Q{{ entry.period }}
+                              </p>
+                              <p class="history-card__values">
+                                <span v-if="entry.qualitative">{{ entry.qualitative }}</span>
+                                <span v-else>Cumulative <strong>{{ entry.cumAmount }}</strong></span>
+                                <span v-if="entry.progress != null"> · {{ entry.progress }}%</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <el-table
+                            v-else
+                            :data="historyEntries"
+                            stripe
+                            size="small"
+                            max-height="320"
+                          >
+                            <el-table-column label="Date" width="100">
+                              <template #default="{ row }">{{ formatHistoryDate(row.date) }}</template>
+                            </el-table-column>
+                            <el-table-column label="Qtr" width="60" align="center">
+                              <template #default="{ row }">Q{{ row.period }}</template>
+                            </el-table-column>
+                            <el-table-column label="Indicator" min-width="170" show-overflow-tooltip>
+                              <template #default="{ row }">{{ row.label }}</template>
+                            </el-table-column>
+                            <el-table-column label="Cumulative" width="110" align="right">
+                              <template #default="{ row }">
+                                <span v-if="row.qualitative">{{ row.qualitative }}</span>
+                                <span v-else>{{ row.cumAmount }}{{ row.unit ? ` ${row.unit}` : '' }}</span>
+                              </template>
+                            </el-table-column>
+                            <el-table-column label="Progress" width="90" align="right">
+                              <template #default="{ row }">{{ formatHistoryProgress(row) }}</template>
+                            </el-table-column>
+                            <el-table-column label="Filing" width="130" show-overflow-tooltip>
+                              <template #default="{ row }">{{ row.code }}</template>
+                            </el-table-column>
+                          </el-table>
+                        </template>
+
+                        <p v-else-if="!loadingHistory" class="projects-empty">
+                          No previous updates filed for this project.
+                        </p>
+                      </div>
+                      <p v-else class="projects-empty">Select a project above.</p>
+                    </el-tab-pane>
                   </el-tabs>
 
                   <section v-if="projectReports.length" class="added-projects">
@@ -1063,6 +1172,50 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
 
 .indicator-table-wrap {
   margin-bottom: 8px;
+}
+
+.history-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-card {
+  padding: 8px 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.history-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.history-card__label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+.history-card__date {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--el-text-color-secondary);
+}
+
+.history-card__meta {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: var(--el-text-color-secondary);
+}
+
+.history-card__values {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
 }
 
 /* Mobile: one card per indicator, so nothing scrolls sideways and both inputs

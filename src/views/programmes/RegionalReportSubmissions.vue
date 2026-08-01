@@ -66,6 +66,7 @@
         <el-col :xs="24" :sm="12" :md="4" :lg="8">
           <div class="toolbar-right">
             <el-tag v-if="total" type="info" effect="plain">{{ total }} total</el-tag>
+            <el-button :icon="DocumentCopy" plain @click="copyPublicLink">Copy form link</el-button>
             <el-button plain @click="resetFilters">Reset</el-button>
             <el-button :icon="Refresh" circle plain :loading="loading" @click="loadSubmissions" />
           </div>
@@ -347,7 +348,7 @@ import {
   ElTableColumn,
   ElTag,
 } from 'element-plus'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { DocumentCopy, Refresh, Search } from '@element-plus/icons-vue'
 import { Icon } from '@/components/Icon'
 import axios from 'axios'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -647,6 +648,32 @@ async function openDetail(row: SubmissionSummary) {
     drawerOpen.value = false
   } finally {
     detailLoading.value = false
+  }
+}
+
+/** Public form link. Router uses hash history, hence the `/#/`. */
+const publicFormUrl = computed(() => `${window.location.origin}/#/regional-report`)
+
+async function copyPublicLink() {
+  const url = publicFormUrl.value
+  try {
+    // navigator.clipboard is undefined on insecure origins, so keep a fallback for
+    // deployments served over plain http on the LAN.
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      const el = document.createElement('textarea')
+      el.value = url
+      el.style.position = 'fixed'
+      el.style.opacity = '0'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    }
+    ElMessage.success('Public form link copied')
+  } catch {
+    ElMessageBox.alert(url, 'Copy this link', { confirmButtonText: 'Close' })
   }
 }
 
