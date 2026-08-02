@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty,searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, ElColorPicker, ElCard, ElPopconfirm, ElTour, ElTourStep } from 'element-plus'
+import { ElButton, ElSelect, ElColorPicker, ElCard, ElPopconfirm, ElRadioGroup, ElRadioButton } from 'element-plus'
 import {
   Back,
   Plus,
@@ -22,7 +22,7 @@ import { filterDashboardsForUser } from '@/utils/documentPermissions'
 import { ref, reactive,watch, onMounted, computed } from 'vue'
 import {
   ElPagination, ElCol, ElTooltip, ElOption, ElDrawer, ElForm, ElFormItem, ElInput, FormRules, ElRow,
-  ElTable, ElSwitch, ElTableColumn, ElStep, ElSteps, ElSelectV2, ElMessageBox, ElMessage
+  ElTable, ElSwitch, ElTableColumn, ElSelectV2, ElMessageBox, ElMessage
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -38,7 +38,13 @@ import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
 import { Icon } from '@/components/Icon'
 
-import { getModelSpecs, } from '@/api/fields'
+import { loadDashboardFilterFields } from '@/utils/dashboardFilterFields'
+import {
+  DEFAULT_DASHBOARD_DATA_CATEGORY,
+  isInterventionCategory,
+  isStatusCategory,
+  normalizeDataCategory,
+} from '@/utils/dashboardCategory'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -50,8 +56,53 @@ console.log("userInfo--->", userInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 
+const isInterventionCard = computed(() => isInterventionCategory(ruleForm.category))
+const showCardFilters = computed(() => {
+  if (!ruleForm.card_model) return false
+  if (isStatusCategory(ruleForm.category)) return true
+  return isInterventionCard.value && ruleForm.card_model === 'indicator_category_report'
+})
+
+/** Tracks last saved data source so we only reset fields when the type actually changes. */
+const lastCardCategory = ref('')
+
+const cardCategorySelection = computed({
+  get() {
+    const normalized = normalizeDataCategory(ruleForm.category)
+    if (normalized === 'Status' || normalized === 'Intervention') return normalized
+    return DEFAULT_DASHBOARD_DATA_CATEGORY
+  },
+  set(val: string) {
+    void onCardDataSourceChange(val)
+  },
+})
+
+const syncLastCardCategory = () => {
+  lastCardCategory.value = normalizeDataCategory(ruleForm.category) || ruleForm.category || ''
+}
+
+const finalizeCardForSave = () => {
+  ruleForm.category = normalizeDataCategory(ruleForm.category) || ruleForm.category
+  if (isInterventionCategory(ruleForm.category)) {
+    ruleForm.card_model = 'indicator_category_report'
+    ruleForm.card_model_field = ruleForm.card_model_field || 'amount'
+  } else if (isStatusCategory(ruleForm.category)) {
+    ruleForm.indicator_category_id = null
+  }
+}
+
+const dataSourceHint = computed(() => {
+  if (isInterventionCategory(ruleForm.category)) {
+    return 'Shows the latest reported amount for a selected indicator category — e.g. households reached or kilometres of road constructed.'
+  }
+  if (isStatusCategory(ruleForm.category)) {
+    return 'Counts or sums records from a database table — e.g. projects, settlements, households, or beneficiaries. Supports programme and component filters.'
+  }
+  return 'Choose whether this card shows an M&E indicator value or a count/sum from an entity table.'
+})
 
 const showStatusExtras = ref(false)
+
 const ModelOptions = [
   {
     value: 'settlement',
@@ -269,41 +320,8 @@ const getIndicatorCategories = async () => {
 
 const getModeldefinition = async (selModel) => {
   console.log(selModel)
-  var formData = {}
-  formData.model = selModel
-
-
-  await getModelSpecs(formData).then((response) => {
-
-    var data = response.data
-
-    var fieldsToFilter = ['title', 'name', 'geom', 'code', 'createdBy', 'updatedAt', "description", 'createdAt']; // Specify the fields you want to filter out
-
-    var fields = data.filter(function (obj) {
-      return !fieldsToFilter.includes(obj.field);
-    });
-
-    console.log("fields:", fields)
-    //health_facility_fields.value = response.data
-    //fieldSet.value = fields2
-
-    var opts = []
-    fields.forEach(function (arrayItem) {
-      // console.log(arrayItem)
-      var opt = {}
-      opt.value = arrayItem.field
-      opt.label = arrayItem.field
-      opt.type = arrayItem.type
-      //  console.log(countyOpt)
-      fieldSet.value.push(opt)
-    })
-
-
-  })
-
-  console.log("getting fields fields", fieldSet.value)
-
-
+  fieldSet.value = await loadDashboardFilterFields(selModel)
+  console.log('getting fields fields', fieldSet.value)
 }
 
 
@@ -595,21 +613,8 @@ const editIndicator = async (data: TableSlotDefault) => {
   console.log('Edit--->', data)
   
   try {
-  // Set category first
-  ruleForm.category = data.row.category
-  
-  if (data.row.category === 'Status') {
-    ruleForm.card_model = data.row.card_model
-    await handleSelectModel(data.row.card_model)
-    if (data.row.filter_field) {
-      await handleFilterAggregators(data.row.filter_field)
-    }
-  } else if (data.row.category == 'Indicator') {
-    // Load indicator categories for Indicator cards
-    await getIndicatorCategories()
-    ruleForm.indicator_category_id = data.row.indicator_category_id
-  }
-
+  ruleForm.category = normalizeDataCategory(data.row.category) || data.row.category || ''
+  syncLastCardCategory()
   showEditSaveButton.value = true
 
   ruleForm.id = data.row.id
@@ -620,6 +625,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
   ruleForm.indicator_category_id = data.row.indicator_category_id
+  ruleForm.card_model = data.row.card_model
   ruleForm.card_model_field = data.row.card_model_field
   ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
@@ -628,20 +634,27 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.filtered = data.row.filtered
   ruleForm.unique = data.row.unique
   ruleForm.filters = data.row.filters
-  tableData.value = data.row.filters ?? [];
+  tableData.value = data.row.filters ?? []
+
+  if (isInterventionCategory(ruleForm.category)) {
+    if (ruleForm.aggregation === 'count') ruleForm.aggregation = 'sum'
+    ruleForm.card_model = 'indicator_category_report'
+    ruleForm.card_model_field = ruleForm.card_model_field || 'amount'
+  }
+
+  await loadCardDataSourceOptions(ruleForm.category, { resetSelections: false })
+
+  if (isStatusCategory(ruleForm.category) && data.row.filter_field) {
+    await handleFilterAggregators(data.row.filter_field)
+  }
 
   console.log('Edit Mode', data.row)
 
-  if (data.row.filter_value) {
-    fieldSelected.value = true
-    showFilterValues.value = true
-  } else {
-    fieldSelected.value = false
-  }
-
+  fieldSelected.value = !!(data.row.filter_value || data.row.filters?.length)
+  showFilterValues.value = !!data.row.filter_value
   showStatusExtras.value = true
-
   formHeader.value = 'Edit Card'
+  initialFormJson.value = JSON.stringify(ruleForm)
   } finally {
     drawerLoading.value = false
   }
@@ -689,7 +702,7 @@ const ruleForm = reactive({
   computation: null,
   unique: false,
   filters: null,
-  category: '',
+  category: DEFAULT_DASHBOARD_DATA_CATEGORY,
   indicator_category_id: null
 
 
@@ -735,8 +748,9 @@ const resetCardForm = ({ closeDrawer = true, preserveContext = null } = {}) => {
   ruleForm.card_model = ''
   ruleForm.unique = false
   ruleForm.filters = null
-  ruleForm.category = ''
+  ruleForm.category = DEFAULT_DASHBOARD_DATA_CATEGORY
   ruleForm.indicator_category_id = null
+  lastCardCategory.value = ''
 
   if (preserveContext) {
     Object.assign(ruleForm, preserveContext)
@@ -745,7 +759,13 @@ const resetCardForm = ({ closeDrawer = true, preserveContext = null } = {}) => {
       : []
   } else {
     tableData.value = []
+    fieldSet.value = []
+    fieldOptions.value = []
+    fieldSelected.value = false
+    aggregationOptionsFiltered.value = [...aggregationOptions]
   }
+
+  lastCardCategory.value = normalizeDataCategory(ruleForm.category) || ruleForm.category || ''
 
   if (closeDrawer) {
     AddDialogVisible.value = false
@@ -758,6 +778,12 @@ const resetCardForm = ({ closeDrawer = true, preserveContext = null } = {}) => {
 
 const handleClose = () => {
   resetCardForm({ closeDrawer: true })
+}
+
+const cancelDrawer = () => {
+  handleDrawerBeforeClose(() => {
+    AddDialogVisible.value = false
+  })
 }
 
 
@@ -779,6 +805,14 @@ const aggregationOptions = [
 ]
 
 aggregationOptionsFiltered.value = aggregationOptions
+
+const cardAggregationOptions = computed(() => {
+  const opts = aggregationOptionsFiltered.value
+  if (isInterventionCard.value) {
+    return opts.filter((o) => o.value !== 'count')
+  }
+  return opts
+})
 
 
 const rules = reactive<FormRules>({
@@ -805,6 +839,10 @@ const rules = reactive<FormRules>({
   description: [
     { required: true, message: 'description is required.', trigger: 'blur' },
   ],
+
+  category: [
+    { required: true, message: 'Select a data source.', trigger: 'change' },
+  ],
   
   computation: [
     { required: true, message: 'computation is required.', trigger: 'blur' },
@@ -817,7 +855,7 @@ const rules = reactive<FormRules>({
       message: 'Aggregation field is required for Status cards.', 
       trigger: 'blur',
       validator: (rule, value, callback) => {
-        if (ruleForm.category === 'Status' && !value) {
+        if (isStatusCategory(ruleForm.category) && !value) {
           callback(new Error('Aggregation field is required for Status cards.'))
         } else {
           callback()
@@ -832,8 +870,8 @@ const rules = reactive<FormRules>({
       message: 'Indicator category is required for Indicator cards.', 
       trigger: 'blur',
       validator: (rule, value, callback) => {
-        if (ruleForm.category === 'Indicator' && !value) {
-          callback(new Error('Indicator category is required for Indicator cards.'))
+        if (isInterventionCategory(ruleForm.category) && !value) {
+          callback(new Error('Indicator category is required for intervention cards.'))
         } else {
           callback()
         }
@@ -847,7 +885,7 @@ const rules = reactive<FormRules>({
       message: 'Entity is required for Status cards.', 
       trigger: 'blur',
       validator: (rule, value, callback) => {
-        if (ruleForm.category === 'Status' && !value) {
+        if (isStatusCategory(ruleForm.category) && !value) {
           callback(new Error('Entity is required for Status cards.'))
         } else {
           callback()
@@ -859,6 +897,7 @@ const rules = reactive<FormRules>({
 })
 
 const AddCard = () => {
+  resetCardForm({ closeDrawer: false })
   AddDialogVisible.value = true
 }
 
@@ -870,10 +909,7 @@ const submitForm = async (formEl: FormInstance | undefined, addAnother = false) 
       ruleForm.model = model
       ruleForm.code = uuid.v4()
       
-      // Fix: Ensure indicator_category_id is null for Status cards
-      if (ruleForm.category === 'Status') {
-        ruleForm.indicator_category_id = null
-      }
+      finalizeCardForSave()
 
       drawerLoadingText.value = 'Saving...'
       drawerLoading.value = true
@@ -904,10 +940,7 @@ const editForm = async (formEl: FormInstance | undefined, addAnother = false) =>
     if (valid) {
       ruleForm.model = model
       
-      // Fix: Ensure indicator_category_id is null for Status cards
-      if (ruleForm.category === 'Status') {
-        ruleForm.indicator_category_id = null
-      }
+      finalizeCardForSave()
 
       drawerLoadingText.value = 'Saving...'
       drawerLoading.value = true
@@ -939,43 +972,75 @@ const editForm = async (formEl: FormInstance | undefined, addAnother = false) =>
 //getStrategicFocusAreas()
 //getIndicatorNames()
 
-const handleSelectType = async (dashboard_id) => {
-  let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
-
-
-  /*   if (selDashboard[0].type==='status') {  // status dashabords 
-  showStatusExtras.value=true
-    } else {
-      showStatusExtras.value=false
-  
-    } */
-
+const handleSelectType = async () => {
   showStatusExtras.value = true
-
 }
 
-// Handle category selection (Status vs Indicator)
-const handleCategorySelection = async (category) => {
-  console.log('Selected category:', category)
-  
-  // Reset form fields when category changes
+const resetCardDataFields = () => {
   ruleForm.card_model = ''
   ruleForm.card_model_field = ''
   ruleForm.aggregation = ''
-  ruleForm.indicator_category_id = ''
+  ruleForm.indicator_category_id = null
+  ruleForm.filter_value = null
+  ruleForm.filter_function = null
+  ruleForm.filter_field = null
+  ruleForm.filtered = false
+  ruleForm.computation = null
+  ruleForm.filters = null
+  ruleForm.unique = false
   fieldSet.value = []
-  
-  if (category === 'Indicator') {
-    // For Indicator cards, load indicator categories
-    console.log('Indicator card selected - loading indicator categories')
+  fieldOptions.value = []
+  tableData.value = []
+  fieldSelected.value = false
+  showFilterValues.value = false
+}
+
+/** Load dropdown/filter options for the active data source (entity vs indicator). */
+const loadCardDataSourceOptions = async (
+  category: string,
+  { resetSelections = true }: { resetSelections?: boolean } = {},
+) => {
+  const normalized = normalizeDataCategory(category) || category
+
+  if (isInterventionCategory(normalized)) {
+    aggregationOptionsFiltered.value = aggregationOptions.filter((o) => o.value !== 'count')
     await getIndicatorCategories()
     ruleForm.card_model = 'indicator_category_report'
     ruleForm.card_model_field = 'amount'
-  } else if (category === 'Status') {
-    // For Status cards, we need to wait for user to select an entity first
-    console.log('Status card selected - waiting for entity selection')
-    // Clear fieldSet for Status cards - it will be populated when entity is selected
-    fieldSet.value = []
+    if (resetSelections) {
+      ruleForm.aggregation = 'sum'
+      ruleForm.indicator_category_id = null
+    } else if (!ruleForm.aggregation || ruleForm.aggregation === 'count') {
+      ruleForm.aggregation = 'sum'
+    }
+    fieldSet.value = await loadDashboardFilterFields('indicator_category_report')
+  } else if (isStatusCategory(normalized)) {
+    aggregationOptionsFiltered.value = [...aggregationOptions]
+    if (resetSelections) {
+      fieldSet.value = []
+    } else if (ruleForm.card_model) {
+      fieldSet.value = await loadDashboardFilterFields(ruleForm.card_model)
+    }
+  }
+}
+
+// Switch data source (M&E indicator vs entity table) — only resets when type changes
+const onCardDataSourceChange = async (category) => {
+  const normalized = normalizeDataCategory(category) || category
+  if (!normalized) return
+
+  const previous = lastCardCategory.value
+  ruleForm.category = normalized
+  if (normalized === previous) return
+
+  lastCardCategory.value = normalized
+  resetCardDataFields()
+
+  drawerLoading.value = true
+  try {
+    await loadCardDataSourceOptions(normalized, { resetSelections: true })
+  } finally {
+    drawerLoading.value = false
   }
 }
 
@@ -998,16 +1063,6 @@ const handleSelectModel = async (selModel) => {
 
   console.log('specs.....')
   await getModeldefinition(selModel)
-
-  // component_id / programme_id aren't columns on project_location, so getModelSpecs
-  // won't surface them — inject them as filterable pseudo-fields (backend resolves
-  // them via a project→component subquery).
-  if (selModel === 'project_location') {
-    fieldSet.value.push(
-      { value: 'component_id', label: 'Component (via Project)', type: 'FK_COMPONENT' },
-      { value: 'programme_id', label: 'Programme (via Project)', type: 'FK_PROGRAMME' },
-    )
-  }
 }
 
 
@@ -1116,21 +1171,8 @@ const CloneCard = async (data: TableSlotDefault) => {
   showSubmitBtn.value = true
   showEditSaveButton.value = false
 
-  // Set category first
-  ruleForm.category = data.row.category
-  ruleForm.indicator_category_id = data.row.indicator_category_id
-
-  if (data.row.category === 'Status') {
-    ruleForm.card_model = data.row.card_model
-    await handleSelectModel(data.row.card_model)
-    if (data.row.filter_field) {
-      await handleFilterAggregators(data.row.filter_field)
-    }
-  } else if (data.row.category === 'Indicator') {
-    // Load indicator categories for Indicator cards
-    await getIndicatorCategories()
-    ruleForm.indicator_category_id = data.row.indicator_category_id
-  }
+  ruleForm.category = normalizeDataCategory(data.row.category) || data.row.category || ''
+  syncLastCardCategory()
 
   ruleForm.title = data.row.title
   ruleForm.dashboard_id = data.row.dashboard_id
@@ -1138,14 +1180,31 @@ const CloneCard = async (data: TableSlotDefault) => {
   ruleForm.iconColor = data.row.iconColor
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
+  ruleForm.indicator_category_id = data.row.indicator_category_id
+  ruleForm.card_model = data.row.card_model
   ruleForm.card_model_field = data.row.card_model_field
+
+  if (isInterventionCategory(ruleForm.category)) {
+    if (ruleForm.aggregation === 'count') ruleForm.aggregation = 'sum'
+    ruleForm.card_model = 'indicator_category_report'
+    ruleForm.card_model_field = ruleForm.card_model_field || 'amount'
+  }
+
+  drawerLoading.value = true
+  try {
+    await loadCardDataSourceOptions(ruleForm.category, { resetSelections: false })
+    if (isStatusCategory(ruleForm.category) && data.row.filter_field) {
+      await handleFilterAggregators(data.row.filter_field)
+    }
+  } finally {
+    drawerLoading.value = false
+  }
   ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
   ruleForm.filter_function = data.row.filter_function
   ruleForm.filter_field = data.row.filter_field
   ruleForm.filtered = data.row.filtered
   ruleForm.unique = data.row.unique
-  ruleForm.category = data.row.category
 
   if (data.row.filter_value) {
     fieldSelected.value = true
@@ -1302,18 +1361,6 @@ const handleChangeFilterField = async (selField) => {
 }
 
 
-const categoryOptions = [
-  {
-    value: 'Status',
-    label: 'Status'
-  },
-  {
-    value: 'Indicator',
-    label: 'Indicator'
-  }
-]
-
-
 const router = useRouter()
 
 
@@ -1384,35 +1431,6 @@ const prevStep = () => {
   }
 }
 
-const showTourStep0 = ref(false)
-const showTourStep1 = ref(false)
-const showTourStep2 = ref(false)
-const showTourStep3 = ref(false)
-
-
-const showTour = () => {
-  if (activeStep.value == 0) {
-    showTourStep0.value = true
-  }
-  else if (activeStep.value == 1) {
-    showTourStep1.value = true
-  }
-  else if (activeStep.value == 2) {
-    showTourStep2.value = true
-  }
-  else if (activeStep.value == 3) {
-    showTourStep3.value = true
-  }
-}
-const endTour = () => {
-  showTourStep0.value = false
-  showTourStep1.value = false
-  showTourStep2.value = false
-  showTourStep3.value = false
-
-}
-
-
 const remoteMethod = async (keyword) => {
   console.log(keyword)
   loading.value = true
@@ -1452,7 +1470,13 @@ const initialFormJson = ref('')
 const isFormDirty = computed(() => JSON.stringify(ruleForm) !== initialFormJson.value)
 watch(AddDialogVisible, (visible) => {
   if (visible) {
+    if (formHeader.value === 'Add Card' && !ruleForm.id) {
+      ruleForm.category = DEFAULT_DASHBOARD_DATA_CATEGORY
+      lastCardCategory.value = DEFAULT_DASHBOARD_DATA_CATEGORY
+    }
     initialFormJson.value = JSON.stringify(ruleForm)
+  } else {
+    resetCardForm({ closeDrawer: false })
   }
 })
 
@@ -1516,7 +1540,7 @@ const handleDrawerBeforeClose = (done) => {
       <div class="filter-bar-actions">
         <PermissionWrapper :permissions="'dashboard_card:create'">
           <el-tooltip content="Add Card" placement="top">
-            <el-button :onClick="AddCard" type="primary" :icon="Plus" />
+            <el-button @click="AddCard" type="primary" :icon="Plus" />
           </el-tooltip>
         </PermissionWrapper>
         <PermissionWrapper :permissions="'dashboard_card:read'">
@@ -1598,27 +1622,23 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
   <el-drawer
     v-model="AddDialogVisible"
+    class="dashboard-card-drawer"
     direction="rtl"
     :size="isMobile ? '100%' : '40%'"
+    :show-close="false"
     :before-close="handleDrawerBeforeClose"
     v-loading="drawerLoading"
     :element-loading-text="drawerLoadingText"
   >
     <template #header>
-      <div class="drawer-header">
-        <span class="drawer-title">{{ formHeader }}</span>
-        <el-button class="drawer-close" icon="el-icon-close" type="text" @click="handleDrawerBeforeClose(() => { AddDialogVisible = false })" />
+      <div class="drawer-header-wrap">
+        <div class="drawer-header">
+          <span class="drawer-title">{{ formHeader }}</span>
+          <el-button class="drawer-close" icon="el-icon-close" type="text" @click="handleDrawerBeforeClose(() => { AddDialogVisible = false })" />
+        </div>
+        <p class="step-indicator">Step {{ activeStep + 1 }} of 4</p>
       </div>
     </template>
-
-    <div class="steps-wrapper">
-      <el-steps :active="activeStep" align-center finish-status="success">
-        <el-step title="Details" description="Basic card info" />
-        <el-step title="Icons" description="Icon and color" />
-        <el-step title="Computation" description="Category and aggregation" />
-        <el-step title="Filters" description="Computation and filters" />
-      </el-steps>
-    </div>
 
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
@@ -1640,6 +1660,15 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
           <el-form-item id="btn3" label="Description" prop="description">
             <el-input v-model="ruleForm.description" placeholder="e.g. Count of all registered settlements in the database" />
             <div class="field-hint">Longer explanation shown on hover or in card details.</div>
+          </el-form-item>
+        </el-col>
+        <el-col :span="24">
+          <el-form-item id="btn6" label="Data source" prop="category">
+            <el-radio-group v-model="cardCategorySelection" class="category-group">
+              <el-radio-button value="Status">Entity count / sum</el-radio-button>
+              <el-radio-button value="Intervention">M&amp;E indicator value</el-radio-button>
+            </el-radio-group>
+            <div class="field-hint">{{ dataSourceHint }}</div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -1665,17 +1694,8 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
       </el-row>
 
       <el-row v-if="activeStep === 2" :gutter="20">
-        <el-col :span="24">
-          <el-form-item id="btn6" label="Category" prop="category">
-            <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleCategorySelection" style="width: 100%;">
-              <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-            <div class="field-hint"><b>Status</b> — counts or sums from a database table (settlements, households…). <b>Indicator</b> — pulls a value from a pre-recorded indicator report.</div>
-          </el-form-item>
-        </el-col>
-
         <!-- Show Entity selection only for Status cards -->
-        <el-col :span="24" v-if="ruleForm.category === 'Status'">
+        <el-col :span="24" v-if="isStatusCategory(ruleForm.category)">
           <el-form-item id="btn8" label="Entity" prop="card_model">
             <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
@@ -1687,7 +1707,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
         </el-col>
 
         <!-- Show different fields based on category -->
-        <el-col :span="24" v-if="ruleForm.category === 'Status'">
+        <el-col :span="24" v-if="isStatusCategory(ruleForm.category)">
           <el-form-item id="btn7" label="Aggregation Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
@@ -1698,7 +1718,7 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
           </el-form-item>
         </el-col>
 
-        <el-col :span="24" v-if="ruleForm.category === 'Indicator'">
+        <el-col :span="24" v-if="isInterventionCard">
           <el-form-item id="btn7_indicator" label="Select Indicator" prop="indicator_category_id">
             <el-select
 v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filterable collapse-tags
@@ -1715,10 +1735,11 @@ v-model="ruleForm.indicator_category_id" :onClear="handleClear" clearable filter
 size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 100%" clearable
               filterable collapse-tags placeholder="Select">
               <el-option
-v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
+v-for="item in cardAggregationOptions" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
-            <div class="field-hint"><b>Count</b> — total number of matching records. <b>Sum</b> — total of the chosen field. <b>Average</b> — mean value. <b>Max / Min</b> — highest or lowest value.</div>
+            <div v-if="isInterventionCard" class="field-hint"><b>Sum</b> — total reported amount. <b>Average</b> — mean reported amount across matching reports.</div>
+            <div v-else class="field-hint"><b>Count</b> — total number of matching records. <b>Sum</b> — total of the chosen field. <b>Average</b> — mean value. <b>Max / Min</b> — highest or lowest value.</div>
           </el-form-item>
         </el-col>
       </el-row>
@@ -1734,7 +1755,7 @@ size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable f
             <div class="field-hint"><b>Absolute</b> — show the raw number (e.g. 1 245 households). <b>Proportion</b> — show the filtered count as a % of the total (requires a filter below).</div>
           </el-form-item>
         </el-col>
-        <el-col :span="24" v-if="ruleForm.card_model">
+        <el-col :span="24" v-if="showCardFilters">
           <el-form-item id="btn11" label="Filter" prop="filtered" class="mt-4">
             <div style="display:flex;flex-direction:column;gap:4px;">
               <el-switch
@@ -1810,14 +1831,18 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
         </el-col>
         
         <el-col :span="24" v-if="ruleForm.filtered">
-          <div :class="['filter-actions', { 'filter-actions-mobile': isMobile }]">
-            <el-button class="mt-4" @click="onAddItem" size="small">
-              Add Filter
-            </el-button>
-            <el-button class="mt-4" @click="onAddFilter" size="small">
-              Save Filters
-            </el-button>
-          </div>
+          <el-row class="filter-actions" :gutter="8">
+            <el-col :span="isMobile ? 24 : 12">
+              <el-button @click="onAddItem" size="small" style="width: 100%">
+                + Add Filter
+              </el-button>
+            </el-col>
+            <el-col :span="isMobile ? 24 : 12">
+              <el-button @click="onAddFilter" size="small" type="primary" style="width: 100%">
+                Save Filters
+              </el-button>
+            </el-col>
+          </el-row>
         </el-col>
 
       </el-row>
@@ -1825,73 +1850,60 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
     </el-form>
     <template #footer>
       <div class="drawer-footer-bar">
-        <el-button @click="AddDialogVisible = false" :disabled="drawerLoading">Cancel</el-button>
-        <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading" style="margin: 0 8px;">Previous</el-button>
-        <el-button @click="nextStep" v-if="activeStep < 3" type="primary" :disabled="drawerLoading" style="margin-right: 8px;">Next</el-button>
-        <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain style="margin-right: 8px;" />
-        <PermissionWrapper :permissions="'dashboard_card:create'">
-          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(ruleFormRef)">Submit</el-button>
-          <el-button v-if="showSubmitBtn && activeStep === 3" :loading="drawerLoading" @click="submitForm(ruleFormRef, true)">Submit & Add Another</el-button>
-        </PermissionWrapper>
-        <PermissionWrapper :permissions="'dashboard_card:update'">
-          <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" :loading="drawerLoading" @click="editForm(ruleFormRef)">Save</el-button>
-          <el-button v-if="showEditSaveButton && activeStep === 3" :loading="drawerLoading" @click="editForm(ruleFormRef, true)">Save & Add Another</el-button>
-        </PermissionWrapper>
+        <div class="drawer-footer-left">
+          <el-button @click="cancelDrawer" :disabled="drawerLoading">Cancel</el-button>
+          <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading">Previous</el-button>
+        </div>
+
+        <div class="drawer-footer-right">
+          <el-button
+            v-if="activeStep < 3"
+            type="primary"
+            @click="nextStep"
+            :disabled="drawerLoading"
+          >
+            Next
+          </el-button>
+          <PermissionWrapper :permissions="'dashboard_card:create'">
+            <el-button
+              v-if="showSubmitBtn && activeStep === 3"
+              type="primary"
+              :loading="drawerLoading"
+              @click="submitForm(ruleFormRef)"
+            >
+              Submit
+            </el-button>
+            <el-button
+              v-if="showSubmitBtn && activeStep === 3"
+              :loading="drawerLoading"
+              @click="submitForm(ruleFormRef, true)"
+            >
+              Submit &amp; Add Another
+            </el-button>
+          </PermissionWrapper>
+          <PermissionWrapper :permissions="'dashboard_card:update'">
+            <el-button
+              v-if="showEditSaveButton && activeStep === 3"
+              type="primary"
+              :loading="drawerLoading"
+              @click="editForm(ruleFormRef)"
+            >
+              Save
+            </el-button>
+            <el-button
+              v-if="showEditSaveButton && activeStep === 3"
+              :loading="drawerLoading"
+              @click="editForm(ruleFormRef, true)"
+            >
+              Save &amp; Add Another
+            </el-button>
+          </PermissionWrapper>
+        </div>
       </div>
     </template>
 
 
   </el-drawer>
-
-
-
-
-
-  <el-tour v-model="showTourStep0" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn1" title="Title"
-      description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
-    <el-tour-step
-target="#btn2" title="Type"
-      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Indicator' type draws data exclusively from the M&E indicators" />
-    />
-    <el-tour-step target="#btn3" title="Description" description="Provide a short description of this card" />
-    />
-  </el-tour>
-
-  <el-tour v-model="showTourStep1" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn4" title="Icon"
-      description="Use Browse to pick an Element Plus icon, or Paste to enter a name (e.g. House) or legacy Iconify string (e.g. mdi:home-city)." />
-    <el-tour-step target="#btn5" title="Icon Color" description="The  color of the ICon on the statistic card" />
-
-  </el-tour>
-
-  <el-tour v-model="showTourStep2" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn6" title="Category"
-      description="The system supports two types of cards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Indicator' type draws data exclusively from the M&E indicators" />
-    <el-tour-step target="#btn7" title="Aggregation Field" description="For Status cards: The field to use for summary" />
-    <el-tour-step target="#btn7_indicator" title="Indicator Category" description="For Indicator cards: Select the indicator category that will be used to generate reports" />
-
-    <el-tour-step target="#btn8" title="Entity" description="For Status cards: The entity(table) to summarize" />
-    <el-tour-step
-target="#btn9" title="Aggregation Method"
-      description="The computation method to use. Sum only applies to numeric fields" />
-
-  </el-tour>
-
-  <el-tour v-model="showTourStep3" z-index="100000" :onClose="endTour">
-
-    <el-tour-step
-target="#btn10" title="Computation Method"
-      description="Proportion is a percent of the result against the total entitles in the table. Absolute is teh sum/count" />
-    <el-tour-step
-target="#btn11" title="Filters"
-      description="Switch on if the card features filtering. This can be achieved say, for instance filtering for a specific county, gender etc. You will need to specify the field and its filter values" />
-
-  </el-tour>
-
 
 
 
@@ -1913,39 +1925,83 @@ target="#btn11" title="Filters"
 </style>
 
 <style>
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary)) !important;
-  color: white;
+.dashboard-card-drawer :deep(.el-drawer__header) {
+  margin-bottom: 0;
+  padding: 0;
+}
+.dashboard-card-drawer :deep(.el-drawer__body) {
+  padding-top: 0;
+}
+.drawer-header-wrap {
+  width: 100%;
   position: sticky;
   top: 0;
   z-index: 10;
 }
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 12px;
+  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary)) !important;
+  color: white;
+}
 .drawer-title {
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.2;
   color: white;
 }
 .drawer-close {
   color: white;
   border-radius: 4px;
+  padding: 2px;
+  min-height: unset;
 }
 .drawer-close:hover {
   background: rgba(255, 255, 255, 0.1);
 }
-.steps-wrapper {
-  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-8));
-  padding: 16px;
-  border-radius: 4px;
-  margin: 20px 0;
+.step-indicator {
+  margin: 0;
+  padding: 4px 12px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--el-text-color-secondary);
+  border-bottom: 1px solid #ebeef5;
 }
 .drawer-footer-bar {
   padding: 12px 20px;
   border-top: 1px solid #ebeef5;
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.drawer-footer-left,
+.drawer-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.drawer-footer-right {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .drawer-footer-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .drawer-footer-left,
+  .drawer-footer-right {
+    justify-content: center;
+  }
+  .drawer-footer-right {
+    margin-left: 0;
+  }
 }
 .icon-picker-form-field :deep(.icon-picker-panel) {
   width: 100%;
@@ -1959,22 +2015,26 @@ target="#btn11" title="Filters"
   min-width: 560px;
 }
 .filter-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.filter-actions-mobile {
-  flex-direction: column;
-}
-.filter-actions-mobile .el-button {
-  width: 100%;
-  margin: 0;
+  margin-top: 12px;
 }
 .field-hint {
   font-size: 11px;
   color: #909399;
   margin-top: 3px;
   line-height: 1.4;
+}
+.category-group {
+  display: flex;
+  width: 100%;
+}
+.category-group :deep(.el-radio-button) {
+  flex: 1;
+}
+.category-group :deep(.el-radio-button__inner) {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.3;
+  padding: 10px 12px;
 }
 </style>
 

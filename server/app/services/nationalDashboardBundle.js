@@ -50,6 +50,10 @@ function shouldUseAxisEndpoint(chart) {
   return false
 }
 
+function isInterventionCategory(category) {
+  return category === 'Intervention' || category === 'Indicator'
+}
+
 function buildCardSummaryPayload(card) {
   const associated_Models = ['county']
   const filterFields = []
@@ -218,7 +222,7 @@ function buildPyramidPayload() {
 
 async function resolveCardValue(card) {
   try {
-    if (card.category === 'Intervention' && card.indicator_category_id) {
+    if (isInterventionCategory(card.category) && card.indicator_category_id) {
       return await resolveInterventionCardValue(card)
     }
     const payload = buildCardSummaryPayload(card)
@@ -283,6 +287,46 @@ async function getIndicatorCategoryIds(indicatorId) {
   return rows.map((r) => r.id)
 }
 
+async function getChartIndicatorCategoryIds(chart) {
+  const indicatorIds = []
+  if (Array.isArray(chart.indicators) && chart.indicators.length) {
+    for (const ind of chart.indicators) {
+      const id = ind?.id ?? ind
+      if (id != null) indicatorIds.push(Number(id))
+    }
+  } else if (chart.indicator_id != null) {
+    const ids = Array.isArray(chart.indicator_id) ? chart.indicator_id : [chart.indicator_id]
+    indicatorIds.push(...ids.map(Number).filter(Boolean))
+  }
+  const categoryIds = new Set()
+  for (const indId of indicatorIds) {
+    for (const catId of await getIndicatorCategoryIds(indId)) {
+      categoryIds.add(catId)
+    }
+  }
+  return [...categoryIds]
+}
+
+async function loadChartsForSections(sectionIds) {
+  if (!sectionIds.length) return []
+
+  const rows = await db.models.dashboard_section_chart.findAll({
+    where: { dashboard_section_id: sectionIds },
+    order: [['id', 'ASC']],
+    include: [{
+      model: db.models.indicator,
+      through: { attributes: [] },
+      attributes: ['id', 'name', 'type', 'format', 'unit'],
+    }],
+  })
+
+  return rows.map((row) => {
+    const plain = plainRow(row)
+    plain.indicators = (row.indicators || []).map((ind) => plainRow(ind))
+    return plain
+  })
+}
+
 function buildInterventionChartPayload(chart, indicatorCategoryIds) {
   const chartType = Number(chart.type)
   const cmodel = 'indicator_category_report'
@@ -335,11 +379,13 @@ async function resolveChartBundleData(chart) {
   const chartType = Number(chart.type)
 
   try {
-    if (chart.category === 'Indicator' && chart.indicator_id) {
-      const categoryIds = await getIndicatorCategoryIds(chart.indicator_id)
-      const payload = buildInterventionChartPayload(chart, categoryIds)
-      const response = await invokeController(summaryController.sumModelAssociatedMultipleModels, payload)
-      return { kind: 'summary', Total: response.Total, intervention: true }
+    if (isInterventionCategory(chart.category)) {
+      const categoryIds = await getChartIndicatorCategoryIds(chart)
+      if (categoryIds.length) {
+        const payload = buildInterventionChartPayload(chart, categoryIds)
+        const response = await invokeController(summaryController.sumModelAssociatedMultipleModels, payload)
+        return { kind: 'summary', Total: response.Total, intervention: true }
+      }
     }
 
     if (chartType === 8) {
@@ -402,13 +448,7 @@ async function buildDashboardBundle(dashboardId) {
   ])
 
   const sectionIds = sectionRows.map((s) => s.id)
-  const chartRows = sectionIds.length
-    ? await db.models.dashboard_section_chart.findAll({
-        where: { dashboard_section_id: sectionIds },
-        order: [['id', 'ASC']],
-        raw: true,
-      })
-    : []
+  const chartRows = await loadChartsForSections(sectionIds)
 
   const chartsBySection = new Map()
   for (const chart of chartRows) {

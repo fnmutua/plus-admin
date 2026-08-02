@@ -56,6 +56,10 @@ const {
 } = require('../utils/projectListScope')
 const { parseProjectCost, isIntegerOverflowError } = require('../utils/projectCost')
 const { validateProgrammeRecord } = require('../utils/programmeValidation')
+const {
+  scheduleDashboardBundleRefresh,
+  scheduleDashboardBundleDelete,
+} = require('../utils/dashboardBundleInvalidation')
 const { normalizeFeatureCollection } = require('../utils/normalizeGeoJson')
 const config = require('../config/db.config.js')
 ///const config = require("../config/db.config.js");
@@ -1442,6 +1446,8 @@ exports.modelCreateOneRecord = async (req, res) => {
       data: item, // Include the created record in the response
       code: '0000',
     });
+
+    scheduleDashboardBundleRefresh(reg_model, item)
 
     // Process the created record for AI
     console.log('Processing record for AI >>>>>>>>>>>>>>>>>', item)
@@ -4836,6 +4842,8 @@ exports.modelEditOneRecord = (req, res) => {
           code: "0000",
           data: result // Include the updated record in the response
         });
+
+        scheduleDashboardBundleRefresh(reg_model, result)
       } else {
         res.status(404).send({
           message: "Record not found",
@@ -5130,6 +5138,12 @@ exports.modelDeleteOneRecord = async (req, res) => {
     await model.destroy({ where: { id: record.id } });
     del_event.status='Successful'
     logEvents(del_event)
+
+    if (modelName === 'dashboard') {
+      scheduleDashboardBundleDelete(record)
+    } else {
+      scheduleDashboardBundleRefresh(modelName, record)
+    }
 
     if (modelName == 'settlement') {
       updateHistory(record.id, record, req.thisUser.id, 'Delete', affectedAssociations);

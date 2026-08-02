@@ -689,8 +689,7 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
             <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <p class="field-hint">
-            Status — based on entities in the database (settlements, facilities, households, etc.).<br />
-            Intervention — based on M&amp;E indicators (outputs and outcomes).
+            Optional label for grouping dashboards. Cards and charts choose their own data source (M&amp;E indicators or entity tables) regardless of this setting.
           </p>
         </div>
       </el-form-item>
@@ -737,15 +736,22 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
   >
     <div class="info-dialog-content">
       <div class="info-dialog-section">
+        <h4 class="info-heading">Dashboard type (optional)</h4>
+        <p>
+          Status or Intervention is mainly for organisation. Each card and chart on the dashboard
+          chooses whether it uses M&amp;E indicator data or entity tables.
+        </p>
+      </div>
+      <div class="info-dialog-section">
         <h4 class="info-heading">Status Dashboard:</h4>
         <p>
-          Based on entities in the database — settlements, facilities, households, and other system records.
+          Typically used for dashboards focused on entities — settlements, facilities, households, and other system records.
         </p>
       </div>
       <div class="info-dialog-section">
         <h4 class="info-heading">Intervention Dashboard:</h4>
         <p>
-          Based on M&amp;E indicators — outputs, outcomes, and intervention reports.
+          Typically used for programme dashboards, but you can mix indicator and entity cards on any dashboard.
         </p>
       </div>
 
@@ -764,7 +770,7 @@ confirm-button-text="Yes" width="380" cancel-button-text="No" :icon="InfoFilled"
     <el-tour-step target="#btn1" title="Title" description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
     <el-tour-step
 target="#btn2" title="Type"
-      description="Status dashboards use entities in the database (settlements, facilities, households, etc.). Intervention dashboards use M&amp;E indicators (outputs and outcomes)." />
+      description="Optional. Status and Intervention are labels for grouping dashboards — each card/chart picks its own data source." />
     <el-tour-step
 target="#btn4" title="Public"
       description="Make the dashboard visible to all users in the navigation menu. Leave unchecked to keep it private to you." />

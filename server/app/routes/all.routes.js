@@ -2957,6 +2957,7 @@ module.exports = function (app) {
    *         description: Unauthorized - invalid token
    */
   app.post('/api/v1/model/fields', [authJwt.verifyToken], controller.modelBoard)
+  app.post('/api/v1/model/relatives', [authJwt.verifyToken], controller.modelRelatives)
   
   /**
    * @swagger

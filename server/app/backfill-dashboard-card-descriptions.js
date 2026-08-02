@@ -126,7 +126,7 @@ function buildDescription(card, dashboardTitle, indicatorCategory) {
   const aggregationLabel = AGGREGATION_LABELS[aggregation] || `${aggregation} of`;
   const displayTitle = card.title ? `"${card.title}"` : `card #${card.id}`;
 
-  if (card.category === 'Indicator') {
+  if (card.category === 'Indicator' || card.category === 'Intervention') {
     const indicatorName = indicatorCategory?.indicator_name || `indicator category #${card.indicator_category_id || 'unknown'}`;
     const categoryTitle = indicatorCategory?.category_title ? ` (${indicatorCategory.category_title})` : '';
     parts.push(

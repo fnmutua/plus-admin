@@ -1444,12 +1444,14 @@ if (req.body.filterField && req.body.filterValue && req.body.filterOperator && r
     const operator  = filterOperators[i];
     operators.push(operator);
 
-    // component_id / programme_id aren't columns on project_location — they live on
-    // project (component_id) and component (programme_id), two hops away. Resolve via
-    // subquery, same as getOptimizedProjectLocations does for the map view. Without
-    // this, Sequelize throws on the unknown attribute and resolveCardValue's catch
-    // silently returns 0 — a card filtered this way looks "empty" instead of erroring.
-    if (reg_model === 'project_location' && (filterCol === 'component_id' || filterCol === 'programme_id') && operator !== 'all') {
+    // component_id / programme_id aren't columns on project_location or
+    // indicator_category_report — they live on project (component_id) and
+    // component (programme_id). Resolve via project_id subquery.
+    if (
+      (reg_model === 'project_location' || reg_model === 'indicator_category_report') &&
+      (filterCol === 'component_id' || filterCol === 'programme_id') &&
+      operator !== 'all'
+    ) {
       const rawVals = Array.isArray(filterVal) ? filterVal : [filterVal];
       if (filterCol === 'component_id') {
         const ids = rawVals.map((v) => parseInt(v, 10)).filter((v) => !isNaN(v));

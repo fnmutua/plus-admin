@@ -9,7 +9,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   ElPagination, ElTooltip, ElSelect, ElOption, ElSwitch, ElTable, ElTableColumn,
   ElRow, ElCol, ElForm, ElFormItem, ElInput, ElCheckbox, ElPopconfirm, ElCard,
-  ElSteps, ElStep, ElDrawer, ElMessageBox, ElMessage, ElButton, ElRadioGroup, ElRadio,
+  ElDrawer, ElMessageBox, ElMessage, ElButton, ElRadioGroup, ElRadioButton,
   ElDivider, FormRules,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -20,12 +20,22 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import { getModelSpecs } from '@/api/fields'
+import { loadDashboardFilterFields } from '@/utils/dashboardFilterFields'
 import { getUniqueFieldValues } from '@/api/households'
 import { getChartTypeIconName } from '@/utils/chartTypeIcons'
 import { Icon } from '@/components/Icon'
 import DownloadAll from '@/views/Components/DownloadAll.vue'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
 import { isDashboardSettingsAdmin } from '@/utils/documentPermissions'
+import {
+  DEFAULT_DASHBOARD_DATA_CATEGORY,
+  isInterventionCategory,
+  isStatusCategory,
+  normalizeDataCategory,
+} from '@/utils/dashboardCategory'
+import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
+import { sortProgrammeRecordsByFamily, sortProgrammeSelectOptions } from '@/utils/programmeComponentTree'
+import type { ProgrammeRecord } from '@/utils/programmeValidation'
 
 // ─── Store / auth ─────────────────────────────────────────────────────────────
 const { wsCache } = useCache()
@@ -145,7 +155,8 @@ const MODEL_OPTIONS = [
   { value: 'settlement_population', label: 'Settlement Population' },
   { value: 'grievance',             label: 'Grievances' },
   { value: 'households',            label: 'Household' },
-  { value: 'project',               label: 'Project' },
+  { value: 'project_location',      label: 'Projects' },
+  { value: 'project_beneficiary',   label: 'Beneficiaries' },
   { value: 'education_facility',    label: 'Schools' },
   { value: 'health_facility',       label: 'Hospitals' },
   { value: 'road',                  label: 'Roads' },
@@ -241,7 +252,7 @@ const loadLookups = async () => {
     getCountyListApi({ params: { pageIndex: 1, limit: 100, curUser: 1, model: 'dashboard', searchField: 'title', searchKeyword: '', sort: 'ASC' } }),
     getCountyListApi({ params: { pageIndex: 1, limit: 100, curUser: 1, model: 'dashboard_section', searchField: 'title', searchKeyword: '', sort: 'ASC' } }),
   ])
-  dashboardOptions.value = dashRes.data.map((d: any) => ({ value: d.id, label: d.title }))
+  dashboardOptions.value = dashRes.data.map((d: any) => ({ value: d.id, label: d.title, type: d.type }))
   const secs = secRes.data.map((d: any) => ({ value: d.id, label: d.title, dashboard_id: d.dashboard_id }))
   allSectionOptions.value = secs
   toolbarSectionOptions.value = [...secs]
@@ -251,6 +262,7 @@ onMounted(async () => {
   window.addEventListener('resize', updatePSize)
   updatePSize()
   await loadLookups()
+  await loadProgrammeComponentHierarchy()
   await loadChartList()
 })
 onUnmounted(() => window.removeEventListener('resize', updatePSize))
@@ -310,7 +322,7 @@ const ruleForm = reactive({
   description:          '',
   iconColor:            '',
   icon:                 '',
-  category:             '',     // 'Status' | 'Intervention'
+  category:             DEFAULT_DASHBOARD_DATA_CATEGORY,
   type:                 null as number | null,
   card_model:           '',
   metric_fields:        [] as string[],
@@ -336,8 +348,40 @@ const rules = reactive<FormRules>({
 
 // ─── Derived from form ─────────────────────────────────────────────────────────
 const activeChartDef = computed(() => CHART_DEFS.find(d => d.id === ruleForm.type) ?? null)
-const isStatus = computed(() => ruleForm.category === 'Status')
-const isIntervention = computed(() => ruleForm.category === 'Intervention')
+const isStatus = computed(() => isStatusCategory(ruleForm.category))
+const isIntervention = computed(() => isInterventionCategory(ruleForm.category))
+const showChartFilters = computed(() => {
+  if (!ruleForm.card_model) return false
+  if (isStatus.value) return true
+  return isIntervention.value && ruleForm.card_model === 'indicator_category_report'
+})
+
+const lastChartCategory = ref('')
+
+const chartCategorySelection = computed({
+  get() {
+    const normalized = normalizeDataCategory(ruleForm.category)
+    if (normalized === 'Status' || normalized === 'Intervention') return normalized
+    return DEFAULT_DASHBOARD_DATA_CATEGORY
+  },
+  set(val: string) {
+    void onChartDataSourceChange(val)
+  },
+})
+
+const syncLastChartCategory = () => {
+  lastChartCategory.value = normalizeDataCategory(ruleForm.category) || ruleForm.category || ''
+}
+
+const dataSourceHint = computed(() => {
+  if (isInterventionCategory(ruleForm.category)) {
+    return 'Visualises indicator report data — trends over time, breakdowns by county, or comparisons across indicator categories.'
+  }
+  if (isStatusCategory(ruleForm.category)) {
+    return 'Charts counts or aggregates from a database table — e.g. projects by county, households by settlement, or beneficiaries by programme.'
+  }
+  return 'Choose whether this chart uses M&E indicator report data or entity table records.'
+})
 
 const availableChartTypes = computed(() => {
   if (!ruleForm.category) return CHART_DEFS
@@ -369,12 +413,79 @@ const isMapChart     = computed(() => !!typeConf.value?.mapChart)
 // false for pie/donut/treemap (3,10,11) — they only need the aggregation, not a separate Y field picker
 const showYAxisField = computed(() => showYAxis.value && typeConf.value?.yAxisField !== false)
 
-// ── Aggregation options (filtered for non-numeric x fields) ───────────────────
+// ── Aggregation options (filtered for non-numeric x fields; no count for indicators) ──
 const aggregationOptions = computed(() => {
   const field = ruleForm.y_axis?.field
-  if (!field || field === 'id') return AGGREGATION_OPTIONS
-  const f = fieldSet.value.find(f => f.value === field)
-  return f?.type === 'STRING' ? AGGREGATION_OPTIONS.filter(a => a.value === 'count') : AGGREGATION_OPTIONS
+  let opts = AGGREGATION_OPTIONS
+  if (!field || field === 'id') {
+    opts = AGGREGATION_OPTIONS
+  } else {
+    const f = fieldSet.value.find(f => f.value === field)
+    opts = f?.type === 'STRING' ? AGGREGATION_OPTIONS.filter(a => a.value === 'count') : AGGREGATION_OPTIONS
+  }
+  if (isIntervention.value) {
+    opts = opts.filter(a => a.value !== 'count')
+  }
+  return opts
+})
+
+const allProgrammes = ref<any[]>([])
+const allComponentsWithProgramme = ref<any[]>([])
+const programmeHierarchyLoaded = ref(false)
+
+const loadProgrammeComponentHierarchy = async () => {
+  if (programmeHierarchyLoaded.value) return
+  const progRes = await getProgrammesList({ params: {} })
+  allProgrammes.value = progRes.data || []
+  const allIds = allProgrammes.value.map((p: any) => p.id)
+  if (allIds.length) {
+    const compRes = await getComponentsList({ params: { programme_ids: allIds.join(',') } })
+    allComponentsWithProgramme.value = compRes.data || []
+  }
+  programmeHierarchyLoaded.value = true
+}
+
+const programmeOptionGroupsForFilter = computed(() => {
+  const roots = sortProgrammeRecordsByFamily(
+    allProgrammes.value as ProgrammeRecord[],
+    allProgrammes.value.filter((p: any) => p.parentId == null || p.parentId === '') as ProgrammeRecord[],
+  )
+  return roots.map((root: any) => ({
+    id: root.id,
+    label: root.title || root.acronym,
+    rootLabel: `${root.title || root.acronym} (all)`,
+    children: sortProgrammeSelectOptions(
+      allProgrammes.value
+        .filter((p: any) => String(p.parentId) === String(root.id))
+        .map((p: any) => ({ value: p.id, label: p.title || p.acronym })),
+      allProgrammes.value as ProgrammeRecord[],
+    ),
+  }))
+})
+
+const componentOptionGroupsForFilter = computed(() => {
+  const programmeById = new Map(allProgrammes.value.map((p: any) => [p.id, p]))
+  const groups = new Map<number, { label: string; children: any[] }>()
+  for (const c of allComponentsWithProgramme.value) {
+    const programme = programmeById.get(c.programme_id)
+    if (!programme) continue
+    const root = programme.parentId != null && programme.parentId !== ''
+      ? programmeById.get(Number(programme.parentId))
+      : null
+    const label = root
+      ? `${root.title || root.acronym} / ${programme.title || programme.acronym}`
+      : (programme.title || programme.acronym)
+    if (!groups.has(c.programme_id)) groups.set(c.programme_id, { label, children: [] })
+    groups.get(c.programme_id)!.children.push({ value: c.id, label: c.title || c.acronym })
+  }
+  return sortProgrammeSelectOptions(
+    Array.from(groups.entries()).map(([programmeId, group]) => ({
+      value: programmeId,
+      label: group.label,
+      children: group.children,
+    })),
+    allProgrammes.value as ProgrammeRecord[],
+  ).map(({ label, children }) => ({ label, children }))
 })
 
 // ── Preview sentence ──────────────────────────────────────────────────────────
@@ -424,20 +535,27 @@ const onSeriesFieldChange = (field: string) => {
 
 // ─── Model field loading ───────────────────────────────────────────────────────
 const fieldSet = ref<any[]>([])
+const filterFieldSet = ref<any[]>([])
 const fieldSetLoading = ref(false)
 
 const loadModelFields = async (selModel: string) => {
   if (!selModel) {
     fieldSet.value = []
+    filterFieldSet.value = []
     return
   }
   fieldSetLoading.value = true
   fieldSet.value = []
+  filterFieldSet.value = []
   try {
-    const res = await getModelSpecs({ model: selModel })
-    fieldSet.value = (res.data || [])
+    const [specsRes, filterFields] = await Promise.all([
+      getModelSpecs({ model: selModel }),
+      loadDashboardFilterFields(selModel),
+    ])
+    fieldSet.value = (specsRes.data || [])
       .filter((f: any) => !EXCLUDE_FIELDS.has(f.field))
       .map((f: any) => ({ value: f.field, label: f.field, type: f.type }))
+    filterFieldSet.value = filterFields
     // Inject virtual county.name option whenever the model has a county_id FK
     if (fieldSet.value.some((f: any) => f.value === 'county_id')) {
       fieldSet.value.unshift({ value: 'county.name', label: 'County / Sub-county / Ward (auto)', type: 'STRING' })
@@ -566,7 +684,12 @@ const FUNC_OPTS_NUM = [
 
 const funcOptsForField = (fieldName: string | null) => {
   if (!fieldName) return FUNC_OPTS_NUM
-  const def = fieldSet.value.find(f => f.value === fieldName)
+  const def =
+    filterFieldSet.value.find(f => f.value === fieldName) ||
+    fieldSet.value.find(f => f.value === fieldName)
+  if (def?.type === 'FK_COMPONENT' || def?.type === 'FK_PROGRAMME') {
+    return [{ value: 'all', label: 'All' }, { value: 'eq', label: 'Equal' }]
+  }
   return def?.type === 'STRING' ? FUNC_OPTS_STRING : FUNC_OPTS_NUM
 }
 
@@ -583,6 +706,15 @@ const onFilterFieldChange = async (row: FilterRow, fieldName: string) => {
   row.value = []
   row._opts = []
   if (!fieldName || !ruleForm.card_model) return
+
+  const def =
+    filterFieldSet.value.find(f => f.value === fieldName) ||
+    fieldSet.value.find(f => f.value === fieldName)
+  if (def?.type === 'FK_COMPONENT' || def?.type === 'FK_PROGRAMME') {
+    await loadProgrammeComponentHierarchy()
+    return
+  }
+
   row._loading = true
   try {
     const res = await getUniqueFieldValues({ model: ruleForm.card_model, selectedField: fieldName })
@@ -620,7 +752,7 @@ const saveFilters = () => {
 // ─── Form lifecycle ────────────────────────────────────────────────────────────
 const EMPTY_FORM = () => ({
   id: '', title: '', dashboard_id: '', dashboard_section_id: '', description: '',
-  iconColor: '', icon: '', category: '', type: null, card_model: '',
+  iconColor: '', icon: '', category: DEFAULT_DASHBOARD_DATA_CATEGORY, type: null, card_model: '',
   metric_fields: [], time_field: 'createdAt',
   indicator_id: null, ignore_empty: true,
   filtered: false, filters: null,
@@ -633,7 +765,10 @@ const resetForm = ({ closeDrawer = true, preserveContext = null }: any = {}) => 
   isEditing.value = false
   activeStep.value = 0
   fieldSet.value = []
+  filterFieldSet.value = []
   filterRows.value = []
+  drawerSectionOptions.value = []
+  lastChartCategory.value = normalizeDataCategory(ruleForm.category) || ruleForm.category || ''
   indicatorOptions.value = []
   drawerLoading.value = false
   ruleFormRef.value?.clearValidate()
@@ -643,13 +778,29 @@ const resetForm = ({ closeDrawer = true, preserveContext = null }: any = {}) => 
 
 const initialFormJson = ref('')
 const isFormDirty = computed(() => JSON.stringify(ruleForm) !== initialFormJson.value)
-watch(drawerVisible, v => { if (v) initialFormJson.value = JSON.stringify(ruleForm) })
+watch(drawerVisible, (visible) => {
+  if (visible) {
+    if (!isEditing.value && !ruleForm.id) {
+      ruleForm.category = DEFAULT_DASHBOARD_DATA_CATEGORY
+      lastChartCategory.value = DEFAULT_DASHBOARD_DATA_CATEGORY
+    }
+    initialFormJson.value = JSON.stringify(ruleForm)
+  } else {
+    resetForm({ closeDrawer: false })
+  }
+})
 
 const handleBeforeClose = (done: () => void) => {
   if (!isFormDirty.value) { resetForm(); done(); return }
   ElMessageBox.confirm('You have unsaved changes. Discard and close?', 'Unsaved Changes', { type: 'warning' })
     .then(() => { resetForm(); done() })
     .catch(() => {})
+}
+
+const cancelDrawer = () => {
+  handleBeforeClose(() => {
+    drawerVisible.value = false
+  })
 }
 
 const openAdd = () => {
@@ -660,6 +811,8 @@ const openAdd = () => {
 
 // ─── Populate form for edit / clone ───────────────────────────────────────────
 const populateForm = async (row: any) => {
+  const normalizedCategory = normalizeDataCategory(row.category) || row.category
+
   Object.assign(ruleForm, {
     id:                   row.id,
     title:                row.title,
@@ -668,7 +821,7 @@ const populateForm = async (row: any) => {
     description:          row.description,
     iconColor:            row.iconColor,
     icon:                 row.icon,
-    category:             row.category,
+    category:             normalizedCategory,
     type:                 row.type,
     card_model:           row.card_model,
     metric_fields:        Array.isArray(row.metric_fields) ? row.metric_fields : [],
@@ -686,8 +839,16 @@ const populateForm = async (row: any) => {
     ? JSON.parse(JSON.stringify(row.filters)).map((r: any) => ({ ...r, _opts: [], _loading: false }))
     : []
 
-  if (row.card_model) await loadModelFields(row.card_model)
+  if (isInterventionCategory(normalizedCategory)) {
+    ruleForm.card_model = ruleForm.card_model || 'indicator_category_report'
+    await loadModelFields('indicator_category_report')
+  } else if (row.card_model) {
+    await loadModelFields(row.card_model)
+  }
+
   if (row.indicators?.length) await loadIndicatorsByIds(row.indicators.map((i: any) => i.id))
+
+  syncLastChartCategory()
 
   drawerSectionOptions.value = row.dashboard_section?.dashboard?.id
     ? allSectionOptions.value.filter(o => o.dashboard_id === row.dashboard_section.dashboard.id)
@@ -696,8 +857,14 @@ const populateForm = async (row: any) => {
 
 const editChart = async (scope: any) => {
   isEditing.value = true
-  await populateForm(scope.row)
-  drawerVisible.value = true
+  drawerLoading.value = true
+  try {
+    await populateForm(scope.row)
+    drawerVisible.value = true
+    initialFormJson.value = JSON.stringify(ruleForm)
+  } finally {
+    drawerLoading.value = false
+  }
 }
 
 const cloneChart = async (scope: any) => {
@@ -753,13 +920,43 @@ const selectChartType = (id: number) => {
   }
 }
 
-const handleCategoryChange = () => {
+const onChartDataSourceChange = async (category: string) => {
+  const normalized = normalizeDataCategory(category) || category
+  if (!normalized) return
+
+  const previous = lastChartCategory.value
+  ruleForm.category = normalized
+  if (normalized === previous) return
+
+  lastChartCategory.value = normalized
+
   ruleForm.type = null
-  ruleForm.card_model = ''
   ruleForm.metric_fields = []
   ruleForm.indicator_id = null
+  ruleForm.card_model = ''
+  ruleForm.x_axis = null
+  ruleForm.y_axis = null
+  ruleForm.series_field = null
+  ruleForm.filtered = false
+  ruleForm.filters = null
+  filterRows.value = []
   fieldSet.value = []
+  filterFieldSet.value = []
+  indicatorOptions.value = []
+
+  drawerLoading.value = true
+  try {
+    if (isInterventionCategory(normalized)) {
+      ruleForm.card_model = 'indicator_category_report'
+      await loadModelFields('indicator_category_report')
+    }
+  } finally {
+    drawerLoading.value = false
+  }
 }
+
+// Legacy alias — step handlers may still reference this name
+const handleCategoryChange = onChartDataSourceChange
 
 // ─── Submit ────────────────────────────────────────────────────────────────────
 const getPreservedContext = () => ({
@@ -773,8 +970,12 @@ const submitForm = async (addAnother = false) => {
   const valid = await ruleFormRef.value?.validate().catch(() => false)
   if (!valid) return
 
+  ruleForm.category = normalizeDataCategory(ruleForm.category) || ruleForm.category
+
   if (!isStatus.value) {
     ruleForm.card_model = 'indicator_category_report'
+  } else {
+    ruleForm.indicator_id = null
   }
 
   if (ruleForm.type === 12) {
@@ -908,22 +1109,16 @@ const submitForm = async (addAnother = false) => {
 
 
   <!-- ── Add / Edit Drawer ───────────────────────────────────────────────────── -->
-  <el-drawer v-model="drawerVisible" direction="rtl"
+  <el-drawer v-model="drawerVisible" class="dashboard-chart-drawer" direction="rtl"
     :size="isMobile ? '100%' : '44%'" :with-header="false"
     :before-close="handleBeforeClose"
     v-loading="drawerLoading" :element-loading-text="drawerLoadingText">
 
-    <div class="drawer-header">
-      <span class="drawer-title">{{ drawerTitle }}</span>
-    </div>
-
-    <div class="steps-wrapper">
-      <el-steps :active="activeStep" align-center finish-status="finish" simple>
-        <el-step title="Basics" :icon="null" />
-        <el-step title="Chart Type" :icon="null" />
-        <el-step title="Data Config" :icon="null" />
-        <el-step title="Filters" :icon="null" />
-      </el-steps>
+    <div class="drawer-header-wrap">
+      <div class="drawer-header">
+        <span class="drawer-title">{{ drawerTitle }}</span>
+      </div>
+      <p class="step-indicator">Step {{ activeStep + 1 }} of 4</p>
     </div>
 
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="top" class="drawer-form">
@@ -950,24 +1145,19 @@ const submitForm = async (addAnother = false) => {
         <el-form-item label="Description" prop="description">
           <el-input v-model="ruleForm.description" placeholder="What does this chart show?" />
         </el-form-item>
+
+        <el-form-item label="Data source" prop="category">
+          <el-radio-group v-model="chartCategorySelection" class="category-group">
+            <el-radio-button value="Status">Entity chart</el-radio-button>
+            <el-radio-button value="Intervention">M&amp;E indicator chart</el-radio-button>
+          </el-radio-group>
+          <div class="field-hint">{{ dataSourceHint }}</div>
+        </el-form-item>
       </div>
 
 
       <!-- ── Step 1: Chart Type ───────────────────────────────────────── -->
       <div v-if="activeStep === 1">
-        <el-form-item label="Data Category" prop="category">
-          <el-radio-group v-model="ruleForm.category" @change="handleCategoryChange" class="category-group">
-            <el-radio value="Status" border class="category-radio">
-              <div class="radio-label">Status</div>
-              <div class="radio-hint">Count or aggregate fields from settlements, households, etc.</div>
-            </el-radio>
-            <el-radio value="Intervention" border class="category-radio">
-              <div class="radio-label">Intervention</div>
-              <div class="radio-hint">Summarise progress on programme indicators</div>
-            </el-radio>
-          </el-radio-group>
-        </el-form-item>
-
         <el-form-item v-if="ruleForm.category" label="Chart Type" prop="type">
           <div class="chart-grid">
             <div v-for="def in availableChartTypes" :key="def.id"
@@ -1148,8 +1338,8 @@ const submitForm = async (addAnother = false) => {
       <!-- ── Step 3: Filters ────────────────────────────────────────────── -->
       <div v-if="activeStep === 3">
 
-        <div v-if="!ruleForm.card_model" class="filter-hint">
-          Data filters are available for Status charts. Go back to Step 1 and choose an entity first.
+        <div v-if="!showChartFilters" class="filter-hint">
+          Choose a data category and entity in the previous steps to configure filters.
         </div>
 
         <template v-else>
@@ -1167,7 +1357,7 @@ const submitForm = async (addAnother = false) => {
                 <template #default="{ row }">
                   <el-select v-model="row.field" filterable placeholder="Field"
                     @change="(val) => onFilterFieldChange(row, val)">
-                    <el-option v-for="f in fieldSet" :key="f.value" :label="f.label" :value="f.value" />
+                    <el-option v-for="f in filterFieldSet" :key="f.value" :label="f.label" :value="f.value" />
                   </el-select>
                 </template>
               </el-table-column>
@@ -1183,6 +1373,33 @@ const submitForm = async (addAnother = false) => {
               <el-table-column label="Value(s)" min-width="150">
                 <template #default="{ row }">
                   <span v-if="['all', 'is_null', 'is_not_null'].includes(row.operation)" class="text-gray-400 text-xs">—</span>
+                  <el-select
+                    v-else-if="row.field === 'component_id'"
+                    v-model="row.value"
+                    multiple
+                    filterable
+                    collapse-tags
+                    placeholder="Select Component(s)"
+                    @update:model-value="saveFilters"
+                  >
+                    <el-option-group v-for="group in componentOptionGroupsForFilter" :key="group.label" :label="group.label">
+                      <el-option v-for="item in group.children" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-option-group>
+                  </el-select>
+                  <el-select
+                    v-else-if="row.field === 'programme_id'"
+                    v-model="row.value"
+                    multiple
+                    filterable
+                    collapse-tags
+                    placeholder="Select Programme(s)"
+                    @update:model-value="saveFilters"
+                  >
+                    <el-option-group v-for="group in programmeOptionGroupsForFilter" :key="group.id" :label="group.label">
+                      <el-option :key="`root-${group.id}`" :label="group.rootLabel" :value="group.id" />
+                      <el-option v-for="item in group.children" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-option-group>
+                  </el-select>
                   <el-select v-else v-model="row.value" multiple filterable allow-create collapse-tags
                     placeholder="Select or type" :loading="row._loading"
                     @update:model-value="saveFilters">
@@ -1216,19 +1433,21 @@ const submitForm = async (addAnother = false) => {
     <!-- Drawer footer -->
     <template #footer>
       <div class="drawer-footer">
-        <el-button @click="drawerVisible = false" :disabled="drawerLoading">Cancel</el-button>
-        <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading">Previous</el-button>
-        <el-button v-if="activeStep < 3" type="primary" @click="nextStep" :disabled="drawerLoading">Next</el-button>
-
-        <PermissionWrapper permissions="dashboard_section_chart:create">
-          <el-button v-if="!isEditing && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(false)">Submit</el-button>
-          <el-button v-if="!isEditing && activeStep === 3" :loading="drawerLoading" @click="submitForm(true)">Submit &amp; Add Another</el-button>
-        </PermissionWrapper>
-
-        <PermissionWrapper permissions="dashboard_section_chart:update">
-          <el-button v-if="isEditing && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(false)">Save</el-button>
-          <el-button v-if="isEditing && activeStep === 3" :loading="drawerLoading" @click="submitForm(true)">Save &amp; Add Another</el-button>
-        </PermissionWrapper>
+        <div class="drawer-footer-left">
+          <el-button @click="cancelDrawer" :disabled="drawerLoading">Cancel</el-button>
+          <el-button @click="prevStep" :disabled="activeStep === 0 || drawerLoading">Previous</el-button>
+        </div>
+        <div class="drawer-footer-right">
+          <el-button v-if="activeStep < 3" type="primary" @click="nextStep" :disabled="drawerLoading">Next</el-button>
+          <PermissionWrapper permissions="dashboard_section_chart:create">
+            <el-button v-if="!isEditing && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(false)">Submit</el-button>
+            <el-button v-if="!isEditing && activeStep === 3" :loading="drawerLoading" @click="submitForm(true)">Submit &amp; Add Another</el-button>
+          </PermissionWrapper>
+          <PermissionWrapper permissions="dashboard_section_chart:update">
+            <el-button v-if="isEditing && activeStep === 3" type="primary" :loading="drawerLoading" @click="submitForm(false)">Save</el-button>
+            <el-button v-if="isEditing && activeStep === 3" :loading="drawerLoading" @click="submitForm(true)">Save &amp; Add Another</el-button>
+          </PermissionWrapper>
+        </div>
       </div>
     </template>
 
@@ -1237,56 +1456,63 @@ const submitForm = async (addAnother = false) => {
 
 <style scoped>
 /* ── Drawer chrome ──────────────────────────────────────────────────────────── */
-.drawer-header {
-  padding: 16px 20px;
-  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary));
+.dashboard-chart-drawer :deep(.el-drawer__body) {
+  padding-top: 0;
+}
+.drawer-header-wrap {
+  width: 100%;
   position: sticky;
   top: 0;
   z-index: 10;
 }
-.drawer-title { font-size: 18px; font-weight: 600; color: white; }
+.drawer-header {
+  padding: 5px 12px;
+  background: linear-gradient(135deg, var(--el-color-primary-dark-2), var(--el-color-primary));
+}
+.drawer-title { font-size: 14px; font-weight: 600; line-height: 1.2; color: white; }
 
-.steps-wrapper {
-  padding: 12px 16px;
+.step-indicator {
+  margin: 0;
+  padding: 4px 12px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--el-text-color-secondary);
   border-bottom: 1px solid #ebeef5;
-  margin-bottom: 4px;
 }
 
-/* Strip all colour and icons from the simple steps bar */
-.steps-wrapper :deep(.el-step__icon) { display: none !important; }
-.steps-wrapper :deep(.el-step__title) {
-  font-size: 13px !important;
-  font-weight: 400 !important;
-  color: #909399 !important;
-  padding: 0 !important;
-}
-.steps-wrapper :deep(.el-step__title.is-finish),
-.steps-wrapper :deep(.el-step__title.is-process) {
-  color: #303133 !important;
-  font-weight: 500 !important;
-}
-.steps-wrapper :deep(.el-step.is-simple .el-step__arrow::before),
-.steps-wrapper :deep(.el-step.is-simple .el-step__arrow::after) {
-  background: #dcdfe6 !important;
-}
-.steps-wrapper :deep(.el-step__head) { display: none !important; }
-
-.drawer-form { padding: 12px 20px 20px; }
+.drawer-form { padding: 8px 16px 16px; }
 
 .drawer-footer {
   padding: 12px 20px;
   border-top: 1px solid #ebeef5;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.drawer-footer-left,
+.drawer-footer-right {
+  display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
+.drawer-footer-right {
+  margin-left: auto;
+  justify-content: flex-end;
+}
 
 /* ── Category radio ─────────────────────────────────────────────────────────── */
-.category-group { display: flex; gap: 12px; flex-wrap: wrap; width: 100%; }
-.category-radio { height: auto !important; padding: 10px 14px !important; flex: 1; min-width: 160px; }
-.radio-label { font-weight: 600; font-size: 13px; color: #303133; }
-.radio-hint  { font-size: 11px; color: #909399; margin-top: 2px; white-space: normal; line-height: 1.4; }
+.category-group { display: flex; width: 100%; }
+.category-group :deep(.el-radio-button) { flex: 1; }
+.category-group :deep(.el-radio-button__inner) {
+  width: 100%;
+  white-space: normal;
+  line-height: 1.3;
+  padding: 10px 12px;
+}
 
 /* ── Chart type grid ────────────────────────────────────────────────────────── */
 .chart-grid {

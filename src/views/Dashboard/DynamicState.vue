@@ -16,6 +16,7 @@ import {
   dashboardChartTitleEmphasisSize,
   dashboardChartAxisPx,
 } from '@/utils/dashboardTypography'
+import { isInterventionCategory } from '@/utils/dashboardCategory'
 
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
@@ -381,7 +382,17 @@ let filterOperators = ['eq']
 var filter_value = scards.filter_value
 var filter_field = scards.filter_field
 var filter_function = scards.filter_function
+var filters = scards.filters
 
+if (filters) {
+  for (const item of filters) {
+    if (item.field) {
+      filterFields.push(item.field)
+      filterValues.push(item.value)
+      filterOperators.push(item.operation)
+    }
+  }
+}
 
 if (filter_value && filter_field ) { 
   filterFields.push(filter_field)
@@ -430,7 +441,7 @@ else if (filterLevel.value === 'national') {
 const formData = {}
 formData.model = 'indicator_category_report'
 formData.summaryField = 'amount'
-formData.summaryFunction = 'sum'
+formData.summaryFunction = scards.aggregation || 'sum'
 //formData.assoc_models = ['county']
 formData.assoc_models = associated_Models
 formData.groupFields = []
@@ -453,11 +464,12 @@ try {
     return 0;
   }
   
-  console.log("Cards sumamrye", response01.Total[0]?.sum)
+  const aggregMethod = scards.aggregation || 'sum'
+  console.log("Cards sumamrye", response01.Total[0]?.[aggregMethod])
   console.log('indicator_category_id', indicator_category_id)
 
  // const response = await getSumFilter(sumQuery);
-  const amount = response01.Total[0]?.sum ? parseInt(response01.Total[0].sum) : 0
+  const amount = response01.Total[0]?.[aggregMethod] ? parseInt(response01.Total[0][aggregMethod]) : 0
   //console.log('Cumulative Data', response.data)
 
   return amount;
@@ -471,7 +483,7 @@ try {
 
 const getSummary = async (card) => {
   // Check if this is an indicator card or entity card
-  if (card.category === 'Indicator') {
+  if (isInterventionCategory(card.category)) {
     return await getSummaryForIndicator(card)
   } else {
     return await getSummaryForEntity(card)
@@ -495,7 +507,18 @@ const getSummaryForIndicator = async (card) => {
   var filter_value = card.filter_value
   var filter_field = card.filter_field
   var filter_function = card.filter_function
-  
+  var filters = card.filters
+
+  if (filters) {
+    for (const item of filters) {
+      if (item.field) {
+        filterFields.push(item.field)
+        filterValues.push(item.value)
+        filterOperators.push(item.operation)
+      }
+    }
+  }
+
   if (filter_value && filter_field ) { 
     filterFields.push(filter_field)
     filterValues.push(filter_value)
@@ -527,7 +550,7 @@ const getSummaryForIndicator = async (card) => {
   const formData = {}
   formData.model = 'indicator_category_report'
   formData.summaryField = 'amount'
-  formData.summaryFunction = 'sum'
+  formData.summaryFunction = card.aggregation || 'sum'
   formData.assoc_models = associated_Models
   formData.groupFields = []
   formData.filterField = filterFields
@@ -547,8 +570,9 @@ const getSummaryForIndicator = async (card) => {
       return 0;
     }
     
-    console.log("Indicator Cards summary", response01.Total[0]?.sum)
-    const amount = response01.Total[0]?.sum ? parseInt(response01.Total[0].sum) : 0
+    const aggregMethod = card.aggregation || 'sum'
+    console.log("Indicator Cards summary", response01.Total[0]?.[aggregMethod])
+    const amount = response01.Total[0]?.[aggregMethod] ? parseInt(response01.Total[0][aggregMethod]) : 0
     return amount;
   } catch (error) {
     console.error(error);
@@ -1078,7 +1102,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any
 
 const getSummaryChart = async (thisChart, preloaded?: any) => {
   // Check if this is an indicator chart or entity chart
-  if (thisChart.category === 'Indicator') {
+  if (isInterventionCategory(thisChart.category)) {
     return await getSummaryChartForIndicator(thisChart, preloaded)
   } else {
     return await getSummaryChartForEntity(thisChart)
@@ -1088,8 +1112,10 @@ const getSummaryChart = async (thisChart, preloaded?: any) => {
 const getSummaryChartForIndicator = async (thisChart, preloaded?: any) => {
   console.log('Processing Indicator chart:', thisChart)
   
-  // For charts, we still use indicator_id to get indicator category IDs
   let indicator = thisChart.indicator_id
+  if (!indicator && Array.isArray(thisChart.indicators) && thisChart.indicators.length) {
+    indicator = thisChart.indicators[0].id
+  }
   var indicator_categories = await getIndicatorConfigurations(indicator)
   
   return await getSummaryChartIIntervention(indicator_categories, thisChart, preloaded)
@@ -1464,7 +1490,7 @@ const getCardData = async () => {
   // Phase 2: fetch all summaries in parallel (10s timeout per card)
   await Promise.all(res.data.map(async (arrayItem) => {
     const cardSymbol = arrayItem.computation === 'proportion' ? '%' : ''
-    const fetchPromise = arrayItem.category === 'Intervention'
+    const fetchPromise = isInterventionCategory(arrayItem.category)
       ? getSummaryIfIntervention(arrayItem)
       : getSummary(arrayItem)
     const timeoutPromise = new Promise<number>(resolve => setTimeout(() => resolve(0), 10000))
@@ -1576,6 +1602,10 @@ const getCharts = async (
     }
 
     const processPromises = response.data.map(async (thisChart) => {
+      if (!Array.isArray(thisChart.indicators)) {
+        thisChart.indicators = []
+      }
+
       console.log('This Chart:', thisChart)
 
       const filterLabel = getActiveFilterLabel()
@@ -2656,78 +2686,76 @@ const getCharts = async (
  
            // function to process processMultiBarChart charts 
       async function processSimpleBarChart2() {
-        const promises = thisChart.indicators.map(async function (indicator) {
+        const applyBarData = (cdata: any) => {
+          const UpdatedBarOptionsMultiple = {
+            ...simpleBarChart,
+            title: {
+              ...simpleBarChart.title,
+              text: thisChart.title
+            },
+            subtitle: {
+              ...simpleBarChart.subtitle,
+              text: subtitleWithSource
+            },
+            xaxis: {
+              ...simpleBarChart.xaxis,
+              categories: cdata[0]
+            },
+          }
+
+          thisChart.chart = UpdatedBarOptionsMultiple
+          thisChart.chart.series = cdata[1]
+
+          if (cdata[1].length === 0) {
+            thisChart.chart.graphic = [{
+              type: 'text',
+              left: 'center',
+              top: 'middle',
+              style: {
+                text: 'No data  available',
+                fill: '#999',
+                fontSize: dashboardChartTitleSize()
+              },
+              z: 100
+            }]
+          }
+        }
+
+        const indicators = Array.isArray(thisChart.indicators) ? thisChart.indicators : []
+        const preloaded = summaryByChartId.get(String(thisChart.id))
+
+        if (indicators.length === 0) {
+          if (preloaded) {
+            try {
+              setChartLoading(thisChart.id, 'Loading bar chart data...')
+              const cdata = await getSummaryChartIIntervention([], thisChart, preloaded)
+              applyBarData(cdata)
+            } catch (error) {
+              console.error('processSimpleBarChart2 (bundle):', thisChart?.id, error)
+            }
+          }
+          charts.push(thisChart)
+          setChartLoaded(thisChart.id)
+          return
+        }
+
+        const promises = indicators.map(async function (indicator) {
           console.log('processSimpleBarChart2:', indicator)
 
           try {
-            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
-            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryChartIIntervention(ids, thisChart, summaryByChartId.get(String(thisChart.id)))   // first array is the categories // second is the data
+            var cdata = await getSummaryChartIIntervention(ids, thisChart, preloaded)
             console.log('x-cdata',cdata)
-            console.log('x-cdata[0]',cdata[0])
-
-           
-
-            const UpdatedBarOptionsMultiple = {
-              ...simpleBarChart,
-              title: {
-                ...simpleBarChart.title,
-                text: thisChart.title
-              },
-              subtitle: {
-                ...simpleBarChart.subtitle,
-                text: subtitleWithSource
-              },
-              xaxis: {
-                ...simpleBarChart.xaxis,
-                categories: cdata[0] // categories as received 
-              },
-            };
-
-
-            thisChart.chart = UpdatedBarOptionsMultiple
-
-            thisChart.chart.series = cdata[1]
- 
-            console.log('thisChart',thisChart)
-            
-            // show no data 
-            if (cdata[1].length===0) {
-              thisChart.chart.graphic= [{
-            type: 'text',
-            left: 'center',
-            top: 'middle',
-            style: {
-              text: 'No data  available',
-              fill: '#999',
-              fontSize: dashboardChartTitleSize()
-                },
-                z: 100 // Higher z value to place it on top
-
-          }]
-            }
-        
-           
-
-            
+            applyBarData(cdata)
           } catch (error) {
-            // Handle any errors that occurred during the process
+            console.error('processSimpleBarChart2:', thisChart?.id, error)
           }
-        });
+        })
 
-        await Promise.all(promises);
-        // The loop has completed and all promises have been resolved/rejected
-        console.log('Loop completed');
-
-
-
-
-
+        await Promise.all(promises)
         charts.push(thisChart)
-        setChartLoaded(thisChart.id); // Mark chart as loaded
-        // Continue with the rest of your code here
+        setChartLoaded(thisChart.id)
       }
       // function to process processMultiBarChart charts 
       async function processMultiBarChart2() {
@@ -3289,52 +3317,52 @@ const getCharts = async (
 
       // For Interventions
 
-      if (thisChart.type == 1 && thisChart.category=="Intervention"  ) {
+      if (thisChart.type == 1 && isInterventionCategory(thisChart.category)  ) {
         console.log('processSimpleBarChart')
         await processSimpleBarChart2()
       }
 
-      else if (thisChart.type == 2 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 2 && isInterventionCategory(thisChart.category)) {
         await processMultiBarChart2();
       }
 
-      else if ((thisChart.type == 3 || thisChart.type == 10 )&& thisChart.category=="Intervention") {
+      else if ((thisChart.type == 3 || thisChart.type == 10 )&& isInterventionCategory(thisChart.category)) {
         await processPieChart2();
       }
 
-      else if (thisChart.type == 11 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 11 && isInterventionCategory(thisChart.category)) {
         await processTreemapChart();
       }
 
-      else if (thisChart.type == 4 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 4 && isInterventionCategory(thisChart.category)) {
         await processStackedBarChart2();
       }
 
-      else if (thisChart.type == 5 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 5 && isInterventionCategory(thisChart.category)) {
         await processLineChart2();
       }
 
-      else if (thisChart.type == 6 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 6 && isInterventionCategory(thisChart.category)) {
         await processStackLineChart2();
       }
 
-      else if (thisChart.type == 7 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 7 && isInterventionCategory(thisChart.category)) {
         await processMapChart2();
       }
 
-      else if (thisChart.type == 8 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 8 && isInterventionCategory(thisChart.category)) {
         await processPyramid();
       }
 
-      else if (thisChart.type == 13 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 13 && isInterventionCategory(thisChart.category)) {
         await processScatterChart();
       }
 
-      else if (thisChart.type == 14 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 14 && isInterventionCategory(thisChart.category)) {
         await processHeatmapChart();
       }
 
-      else if (thisChart.type == 15 && thisChart.category=="Intervention") {
+      else if (thisChart.type == 15 && isInterventionCategory(thisChart.category)) {
         await processGaugeChart();
       }
 

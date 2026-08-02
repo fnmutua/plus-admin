@@ -11,6 +11,7 @@ const db      = require('../models')
 const config  = require('../config/db.config.js')
 const Sequelize = require('sequelize')
 const { QueryTypes, Op: op } = Sequelize
+const { expandProgrammeIds } = require('../utils/projectListScope')
 
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST, port: config.PORT, dialect: config.dialect,
@@ -31,6 +32,18 @@ function resolveAdminLevel(filters) {
   if (has('subcounty_id')) return 'ward'
   if (has('county_id'))    return 'subcounty'
   return 'county'
+}
+
+function mergeJoinClauses(...joins) {
+  const seen = new Set()
+  const parts = []
+  for (const join of joins) {
+    const trimmed = String(join || '').trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    parts.push(trimmed)
+  }
+  return parts.join('\n    ')
 }
 
 // Resolve a virtual field name like 'county.name' into a JOIN + SQL expression.
@@ -59,6 +72,31 @@ function resolveVirtualField(field, tbl, filters) {
       xAlias:  'name',
     }
   }
+
+  if (tbl === 'project_location') {
+    if (field === 'project.status' || field === 'status') {
+      return {
+        joinSql: `JOIN project p ON p.id = "${tbl}".project_id`,
+        xExpr:   "COALESCE(p.status, 'Unknown')",
+        xAlias:  'status',
+      }
+    }
+    if (field === 'project.region' || field === 'region') {
+      return {
+        joinSql: `JOIN project p ON p.id = "${tbl}".project_id`,
+        xExpr:   "COALESCE(p.region, 'Unassigned')",
+        xAlias:  'region',
+      }
+    }
+    if (field === 'component.title') {
+      return {
+        joinSql: `JOIN project p ON p.id = "${tbl}".project_id JOIN component comp ON comp.id = p.component_id`,
+        xExpr:   'comp.title',
+        xAlias:  'component',
+      }
+    }
+  }
+
   return { joinSql: '', xExpr: safeCol(field), xAlias: field.split('.').pop() }
 }
 
@@ -103,8 +141,36 @@ function rowTimeValue(row, alias) {
   return String(row[Object.keys(row).find(k => k !== 'agg_value') || ''] || '')
 }
 
+async function resolveVirtualFilterClause(model, field, operation, value) {
+  if (operation === 'all') return null
+  const tbl = model
+  const supportsProjectSubquery =
+    tbl === 'project_location' || tbl === 'indicator_category_report'
+
+  if (!supportsProjectSubquery || (field !== 'component_id' && field !== 'programme_id')) {
+    return null
+  }
+
+  const rawVals = (Array.isArray(value) ? value : [value])
+    .map((v) => parseInt(v, 10))
+    .filter((v) => !Number.isNaN(v))
+  if (!rawVals.length) return null
+
+  if (field === 'component_id') {
+    return `"${tbl}".project_id IN (SELECT id FROM project WHERE component_id IN (${rawVals.join(', ')}))`
+  }
+
+  const programmeIds = await expandProgrammeIds(rawVals)
+  if (!programmeIds.length) return null
+  return `"${tbl}".project_id IN (
+    SELECT p.id FROM project p
+    INNER JOIN component c ON p.component_id = c.id
+    WHERE c.programme_id IN (${programmeIds.join(', ')})
+  )`
+}
+
 // ─── WHERE clause builder ─────────────────────────────────────────────────────
-function buildWhere(filters, ignoreEmpty, yField) {
+async function buildWhere(model, filters, ignoreEmpty, yField) {
   const parts = []
   const bind  = {}
   let   idx   = 0
@@ -128,6 +194,13 @@ function buildWhere(filters, ignoreEmpty, yField) {
 
     for (const f of filters) {
       if (!f.field || !f.operation || f.operation === 'all') continue
+
+      const virtualClause = await resolveVirtualFilterClause(model, f.field, f.operation, f.value)
+      if (virtualClause) {
+        parts.push(virtualClause)
+        continue
+      }
+
       const col  = safeCol(f.field)
       const vals = (Array.isArray(f.value) ? f.value : [f.value]).filter(v => v !== undefined)
 
@@ -227,14 +300,19 @@ async function resolveMapGeoLevel(filters, tbl) {
 async function barChart(body) {
   const { model, x_axis, y_axis, series_field, filters, ignore_empty } = body
   const tbl    = safeModel(model)
-  const { joinSql, xExpr, xAlias } = resolveVirtualField(x_axis.field, tbl, filters)
+  const xResolved = resolveVirtualField(x_axis.field, tbl, filters)
+  const serResolved = series_field?.field
+    ? resolveVirtualField(series_field.field, tbl, filters)
+    : null
+  const joinSql = mergeJoinClauses(xResolved.joinSql, serResolved?.joinSql)
+  const { xExpr, xAlias } = xResolved
   const yCol   = safeCol(y_axis.field === 'id' ? `${tbl}.id` : y_axis.field)
   const yAgg   = safeAgg(y_axis.aggregation)
-  const sCol   = series_field?.field ? safeCol(series_field.field) : null
+  const sCol   = serResolved?.xExpr || (series_field?.field ? safeCol(series_field.field) : null)
   const yLabel = y_axis.label || yAgg.toLowerCase()
   const yFieldForWhere = y_axis.field === 'id' ? `${tbl}.id` : y_axis.field
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false, yFieldForWhere)
 
   const groupCols = sCol ? `${xExpr}, ${sCol}` : xExpr
   const sql = `
@@ -249,7 +327,7 @@ async function barChart(body) {
   const rows = await sequelize.query(sql, { type: QueryTypes.SELECT, replacements: bind })
 
   const xField = xAlias
-  const sField = series_field?.field?.split('.').pop()
+  const sField = serResolved?.xAlias || series_field?.field?.split('.').pop()
 
   if (!sCol) {
     const categories = rows.map(r => r[xField] != null ? String(r[xField]) : '(empty)')
@@ -317,7 +395,7 @@ async function treemapChart(body) {
   const yCol = safeCol(y_axis.field === 'id' ? `${tbl}.id` : y_axis.field)
   const yAgg = safeAgg(y_axis.aggregation)
   const yFieldForWhere = y_axis.field === 'id' ? `${tbl}.id` : y_axis.field
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false, yFieldForWhere)
 
   const sql = `
     SELECT ${xExpr} AS category_raw, ${yCol} AS y_measure
@@ -406,7 +484,7 @@ async function pieChart(body) {
   const yAgg = safeAgg(y_axis.aggregation)
   const yFieldForWhere = y_axis.field === 'id' ? `${tbl}.id` : y_axis.field
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false, yFieldForWhere)
 
   const sqlLimit = chartType === 3 || chartType === 10 ? PIE_SLICE_LIMIT : null
   const limitSql = sqlLimit ? ` LIMIT ${sqlLimit}` : ''
@@ -446,7 +524,7 @@ async function lineChart(body) {
   const sJoinSql    = serResolved?.joinSql || ''
   const sField      = serResolved?.xAlias || null
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false, yFieldForWhere)
 
   const groupCols = sCol ? `${timeExpr}, ${sCol}` : timeExpr
 
@@ -496,7 +574,7 @@ async function mapChart(body) {
   const yAgg  = safeAgg(y_axis?.aggregation || 'count')
   const yFieldForWhere = yField === 'id' ? `${tbl}.id` : yField
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yFieldForWhere)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false, yFieldForWhere)
   const geoLevel = await resolveMapGeoLevel(filters, tbl)
 
   let joinSql, groupExpr
@@ -582,7 +660,7 @@ async function multiLineChart(body) {
   const { expr: timeExpr, alias: periodAlias } = buildTimeAxis(time_field || 'createdAt')
 
   const metricSelects = metrics.map(m => `SUM(${safeCol(m)}) AS ${m.replace(/\./g, '_')}`).join(',\n    ')
-  const { clause, bind } = buildWhere(filters, false)
+  const { clause, bind } = await buildWhere(tbl, filters, false)
 
   const sql = `
     SELECT ${timeExpr} AS ${periodAlias}, ${metricSelects}
@@ -614,7 +692,7 @@ async function scatterChart(body) {
   const xCol = safeCol(x_axis?.field || 'id')
   const yCol = safeCol(y_axis?.field || 'id')
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false)
   const nullCheck   = `${xCol} IS NOT NULL AND ${yCol} IS NOT NULL`
   const whereClause = clause ? `${clause} AND ${nullCheck}` : `WHERE ${nullCheck}`
 
@@ -663,7 +741,7 @@ async function gaugeChart(body) {
   const yCol  = yField === 'id' ? `"${tbl}".id` : safeCol(yField)
   const label = y_axis?.label || yAgg
 
-  const { clause, bind } = buildWhere(filters, ignore_empty !== false, yField === 'id' ? `${tbl}.id` : yField)
+  const { clause, bind } = await buildWhere(tbl, filters, ignore_empty !== false, yField === 'id' ? `${tbl}.id` : yField)
 
   const filteredSql = `SELECT ${yAgg}(${yCol}) AS agg_value FROM "${tbl}" ${clause}`
   const totalSql    = `SELECT ${yAgg}(${yCol}) AS agg_value FROM "${tbl}"`

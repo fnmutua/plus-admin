@@ -43,6 +43,15 @@ async function setCachedBundle(key, payload) {
   await redisClient.set(key, JSON.stringify(payload), { EX: TTL_SECONDS })
 }
 
+async function deleteCachedBundle(key) {
+  try {
+    const redisClient = await getClient()
+    await redisClient.del(key)
+  } catch (err) {
+    console.error('[dashboard-bundle] redis del failed:', err.message)
+  }
+}
+
 async function getNationalBundle() {
   return getCachedBundle(NATIONAL_BUNDLE_KEY)
 }
@@ -92,6 +101,7 @@ module.exports = {
   dashboardBundleKey,
   getCachedBundle,
   setCachedBundle,
+  deleteCachedBundle,
   getNationalBundle,
   setNationalBundle,
   getDashboardBundleById,
