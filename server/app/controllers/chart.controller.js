@@ -12,6 +12,10 @@ const config  = require('../config/db.config.js')
 const Sequelize = require('sequelize')
 const { QueryTypes, Op: op } = Sequelize
 const { expandProgrammeIds } = require('../utils/projectListScope')
+const {
+  isTargetVsAchievedChart,
+  resolveTargetVsAchievedChart,
+} = require('../services/indicatorTargetAchieved')
 
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST, port: config.PORT, dialect: config.dialect,
@@ -774,6 +778,20 @@ exports.renderChart = async (req, res) => {
     const chartType = Number(body.chart_type)
 
     if (!chartType) return res.status(400).send({ message: 'chart_type is required', code: '4001' })
+
+    const pseudoChart = { type: chartType, filters: body.filters }
+    if (isTargetVsAchievedChart(pseudoChart)) {
+      const tva = await resolveTargetVsAchievedChart(pseudoChart)
+      if (tva.kind === 'render') {
+        return res.status(200).send({
+          categories: tva.categories ?? [],
+          series: tva.series ?? [],
+          meta: tva.meta,
+          code: '0000',
+        })
+      }
+      return res.status(400).send({ message: tva.error || 'Invalid target vs achieved chart', code: '4002' })
+    }
 
     let result
     if (BAR_TYPES.has(chartType))   result = await barChart(body)

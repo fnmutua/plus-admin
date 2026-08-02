@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer
+  ElRow, ElCol, ElCard, ElEmpty, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem, ElSelect, ElOption, ElButton, ElDrawer, ElTooltip, ElMessage
 } from 'element-plus'
 import { ref, reactive, computed, onBeforeMount, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@/components/Icon'
@@ -36,7 +36,7 @@ import '@/plugins/echarts'
 import VChart from 'vue-echarts';
 import { getRoutesList } from '@/api/settlements'
 import { useRouter } from 'vue-router'
-import { Loading, Download } from '@element-plus/icons-vue'
+import { Loading, Download, Refresh } from '@element-plus/icons-vue'
 import { geoCache as _geoCache } from '@/utils/dashboardCache'
 import {
   ensureDashboardGeoBundleLoaded,
@@ -2822,6 +2822,49 @@ const chartExportApi = useDashboardChartExport({
 
 const { setChartComponentRef } = chartExportApi
 
+const dashboardRefreshing = ref(false)
+
+function clearNationalClientCaches() {
+  nationalBundleActive.value = false
+  nationalBundlePayload.value = null
+  nationalBundleRenderById.value = new Map()
+  nationalBundleGroupById.value = new Map()
+  _geoCache.clear()
+}
+
+async function hardRefreshDashboard() {
+  if (dashboardRefreshing.value) return
+
+  dashboardRefreshing.value = true
+  cardLoading.value = true
+  chartsLoading.value = true
+  clearNationalClientCaches()
+
+  try {
+    if (filterLevel.value === 'national') {
+      const bundle = await getNationalDashboardBundle({ refresh: true })
+      if (bundle.code === '0000' && bundle.dashboardId) {
+        nationalBundleActive.value = true
+        nationalBundlePayload.value = bundle
+        dashboard_id.value = bundle.dashboardId
+        hydrateNationalBundleMaps(bundle)
+        await Promise.all([applyNationalBundleCards(), applyNationalBundleTabs()])
+      } else {
+        await Promise.all([getCards(), getTabs()])
+      }
+    } else {
+      await Promise.all([getCards(), getTabs()])
+    }
+  } catch (error) {
+    console.error('Hard refresh failed:', error)
+    ElMessage.error('Failed to refresh dashboard data')
+  } finally {
+    cardLoading.value = false
+    chartsLoading.value = false
+    dashboardRefreshing.value = false
+  }
+}
+
 // Download settlement data
 const downloadSettlementData = async () => {
   if (!selectedSettlement.value) return;
@@ -3005,8 +3048,24 @@ const downloadSettlementData = async () => {
       </el-row>
     </div>
 
+    <div class="dashboard-tab-actions">
+      <el-tooltip content="Refresh data" placement="top">
+        <el-button
+          class="dashboard-refresh-btn"
+          text
+          :icon="Refresh"
+          :loading="dashboardRefreshing"
+          :disabled="dashboardRefreshing"
+          @click="hardRefreshDashboard"
+        />
+      </el-tooltip>
+      <DashboardChartExportDrawer
+        :export-api="chartExportApi"
+        :charts-loading="chartsLoading || dashboardRefreshing"
+      />
+    </div>
+
     <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
-      <DashboardChartExportDrawer :export-api="chartExportApi" :charts-loading="chartsLoading" />
       <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
         <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
             <el-row :gutter="20">
@@ -3276,6 +3335,24 @@ const downloadSettlementData = async () => {
   margin-top: 0;
   position: relative;
   z-index: 1;
+  max-height: 42vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dashboard-tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px 4px 0;
+  margin-top: 2px;
+}
+
+.dashboard-refresh-btn {
+  margin: 0;
+  padding: 8px;
 }
 
 .filters-wrapper {
@@ -3390,7 +3467,6 @@ const downloadSettlementData = async () => {
 
 .dashboard-tabs :deep(.el-tabs__header) {
   margin-bottom: 10px;
-  margin-right: 190px;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
 }

@@ -12,6 +12,11 @@ const {
   getMonitoringFiscalYear,
   getCalendarQuarter,
 } = require('../../lib/projectRegions');
+const {
+  baselineStatusSql,
+  loadLatestCumulativeByIndicator,
+  loadProjectTargetsForProject,
+} = require('../services/meReporting');
 
 /** Project-level progress indicator used for regional quarterly updates. */
 const IMPLEMENTATION_STATUS_INDICATOR_ID = 47;
@@ -20,14 +25,9 @@ const PHYSICAL_PROGRESS_TARGET = 100;
 
 /**
  * Which existing reports count as "where this project/indicator currently stands".
- *
- * Reports filed in-app (ProjectDetails) start life as 'New'/'Edited' and only become
- * 'Approved' after review, so matching on 'approved' alone hides them. A regional
- * submitter would then baseline below the true latest figure, and because the increment
- * is derived as (entered cumulative - baseline), the pending report gets counted twice
- * once it is approved. Anything not rejected is the best-known current figure.
+ * Re-exported from meReporting — see baselineStatusSql() for rationale.
  */
-const BASELINE_STATUS_SQL = "COALESCE(LOWER(r.status), '') <> 'rejected'";
+const BASELINE_STATUS_SQL = baselineStatusSql('r');
 
 const MAX_SUBMISSION_DOCUMENTS = 5;
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
@@ -303,95 +303,6 @@ async function loadReportableIndicatorsForProject(projectId, transaction) {
   });
 }
 
-async function loadLatestCumulativeByIndicator(
-  projectId,
-  indicatorCategoryIds,
-  projectLocationId,
-  transaction,
-  excludeFilingCode = null,
-) {
-  const ids = [...new Set(indicatorCategoryIds.map((id) => Number(id)).filter(Number.isFinite))];
-  if (!ids.length) return new Map();
-
-  const excludeCode = excludeFilingCode ? String(excludeFilingCode) : null;
-  const locId = projectLocationId != null ? Number(projectLocationId) : null;
-
-  const [rows] = await db.sequelize.query(
-    `
-      SELECT DISTINCT ON (r.indicator_category_id)
-        r.indicator_category_id,
-        COALESCE(r."cumAmount", r.amount, 0) AS cum_amount,
-        COALESCE(r.amount, 0) AS amount,
-        r.target,
-        r.qualitative
-      FROM indicator_category_report r
-      WHERE r.project_id = :projectId
-        AND r.indicator_category_id IN (:indicatorCategoryIds)
-        AND ${BASELINE_STATUS_SQL}
-        ${excludeCode ? "AND COALESCE(r.code, '') <> :excludeCode" : ''}
-        ${locId ? 'AND (r.project_location_id = :locId OR r.project_location_id IS NULL)' : ''}
-      ORDER BY r.indicator_category_id, r.id DESC
-    `,
-    {
-      replacements: {
-        projectId: Number(projectId),
-        indicatorCategoryIds: ids,
-        ...(excludeCode ? { excludeCode } : {}),
-        ...(locId ? { locId } : {}),
-      },
-      ...(transaction ? { transaction } : {}),
-    },
-  );
-
-  const byIndicator = new Map();
-  for (const row of rows) {
-    byIndicator.set(Number(row.indicator_category_id), {
-      cumAmount: parseAmount(row.cum_amount) ?? 0,
-      amount: parseAmount(row.amount) ?? 0,
-      target: row.target != null ? parseAmount(row.target) : null,
-      qualitative: row.qualitative,
-    });
-  }
-  return byIndicator;
-}
-
-async function loadIndicatorTargetsForProject(
-  projectId,
-  indicatorCategoryIds,
-  fiscalYear,
-  projectLocationId,
-  transaction,
-) {
-  const ids = [...new Set(indicatorCategoryIds.map((id) => Number(id)).filter(Number.isFinite))];
-  if (!ids.length) return new Map();
-
-  const targets = await db.models.indicator_target.findAll({
-    where: {
-      project_id: Number(projectId),
-      indicator_category_id: { [Op.in]: ids },
-      fiscal_year: fiscalYear,
-    },
-    order: [['id', 'DESC']],
-    transaction,
-  });
-
-  const locId = projectLocationId != null ? Number(projectLocationId) : null;
-  const byIndicator = new Map();
-  for (const row of targets) {
-    const icId = Number(row.indicator_category_id);
-    if (byIndicator.has(icId)) continue;
-
-    const rowLocId = row.project_location_id != null ? Number(row.project_location_id) : null;
-    if (locId && rowLocId && rowLocId !== locId) continue;
-
-    byIndicator.set(icId, {
-      target: parseAmount(row.target_value),
-      targetKind: String(row.target_kind || 'absolute'),
-    });
-  }
-  return byIndicator;
-}
-
 async function validateIndicatorRowsForProjects(normalizedRows, region, transaction, excludeFilingCode) {
   const projectIds = [...new Set(normalizedRows.map((row) => row.projectId))];
   const { projectById, locationByProject } = await loadProjectContext(
@@ -475,7 +386,7 @@ async function enrichIndicatorPayloadRows(normalizedRows, region, fiscalYear, tr
     const categoryById = new Map(reportable.map((category) => [Number(category.id), category]));
     const { locationByProject } = await loadProjectContext([row.projectId], region, transaction);
     const location = locationByProject.get(row.projectId);
-    const targets = await loadIndicatorTargetsForProject(
+    const targets = await loadProjectTargetsForProject(
       row.projectId,
       row.indicators.map((ind) => ind.indicatorCategoryId),
       fiscalYear,
@@ -718,7 +629,7 @@ async function upsertApprovedIndicatorReports(submission, normalizedRows, review
     const indicatorIds = (row.indicators || []).map((ind) => ind.indicatorCategoryId);
     if (!indicatorIds.length) continue;
     const location = locationByProject.get(row.projectId);
-    const targets = await loadIndicatorTargetsForProject(
+    const targets = await loadProjectTargetsForProject(
       row.projectId,
       indicatorIds,
       submission.fiscal_year,
@@ -1061,7 +972,7 @@ exports.getPublicRegionalReportProjectIndicators = async (req, res) => {
         null,
         null,
       ),
-      loadIndicatorTargetsForProject(
+      loadProjectTargetsForProject(
         projectId,
         indicatorIds,
         fiscalYear,

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {
   ElRow, ElCol, ElCard, ElTabs, ElTabPane, ElSkeleton, ElSkeletonItem,
-  ElSelect, ElOption,ElEmpty,ElIcon, ElDrawer, ElButton
+  ElSelect, ElOption,ElEmpty,ElIcon, ElDrawer, ElButton, ElTooltip, ElMessage
 } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Refresh } from '@element-plus/icons-vue'
 import { geoCache as _geoCache, indicatorConfigCache as _indicatorConfigCache } from '@/utils/dashboardCache'
 import {
   ensureDashboardGeoBundleLoaded,
@@ -82,7 +82,8 @@ const dashboard_id = ref()
 
 const dashboardBundleActive = ref(false)
 const dashboardBundlePayload = ref<DashboardBundle | null>(null)
-const dashboardBundleRenderById = ref(new Map<string, { categories: any[]; series: any[] }>())
+const dashboardBundleRenderById = ref(new Map<string, { categories: any[]; series: any[]; meta?: any }>())
+const chartLiveRenderMetaById = ref(new Map<string, any>())
 const dashboardBundleGroupById = ref(new Map<string, { Total: any }>())
 
 //////////
@@ -1044,6 +1045,11 @@ const getAxisChartData = async (thisChart: any): Promise<[any[], any[]]> => {
   if (mergedFilters.length) payload.filters = mergedFilters
 
   const res = await renderChart(payload)
+  if (res.meta) {
+    chartLiveRenderMetaById.value.set(String(thisChart.id), res.meta)
+  } else {
+    chartLiveRenderMetaById.value.delete(String(thisChart.id))
+  }
   const categories: any[] = Array.isArray(res.categories) ? res.categories : (res.data?.categories ?? [])
   const series: any[]     = Array.isArray(res.series) ? res.series : (res.data?.series ?? [])
 
@@ -1068,7 +1074,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart: any, preloaded?: any
     const chartType = Number(thisChart.type)
 
     const renderPre = dashboardBundleRenderById.value.get(String(thisChart.id))
-    if (renderPre && shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
+    if (renderPre && filterLevel.value === 'national' && shouldUseAxisEndpoint({ ...thisChart, x_axis, y_axis })) {
       const categories = renderPre.categories ?? []
       const series = renderPre.series ?? []
       if (chartType === 3 || chartType === 10 || chartType === 11) {
@@ -1612,6 +1618,7 @@ const getCharts = async (
       const subtitleText = filterLabel ? `${filterLabel} |` : ''
       const sourceText = `Source: National Geodatabase of Slums, ${new Date().getFullYear()}`
       const subtitleWithSource = `${subtitleText}\n${sourceText}`
+      const chartTitle = resolveGeoChartTitle(thisChart.title, thisChart)
 
       // Set initial loading state for this chart
       setChartLoading(thisChart.id, 'Preparing chart...')
@@ -1643,7 +1650,7 @@ const getCharts = async (
           },
           title: {
             ...pieOptions.title,
-            text: thisChart.title
+            text: chartTitle
           },
           subtitle: {
             ...pieOptions.subtitle,
@@ -1704,7 +1711,7 @@ const getCharts = async (
           thisChart.apexSeries = series
           thisChart.chart = {
             ...scatterOptions,
-            title:    { ...scatterOptions.title,    text: thisChart.title },
+            title:    { ...scatterOptions.title,    text: chartTitle },
             subtitle: { ...scatterOptions.subtitle, text: subtitleWithSource },
             xaxis: {
               ...scatterOptions.xaxis,
@@ -1720,7 +1727,7 @@ const getCharts = async (
         } catch (err) {
           console.error('processScatterChart:', thisChart?.id, err)
           thisChart.apexSeries = []
-          thisChart.chart = { ...scatterOptions, title: { ...scatterOptions.title, text: thisChart.title }, series: [], noData: { text: 'No data available' } }
+          thisChart.chart = { ...scatterOptions, title: { ...scatterOptions.title, text: chartTitle }, series: [], noData: { text: 'No data available' } }
         }
         charts.push(thisChart)
         setChartLoaded(thisChart.id)
@@ -1740,7 +1747,7 @@ const getCharts = async (
           thisChart.chart = {
             ...heatmapOptions,
             chart: { ...heatmapOptions.chart, height: Math.max(250, 60 + rawSeries.length * 40) },
-            title:    { ...heatmapOptions.title,    text: thisChart.title },
+            title:    { ...heatmapOptions.title,    text: chartTitle },
             subtitle: { ...heatmapOptions.subtitle, text: subtitleWithSource },
             series: heatSeries,
           }
@@ -1748,7 +1755,7 @@ const getCharts = async (
         } catch (err) {
           console.error('processHeatmapChart:', thisChart?.id, err)
           thisChart.apexSeries = []
-          thisChart.chart = { ...heatmapOptions, title: { ...heatmapOptions.title, text: thisChart.title }, series: [], noData: { text: 'No data available' } }
+          thisChart.chart = { ...heatmapOptions, title: { ...heatmapOptions.title, text: chartTitle }, series: [], noData: { text: 'No data available' } }
         }
         charts.push(thisChart)
         setChartLoaded(thisChart.id)
@@ -1757,21 +1764,30 @@ const getCharts = async (
       async function processGaugeChart() {
         setChartLoading(thisChart.id, 'Loading gauge data...')
         try {
+          const renderPre = dashboardBundleRenderById.value.get(String(thisChart.id))
           const cdata = await xgetSummaryMultipleParentsGrouped(thisChart, summaryByChartId.get(String(thisChart.id)))
-          const labels: string[] = Array.isArray(cdata[0]) ? cdata[0] : [thisChart.title]
+          const labels: string[] = Array.isArray(cdata[0]) ? cdata[0] : [chartTitle]
           const series: number[] = Array.isArray(cdata[1]) ? cdata[1].map(Number) : [0]
+          const liveMeta = chartLiveRenderMetaById.value.get(String(thisChart.id))
+          const meta = filterLevel.value === 'national'
+            ? (renderPre?.meta ?? liveMeta)
+            : (liveMeta ?? renderPre?.meta)
+          const tvaSubtitle =
+            meta?.targetVsAchieved && meta.total != null
+              ? `${Number(meta.value ?? 0).toLocaleString()} / ${Number(meta.total).toLocaleString()} achieved`
+              : null
           thisChart.apexSeries = series
           thisChart.chart = {
             ...gaugeOptions,
-            title:    { ...gaugeOptions.title,    text: thisChart.title },
-            subtitle: { ...gaugeOptions.subtitle, text: subtitleWithSource },
+            title:    { ...gaugeOptions.title,    text: chartTitle },
+            subtitle: { ...gaugeOptions.subtitle, text: tvaSubtitle || subtitleWithSource },
             labels,
             series,
           }
         } catch (err) {
           console.error('processGaugeChart:', thisChart?.id, err)
           thisChart.apexSeries = [0]
-          thisChart.chart = { ...gaugeOptions, title: { ...gaugeOptions.title, text: thisChart.title }, labels: [thisChart.title], series: [0] }
+          thisChart.chart = { ...gaugeOptions, title: { ...gaugeOptions.title, text: chartTitle }, labels: [chartTitle], series: [0] }
         }
         charts.push(thisChart)
         setChartLoaded(thisChart.id)
@@ -1784,7 +1800,7 @@ const getCharts = async (
           if (!xField || xField === 'id') {
             thisChart.chart = {
               ...treemapOptions,
-              title: { ...treemapOptions.title, text: thisChart.title },
+              title: { ...treemapOptions.title, text: chartTitle },
               subtitle: { ...treemapOptions.subtitle, text: subtitleWithSource },
               series: [{ data: [] }],
               noData: { text: 'Reconfigure: pick a category field (not id)' },
@@ -1811,7 +1827,7 @@ const getCharts = async (
                 export: { scale: 3, width: 1800 },
               },
             },
-            title:    { ...treemapOptions.title,    text: thisChart.title },
+            title:    { ...treemapOptions.title,    text: chartTitle },
             subtitle: { ...treemapOptions.subtitle, text: subtitleWithSource },
             plotOptions: {
               ...treemapOptions.plotOptions,
@@ -1833,7 +1849,7 @@ const getCharts = async (
           thisChart.apexSeries = [{ data: [] }]
           thisChart.chart = {
             ...treemapOptions,
-            title: { ...treemapOptions.title, text: thisChart.title },
+            title: { ...treemapOptions.title, text: chartTitle },
             series: [{ data: [] }],
             noData: { text: 'No data available' },
           }
@@ -1881,7 +1897,7 @@ const getCharts = async (
 
             const UpdatedBarOptionsMultiple = {
               ...simpleBarChart,
-              title: { ...simpleBarChart.title, text: thisChart.title },
+              title: { ...simpleBarChart.title, text: chartTitle },
               subtitle: { ...simpleBarChart.subtitle, text: subtitleWithSource },
               chart: withBarChartExport(simpleBarChart.chart, thisChart.chartHeight, false),
               xaxis: { ...simpleBarChart.xaxis, categories: displayCats },
@@ -1948,7 +1964,7 @@ const getCharts = async (
           thisChart.apexSeries = displaySeries
           thisChart.chart = {
             ...simpleBarChart,
-            title:    { ...simpleBarChart.title,    text: thisChart.title },
+            title:    { ...simpleBarChart.title,    text: chartTitle },
             subtitle: { ...simpleBarChart.subtitle, text: subtitleWithSource },
             chart:    withBarChartExport(simpleBarChart.chart, thisChart.chartHeight, false),
             xaxis:    { ...simpleBarChart.xaxis, categories: displayCats },
@@ -1986,7 +2002,7 @@ const getCharts = async (
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptions,
-              title: { ...stackedbarOptions.title, text: thisChart.title },
+              title: { ...stackedbarOptions.title, text: chartTitle },
               subtitle: { ...stackedbarOptions.subtitle, text: subtitleWithSource },
               chart: withBarChartExport(stackedbarOptions.chart, thisChart.chartHeight, false),
               xaxis: { ...stackedbarOptions.xaxis, categories: displayCats },
@@ -2055,7 +2071,7 @@ const getCharts = async (
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptionsAbs,
-              title: { ...stackedbarOptionsAbs.title, text: thisChart.title },
+              title: { ...stackedbarOptionsAbs.title, text: chartTitle },
               subtitle: { ...stackedbarOptionsAbs.subtitle, text: subtitleWithSource },
               chart: withBarChartExport(stackedbarOptionsAbs.chart, thisChart.chartHeight, false),
               xaxis: { ...stackedbarOptionsAbs.xaxis, categories: displayCats },
@@ -2102,7 +2118,7 @@ const getCharts = async (
           thisChart.apexSeries = apexSeries
           thisChart.chart = {
             ...lineOptions,
-            title:    { ...lineOptions.title,    text: thisChart.title },
+            title:    { ...lineOptions.title,    text: chartTitle },
             subtitle: { ...lineOptions.subtitle, text: subtitleWithSource },
             xaxis:    { ...lineOptions.xaxis, categories },
             yaxis: dualAxis
@@ -2139,7 +2155,7 @@ const getCharts = async (
           thisChart.apexSeries = apexSeries
           thisChart.chart = {
             ...lineOptions,
-            title:    { ...lineOptions.title,    text: thisChart.title },
+            title:    { ...lineOptions.title,    text: chartTitle },
             subtitle: { ...lineOptions.subtitle, text: subtitleWithSource },
             xaxis:    { ...lineOptions.xaxis, categories },
             series:   apexSeries,
@@ -2181,7 +2197,7 @@ const getCharts = async (
               ...stacklineOptions,
               title: {
                 ...stacklineOptions.title,
-                text: thisChart.title
+                text: chartTitle
               },
               subtitle: {
                 ...stacklineOptions.subtitle,
@@ -2374,7 +2390,7 @@ const getCharts = async (
               ...mapChartOptions,
               title: {
                 ...mapChartOptions.title,
-                text: thisChart.title,
+                text: chartTitle,
                 subtext: subtitleWithSource,
                 left: 'right',
               },
@@ -2399,7 +2415,7 @@ const getCharts = async (
               series: [
                 {
                   ...mapSeriesBase,
-                  name: thisChart.title,
+                  name: chartTitle,
                   map: mapName,
                   nameProperty: geoNameProperty,
                   aspectScale: aspect.value,
@@ -2555,7 +2571,7 @@ const getCharts = async (
                           ...pyramidOptions.chartOptions,
                           title: {
                             ...pyramidOptions.chartOptions.title,
-                            text: thisChart.title      // replace "Mauritius population pyramid 2011"
+                            text: chartTitle      // replace "Mauritius population pyramid 2011"
                           },
                           subtitle: {
                             ...(pyramidOptions.chartOptions.subtitle || {}),
@@ -2623,7 +2639,7 @@ const getCharts = async (
               ...pieOptions,
               title: {
                 ...pieOptions.title,
-                text: thisChart.title
+                text: chartTitle
               },
               subtitle: {
                 ...pieOptions.subtitle,
@@ -2691,7 +2707,7 @@ const getCharts = async (
             ...simpleBarChart,
             title: {
               ...simpleBarChart.title,
-              text: thisChart.title
+              text: chartTitle
             },
             subtitle: {
               ...simpleBarChart.subtitle,
@@ -2774,7 +2790,7 @@ const getCharts = async (
               ...multipleBarChart,
               title: {
                 ...multipleBarChart.title,
-                text: thisChart.title
+                text: chartTitle
               },
               subtitle: {
                 ...multipleBarChart.subtitle,
@@ -2840,7 +2856,7 @@ const getCharts = async (
               ...barMaleFemaleOptions,
               title: {
                 ...barMaleFemaleOptions.title,
-                text: thisChart.title
+                text: chartTitle
               },
               subtitle: {
                 ...barMaleFemaleOptions.subtitle,
@@ -2913,7 +2929,7 @@ const getCharts = async (
               ...lineOptions,
               title: {
                 ...lineOptions.title,
-                text: thisChart.title
+                text: chartTitle
               },
               subtitle: {
                 ...lineOptions.subtitle,
@@ -2994,7 +3010,7 @@ const getCharts = async (
               ...stacklineOptions,
               title: {
                 ...stacklineOptions.title,
-                text: thisChart.title
+                text: chartTitle
               },
               subtitle: {
                 ...stacklineOptions.subtitle,
@@ -3185,7 +3201,7 @@ const getCharts = async (
               ...mapChartOptions,
               title: {
                 ...mapChartOptions.title,
-                text: thisChart.title,
+                text: chartTitle,
                 subtext: subtitleWithSource,
                 left: 'right',
               },
@@ -3210,7 +3226,7 @@ const getCharts = async (
               series: [
                 {
                   ...mapSeriesBase2,
-                  name: thisChart.title,
+                  name: chartTitle,
                   map: mapName,
                   nameProperty: geoNameProperty2,
                   aspectScale: aspect.value,
@@ -3447,6 +3463,74 @@ const subCountyList = ref([])
 const filteredSubCountyList = ref([])
 
 
+function getGeoGroupLevel(): 'county' | 'subcounty' | 'ward' | null {
+  if (filterLevel.value === 'national') return 'county'
+  if (filterLevel.value === 'county') return 'subcounty'
+  if (filterLevel.value === 'subcounty') return 'ward'
+  return null
+}
+
+/** Whether chart data is grouped by the active admin level (not a fixed category axis). */
+function chartUsesLocationGrouping(chart: any): boolean {
+  const chartType = Number(chart.type)
+  const x_axis = parseAxisJson(chart.x_axis)
+  const isTimeSeries = chartType === 5 || chartType === 6 || chartType === 12
+  if (isTimeSeries || chartType === 8 || chartType === 15) return false
+  if (chartType === 3 || chartType === 10 || chartType === 11) {
+    const slice = x_axis?.field || ''
+    if (!slice || slice === 'county.name') return chart.category === 'Intervention'
+    return false
+  }
+  const nonGeoAxis = ['project.status', 'component.title', 'location_type', 'project.region']
+  if (x_axis?.field && nonGeoAxis.includes(x_axis.field)) return false
+  if (x_axis?.field === 'county.name') return true
+  if (chart.category === 'Intervention') return true
+  if (chart.category === 'Status' && !x_axis?.field) return true
+  if (chartType === 7 || chartType === 14) return true
+  return false
+}
+
+/**
+ * Derive chart title for the current dashboard filter level.
+ * National → "by county"; county filter → "by subcounty"; subcounty filter → "by ward".
+ */
+function resolveGeoChartTitle(title: string, chart?: any): string {
+  if (!title || typeof title !== 'string') return title ?? ''
+  const group = getGeoGroupLevel()
+  let result = title
+
+  const replaceGeoPhrases = (target: 'county' | 'subcounty' | 'ward') => {
+    const by = `by ${target}`
+    result = result
+      .replace(/\bby (county|subcounty|ward)\b/gi, by)
+      .replace(/\bCounty ×/gi, `${target.charAt(0).toUpperCase()}${target.slice(1)} ×`)
+      .replace(/\b(county|subcounty|ward) and\b/gi, `${target} and`)
+      .replace(/\bgrouped by (county|subcounty|ward)\b/gi, `grouped by ${target}`)
+      .replace(/\bshaded by (county|subcounty|ward)\b/gi, `shaded by ${target}`)
+  }
+
+  if (/\bby (county|subcounty|ward)\b/i.test(result)
+    || /\bCounty ×/i.test(result)
+    || /\b(county|subcounty|ward) and\b/i.test(result)) {
+    if (group === 'county') {
+      replaceGeoPhrases('county')
+    } else if (group === 'subcounty') {
+      replaceGeoPhrases('subcounty')
+    } else if (group === 'ward') {
+      replaceGeoPhrases('ward')
+    } else {
+      result = result
+        .replace(/\s*by (county|subcounty|ward)\b/gi, '')
+        .replace(/\s*(County|Subcounty|Ward) ×/gi, '')
+        .replace(/\s*(county|subcounty|ward) and\b/gi, ' and')
+    }
+  } else if (group && group !== 'county' && chart && chartUsesLocationGrouping(chart)) {
+    result = `${result} by ${group}`
+  }
+
+  return result.replace(/\s+/g, ' ').trim()
+}
+
 function getActiveFilterLabel() {
   // No filter text for national level
   if (filterLevel.value === 'national') {
@@ -3620,6 +3704,7 @@ function hydrateDashboardBundleMaps(bundle: DashboardBundle) {
         dashboardBundleRenderById.value.set(String(chart.id), {
           categories: bd.categories ?? [],
           series: bd.series ?? [],
+          meta: bd.meta ?? null,
         })
       } else if (bd.kind === 'group') {
         dashboardBundleGroupById.value.set(String(chart.id), { Total: bd.Total })
@@ -3747,6 +3832,9 @@ const handleClear = async () => {
 
   dashboardBundleActive.value = false
   dashboardBundlePayload.value = null
+  dashboardBundleRenderById.value = new Map()
+  dashboardBundleGroupById.value = new Map()
+  chartLiveRenderMetaById.value = new Map()
   cardLoading.value = true
   chartsLoading.value = true
   try {
@@ -3783,6 +3871,9 @@ const filterCounty = async (county_id) => {
   }
   dashboardBundleActive.value = false
   dashboardBundlePayload.value = null
+  dashboardBundleRenderById.value = new Map()
+  dashboardBundleGroupById.value = new Map()
+  chartLiveRenderMetaById.value = new Map()
   cardLoading.value = true
   chartsLoading.value = true
   try {
@@ -3821,6 +3912,9 @@ selectedSubCounties.value = subcountyId;
   }
   dashboardBundleActive.value = false
   dashboardBundlePayload.value = null
+  dashboardBundleRenderById.value = new Map()
+  dashboardBundleGroupById.value = new Map()
+  chartLiveRenderMetaById.value = new Map()
   cardLoading.value = true
   chartsLoading.value = true
   try {
@@ -3838,6 +3932,50 @@ selectedSubCounties.value = subcountyId;
     // Ensure loading states are cleared
     cardLoading.value = false
     chartsLoading.value = false
+  }
+}
+
+const dashboardRefreshing = ref(false)
+
+function clearDashboardClientCaches() {
+  dashboardBundleActive.value = false
+  dashboardBundlePayload.value = null
+  dashboardBundleRenderById.value = new Map()
+  dashboardBundleGroupById.value = new Map()
+  chartLiveRenderMetaById.value = new Map()
+  _geoCache.clear()
+  _indicatorConfigCache.clear()
+}
+
+async function hardRefreshDashboard() {
+  if (dashboardRefreshing.value) return
+
+  dashboardRefreshing.value = true
+  cardLoading.value = true
+  chartsLoading.value = true
+  clearDashboardClientCaches()
+
+  try {
+    if (filterLevel.value === 'national' && dashboard_id.value) {
+      const bundle = await getDashboardBundle(dashboard_id.value, { refresh: true })
+      if (bundle.code === '0000' && bundle.dashboardId) {
+        dashboardBundleActive.value = true
+        dashboardBundlePayload.value = bundle
+        hydrateDashboardBundleMaps(bundle)
+        await Promise.all([applyDashboardBundleCards(), applyDashboardBundleTabs()])
+      } else {
+        await Promise.all([getCards(), getTabs()])
+      }
+    } else {
+      await Promise.all([getCards(), getTabs()])
+    }
+  } catch (error) {
+    console.error('Hard refresh failed:', error)
+    ElMessage.error('Failed to refresh dashboard data')
+  } finally {
+    cardLoading.value = false
+    chartsLoading.value = false
+    dashboardRefreshing.value = false
   }
 }
 
@@ -4240,8 +4378,24 @@ onBeforeUnmount(() => {
     </div>
   </template>
 
+  <div class="dashboard-tab-actions">
+    <el-tooltip content="Refresh data" placement="top">
+      <el-button
+        class="dashboard-refresh-btn"
+        text
+        :icon="Refresh"
+        :loading="dashboardRefreshing"
+        :disabled="dashboardRefreshing"
+        @click="hardRefreshDashboard"
+      />
+    </el-tooltip>
+    <DashboardChartExportDrawer
+      :export-api="chartExportApi"
+      :charts-loading="chartsLoading || dashboardRefreshing"
+    />
+  </div>
+
   <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
-    <DashboardChartExportDrawer :export-api="chartExportApi" :charts-loading="chartsLoading" />
     <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
       <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
           <el-row :gutter="20">
@@ -4427,6 +4581,9 @@ onBeforeUnmount(() => {
   margin-top: 0;
   position: relative;
   z-index: 1;
+  max-height: 42vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .filters-wrapper {
@@ -4500,6 +4657,21 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
+.dashboard-tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px 4px 0;
+  margin-top: 2px;
+}
+
+.dashboard-refresh-btn {
+  margin: 0;
+  padding: 8px;
+}
+
 /* Do not set flex-direction on .dashboard-tabs — Element Plus uses column-reverse for tab-position="top". */
 .dashboard-tabs {
   flex: 1;
@@ -4538,7 +4710,6 @@ onBeforeUnmount(() => {
 
 .dashboard-tabs :deep(.el-tabs__header) {
   margin-bottom: 10px;
-  margin-right: 190px;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
 }

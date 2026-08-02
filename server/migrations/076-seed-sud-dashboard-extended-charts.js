@@ -239,13 +239,13 @@ const CHARTS = [
   },
 ];
 
-/** Fix indicator link from 075 (123 does not exist — use 134). */
 const CHART_FIXES = [
   {
     code: 'sud-seed-chart-housing-units',
-    indicatorIds: [134],
     title: 'Social housing units constructed',
-    description: 'Reported social housing units (M&E indicator 134) by county',
+    description: 'Reported social housing units (category 93) by county',
+    filters: [{ field: 'indicator_category_id', value: [93], operation: 'eq' }],
+    removeIndicators: true,
   },
 ];
 

@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const readXlsxFile = require('read-excel-file/node');
 
@@ -18,6 +19,21 @@ const SHEET_TO_REGION = {
 };
 
 const TRACKER_FILE = path.join(__dirname, '..', '..', 'tools', 'SUD Regional Tracker (1).xlsx');
+
+const TRACKER_FILE_CANDIDATES = [
+  () => process.env.SUD_TRACKER_FILE,
+  () => TRACKER_FILE,
+  () => path.join(__dirname, '..', '..', 'tools', 'SUD Regional Tracker.xlsx'),
+];
+
+/** First existing tracker workbook path (env override, default name, or alternate filename). */
+function resolveTrackerFilePath() {
+  for (const getPath of TRACKER_FILE_CANDIDATES) {
+    const candidate = getPath();
+    if (candidate && fs.existsSync(candidate)) return candidate;
+  }
+  return TRACKER_FILE;
+}
 
 const SECTION_LABELS = new Set(['SOCIAL HOUSING', 'MARKETS', 'SOCIAL INFRASTRUCTURE']);
 
@@ -476,6 +492,7 @@ function buildTrackerContractByProject(entries, projects) {
 
 module.exports = {
   TRACKER_FILE,
+  resolveTrackerFilePath,
   SHEET_TO_REGION,
   normalizeKey,
   normalizeCountyKey,

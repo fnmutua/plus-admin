@@ -164,10 +164,7 @@ const handleDrawerClose = (done: () => void) => {
 
 <style scoped>
 .dashboard-export-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 5;
+  margin: 0;
 }
 
 .export-drawer-content {

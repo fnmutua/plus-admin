@@ -118,7 +118,7 @@ const CHARTS = [
     category: 'Intervention',
     type: 1,
     card_model: 'indicator_category_report',
-    indicatorIds: [134],
+    filters: [{ field: 'indicator_category_id', value: [93], operation: 'eq' }],
   },
   {
     code: 'sud-seed-chart-markets-county',

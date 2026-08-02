@@ -12,6 +12,10 @@ const {
 } = require('../utils/dashboardBundleRedis')
 const summaryController = require('../controllers/summary.controller')
 const chartController = require('../controllers/chart.controller')
+const {
+  isTargetVsAchievedChart,
+  resolveTargetVsAchievedChart,
+} = require('./indicatorTargetAchieved')
 
 const buildInFlight = new Map()
 
@@ -288,6 +292,16 @@ async function getIndicatorCategoryIds(indicatorId) {
 }
 
 async function getChartIndicatorCategoryIds(chart) {
+  if (Array.isArray(chart.filters)) {
+    for (const item of chart.filters) {
+      if (item?.field === 'indicator_category_id' && item?.operation === 'eq') {
+        const vals = Array.isArray(item.value) ? item.value : [item.value]
+        const ids = vals.map(Number).filter(Boolean)
+        if (ids.length) return ids
+      }
+    }
+  }
+
   const indicatorIds = []
   if (Array.isArray(chart.indicators) && chart.indicators.length) {
     for (const ind of chart.indicators) {
@@ -379,6 +393,10 @@ async function resolveChartBundleData(chart) {
   const chartType = Number(chart.type)
 
   try {
+    if (isTargetVsAchievedChart(chart)) {
+      return await resolveTargetVsAchievedChart(chart)
+    }
+
     if (isInterventionCategory(chart.category)) {
       const categoryIds = await getChartIndicatorCategoryIds(chart)
       if (categoryIds.length) {
@@ -401,6 +419,7 @@ async function resolveChartBundleData(chart) {
         kind: 'render',
         categories: response.categories ?? [],
         series: response.series ?? [],
+        meta: response.meta ?? null,
       }
     }
 

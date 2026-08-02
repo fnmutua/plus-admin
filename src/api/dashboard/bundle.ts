@@ -62,13 +62,26 @@ export interface DashboardGeoBundle {
 }
 
 /** Single cached payload for National dashboard (cards + all chart data). */
-export const getNationalDashboardBundle = (): Promise<NationalDashboardBundle> => {
-  return request.get({ url: `${prod}/api/v1/dashboard/national/bundle` }) as Promise<NationalDashboardBundle>
+export const getNationalDashboardBundle = (
+  options?: { refresh?: boolean },
+): Promise<NationalDashboardBundle> => {
+  const params = options?.refresh ? { refresh: '1' } : undefined
+  return request.get({
+    url: `${prod}/api/v1/dashboard/national/bundle`,
+    params,
+  }) as Promise<NationalDashboardBundle>
 }
 
 /** Cached bundle for any dashboard (DynamicState / intervention dashboards). */
-export const getDashboardBundle = (dashboardId: number | string): Promise<DashboardBundle> => {
-  return request.get({ url: `${prod}/api/v1/dashboard/${dashboardId}/bundle` }) as Promise<DashboardBundle>
+export const getDashboardBundle = (
+  dashboardId: number | string,
+  options?: { refresh?: boolean },
+): Promise<DashboardBundle> => {
+  const params = options?.refresh ? { refresh: '1' } : undefined
+  return request.get({
+    url: `${prod}/api/v1/dashboard/${dashboardId}/bundle`,
+    params,
+  }) as Promise<DashboardBundle>
 }
 
 /** Cached national landing map payload (settlements + counties + geo). */
