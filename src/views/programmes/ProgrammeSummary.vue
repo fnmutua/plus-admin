@@ -1492,7 +1492,7 @@ const downloadSummaryTable = async () => {
     <el-dialog
       v-model="trackerExportDialogVisible"
       :title="trackerExportUi.dialogTitle"
-      width="480px"
+      :width="isMobile ? '90%' : '480px'"
       :close-on-click-modal="!downloading"
     >
       <p class="tracker-export-intro">
