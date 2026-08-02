@@ -1,0 +1,30 @@
+'use strict';
+
+/** Shared indicator_category ids — keep in sync with M&E / SUD dashboards. */
+const IMPLEMENTATION_STATUS_CATEGORY_ID = 47;
+const SEWER_INFRASTRUCTURE_PROGRESS_CATEGORY_ID = 92;
+const SOCIAL_HOUSING_UNITS_CATEGORY_ID = 93;
+
+const PHYSICAL_PROGRESS_CATEGORY_IDS = new Set([
+  IMPLEMENTATION_STATUS_CATEGORY_ID,
+  SEWER_INFRASTRUCTURE_PROGRESS_CATEGORY_ID,
+]);
+
+const COB_PORTFOLIO_CATEGORY_IDS = [
+  SOCIAL_HOUSING_UNITS_CATEGORY_ID,
+  19, // Markets
+  20, // Floodlights
+  15, // Access roads
+  69, // Footbridges
+  22, // Social halls
+  18, // Health facilities
+  14, // Education blocks
+];
+
+module.exports = {
+  IMPLEMENTATION_STATUS_CATEGORY_ID,
+  SEWER_INFRASTRUCTURE_PROGRESS_CATEGORY_ID,
+  SOCIAL_HOUSING_UNITS_CATEGORY_ID,
+  PHYSICAL_PROGRESS_CATEGORY_IDS,
+  COB_PORTFOLIO_CATEGORY_IDS,
+};

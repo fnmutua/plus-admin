@@ -16,6 +16,11 @@ const {
   isTargetVsAchievedChart,
   resolveTargetVsAchievedChart,
 } = require('./indicatorTargetAchieved')
+const {
+  sumCategoryAchieved,
+  sumCategoryAchievedGrouped,
+  parseDashboardLocationFilters,
+} = require('./meReporting')
 
 const buildInFlight = new Map()
 
@@ -243,42 +248,17 @@ async function resolveCardValue(card) {
 }
 
 async function resolveInterventionCardValue(card) {
-  const filterFields = ['indicator_category_id']
-  const filterValues = [card.indicator_category_id]
-  const filterOperators = ['eq']
+  const location = parseDashboardLocationFilters(Array.isArray(card.filters) ? card.filters : [])
+  const categoryId = Number(card.indicator_category_id)
+  if (!Number.isFinite(categoryId)) return 0
 
-  if (card.filter_field && card.filter_value != null) {
-    filterFields.push(card.filter_field)
-    filterValues.push(card.filter_value)
-    filterOperators.push(card.filter_function || 'eq')
+  try {
+    const achieved = await sumCategoryAchieved(categoryId, location, null, { approvedOnly: true })
+    return Math.round(achieved) || 0
+  } catch (err) {
+    console.error('[dashboard-bundle] intervention card', card.id, err.message)
+    return 0
   }
-
-  if (Array.isArray(card.filters)) {
-    for (const item of card.filters) {
-      if (item?.field) {
-        filterFields.push(item.field)
-        filterValues.push(item.value)
-        filterOperators.push(item.operation)
-      }
-    }
-  }
-
-  const payload = {
-    model: 'indicator_category_report',
-    summaryField: 'amount',
-    summaryFunction: 'sum',
-    assoc_models: ['county'],
-    groupFields: [],
-    filterField: filterFields,
-    filterValue: filterValues,
-    filterOperator: filterOperators,
-    indicator_category_id: card.indicator_category_id,
-  }
-
-  const response = await invokeController(summaryController.sumModelAssociatedMultipleModels, payload)
-  const row = response?.Total?.[0]
-  const raw = row?.sum ?? row?.amount
-  return raw != null ? parseInt(raw, 10) || 0 : 0
 }
 
 async function getIndicatorCategoryIds(indicatorId) {
@@ -400,9 +380,11 @@ async function resolveChartBundleData(chart) {
     if (isInterventionCategory(chart.category)) {
       const categoryIds = await getChartIndicatorCategoryIds(chart)
       if (categoryIds.length) {
-        const payload = buildInterventionChartPayload(chart, categoryIds)
-        const response = await invokeController(summaryController.sumModelAssociatedMultipleModels, payload)
-        return { kind: 'summary', Total: response.Total, intervention: true }
+        const location = parseDashboardLocationFilters(Array.isArray(chart.filters) ? chart.filters : [])
+        const rows = await sumCategoryAchievedGrouped(categoryIds, location, null, {
+          approvedOnly: true,
+        })
+        return { kind: 'summary', Total: rows, intervention: true }
       }
     }
 

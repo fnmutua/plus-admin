@@ -23,6 +23,15 @@ function baselineStatusSql(alias = 'r') {
   return `COALESCE(LOWER(${alias}.status), '') <> 'rejected'`;
 }
 
+/** National dashboard achieved totals — approved filings only. */
+function approvedAchievedStatusSql(alias = 'r') {
+  return `COALESCE(LOWER(${alias}.status), '') = 'approved'`;
+}
+
+function achievedStatusSql(alias = 'r', { approvedOnly = false } = {}) {
+  return approvedOnly ? approvedAchievedStatusSql(alias) : baselineStatusSql(alias);
+}
+
 function parseNum(value) {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
@@ -247,9 +256,9 @@ async function sumProjectTargets(categoryId, location = {}, transaction) {
  * Sums latest cumulative per (project_id, project_location_id) — same baseline concept
  * as loadLatestCumulativeByIndicator, rolled up across all projects.
  */
-async function sumCategoryAchieved(categoryId, location = {}, transaction) {
+async function sumCategoryAchieved(categoryId, location = {}, transaction, options = {}) {
   const locSql = buildLocationSql(location, 'icr');
-  const statusSql = baselineStatusSql('icr');
+  const statusSql = achievedStatusSql('icr', options);
 
   const rows = await db.sequelize.query(
     `
@@ -271,6 +280,50 @@ async function sumCategoryAchieved(categoryId, location = {}, transaction) {
     },
   );
   return parseNum(rows[0]?.achieved);
+}
+
+/**
+ * Latest cumulative achieved grouped (e.g. by county name) for intervention charts.
+ */
+async function sumCategoryAchievedGrouped(
+  categoryIds,
+  location = {},
+  transaction,
+  options = {},
+) {
+  const ids = [...new Set((Array.isArray(categoryIds) ? categoryIds : [categoryIds])
+    .map((id) => Number(id))
+    .filter(Number.isFinite))];
+  if (!ids.length) return [];
+
+  const locSql = buildLocationSql(location, 'icr');
+  const statusSql = achievedStatusSql('icr', options);
+
+  return db.sequelize.query(
+    `
+      SELECT c.name AS name,
+             COALESCE(SUM(latest.cum), 0)::numeric AS sum
+      FROM (
+        SELECT DISTINCT ON (icr.indicator_category_id, icr.project_id, COALESCE(icr.project_location_id, 0))
+          icr.indicator_category_id,
+          icr.county_id,
+          COALESCE(icr."cumAmount", icr.amount, 0)::numeric AS cum
+        FROM indicator_category_report icr
+        WHERE icr.indicator_category_id IN (:categoryIds)
+          AND ${statusSql}
+          ${locSql}
+        ORDER BY icr.indicator_category_id, icr.project_id, COALESCE(icr.project_location_id, 0), icr.id DESC
+      ) latest
+      JOIN county c ON c.id = latest.county_id
+      GROUP BY c.name
+      ORDER BY c.name
+    `,
+    {
+      replacements: { categoryIds: ids },
+      type: QueryTypes.SELECT,
+      ...(transaction ? { transaction } : {}),
+    },
+  );
 }
 
 /** Parse dashboard chart filter objects into county / subcounty / ward id lists. */
@@ -305,6 +358,8 @@ module.exports = {
   DEFAULT_FISCAL_YEAR,
   COB_DELIVERY_UNIT,
   baselineStatusSql,
+  approvedAchievedStatusSql,
+  achievedStatusSql,
   parseNum,
   parseAmount,
   resolveTargetValue,
@@ -313,6 +368,7 @@ module.exports = {
   loadProjectTargetsForProject,
   loadLatestCumulativeByIndicator,
   sumCategoryAchieved,
+  sumCategoryAchievedGrouped,
   parseDashboardLocationFilters,
   buildLocationSql,
 };

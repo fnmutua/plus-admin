@@ -5913,6 +5913,7 @@ function latestReportForIndicator(
   const icId = Number(indicatorCategoryId)
   const locId = projectLocationId != null ? Number(projectLocationId) : null
   const candidates = (indicatorReports.value || []).filter((row: Record<string, any>) => {
+    if (String(row.status || '').trim().toLowerCase() === 'rejected') return false
     if (Number(row.indicator_category_id) !== icId) return false
     if (!isDateInFiscalYear(row.date, monitoringFiscalYear.value)) return false
     if (locId && row.project_location_id != null) {
@@ -6097,7 +6098,9 @@ async function fetchLatestCumulativeForIndicator(
     returnAll: true,
   } as any)
 
-  const latest = (res.data || []).reduce(
+  const latest = (res.data || [])
+    .filter((row: Record<string, any>) => String(row.status || '').trim().toLowerCase() !== 'rejected')
+    .reduce(
     (best: Record<string, any> | null, row: Record<string, any>) => {
       if (!best || Number(row.id) > Number(best.id)) return row
       return best

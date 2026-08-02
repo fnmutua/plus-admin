@@ -1596,8 +1596,10 @@ if (req.body.filterField && req.body.filterValue && req.body.filterOperator && r
     console.log('Final qry.where after search:', JSON.stringify(qry.where, null, 2));
   }
 
-  // Special handling for indicator_category_report - automatically filter by indicator_category_id
+  // Special handling for indicator_category_report - filter + exclude rejected rows
   if (reg_model === 'indicator_category_report') {
+    filterConditions.push(Sequelize.literal(`COALESCE(LOWER(status), '') <> 'rejected'`));
+
     let indicatorCategoryId = null;
     
     // Check if indicator_category_id is provided in the request body

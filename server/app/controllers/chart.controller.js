@@ -264,6 +264,10 @@ async function buildWhere(model, filters, ignoreEmpty, yField) {
     }
   }
 
+  if (model === 'indicator_category_report') {
+    parts.push(`COALESCE(LOWER(${safeCol('status')}), '') <> 'rejected'`)
+  }
+
   return { clause: parts.length ? `WHERE ${parts.join(' AND ')}` : '', bind }
 }
 

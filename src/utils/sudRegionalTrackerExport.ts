@@ -1,6 +1,11 @@
 /** Regional tracker layout (SUD & KISIP; based on tools/SUD Regional Tracker (1).xlsx). */
 
 import {
+  IMPLEMENTATION_STATUS_CATEGORY_ID,
+  SEWER_INFRASTRUCTURE_PROGRESS_CATEGORY_ID,
+  SOCIAL_HOUSING_UNITS_CATEGORY_ID,
+} from '@/constants/indicatorCategories'
+import {
   CANONICAL_REGION_ORDER,
   inferRegionFromCounty,
   regionToSheetName,
@@ -33,7 +38,7 @@ export const TRACKER_HEADERS = [
   'Project Estimated Cost (KES)',
   'Cumulative Payments to Date',
   'Balance',
-  'Completion Status (%)',
+  'Physical / construction progress (%)',
   'Time Lapsed( %)',
   'Remarks',
   'No. of Workers on Site',
@@ -328,19 +333,49 @@ function latestIndicatorReportsForProject(
   return [...byKey.values()]
 }
 
-/** Average latest indicator report progress (0–100) for a project, as an Excel ratio (0–1). */
-function averageIndicatorReportProgress(
+function isPhysicalConstructionIndicatorReport(report: any): boolean {
+  const categoryId = Number(report?.indicator_category_id)
+  if (categoryId === SOCIAL_HOUSING_UNITS_CATEGORY_ID) return false
+
+  const indicatorName = String(
+    report?.indicator_category?.indicator_name ?? report?.indicator_name ?? '',
+  )
+  if (/implementation status|physical progress|completion|handover|sewer infrastructure progress/i.test(indicatorName)) {
+    return true
+  }
+  return categoryId === IMPLEMENTATION_STATUS_CATEGORY_ID
+    || categoryId === SEWER_INFRASTRUCTURE_PROGRESS_CATEGORY_ID
+}
+
+/** Physical / construction progress (0–100) for a project, as an Excel ratio (0–1). */
+function averagePhysicalConstructionProgress(
   projectId: number,
+  progressLocs: any[],
   locationIds: number[],
   indicatorReports: any[],
 ): number | null {
+  const locRatios = progressLocs
+    .map((loc) => {
+      const raw = loc?.physical_progress_pct
+      if (raw == null || raw === '') return null
+      const pct = Number(raw)
+      return Number.isFinite(pct) ? pct / 100 : null
+    })
+    .filter((v): v is number => v != null)
+
+  if (locRatios.length) {
+    return locRatios.reduce((a, b) => a + b, 0) / locRatios.length
+  }
+
   const latest = latestIndicatorReportsForProject(projectId, locationIds, indicatorReports)
   const ratios = latest
+    .filter(isPhysicalConstructionIndicatorReport)
     .map((report) => {
       const pct = reportProgressPercent(report)
       return pct == null ? null : pct / 100
     })
     .filter((v): v is number => v != null)
+
   if (!ratios.length) return null
   return ratios.reduce((a, b) => a + b, 0) / ratios.length
 }
@@ -409,8 +444,9 @@ function buildProjectRow(
   const cumulativePayments = sumDisbursements(project?.disbursements ?? project?.disbursement)
   const balance = estimatedCost > 0 ? estimatedCost - cumulativePayments : null
   const locationIds = progressLocs.map((l) => Number(l?.id)).filter(Number.isFinite)
-  const completionRatio = averageIndicatorReportProgress(
+  const completionRatio = averagePhysicalConstructionProgress(
     Number(project?.id),
+    progressLocs,
     locationIds,
     indicatorReports,
   )
@@ -676,7 +712,7 @@ const SUMMARY_HEADERS = [
   'No of Social Projects',
   'Total Contract Sum',
   'No. of Counties',
-  'AVERAGE PROGRESS%',
+  'Avg physical / construction progress (%)',
 ] as const
 
 type RegionSummaryStats = {
@@ -916,7 +952,7 @@ export function summaryColumnWidths(): { width: number }[] {
 
 export function trackerColumnWidths(): { width: number }[] {
   return [
-    6, 48, 12, 16, 18, 14, 22, 28, 22, 16, 12, 14, 14, 14, 18, 18, 18, 14, 14, 12, 16, 12, 16,
+    6, 48, 12, 16, 18, 14, 22, 28, 22, 16, 12, 14, 14, 14, 18, 18, 18, 14, 22, 12, 16, 12, 16,
     20,
   ].map((width) => ({ width }))
 }

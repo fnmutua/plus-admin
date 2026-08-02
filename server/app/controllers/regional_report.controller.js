@@ -17,11 +17,15 @@ const {
   loadLatestCumulativeByIndicator,
   loadProjectTargetsForProject,
 } = require('../services/meReporting');
+const {
+  buildPhysicalProgressReportFields,
+  buildIndicatorReportFields,
+  isQualitativeFormat,
+  isPercentFormat,
+} = require('../services/indicatorReportFields');
 
 /** Project-level progress indicator used for regional quarterly updates. */
-const IMPLEMENTATION_STATUS_INDICATOR_ID = 47;
 const DEFAULT_PROGRAMME_IMPLEMENTATION_ID = 4;
-const PHYSICAL_PROGRESS_TARGET = 100;
 
 /**
  * Which existing reports count as "where this project/indicator currently stands".
@@ -154,64 +158,11 @@ function parseAmount(value) {
   return Math.round(n * 100) / 100;
 }
 
-function isQualitativeFormat(format) {
-  const f = String(format || '').toLowerCase();
-  return f === 'qualitative' || f === 'yes/no' || f === 'yes_no';
-}
+// buildPhysicalProgressReportFields + buildIndicatorReportFields → indicatorReportFields.js
 
-function isPercentFormat(format) {
-  return String(format || '').toLowerCase() === 'percent';
-}
-
-/** Regional reports store cumulative physical completion (0–100), not Yes/No. */
-function buildPhysicalProgressReportFields(completionPct) {
-  const pct = parsePercent(completionPct);
-  if (pct == null) return null;
-  return {
-    amount: pct,
-    cumAmount: pct,
-    progress: pct,
-    cumProgress: pct,
-    target: PHYSICAL_PROGRESS_TARGET,
-    qualitative: null,
-  };
-}
-
-function buildIndicatorReportFields({
-  cumAmount,
-  prevCumAmount,
-  target,
-  targetKind,
-  format,
-  qualitative,
-}) {
-  const cum = parseAmount(cumAmount);
-  if (cum == null) return null;
-  const prev = parseAmount(prevCumAmount) ?? 0;
-  const amount = Math.max(0, Math.round((cum - prev) * 100) / 100);
-  const targetNum = parseAmount(target) ?? 0;
-  const isQual = isQualitativeFormat(format);
-
-  let progress;
-  if (isQual) {
-    progress = qualitative === 'Yes' ? 100 : 0;
-  } else if (isPercentFormat(format) || targetKind === 'percent') {
-    progress = amount;
-  } else if (targetNum > 0) {
-    progress = Math.round((cum / targetNum) * 10000) / 100;
-  } else {
-    progress = 0;
-  }
-
-  return {
-    amount,
-    cumAmount: cum,
-    progress,
-    cumProgress: progress,
-    target: targetNum || null,
-    qualitative: isQual ? qualitative || 'No' : null,
-  };
-}
+/** Re-export for regional controller callers. */
+const IMPLEMENTATION_STATUS_INDICATOR_ID = require('../constants/indicatorCategories')
+  .IMPLEMENTATION_STATUS_CATEGORY_ID;
 
 function normalizeIndicatorRows(indicatorRows) {
   const normalized = [];

@@ -13,11 +13,13 @@ const {
   parseDashboardLocationFilters,
 } = require('./meReporting');
 
-const HOUSING_CATEGORY_ID = 93;
+const {
+  SOCIAL_HOUSING_UNITS_CATEGORY_ID,
+} = require('../constants/indicatorCategories');
 
 /** SUD COB indicators — category ids in indicator_target / indicator_category_report. */
 const COB_PORTFOLIO = [
-  { categoryId: HOUSING_CATEGORY_ID, label: 'Social housing units', useProjectTargets: true },
+  { categoryId: SOCIAL_HOUSING_UNITS_CATEGORY_ID, label: 'Social housing units', useProjectTargets: true },
   { categoryId: 19, label: 'Markets & commercial' },
   { categoryId: 20, label: 'Floodlights' },
   { categoryId: 15, label: 'Access roads (km)' },
@@ -68,7 +70,7 @@ async function resolveTargetAchievedRow(entry, chartFilters = []) {
     targetSource = `M&E programme target FY ${DEFAULT_FISCAL_YEAR}`;
   }
 
-  const achieved = await sumCategoryAchieved(categoryId, location);
+  const achieved = await sumCategoryAchieved(categoryId, location, null, { approvedOnly: true });
   const label = entry.label || (await loadCategoryLabel(categoryId));
 
   return {

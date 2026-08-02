@@ -1358,13 +1358,14 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     const filingCode = uuid.v4();
 
     for (const indicator of ruleForm.indicators) {
-      // Calculate new cumulative amount
-      const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
+      const prevCum = Number(indicator.cumAmount) || 0
+      const periodAmount = Number(indicator.amount) || 0
+      const updatedCumAmount = prevCum + periodAmount
+      const targetNum = Number(indicator.target) || 0
 
-      // Calculate progress = 100 * (cumAmount / target)
-      const progress = isFinite(updatedCumAmount / (indicator.target || 1))
-        ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
-        : '0.00';
+      const progress = targetNum > 0 && Number.isFinite(updatedCumAmount / targetNum)
+        ? ((updatedCumAmount / targetNum) * 100).toFixed(2)
+        : '0.00'
 
       const reportPayload = {
         model: 'indicator_category_report',
@@ -2412,27 +2413,88 @@ const searchProject = (query) => {
 
 
 function handleIndicatorsChange(selectedIds) {
-  // One row per indicator_category, even if the option list or the selection repeats it
+  void hydrateAdminIndicatorRows(selectedIds)
+}
+
+async function fetchLatestCumulativeForAdminIndicator(
+  indicatorCategoryId: number,
+  projectId: number,
+  projectLocationId?: number | null,
+) {
+  const filters = ['project_id', 'indicator_category_id']
+  const filterValues: unknown[] = [[projectId], [indicatorCategoryId]]
+
+  if (projectLocationId) {
+    filters.push('project_location_id')
+    filterValues.push([projectLocationId])
+  }
+
+  const res = await getSettlementListByCounty({
+    model: 'indicator_category_report',
+    filters,
+    filterValues,
+    returnAll: true,
+  } as any)
+
+  const latest = (res.data || [])
+    .filter((row) => String(row.status || '').trim().toLowerCase() !== 'rejected')
+    .reduce((best, row) => {
+      if (!best || Number(row.id) > Number(best.id)) return row
+      return best
+    }, null)
+
+  if (!latest) {
+    return { cumAmount: 0, amount: 0, target: null }
+  }
+
+  return {
+    cumAmount: Number(latest.cumAmount) || 0,
+    amount: Number(latest.amount) || 0,
+    target: latest.target != null ? Number(latest.target) : null,
+  }
+}
+
+async function hydrateAdminIndicatorRows(selectedIds) {
   const seen = new Set()
   const selectedIndicators = indicatorsOptionsFiltered.value.filter((opt) => {
     if (!selectedIds.includes(opt.value) || seen.has(opt.value)) return false
     seen.add(opt.value)
     return true
-  });
+  })
 
- console.log('selectedIds',selectedIds)
+  const projectId = Number(prj_obj.value?.value)
+  if (!Number.isFinite(projectId)) {
+    ruleForm.indicators = selectedIndicators.map((ind) => ({
+      ...ind,
+      amount: null,
+      baseline: null,
+      target: null,
+      cumAmount: 0,
+      date: new Date(),
+      cumProgress: null,
+    }))
+    return
+  }
 
-  ruleForm.indicators = selectedIndicators.map(ind => ({
-    ...ind,
-    amount: null,
-    baseline: null,
-    target: null,
-    date: new Date(),
-    cumProgress: null
-  }));
+  const rows = []
+  for (const ind of selectedIndicators) {
+    const cumulative = await fetchLatestCumulativeForAdminIndicator(
+      Number(ind.value),
+      projectId,
+      ruleForm.project_location_id,
+    )
+    rows.push({
+      ...ind,
+      amount: null,
+      baseline: cumulative.amount,
+      target: cumulative.target ?? ind.target ?? null,
+      cumAmount: cumulative.cumAmount,
+      date: new Date(),
+      cumProgress: null,
+    })
+  }
 
-
-  console.log(ruleForm.indicators,ruleForm.indicators)
+  ruleForm.indicators = rows
 }
 
 
