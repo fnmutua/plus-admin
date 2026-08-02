@@ -1554,20 +1554,27 @@ const downloadSummaryTable = async () => {
       </p>
 
       <template #footer>
-        <div :class="['tracker-export-footer', { 'tracker-export-footer--mobile': isMobile }]">
-          <el-button text @click="resetTrackerExportDialog">Reset</el-button>
-          <el-button @click="trackerExportDialogVisible = false" :disabled="downloading">
-            Cancel
-          </el-button>
-          <el-button
-            type="primary"
-            :loading="downloading"
-            :disabled="!trackerExportProjects.length"
-            @click="downloadProjectList"
-          >
-            {{ trackerExportUi.downloadLabel }}
-          </el-button>
-        </div>
+        <el-row :gutter="12" justify="end" class="tracker-export-footer">
+          <el-col :xs="24" :sm="8" :md="6" :lg="4">
+            <el-button text block @click="resetTrackerExportDialog">Reset</el-button>
+          </el-col>
+          <el-col :xs="24" :sm="8" :md="6" :lg="4">
+            <el-button block @click="trackerExportDialogVisible = false" :disabled="downloading">
+              Cancel
+            </el-button>
+          </el-col>
+          <el-col :xs="24" :sm="8" :md="6" :lg="4">
+            <el-button
+              type="primary"
+              block
+              :loading="downloading"
+              :disabled="!trackerExportProjects.length"
+              @click="downloadProjectList"
+            >
+              {{ trackerExportUi.downloadLabel }}
+            </el-button>
+          </el-col>
+        </el-row>
       </template>
     </el-dialog>
   </div>
@@ -1872,20 +1879,11 @@ const downloadSummaryTable = async () => {
 }
 
 .tracker-export-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.tracker-export-footer--mobile {
-  flex-direction: column;
   width: 100%;
 }
 
-.tracker-export-footer--mobile :deep(.el-button) {
+.tracker-export-footer :deep(.el-button) {
   width: 100%;
-  margin-left: 0;
 }
 
 .tracker-export-dialog--mobile :deep(.el-dialog) {
