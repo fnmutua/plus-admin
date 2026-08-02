@@ -31,6 +31,8 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { getUniqueFieldValues } from '@/api/households'
 import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
+import { sortProgrammeRecordsByFamily, sortProgrammeSelectOptions } from '@/utils/programmeComponentTree'
+import type { ProgrammeRecord } from '@/utils/programmeValidation'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import ElementPlusIconPickerField from '@/components/ElementPlusIconPickerField.vue'
@@ -191,14 +193,20 @@ const loadProgrammeComponentHierarchy = async () => {
 // Programme picker (root + child programmes) — used when filtering directly by
 // programme_id. Selecting a root (e.g. SUD) covers all its descendants.
 const programmeOptionGroupsForFilter = computed(() => {
-  const roots = allProgrammes.value.filter((p: any) => p.parentId == null || p.parentId === '')
+  const roots = sortProgrammeRecordsByFamily(
+    allProgrammes.value as ProgrammeRecord[],
+    allProgrammes.value.filter((p: any) => p.parentId == null || p.parentId === '') as ProgrammeRecord[],
+  )
   return roots.map((root: any) => ({
     id: root.id,
     label: root.title || root.acronym,
     rootLabel: `${root.title || root.acronym} (all)`,
-    children: allProgrammes.value
-      .filter((p: any) => String(p.parentId) === String(root.id))
-      .map((p: any) => ({ value: p.id, label: p.title || p.acronym })),
+    children: sortProgrammeSelectOptions(
+      allProgrammes.value
+        .filter((p: any) => String(p.parentId) === String(root.id))
+        .map((p: any) => ({ value: p.id, label: p.title || p.acronym })),
+      allProgrammes.value as ProgrammeRecord[],
+    ),
   }))
 })
 
@@ -222,7 +230,14 @@ const componentOptionGroupsForFilter = computed(() => {
     groups.get(c.programme_id)!.children.push({ value: c.id, label: c.title || c.acronym })
   }
 
-  return Array.from(groups.values())
+  return sortProgrammeSelectOptions(
+    Array.from(groups.entries()).map(([programmeId, group]) => ({
+      value: programmeId,
+      label: group.label,
+      children: group.children,
+    })),
+    allProgrammes.value as ProgrammeRecord[],
+  ).map(({ label, children }) => ({ label, children }))
 })
 
 // Get indicator categories for Indicator cards

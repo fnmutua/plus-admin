@@ -31,6 +31,8 @@ import {
   getProgrammeCatalog,
   getUserRoles
 } from '@/api/users'
+import { sortProgrammeSelectOptions } from '@/utils/programmeComponentTree'
+import type { ProgrammeRecord } from '@/utils/programmeValidation'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import PermissionWrapper from '@/components/PermissionWrapper.vue'
@@ -157,12 +159,16 @@ const fetchProgrammeOptions = async () => {
   try {
     const res = await getProgrammeCatalog()
     const rows = (res as any)?.data || []
-    programmeOptions.value = rows
-      .filter((row: any) => row.parentId == null || row.parentId === '')
-      .map((row: any) => ({
-        value: Number(row.id),
-        label: row.title || row.acronym || row.code || `Programme ${row.id}`,
-      }))
+    const programmes = rows as ProgrammeRecord[]
+    programmeOptions.value = sortProgrammeSelectOptions(
+      programmes
+        .filter((row: any) => row.parentId == null || row.parentId === '')
+        .map((row: any) => ({
+          value: Number(row.id),
+          label: row.title || row.acronym || row.code || `Programme ${row.id}`,
+        })),
+      programmes,
+    )
   } catch (error) {
     console.error('Failed to load programmes for role scope:', error)
     programmeOptions.value = []

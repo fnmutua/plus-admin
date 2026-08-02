@@ -15,9 +15,10 @@ import {
   ElPagination,
   ElTreeSelect,
   ElCheckbox,
-  ElDialog,
+  ElDrawer,
 } from 'element-plus'
 import { Icon } from '@/components/Icon'
+import { Close, Download } from '@element-plus/icons-vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import {
   getProgrammesList,
@@ -27,6 +28,7 @@ import {
 import { getCountiesList, getSubcountiesList, getWardsList } from '@/api/settlements-optimized'
 import { getSettlementListByCounty, getAllGeo } from '@/api/settlements'
 import { getProgrammeDescendantIds, type ProgrammeRecord } from '@/utils/programmeValidation'
+import { buildProgrammeTreeSelectData } from '@/utils/programmeComponentTree'
 import { CANONICAL_REGION_ORDER } from '@/constants/projectRegions'
 // `v-chart` is registered globally in plugins/setupCharts.ts
 import { registerMap } from 'echarts/core'
@@ -53,6 +55,8 @@ const isMobile = computed(() => appStore.getMobile)
 
 const loading = ref(true)
 const downloading = ref(false)
+const chartFiltersOpen = ref(false)
+const chartFullscreenOpen = ref(false)
 const trackerExportDialogVisible = ref(false)
 const trackerExportProgrammeId = ref<number | null>(null)
 const trackerExportRegions = ref<string[]>([])
@@ -115,11 +119,6 @@ const openTrackerExportDialog = () => {
   trackerExportDialogVisible.value = true
 }
 
-const resetTrackerExportDialog = () => {
-  trackerExportProgrammeId.value = null
-  trackerExportRegions.value = []
-}
-
 const programmes = ref<ProgrammeRecord[]>([])
 const components = ref<any[]>([])
 const projects = ref<any[]>([])
@@ -133,22 +132,7 @@ const showChartTable = computed(() => viewMode.value === 'table')
 // Programme filter — a parent programme includes its sub-programmes
 const selectedProgramme = ref<number | null>(null)
 
-const programmeTreeData = computed(() => {
-  const roots = programmes.value.filter((p) => p.parentId == null || p.parentId === '')
-  const childrenOf = (parentId: number) =>
-    programmes.value
-      .filter((p) => String(p.parentId) === String(parentId))
-      .map((p) => ({
-        value: Number(p.id),
-        label: String(p.title || p.acronym || p.id),
-      }))
-
-  return roots.map((root) => ({
-    value: Number(root.id),
-    label: String(root.title || root.acronym || root.id),
-    children: childrenOf(Number(root.id)),
-  }))
-})
+const programmeTreeData = computed(() => buildProgrammeTreeSelectData(programmes.value))
 
 // Component ids belonging to the selected programme (or any of its descendants)
 const allowedComponentIds = computed<Set<number> | null>(() => {
@@ -288,7 +272,11 @@ const resetFilters = () => {
 }
 
 const hasActiveFilters = computed(
-  () => selectedCounty.value != null || selectedProgramme.value != null
+  () =>
+    selectedCounty.value != null ||
+    selectedSubcounty.value != null ||
+    selectedWard.value != null ||
+    selectedProgramme.value != null,
 )
 
 // A project is counted once per county it appears in (a project spanning two
@@ -472,6 +460,40 @@ const chartModel = computed(() => {
 
 const chartHasData = computed(() => chartModel.value.countyNames.length > 0)
 
+const MOBILE_CHART_TOP_N = 10
+
+const displayChartModel = computed(() => {
+  const { countyNames, series, total, foldedCount } = chartModel.value
+  if (!isMobile.value || countyNames.length <= MOBILE_CHART_TOP_N) {
+    return { countyNames, series, total, foldedCount }
+  }
+
+  return {
+    countyNames: countyNames.slice(0, MOBILE_CHART_TOP_N),
+    series: series.map((s) => ({
+      name: s.name,
+      data: s.data.slice(0, MOBILE_CHART_TOP_N),
+    })),
+    total,
+    foldedCount,
+  }
+})
+
+const mobileChartTruncated = computed(
+  () => isMobile.value && chartModel.value.countyNames.length > MOBILE_CHART_TOP_N,
+)
+
+const chartHeight = computed(() => {
+  const buckets = displayChartModel.value.countyNames.length
+  if (!isMobile.value) return 420
+  return Math.min(Math.max(280, buckets * 34 + 96), 720)
+})
+
+const fullscreenChartHeight = computed(() => {
+  const buckets = chartModel.value.countyNames.length
+  return Math.min(Math.max(360, buckets * 34 + 120), 2400)
+})
+
 // Projects with no project_location can never appear on a county chart — state
 // that rather than letting the chart total silently disagree with the tile.
 const projectsWithoutLocation = computed(() => {
@@ -494,13 +516,13 @@ const isDark = computed(() => appStore.getIsDark)
 
 // One colour per chart series, shared by the bars and the map dots so a category
 // looks the same in either view.
-const seriesColors = computed(() => {
+const seriesColorsFor = (series: Array<{ name: string }>) => {
   const palette = isDark.value ? PALETTE_DARK : PALETTE_LIGHT
   const other = isDark.value ? OTHER_DARK : OTHER_LIGHT
-  return chartModel.value.series.map((s, i) =>
-    s.name === 'Other' ? other : palette[i % palette.length]
-  )
-})
+  return series.map((s, i) => (s.name === 'Other' ? other : palette[i % palette.length]))
+}
+
+const seriesColors = computed(() => seriesColorsFor(chartModel.value.series))
 
 // Derived from the label, not the key, so filenames use the displayed wording
 const exportBaseName = computed(
@@ -797,27 +819,260 @@ const mapRanking = computed(() => {
   }))
 })
 
+type MapRankRow = {
+  name: string
+  value: number
+  pct: number
+  barPct: number
+}
+
+const mapRankingColumns = computed(() => {
+  const rows = mapRanking.value
+  const split = axisLevel.value === 'county' && rows.length > 10
+  if (!split) return { split: false as const, left: rows, right: [] as MapRankRow[] }
+  const mid = Math.ceil(rows.length / 2)
+  return { split: true as const, left: rows.slice(0, mid), right: rows.slice(mid) }
+})
+
+const mapRankRowCount = computed(() => {
+  const cols = mapRankingColumns.value
+  return cols.split ? Math.max(cols.left.length, cols.right.length) : mapRanking.value.length
+})
+
+const mapRankSplitLayout = computed(() => {
+  if (!mapRankingColumns.value.split) return null
+  const mobile = isMobile.value
+  if (mobile) {
+    return {
+      leftGrid: { left: '4%', right: '58%', top: '60%', bottom: 48, containLabel: true },
+      rightGrid: { left: '58%', right: '4%', top: '60%', bottom: 48, containLabel: true },
+      dividerLeft: '50%',
+    }
+  }
+  const rankTop = showDots.value ? 78 : 58
+  return {
+    leftGrid: { left: '52%', right: '34%', top: rankTop, bottom: 56, containLabel: true },
+    rightGrid: { left: '80%', right: '2%', top: rankTop, bottom: 56, containLabel: true },
+    dividerLeft: '73%',
+  }
+})
+
+const mapRankDividerStyle = computed(() => {
+  const layout = mapRankSplitLayout.value
+  if (!layout) return {}
+  const rankTop = showDots.value ? 78 : 58
+  const mobile = isMobile.value
+  return {
+    left: layout.dividerLeft,
+    top: mobile ? '60%' : `${rankTop}px`,
+    bottom: mobile ? '48px' : '56px',
+    backgroundColor: isDark.value ? '#7a7a76' : '#8a8a86',
+  }
+})
+
+const mapChartHeight = computed(() => {
+  const rows = mapRankRowCount.value
+  const split = mapRankingColumns.value.split
+  const headerSpace = showDots.value ? 92 : 72
+  const rowHeight = isMobile.value ? 15 : 14
+  if (split && isMobile.value) {
+    return Math.max(460, 250 + headerSpace + rows * rowHeight + 72)
+  }
+  if (split) {
+    return Math.max(400, headerSpace + rows * rowHeight + 100)
+  }
+  const minHeight = isMobile.value ? 620 : 520
+  return Math.max(minHeight, headerSpace + rows * rowHeight + 120)
+})
+
+const mapRankBarColor = computed(() => (isDark.value ? '#3987e5' : '#256abf'))
+
+const mapGeoLayout = computed(() => {
+  const mobile = isMobile.value
+  const split = mapRankingColumns.value.split
+  const rankTop = showDots.value ? 78 : 58
+  const chartH = mapChartHeight.value
+
+  if (mobile) {
+    const mapBottomPct = split ? 0.58 : 0.46
+    const mapBottomPx = chartH * mapBottomPct
+    const mapHeight = Math.max(mapBottomPx - rankTop, 120)
+    const centerY = rankTop + mapHeight / 2
+    return {
+      bounds: { left: 12, right: 12, top: rankTop, bottom: `${mapBottomPct * 100}%` },
+      layoutCenter: ['50%', `${(centerY / chartH) * 100}%`] as [string, string],
+      layoutSize: `${Math.min(100, (mapHeight / chartH) * 100 * 1.08)}%`,
+    }
+  }
+
+  const mapHeight = Math.max(chartH - rankTop - 56, 160)
+  const centerY = rankTop + mapHeight / 2
+  const layoutSizePct = Math.min(split ? 68 : 72, (mapHeight / chartH) * 100 * 1.06)
+  const mapRight = split ? '50%' : '36%'
+  const centerX = split ? '25%' : '32%'
+
+  return {
+    bounds: { left: 12, right: mapRight, top: rankTop, bottom: 56 },
+    layoutCenter: [centerX, `${(centerY / chartH) * 100}%`] as [string, string],
+    layoutSize: `${layoutSizePct}%`,
+  }
+})
+
+function buildRankBarData(rows: MapRankRow[], textSecondary: string, showLabels: boolean) {
+  return rows.map((row) => ({
+    name: row.name,
+    value: row.value,
+    pct: row.pct,
+    label: {
+      show: showLabels,
+      position: 'right' as const,
+      formatter: `${row.value} (${row.pct}%)`,
+      color: textSecondary,
+      fontSize: 10,
+    },
+  }))
+}
+
+function buildRankBarSeries(
+  rows: MapRankRow[],
+  seriesName: string,
+  textSecondary: string,
+  barColor: string,
+  xAxisIndex: number,
+  yAxisIndex: number,
+  showLabels: boolean,
+) {
+  return {
+    type: 'bar' as const,
+    name: seriesName,
+    xAxisIndex,
+    yAxisIndex,
+    data: buildRankBarData(rows, textSecondary, showLabels),
+    barMaxWidth: 12,
+    itemStyle: {
+      color: barColor,
+      borderRadius: [0, 3, 3, 0],
+    },
+    z: 2,
+  }
+}
+
 // Sequential ramp: one hue, light→dark (verified monotonic in lightness)
 const SEQUENTIAL_RAMP = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b']
 
 const mapOptions = computed(() => {
   const dark = isDark.value
+  const mobile = isMobile.value
   const textPrimary = dark ? '#ffffff' : '#0b0b0b'
+  const textSecondary = dark ? '#c3c2b7' : '#52514e'
   const surface = dark ? '#1a1a19' : '#fcfcfb'
+  const rankColumns = mapRankingColumns.value
+  const splitRank = rankColumns.split
+  const rankTop = showDots.value ? 78 : 58
+  const axisLabel = AXIS_LABEL[axisLevel.value]
+  const geoLayout = mapGeoLayout.value
+  const rankLabelWidth = mobile ? (splitRank ? 80 : 56) : splitRank ? 96 : 96
+
+  const splitLayout = mapRankSplitLayout.value
+  const rankGrid = splitRank
+    ? splitLayout
+      ? [splitLayout.leftGrid, splitLayout.rightGrid]
+      : []
+    : mobile
+      ? { left: 56, right: 16, top: '58%', bottom: 52 }
+      : { left: '66%', right: 16, top: rankTop, bottom: 56 }
+
+  const rankAxisMax = Math.max(1, mapTotals.value.max)
+
+  const rankGraphicTop = mobile ? (splitRank ? '56%' : '54%') : rankTop - 6
+  const rankGraphicLeft = splitRank ? (mobile ? '4%' : '52%') : (rankGrid as { left: string | number }).left
+
+  const axisLabelStyle = {
+    color: textSecondary,
+    fontSize: mobile ? 9 : 10,
+    width: rankLabelWidth,
+    overflow: 'truncate' as const,
+  }
+
+  const valueAxis = (gridIndex?: number) => {
+    const showXLabels = splitRank ? gridIndex === 0 : true
+    return {
+      type: 'value' as const,
+      ...(gridIndex != null ? { gridIndex } : {}),
+      min: 0,
+      ...(splitRank ? { max: rankAxisMax } : {}),
+      splitNumber: mobile ? (splitRank ? 3 : 4) : splitRank ? 4 : 5,
+      axisLabel: {
+        show: showXLabels,
+        color: textSecondary,
+        fontSize: mobile ? 9 : splitRank ? 9 : 10,
+        hideOverlap: true,
+        margin: mobile ? 4 : 6,
+      },
+      splitLine: {
+        show: gridIndex !== 1,
+        lineStyle: { color: dark ? '#3a3a38' : '#e6e6e2' },
+      },
+    }
+  }
+
+  const showRankLabelsLeft = splitRank ? false : true
+  const showRankLabelsRight = splitRank ? rankColumns.right.length <= 14 : true
+
+  const rankBarSeries = splitRank
+    ? [
+        buildRankBarSeries(
+          rankColumns.left,
+          `${axisLabel} ranking`,
+          textSecondary,
+          mapRankBarColor.value,
+          0,
+          0,
+          showRankLabelsLeft,
+        ),
+        buildRankBarSeries(
+          rankColumns.right,
+          `${axisLabel} ranking (cont.)`,
+          textSecondary,
+          mapRankBarColor.value,
+          1,
+          1,
+          showRankLabelsRight,
+        ),
+      ]
+    : [
+        buildRankBarSeries(
+          rankColumns.left,
+          `${axisLabel} ranking`,
+          textSecondary,
+          mapRankBarColor.value,
+          0,
+          0,
+          true,
+        ),
+      ]
 
   return {
-    // Rendered into the canvas so a saved PNG carries its own context
     title: {
       text: chartTitle.value,
       subtext: chartSubtitle.value,
       left: 12,
       top: 4,
       textStyle: { color: textPrimary, fontSize: 14, fontWeight: 600 },
-      subtextStyle: { color: dark ? '#c3c2b7' : '#52514e', fontSize: 11 },
+      subtextStyle: { color: textSecondary, fontSize: 11 },
     },
     tooltip: {
       trigger: 'item',
       formatter: (params: any) => {
+        if (params.seriesType === 'bar') {
+          const pct = params.data?.pct
+          const value = params.value
+          const name = params.name || params.data?.name
+          if (name == null || value == null) return ''
+          return `${name}<br/><strong>${value}</strong> project${value === 1 ? '' : 's'}${
+            pct != null ? ` (${pct}%)` : ''
+          }`
+        }
         if (params.seriesType === 'scatter') {
           return `${params.name}<br/><span style="opacity:.7">${params.data?.status || ''}</span>`
         }
@@ -826,12 +1081,9 @@ const mapOptions = computed(() => {
         return `${params.name}<br/><strong>${value}</strong> project${value === 1 ? '' : 's'}`
       },
     },
-    // Names the dot colours; the choropleth series is excluded since visualMap
-    // already carries its own scale.
     legend: showDots.value
       ? {
           show: true,
-          // Below the title block, not overlapping it
           top: 46,
           left: 12,
           data: dotSeriesByCategory.value.map((s) => s.name),
@@ -841,7 +1093,6 @@ const mapOptions = computed(() => {
           textStyle: { color: textPrimary, fontSize: 11 },
         }
       : { show: false },
-    // Save-image only; roam already handles pan/zoom and a reset would fight it
     toolbox: {
       show: true,
       right: 12,
@@ -850,35 +1101,43 @@ const mapOptions = computed(() => {
       emphasis: { iconStyle: { borderColor: '#3987e5' } },
       feature: {
         saveAsImage: {
-          title: 'Download map',
+          title: 'Download map & ranking',
           name: exportBaseName.value,
-          // 8 matches the app's other ECharts exports (Dashboard/Interventions)
           pixelRatio: 8,
           backgroundColor: surface,
         },
       },
     },
+    graphic: [
+      {
+        type: 'text',
+        left: rankGraphicLeft,
+        top: rankGraphicTop,
+        style: {
+          text: `${axisLabel} ranking · ${chartModel.value.total} projects`,
+          fill: textPrimary,
+          fontSize: 12,
+          fontWeight: 600,
+        },
+      },
+    ],
     visualMap: {
-      // Choropleth only — without this the ramp would also recolour the dots
       seriesIndex: 0,
       min: 0,
       max: Math.max(1, mapTotals.value.max),
       left: 'left',
-      bottom: 20,
+      bottom: mobile ? (splitRank ? '42%' : '48%') : 20,
       text: ['High', 'Low'],
       calculable: true,
       inRange: { color: SEQUENTIAL_RAMP },
       textStyle: { color: textPrimary },
     },
-    // A shared geo component gives the choropleth and the dots one projection, so
-    // markers stay pinned to their region while roaming.
     geo: {
       map: registeredMapName.value,
       roam: true,
-      // Clear the title/legend above and the visualMap below
-      top: showDots.value ? 78 : 56,
-      bottom: 56,
-      // Longitude degrees shrink by cos(latitude); without this the shapes stretch
+      ...geoLayout.bounds,
+      layoutCenter: geoLayout.layoutCenter,
+      layoutSize: geoLayout.layoutSize,
       aspectScale: mapAspect.value,
       itemStyle: { borderColor: surface, borderWidth: 1, areaColor: dark ? '#2a2a28' : '#f0f0ec' },
       emphasis: {
@@ -887,21 +1146,52 @@ const mapOptions = computed(() => {
       },
       select: { disabled: true },
     },
+    grid: splitRank ? rankGrid : [rankGrid as Record<string, unknown>],
+    xAxis: splitRank ? [valueAxis(0), valueAxis(1)] : valueAxis(0),
+    yAxis: splitRank
+      ? [
+          {
+            type: 'category',
+            gridIndex: 0,
+            data: rankColumns.left.map((row) => row.name),
+            inverse: true,
+            axisLabel: axisLabelStyle,
+            axisTick: { show: false },
+            axisLine: { show: false },
+          },
+          {
+            type: 'category',
+            gridIndex: 1,
+            data: rankColumns.right.map((row) => row.name),
+            inverse: true,
+            axisLabel: axisLabelStyle,
+            axisTick: { show: false },
+            axisLine: { show: false },
+          },
+        ]
+      : {
+          type: 'category',
+          gridIndex: 0,
+          data: rankColumns.left.map((row) => row.name),
+          inverse: true,
+          axisLabel: axisLabelStyle,
+          axisTick: { show: false },
+          axisLine: { show: false },
+        },
     series: [
       {
         type: 'map',
         geoIndex: 0,
-        name: AXIS_LABEL[axisLevel.value],
+        name: axisLabel,
         data: mapTotals.value.data,
       },
+      ...rankBarSeries,
       ...dotSeriesByCategory.value.map((s, i) => ({
         type: 'scatter',
         coordinateSystem: 'geo',
         geoIndex: 0,
         name: s.name,
         symbolSize: 8,
-        // Same palette slot as this category's bar, so colours agree across views.
-        // The surface ring keeps overlapping dots countable.
         itemStyle: {
           color: seriesColors.value[i],
           borderColor: surface,
@@ -915,98 +1205,119 @@ const mapOptions = computed(() => {
   }
 })
 
-const chartOptions = computed(() => {
+type ChartRenderModel = {
+  countyNames: string[]
+  series: Array<{ name: string; data: number[] }>
+}
+
+function buildChartOptions(
+  model: ChartRenderModel,
+  height: number,
+  mobile: boolean,
+  withHeader: boolean,
+) {
   const dark = isDark.value
   const textPrimary = dark ? '#ffffff' : '#0b0b0b'
   const textSecondary = dark ? '#c3c2b7' : '#52514e'
   const gridBorder = dark ? '#3a3a38' : '#e6e6e2'
+  const bucketCount = model.countyNames.length
 
-  return {
+  const options: Record<string, unknown> = {
     chart: {
       type: 'bar',
       stacked: true,
-      height: 420,
+      height,
       fontFamily: 'inherit',
-      // Apex paints the exported PNG with chart.background — 'transparent' produced
-      // a see-through image that's unreadable on white or dark. Matches the card.
       background: dark ? '#1a1a19' : '#fcfcfb',
       animations: { enabled: true, speed: 250 },
-      // Built-in export menu (SVG / PNG / CSV of the plotted series)
-      toolbar: {
-        show: true,
-        offsetY: -4,
-        tools: {
-          download: true,
-          selection: false,
-          zoom: false,
-          zoomin: false,
-          zoomout: false,
-          pan: false,
-          reset: false,
-        },
-        // scale/width match the app's other Apex exports (National, DynamicState);
-        // `background` because the chart itself is transparent and a PNG without it
-        // is unreadable pasted onto white or dark.
-        export: {
-          scale: 3,
-          width: 1800,
-          csv: { filename: exportBaseName.value, headerCategory: AXIS_LABEL[axisLevel.value] },
-          svg: { filename: exportBaseName.value },
-          png: { filename: exportBaseName.value },
-        },
-      },
+      toolbar: mobile
+        ? { show: false }
+        : {
+            show: true,
+            offsetY: -4,
+            tools: {
+              download: true,
+              selection: false,
+              zoom: false,
+              zoomin: false,
+              zoomout: false,
+              pan: false,
+              reset: false,
+            },
+            export: {
+              scale: 3,
+              width: 1800,
+              csv: { filename: exportBaseName.value, headerCategory: AXIS_LABEL[axisLevel.value] },
+              svg: { filename: exportBaseName.value },
+              png: { filename: exportBaseName.value },
+            },
+          },
     },
     theme: { mode: dark ? 'dark' : 'light' },
-    colors: seriesColors.value,
-    // In the chart itself, so exported PNG/SVG carries its own context
-    title: {
-      text: chartTitle.value,
-      align: 'left',
-      margin: 4,
-      style: { fontSize: '14px', fontWeight: 600, color: textPrimary },
-    },
-    subtitle: {
-      text: chartSubtitle.value,
-      align: 'left',
-      offsetY: 22,
-      style: { fontSize: '11px', color: textSecondary },
-    },
+    colors: seriesColorsFor(model.series),
     plotOptions: {
       bar: {
-        horizontal: false,
-        columnWidth: chartModel.value.countyNames.length > 20 ? '80%' : '55%',
+        horizontal: mobile,
+        columnWidth: bucketCount > 20 ? '80%' : mobile ? '70%' : '55%',
+        ...(mobile ? { barHeight: '72%' } : {}),
         borderRadius: 3,
         borderRadiusApplication: 'end',
         borderRadiusWhenStacked: 'last',
       },
     },
-    // 2px surface gap between stacked segments
     stroke: { show: true, width: 2, colors: [dark ? '#1a1a19' : '#fcfcfb'] },
     dataLabels: { enabled: false },
-    xaxis: {
-      categories: chartModel.value.countyNames,
-      labels: {
-        rotate: -45,
-        rotateAlways: chartModel.value.countyNames.length > 8,
-        trim: true,
-        hideOverlappingLabels: false,
-        style: { colors: textSecondary, fontSize: '11px' },
-      },
-      axisBorder: { color: gridBorder },
-      axisTicks: { color: gridBorder },
+    xaxis: mobile
+      ? {
+          categories: model.countyNames,
+          labels: {
+            style: {
+              colors: textSecondary,
+              fontSize: bucketCount > 10 ? '9px' : '11px',
+            },
+            maxHeight: bucketCount > 14 ? 88 : 120,
+            trim: true,
+          },
+          axisBorder: { color: gridBorder },
+          axisTicks: { color: gridBorder },
+        }
+      : {
+          categories: model.countyNames,
+          labels: {
+            rotate: bucketCount > 12 ? -55 : -45,
+            rotateAlways: bucketCount > 8,
+            trim: true,
+            hideOverlappingLabels: bucketCount > 16,
+            style: {
+              colors: textSecondary,
+              fontSize: bucketCount > 18 ? '9px' : '11px',
+            },
+          },
+          axisBorder: { color: gridBorder },
+          axisTicks: { color: gridBorder },
+        },
+    yaxis: mobile
+      ? {
+          title: { text: 'Projects', style: { color: textSecondary, fontWeight: 500 } },
+          labels: { style: { colors: textSecondary, fontSize: '10px' } },
+          forceNiceScale: true,
+        }
+      : {
+          title: { text: 'Projects', style: { color: textSecondary, fontWeight: 500 } },
+          labels: { style: { colors: textSecondary, fontSize: '11px' } },
+          forceNiceScale: true,
+        },
+    grid: {
+      borderColor: gridBorder,
+      strokeDashArray: 3,
+      ...(mobile ? { padding: { left: 8, right: 12 } } : {}),
     },
-    yaxis: {
-      title: { text: 'Projects', style: { color: textSecondary, fontWeight: 500 } },
-      labels: { style: { colors: textSecondary, fontSize: '11px' } },
-      forceNiceScale: true,
-    },
-    grid: { borderColor: gridBorder, strokeDashArray: 3 },
     legend: {
-      position: 'top',
-      horizontalAlign: 'left',
+      position: mobile ? 'bottom' : 'top',
+      horizontalAlign: mobile ? 'center' : 'left',
       markers: { radius: 3 },
       labels: { colors: textPrimary },
-      fontSize: '12px',
+      fontSize: mobile ? '11px' : '12px',
     },
     tooltip: {
       theme: dark ? 'dark' : 'light',
@@ -1016,7 +1327,37 @@ const chartOptions = computed(() => {
     },
     noData: { text: 'No projects match this filter' },
   }
-})
+
+  if (withHeader) {
+    options.title = {
+      text: chartTitle.value,
+      align: 'left',
+      margin: 4,
+      style: { fontSize: '14px', fontWeight: 600, color: textPrimary },
+    }
+    options.subtitle = {
+      text: chartSubtitle.value,
+      align: 'left',
+      offsetY: 22,
+      style: { fontSize: '11px', color: textSecondary },
+    }
+  }
+
+  return options
+}
+
+const inlineChartOptions = computed(() =>
+  buildChartOptions(
+    displayChartModel.value,
+    chartHeight.value,
+    isMobile.value,
+    !isMobile.value,
+  ),
+)
+
+const fullscreenChartOptions = computed(() =>
+  buildChartOptions(chartModel.value, fullscreenChartHeight.value, true, false),
+)
 
 // Table view — the relief for the light-mode contrast warning on some slots
 const chartTableRows = computed(() =>
@@ -1275,34 +1616,48 @@ const downloadSummaryTable = async () => {
         </div>
 
         <div class="chart-toolbar-controls">
-          <el-radio-group v-model="stackDimension" size="small">
-            <el-radio-button label="programme">Programme</el-radio-button>
-            <el-radio-button label="component">Component</el-radio-button>
-            <el-radio-button label="status">Status</el-radio-button>
-            <el-radio-button label="scope">Scope</el-radio-button>
-          </el-radio-group>
+          <template v-if="isMobile">
+            <el-select v-model="stackDimension" size="small" class="chart-mobile-select">
+              <el-option label="Programme" value="programme" />
+              <el-option label="Component" value="component" />
+              <el-option label="Status" value="status" />
+              <el-option label="Scope" value="scope" />
+            </el-select>
+            <el-select v-model="viewMode" size="small" class="chart-mobile-select">
+              <el-option label="Chart" value="chart" />
+              <el-option label="Table" value="table" />
+              <el-option label="Map" value="map" />
+            </el-select>
+          </template>
+          <template v-else>
+            <el-radio-group v-model="stackDimension" size="small">
+              <el-radio-button label="programme">Programme</el-radio-button>
+              <el-radio-button label="component">Component</el-radio-button>
+              <el-radio-button label="status">Status</el-radio-button>
+              <el-radio-button label="scope">Scope</el-radio-button>
+            </el-radio-group>
 
-          <el-radio-group v-model="viewMode" size="small">
-            <el-radio-button label="chart">Chart</el-radio-button>
-            <el-radio-button label="table">Table</el-radio-button>
-            <el-radio-button label="map">Map</el-radio-button>
-          </el-radio-group>
+            <el-radio-group v-model="viewMode" size="small">
+              <el-radio-button label="chart">Chart</el-radio-button>
+              <el-radio-button label="table">Table</el-radio-button>
+              <el-radio-button label="map">Map</el-radio-button>
+            </el-radio-group>
+          </template>
 
           <el-tooltip :content="trackerExportUi.tooltip" placement="top">
             <el-button
               size="small"
               type="primary"
+              :icon="Download"
               :loading="downloading"
               :disabled="!projects.length"
               @click="openTrackerExportDialog"
-            >
-              <Icon v-if="!downloading" icon="mdi:file-excel-outline" :size="16" />
-            </el-button>
+            />
           </el-tooltip>
         </div>
       </div>
 
-      <div class="chart-filter-row">
+      <div v-if="!isMobile" class="chart-filter-row">
         <el-select
           v-model="selectedCounty"
           clearable
@@ -1364,7 +1719,6 @@ const downloadSummaryTable = async () => {
           Clear
         </el-button>
 
-        <!-- Pushed to the far right; only meaningful while the table is showing -->
         <el-tooltip
           v-if="showChartTable && chartHasData"
           :content="`Download this table — ${AXIS_LABEL[axisLevel].toLowerCase()} × ${DIMENSION_LABEL[stackDimension].toLowerCase()} (XLSX)`"
@@ -1380,6 +1734,102 @@ const downloadSummaryTable = async () => {
           </el-button>
         </el-tooltip>
       </div>
+
+      <div v-else class="chart-filter-row chart-filter-row--mobile">
+        <el-button size="small" @click="chartFiltersOpen = true">
+          <Icon icon="mdi:filter-variant" :size="16" class="chart-filter-btn-icon" />
+          Filters
+          <span v-if="hasActiveFilters" class="chart-filter-dot"></span>
+        </el-button>
+
+        <el-tooltip
+          v-if="showChartTable && chartHasData"
+          :content="`Download this table — ${AXIS_LABEL[axisLevel].toLowerCase()} × ${DIMENSION_LABEL[stackDimension].toLowerCase()} (XLSX)`"
+          placement="top"
+        >
+          <el-button
+            size="small"
+            class="chart-filter-trailing"
+            :loading="downloadingSummary"
+            @click="downloadSummaryTable"
+          >
+            <Icon v-if="!downloadingSummary" icon="mdi:table-arrow-down" :size="16" />
+          </el-button>
+        </el-tooltip>
+      </div>
+
+      <el-drawer
+        v-model="chartFiltersOpen"
+        title="Chart filters"
+        :size="isMobile ? '95%' : '420px'"
+        class="chart-filters-drawer"
+        destroy-on-close
+      >
+        <div class="chart-filters-body">
+          <div class="chart-filters-field">
+            <label class="chart-filters-label">County</label>
+            <el-select
+              v-model="selectedCounty"
+              clearable
+              filterable
+              placeholder="All counties"
+              class="chart-filters-control"
+            >
+              <el-option v-for="c in counties" :key="c.id" :label="c.name" :value="c.id" />
+            </el-select>
+          </div>
+
+          <div class="chart-filters-field">
+            <label class="chart-filters-label">Constituency</label>
+            <el-select
+              v-model="selectedSubcounty"
+              clearable
+              filterable
+              placeholder="All constituencies"
+              class="chart-filters-control"
+              :disabled="selectedCounty == null"
+            >
+              <el-option v-for="s in subcounties" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </div>
+
+          <div class="chart-filters-field">
+            <label class="chart-filters-label">Ward</label>
+            <el-select
+              v-model="selectedWard"
+              clearable
+              filterable
+              placeholder="All wards"
+              class="chart-filters-control"
+              :disabled="selectedSubcounty == null"
+            >
+              <el-option v-for="w in wards" :key="w.id" :label="w.name" :value="w.id" />
+            </el-select>
+          </div>
+
+          <div class="chart-filters-field">
+            <label class="chart-filters-label">Programme</label>
+            <el-tree-select
+              v-model="selectedProgramme"
+              :data="programmeTreeData"
+              clearable
+              filterable
+              check-strictly
+              default-expand-all
+              node-key="value"
+              value-key="value"
+              :props="{ label: 'label', children: 'children', value: 'value' }"
+              placeholder="All programmes"
+              class="chart-filters-control"
+            />
+          </div>
+        </div>
+
+        <div class="chart-filters-actions">
+          <el-button v-if="hasActiveFilters" text @click="resetFilters">Clear</el-button>
+          <el-button type="primary" @click="chartFiltersOpen = false">Done</el-button>
+        </div>
+      </el-drawer>
 
       <div v-if="!chartHasData" class="chart-empty">No projects match this filter</div>
 
@@ -1423,146 +1873,178 @@ const downloadSummaryTable = async () => {
         <el-skeleton v-if="geoLoading" :rows="6" animated />
         <div v-else-if="!registeredMapName" class="chart-empty">Map boundaries unavailable</div>
         <template v-else>
-          <div class="map-layout">
-            <v-chart class="summary-map" :option="mapOptions" autoresize />
-
-            <aside class="map-panel">
-              <div class="map-panel-head">
-                <span class="map-panel-title">By {{ AXIS_LABEL[axisLevel].toLowerCase() }}</span>
-                <span class="map-panel-total">{{ chartModel.total }} projects</span>
-              </div>
-
-              <label class="map-dots-toggle">
-                <el-checkbox v-model="showDots" size="small">
-                  <span class="map-dots-label">
-                    Location dots
-                    <span v-if="showDots" class="map-dots-count">
-                      ({{ dotData.length }}, by {{ DIMENSION_LABEL[stackDimension].toLowerCase() }})
-                    </span>
+          <div class="map-view">
+            <label class="map-dots-toggle">
+              <el-checkbox v-model="showDots" size="small">
+                <span class="map-dots-label">
+                  Location dots
+                  <span v-if="showDots" class="map-dots-count">
+                    ({{ dotData.length }}, by {{ DIMENSION_LABEL[stackDimension].toLowerCase() }})
                   </span>
-                </el-checkbox>
-              </label>
+                </span>
+              </el-checkbox>
+            </label>
 
-              <ul class="map-rank-list">
-                <li v-for="row in mapRanking" :key="row.name" class="map-rank-item">
-                  <span class="map-rank-name" :title="row.name">{{ row.name }}</span>
-                  <span class="map-rank-bar">
-                    <span class="map-rank-bar-fill" :style="{ width: `${row.barPct}%` }"></span>
-                  </span>
-                  <span class="map-rank-value">{{ row.value }}</span>
-                  <span class="map-rank-pct">{{ row.pct }}%</span>
-                </li>
-              </ul>
+            <div class="map-chart-wrap">
+              <v-chart
+                :key="registeredMapName"
+                class="summary-map"
+                :option="mapOptions"
+                :style="{ height: `${mapChartHeight}px` }"
+                autoresize
+              />
+              <div
+                v-if="mapRankingColumns.split"
+                class="map-rank-divider"
+                :style="mapRankDividerStyle"
+                aria-hidden="true"
+              ></div>
+            </div>
 
-              <p v-if="mapTotals.unmapped.length" class="map-note">
-                No boundary to shade:
-                {{ mapTotals.unmapped.map((u) => `${u.name} (${u.value})`).join(', ') }}
-              </p>
+            <p v-if="mapTotals.unmapped.length" class="map-note">
+              No boundary to shade:
+              {{ mapTotals.unmapped.map((u) => `${u.name} (${u.value})`).join(', ') }}
+            </p>
 
-              <p v-if="chartModel.foldedCount" class="map-note">
-                Smallest {{ chartModel.foldedCount }}
-                {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} grouped as “Other”.
-              </p>
+            <p v-if="chartModel.foldedCount" class="map-note">
+              Smallest {{ chartModel.foldedCount }}
+              {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} grouped as “Other”.
+            </p>
 
-              <p class="map-note">
-                Shading is total projects per {{ AXIS_LABEL[axisLevel].toLowerCase() }};
-                <template v-if="showDots">
-                  dot colour is {{ DIMENSION_LABEL[stackDimension].toLowerCase() }}.
-                </template>
-                <template v-else>
-                  turn on dots to see the
-                  {{ DIMENSION_LABEL[stackDimension].toLowerCase() }} split.
-                </template>
-              </p>
-            </aside>
+            <p class="map-note">
+              Use the chart toolbar to download the map and ranking together.
+              <template v-if="showDots">
+                Dot colour is {{ DIMENSION_LABEL[stackDimension].toLowerCase() }}.
+              </template>
+            </p>
           </div>
         </template>
       </template>
 
-      <apexchart
-        v-else
-        type="bar"
-        height="420"
-        width="100%"
-        :options="chartOptions"
-        :series="chartModel.series"
-      />
+      <div v-else class="chart-canvas-wrap">
+        <apexchart
+          type="bar"
+          :height="chartHeight"
+          width="100%"
+          :options="inlineChartOptions"
+          :series="displayChartModel.series"
+        />
+        <div v-if="mobileChartTruncated" class="chart-mobile-expand">
+          <p class="chart-mobile-expand-note">
+            Top {{ MOBILE_CHART_TOP_N }} of {{ chartModel.countyNames.length }}
+            {{ AXIS_LABEL[axisLevel].toLowerCase() }}s by project count
+          </p>
+          <el-button size="small" type="primary" plain @click="chartFullscreenOpen = true">
+            <Icon icon="mdi:fullscreen" :size="16" class="chart-filter-btn-icon" />
+            View all
+          </el-button>
+        </div>
+      </div>
     </el-card>
 
-    <el-dialog
+    <el-drawer
+      v-model="chartFullscreenOpen"
+      :title="chartTitle"
+      direction="btt"
+      size="100%"
+      class="chart-fullscreen-drawer"
+      destroy-on-close
+    >
+      <div class="chart-fullscreen-body">
+        <p class="chart-fullscreen-subtitle">{{ chartSubtitle }}</p>
+        <div class="chart-fullscreen-scroll">
+          <apexchart
+            type="bar"
+            :height="fullscreenChartHeight"
+            width="100%"
+            :options="fullscreenChartOptions"
+            :series="chartModel.series"
+          />
+        </div>
+        <div class="chart-fullscreen-actions">
+          <el-button type="primary" @click="chartFullscreenOpen = false">Close</el-button>
+        </div>
+      </div>
+    </el-drawer>
+
+    <el-drawer
       v-model="trackerExportDialogVisible"
       :title="trackerExportUi.dialogTitle"
-      width="480px"
+      :size="isMobile ? '95%' : '480px'"
       :close-on-click-modal="!downloading"
+      class="tracker-export-drawer"
+      destroy-on-close
     >
-      <p class="tracker-export-intro">
-        {{ trackerExportUi.intro }}
-      </p>
+      <div class="tracker-export-body">
+        <p class="tracker-export-intro">
+          {{ trackerExportUi.intro }}
+        </p>
 
-      <div class="tracker-export-field">
-        <label class="tracker-export-label">Programme</label>
-        <el-tree-select
-          v-model="trackerExportProgrammeId"
-          :data="programmeTreeData"
-          clearable
-          filterable
-          check-strictly
-          default-expand-all
-          node-key="value"
-          value-key="value"
-          :props="{ label: 'label', children: 'children', value: 'value' }"
-          placeholder="All programmes (SUD & KISIP)"
-          class="tracker-export-control"
-        />
-      </div>
-
-      <div class="tracker-export-field">
-        <label class="tracker-export-label">Regions</label>
-        <el-select
-          v-model="trackerExportRegions"
-          multiple
-          clearable
-          filterable
-          collapse-tags
-          collapse-tags-tooltip
-          placeholder="All regions"
-          class="tracker-export-control"
-        >
-          <el-option
-            v-for="option in trackerRegionOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
+        <div class="tracker-export-field">
+          <label class="tracker-export-label">Programme</label>
+          <el-tree-select
+            v-model="trackerExportProgrammeId"
+            :data="programmeTreeData"
+            clearable
+            filterable
+            check-strictly
+            default-expand-all
+            node-key="value"
+            value-key="value"
+            :props="{ label: 'label', children: 'children', value: 'value' }"
+            placeholder="All programmes (SUD & KISIP)"
+            class="tracker-export-control"
           />
-        </el-select>
+        </div>
+
+        <div class="tracker-export-field">
+          <label class="tracker-export-label">Regions</label>
+          <el-select
+            v-model="trackerExportRegions"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="All regions"
+            class="tracker-export-control"
+          >
+            <el-option
+              v-for="option in trackerRegionOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </div>
+
+        <p class="tracker-export-summary">
+          <strong>{{ trackerExportProjects.length }}</strong>
+          project(s) will be exported
+          <span v-if="trackerExportProgrammeFamily">
+            as <strong>{{ trackerExportProgrammeFamily }}</strong> regional tracker
+          </span>
+          <span v-if="!trackerExportProjects.length"> — adjust the filters above</span>
+          <br />
+          <span class="tracker-export-filename">File: {{ trackerExportFileName }}</span>
+        </p>
       </div>
 
-      <p class="tracker-export-summary">
-        <strong>{{ trackerExportProjects.length }}</strong>
-        project(s) will be exported
-        <span v-if="trackerExportProgrammeFamily">
-          as <strong>{{ trackerExportProgrammeFamily }}</strong> regional tracker
-        </span>
-        <span v-if="!trackerExportProjects.length"> — adjust the filters above</span>
-        <br />
-        <span class="tracker-export-filename">File: {{ trackerExportFileName }}</span>
-      </p>
-
-      <template #footer>
-        <el-button text @click="resetTrackerExportDialog">Reset</el-button>
-        <el-button @click="trackerExportDialogVisible = false" :disabled="downloading">
+      <div class="tracker-export-actions">
+        <el-button :icon="Close" @click="trackerExportDialogVisible = false" :disabled="downloading">
           Cancel
         </el-button>
         <el-button
           type="primary"
+          :icon="Download"
           :loading="downloading"
           :disabled="!trackerExportProjects.length"
           @click="downloadProjectList"
         >
           {{ trackerExportUi.downloadLabel }}
         </el-button>
-      </template>
-    </el-dialog>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -1674,6 +2156,136 @@ const downloadSummaryTable = async () => {
   width: 100%;
 }
 
+.chart-filter-row--mobile {
+  justify-content: space-between;
+}
+
+.chart-filter-btn-icon {
+  margin-right: 4px;
+}
+
+.chart-filter-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--el-color-primary);
+  vertical-align: middle;
+}
+
+.chart-mobile-select {
+  width: 118px;
+  flex-shrink: 0;
+}
+
+.chart-canvas-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chart-mobile-expand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.chart-mobile-expand-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+.chart-fullscreen-drawer :deep(.el-drawer__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+}
+
+.chart-fullscreen-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.chart-fullscreen-subtitle {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.chart-fullscreen-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chart-fullscreen-actions {
+  flex-shrink: 0;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.chart-fullscreen-actions :deep(.el-button) {
+  width: 100%;
+}
+
+.chart-filters-drawer :deep(.el-drawer__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+}
+
+.chart-filters-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chart-filters-field {
+  margin-bottom: 16px;
+}
+
+.chart-filters-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.chart-filters-control {
+  width: 100%;
+}
+
+.chart-filters-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.chart-filters-actions :deep(.el-button) {
+  width: 100%;
+  margin-left: 0;
+}
+
 .chart-empty {
   display: flex;
   align-items: center;
@@ -1694,69 +2306,32 @@ const downloadSummaryTable = async () => {
   justify-content: flex-end;
 }
 
-/* A roughly-square country in a full-width box letterboxes badly; the panel takes
-   the space the map can't use instead of leaving it blank. */
-.map-layout {
+/* Compound map + ranking chart (single ECharts canvas for export). */
+.map-view {
   display: flex;
-  align-items: stretch;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.is-mobile .map-layout {
-  flex-direction: column;
+.map-chart-wrap {
+  position: relative;
+}
+
+.map-rank-divider {
+  position: absolute;
+  z-index: 10;
+  width: 2px;
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .summary-map {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 520px;
-}
-
-.is-mobile .summary-map {
-  height: 340px;
-}
-
-.map-panel {
-  flex: 0 0 300px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border-left: 1px solid var(--el-border-color-lighter);
-  padding-left: 14px;
-}
-
-.is-mobile .map-panel {
-  flex: 1 1 auto;
-  border-left: none;
-  border-top: 1px solid var(--el-border-color-lighter);
-  padding-left: 0;
-  padding-top: 12px;
-}
-
-.map-panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding-bottom: 8px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.map-panel-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.map-panel-total {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  width: 100%;
+  min-height: 340px;
 }
 
 .map-dots-toggle {
   display: block;
-  margin-bottom: 6px;
 }
 
 .map-dots-label {
@@ -1770,63 +2345,11 @@ const downloadSummaryTable = async () => {
   color: var(--el-text-color-secondary);
 }
 
-.map-rank-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  max-height: 420px;
-}
-
-.is-mobile .map-rank-list {
-  max-height: 240px;
-}
-
-.map-rank-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px 28px 34px;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-  font-size: 12px;
-}
-
-.map-rank-name {
-  color: var(--el-text-color-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.map-rank-bar {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--el-fill-color);
-  overflow: hidden;
-}
-
-.map-rank-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: #3987e5;
-}
-
-.map-rank-value {
-  text-align: right;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.map-rank-pct {
-  text-align: right;
-  color: var(--el-text-color-secondary);
-}
-
 .map-note {
-  margin: 6px 2px 0;
+  margin: 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 
 .tracker-export-intro {
@@ -1834,6 +2357,32 @@ const downloadSummaryTable = async () => {
   font-size: 13px;
   color: var(--el-text-color-secondary);
   line-height: 1.5;
+}
+
+.tracker-export-drawer :deep(.el-drawer__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 0;
+}
+
+.tracker-export-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tracker-export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .tracker-export-field {
@@ -1861,6 +2410,22 @@ const downloadSummaryTable = async () => {
 .tracker-export-filename {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+@media (max-width: 768px) {
+  .tracker-export-body {
+    padding-right: 0;
+  }
+
+  .tracker-export-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tracker-export-actions :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 </style>
 

@@ -61,6 +61,8 @@ import AdjustableTableColumnPicker from '@/components/Users/AdjustableTableColum
 import { Icon as AppIcon } from '@/components/Icon'
 import { useAdjustableTableColumns, type AdjustableColumnSetting } from '@/composables/useAdjustableTableColumns'
 import { getProgrammesList, getComponentsList } from '@/api/project-locations-optimized'
+import { buildProgrammeTreeSelectData } from '@/utils/programmeComponentTree'
+import type { ProgrammeRecord } from '@/utils/programmeValidation'
 
 
 const { wsCache } = useCache()
@@ -708,19 +710,9 @@ const selectedComponentId = ref<number | null>(null)
 const programmeList = ref<Array<{ id: number; title: string; acronym: string; parentId: number | string | null }>>([])
 const componentFilterOptions = ref<Array<{ value: number; label: string; programmeId: number }>>([])
 
-const programmeTreeData = computed(() => {
-  const roots = programmeList.value.filter((p) => p.parentId == null || p.parentId === '')
-  return roots.map((root) => ({
-    value: root.id,
-    label: root.title || root.acronym,
-    children: programmeList.value
-      .filter((p) => String(p.parentId) === String(root.id))
-      .map((p) => ({
-        value: p.id,
-        label: p.title || p.acronym,
-      })),
-  }))
-})
+const programmeTreeData = computed(() =>
+  buildProgrammeTreeSelectData(programmeList.value as ProgrammeRecord[]),
+)
 
 const loadProgrammeOptions = async () => {
   try {

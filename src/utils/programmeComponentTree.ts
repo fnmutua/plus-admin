@@ -4,6 +4,99 @@ import {
   normalizeParentId,
   type ProgrammeRecord,
 } from './programmeValidation'
+import { classifyTrackerProgrammeFamily } from './sudRegionalTrackerExport'
+
+export interface ProgrammeTreeSelectNode {
+  value: number
+  label: string
+  children?: ProgrammeTreeSelectNode[]
+}
+
+function programmeFamilySortOrder(programmeId: number, programmes: ProgrammeRecord[]): number {
+  const family = classifyTrackerProgrammeFamily(programmeId, programmes)
+  if (family === 'SUD') return 0
+  if (family === 'KISIP') return 1
+  return 2
+}
+
+function compareProgrammesForSelect(
+  a: { value: number; label: string },
+  b: { value: number; label: string },
+  programmes: ProgrammeRecord[],
+): number {
+  const byFamily =
+    programmeFamilySortOrder(a.value, programmes) - programmeFamilySortOrder(b.value, programmes)
+  return byFamily !== 0 ? byFamily : a.label.localeCompare(b.label)
+}
+
+export function sortProgrammeRecordsByFamily(
+  programmes: ProgrammeRecord[],
+  records: ProgrammeRecord[],
+): ProgrammeRecord[] {
+  return [...records].sort((a, b) => {
+    const idA = Number(a.id)
+    const idB = Number(b.id)
+    const byFamily = programmeFamilySortOrder(idA, programmes) - programmeFamilySortOrder(idB, programmes)
+    if (byFamily !== 0) return byFamily
+    const labelA = String(a.title || a.acronym || a.id)
+    const labelB = String(b.title || b.acronym || b.id)
+    return labelA.localeCompare(labelB)
+  })
+}
+
+export function sortProgrammeTreeSelectNodes(
+  nodes: ProgrammeTreeSelectNode[],
+  programmes: ProgrammeRecord[],
+): ProgrammeTreeSelectNode[] {
+  return [...nodes]
+    .sort((a, b) => compareProgrammesForSelect(a, b, programmes))
+    .map((node) => ({
+      ...node,
+      children: node.children?.length
+        ? sortProgrammeTreeSelectNodes(node.children, programmes)
+        : node.children,
+    }))
+}
+
+export function sortProgrammeSelectOptions<T extends { value: number; label: string }>(
+  options: T[],
+  programmes: ProgrammeRecord[],
+): T[] {
+  return [...options].sort((a, b) => compareProgrammesForSelect(a, b, programmes))
+}
+
+export function buildProgrammeTreeSelectData(programmes: ProgrammeRecord[]): ProgrammeTreeSelectNode[] {
+  const childrenOf = (parentId: number): ProgrammeTreeSelectNode[] =>
+    programmes
+      .filter((p) => normalizeParentId(p.parentId) === parentId)
+      .map((p) => ({
+        value: Number(p.id),
+        label: String(p.title || p.acronym || p.id),
+      }))
+
+  const roots = programmes.filter((p) => normalizeParentId(p.parentId) == null)
+
+  const nodes = roots.map((root) => {
+    const children = childrenOf(Number(root.id))
+    return {
+      value: Number(root.id),
+      label: String(root.title || root.acronym || root.id),
+      children: children.length ? children : undefined,
+    }
+  })
+
+  return sortProgrammeTreeSelectNodes(nodes, programmes)
+}
+
+export function buildSortedProgrammeTree(flatRows: ProgrammeRecord[]): ProgrammeRecord[] {
+  const sortTree = (nodes: ProgrammeRecord[]): ProgrammeRecord[] =>
+    sortProgrammeRecordsByFamily(flatRows, nodes).map((node) => ({
+      ...node,
+      children: node.children?.length ? sortTree(node.children) : node.children,
+    }))
+
+  return sortTree(buildProgrammeTree(flatRows))
+}
 
 export interface ComponentRecord {
   id?: number | null
@@ -86,9 +179,7 @@ export function buildProgrammeComponentTree(
     }
   }
 
-  const roots = programmeTree
-    .sort((a, b) => String(a.title).localeCompare(String(b.title)))
-    .map(mapProgrammeNode)
+  const roots = sortProgrammeRecordsByFamily(programmes, programmeTree).map(mapProgrammeNode)
 
   if (orphanComponents.length) {
     roots.push({
@@ -181,7 +272,7 @@ export function countComponentTreeNodes(nodes: ProgrammeComponentTreeNode[]) {
 }
 
 export function buildProgrammeSelectOptions(programmes: ProgrammeRecord[]) {
-  const tree = buildProgrammeTree(programmes)
+  const tree = buildSortedProgrammeTree(programmes)
   const options: { value: number; label: string }[] = []
 
   const walk = (nodes: ProgrammeRecord[], depth = 0) => {

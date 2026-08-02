@@ -21,6 +21,12 @@ const logoSrc = computed(() =>
   layout.value === 'classic' ? '/gok-white.png' : '/gok.png'
 )
 
+const logoImgClass = computed(() =>
+  layout.value === 'classic'
+    ? 'logo-img logo-img--sidebar'
+    : 'logo-img logo-img--default'
+)
+
 onMounted(() => {
   if (unref(collapse)) show.value = false
 })
@@ -69,7 +75,7 @@ watch(
     <img
       :src="logoSrc"
       alt="Government of Kenya"
-      class="h-[calc(var(--logo-height)-10px)] w-[calc(var(--logo-height)-10px)] object-contain shrink-0"
+      :class="logoImgClass"
     />
     <div
 v-if="show" :class="[
@@ -84,3 +90,22 @@ v-if="show" :class="[
     </div>
   </router-link>
 </template>
+
+<style scoped>
+.logo-img {
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-img--default {
+  height: calc(var(--logo-height) - 10px);
+  width: calc(var(--logo-height) - 10px);
+}
+
+.logo-img--sidebar {
+  height: calc(var(--logo-height) - 4px);
+  width: calc(var(--logo-height) - 4px);
+  filter: contrast(1.14) brightness(1.1) drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
+  image-rendering: -webkit-optimize-contrast;
+}
+</style>

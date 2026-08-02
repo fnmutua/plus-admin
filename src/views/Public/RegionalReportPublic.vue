@@ -32,6 +32,7 @@ import {
   type RegionalReportProjectIndicator,
 } from '@/api/regional-report-public'
 import { getProgrammeDescendantIds, type ProgrammeRecord } from '@/utils/programmeValidation'
+import { buildProgrammeTreeSelectData } from '@/utils/programmeComponentTree'
 
 type SavedIndicator = {
   indicatorCategoryId: number
@@ -330,22 +331,9 @@ function resetProjectState() {
   documentFiles.value = []
 }
 
-const programmeTreeData = computed(() => {
-  const roots = programmes.value.filter((p) => p.parentId == null || (p.parentId as any) === '')
-  const childrenOf = (parentId: number) =>
-    programmes.value
-      .filter((p) => String(p.parentId) === String(parentId))
-      .map((p) => ({
-        value: Number(p.id),
-        label: String(p.title || p.acronym || p.id),
-      }))
-
-  return roots.map((root) => ({
-    value: Number(root.id),
-    label: String(root.title || root.acronym || root.id),
-    children: childrenOf(Number(root.id)),
-  }))
-})
+const programmeTreeData = computed(() =>
+  buildProgrammeTreeSelectData(programmes.value as ProgrammeRecord[]),
+)
 
 // Component ids belonging to the selected programme (or any of its descendants)
 const allowedComponentIds = computed<Set<number> | null>(() => {

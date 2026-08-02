@@ -245,7 +245,10 @@ import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import { hasPermission } from '@/utils/documentPermissions'
 import { debounce } from '@/utils/debounce'
 import {
-  buildProgrammeTree,
+  buildProgrammeTreeSelectData,
+  buildSortedProgrammeTree,
+} from '@/utils/programmeComponentTree'
+import {
   getProgrammeDescendantIds,
   type ProgrammeRecord,
 } from '@/utils/programmeValidation'
@@ -529,14 +532,7 @@ const resolveProgrammeFilterIds = (selected: number[]): number[] => {
   return [...ids]
 }
 
-const programmeTreeData = computed(() => {
-  const mapNode = (node: ProgrammeRecord) => ({
-    value: Number(node.id),
-    label: String(node.title || node.acronym || node.id),
-    children: node.children?.length ? node.children.map(mapNode) : undefined,
-  })
-  return buildProgrammeTree(programmeList.value).map(mapNode)
-})
+const programmeTreeData = computed(() => buildProgrammeTreeSelectData(programmeList.value))
 
 const componentTreeData = computed(() => {
   if (!implementer.value.length) return []
@@ -563,7 +559,7 @@ const componentTreeData = computed(() => {
     })
   }
 
-  walkProgrammes(buildProgrammeTree(programmeList.value))
+  walkProgrammes(buildSortedProgrammeTree(programmeList.value))
   return groups
 })
 
