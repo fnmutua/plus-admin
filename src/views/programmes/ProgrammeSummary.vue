@@ -1493,6 +1493,11 @@ const downloadSummaryTable = async () => {
       v-model="trackerExportDialogVisible"
       :title="trackerExportUi.dialogTitle"
       :width="isMobile ? '90%' : '480px'"
+      :top="isMobile ? '4vh' : undefined"
+      :draggable="!isMobile"
+      append-to-body
+      class="tracker-export-dialog"
+      :class="{ 'tracker-export-dialog--mobile': isMobile }"
       :close-on-click-modal="!downloading"
     >
       <p class="tracker-export-intro">
@@ -1507,7 +1512,7 @@ const downloadSummaryTable = async () => {
           clearable
           filterable
           check-strictly
-          default-expand-all
+          :default-expand-all="!isMobile"
           node-key="value"
           value-key="value"
           :props="{ label: 'label', children: 'children', value: 'value' }"
@@ -1549,18 +1554,20 @@ const downloadSummaryTable = async () => {
       </p>
 
       <template #footer>
-        <el-button text @click="resetTrackerExportDialog">Reset</el-button>
-        <el-button @click="trackerExportDialogVisible = false" :disabled="downloading">
-          Cancel
-        </el-button>
-        <el-button
-          type="primary"
-          :loading="downloading"
-          :disabled="!trackerExportProjects.length"
-          @click="downloadProjectList"
-        >
-          {{ trackerExportUi.downloadLabel }}
-        </el-button>
+        <div :class="['tracker-export-footer', { 'tracker-export-footer--mobile': isMobile }]">
+          <el-button text @click="resetTrackerExportDialog">Reset</el-button>
+          <el-button @click="trackerExportDialogVisible = false" :disabled="downloading">
+            Cancel
+          </el-button>
+          <el-button
+            type="primary"
+            :loading="downloading"
+            :disabled="!trackerExportProjects.length"
+            @click="downloadProjectList"
+          >
+            {{ trackerExportUi.downloadLabel }}
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -1861,6 +1868,49 @@ const downloadSummaryTable = async () => {
 .tracker-export-filename {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+  word-break: break-word;
+}
+
+.tracker-export-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.tracker-export-footer--mobile {
+  flex-direction: column;
+  width: 100%;
+}
+
+.tracker-export-footer--mobile :deep(.el-button) {
+  width: 100%;
+  margin-left: 0;
+}
+
+.tracker-export-dialog--mobile :deep(.el-dialog) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 32px);
+  margin-bottom: 16px;
+}
+
+.tracker-export-dialog--mobile :deep(.el-dialog__header) {
+  flex-shrink: 0;
+  padding: 16px 16px 8px;
+}
+
+.tracker-export-dialog--mobile :deep(.el-dialog__body) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 16px 4px;
+}
+
+.tracker-export-dialog--mobile :deep(.el-dialog__footer) {
+  flex-shrink: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
 }
 </style>
 
