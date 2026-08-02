@@ -4,7 +4,7 @@
         <el-header>
           <div class="header-content">
             <div class="logo">
-              <img src="@/assets/imgs/1logo.png" alt="Your Company Logo" />
+              <img src="/gok.png" alt="Government of Kenya" />
             </div>
             <nav>
               <el-menu mode="horizontal" :default-active="activeIndex" @select="handleSelect">
@@ -88,7 +88,9 @@
   }
   
   .logo img {
-    height: 50px;
+    height: 44px;
+    width: 44px;
+    object-fit: contain;
   }
   
   .footer-content {

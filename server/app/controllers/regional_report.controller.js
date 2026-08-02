@@ -1,6 +1,11 @@
 /* eslint-disable prettier/prettier */
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const shortid = require('shortid');
 const { Op } = require('sequelize');
 const db = require('../models');
+const { REGIONAL_REPORT_UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 const {
   CANONICAL_REGION_ORDER,
   resolveCanonicalRegion,
@@ -23,6 +28,97 @@ const PHYSICAL_PROGRESS_TARGET = 100;
  * once it is approved. Anything not rejected is the best-known current figure.
  */
 const BASELINE_STATUS_SQL = "COALESCE(LOWER(r.status), '') <> 'rejected'";
+
+const MAX_SUBMISSION_DOCUMENTS = 5;
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const ALLOWED_DOCUMENT_EXTENSIONS = new Set([
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+]);
+const BLOCKED_DOCUMENT_EXTENSIONS = new Set([
+  '.exe',
+  '.bat',
+  '.cmd',
+  '.sh',
+  '.msi',
+  '.php',
+  '.jar',
+  '.com',
+  '.scr',
+  '.vbs',
+  '.ps1',
+  '.dll',
+  '.apk',
+  '.js',
+]);
+
+if (!fs.existsSync(REGIONAL_REPORT_UPLOAD_DIR)) {
+  ensureDir(REGIONAL_REPORT_UPLOAD_DIR);
+}
+
+const regionalReportDocumentStorage = multer.diskStorage({
+  destination(_req, _file, cb) {
+    cb(null, REGIONAL_REPORT_UPLOAD_DIR);
+  },
+  filename(_req, file, cb) {
+    const ext = path.extname(String(file.originalname || '')).toLowerCase();
+    cb(null, `${shortid.generate()}${ext}`);
+  },
+});
+
+const regionalReportDocumentUpload = multer({
+  storage: regionalReportDocumentStorage,
+  limits: { fileSize: MAX_DOCUMENT_BYTES, files: MAX_SUBMISSION_DOCUMENTS },
+  fileFilter(_req, file, cb) {
+    const ext = path.extname(String(file.originalname || '')).toLowerCase();
+    if (BLOCKED_DOCUMENT_EXTENSIONS.has(ext)) {
+      return cb(new Error(`File type ${ext} is not allowed`));
+    }
+    if (!ALLOWED_DOCUMENT_EXTENSIONS.has(ext)) {
+      return cb(
+        new Error('Only PDF, Word, Excel, and image files are allowed'),
+      );
+    }
+    cb(null, true);
+  },
+});
+
+function serializeSubmissionDocument(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    format: row.format,
+    size: row.size != null ? Number(row.size) : null,
+    createdAt: row.createdAt,
+  };
+}
+
+async function loadDocumentsForSubmission(submissionId) {
+  const rows = await db.models.regional_report_submission_document.findAll({
+    where: { regional_report_submission_id: submissionId },
+    order: [['createdAt', 'ASC']],
+  });
+  return rows.map(serializeSubmissionDocument);
+}
+
+function cleanupUploadedFiles(files) {
+  if (!Array.isArray(files)) return;
+  for (const file of files) {
+    try {
+      if (file?.path) fs.unlinkSync(file.path);
+    } catch (_) {
+      // best-effort cleanup
+    }
+  }
+}
 
 function parsePercent(value) {
   if (value == null || value === '') return null;
@@ -1351,6 +1447,7 @@ async function enrichSubmissionProjects(submission) {
     ...serializeSubmission(submission),
     metadata: submission.metadata,
     projects,
+    documents: await loadDocumentsForSubmission(submission.id),
   };
 }
 
@@ -1362,7 +1459,7 @@ exports.getRegionalReportSubmissions = async (req, res) => {
       period,
       search,
       page = 1,
-      limit = 20,
+      limit = 10,
     } = req.query;
 
     const where = {};
@@ -1385,7 +1482,7 @@ exports.getRegionalReportSubmissions = async (req, res) => {
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
     const offset = (pageNum - 1) * pageSize;
 
     const { count, rows } = await db.models.regional_report_submission.findAndCountAll({
@@ -1648,5 +1745,119 @@ exports.getPublicRegionalReportProjectHistory = async (req, res) => {
   } catch (error) {
     console.error('getPublicRegionalReportProjectHistory error', error);
     return res.status(500).json({ message: 'Could not load project history' });
+  }
+};
+
+exports.uploadPublicRegionalReportDocuments = (req, res) => {
+  regionalReportDocumentUpload.array('files')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      cleanupUploadedFiles(req.files);
+      return res.status(400).json({
+        message: uploadErr.message || 'Upload failed',
+      });
+    }
+
+    const filingCode = String(req.body?.filingCode || '').trim();
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    if (!filingCode) {
+      cleanupUploadedFiles(files);
+      return res.status(400).json({ message: 'Filing code is required' });
+    }
+    if (!files.length) {
+      return res.status(400).json({ message: 'Select at least one file to upload' });
+    }
+
+    try {
+      const submission = await db.models.regional_report_submission.findOne({
+        where: { filing_code: filingCode },
+      });
+      if (!submission) {
+        cleanupUploadedFiles(files);
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      const status = String(submission.status || '').toLowerCase();
+      if (status !== 'submitted') {
+        cleanupUploadedFiles(files);
+        return res.status(400).json({
+          message: 'Documents can only be added while the submission is pending review',
+        });
+      }
+
+      const existingCount = await db.models.regional_report_submission_document.count({
+        where: { regional_report_submission_id: submission.id },
+      });
+      if (existingCount + files.length > MAX_SUBMISSION_DOCUMENTS) {
+        cleanupUploadedFiles(files);
+        return res.status(400).json({
+          message: `You can attach up to ${MAX_SUBMISSION_DOCUMENTS} documents per report`,
+        });
+      }
+
+      const created = [];
+      for (const file of files) {
+        const ext = path.extname(String(file.originalname || '')).replace('.', '').toLowerCase();
+        const sizeMB = parseFloat((file.size / (1024 * 1024)).toFixed(4));
+        const doc = await db.models.regional_report_submission_document.create({
+          regional_report_submission_id: submission.id,
+          name: path.basename(String(file.originalname || 'document')),
+          format: ext || null,
+          size: sizeMB,
+          location: file.path,
+          code: path.basename(file.filename),
+          createdBy: null,
+        });
+        created.push(serializeSubmissionDocument(doc));
+      }
+
+      return res.status(201).json({
+        message: 'Documents uploaded',
+        filingCode,
+        documents: created,
+      });
+    } catch (error) {
+      cleanupUploadedFiles(files);
+      console.error('uploadPublicRegionalReportDocuments error', error);
+      if (
+        error?.name === 'SequelizeUniqueConstraintError' ||
+        error?.parent?.code === '23505'
+      ) {
+        return res.status(409).json({
+          message: 'One of the selected files has already been attached to this report',
+        });
+      }
+      return res.status(500).json({ message: 'Could not upload documents' });
+    }
+  });
+};
+
+exports.downloadRegionalReportSubmissionDocument = async (req, res) => {
+  try {
+    const submissionId = Number(req.params.id);
+    const docId = Number(req.params.docId);
+    if (!Number.isFinite(submissionId) || !Number.isFinite(docId)) {
+      return res.status(400).json({ code: '4000', message: 'Invalid document reference' });
+    }
+
+    const doc = await db.models.regional_report_submission_document.findOne({
+      where: {
+        id: docId,
+        regional_report_submission_id: submissionId,
+      },
+    });
+    if (!doc) {
+      return res.status(404).json({ code: '4004', message: 'Document not found' });
+    }
+
+    const filePath = doc.location;
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ code: '4004', message: 'File missing on disk' });
+    }
+
+    return res.download(filePath, doc.name);
+  } catch (error) {
+    console.error('downloadRegionalReportSubmissionDocument error', error);
+    return res.status(500).json({ code: '5000', message: 'Could not download document' });
   }
 };

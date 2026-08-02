@@ -127,3 +127,27 @@ export const submitRegionalReport = (
   payload: RegionalReportSubmitPayload,
 ): Promise<{ message: string; filingCode: string; submissionId: number; projectCount: number }> =>
   axios.post(`${prod}/api/public/regional-report/submit`, payload).then((res) => res.data)
+
+export type RegionalReportDocumentSummary = {
+  id: number
+  name: string
+  format: string | null
+  size: number | null
+  createdAt: string
+}
+
+export const uploadRegionalReportDocuments = (
+  filingCode: string,
+  files: File[],
+): Promise<{ message: string; filingCode: string; documents: RegionalReportDocumentSummary[] }> => {
+  const formData = new FormData()
+  formData.append('filingCode', filingCode)
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  return axios
+    .post(`${prod}/api/public/regional-report/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data)
+}

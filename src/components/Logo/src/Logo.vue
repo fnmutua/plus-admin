@@ -17,6 +17,10 @@ const layout = computed(() => appStore.getLayout)
 
 const collapse = computed(() => appStore.getCollapse)
 
+const logoSrc = computed(() =>
+  layout.value === 'classic' ? '/gok-white.png' : '/gok.png'
+)
+
 onMounted(() => {
   if (unref(collapse)) show.value = false
 })
@@ -62,7 +66,11 @@ watch(
     'flex !h-[var(--logo-height)] items-center cursor-pointer pl-8px relative',
     'dark:bg-[var(--el-bg-color)]'
   ]" to="/">
-    <img src="@/assets/imgs/logo.png" class="w-[calc(var(--logo-height)-10px)] h-[calc(var(--logo-height)-10px)]" />
+    <img
+      :src="logoSrc"
+      alt="Government of Kenya"
+      class="h-[calc(var(--logo-height)-10px)] w-[calc(var(--logo-height)-10px)] object-contain shrink-0"
+    />
     <div
 v-if="show" :class="[
       'ml-10px text-16px font-700',

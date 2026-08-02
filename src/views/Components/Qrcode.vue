@@ -5,8 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { computed, ref, unref } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import { ElRow, ElCard, ElCol, ElMessage } from 'element-plus'
-// @ts-ignore
-import logoImg from '@/assets/imgs/logo.png'
+const logoImg = '/gok.png'
 
 const appStore = useAppStore()
 

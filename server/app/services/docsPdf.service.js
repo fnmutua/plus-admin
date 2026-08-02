@@ -11,7 +11,7 @@ const {
 } = require('pdf-lib');
 
 const PAGE = { width: 595.28, height: 841.89, margin: 46, footer: 34 };
-const LOGO_PATH = path.join(__dirname, '../../../src/assets/imgs/1logo.png');
+const LOGO_PATH = path.join(__dirname, '../../../public/gok.png');
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
 // Match admin app primary theme (src/config/app.ts elColorPrimary)

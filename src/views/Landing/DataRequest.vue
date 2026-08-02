@@ -4,7 +4,7 @@
       <div class="dr-container">
         <!-- Header (form only; success uses card header below) -->
         <div v-if="!submitted" class="dr-header">
-          <img src="/logo.png" alt="Ministry logo" class="dr-logo" @error="(e: any) => e.target.style.display='none'" />
+          <img src="/gok.png" alt="Government of Kenya" class="dr-logo" @error="(e: any) => e.target.style.display='none'" />
           <h1 class="dr-title">National Geodatabase of Slums and Informal Settlements</h1>
           <h2 class="dr-subtitle">Data Request Form</h2>
           <p class="dr-instructions">
@@ -17,7 +17,7 @@
         <el-card v-if="submitted" class="dr-card dr-success-card" shadow="hover">
           <div class="dr-success-card-inner">
             <div class="dr-header dr-header--in-card">
-              <img src="/logo.png" alt="Ministry logo" class="dr-logo" @error="(e: any) => e.target.style.display='none'" />
+              <img src="/gok.png" alt="Government of Kenya" class="dr-logo" @error="(e: any) => e.target.style.display='none'" />
               <h1 class="dr-title">National Geodatabase of Slums and Informal Settlements</h1>
               <h2 class="dr-subtitle">Data Request Form</h2>
               <p class="dr-instructions">
@@ -655,7 +655,9 @@ const resetForm = () => {
 }
 
 .dr-logo {
-  height: 80px;
+  height: 72px;
+  width: 72px;
+  object-fit: contain;
   margin-bottom: 16px;
 }
 

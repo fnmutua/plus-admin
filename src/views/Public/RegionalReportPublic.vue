@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   ElButton,
   ElCard,
+  ElDialog,
   ElInput,
   ElInputNumber,
   ElMessage,
@@ -10,10 +11,10 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTabPane,
-  ElTabs,
   ElTreeSelect,
+  ElUpload,
 } from 'element-plus'
+import type { UploadFile, UploadRawFile } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import {
   getRegionalReportMeta,
@@ -22,6 +23,7 @@ import {
   getRegionalReportProjectIndicators,
   getRegionalReportProjects,
   submitRegionalReport,
+  uploadRegionalReportDocuments,
   type RegionalReportComponent,
   type RegionalReportHistoryEntry,
   type RegionalReportMeta,
@@ -81,13 +83,15 @@ const form = reactive({
 
 const availableProjects = ref<RegionalReportProject[]>([])
 const projectReports = ref<ProjectReportEntry[]>([])
-const activeSection = ref<'details' | 'projects'>('details')
-/** Auto-advance past "Report details" only once, so reopening it isn't fought. */
-const hasAutoAdvanced = ref(false)
-const projectTab = ref<'progress' | 'indicators' | 'history'>('progress')
+type ReportStep = 'selection' | 'progress' | 'indicators' | 'details' | 'documents' | 'submit'
+const activeSection = ref<ReportStep>('selection')
+const loadedProjectsRegion = ref<string | null>(null)
+let projectsRequestId = 0
+const historyDialogOpen = ref(false)
 const historyEntries = ref<RegionalReportHistoryEntry[]>([])
 const loadingHistory = ref(false)
 const historyProjectId = ref<number | null>(null)
+let historyRequestId = 0
 // The indicator table needs ~570px of columns; below that it becomes stacked cards.
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 const pickerProjectId = ref<number | null>(null)
@@ -108,13 +112,32 @@ const indicatorDraft = reactive({
 
 const loadingIndicators = ref(false)
 
+const MAX_DOCUMENTS = 5
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+const ALLOWED_DOCUMENT_EXTENSIONS = new Set([
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+])
+const documentFiles = ref<UploadFile[]>([])
+
+function showStep(step: ReportStep) {
+  activeSection.value = step
+  if (typeof window !== 'undefined') {
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
+}
+
 function todayReportDate() {
   return new Date().toISOString().slice(0, 10)
 }
-
-const selectedProjectReport = computed(
-  () => projectReports.value.find((entry) => entry.projectId === pickerProjectId.value) || null,
-)
 
 const fiscalYearOptions = computed(() => {
   const current = meta.value.defaultFiscalYear || '2025/2026'
@@ -159,18 +182,31 @@ const submitSummary = computed(() => {
   return count ? `${count} project(s) in this report` : 'No updates yet'
 })
 
-/** Region and name are what the projects step needs, so they gate moving on. */
-const canLeaveDetails = computed(
-  () => Boolean(form.region) && form.submitterName.trim().length >= 2,
+const canLeaveSelection = computed(
+  () =>
+    Boolean(form.region) &&
+    loadedProjectsRegion.value === form.region &&
+    selectedProgramme.value != null &&
+    pickerProjectId.value != null,
 )
 
-function goToProjects() {
-  if (!canLeaveDetails.value) {
-    ElMessage.warning('Select a region and enter your name first')
+const canLeaveOtherDetails = computed(
+  () =>
+    Boolean(form.fiscalYear) &&
+    Number(form.period) >= 1 &&
+    Number(form.period) <= 4 &&
+    form.submitterName.trim().length >= 2,
+)
+
+async function goToProgress() {
+  if (form.region && loadedProjectsRegion.value !== form.region && !loadingProjects.value) {
+    await loadProjects()
+  }
+  if (!canLeaveSelection.value) {
+    ElMessage.warning('Select a region, programme, and project first')
     return
   }
-  hasAutoAdvanced.value = true
-  activeSection.value = 'projects'
+  showStep('progress')
 }
 
 function collectIndicatorRows(): SavedIndicator[] {
@@ -283,11 +319,15 @@ function resetPickerDraft() {
 }
 
 function resetProjectState() {
+  projectsRequestId += 1
+  loadingProjects.value = false
+  loadedProjectsRegion.value = null
   availableProjects.value = []
   projectReports.value = []
   selectedProgramme.value = null
   resetPickerDraft()
-  projectTab.value = 'progress'
+  historyDialogOpen.value = false
+  documentFiles.value = []
 }
 
 const programmeTreeData = computed(() => {
@@ -368,31 +408,43 @@ function formatHistoryProgress(row: RegionalReportHistoryEntry) {
   return `${row.progress}%`
 }
 
-/** Loaded lazily — only when the History tab is actually opened for a project. */
+/** Loaded lazily when the History button is opened for a project. */
 async function loadProjectHistory() {
   const projectId = pickerProjectId.value
-  if (!projectId || !form.region) return
+  const region = form.region
+  if (!projectId || !region) return
   if (historyProjectId.value === projectId) return
 
+  const requestId = ++historyRequestId
   loadingHistory.value = true
   try {
-    const res = await getRegionalReportProjectHistory({ region: form.region, projectId })
+    const res = await getRegionalReportProjectHistory({ region, projectId })
+    if (
+      requestId !== historyRequestId ||
+      pickerProjectId.value !== projectId ||
+      form.region !== region
+    ) return
+
     historyEntries.value = res.entries
     historyProjectId.value = projectId
   } catch {
+    if (requestId !== historyRequestId) return
     historyEntries.value = []
   } finally {
-    loadingHistory.value = false
+    if (requestId === historyRequestId) loadingHistory.value = false
   }
 }
 
-watch([projectTab, pickerProjectId], ([tab]) => {
-  if (tab === 'history') loadProjectHistory()
-})
+function openHistory() {
+  historyDialogOpen.value = true
+  void loadProjectHistory()
+}
 
 watch(
   () => pickerProjectId.value,
   async (projectId) => {
+    historyRequestId += 1
+    loadingHistory.value = false
     historyEntries.value = []
     historyProjectId.value = null
 
@@ -475,31 +527,39 @@ async function loadProgrammes() {
 }
 
 async function loadProjects() {
-  if (!form.region) {
-    resetProjectState()
-    return
-  }
+  const region = form.region
+  if (!region) return
+
+  const requestId = ++projectsRequestId
   loadingProjects.value = true
-  projectReports.value = []
-  selectedProgramme.value = null
-  resetPickerDraft()
   try {
-    const res = await getRegionalReportProjects(form.region)
+    const res = await getRegionalReportProjects(region)
+    if (requestId !== projectsRequestId || form.region !== region) return
+
     availableProjects.value = res.projects
+    loadedProjectsRegion.value = region
     if (!availableProjects.value.length) {
       ElMessage.warning('No projects found for this region')
-    } else {
-      // Only jump to the projects tab once the name is in; otherwise stay on details
-      // so the remaining required field is still in front of the user.
-      advanceToProjects()
     }
   } catch (error: any) {
+    if (requestId !== projectsRequestId || form.region !== region) return
+
     ElMessage.error(error?.response?.data?.message || 'Could not load projects')
     availableProjects.value = []
+    loadedProjectsRegion.value = null
   } finally {
-    loadingProjects.value = false
+    if (requestId === projectsRequestId) loadingProjects.value = false
   }
 }
+
+watch(
+  () => form.region,
+  (region, previousRegion) => {
+    if (region === previousRegion) return
+    resetProjectState()
+    if (region) void loadProjects()
+  },
+)
 
 /**
  * There are no per-project save buttons — everything is committed on Submit — so edits
@@ -580,15 +640,15 @@ function buildSubmitProjects() {
     }))
 }
 
-async function handleSubmit() {
-  if (!canSubmit.value) return
+async function handleSubmit(showSuccess = true) {
+  if (!canSubmit.value) return false
 
   for (const row of projectReports.value) {
     if (row.completionPct == null) continue
     const minPct = projectBaseline(row.projectId)
     if (Number(row.completionPct) + 1e-6 < minPct) {
       ElMessage.error(`Progress for "${row.title}" cannot be below the current ${minPct}%`)
-      return
+      return false
     }
   }
 
@@ -603,37 +663,169 @@ async function handleSubmit() {
       reportDate: todayReportDate(),
       submitterName: form.submitterName.trim(),
       metadata: {
-        formVersion: 4,
+        formVersion: 5,
       },
       projects: payloadProjects,
     })
+
+    const uploadResult = await uploadSelectedDocuments(res.filingCode)
     filingCode.value = res.filingCode
+
+    if (!uploadResult.ok) {
+      ElMessage.warning(
+        `Report ${res.filingCode} was submitted, but document upload failed: ${uploadResult.message}`,
+      )
+      return false
+    }
+
     done.value = true
-    ElMessage.success('Regional report submitted')
+    if (typeof window !== 'undefined') {
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+    }
+    if (showSuccess) {
+      ElMessage.success(
+        documentFiles.value.length
+          ? 'Regional report and documents submitted'
+          : 'Regional report submitted',
+      )
+    }
+    return true
   } catch (error: any) {
     ElMessage.error(error?.response?.data?.message || 'Submission failed')
+    return false
   } finally {
     submitting.value = false
   }
 }
 
-/** Once region + name are in, move on to the project tab. Fires on blur rather than
- *  per-keystroke so the tab never switches out from under someone mid-typing. */
-function advanceToProjects() {
-  if (hasAutoAdvanced.value) return false
-  if (!form.region || form.submitterName.trim().length < 2) return false
-  hasAutoAdvanced.value = true
-  activeSection.value = 'projects'
+function backToSelection() {
+  showStep('selection')
+  if (form.region && loadedProjectsRegion.value !== form.region && !loadingProjects.value) {
+    void loadProjects()
+  }
+}
+
+function editProject(projectId: number) {
+  pickerProjectId.value = projectId
+  showStep('progress')
+}
+
+function goToIndicators() {
+  showStep('indicators')
+}
+
+function backToProgress() {
+  showStep('progress')
+}
+
+function goToOtherDetails() {
+  showStep('details')
+}
+
+function backToIndicators() {
+  showStep('indicators')
+}
+
+function goToSubmit() {
+  if (!canLeaveOtherDetails.value) {
+    ElMessage.warning('Select the year and quarter, then enter your name')
+    return
+  }
+  showStep('documents')
+}
+
+function backToOtherDetails() {
+  showStep('details')
+}
+
+function goToReview() {
+  showStep('submit')
+}
+
+function backToDocuments() {
+  showStep('documents')
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function documentExtension(name: string) {
+  const idx = name.lastIndexOf('.')
+  return idx >= 0 ? name.slice(idx).toLowerCase() : ''
+}
+
+function validateDocumentFile(file: UploadRawFile, currentCount = documentFiles.value.length) {
+  const ext = documentExtension(file.name)
+  if (!ALLOWED_DOCUMENT_EXTENSIONS.has(ext)) {
+    ElMessage.error('Only PDF, Word, Excel, and image files are allowed')
+    return false
+  }
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    ElMessage.error('Each file must be 10 MB or smaller')
+    return false
+  }
+  if (currentCount >= MAX_DOCUMENTS) {
+    ElMessage.warning(`You can attach up to ${MAX_DOCUMENTS} documents`)
+    return false
+  }
   return true
+}
+
+function onDocumentChange(_file: UploadFile, files: UploadFile[]) {
+  const accepted: UploadFile[] = []
+  for (const entry of files) {
+    const raw = entry.raw
+    if (!raw) continue
+    if (!validateDocumentFile(raw, accepted.length)) continue
+    accepted.push(entry)
+  }
+  documentFiles.value = accepted.slice(0, MAX_DOCUMENTS)
+}
+
+function onDocumentRemove(_file: UploadFile, files: UploadFile[]) {
+  documentFiles.value = files
+}
+
+function removeDocument(uid: number) {
+  documentFiles.value = documentFiles.value.filter((file) => file.uid !== uid)
+}
+
+async function uploadSelectedDocuments(filingCode: string) {
+  const files = documentFiles.value
+    .map((entry) => entry.raw)
+    .filter((file): file is UploadRawFile => Boolean(file))
+
+  if (!files.length) return { ok: true as const }
+
+  try {
+    await uploadRegionalReportDocuments(filingCode, files)
+    return { ok: true as const }
+  } catch (error: any) {
+    return {
+      ok: false as const,
+      message: error?.response?.data?.message || 'Could not upload supporting documents',
+    }
+  }
 }
 
 function startAnother() {
   done.value = false
   filingCode.value = ''
   form.submitterName = ''
-  hasAutoAdvanced.value = false
-  activeSection.value = 'details'
+  showStep('selection')
   resetProjectState()
+  if (form.region) void loadProjects()
+}
+
+async function submitAndStartAnother() {
+  if (!(await handleSubmit(false))) return
+
+  const submittedCode = filingCode.value
+  startAnother()
+  ElMessage.success(`Report ${submittedCode} submitted. You can start another.`)
 }
 
 function syncViewport() {
@@ -680,8 +872,9 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
 
         <template v-else>
           <div class="step-body">
-            <section v-show="activeSection === 'details'" class="form-section form-section--nested">
-                <div class="form-grid">
+            <section v-show="activeSection === 'selection'" class="form-section form-section--nested">
+                <h2>1. Select project</h2>
+                <div class="form-grid step-selection-fields">
                   <label class="field">
                     <span>Region *</span>
                     <el-select
@@ -689,57 +882,17 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
                       filterable
                       placeholder="Select your region"
                       class="field-control"
-                      @change="loadProjects"
                     >
                       <el-option v-for="region in meta.regions" :key="region" :label="region" :value="region" />
                     </el-select>
                   </label>
-
-                  <label class="field">
-                    <span>Fiscal year *</span>
-                    <el-select v-model="form.fiscalYear" class="field-control">
-                      <el-option v-for="year in fiscalYearOptions" :key="year" :label="year" :value="year" />
-                    </el-select>
-                  </label>
-
-                  <label class="field">
-                    <span>Quarter *</span>
-                    <el-select v-model="form.period" class="field-control">
-                      <el-option label="Q1 (Jul–Sep)" :value="1" />
-                      <el-option label="Q2 (Oct–Dec)" :value="2" />
-                      <el-option label="Q3 (Jan–Mar)" :value="3" />
-                      <el-option label="Q4 (Apr–Jun)" :value="4" />
-                    </el-select>
-                  </label>
-
-                  <label class="field field-wide">
-                    <span>Your name *</span>
-                    <el-input
-                      v-model="form.submitterName"
-                      placeholder="Full name"
-                      @blur="advanceToProjects"
-                      @keyup.enter="advanceToProjects"
-                    />
-                  </label>
                 </div>
 
-                <div class="step-nav">
-                  <el-button type="primary" :disabled="!canLeaveDetails" @click="goToProjects">
-                    Next
-                  </el-button>
-                </div>
-              </section>
-
-            <div
-              v-show="activeSection === 'projects'"
-              v-loading="loadingProjects"
-              class="projects-panel"
-            >
-                <template v-if="availableProjects.length">
-                  <section class="project-picker">
-                    <div class="form-grid">
+                <section v-loading="loadingProjects" class="project-picker">
+                  <template v-if="availableProjects.length">
+                    <div class="form-grid step-selection-fields">
                       <div class="field">
-                        <span class="field-label">Programme</span>
+                        <span class="field-label">Programme *</span>
                         <el-tree-select
                           v-model="selectedProgramme"
                           :data="programmeTreeData"
@@ -750,7 +903,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
                           node-key="value"
                           value-key="value"
                           :props="{ label: 'label', children: 'children', value: 'value' }"
-                          placeholder="All programmes (SUD & KISIP)"
+                          placeholder="Select programme"
                           class="field-control"
                         />
                       </div>
@@ -777,18 +930,48 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
                     <p v-if="selectedPickerProject" class="selected-project-title">
                       {{ selectedPickerProject.title }}
                     </p>
-                  </section>
+                  </template>
 
-                  <div v-if="canSubmit" class="submit-row">
-                    <span class="submit-hint">{{ submitSummary }}</span>
-                    <el-button type="primary" :loading="submitting" @click="handleSubmit">
-                      Submit regional report
-                    </el-button>
+                  <p v-else-if="!form.region" class="projects-empty">
+                    Select a region to load its projects.
+                  </p>
+                  <p v-else-if="loadingProjects" class="projects-empty">
+                    Loading projects…
+                  </p>
+                  <div
+                    v-else-if="loadedProjectsRegion !== form.region && !loadingProjects"
+                    class="projects-empty"
+                  >
+                    <p>Projects could not be loaded.</p>
+                    <el-button type="primary" link @click="loadProjects">Retry</el-button>
+                  </div>
+                  <p v-else-if="!loadingProjects" class="projects-empty">
+                    No projects found for this region.
+                  </p>
+                </section>
+
+                <div class="step-nav">
+                  <el-button
+                    type="primary"
+                    :disabled="!canLeaveSelection || loadingProjects"
+                    @click="goToProgress"
+                  >
+                    Next: progress
+                  </el-button>
+                </div>
+              </section>
+
+            <div
+              v-show="activeSection === 'progress'"
+              class="projects-panel"
+            >
+                <template v-if="selectedPickerProject">
+                  <div class="project-step-heading">
+                    <h2>2. Project progress</h2>
+                    <p>{{ selectedPickerProject.title }}</p>
                   </div>
 
-                  <el-tabs v-model="projectTab" class="project-tabs">
-                    <el-tab-pane label="Progress" name="progress">
-                      <div v-if="selectedPickerProject" class="project-detail-card">
+                  <div class="project-detail-card">
                         <div class="form-grid project-detail-grid">
                           <label class="field">
                             <span>Completion % *</span>
@@ -818,11 +1001,33 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
                             />
                           </label>
                         </div>
-                      </div>
-                      <p v-else class="projects-empty">Select a project above.</p>
-                    </el-tab-pane>
+                  </div>
 
-                    <el-tab-pane label="Indicators" name="indicators">
+                  <div class="step-nav step-nav--project">
+                    <el-button @click="backToSelection">Back</el-button>
+                    <el-button @click="openHistory">View history</el-button>
+                    <el-button type="primary" @click="goToIndicators">
+                      Next: indicators
+                    </el-button>
+                  </div>
+                </template>
+
+                <div v-else class="projects-empty">
+                  <p>Select a project on Step 1 before entering progress.</p>
+                  <el-button type="primary" link @click="backToSelection">Return to Step 1</el-button>
+                </div>
+              </div>
+
+            <div
+              v-show="activeSection === 'indicators'"
+              class="projects-panel"
+            >
+                <template v-if="selectedPickerProject">
+                  <div class="project-step-heading">
+                    <h2>3. Project indicators</h2>
+                    <p>{{ selectedPickerProject.title }}</p>
+                  </div>
+
                       <p class="tab-intro">
                         Optional. Cumulative values cannot go below the current total.
                       </p>
@@ -955,135 +1160,244 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
                           No indicators configured for this project.
                         </p>
                       </div>
-                      <p v-else class="projects-empty">Select a project above.</p>
-                    </el-tab-pane>
 
-                    <el-tab-pane label="History" name="history">
-                      <div v-if="selectedPickerProject" v-loading="loadingHistory">
-                        <p class="tab-intro">
-                          Previously filed updates for this project, newest first.
-                        </p>
-
-                        <template v-if="historyEntries.length">
-                          <!-- Phones: stacked cards, same reason as the indicator table. -->
-                          <div v-if="isMobile" class="history-cards">
-                            <div v-for="entry in historyEntries" :key="entry.id" class="history-card">
-                              <div class="history-card__head">
-                                <span class="history-card__label">{{ entry.label }}</span>
-                                <span class="history-card__date">{{ formatHistoryDate(entry.date) }}</span>
-                              </div>
-                              <p class="history-card__meta">
-                                {{ entry.code }} · Q{{ entry.period }}
-                              </p>
-                              <p class="history-card__values">
-                                <span v-if="entry.qualitative">{{ entry.qualitative }}</span>
-                                <span v-else>Cumulative <strong>{{ entry.cumAmount }}</strong></span>
-                                <span v-if="entry.progress != null"> · {{ entry.progress }}%</span>
-                              </p>
-                            </div>
-                          </div>
-
-                          <el-table
-                            v-else
-                            :data="historyEntries"
-                            stripe
-                            size="small"
-                            max-height="320"
-                          >
-                            <el-table-column label="Date" width="100">
-                              <template #default="{ row }">{{ formatHistoryDate(row.date) }}</template>
-                            </el-table-column>
-                            <el-table-column label="Qtr" width="60" align="center">
-                              <template #default="{ row }">Q{{ row.period }}</template>
-                            </el-table-column>
-                            <el-table-column label="Indicator" min-width="170" show-overflow-tooltip>
-                              <template #default="{ row }">{{ row.label }}</template>
-                            </el-table-column>
-                            <el-table-column label="Cumulative" width="110" align="right">
-                              <template #default="{ row }">
-                                <span v-if="row.qualitative">{{ row.qualitative }}</span>
-                                <span v-else>{{ row.cumAmount }}{{ row.unit ? ` ${row.unit}` : '' }}</span>
-                              </template>
-                            </el-table-column>
-                            <el-table-column label="Progress" width="90" align="right">
-                              <template #default="{ row }">{{ formatHistoryProgress(row) }}</template>
-                            </el-table-column>
-                            <el-table-column label="Filing" width="130" show-overflow-tooltip>
-                              <template #default="{ row }">{{ row.code }}</template>
-                            </el-table-column>
-                          </el-table>
-                        </template>
-
-                        <p v-else-if="!loadingHistory" class="projects-empty">
-                          No previous updates filed for this project.
-                        </p>
-                      </div>
-                      <p v-else class="projects-empty">Select a project above.</p>
-                    </el-tab-pane>
-                  </el-tabs>
-
-                  <section v-if="projectReports.length" class="added-projects">
-                    <h3>Projects in this report ({{ projectReports.length }})</h3>
-                    <div class="added-projects-scroll">
-                      <el-table :data="projectReports" stripe class="added-projects-table">
-                        <el-table-column label="Project" min-width="180">
-                          <template #default="{ row }">
-                            <div class="project-title">{{ row.title }}</div>
-                            <div class="project-meta">{{ row.county }}</div>
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="Progress" width="100" align="center">
-                          <template #default="{ row }">
-                            {{ row.completionPct != null ? `${row.completionPct}%` : '—' }}
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="Indicators" min-width="220">
-                          <template #default="{ row }">
-                            <template v-if="row.indicators.length">
-                              <div
-                                v-for="ind in row.indicators"
-                                :key="ind.indicatorCategoryId"
-                                class="indicator-summary-row"
-                              >
-                                <span class="indicator-summary-label">{{ ind.label }}</span>
-                                <span class="indicator-summary-value">
-                                  <template v-if="ind.isQualitative">{{ ind.qualitative }}</template>
-                                  <template v-else>{{ ind.cumAmount }}{{ ind.unit ? ` ${ind.unit}` : '' }}</template>
-                                </span>
-                              </div>
-                            </template>
-                            <span v-else>—</span>
-                          </template>
-                        </el-table-column>
-                        <el-table-column label="" width="100" align="right" fixed="right">
-                          <template #default="{ row }">
-                            <el-button link type="primary" @click="pickerProjectId = row.projectId">
-                              Edit
-                            </el-button>
-                            <el-button link type="danger" @click="removeProjectReport(row.projectId)">
-                              Remove
-                            </el-button>
-                          </template>
-                        </el-table-column>
-                      </el-table>
-                    </div>
-                  </section>
+                  <div class="step-nav step-nav--project">
+                    <el-button @click="backToProgress">Back</el-button>
+                    <el-button @click="openHistory">View history</el-button>
+                    <el-button type="primary" @click="goToOtherDetails">
+                      Next: other details
+                    </el-button>
+                  </div>
                 </template>
 
-                <p v-else-if="form.region && !loadingProjects" class="projects-empty">
-                  No projects found for this region.
-                </p>
-                <p v-else class="projects-empty">
-                  Select a region on the Details step to load projects.
-                </p>
-
-                <div class="step-nav">
-                  <el-button @click="activeSection = 'details'">Back</el-button>
+                <div v-else class="projects-empty">
+                  <p>Select a project on Step 1 before entering updates.</p>
+                  <el-button type="primary" link @click="backToProgress">Return to progress</el-button>
                 </div>
               </div>
+
+            <section v-show="activeSection === 'details'" class="form-section form-section--nested">
+              <h2>4. Other details</h2>
+              <div class="form-grid">
+                <label class="field">
+                  <span>Fiscal year *</span>
+                  <el-select v-model="form.fiscalYear" class="field-control">
+                    <el-option v-for="year in fiscalYearOptions" :key="year" :label="year" :value="year" />
+                  </el-select>
+                </label>
+
+                <label class="field">
+                  <span>Quarter *</span>
+                  <el-select v-model="form.period" class="field-control">
+                    <el-option label="Q1 (Jul–Sep)" :value="1" />
+                    <el-option label="Q2 (Oct–Dec)" :value="2" />
+                    <el-option label="Q3 (Jan–Mar)" :value="3" />
+                    <el-option label="Q4 (Apr–Jun)" :value="4" />
+                  </el-select>
+                </label>
+
+                <label class="field field-wide">
+                  <span>Your name *</span>
+                  <el-input v-model="form.submitterName" placeholder="Full name" />
+                </label>
+              </div>
+
+              <div class="step-nav step-nav--project">
+                <el-button @click="backToIndicators">Back</el-button>
+                <el-button type="primary" :disabled="!canLeaveOtherDetails" @click="goToSubmit">
+                  Next: documents
+                </el-button>
+              </div>
+            </section>
+
+            <section v-show="activeSection === 'documents'" class="form-section form-section--nested">
+              <h2>5. Supporting documents</h2>
+              <p class="tab-intro">
+                Optional. Attach up to {{ MAX_DOCUMENTS }} files (PDF, Word, Excel, or images), 10 MB each.
+              </p>
+
+              <el-upload
+                class="document-upload"
+                drag
+                multiple
+                :auto-upload="false"
+                :limit="MAX_DOCUMENTS"
+                :file-list="documentFiles"
+                :on-change="onDocumentChange"
+                :on-remove="onDocumentRemove"
+                :on-exceed="() => ElMessage.warning(`You can attach up to ${MAX_DOCUMENTS} documents`)"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*"
+              >
+                <Icon icon="mdi:cloud-upload-outline" class="document-upload__icon" />
+                <div class="document-upload__text">Drop files here or click to browse</div>
+              </el-upload>
+
+              <div v-if="documentFiles.length && isMobile" class="document-cards">
+                <div v-for="file in documentFiles" :key="file.uid" class="document-card">
+                  <div class="document-card__head">
+                    <span class="document-card__name">{{ file.name }}</span>
+                    <el-button link type="danger" @click="removeDocument(file.uid)">Remove</el-button>
+                  </div>
+                  <p class="document-card__meta">{{ formatFileSize(file.size || 0) }}</p>
+                </div>
+              </div>
+
+              <div class="step-nav step-nav--project">
+                <el-button @click="backToOtherDetails">Back</el-button>
+                <el-button type="primary" @click="goToReview">
+                  Next: review
+                </el-button>
+              </div>
+            </section>
+
+            <section v-show="activeSection === 'submit'" class="form-section form-section--nested">
+              <h2>6. Review and submit</h2>
+
+              <div class="review-summary">
+                <span><strong>Region:</strong> {{ form.region }}</span>
+                <span><strong>Project:</strong> {{ selectedPickerProject?.title }}</span>
+                <span><strong>Period:</strong> {{ form.fiscalYear }} · Q{{ form.period }}</span>
+                <span><strong>Submitted by:</strong> {{ form.submitterName }}</span>
+                <span>
+                  <strong>Documents:</strong>
+                  {{ documentFiles.length ? `${documentFiles.length} file(s)` : 'None' }}
+                </span>
+              </div>
+
+              <section v-if="projectReports.length" class="added-projects">
+                <h3>{{ submitSummary }}</h3>
+                <div class="added-projects-scroll">
+                  <el-table :data="projectReports" stripe class="added-projects-table">
+                    <el-table-column label="Project" min-width="180">
+                      <template #default="{ row }">
+                        <div class="project-title">{{ row.title }}</div>
+                        <div class="project-meta">{{ row.county }}</div>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="Progress" width="100" align="center">
+                      <template #default="{ row }">
+                        {{ row.completionPct != null ? `${row.completionPct}%` : '—' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="Indicators" min-width="220">
+                      <template #default="{ row }">
+                        <template v-if="row.indicators.length">
+                          <div
+                            v-for="ind in row.indicators"
+                            :key="ind.indicatorCategoryId"
+                            class="indicator-summary-row"
+                          >
+                            <span class="indicator-summary-label">{{ ind.label }}</span>
+                            <span class="indicator-summary-value">
+                              <template v-if="ind.isQualitative">{{ ind.qualitative }}</template>
+                              <template v-else>{{ ind.cumAmount }}{{ ind.unit ? ` ${ind.unit}` : '' }}</template>
+                            </span>
+                          </div>
+                        </template>
+                        <span v-else>—</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="" width="70" align="right" fixed="right">
+                      <template #default="{ row }">
+                        <el-button link type="primary" @click="editProject(row.projectId)">Edit</el-button>
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
+              </section>
+
+              <p v-else class="projects-empty">
+                Enter a progress or indicator update before submitting.
+              </p>
+
+              <div class="step-nav step-nav--project">
+                <el-button @click="backToDocuments">Back</el-button>
+                <el-button
+                  :disabled="!canSubmit"
+                  :loading="submitting"
+                  @click="submitAndStartAnother"
+                >
+                  Submit &amp; add another report
+                </el-button>
+                <el-button
+                  type="primary"
+                  :disabled="!canSubmit"
+                  :loading="submitting"
+                  @click="handleSubmit()"
+                >
+                  Submit regional report
+                </el-button>
+              </div>
+            </section>
             </div>
 
         </template>
+
+        <el-dialog
+          v-model="historyDialogOpen"
+          :title="selectedPickerProject ? `History · ${selectedPickerProject.title}` : 'Project history'"
+          :width="isMobile ? '95%' : '760px'"
+          append-to-body
+        >
+          <div v-loading="loadingHistory">
+            <p class="tab-intro">Previously filed updates for this project, newest first.</p>
+
+            <template v-if="historyEntries.length">
+              <div v-if="isMobile" class="history-cards">
+                <div v-for="entry in historyEntries" :key="entry.id" class="history-card">
+                  <div class="history-card__head">
+                    <span class="history-card__label">{{ entry.label }}</span>
+                    <span class="history-card__date">{{ formatHistoryDate(entry.date) }}</span>
+                  </div>
+                  <p class="history-card__meta">{{ entry.code }} · Q{{ entry.period }}</p>
+                  <p class="history-card__values">
+                    <span v-if="entry.qualitative">{{ entry.qualitative }}</span>
+                    <span v-else>Cumulative <strong>{{ entry.cumAmount }}</strong></span>
+                    <span v-if="entry.progress != null"> · {{ entry.progress }}%</span>
+                  </p>
+                </div>
+              </div>
+
+              <el-table
+                v-else
+                :data="historyEntries"
+                stripe
+                size="small"
+                max-height="420"
+              >
+                <el-table-column label="Date" width="100">
+                  <template #default="{ row }">{{ formatHistoryDate(row.date) }}</template>
+                </el-table-column>
+                <el-table-column label="Qtr" width="60" align="center">
+                  <template #default="{ row }">Q{{ row.period }}</template>
+                </el-table-column>
+                <el-table-column label="Indicator" min-width="170" show-overflow-tooltip>
+                  <template #default="{ row }">{{ row.label }}</template>
+                </el-table-column>
+                <el-table-column label="Cumulative" width="110" align="right">
+                  <template #default="{ row }">
+                    <span v-if="row.qualitative">{{ row.qualitative }}</span>
+                    <span v-else>{{ row.cumAmount }}{{ row.unit ? ` ${row.unit}` : '' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="Progress" width="90" align="right">
+                  <template #default="{ row }">{{ formatHistoryProgress(row) }}</template>
+                </el-table-column>
+                <el-table-column label="Filing" width="130" show-overflow-tooltip>
+                  <template #default="{ row }">{{ row.code }}</template>
+                </el-table-column>
+              </el-table>
+            </template>
+
+            <p v-else-if="!loadingHistory" class="projects-empty">
+              No previous updates filed for this project.
+            </p>
+          </div>
+
+          <template #footer>
+            <el-button @click="historyDialogOpen = false">Close</el-button>
+          </template>
+        </el-dialog>
       </el-card>
     </div>
   </div>
@@ -1151,17 +1465,37 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
+.step-nav > .submit-hint {
+  margin-right: auto;
+  align-self: center;
+}
+
 .project-picker {
+  margin: 18px 0 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.project-step-heading {
   margin-bottom: 14px;
 }
 
-.project-tabs :deep(.el-tabs__header) {
-  margin-bottom: 10px;
+.project-step-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.project-step-heading p {
+  margin: 4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
 .tab-intro {
@@ -1364,6 +1698,22 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
   gap: 10px;
 }
 
+.step-selection-fields {
+  grid-template-columns: 1fr;
+}
+
+.review-summary {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1395,21 +1745,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
   color: var(--el-text-color-secondary);
 }
 
-/* Sits above the Progress/Indicators tabs and only appears once there is something to
-   submit, so it reads as a "ready" bar rather than a permanent footer. */
-.submit-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: var(--el-fill-color-light);
-}
-
 .submit-hint {
   color: var(--el-text-color-secondary);
   font-size: 0.9rem;
@@ -1427,5 +1762,75 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
 
 .success-note {
   color: var(--el-text-color-secondary);
+}
+
+.document-upload {
+  margin-bottom: 14px;
+}
+
+.document-upload :deep(.el-upload),
+.document-upload :deep(.el-upload-dragger) {
+  width: 100%;
+}
+
+.document-upload__icon {
+  font-size: 2rem;
+  color: var(--el-color-primary);
+}
+
+.document-upload__text {
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 0.9rem;
+}
+
+.document-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.document-card {
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.document-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.document-card__name {
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.document-card__meta {
+  margin: 4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 600px) {
+  .document-upload :deep(.el-upload-list) {
+    display: none;
+  }
+  .step-nav--project {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .step-nav--project :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 </style>

@@ -15,6 +15,7 @@ import { getUserPermissions, resetUserPassword } from '@/api/users'
 import { validateKenyanPhone } from '@/utils/phoneValidation'
 import BaseLayout from './../BaseLayout.vue'
 import { finishLoginNavigation } from '@/utils/bootstrapNavigation'
+import { applyDefaultPostLoginLayout } from '@/utils/postLoginLayout'
 import { setAuthUserInfo } from '@/hooks/web/authStorage'
 
 const { required } = useValidator()
@@ -114,6 +115,7 @@ watch(
 )
 
 const getRole = async (authenticatedUser: any, formData: UserType) => {
+  applyDefaultPostLoginLayout()
   console.log('authenticatedUser roles', authenticatedUser)
   const { wsCache } = useCache()
 
@@ -237,6 +239,7 @@ const signIn = async () => {
           if (appStore.getDynamicRouter) {
             getRole(userDeatilsAfterLogin, formData)
           } else {
+            applyDefaultPostLoginLayout()
             if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
             await permissionStore.generateRoutes('none', 'settlement').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
@@ -280,6 +283,7 @@ const guestLogin = async () => {
     const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) =>
       ({ id, name, roles, data, county_id, avatar, phone, photo }))(res)
     if (selUserDetails) {
+      applyDefaultPostLoginLayout()
       // Use permissions embedded in the guest response — no separate getUserPermissions call needed
       const guestPermissions: string[] = Array.isArray(res.permissions) ? res.permissions : []
       setAuthUserInfo({ ...selUserDetails, permissions: guestPermissions })

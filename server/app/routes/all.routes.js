@@ -3127,8 +3127,10 @@ module.exports = function (app) {
   app.get('/api/public/regional-report/indicators', regionalReportController.getPublicRegionalReportProjectIndicators)
   app.get('/api/public/regional-report/history', regionalReportController.getPublicRegionalReportProjectHistory)
   app.post('/api/public/regional-report/submit', regionalReportController.submitPublicRegionalReport)
+  app.post('/api/public/regional-report/documents', regionalReportController.uploadPublicRegionalReportDocuments)
   app.get('/api/v1/regional-report-submissions', [authJwt.verifyToken, requireRegionalReportSubmissionRead()], regionalReportController.getRegionalReportSubmissions)
   app.get('/api/v1/regional-report-submissions/:id', [authJwt.verifyToken, requireRegionalReportSubmissionRead()], regionalReportController.getRegionalReportSubmissionById)
+  app.get('/api/v1/regional-report-submissions/:id/documents/:docId/download', [authJwt.verifyToken, requireRegionalReportSubmissionRead()], regionalReportController.downloadRegionalReportSubmissionDocument)
   app.put('/api/v1/regional-report-submissions/:id/review', [authJwt.verifyToken, requireRegionalReportSubmissionReview()], regionalReportController.reviewRegionalReportSubmission)
 
   /**

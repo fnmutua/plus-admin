@@ -16,6 +16,7 @@ import { validateKenyanPhone } from '@/utils/phoneValidation'
 import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 import { finishLoginNavigation } from '@/utils/bootstrapNavigation'
+import { applyDefaultPostLoginLayout } from '@/utils/postLoginLayout'
 import { setAuthUserInfo } from '@/hooks/web/authStorage'
 
 const { required } = useValidator()
@@ -142,6 +143,7 @@ const signIn = async () => {
           if (appStore.getDynamicRouter) {
             getRole(userDeatilsAfterLogin, formData)
           } else {
+            applyDefaultPostLoginLayout()
             if (finishLoginNavigation(redirect.value || '/dashboard/national')) return
             await permissionStore.generateRoutes('none').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
@@ -161,6 +163,7 @@ const signIn = async () => {
  
 
 const getRole = async (authenticatedUser: any, formData: UserType) => {
+  applyDefaultPostLoginLayout()
   console.log('authenticatedUser roles', authenticatedUser);
 
   // Get wsCache at the top of the function

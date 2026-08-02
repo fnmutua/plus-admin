@@ -21,7 +21,7 @@ export const getAllParentPath = <T = Recordable>(treeData: T[], path: string) =>
   return (menuList || []).map((item) => item.path)
 }
 
-/** Submenus that should stay collapsed unless the active page is inside them. */
+/** Submenus that stay collapsed until the user expands them manually. */
 export const getMenuOpenPaths = (
   routers: AppRouteRecordRaw[] = [],
   activePath: string,
@@ -46,7 +46,8 @@ export const getMenuOpenPaths = (
     if (!activeUnder) continue
 
     const keepParentOpen =
-      !meta.menuCollapse || activePath.startsWith(`${fullPath}/`) || activePath === fullPath
+      !meta.menuCollapse &&
+      (activePath.startsWith(`${fullPath}/`) || activePath === fullPath || childOpens.length > 0)
 
     if (keepParentOpen) {
       opened.push(fullPath)

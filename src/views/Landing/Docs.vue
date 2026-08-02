@@ -3,7 +3,7 @@
     <!-- Sidebar -->
     <aside class="docs-sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-header">
-        <img src="@/assets/imgs/1logo.png" alt="KeSMIS" class="sidebar-logo" />
+        <img src="/gok.png" alt="Government of Kenya" class="sidebar-logo" />
         <span class="sidebar-title">KeSMIS Docs</span>
       </div>
       <nav class="sidebar-nav">
@@ -4411,9 +4411,10 @@ useHead({
 }
 
 .sidebar-logo {
-  width: 28px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar-title {

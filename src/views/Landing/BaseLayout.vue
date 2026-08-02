@@ -46,7 +46,7 @@
 
             <!-- Logo (Desktop only) -->
             <div v-if="!isCompactScreen" class="logo">
-              <img src="@/assets/imgs/1logo.png" alt="KISIP - Kenya Informal Settlements Improvement Project" width="50" height="40" loading="lazy" />
+              <img :src="headerLogoSrc" alt="Government of Kenya" class="header-logo" loading="lazy" />
             </div>
 
             <nav style="background: transparent;">
@@ -164,6 +164,7 @@ const isSmallScreen = computed(() => windowWidth.value <= COMPACT_BREAKPOINT);
 const isCompactScreen = computed(() => windowWidth.value <= COMPACT_BREAKPOINT);
 const menuOpen = ref(false);
 const isDark = computed(() => appStore.getIsDark);
+const headerLogoSrc = computed(() => (isDark.value ? '/gok-white.png' : '/gok.png'));
 const isScrolled = ref(false);
 
 const prefersDarkQuery = typeof window !== 'undefined'
@@ -613,13 +614,15 @@ nav {
   flex-shrink: 0;
 }
 
+.header-logo,
 .logo img {
-  height: 50px;
-  width: auto;
+  height: 44px;
+  width: 44px;
   object-fit: contain;
   transition: all 0.3s ease;
 }
 
+.header-logo:hover,
 .logo img:hover {
   transform: scale(1.05);
 }
@@ -950,10 +953,6 @@ nav {
   .hero-image img {
     max-width: 100%;
   }
-}
-
-.dark-mode .logo img {
-  filter: brightness(0) invert(1);
 }
 
 .dark-mode .header-content {

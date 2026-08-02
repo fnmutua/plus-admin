@@ -65,10 +65,19 @@
 
         <el-col :xs="24" :sm="12" :md="4" :lg="8">
           <div class="toolbar-right">
-            <el-tag v-if="total" type="info" effect="plain">{{ total }} total</el-tag>
-            <el-button :icon="DocumentCopy" plain @click="copyPublicLink">Copy form link</el-button>
-            <el-button plain @click="resetFilters">Reset</el-button>
-            <el-button :icon="Refresh" circle plain :loading="loading" @click="loadSubmissions" />
+            <el-tag v-if="total" type="info" effect="plain" class="toolbar-total">{{ total }} total</el-tag>
+            <el-button :icon="DocumentCopy" plain class="toolbar-action" @click="copyPublicLink">
+              Copy form link
+            </el-button>
+            <el-button
+              :icon="Refresh"
+              plain
+              class="toolbar-action"
+              :loading="loading"
+              @click="loadSubmissions"
+            >
+              Refresh
+            </el-button>
           </div>
         </el-col>
       </el-row>
@@ -89,11 +98,7 @@
             {{ row.fiscalYear }} · {{ periodLabel(row.period) }}
           </template>
         </el-table-column>
-        <el-table-column label="Report date" width="120">
-          <template #default="{ row }">{{ formatDate(row.reportDate) }}</template>
-        </el-table-column>
         <el-table-column prop="submitterName" label="Submitted by" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="projectCount" label="Projects" width="90" align="center" />
         <el-table-column label="Received" width="130">
           <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
         </el-table-column>
@@ -109,38 +114,26 @@
         </el-table-column>
       </el-table>
 
-      <el-pagination
-        :layout="paginationLayout"
+      <ElPagination
         v-model:current-page="page"
         v-model:page-size="pageSize"
+        :default-page-size="getResponsivePageSize()"
+        :layout="isMobile ? 'prev, pager, next, total' : 'sizes, prev, pager, next, total'"
+        :page-sizes="[5, 10, 20, 50, 100]"
         :total="total"
         :background="true"
-        class="mt-4 settlement-pagination"
+        class="mt-4"
         :small="isMobile"
         :pager-count="isMobile ? 3 : 7"
         @size-change="onPageSizeChange"
-        @current-change="loadSubmissions"
-      >
-        <el-select
-          v-model="pageSize"
-          size="small"
-          class="settlement-page-size-select"
-          @change="onPageSizeChange"
-        >
-          <el-option
-            v-for="opt in getPageSizeOptions(total)"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
-          />
-        </el-select>
-      </el-pagination>
+        @current-change="onPageChange"
+      />
     </el-card>
 
     <el-drawer
       v-model="drawerOpen"
       :title="selected?.filingCode || 'Submission details'"
-      size="720px"
+      :size="isMobile ? '95%' : '720px'"
       destroy-on-close
     >
       <div v-loading="detailLoading" class="detail-scroll">
@@ -187,6 +180,23 @@
             </div>
           </div>
 
+          <p class="detail-summary-mobile">
+            <span><strong>Region:</strong> {{ selected.region }}</span>
+            <span><strong>Period:</strong> {{ selected.fiscalYear }} · {{ periodLabel(selected.period) }}</span>
+            <span><strong>Report:</strong> {{ formatDate(selected.reportDate) }}</span>
+            <span><strong>Status:</strong> {{ formatSubmissionStatus(selected.status) }}</span>
+            <span><strong>Received:</strong> {{ formatDateTime(selected.createdAt) }}</span>
+            <span v-if="selected.reviewedAt">
+              <strong>Reviewed:</strong> {{ formatDateTime(selected.reviewedAt) }}
+              <template v-if="selected.reviewedBy"> · {{ selected.reviewedBy }}</template>
+            </span>
+            <span>
+              <strong>By:</strong> {{ selected.submitterName }}
+              <template v-if="selected.submitterTitle"> · {{ selected.submitterTitle }}</template>
+            </span>
+            <span v-if="selected.coSubmitters"><strong>Co-submitters:</strong> {{ selected.coSubmitters }}</span>
+          </p>
+
           <p v-if="selected.notes" class="detail-notes">
             <span class="detail-label">Submitter notes</span>
             {{ selected.notes }}
@@ -206,6 +216,33 @@
               placeholder="Notes for the approval record"
             />
           </div>
+
+          <section v-if="selected.documents?.length" class="submission-documents">
+            <h3 class="detail-section-title">Supporting documents ({{ selected.documents.length }})</h3>
+            <div class="submission-documents-list">
+              <div
+                v-for="doc in selected.documents"
+                :key="doc.id"
+                class="submission-document-row"
+              >
+                <div class="submission-document-meta">
+                  <span class="submission-document-name">{{ doc.name }}</span>
+                  <span class="submission-document-size">
+                    {{ formatDocumentSize(doc.size) }}
+                    <template v-if="doc.format"> · {{ doc.format.toUpperCase() }}</template>
+                  </span>
+                </div>
+                <el-button
+                  link
+                  type="primary"
+                  :loading="downloadingDocId === doc.id"
+                  @click="downloadSubmissionDocument(doc.id, doc.name)"
+                >
+                  Download
+                </el-button>
+              </div>
+            </div>
+          </section>
 
           <h3 class="detail-section-title">Projects ({{ editableProjects.length }})</h3>
           <el-table :data="editableProjects" border stripe size="small" row-key="projectId">
@@ -310,7 +347,11 @@
       </div>
     </el-drawer>
 
-    <el-dialog v-model="rejectDialogOpen" title="Reject regional report" width="480px">
+    <el-dialog
+      v-model="rejectDialogOpen"
+      title="Reject regional report"
+      :width="isMobile ? '95%' : '480px'"
+    >
       <p class="reject-dialog-text">
         Rejecting will close this submission without creating M&amp;E indicator reports or changing project progress.
       </p>
@@ -329,7 +370,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeMount, onMounted, ref, watch } from 'vue'
 import {
   ElButton,
   ElCard,
@@ -355,6 +396,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { getAuthUserInfo } from '@/hooks/web/authStorage'
 import { CANONICAL_REGION_ORDER } from '@/constants/projectRegions'
+import { useWindowSize } from '@vueuse/core'
 
 type SubmissionSummary = {
   id: number
@@ -399,8 +441,17 @@ type SubmissionProject = {
   indicators?: SubmissionIndicator[]
 }
 
+type SubmissionDocument = {
+  id: number
+  name: string
+  format: string | null
+  size: number | null
+  createdAt: string
+}
+
 type SubmissionDetail = SubmissionSummary & {
   projects: SubmissionProject[]
+  documents?: SubmissionDocument[]
   reviewNotes?: string | null
   rejectReason?: string | null
   reviewedAt?: string | null
@@ -419,29 +470,26 @@ const detailLoading = ref(false)
 const submissions = ref<SubmissionSummary[]>([])
 const total = ref(0)
 const page = ref(1)
-const pageSize = ref(20)
-const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
-// Pagination mirrors Sett.vue: the page-size select rides in the leading `slot` so the
-// whole control reads left-to-right, and the size list gains an "All (n)" entry.
-const paginationLayout = computed(() =>
-  isMobile.value ? 'prev, pager, next, total' : 'slot, prev, pager, next, total'
+const defaultPageSize = 10
+const compactPageSize = 5
+/** Viewports below this width use compactPageSize (mobile + tablet / small laptop). */
+const largeScreenMinWidth = 1280
+const pageSize = ref(
+  typeof window !== 'undefined' && window.innerWidth < largeScreenMinWidth
+    ? compactPageSize
+    : defaultPageSize,
 )
+const { width: windowWidth } = useWindowSize()
+const isMobile = computed(() => appStore.getMobile)
+const paginationReady = ref(false)
 
-const basePageSizes = [5, 10, 15, 20, 50, 100]
+function getResponsivePageSize(viewportWidth = windowWidth.value) {
+  return viewportWidth >= largeScreenMinWidth ? defaultPageSize : compactPageSize
+}
 
-const getPageSizeOptions = (totalCount: number): { value: number; label: string }[] => {
-  const opts = basePageSizes.map((s) => ({ value: s, label: `${s}/page` }))
-  if (typeof totalCount !== 'number' || totalCount <= 0) return opts
-
-  const allLabel = `All (${totalCount})`
-  const existingIdx = opts.findIndex((o) => o.value === totalCount)
-  if (existingIdx >= 0) {
-    opts[existingIdx] = { value: totalCount, label: allLabel }
-  } else {
-    opts.push({ value: totalCount, label: allLabel })
-  }
-  return opts
+function applyResponsivePageSize() {
+  pageSize.value = getResponsivePageSize()
 }
 
 const regionFilter = ref('')
@@ -451,6 +499,7 @@ const search = ref('')
 
 const drawerOpen = ref(false)
 const selected = ref<SubmissionDetail | null>(null)
+const downloadingDocId = ref<number | null>(null)
 const editableProjects = ref<SubmissionProject[]>([])
 const reviewNotes = ref('')
 const rejectReason = ref('')
@@ -508,6 +557,40 @@ function formatDateTime(value: string | null | undefined) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatDocumentSize(sizeMb: number | null | undefined) {
+  if (sizeMb == null || !Number.isFinite(Number(sizeMb))) return '—'
+  const mb = Number(sizeMb)
+  if (mb < 0.1) return `${Math.round(mb * 1024)} KB`
+  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`
+}
+
+async function downloadSubmissionDocument(docId: number, filename: string) {
+  if (!selected.value) return
+  downloadingDocId.value = docId
+  try {
+    const res = await axios.get(
+      `${base}/api/v1/regional-report-submissions/${selected.value.id}/documents/${docId}/download`,
+      {
+        headers: { 'x-access-token': getToken() },
+        responseType: 'blob',
+      },
+    )
+    const blob = new Blob([res.data])
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error('Could not download document')
+  } finally {
+    downloadingDocId.value = null
+  }
 }
 
 function formatSubmissionStatus(status: string | null | undefined) {
@@ -678,19 +761,37 @@ async function copyPublicLink() {
 }
 
 /** A bigger page size can leave the current page past the end, so go back to page 1. */
-function onPageSizeChange() {
+async function onPageSizeChange(size: number) {
+  pageSize.value = size
   page.value = 1
-  loadSubmissions()
+  await loadSubmissions()
 }
 
-function resetFilters() {
-  regionFilter.value = ''
-  fiscalYearFilter.value = ''
-  periodFilter.value = ''
-  search.value = ''
-  page.value = 1
-  loadSubmissions()
+async function onPageChange(nextPage: number) {
+  if (!paginationReady.value || page.value === nextPage) return
+  page.value = nextPage
+  await loadSubmissions()
 }
+
+watch(windowWidth, async () => {
+  if (!paginationReady.value) return
+
+  const nextSize = getResponsivePageSize()
+  if (pageSize.value === nextSize) return
+
+  applyResponsivePageSize()
+  page.value = 1
+  await loadSubmissions()
+})
+
+onBeforeMount(() => {
+  applyResponsivePageSize()
+})
+
+onMounted(async () => {
+  await loadSubmissions()
+  paginationReady.value = true
+})
 
 let searchTimer: ReturnType<typeof setTimeout>
 function onSearchInput() {
@@ -700,8 +801,6 @@ function onSearchInput() {
     loadSubmissions()
   }, 320)
 }
-
-onMounted(loadSubmissions)
 </script>
 
 <style scoped>
@@ -736,6 +835,7 @@ onMounted(loadSubmissions)
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .submissions-table {
@@ -744,25 +844,19 @@ onMounted(loadSubmissions)
 
 /* Left-aligned, matching Sett.vue — no justify-content on desktop. */
 @media (max-width: 768px) {
-  :deep(.settlement-pagination) {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    row-gap: 8px;
+  .toolbar-right {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
 
-/* Page-size selector living in the el-pagination "slot" position, replacing the
-   built-in `sizes` so the total-count option can be labelled "All (n)". */
-.settlement-page-size-select {
-  width: 130px;
-  margin-right: 8px;
-}
+  .toolbar-total {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
 
-@media (max-width: 768px) {
-  .settlement-page-size-select {
-    width: 110px;
-    margin-right: 4px;
+  .toolbar-action {
+    width: 100%;
+    margin-left: 0;
   }
 }
 
@@ -776,8 +870,16 @@ onMounted(loadSubmissions)
   cursor: pointer;
 }
 
+:deep(.el-drawer__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .detail-scroll {
-  height: 75vh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -787,6 +889,10 @@ onMounted(loadSubmissions)
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 20px;
   margin-bottom: 16px;
+}
+
+.detail-summary-mobile {
+  display: none;
 }
 
 .detail-label {
@@ -825,6 +931,45 @@ onMounted(loadSubmissions)
   margin-bottom: 16px;
 }
 
+.submission-documents {
+  margin-bottom: 16px;
+}
+
+.submission-documents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.submission-document-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.submission-document-meta {
+  min-width: 0;
+}
+
+.submission-document-name {
+  display: block;
+  font-weight: 500;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.submission-document-size {
+  display: block;
+  margin-top: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
 .completion-input {
   width: 100%;
 }
@@ -856,8 +1001,9 @@ onMounted(loadSubmissions)
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
-  padding-top: 16px;
-  margin-top: 12px;
+  flex-shrink: 0;
+  padding-top: 12px;
+  margin-top: 8px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
@@ -869,8 +1015,44 @@ onMounted(loadSubmissions)
 }
 
 @media (max-width: 768px) {
+  .detail-scroll {
+    padding-right: 0;
+  }
+
   .detail-grid {
-    grid-template-columns: 1fr;
+    display: none;
+  }
+
+  .detail-summary-mobile {
+    display: block;
+    margin: 0 0 14px;
+    color: var(--el-text-color-regular);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .detail-summary-mobile span:not(:last-child)::after {
+    content: ' | ';
+    color: var(--el-text-color-placeholder);
+  }
+
+  .detail-summary-mobile strong {
+    font-weight: 600;
+  }
+
+  .drawer-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .drawer-actions :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .submission-document-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

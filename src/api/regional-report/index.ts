@@ -27,9 +27,18 @@ export type RegionalReportSubmissionProject = {
   workersOnSite: string | null
 }
 
+export type RegionalReportSubmissionDocument = {
+  id: number
+  name: string
+  format: string | null
+  size: number | null
+  createdAt: string
+}
+
 export type RegionalReportSubmissionDetail = RegionalReportSubmissionSummary & {
   metadata: Record<string, unknown> | null
   projects: RegionalReportSubmissionProject[]
+  documents?: RegionalReportSubmissionDocument[]
 }
 
 export type RegionalReportSubmissionListParams = {
@@ -68,4 +77,15 @@ export const reviewRegionalReportSubmission = (id: number, payload: RegionalRepo
   request.put<{ message: string; results: RegionalReportSubmissionDetail }>({
     url: `/api/v1/regional-report-submissions/${id}/review`,
     data: payload,
+  })
+
+export const downloadRegionalReportSubmissionDocument = (
+  submissionId: number,
+  docId: number,
+  token: string,
+) =>
+  request.get({
+    url: `/api/v1/regional-report-submissions/${submissionId}/documents/${docId}/download`,
+    headers: { 'x-access-token': token },
+    responseType: 'blob',
   })
