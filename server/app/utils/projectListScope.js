@@ -335,16 +335,38 @@ function buildProjectSettlementExistsLiteral(tableName, settlementIds, userId, o
   return locationMatch;
 }
 
+function buildProjectSubcountyInLocationLiteral(tableName, subcountyId) {
+  return literal(
+    `EXISTS (
+      SELECT 1 FROM project_location pl
+      WHERE pl.project_id = "${tableName}".id
+      AND COALESCE(
+        pl.subcounty_id,
+        (SELECT w.subcounty_id FROM ward w WHERE w.id = pl.ward_id),
+        (SELECT s.subcounty_id FROM settlement s WHERE s.id = pl.settlement_id)
+      ) = ${subcountyId}
+    )`
+  );
+}
+
+function buildProjectWardInLocationLiteral(tableName, wardId) {
+  return literal(
+    `EXISTS (
+      SELECT 1 FROM project_location pl
+      WHERE pl.project_id = "${tableName}".id
+      AND (
+        pl.ward_id = ${wardId}
+        OR pl.settlement_id IN (SELECT id FROM settlement WHERE ward_id = ${wardId})
+      )
+    )`
+  );
+}
+
 function buildProjectSubcountyExistsLiteral(tableName, subcountyIds, userId, options = {}) {
   const { creatorFallback = false } = options;
   const ids = uniqueInts(subcountyIds);
   if (!ids.length) return null;
-  const matchParts = ids.map(
-    (subcountyId) =>
-      literal(
-        `EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${tableName}".id AND pl.subcounty_id = ${subcountyId})`
-      )
-  );
+  const matchParts = ids.map((subcountyId) => buildProjectSubcountyInLocationLiteral(tableName, subcountyId));
   const locationMatch = matchParts.length === 1 ? matchParts[0] : { [Op.or]: matchParts };
   if (creatorFallback) {
     return combineLocationScopeOrCreator(locationMatch, tableName, userId);
@@ -356,12 +378,7 @@ function buildProjectWardExistsLiteral(tableName, wardIds, userId, options = {})
   const { creatorFallback = false } = options;
   const ids = uniqueInts(wardIds);
   if (!ids.length) return null;
-  const matchParts = ids.map(
-    (wardId) =>
-      literal(
-        `EXISTS (SELECT 1 FROM project_location pl WHERE pl.project_id = "${tableName}".id AND pl.ward_id = ${wardId})`
-      )
-  );
+  const matchParts = ids.map((wardId) => buildProjectWardInLocationLiteral(tableName, wardId));
   const locationMatch = matchParts.length === 1 ? matchParts[0] : { [Op.or]: matchParts };
   if (creatorFallback) {
     return combineLocationScopeOrCreator(locationMatch, tableName, userId);

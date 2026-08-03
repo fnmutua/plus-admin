@@ -376,8 +376,10 @@ const filterScope = ref<string[]>([])
 const filterConfiguration = ref<string[]>([])
 const locationFilters = reactive<LocationFilterIds>(emptyLocationFilters())
 const projectCountyOptions = ref<Array<{ value: string; label: string }>>([])
+const projectSubcountyOptions = ref<Array<{ value: string; label: string }>>([])
 const projectWardOptions = ref<Array<{ value: string; label: string }>>([])
 const projectCountyOptionsLoading = ref(false)
+const projectSubcountyOptionsLoading = ref(false)
 const projectWardOptionsLoading = ref(false)
 
 const projectCountyFilterOptions = computed(() => {
@@ -394,6 +396,7 @@ const activeProjectFilterCount = computed(() => {
     filterStatus.value.length +
     filterConfiguration.value.length +
     filterScope.value.length +
+    locationFilters.subcountyIds.length +
     locationFilters.wardIds.length
 
   if (!isCountyStaff.value && locationFilters.countyIds.length > 0) {
@@ -457,49 +460,54 @@ async function loadProjectCountyOptions() {
   }
 }
 
-async function loadProjectSubcountiesForCounties() {
+async function loadProjectSubcountyOptions() {
   const countyIds = toIdArray(locationFilters.countyIds)
-  if (!countyIds.length) return []
+  if (!countyIds.length) {
+    projectSubcountyOptions.value = []
+    return
+  }
 
-  const responses = await Promise.all(
-    countyIds.map((countyId) =>
-      getListWithoutGeo({
-        params: {
-          pageIndex: 1,
-          limit: 100,
-          curUser: 1,
-          model: 'subcounty',
-          searchField: 'county_id',
-          searchKeyword: countyId,
-          sort: 'ASC',
-        },
-      })
+  projectSubcountyOptionsLoading.value = true
+  try {
+    const responses = await Promise.all(
+      countyIds.map((countyId) =>
+        getListWithoutGeo({
+          params: {
+            pageIndex: 1,
+            limit: 100,
+            curUser: 1,
+            model: 'subcounty',
+            searchField: 'county_id',
+            searchKeyword: countyId,
+            sort: 'ASC',
+          },
+        }),
+      ),
     )
-  )
 
-  const merged = responses.flatMap((response: any) => response?.data || [])
-  const unique = Array.from(
-    new Map(merged.map((item: { id: string | number }) => [String(item.id), item])).values()
-  )
-  return unique
+    const merged = responses.flatMap((response: any) => response?.data || [])
+    const unique = Array.from(
+      new Map(merged.map((item: { id: string | number; name: string }) => [String(item.id), item])).values(),
+    )
+
+    projectSubcountyOptions.value = unique.map((item: { id: string | number; name: string }) => ({
+      value: item.id,
+      label: item.name,
+    }))
+  } finally {
+    projectSubcountyOptionsLoading.value = false
+  }
 }
 
 async function loadProjectWardOptions() {
-  const countyIds = toIdArray(locationFilters.countyIds)
-  if (!countyIds.length) {
+  const subcountyIds = toIdArray(locationFilters.subcountyIds)
+  if (!subcountyIds.length) {
     projectWardOptions.value = []
     return
   }
 
   projectWardOptionsLoading.value = true
   try {
-    const subcounties = await loadProjectSubcountiesForCounties()
-    const subcountyIds = subcounties.map((item: { id: string | number }) => item.id)
-    if (!subcountyIds.length) {
-      projectWardOptions.value = []
-      return
-    }
-
     const response = await getListWithoutGeo({
       params: {
         pageIndex: 1,
@@ -523,8 +531,25 @@ async function loadProjectWardOptions() {
 
 async function onProjectCountyFilterChange() {
   normalizeLocationFilters(locationFilters, { isCountyStaff: isCountyStaff.value })
+  locationFilters.subcountyIds = []
   locationFilters.wardIds = []
+  projectSubcountyOptions.value = []
+  projectWardOptions.value = []
+  await loadProjectSubcountyOptions()
+  await applyProjectListFilters()
+}
+
+async function onProjectSubcountyFilterChange() {
+  normalizeLocationFilters(locationFilters, { isCountyStaff: isCountyStaff.value })
+  locationFilters.wardIds = []
+  projectWardOptions.value = []
   await loadProjectWardOptions()
+  await applyProjectListFilters()
+}
+
+async function onProjectWardFilterChange() {
+  normalizeLocationFilters(locationFilters, { isCountyStaff: isCountyStaff.value })
+  await applyProjectListFilters()
 }
 
 watch(projectFiltersDrawerVisible, async (open) => {
@@ -537,7 +562,10 @@ watch(projectFiltersDrawerVisible, async (open) => {
   }
 
   if (locationFilters.countyIds.length > 0) {
-    await loadProjectWardOptions()
+    await loadProjectSubcountyOptions()
+    if (locationFilters.subcountyIds.length > 0) {
+      await loadProjectWardOptions()
+    }
   }
 })
 
@@ -649,6 +677,7 @@ const buildProjectQueryFilters = (routeLike = route) => {
 
   syncComponentFilter()
   pushRoleFilters()
+  syncProjectListQueryFilters()
 
   const queryFilters = [...filters]
   const queryFilterValues = filterValues.map((entry) =>
@@ -712,12 +741,14 @@ const handleClear = async () => {
     filterStatus.value = []
     filterScope.value = []
     filterConfiguration.value = []
+    locationFilters.subcountyIds = []
     locationFilters.wardIds = []
     if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
       locationFilters.countyIds = [...assignedCountyRoleIds.value]
     } else {
       locationFilters.countyIds = []
     }
+    projectSubcountyOptions.value = []
     projectWardOptions.value = []
     searchString.value = ''
 
@@ -1398,12 +1429,14 @@ async function clearProjectFiltersFromDrawer() {
   filterStatus.value = []
   filterScope.value = []
   filterConfiguration.value = []
+  locationFilters.subcountyIds = []
   locationFilters.wardIds = []
   if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
     locationFilters.countyIds = [...assignedCountyRoleIds.value]
   } else {
     locationFilters.countyIds = []
   }
+  projectSubcountyOptions.value = []
   projectWardOptions.value = []
   await applyProjectListFilters()
 }
@@ -3105,6 +3138,28 @@ function onLayersLoaded() {
             />
           </el-select>
 
+          <label class="project-filters-drawer__label">Constituency (Subcounty)</label>
+          <el-select
+            v-model="locationFilters.subcountyIds"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :disabled="locationFilters.countyIds.length === 0"
+            :loading="projectSubcountyOptionsLoading"
+            placeholder="Constituency"
+            style="width: 100%;"
+            @change="onProjectSubcountyFilterChange"
+          >
+            <el-option
+              v-for="item in projectSubcountyOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+
           <label class="project-filters-drawer__label">Ward</label>
           <el-select
             v-model="locationFilters.wardIds"
@@ -3113,10 +3168,11 @@ function onLayersLoaded() {
             filterable
             collapse-tags
             collapse-tags-tooltip
-            :disabled="locationFilters.countyIds.length === 0"
+            :disabled="locationFilters.subcountyIds.length === 0"
             :loading="projectWardOptionsLoading"
             placeholder="Ward"
             style="width: 100%;"
+            @change="onProjectWardFilterChange"
           >
             <el-option
               v-for="item in projectWardOptions"
@@ -3141,6 +3197,7 @@ function onLayersLoaded() {
           collapse-tags-tooltip
           placeholder="Status"
           style="width: 100%;"
+          @change="applyProjectListFilters"
         >
           <el-option
             v-for="item in projectStatusFilterOptions"
@@ -3159,6 +3216,7 @@ function onLayersLoaded() {
           collapse-tags-tooltip
           placeholder="Configuration"
           style="width: 100%;"
+          @change="applyProjectListFilters"
         >
           <el-option
             v-for="item in projectConfigurationFilterOptions"
@@ -3178,6 +3236,7 @@ function onLayersLoaded() {
           collapse-tags-tooltip
           placeholder="Scope"
           style="width: 100%;"
+          @change="applyProjectListFilters"
         >
           <el-option
             v-for="item in projectScopeFilterOptions"
