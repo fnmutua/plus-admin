@@ -224,16 +224,10 @@ function formatProgrammeLabel(row) {
   return acronym || title || 'Programme';
 }
 
-/** Root programmes that have at least one sub-programme (high-level parents only). */
+/** All root programmes for pickers (with or without sub-programmes). */
 function buildRootProgrammesWithChildrenOptions(allRows) {
-  const parentsWithChildren = new Set();
-  allRows.forEach((row) => {
-    const parentId = normalizeParentId(row.parentId);
-    if (parentId != null) parentsWithChildren.add(parentId);
-  });
-
   return allRows
-    .filter((row) => normalizeParentId(row.parentId) == null && parentsWithChildren.has(row.id))
+    .filter((row) => normalizeParentId(row.parentId) == null)
     .map((row) => ({
       label: formatProgrammeLabel(row),
       value: row.id,
