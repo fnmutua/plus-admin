@@ -15,6 +15,7 @@ const {
   deriveRootProgrammeId,
   buildRootProgrammesWithChildrenOptions,
 } = require('../utils/programmeValidation');
+const { resolveProjectLocationLabel } = require('../utils/projectLocationLabel');
 
 function indicatorFormatFlags(indicator) {
   const format = String(indicator?.format || '').trim().toLowerCase();
@@ -46,6 +47,10 @@ exports.getMonitoringConfig = async (req, res) => {
       indicator_category,
       indicator,
       indicator_target,
+      settlement,
+      ward,
+      subcounty,
+      county,
     } = db.models;
 
     const [
@@ -58,13 +63,32 @@ exports.getMonitoringConfig = async (req, res) => {
     ] = await Promise.all([
       project_location.findAll({
         where: { county_id: countyId },
-        include: [{
-          model: project,
-          required: true,
-          include: [{ model: component, required: true, attributes: ['id', 'title', 'programme_id'] }],
-          attributes: ['id', 'title', 'component_id', 'implementation_id'],
-        }],
-        attributes: ['id', 'location_name', 'project_id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id'],
+        include: [
+          {
+            model: project,
+            required: true,
+            include: [{
+              model: component,
+              required: true,
+              attributes: ['id', 'title', 'programme_id'],
+            }],
+            attributes: ['id', 'title', 'component_id', 'implementation_id'],
+          },
+          { model: settlement, attributes: ['id', 'name'], required: false },
+          { model: ward, attributes: ['id', 'name'], required: false },
+          { model: subcounty, attributes: ['id', 'name'], required: false },
+          { model: county, attributes: ['id', 'name'], required: false },
+        ],
+        attributes: [
+          'id',
+          'location_name',
+          'location_type',
+          'project_id',
+          'county_id',
+          'subcounty_id',
+          'ward_id',
+          'settlement_id',
+        ],
       }),
       loadProgrammeRows(db),
       component.findAll({
@@ -124,14 +148,14 @@ exports.getMonitoringConfig = async (req, res) => {
     const locationOptions = [];
     const projectOptionsMap = new Map();
     projectLocations.forEach((loc) => {
-      if (!loc || !loc.id || !loc.location_name || !loc.project) return;
-      const comp = componentMap.get(loc.project.component_id);
-      const componentName = (loc.project.component?.title || comp?.label) || 'Unknown Component';
-      const locationName = loc.location_name || 'Unknown Location';
+      if (!loc || !loc.id || !loc.project) return;
       const compMeta = componentMap.get(loc.project.component_id);
+      const locationName = resolveProjectLocationLabel(loc);
       locationOptions.push({
-        label: `${locationName} (${componentName})`,
+        label: locationName,
         value: loc.id,
+        location_name: locationName,
+        location_type: loc.location_type || null,
         project_id: loc.project_id,
         county_id: loc.county_id,
         subcounty_id: loc.subcounty_id,
@@ -139,7 +163,6 @@ exports.getMonitoringConfig = async (req, res) => {
         settlement_id: loc.settlement_id,
         programme_implementation_id: loc.project.implementation_id,
         component_id: loc.project.component_id,
-        component_name: componentName,
         programme_id: compMeta?.programme_id ?? null,
         root_programme_id: compMeta?.root_programme_id ?? null,
       });
