@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import { getSettlementListByCounty, getRoutesList, revertHistory, mergeDuplicates, revertMerge } from '@/api/settlements'
+import { getListWithoutGeo } from '@/api/counties'
+import {
+  applyLocationFiltersToQuery,
+  emptyLocationFilters,
+  normalizeLocationFilters,
+  toIdArray,
+  type LocationFilterIds,
+} from '@/utils/settlementFilterStorage'
 
 import {
   ElButton, ElSelect, ElDialog, ElCard,ElDrawer,
@@ -120,6 +128,7 @@ const isSuperAdmin = ref(
 );
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
+const assignedCountyRoleIds = ref<Array<string | number>>([])
 
 // Process user roles for county filtering
 let processedRoles: any[] = []
@@ -174,6 +183,14 @@ const getUserRoles = async () => {
       field: role.field,
       value: role.fieldvalue
     }));
+  }
+
+  assignedCountyRoleIds.value = roles_filters
+    .filter((rf) => rf.field === 'county_id' && rf.value != null)
+    .flatMap((rf) => (Array.isArray(rf.value) ? rf.value : [rf.value]))
+
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    locationFilters.countyIds = [...assignedCountyRoleIds.value]
   }
 
   // Populate filters and filterValues from roles_filters
@@ -357,10 +374,34 @@ const projectConfigurationFilterOptions = [
 const filterStatus = ref<string[]>([])
 const filterScope = ref<string[]>([])
 const filterConfiguration = ref<string[]>([])
+const locationFilters = reactive<LocationFilterIds>(emptyLocationFilters())
+const projectCountyOptions = ref<Array<{ value: string; label: string }>>([])
+const projectWardOptions = ref<Array<{ value: string; label: string }>>([])
+const projectCountyOptionsLoading = ref(false)
+const projectWardOptionsLoading = ref(false)
 
-const activeProjectFilterCount = computed(() =>
-  filterStatus.value.length + filterConfiguration.value.length + filterScope.value.length
-)
+const projectCountyFilterOptions = computed(() => {
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    return projectCountyOptions.value.filter((option) =>
+      assignedCountyRoleIds.value.includes(option.value)
+    )
+  }
+  return projectCountyOptions.value
+})
+
+const activeProjectFilterCount = computed(() => {
+  let count =
+    filterStatus.value.length +
+    filterConfiguration.value.length +
+    filterScope.value.length +
+    locationFilters.wardIds.length
+
+  if (!isCountyStaff.value && locationFilters.countyIds.length > 0) {
+    count += locationFilters.countyIds.length
+  }
+
+  return count
+})
 
 function setQueryFilter(field: string, values: unknown[] | null | undefined) {
   const normalized = Array.isArray(values)
@@ -387,7 +428,118 @@ function setQueryFilter(field: string, values: unknown[] | null | undefined) {
 function syncProjectListQueryFilters() {
   setQueryFilter('status', filterStatus.value)
   setQueryFilter('implementation_scope', filterScope.value)
+  applyLocationFiltersToQuery(filters, filterValues, locationFilters)
 }
+
+async function loadProjectCountyOptions() {
+  if (projectCountyOptionsLoading.value) return
+  if (projectCountyOptions.value.length > 0) return
+
+  projectCountyOptionsLoading.value = true
+  try {
+    const response = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1,
+        model: 'county',
+        searchField: '',
+        searchKeyword: '',
+        sort: 'ASC',
+      },
+    })
+    projectCountyOptions.value = (response.data || []).map((item: { id: string; name: string }) => ({
+      value: item.id,
+      label: item.name,
+    }))
+  } finally {
+    projectCountyOptionsLoading.value = false
+  }
+}
+
+async function loadProjectSubcountiesForCounties() {
+  const countyIds = toIdArray(locationFilters.countyIds)
+  if (!countyIds.length) return []
+
+  const responses = await Promise.all(
+    countyIds.map((countyId) =>
+      getListWithoutGeo({
+        params: {
+          pageIndex: 1,
+          limit: 100,
+          curUser: 1,
+          model: 'subcounty',
+          searchField: 'county_id',
+          searchKeyword: countyId,
+          sort: 'ASC',
+        },
+      })
+    )
+  )
+
+  const merged = responses.flatMap((response: any) => response?.data || [])
+  const unique = Array.from(
+    new Map(merged.map((item: { id: string | number }) => [String(item.id), item])).values()
+  )
+  return unique
+}
+
+async function loadProjectWardOptions() {
+  const countyIds = toIdArray(locationFilters.countyIds)
+  if (!countyIds.length) {
+    projectWardOptions.value = []
+    return
+  }
+
+  projectWardOptionsLoading.value = true
+  try {
+    const subcounties = await loadProjectSubcountiesForCounties()
+    const subcountyIds = subcounties.map((item: { id: string | number }) => item.id)
+    if (!subcountyIds.length) {
+      projectWardOptions.value = []
+      return
+    }
+
+    const response = await getListWithoutGeo({
+      params: {
+        pageIndex: 1,
+        limit: 500,
+        curUser: 1,
+        model: 'ward',
+        searchField: 'subcounty_id',
+        searchKeyword: subcountyIds,
+        sort: 'ASC',
+      },
+    })
+
+    projectWardOptions.value = (response.data || []).map((item: { id: string; name: string }) => ({
+      value: item.id,
+      label: item.name,
+    }))
+  } finally {
+    projectWardOptionsLoading.value = false
+  }
+}
+
+async function onProjectCountyFilterChange() {
+  normalizeLocationFilters(locationFilters, { isCountyStaff: isCountyStaff.value })
+  locationFilters.wardIds = []
+  await loadProjectWardOptions()
+}
+
+watch(projectFiltersDrawerVisible, async (open) => {
+  if (!open) return
+
+  await loadProjectCountyOptions()
+
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0 && !locationFilters.countyIds.length) {
+    locationFilters.countyIds = [...assignedCountyRoleIds.value]
+  }
+
+  if (locationFilters.countyIds.length > 0) {
+    await loadProjectWardOptions()
+  }
+})
 
 const needsClientSideProjectFilter = computed(() => filterConfiguration.value.length > 0)
 
@@ -560,6 +712,13 @@ const handleClear = async () => {
     filterStatus.value = []
     filterScope.value = []
     filterConfiguration.value = []
+    locationFilters.wardIds = []
+    if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+      locationFilters.countyIds = [...assignedCountyRoleIds.value]
+    } else {
+      locationFilters.countyIds = []
+    }
+    projectWardOptions.value = []
     searchString.value = ''
 
     // Restore role-based filters
@@ -1239,6 +1398,13 @@ async function clearProjectFiltersFromDrawer() {
   filterStatus.value = []
   filterScope.value = []
   filterConfiguration.value = []
+  locationFilters.wardIds = []
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    locationFilters.countyIds = [...assignedCountyRoleIds.value]
+  } else {
+    locationFilters.countyIds = []
+  }
+  projectWardOptions.value = []
   await applyProjectListFilters()
 }
 
@@ -2871,16 +3037,28 @@ function onLayersLoaded() {
         placeholder="Search by Title"
         class="project-list-search"
       />
-      <el-badge
-        v-if="activeSegment !== 'Deleted'"
-        :value="activeProjectFilterCount"
-        :hidden="activeProjectFilterCount === 0"
-        class="project-list-filter-badge"
-      >
-        <el-tooltip content="Filters" placement="top">
-          <el-button :icon="Filter" @click="projectFiltersDrawerVisible = true" />
+      <div v-if="activeSegment !== 'Deleted'" class="project-list-filter-launcher">
+        <el-badge
+          :value="activeProjectFilterCount"
+          :hidden="activeProjectFilterCount === 0"
+          class="project-list-filter-badge"
+        >
+          <el-tooltip content="Filters" placement="top">
+            <el-button :icon="Filter" @click="projectFiltersDrawerVisible = true" />
+          </el-tooltip>
+        </el-badge>
+        <el-tooltip v-if="activeProjectFilterCount > 0" content="Clear filters" placement="top">
+          <el-button
+            size="small"
+            text
+            type="info"
+            class="project-list-filter-clear"
+            @click="clearProjectFiltersFromDrawer"
+          >
+            Clear
+          </el-button>
         </el-tooltip>
-      </el-badge>
+      </div>
       <div class="project-list-actions">
         <PermissionWrapper :permissions="['project:create']">
           <el-tooltip content="Add Project" placement="top">
@@ -2903,7 +3081,57 @@ function onLayersLoaded() {
       class="project-filters-drawer"
     >
       <div class="project-filters-drawer__body">
-        <label class="project-filters-drawer__label">Status</label>
+        <div class="project-filters-drawer__section">
+          <div class="project-filters-drawer__section-title">Administrative units</div>
+          <label class="project-filters-drawer__label">County</label>
+          <el-select
+            v-model="locationFilters.countyIds"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :disabled="isCountyStaff && assignedCountyRoleIds.length === 1"
+            :loading="projectCountyOptionsLoading"
+            placeholder="County"
+            style="width: 100%;"
+            @change="onProjectCountyFilterChange"
+          >
+            <el-option
+              v-for="item in projectCountyFilterOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+
+          <label class="project-filters-drawer__label">Ward</label>
+          <el-select
+            v-model="locationFilters.wardIds"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :disabled="locationFilters.countyIds.length === 0"
+            :loading="projectWardOptionsLoading"
+            placeholder="Ward"
+            style="width: 100%;"
+          >
+            <el-option
+              v-for="item in projectWardOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </div>
+
+        <div class="project-filters-drawer__divider" role="separator"></div>
+
+        <div class="project-filters-drawer__section">
+          <div class="project-filters-drawer__section-title">Project</div>
+          <label class="project-filters-drawer__label">Status</label>
         <el-select
           v-model="filterStatus"
           multiple
@@ -2958,6 +3186,7 @@ function onLayersLoaded() {
             :value="item.value"
           />
         </el-select>
+        </div>
       </div>
 
       <template #footer>
@@ -3501,8 +3730,21 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   min-width: 220px;
 }
 
+.project-list-filter-launcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .project-list-filter-badge {
   flex-shrink: 0;
+}
+
+.project-list-filter-clear {
+  padding: 4px 6px;
+  min-height: auto;
+  font-size: 12px;
 }
 
 .project-list-actions {
@@ -3590,7 +3832,26 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
 .project-filters-drawer__body {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.project-filters-drawer__section {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+}
+
+.project-filters-drawer__section-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--el-text-color-secondary);
+}
+
+.project-filters-drawer__divider {
+  height: 1px;
+  background: var(--el-border-color-light);
 }
 
 .project-filters-drawer__label {

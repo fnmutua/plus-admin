@@ -49,6 +49,8 @@ const {
   buildOptimizedScopeSql,
   buildProjectCountyExistsLiteral,
   buildProjectSettlementExistsLiteral,
+  buildProjectSubcountyExistsLiteral,
+  buildProjectWardExistsLiteral,
   ensureDefaultProjectLocationForCreator,
   expandProgrammeIds,
   getProjectProgrammeScope,
@@ -5782,6 +5784,34 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
             );
             if (settlementCondition) {
               projectLocationFilters.push(settlementCondition);
+            }
+          } else if (filter === 'subcounty_id') {
+            const subcountyIds = Array.isArray(value) ? value : [value];
+            const parsedSubcountyIds = subcountyIds
+              .map((subcountyId) => parseInt(subcountyId, 10))
+              .filter((subcountyId) => !isNaN(subcountyId));
+            const subcountyCondition = buildProjectSubcountyExistsLiteral(
+              Model.tableName,
+              parsedSubcountyIds,
+              scopedUserId,
+              { creatorFallback: creatorLocationFallback }
+            );
+            if (subcountyCondition) {
+              projectLocationFilters.push(subcountyCondition);
+            }
+          } else if (filter === 'ward_id') {
+            const wardIds = Array.isArray(value) ? value : [value];
+            const parsedWardIds = wardIds
+              .map((wardId) => parseInt(wardId, 10))
+              .filter((wardId) => !isNaN(wardId));
+            const wardCondition = buildProjectWardExistsLiteral(
+              Model.tableName,
+              parsedWardIds,
+              scopedUserId,
+              { creatorFallback: creatorLocationFallback }
+            );
+            if (wardCondition) {
+              projectLocationFilters.push(wardCondition);
             }
           } else if (filter === 'programme_id') {
             const programmeIds = Array.isArray(value) ? value : [value];
