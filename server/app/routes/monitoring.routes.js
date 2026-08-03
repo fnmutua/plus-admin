@@ -14,4 +14,14 @@ module.exports = function (app) {
     [authJwt.verifyToken, hasPermission('project_location:read')],
     controller.getMonitoringConfig
   );
+
+  /**
+   * POST /api/v1/monitoring/baseline
+   * Latest cumulative + configured targets for a project/location filing context.
+   */
+  app.post(
+    '/api/v1/monitoring/baseline',
+    [authJwt.verifyToken, hasPermission('indicator_category_report:read')],
+    controller.getMonitoringBaseline
+  );
 };

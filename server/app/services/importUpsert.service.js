@@ -1,6 +1,7 @@
 'use strict'
 
 const settlementPopulationGeo = require('./settlementPopulationGeo')
+const { enrichIndicatorCategoryReportRecords } = require('./monitoringReportImport')
 
 const ID_FIELDS = ['project_id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id', 'implementer']
 
@@ -526,6 +527,10 @@ async function executeImportUpsert({
 
   if (modelName === 'project_location') {
     validData = await enrichProjectLocationRecords(db, validData)
+  }
+
+  if (modelName === 'indicator_category_report') {
+    validData = await enrichIndicatorCategoryReportRecords(db, validData)
   }
 
   let transaction = null
