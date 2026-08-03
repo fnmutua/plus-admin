@@ -199,9 +199,56 @@ async function validateProgrammeRecord(db, payload, options = {}) {
   };
 }
 
+function deriveRootProgrammeId(programmeId, allRows) {
+  if (programmeId == null || programmeId === '') return null;
+  const parsedId = Number(programmeId);
+  const byId = new Map(allRows.map((row) => [row.id, row]));
+  let current = byId.get(parsedId);
+  if (!current) return parsedId;
+
+  while (current.parentId != null) {
+    const parent = byId.get(current.parentId);
+    if (!parent) break;
+    current = parent;
+  }
+
+  return current.id;
+}
+
+function formatProgrammeLabel(row) {
+  const acronym = String(row.acronym || '').trim();
+  const title = String(row.title || '').trim();
+  if (acronym && title && acronym.toLowerCase() !== title.toLowerCase()) {
+    return `${acronym} — ${title}`;
+  }
+  return acronym || title || 'Programme';
+}
+
+/** Root programmes that have at least one sub-programme (high-level parents only). */
+function buildRootProgrammesWithChildrenOptions(allRows) {
+  const parentsWithChildren = new Set();
+  allRows.forEach((row) => {
+    const parentId = normalizeParentId(row.parentId);
+    if (parentId != null) parentsWithChildren.add(parentId);
+  });
+
+  return allRows
+    .filter((row) => normalizeParentId(row.parentId) == null && parentsWithChildren.has(row.id))
+    .map((row) => ({
+      label: formatProgrammeLabel(row),
+      value: row.id,
+      acronym: row.acronym || null,
+      title: row.title || null,
+    }))
+    .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+}
+
 module.exports = {
   validateProgrammeRecord,
+  loadProgrammeRows,
   normalizeParentId,
   normalizeAcronym,
   getDescendantIds,
+  deriveRootProgrammeId,
+  buildRootProgrammesWithChildrenOptions,
 };

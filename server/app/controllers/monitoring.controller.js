@@ -10,6 +10,11 @@ const {
   resolveTargetValue,
 } = require('../services/meReporting');
 const { getMonitoringFiscalYear } = require('../../lib/projectRegions');
+const {
+  loadProgrammeRows,
+  deriveRootProgrammeId,
+  buildRootProgrammesWithChildrenOptions,
+} = require('../utils/programmeValidation');
 
 function indicatorFormatFlags(indicator) {
   const format = String(indicator?.format || '').trim().toLowerCase();
@@ -40,13 +45,13 @@ exports.getMonitoringConfig = async (req, res) => {
       project_activity,
       indicator_category,
       indicator,
-      programme,
       indicator_target,
     } = db.models;
 
     const [
       projectLocations,
-      programmesWithComponents,
+      programmeRows,
+      allComponents,
       activities,
       activityIndicators,
       projectLevelIndicators,
@@ -56,14 +61,15 @@ exports.getMonitoringConfig = async (req, res) => {
         include: [{
           model: project,
           required: true,
-          include: [{ model: component, required: true, attributes: ['id', 'title'] }],
+          include: [{ model: component, required: true, attributes: ['id', 'title', 'programme_id'] }],
           attributes: ['id', 'title', 'component_id', 'implementation_id'],
         }],
         attributes: ['id', 'location_name', 'project_id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id'],
       }),
-      programme.findAll({
-        include: [{ model: component, required: true, attributes: ['id', 'title', 'programme_id'] }],
-        attributes: ['id', 'title'],
+      loadProgrammeRows(db),
+      component.findAll({
+        attributes: ['id', 'title', 'programme_id'],
+        raw: true,
       }),
       activity.findAll({
         attributes: ['id', 'title', 'shortTitle'],
@@ -98,20 +104,22 @@ exports.getMonitoringConfig = async (req, res) => {
         ? activityIndicators.filter((ic) => ic.activity_id && countyActivityIds.includes(ic.activity_id))
         : activityIndicators;
 
+    const programmeById = new Map(programmeRows.map((row) => [row.id, row]));
     const componentMap = new Map();
-    const programmeOptions = [];
-    programmesWithComponents.forEach((prog) => {
-      programmeOptions.push({ label: prog.title, value: prog.id });
-      (prog.components || []).forEach((comp) => {
-        componentMap.set(comp.id, {
-          id: comp.id,
-          label: comp.title,
-          programme_id: prog.id,
-          programme_title: prog.title,
-        });
+    (allComponents || []).forEach((comp) => {
+      const programmeId = comp.programme_id;
+      const programmeRow = programmeById.get(Number(programmeId));
+      const rootProgrammeId = deriveRootProgrammeId(programmeId, programmeRows);
+      componentMap.set(comp.id, {
+        id: comp.id,
+        label: comp.title,
+        programme_id: programmeId,
+        root_programme_id: rootProgrammeId,
+        programme_title: programmeRow?.title || null,
       });
     });
     const componentOptions = Array.from(componentMap.values());
+    const programmeOptions = buildRootProgrammesWithChildrenOptions(programmeRows);
 
     const locationOptions = [];
     const projectOptionsMap = new Map();
@@ -120,6 +128,7 @@ exports.getMonitoringConfig = async (req, res) => {
       const comp = componentMap.get(loc.project.component_id);
       const componentName = (loc.project.component?.title || comp?.label) || 'Unknown Component';
       const locationName = loc.location_name || 'Unknown Location';
+      const compMeta = componentMap.get(loc.project.component_id);
       locationOptions.push({
         label: `${locationName} (${componentName})`,
         value: loc.id,
@@ -131,6 +140,8 @@ exports.getMonitoringConfig = async (req, res) => {
         programme_implementation_id: loc.project.implementation_id,
         component_id: loc.project.component_id,
         component_name: componentName,
+        programme_id: compMeta?.programme_id ?? null,
+        root_programme_id: compMeta?.root_programme_id ?? null,
       });
       if (!projectOptionsMap.has(loc.project.id)) {
         projectOptionsMap.set(loc.project.id, {
@@ -216,6 +227,7 @@ exports.getMonitoringConfig = async (req, res) => {
         locationOptions,
         projectOptions,
         programmeOptions,
+        programmeRows,
         componentOptions,
         activityOptions,
         ProjectActivityOptions: projectActivities,
