@@ -1,5 +1,6 @@
 const db = require('../models')
 const { getRequestContext } = require('./requestContext')
+const { shouldSkipTrackingForUser } = require('./trackingSkip')
 
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -9,28 +10,8 @@ const SENSITIVE_KEYS = new Set([
   'otp'
 ])
 
-/**
- * User IDs that should not create audit_log rows.
- * Set in .env as a single id or comma-separated list, e.g.:
- *   AUDIT_SKIP_USER_ID=42
- *   AUDIT_SKIP_USER_ID=42,100,101
- */
-function parseSkippedAuditUserIds() {
-  const raw = process.env.AUDIT_SKIP_USER_ID || process.env.AUDIT_SKIP_USER_IDS || ''
-  if (!String(raw).trim()) return new Set()
-  return new Set(
-    String(raw)
-      .split(',')
-      .map((v) => v.trim())
-      .filter(Boolean)
-  )
-}
-
-const SKIPPED_AUDIT_USER_IDS = parseSkippedAuditUserIds()
-
 function shouldSkipAuditForActor(actorId) {
-  if (actorId == null || actorId === '') return false
-  return SKIPPED_AUDIT_USER_IDS.has(String(actorId))
+  return shouldSkipTrackingForUser(actorId)
 }
 
 function sanitizeObject(input) {

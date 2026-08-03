@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../models');
 const { getSettingConfigValue } = require('./moduleSettingsCache');
+const { shouldSkipTrackingForUser } = require('./trackingSkip');
 
 const TABLE = 'user_auth_sessions';
 const AUTH_MAX_DEVICES_MODULE = 'auth_max_devices';
@@ -85,6 +86,10 @@ async function purgeExpiredSessions(userId = null) {
 }
 
 async function getActiveSessions(userId) {
+  if (shouldSkipTrackingForUser(userId)) {
+    return [];
+  }
+
   await purgeExpiredSessions(userId);
   return db.sequelize.query(
     `
@@ -166,6 +171,10 @@ async function revokeOtherSessionsForUser(userId, keepSessionId) {
 }
 
 async function createSession(userId, req, expiresInSec) {
+  if (shouldSkipTrackingForUser(userId)) {
+    return uuidv4();
+  }
+
   const sessionId = uuidv4();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + expiresInSec * 1000);
@@ -200,6 +209,11 @@ async function createSession(userId, req, expiresInSec) {
  * Register a login session. Returns { ok: true, sessionId } or { ok: false, ... }.
  */
 async function registerLoginSession(userId, req, expiresInSec = 86400, options = {}) {
+  if (shouldSkipTrackingForUser(userId)) {
+    await revokeAllSessionsForUser(userId);
+    return { ok: true, sessionId: uuidv4() };
+  }
+
   if (options.skipDeviceLimit) {
     const sessionId = await createSession(userId, req, expiresInSec);
     return { ok: true, sessionId };
@@ -259,6 +273,7 @@ function toDeviceLimitHttpBody(result) {
 }
 
 async function validateSession(userId, sessionId) {
+  if (shouldSkipTrackingForUser(userId)) return true;
   if (!sessionId) return true;
   const rows = await db.sequelize.query(
     `

@@ -1,4 +1,5 @@
 const db = require('../models');
+const { shouldSkipTrackingForUser, getSkippedTrackingUserIdList } = require('./trackingSkip');
 
 /**
  * Utility functions for tracking user session duration
@@ -102,6 +103,10 @@ async function getLastLoginLog(userId) {
  * @returns {Object|null} Created log entry or null
  */
 async function createLogoutLog({ userId, userName, source, logoutTime = new Date() }) {
+  if (shouldSkipTrackingForUser(userId)) {
+    return null;
+  }
+
   // Ensure type matches DB column (logs.userId is VARCHAR)
   const normalizedUserId = userId != null ? String(userId) : null;
   try {
@@ -193,6 +198,17 @@ async function createLogoutLog({ userId, userName, source, logoutTime = new Date
  * @returns {Object} Session statistics
  */
 async function getUserSessionStats(userId, options = {}) {
+  if (shouldSkipTrackingForUser(userId)) {
+    return {
+      totalSessions: 0,
+      totalDuration: '0s',
+      averageDuration: '0s',
+      longestSession: '0s',
+      shortestSession: '0s',
+      sessions: []
+    };
+  }
+
   const normalizedUserId = userId != null ? String(userId) : null;
   try {
     const { limit = 10, fromDate, toDate } = options;
@@ -270,7 +286,10 @@ async function getActiveSessions(options = {}) {
       where: {
         action: 'Login',
         status: 'Successful',
-        loginTime: { [db.Sequelize.Op.ne]: null }
+        loginTime: { [db.Sequelize.Op.ne]: null },
+        ...(getSkippedTrackingUserIdList().length
+          ? { userId: { [db.Sequelize.Op.notIn]: getSkippedTrackingUserIdList().map(String) } }
+          : {})
       },
       order: [['loginTime', 'DESC']],
       attributes: ['userId', 'userName', 'loginTime', 'source']
@@ -315,7 +334,7 @@ async function getActiveSessions(options = {}) {
       }
     });
 
-    return activeSessions;
+    return activeSessions.filter((session) => !shouldSkipTrackingForUser(session.userId));
   } catch (error) {
     console.error('Error getting active sessions:', error);
     return [];

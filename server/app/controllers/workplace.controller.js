@@ -11,6 +11,7 @@ const {
   newAccountsPeriodStart
 } = require('../utils/workplaceScope')
 const { queryMergedAuditLogs, normalizeLoginAttemptRow } = require('../utils/auditLogQuery')
+const { shouldSkipTrackingForUser, getSkippedTrackingUserIdList } = require('../utils/trackingSkip')
 
 const Users = db.models.users
 
@@ -98,11 +99,23 @@ exports.getActiveSessions = async (req, res) => {
       scopedUserIds = scopedUserIds.map((id) => parseInt(id, 10)).filter((n) => !isNaN(n))
     }
 
-    const sessionWhereClause = scopedUserIds
-      ? 'AND uas.user_id IN (:scopedUserIds)'
-      : ''
+    const skippedUserIds = getSkippedTrackingUserIdList()
+      .map((id) => parseInt(id, 10))
+      .filter((n) => !isNaN(n))
 
-    const activeRows = await db.sequelize.query(
+    const sessionWhereParts = []
+    const sessionReplacements = {}
+    if (scopedUserIds) {
+      sessionWhereParts.push('AND uas.user_id IN (:scopedUserIds)')
+      sessionReplacements.scopedUserIds = scopedUserIds
+    }
+    if (skippedUserIds.length) {
+      sessionWhereParts.push('AND uas.user_id NOT IN (:skippedUserIds)')
+      sessionReplacements.skippedUserIds = skippedUserIds
+    }
+    const sessionWhereClause = sessionWhereParts.join('\n          ')
+
+    const activeRows = (await db.sequelize.query(
       `
         SELECT
           uas.user_id,
@@ -116,10 +129,10 @@ exports.getActiveSessions = async (req, res) => {
         GROUP BY uas.user_id
       `,
       {
-        replacements: scopedUserIds ? { scopedUserIds } : {},
+        replacements: sessionReplacements,
         type: db.sequelize.QueryTypes.SELECT
       }
-    )
+    )).filter((row) => !shouldSkipTrackingForUser(row.user_id))
 
     if (!activeRows.length) {
       return res.status(200).send({
@@ -239,7 +252,8 @@ exports.getLoginAttempts = async (req, res) => {
 
     let actorIds = null
     if (!scope.isNational) {
-      actorIds = await getScopedUserIdList(scope)
+      actorIds = (await getScopedUserIdList(scope))
+        ?.filter((id) => !shouldSkipTrackingForUser(id)) || null
       if (!actorIds || actorIds.length === 0) {
         return res.status(200).send({
           code: '0000',

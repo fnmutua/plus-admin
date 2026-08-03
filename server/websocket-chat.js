@@ -21,6 +21,7 @@ const db = require('./app/models');
 const config = require('./app/config/db.config.js');
 const Sequelize = require('sequelize');
 const { Op } = require('sequelize');
+const { shouldSkipTrackingForUser } = require('./app/utils/trackingSkip');
 
 // Create Sequelize connection like other controllers
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
@@ -118,8 +119,10 @@ wss.on('connection', (ws, req) => {
             console.log(`User ${currentUser.name} (${currentUser.id}) joined the chat`);
             
             try {
-              // Update user status in database
-              await updateUserStatus(currentUser.id, currentUser.status || 'online', true);
+              if (!shouldSkipTrackingForUser(currentUser.id)) {
+                // Update user status in database
+                await updateUserStatus(currentUser.id, currentUser.status || 'online', true);
+              }
               
               // Send current user the list of online users
               const onlineUsers = await getOnlineUsers(currentUser.id);
@@ -135,11 +138,13 @@ wss.on('connection', (ws, req) => {
                 messages: recentMessages
               }));
               
-              // Notify all other clients about new user
-              broadcast({
-                type: 'user_joined',
-                user: currentUser
-              }, ws);
+              if (!shouldSkipTrackingForUser(currentUser.id)) {
+                // Notify all other clients about new user
+                broadcast({
+                  type: 'user_joined',
+                  user: currentUser
+                }, ws);
+              }
               
               // Send updated user list to everyone
               const allOnlineUsers = await getOnlineUsers();
@@ -157,6 +162,24 @@ wss.on('connection', (ws, req) => {
           // User sending a message
           if (currentUser && message.message) {
             try {
+              if (shouldSkipTrackingForUser(currentUser.id)) {
+                const ephemeralMessage = {
+                  id: `local-${Date.now()}`,
+                  content: message.message.content,
+                  message_type: message.to === 'all' ? 'text' : 'text',
+                  sender_id: currentUser.id,
+                  receiver_id: message.to !== 'all' ? message.to : null,
+                  status: 'sent',
+                  created_at: new Date().toISOString(),
+                  sender: currentUser
+                };
+                ws.send(JSON.stringify({
+                  type: 'message',
+                  message: ephemeralMessage
+                }));
+                break;
+              }
+
               // Use existing database enum values until schema is updated
               const messageType = message.to === 'all' ? 'text' : 'text' // Use 'text' for now instead of 'team_chat'
               console.log(`Saving message: type=${messageType}, to=${message.to}, receiver_id=${message.to !== 'all' ? message.to : null}`)
@@ -334,6 +357,10 @@ wss.on('connection', (ws, req) => {
             console.log(`User ${currentUser.name} changed status to ${message.status}`);
             
             try {
+              if (shouldSkipTrackingForUser(currentUser.id)) {
+                break;
+              }
+
               // Update user status in database
               await updateUserStatus(currentUser.id, message.status, true);
               
@@ -412,8 +439,10 @@ wss.on('connection', (ws, req) => {
       console.log(`User ${currentUser.name} left the chat`);
       
       try {
-        // Set user offline in database
-        await setUserOffline(currentUser.id);
+        if (!shouldSkipTrackingForUser(currentUser.id)) {
+          // Set user offline in database
+          await setUserOffline(currentUser.id);
+        }
         
                          // Remove user from maps
         clients.delete(currentUser.id);
@@ -532,7 +561,9 @@ async function getOnlineUsers(excludeUserId = null) {
     
     const users = await db.user.findAll(whereClause);
 
-    return users.map(user => {
+    return users
+      .filter((user) => !shouldSkipTrackingForUser(user.id))
+      .map(user => {
       let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
       
       // Convert Buffer photo to base64 data URL if available
@@ -559,6 +590,19 @@ async function getOnlineUsers(excludeUserId = null) {
 
 // Helper function to save message to database
 async function saveMessage(messageData) {
+  if (shouldSkipTrackingForUser(messageData.sender?.id)) {
+    return {
+      id: `local-${Date.now()}`,
+      content: messageData.content,
+      message_type: messageData.message_type,
+      sender_id: messageData.sender.id,
+      receiver_id: messageData.receiver_id || null,
+      status: 'sent',
+      created_at: new Date(),
+      sender: messageData.sender
+    };
+  }
+
   try {
     console.log(`saveMessage called with:`, {
       content: messageData.content?.substring(0, 30),
@@ -729,6 +773,10 @@ async function getRecentMessages(limit = 50) {
 
 // Helper function to update user status
 async function updateUserStatus(userId, status, isOnline = true) {
+  if (shouldSkipTrackingForUser(userId)) {
+    return null;
+  }
+
   try {
     const [userStatus, created] = await db.userStatus.findOrCreate({
       where: { user_id: userId },
@@ -756,6 +804,10 @@ async function updateUserStatus(userId, status, isOnline = true) {
 
 // Helper function to set user offline
 async function setUserOffline(userId) {
+  if (shouldSkipTrackingForUser(userId)) {
+    return;
+  }
+
   try {
     await db.userStatus.update(
       { 

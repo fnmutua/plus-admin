@@ -3,6 +3,7 @@ const config = require('../config/db.config.js');
 const { authJwt } = require("../middleware");
 const Sequelize = require('sequelize');
 const { Op } = require('sequelize');
+const { shouldSkipTrackingForUser } = require('../utils/trackingSkip');
 
 // Create Sequelize connection like other controllers
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
@@ -276,6 +277,19 @@ exports.getOnlineUsers = async (req, res) => {
  */
 exports.updateUserStatus = async (req, res) => {
   try {
+    if (shouldSkipTrackingForUser(req.thisUser.id)) {
+      return res.status(200).json({
+        message: 'User status updated successfully',
+        data: {
+          user_id: req.thisUser.id,
+          status: req.body?.status || 'online',
+          is_online: req.body?.is_online !== false,
+          last_seen: new Date()
+        },
+        code: '0000'
+      });
+    }
+
     const {
       status,
       is_online = true
@@ -513,7 +527,9 @@ exports.getSupportUsersWithStatus = async (req, res) => {
     });
 
     // Format users with their online status
-    const formattedUsers = supportUsers.map(user => {
+    const formattedUsers = supportUsers
+      .filter((user) => !shouldSkipTrackingForUser(user.id))
+      .map(user => {
       let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
       
       // Convert Buffer photo to base64 data URL if available
@@ -597,7 +613,9 @@ exports.getChatUsers = async (req, res) => {
     });
 
     // Format users for chat interface
-    const formattedUsers = chatUsers.map(user => {
+    const formattedUsers = chatUsers
+      .filter((user) => !shouldSkipTrackingForUser(user.id))
+      .map(user => {
       let photoUrl = '/assets/imgs/avatar.jpg'; // Default fallback
       
       // Convert Buffer photo to base64 data URL if available

@@ -2,6 +2,7 @@ const db = require('../models')
 const userSessionManager = require('./userSessionManager')
 const sessionTracker = require('./sessionTracker')
 const { notifyChatForceLogout } = require('./forceLogoutNotify')
+const { shouldSkipTrackingForUser } = require('./trackingSkip')
 
 /** Invalidate all sessions for a user (admin force logout, role change, etc.). */
 async function forceLogoutUser(userId, options = {}) {
@@ -14,6 +15,11 @@ async function forceLogoutUser(userId, options = {}) {
   )
 
   await userSessionManager.revokeAllSessionsForUser(userId)
+
+  if (shouldSkipTrackingForUser(userId)) {
+    await notifyChatForceLogout(userId)
+    return
+  }
 
   let username = userName
   if (!username) {

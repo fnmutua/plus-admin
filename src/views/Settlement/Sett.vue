@@ -57,6 +57,7 @@ import {
   appendLocationFiltersToSummary,
   applyLocationFiltersToQuery,
   clearSettlementToolbarStorage,
+  cloneLocationFilters,
   emptyLocationFilters,
   isLegacyToolbarPayload,
   normalizeLocationFilters,
@@ -82,8 +83,15 @@ const search_string = ref('')
 const loadingGetData = ref(false)
 const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
 
-const DateDialogVisible = ref(false)
-const locationFiltersDialogVisible = ref(false)
+const locationFiltersDrawerVisible = ref(false)
+const filtersDrawerTab = ref('location')
+const filtersDrawerApplying = ref(false)
+const locationFiltersDrawerSnapshot = ref<LocationFilterIds | null>(null)
+
+const openFiltersDrawer = (tab: 'location' | 'date' = 'location') => {
+  filtersDrawerTab.value = tab
+  locationFiltersDrawerVisible.value = true
+}
 const dateRange = ref<[Date, Date] | null>(null)
 /** Dialog-only draft — default range is a picker hint, not applied until Confirm. */
 const dateRangeDraft = ref<[Date, Date] | null>(null)
@@ -927,10 +935,13 @@ const loadDataWithCurrentFilters = async () => {
 
 const segmentsScrollLayout = ref(false)
 const toolbarCompactLayout = ref(false)
+const toolbarStackedFilters = ref(false)
 const updateSegmentsScrollLayout = () => {
   if (typeof window === 'undefined') return
-  segmentsScrollLayout.value = window.innerWidth <= 768
-  toolbarCompactLayout.value = window.innerWidth < 1200
+  const width = window.innerWidth
+  segmentsScrollLayout.value = width <= 768
+  toolbarCompactLayout.value = width < 992
+  toolbarStackedFilters.value = width < 1536
 }
 
 onMounted(async () => {
@@ -1055,30 +1066,38 @@ const isDateRangeFilterActive = computed(() => {
   return !!(d[0] && d[1])
 })
 
-watch(DateDialogVisible, (open) => {
-  if (!open) return
+watch(locationFiltersDrawerVisible, async (open) => {
+  if (open) {
+    locationFiltersDrawerSnapshot.value = cloneLocationFilters(locationFilters)
+    dateRangeDraft.value = isDateRangeFilterActive.value
+      ? normalizeDateRange(dateRange.value)
+      : null
+    if (locationFilters.countyIds.length > 0) {
+      await getSubCountyNames()
+      if (locationFilters.subcountyIds.length > 0) {
+        await getWardNames()
+      }
+    }
+    return
+  }
+
+  if (filtersDrawerApplying.value) return
+
+  if (locationFiltersDrawerSnapshot.value) {
+    Object.assign(locationFilters, cloneLocationFilters(locationFiltersDrawerSnapshot.value))
+    locationFiltersDrawerSnapshot.value = null
+  }
   dateRangeDraft.value = isDateRangeFilterActive.value
     ? normalizeDateRange(dateRange.value)
-    : defaultSettlementDateRange()
+    : null
 })
-
-const cancelDateDialog = () => {
-  DateDialogVisible.value = false
-}
 
 const clearDateFilter = async () => {
   dateRange.value = null
-  dateRangeDraft.value = defaultSettlementDateRange()
-  DateDialogVisible.value = false
+  dateRangeDraft.value = null
+  locationFiltersDrawerVisible.value = false
   persistToolbarFilters()
-  await getCounts()
-  if (search_string.value) {
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else if (activeSegment.value === 'Deleted') {
-    await loadDeletedSegment()
-  } else {
-    await getNewOrRejectedSettlements(activeSegment.value)
-  }
+  await reloadSettlementData()
 }
 
 const hasActiveToolbarFilters = computed(() => {
@@ -1098,7 +1117,6 @@ const hasActiveToolbarFilters = computed(() => {
 const settlementDownloadRef = ref<{ openDownload: () => void } | null>(null)
 
 type ToolbarDropdownCommand =
-  | 'dateFilter'
   | 'addSettlement'
   | 'clearFilters'
   | 'downloadExcel'
@@ -1107,9 +1125,6 @@ type ToolbarDropdownCommand =
 
 const handleToolbarDropdownCommand = (command: ToolbarDropdownCommand) => {
   switch (command) {
-    case 'dateFilter':
-      DateDialogVisible.value = true
-      break
     case 'addSettlement':
       AddSettlement()
       break
@@ -1117,7 +1132,7 @@ const handleToolbarDropdownCommand = (command: ToolbarDropdownCommand) => {
       void handleClear()
       break
     case 'downloadExcel':
-      settlementDownloadRef.value?.openDownload()
+      void openSettlementDownloadDrawer()
       break
     case 'downloadGeo':
       openGeoDownloadDialog()
@@ -2023,6 +2038,126 @@ const locationFilterTagCount = computed(() =>
   activeFilterTags.value.filter((tag) => tag.type !== 'info').length
 )
 
+const toolbarFiltersBadgeCount = computed(() => {
+  let count = locationFilterTagCount.value
+  if (isDateRangeFilterActive.value) count += 1
+  return count
+})
+
+const hasActiveDrawerLocationFilters = computed(() => {
+  if (locationFilters.subcountyIds?.length) return true
+  if (locationFilters.wardIds?.length) return true
+  if (!isCountyStaff.value && locationFilters.countyIds?.length) return true
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 1) {
+    const selected = [...(locationFilters.countyIds || [])].map(Number).sort((x, y) => x - y).join(',')
+    const assigned = [...assignedCountyRoleIds.value].map(Number).sort((x, y) => x - y).join(',')
+    if (selected !== assigned) return true
+  }
+  return false
+})
+
+const showDrawerClearLocation = computed(
+  () => filtersDrawerTab.value === 'location' && hasActiveDrawerLocationFilters.value,
+)
+
+const showDrawerClearDate = computed(() => {
+  if (filtersDrawerTab.value !== 'date') return false
+  const draft = dateRangeDraft.value
+  if (draft && Array.isArray(draft) && draft[0] && draft[1]) return true
+  return isDateRangeFilterActive.value
+})
+
+const resetDrawerLocationFilters = () => {
+  enableSubcounty.value = false
+  Object.assign(locationFilters, emptyLocationFilters())
+  if (isCountyStaff.value && assignedCountyRoleIds.value.length > 0) {
+    locationFilters.countyIds = [...assignedCountyRoleIds.value]
+  }
+  subcountiesOptions.value = []
+  wardOptions.value = []
+}
+
+const applyAndCloseFiltersDrawer = async () => {
+  filtersDrawerApplying.value = true
+  locationFiltersDrawerSnapshot.value = null
+  locationFiltersDrawerVisible.value = false
+  await applySettlementToolbarFilters()
+  filtersDrawerApplying.value = false
+}
+
+const applyFiltersDrawer = async () => {
+  await applyAndCloseFiltersDrawer()
+}
+
+const clearFiltersDrawerLocation = async () => {
+  resetDrawerLocationFilters()
+  await applyAndCloseFiltersDrawer()
+}
+
+const clearFiltersDrawerDate = async () => {
+  dateRangeDraft.value = null
+  await applyAndCloseFiltersDrawer()
+}
+
+const reloadSettlementData = async () => {
+  await getCounts()
+  if (search_string.value) {
+    await getFilteredBySearchData(activeSegment.value, search_string.value)
+  } else if (activeSegment.value === 'Deleted') {
+    await loadDeletedSegment()
+  } else {
+    await getNewOrRejectedSettlements(activeSegment.value)
+  }
+}
+
+const applySettlementToolbarFilters = async () => {
+  syncLocationFiltersForRole()
+
+  if (locationFilters.countyIds.length > 0) {
+    enableSubcounty.value = true
+  }
+
+  dateRange.value = normalizeDateRange(dateRangeDraft.value)
+
+  if (activeSegment.value === 'Approved') {
+    applyProfiledTabFilters()
+  } else if (activeSegment.value === 'New') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Pending'], ['true']]
+  } else if (activeSegment.value === 'Unprofiled') {
+    applyUnprofiledTabFilters()
+  } else if (activeSegment.value === 'Decommissioned') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Decommissioned'], ['true']]
+  } else if (activeSegment.value === 'Deleted') {
+    applyQueryLocationFilters()
+    persistToolbarFilters()
+    await reloadSettlementData()
+    return
+  }
+
+  applyQueryLocationFilters()
+  persistToolbarFilters()
+  await reloadSettlementData()
+}
+
+const commitLocationFilterChange = async () => {
+  syncLocationFiltersForRole()
+  if (locationFiltersDrawerVisible.value) return
+  applyQueryLocationFilters()
+  persistToolbarFilters()
+  await reloadSettlementData()
+}
+
+const handleDownloadDropdownCommand = (command: 'downloadExcel' | 'downloadGeo') => {
+  handleToolbarDropdownCommand(command)
+}
+
+const openSettlementDownloadDrawer = async () => {
+  await nextTick()
+  settlementDownloadRef.value?.openDownload?.()
+}
+
 const clearLocationFiltersOnly = async () => {
   enableSubcounty.value = false
   Object.assign(locationFilters, emptyLocationFilters())
@@ -2124,20 +2259,7 @@ const filterByCounty = async (county_id: any) => {
   }
   locationFilters.subcountyIds = []
   locationFilters.wardIds = []
-  syncLocationFiltersForRole()
-
-  persistToolbarFilters()
-
-  // Update counts with new location filters
-  await getCounts()
-
-  if (search_string.value) {
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else if (activeSegment.value === 'Deleted') {
-    await loadDeletedSegment()
-  } else {
-    await getNewOrRejectedSettlements(activeSegment.value)
-  }
+  await commitLocationFilterChange()
 }
 
 const filterBySubCounty = async (subcounty_id: any) => {
@@ -2146,39 +2268,13 @@ const filterBySubCounty = async (subcounty_id: any) => {
   if (locationFilters.subcountyIds.length > 0) {
     await getWardNames()
   }
-  syncLocationFiltersForRole()
-
-  persistToolbarFilters()
-
-  // Update counts with new location filters
-  await getCounts()
-
-  if (search_string.value) {
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else if (activeSegment.value === 'Deleted') {
-    await loadDeletedSegment()
-  } else {
-    await getNewOrRejectedSettlements(activeSegment.value)
-  }
+  await commitLocationFilterChange()
 }
 
 
 const filterByWard = async (ward_id: any) => {
   locationFilters.wardIds = ward_id ? toIdArray(ward_id) : []
-  syncLocationFiltersForRole()
-
-  persistToolbarFilters()
-
-  // Update counts with new location filters
-  await getCounts()
-
-  if (search_string.value) {
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else if (activeSegment.value === 'Deleted') {
-    await loadDeletedSegment()
-  } else {
-    await getNewOrRejectedSettlements(activeSegment.value)
-  }
+  await commitLocationFilterChange()
 }
 
 
@@ -4613,6 +4709,11 @@ const mergeConfirmDrawerSize = computed(() => {
   return '45%'
 })
 
+const locationFiltersDrawerSize = computed(() => {
+  if (isMobile.value || windowWidth.value <= 768) return '100%'
+  return '420px'
+})
+
 const openLocateOnMap = async () => {
   locateMapDrawerVisible.value = true
   await nextTick()
@@ -5418,42 +5519,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
 const handleDateChange = async () => {
-  const normalized = normalizeDateRange(dateRangeDraft.value)
-  dateRange.value = normalized
-
-  if (activeSegment.value === 'Approved') {
-    applyProfiledTabFilters()
-  } else if (activeSegment.value === 'New') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Pending'], ['true']]
-  } else if (activeSegment.value === 'Unprofiled') {
-    applyUnprofiledTabFilters()
-  } else if (activeSegment.value === 'Decommissioned') {
-    filters.value = ['isApproved', 'isActive']
-    filterValues.value = [['Decommissioned'], ['true']]
-  } else if (activeSegment.value === 'Deleted') {
-    persistToolbarFilters()
-    DateDialogVisible.value = false
-    await getCounts()
-    if (search_string.value) {
-      await getFilteredBySearchData(activeSegment.value, search_string.value)
-    } else {
-      await loadDeletedSegment()
-    }
-    return
-  }
-
-  persistToolbarFilters()
-  DateDialogVisible.value = false
-
-  // Update counts with new date filters
-  await getCounts()
-
-  if (search_string.value) {
-    await getFilteredBySearchData(activeSegment.value, search_string.value)
-  } else {
-    await getNewOrRejectedSettlements(activeSegment.value)
-  }
+  locationFiltersDrawerVisible.value = false
+  await applySettlementToolbarFilters()
 }
 
 // Memoized geometry icon map for performance
@@ -5674,134 +5741,186 @@ duplicateRecords.value.forEach(county => {
 
 
     <div
-      class="sett-toolbar-row"
-      :class="toolbarCompactLayout ? 'sett-toolbar-row--compact' : 'sett-toolbar-row--wide'"
+      class="sett-toolbar"
+      :class="{
+        'sett-toolbar--compact': toolbarCompactLayout,
+        'sett-toolbar--stacked': toolbarStackedFilters && !toolbarCompactLayout
+      }"
     >
-      <div class="sett-toolbar-col sett-toolbar-col--back">
-        <el-button type="primary" plain :icon="Back" @click="goBack" size="small">
-          Back
-        </el-button>
-      </div>
-
-      <template v-if="!toolbarCompactLayout">
-        <div v-if="shouldShowCountyFilter" class="sett-toolbar-col sett-toolbar-col--county">
-          <el-select
-            size="default"
-            v-model="locationFilters.countyIds"
-            :onChange="filterByCounty"
-            :onClear="handleClear"
-            multiple
-            clearable
-            filterable
-            collapse-tags
-            placeholder="By County"
-            style="width: 100%;"
-          >
-            <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
+      <div
+        class="sett-toolbar-row sett-toolbar-row--main"
+        :class="toolbarCompactLayout ? 'sett-toolbar-row--compact' : 'sett-toolbar-row--wide'"
+      >
+        <div class="sett-toolbar-col sett-toolbar-col--back">
+          <el-button type="primary" plain :icon="Back" @click="goBack" size="small">
+            Back
+          </el-button>
         </div>
 
-        <div class="sett-toolbar-col sett-toolbar-col--subcounty">
-          <el-select
-            :disabled="locationFilters.countyIds.length === 0"
-            size="default"
-            v-model="locationFilters.subcountyIds"
-            :onChange="filterBySubCounty"
-            multiple
-            clearable
-            filterable
-            collapse-tags
-            placeholder="By Subcounty"
-            style="width: 100%;"
-          >
-            <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
-
-        <div class="sett-toolbar-col sett-toolbar-col--ward">
-          <el-select
-            :disabled="locationFilters.subcountyIds.length === 0"
-            size="default"
-            v-model="locationFilters.wardIds"
-            :onChange="filterByWard"
-            multiple
-            clearable
-            filterable
-            collapse-tags
-            placeholder="By Ward"
-            style="width: 100%;"
-          >
-            <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
-      </template>
-
-      <div class="sett-toolbar-col sett-toolbar-col--search">
-        <el-input
-          v-model="search_string"
-          clearable
-          :onClear="handleClear"
-          placeholder="Search "
-          @change="searchByNewName"
-          class="input-with-select"
-          style="width: 100%;"
-        >
-          <template #append>
-            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
-          </template>
-        </el-input>
-      </div>
-
-      <div class="sett-toolbar-col sett-toolbar-col--actions">
-        <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
-
-          <el-tooltip
-            v-if="toolbarCompactLayout"
-            content="Location filters"
-            placement="top"
-          >
-            <el-badge
-              :value="locationFilterTagCount"
-              :hidden="locationFilterTagCount === 0"
-              :max="99"
-              class="sett-toolbar-filter-badge"
+        <template v-if="!toolbarStackedFilters">
+          <div v-if="shouldShowCountyFilter" class="sett-toolbar-col sett-toolbar-col--county">
+            <el-select
+              size="default"
+              v-model="locationFilters.countyIds"
+              @change="filterByCounty"
+              :onClear="handleClear"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="By County"
+              class="sett-toolbar-select"
             >
-              <el-button type="primary" :icon="Filter" @click="locationFiltersDialogVisible = true" />
-            </el-badge>
-          </el-tooltip>
+              <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </div>
 
-          <template v-if="!isMobile">
+          <div class="sett-toolbar-col sett-toolbar-col--subcounty">
+            <el-select
+              :disabled="locationFilters.countyIds.length === 0"
+              size="default"
+              v-model="locationFilters.subcountyIds"
+              @change="filterBySubCounty"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="By Subcounty"
+              class="sett-toolbar-select"
+            >
+              <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </div>
+
+          <div class="sett-toolbar-col sett-toolbar-col--ward">
+            <el-select
+              :disabled="locationFilters.subcountyIds.length === 0"
+              size="default"
+              v-model="locationFilters.wardIds"
+              @change="filterByWard"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="By Ward"
+              class="sett-toolbar-select"
+            >
+              <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </div>
+        </template>
+
+        <div class="sett-toolbar-col sett-toolbar-col--search">
+          <el-input
+            v-model="search_string"
+            clearable
+            :onClear="handleClear"
+            placeholder="Search "
+            @change="searchByNewName"
+            class="input-with-select sett-toolbar-search"
+          >
+            <template #append>
+              <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+            </template>
+          </el-input>
+        </div>
+
+        <div class="sett-toolbar-col sett-toolbar-col--actions">
+          <div class="sett-toolbar-actions" :class="{ 'sett-toolbar-actions--desktop': !isMobile }">
+
             <el-tooltip
-              :content="isDateRangeFilterActive ? 'Create date filter active — click to change' : 'Filter by create date'"
+              v-if="toolbarStackedFilters"
+              content="Filters"
               placement="top"
             >
-              <el-button type="primary" @click="DateDialogVisible = true">
-                <Icon
-                  :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
-                  width="24"
-                  height="24"
-                  style="margin-left: 4px;"
-                />
-              </el-button>
+              <el-badge
+                :value="toolbarFiltersBadgeCount"
+                :hidden="toolbarFiltersBadgeCount === 0"
+                :max="99"
+                class="sett-toolbar-filter-badge"
+              >
+                <el-button type="primary" :icon="Filter" @click="openFiltersDrawer('location')" />
+              </el-badge>
             </el-tooltip>
 
-            <PermissionWrapper :permissions="['settlement:create']">
-              <el-tooltip content="Add Settlement" placement="top">
-                <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
-              </el-tooltip>
-            </PermissionWrapper>
-            
             <el-tooltip v-if="hasActiveToolbarFilters" content="Clear all filters" placement="top">
               <el-button type="primary" @click="handleClear">
                 <Icon icon="mdi:filter-remove" width="22" height="22" />
               </el-button>
             </el-tooltip>
-          </template>
+
+            <template v-if="!toolbarStackedFilters && !isMobile">
+              <el-tooltip
+                :content="isDateRangeFilterActive ? 'Create date filter active — click to change' : 'Filter by create date'"
+                placement="top"
+              >
+                <el-button type="primary" @click="openFiltersDrawer('date')">
+                  <Icon
+                    :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
+                    width="24"
+                    height="24"
+                    style="margin-left: 4px;"
+                  />
+                </el-button>
+              </el-tooltip>
+
+              <PermissionWrapper :permissions="['settlement:create']">
+                <el-tooltip content="Add Settlement" placement="top">
+                  <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+                </el-tooltip>
+              </PermissionWrapper>
+            </template>
+
+            <template v-else-if="toolbarStackedFilters && !isMobile">
+              <PermissionWrapper :permissions="['settlement:create']">
+                <el-tooltip content="Add Settlement" placement="top">
+                  <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+                </el-tooltip>
+              </PermissionWrapper>
+
+              <el-dropdown
+                v-if="showEditButtons"
+                trigger="click"
+                teleported
+                placement="bottom-end"
+                popper-class="sett-toolbar-dropdown-popper"
+                @command="handleDownloadDropdownCommand"
+              >
+                <el-button
+                  type="primary"
+                  :icon="Download"
+                  :loading="downloadLoading || downloadGeoLoading"
+                />
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="downloadExcel" :icon="Download">
+                      Download Excel
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="canDownloadSettlementGeoData"
+                      command="downloadGeo"
+                      :icon="Document"
+                    >
+                      Download GeoJSON
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+              <el-tooltip content="Locate on Map" placement="top">
+                <el-button @click="openLocateOnMap" type="primary">
+                  <Icon icon="mdi:map-search-outline" width="20" height="20" />
+                </el-button>
+              </el-tooltip>
+            </template>
 
           <DownloadCustom
             v-if="showEditButtons"
             ref="settlementDownloadRef"
-            :hide-trigger="isMobile"
+            :hide-trigger="isMobile || toolbarStackedFilters"
             :data="tableDataList"
             :model="model"
             :associated_models="associated_multiple_models"
@@ -5817,42 +5936,38 @@ duplicateRecords.value.forEach(county => {
             @download-end="downloadLoading = false"
           />
 
-          <template v-if="!isMobile">
-            <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
-              <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
-                <el-button 
-                  :loading="downloadGeoLoading" 
-                  @click="openGeoDownloadDialog" 
-                  type="primary">
-                  <Icon icon="gis:layer-download" style="margin-right: 4px;" />
+            <template v-if="!toolbarStackedFilters && !isMobile">
+              <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
+                <el-tooltip content="Download Geospatial Data (GeoJSON)" placement="top">
+                  <el-button
+                    :loading="downloadGeoLoading"
+                    @click="openGeoDownloadDialog"
+                    type="primary">
+                    <Icon icon="gis:layer-download" style="margin-right: 4px;" />
+                  </el-button>
+                </el-tooltip>
+              </PermissionWrapper>
+              <el-tooltip content="Locate on Map (fly to coordinates &amp; load nearby)" placement="top">
+                <el-button @click="openLocateOnMap" type="primary">
+                  <Icon icon="mdi:map-search-outline" width="20" height="20" />
                 </el-button>
               </el-tooltip>
-            </PermissionWrapper>
-            <el-tooltip content="Locate on Map (fly to coordinates &amp; load nearby)" placement="top">
-              <el-button @click="openLocateOnMap" type="primary">
-                <Icon icon="mdi:map-search-outline" width="20" height="20" />
-              </el-button>
-            </el-tooltip>
-          </template>
+            </template>
 
-          <template v-else>
-            <el-dropdown trigger="click" @command="handleToolbarDropdownCommand">
+            <el-dropdown
+              v-else-if="isMobile"
+              trigger="click"
+              teleported
+              placement="bottom-end"
+              popper-class="sett-toolbar-dropdown-popper"
+              @command="handleToolbarDropdownCommand"
+            >
               <el-button type="primary">
                 Actions
                 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="dateFilter">
-                    <span class="sett-toolbar-dropdown-item">
-                      <Icon
-                        :icon="isDateRangeFilterActive ? 'mdi:calendar-check' : 'mdi:calendar-month-outline'"
-                        width="18"
-                        height="18"
-                      />
-                      {{ isDateRangeFilterActive ? 'Change date filter' : 'Filter by create date' }}
-                    </span>
-                  </el-dropdown-item>
                   <PermissionWrapper :permissions="['settlement:create']">
                     <el-dropdown-item command="addSettlement" :icon="Plus">
                       Add Settlement
@@ -5864,19 +5979,21 @@ duplicateRecords.value.forEach(county => {
                   <el-dropdown-item v-if="showEditButtons" command="downloadExcel" :icon="Download">
                     Download Excel
                   </el-dropdown-item>
-                  <PermissionWrapper v-if="canDownloadSettlementGeoData" :permissions="'settlement:downloadGeo'">
-                    <el-dropdown-item command="downloadGeo" :icon="Document">
-                      Download GeoJSON
-                    </el-dropdown-item>
-                  </PermissionWrapper>
+                  <el-dropdown-item
+                    v-if="canDownloadSettlementGeoData"
+                    command="downloadGeo"
+                    :icon="Document"
+                  >
+                    Download GeoJSON
+                  </el-dropdown-item>
                   <el-dropdown-item command="locateOnMap" :icon="Location" divided>
                     Locate on Map
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-          </template>
         </div>
+      </div>
       </div>
     </div>
 
@@ -7240,98 +7357,118 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     </div>
   </el-drawer>
 
-  <el-dialog
-        title="Filter by Create Date"
-        v-model="DateDialogVisible"
-        width="30%" >
-        <el-form   ref="dateFormRef">
-          <el-form-item label="Date Range">
-            <p class="date-filter-hint">Defaults to the last 30 days. You can pick any date before today; future dates are not allowed.</p>
-            <el-date-picker
-              v-model="dateRangeDraft"
-              type="daterange"
-              unlink-panels
-              range-separator="To"
-              start-placeholder="Start date"
-              end-placeholder="End date"
-              size="default"
-              style="width: 100%;"
-              :disabled-date="disableSettlementFilterDate"
-              :default-value="defaultSettlementDateRange()"
-            />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <span class="dialog-footer">
-            <el-button v-if="isDateRangeFilterActive" @click="clearDateFilter">Clear filter</el-button>
-            <el-button @click="cancelDateDialog">Cancel</el-button>
-            <el-button type="primary" @click="handleDateChange">Confirm</el-button>
-          </span>
-        </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="locationFiltersDialogVisible"
-      title="Location filters"
-      :width="isMobile || windowWidth <= 768 ? '92%' : '480px'"
+    <el-drawer
+      v-model="locationFiltersDrawerVisible"
+      title="Filters"
+      direction="rtl"
+      :size="locationFiltersDrawerSize"
       destroy-on-close
+      class="sett-location-filters-drawer"
     >
-      <el-form label-position="top" class="sett-location-filters-form">
-        <el-form-item v-if="shouldShowCountyFilter" label="County">
-          <el-select
-            size="default"
-            v-model="locationFilters.countyIds"
-            :onChange="filterByCounty"
-            multiple
-            clearable
-            filterable
-            collapse-tags
-            placeholder="By County"
-            style="width: 100%;"
-          >
-            <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Subcounty">
-          <el-select
-            :disabled="locationFilters.countyIds.length === 0"
-            size="default"
-            v-model="locationFilters.subcountyIds"
-            :onChange="filterBySubCounty"
-            multiple
-            clearable
-            filterable
-            collapse-tags
-            placeholder="By Subcounty"
-            style="width: 100%;"
-          >
-            <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Ward">
-          <el-select
-            :disabled="locationFilters.subcountyIds.length === 0"
-            size="default"
-            v-model="locationFilters.wardIds"
-            :onChange="filterByWard"
-            multiple
-            clearable
-            filterable
-            collapse-tags
-            placeholder="By Ward"
-            style="width: 100%;"
-          >
-            <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-      </el-form>
+      <el-tabs v-model="filtersDrawerTab" class="sett-filters-drawer-tabs">
+        <el-tab-pane label="Location" name="location">
+          <el-form label-position="top" class="sett-location-filters-form">
+            <el-form-item v-if="shouldShowCountyFilter" label="County">
+              <el-select
+                size="default"
+                v-model="locationFilters.countyIds"
+                @change="filterByCounty"
+                multiple
+                clearable
+                filterable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="By County"
+                style="width: 100%;"
+              >
+                <el-option v-for="item in availableCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Subcounty">
+              <el-select
+                :disabled="locationFilters.countyIds.length === 0"
+                size="default"
+                v-model="locationFilters.subcountyIds"
+                @change="filterBySubCounty"
+                multiple
+                clearable
+                filterable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="By Subcounty"
+                style="width: 100%;"
+              >
+                <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Ward">
+              <el-select
+                :disabled="locationFilters.subcountyIds.length === 0"
+                size="default"
+                v-model="locationFilters.wardIds"
+                @change="filterByWard"
+                multiple
+                clearable
+                filterable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="By Ward"
+                style="width: 100%;"
+              >
+                <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <el-tab-pane name="date">
+          <template #label>
+            <span
+              class="sett-filters-drawer-tab-label"
+              :class="{ 'sett-filters-drawer-tab-label--active': isDateRangeFilterActive }"
+            >
+              Create date
+            </span>
+          </template>
+          <el-form label-position="top" class="sett-location-filters-form">
+            <el-form-item label="Date range">
+              <p class="date-filter-hint">Optional. Leave empty for no date filter. Future dates are not allowed.</p>
+              <el-date-picker
+                v-model="dateRangeDraft"
+                type="daterange"
+                unlink-panels
+                range-separator="To"
+                start-placeholder="Start date"
+                end-placeholder="End date"
+                size="default"
+                style="width: 100%;"
+                :disabled-date="disableSettlementFilterDate"
+                :default-value="defaultSettlementDateRange()"
+              />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button v-if="locationFilterTagCount > 0" @click="clearLocationFiltersOnly">Clear filters</el-button>
-          <el-button type="primary" @click="locationFiltersDialogVisible = false">Done</el-button>
-        </span>
+        <div class="sett-location-filters-drawer__footer">
+          <el-button
+            v-if="showDrawerClearLocation"
+            class="sett-location-filters-drawer__clear"
+            @click="clearFiltersDrawerLocation"
+          >
+            Clear location
+          </el-button>
+          <el-button
+            v-else-if="showDrawerClearDate"
+            class="sett-location-filters-drawer__clear"
+            @click="clearFiltersDrawerDate"
+          >
+            Clear date
+          </el-button>
+          <el-button type="primary" @click="applyFiltersDrawer">Apply</el-button>
+        </div>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- Location Update Drawer -->
     <el-drawer
@@ -7448,12 +7585,29 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   height: 75vh;
 }
 
+.sett-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
 .sett-toolbar-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
   min-width: 0;
+  overflow: visible;
+}
+
+.sett-toolbar-row--main {
+  width: 100%;
+}
+
+.sett-toolbar-row--filters {
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .sett-toolbar-row--compact {
@@ -7472,21 +7626,45 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   flex: 0 0 auto;
 }
 
-.sett-toolbar-row--wide .sett-toolbar-col--county,
-.sett-toolbar-row--wide .sett-toolbar-col--subcounty,
-.sett-toolbar-row--wide .sett-toolbar-col--ward {
+.sett-toolbar-select,
+.sett-toolbar-search {
+  width: 100%;
+}
+
+.sett-toolbar-col :deep(.el-select .el-select__wrapper),
+.sett-toolbar-col :deep(.el-input__wrapper) {
+  min-height: 32px;
+}
+
+.sett-toolbar-row--wide:not(.sett-toolbar-row--main) .sett-toolbar-col--county,
+.sett-toolbar-row--wide:not(.sett-toolbar-row--main) .sett-toolbar-col--subcounty,
+.sett-toolbar-row--wide:not(.sett-toolbar-row--main) .sett-toolbar-col--ward,
+.sett-toolbar--stacked .sett-toolbar-row--filters .sett-toolbar-col--county,
+.sett-toolbar--stacked .sett-toolbar-row--filters .sett-toolbar-col--subcounty,
+.sett-toolbar--stacked .sett-toolbar-row--filters .sett-toolbar-col--ward {
+  flex: 1 1 0;
+  min-width: 140px;
+}
+
+.sett-toolbar-row--main.sett-toolbar-row--wide .sett-toolbar-col--county,
+.sett-toolbar-row--main.sett-toolbar-row--wide .sett-toolbar-col--subcounty,
+.sett-toolbar-row--main.sett-toolbar-row--wide .sett-toolbar-col--ward {
   flex: 1 1 0;
   min-width: 120px;
   max-width: 200px;
 }
 
-.sett-toolbar-row--wide .sett-toolbar-col--search {
-  flex: 1 1 0;
-  min-width: 160px;
-  max-width: 240px;
+.sett-toolbar-row--main.sett-toolbar-row--wide .sett-toolbar-col--search,
+.sett-toolbar--stacked .sett-toolbar-row--main .sett-toolbar-col--search,
+.sett-toolbar--compact .sett-toolbar-row--main .sett-toolbar-col--search {
+  flex: 1 1 160px;
+  min-width: 120px;
+  max-width: 320px;
 }
 
-.sett-toolbar-row--wide .sett-toolbar-col--actions {
+.sett-toolbar-row--main.sett-toolbar-row--wide .sett-toolbar-col--actions,
+.sett-toolbar--stacked .sett-toolbar-row--main .sett-toolbar-col--actions,
+.sett-toolbar--compact .sett-toolbar-row--main .sett-toolbar-col--actions {
   flex: 1 1 auto;
   min-width: 0;
   margin-left: auto;
@@ -7507,10 +7685,22 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
   gap: 2px;
   flex-wrap: nowrap;
   width: 100%;
+  overflow: visible;
 }
 
 .sett-toolbar-actions--desktop {
   flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .sett-toolbar-row--filters .sett-toolbar-col {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .sett-toolbar-row--main .sett-toolbar-col--search {
+    max-width: none;
+  }
 }
 
 .sett-toolbar-filter-badge :deep(.el-badge__content) {
@@ -7526,6 +7716,37 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 
 .sett-location-filters-form :deep(.el-form-item:last-child) {
   margin-bottom: 0;
+}
+
+.sett-location-filters-drawer__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.sett-location-filters-drawer__clear {
+  margin-right: auto;
+}
+
+.sett-filters-drawer-tabs :deep(.el-tabs__header) {
+  margin-bottom: 12px;
+}
+
+.sett-filters-drawer-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sett-filters-drawer-tab-label--active::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--el-color-primary);
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
@@ -7554,6 +7775,10 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 </style>
 
 <style>
+.sett-toolbar-dropdown-popper {
+  z-index: 3000 !important;
+}
+
 .el-row {
   margin-bottom: 20px;
 }

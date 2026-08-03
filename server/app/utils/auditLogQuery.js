@@ -1,5 +1,29 @@
 const db = require('../models')
 const { Op } = db.Sequelize
+const { shouldSkipTrackingForUser, getSkippedTrackingUserIdList } = require('./trackingSkip')
+
+function applySkippedActorExclusion(where, legacyWhere) {
+  const skippedStrings = getSkippedTrackingUserIdList().map(String)
+  if (!skippedStrings.length) return
+
+  if (where.actorId?.[Op.in]) {
+    const filtered = where.actorId[Op.in].filter((id) => !shouldSkipTrackingForUser(id))
+    where.actorId = filtered.length
+      ? { [Op.in]: filtered.map(String) }
+      : { [Op.in]: ['__none__'] }
+  } else if (!where.actorId) {
+    where.actorId = { [Op.notIn]: skippedStrings }
+  }
+
+  if (legacyWhere.userId?.[Op.in]) {
+    const filtered = legacyWhere.userId[Op.in].filter((id) => !shouldSkipTrackingForUser(id))
+    legacyWhere.userId = filtered.length
+      ? { [Op.in]: filtered.map(String) }
+      : { [Op.in]: ['__none__'] }
+  } else if (!legacyWhere.userId) {
+    legacyWhere.userId = { [Op.notIn]: skippedStrings }
+  }
+}
 
 function mapLegacyLogToAuditShape(log) {
   const statusText = String(log.status || '').toLowerCase()
@@ -87,6 +111,8 @@ async function queryMergedAuditLogs({
     if (to) legacyWhere.date[Op.lte] = new Date(to)
   }
 
+  applySkippedActorExclusion(where, legacyWhere)
+
   // Merge both sources in memory, then paginate — DB-level offset on one table
   // produces empty/wrong pages after the merge sort.
   const MAX_MERGE_ROWS = 10000
@@ -107,9 +133,11 @@ async function queryMergedAuditLogs({
   const combined = [
     ...(auditRows || []).map((row) => row.toJSON()),
     ...(legacyRows || []).map(mapLegacyLogToAuditShape)
-  ].sort(
-    (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
-  )
+  ]
+    .filter((row) => !shouldSkipTrackingForUser(row.actorId || row.userId))
+    .sort(
+      (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+    )
 
   const pagedCombined = combined.slice(offset, offset + limitNum)
 

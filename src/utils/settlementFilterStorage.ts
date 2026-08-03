@@ -132,6 +132,17 @@ const upsertQueryFilter = (
   filterValues[index] = value
 }
 
+const removeQueryFilter = (
+  filters: string[],
+  filterValues: unknown[][],
+  field: string,
+) => {
+  const index = filters.indexOf(field)
+  if (index === -1) return
+  filters.splice(index, 1)
+  filterValues.splice(index, 1)
+}
+
 /** Apply toolbar location ids onto API filter arrays. */
 export const applyLocationFiltersToQuery = (
   filters: string[],
@@ -143,8 +154,13 @@ export const applyLocationFiltersToQuery = (
   const wardIds = toIdArray(location.wardIds)
 
   if (countyIds.length > 0) upsertQueryFilter(filters, filterValues, 'county_id', countyIds)
+  else removeQueryFilter(filters, filterValues, 'county_id')
+
   if (subcountyIds.length > 0) upsertQueryFilter(filters, filterValues, 'subcounty_id', subcountyIds)
+  else removeQueryFilter(filters, filterValues, 'subcounty_id')
+
   if (wardIds.length > 0) upsertQueryFilter(filters, filterValues, 'ward_id', wardIds)
+  else removeQueryFilter(filters, filterValues, 'ward_id')
 }
 
 /** Merge location ids into summary-style filter bundles. */

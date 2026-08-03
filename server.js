@@ -79,6 +79,7 @@ console.log('Ollama Base URL:', process.env.OLLAMA_BASE_URL);
 
 // Server Configuration
 console.log('Server PORT:', process.env.PORT);
+console.log('Audit/session skip user IDs:', process.env.AUDIT_SKIP_USER_ID || process.env.AUDIT_SKIP_USER_IDS || '(none)');
 console.log('=====================================');
 
  }
