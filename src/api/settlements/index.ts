@@ -15,9 +15,14 @@ export const getSettlementListApi = ({ params }: AxiosConfig) => {
 }
 
 export const getSettlementListByCounty = (
-  data: SettlementType
+  data: SettlementType,
+  options?: { timeout?: number }
 ): Promise<IResponse<SettlementType>> => {
-  return request.post({ url: prod + '/api/v1/data/column/paginated', data })
+  return request.post({
+    url: prod + '/api/v1/data/column/paginated',
+    data,
+    ...(options?.timeout != null ? { timeout: options.timeout } : {}),
+  })
 }
 
 

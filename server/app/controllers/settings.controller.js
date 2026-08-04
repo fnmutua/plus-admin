@@ -1231,6 +1231,127 @@ exports.replaceCleanupFieldValue = async (req, res) => {
   }
 }
 
+/** Settlement geometry QA — missing boundaries, point geoms, invalid geoms. */
+exports.getSettlementGeometryCleanup = async (req, res) => {
+  try {
+    const issue = String(req.query.issue || 'all').trim().toLowerCase()
+    const allowedIssues = new Set(['all', 'no_boundary', 'point', 'invalid'])
+    if (!allowedIssues.has(issue)) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Invalid issue filter. Use all, no_boundary, point, or invalid.',
+      })
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50))
+    const offset = (page - 1) * limit
+    const countyId = req.query.county_id ? parseInt(req.query.county_id, 10) : null
+    const search = String(req.query.search || '').trim()
+
+    const issueCase = `
+      CASE
+        WHEN s.geom IS NULL THEN 'no_boundary'
+        WHEN NOT ST_IsValid(s.geom) THEN 'invalid'
+        WHEN ST_GeometryType(s.geom) IN ('ST_Point', 'ST_MultiPoint') THEN 'point'
+        ELSE NULL
+      END
+    `
+
+    const whereParts = [`(${issueCase}) IS NOT NULL`]
+    const replacements = {}
+
+    if (issue !== 'all') {
+      whereParts.push(`(${issueCase}) = :issue`)
+      replacements.issue = issue
+    }
+    if (countyId) {
+      whereParts.push('s.county_id = :countyId')
+      replacements.countyId = countyId
+    }
+    if (search) {
+      whereParts.push('s.name ILIKE :search')
+      replacements.search = `%${search}%`
+    }
+
+    const whereSql = whereParts.join(' AND ')
+
+    const summaryRows = await db.sequelize.query(
+      `
+        SELECT
+          COUNT(*)::int AS total_settlements,
+          COUNT(*) FILTER (WHERE geom IS NULL)::int AS no_boundary,
+          COUNT(*) FILTER (WHERE geom IS NOT NULL AND NOT ST_IsValid(geom))::int AS invalid,
+          COUNT(*) FILTER (
+            WHERE geom IS NOT NULL
+              AND ST_IsValid(geom)
+              AND ST_GeometryType(geom) IN ('ST_Point', 'ST_MultiPoint')
+          )::int AS point
+        FROM settlement
+      `,
+      { type: db.sequelize.QueryTypes.SELECT }
+    )
+
+    const countRows = await db.sequelize.query(
+      `
+        SELECT COUNT(*)::int AS total
+        FROM settlement s
+        WHERE ${whereSql}
+      `,
+      { replacements, type: db.sequelize.QueryTypes.SELECT }
+    )
+
+    const rows = await db.sequelize.query(
+      `
+        SELECT
+          s.id,
+          s.name,
+          s.county_id,
+          c.name AS county_name,
+          s.subcounty_id,
+          ${issueCase} AS issue,
+          CASE WHEN s.geom IS NULL THEN NULL ELSE ST_GeometryType(s.geom) END AS geometry_type,
+          CASE WHEN s.geom IS NULL THEN NULL ELSE NOT ST_IsValid(s.geom) END AS is_invalid
+        FROM settlement s
+        LEFT JOIN county c ON c.id = s.county_id
+        WHERE ${whereSql}
+        ORDER BY s.name ASC
+        LIMIT :limit OFFSET :offset
+      `,
+      {
+        replacements: { ...replacements, limit, offset },
+        type: db.sequelize.QueryTypes.SELECT,
+      }
+    )
+
+    const summary = summaryRows[0] || {
+      total_settlements: 0,
+      no_boundary: 0,
+      point: 0,
+      invalid: 0,
+    }
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Settlement geometry issues fetched successfully',
+      data: {
+        summary,
+        rows,
+        total: countRows[0]?.total || 0,
+        page,
+        limit,
+        issue,
+      },
+    })
+  } catch (error) {
+    console.error('[Data Cleanup] getSettlementGeometryCleanup failed:', error)
+    return res.status(500).send({
+      code: '9999',
+      message: error.message || 'Failed to fetch settlement geometry issues',
+    })
+  }
+}
+
 /** Manual trigger for Advanta SMS balance check (scheduled job also runs daily at 8am). */
 exports.runSmsBalanceAlertTest = async (req, res) => {
   try {

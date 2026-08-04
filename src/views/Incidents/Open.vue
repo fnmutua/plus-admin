@@ -1993,7 +1993,7 @@ watch(historyActiveTab, (v) => {
               </ElRow>
               <ElFormItem>
                 <div class="form-helper-text">
-                  <i class="el-icon-info"></i> All KISIP interventions for infrastructure are related to a specific settlement. Please select the settlement associated with this incident.
+                  <i class="el-icon-info"></i> Infrastructure intervention projects are linked to a specific settlement. Please select the settlement associated with this incident.
                 </div>
               </ElFormItem>
               <ElFormItem label="Location" prop="location_text">
@@ -2350,7 +2350,7 @@ watch(historyActiveTab, (v) => {
               </ElRow>
               <ElFormItem>
                 <div class="form-helper-text">
-                  <i class="el-icon-info"></i> All KISIP interventions for infrastructure are related to a specific settlement. Please select the settlement associated with this incident.
+                  <i class="el-icon-info"></i> Infrastructure intervention projects are linked to a specific settlement. Please select the settlement associated with this incident.
                 </div>
               </ElFormItem>
               <ElFormItem label="Location" prop="location_text">

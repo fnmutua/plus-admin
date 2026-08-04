@@ -9,7 +9,7 @@
               <h1 class="visually-hidden">Report an Incident in Slums and Informal Settlements</h1>
               <div class="form-info-banner">
                 <i class="el-icon-info"></i>
-                <span>All KISIP interventions for infrastructure are related to a specific settlement. If you have any questions about this form, please contact <strong>Mr. Bundi</strong> or <strong>Ms. Rebecca</strong>.</span>
+                <span>Infrastructure intervention projects are linked to a specific settlement. If you have any questions about this form, please contact <strong>Mr. Bundi</strong> or <strong>Ms. Rebecca</strong>.</span>
               </div>
               <el-steps v-if="!isMobile" :active="active" finish-status="success" :direction="isMobile ? 'vertical' : 'horizontal'" :simple="isMobile" aria-label="Incident reporting steps">
                 <el-step title="Incident Details" />
@@ -51,7 +51,7 @@
                         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
                       </el-select>
                       <div class="form-helper-text">
-                        <i class="el-icon-info"></i> All KISIP interventions for infrastructure are related to a specific settlement. Please select the settlement associated with this incident.
+                        <i class="el-icon-info"></i> Infrastructure intervention projects are linked to a specific settlement. Please select the settlement associated with this incident.
                       </div>
                     </el-form-item>
                     <el-form-item label="Location" prop="location_text">

@@ -2285,6 +2285,59 @@ export const heatmapOptions = {
   series: [] as any[],
 }
 
+/** Break long gauge center labels into multiple lines (Apex radialBar supports \\n). */
+export function wrapGaugeCenterLabel(text: string, maxLineLen = 14): string {
+  const raw = String(text ?? '').trim()
+  if (!raw) return ''
+  if (raw.length <= maxLineLen) return raw
+  const words = raw.split(/\s+/)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (candidate.length > maxLineLen && line) {
+      lines.push(line)
+      line = word
+    } else {
+      line = candidate
+    }
+  }
+  if (line) lines.push(line)
+  return lines.join('\n')
+}
+
+function gaugeCenterLabelFontSize(label: string): string {
+  const wrapped = wrapGaugeCenterLabel(label)
+  const lines = wrapped.split('\n').length
+  const len = String(label ?? '').length
+  if (lines >= 3 || len > 36) return '11px'
+  if (lines >= 2 || len > 24) return '12px'
+  return dashboardChartTitlePx()
+}
+
+/** Wrap labels and tune radialBar center text so long names do not overlap the %. */
+export function applyGaugeLabelOptions(labels: string[]) {
+  const wrapped = labels.map((label) => wrapGaugeCenterLabel(label))
+  const multiLine = wrapped.some((label) => label.includes('\n'))
+  return {
+    labels: wrapped,
+    plotOptions: {
+      radialBar: {
+        dataLabels: {
+          name: {
+            formatter: (val: string) => wrapGaugeCenterLabel(val),
+            fontSize: gaugeCenterLabelFontSize(wrapped[0] || labels[0] || ''),
+            offsetY: multiLine ? -6 : -10,
+          },
+          value: {
+            offsetY: multiLine ? 10 : 0,
+          },
+        },
+      },
+    },
+  }
+}
+
 /** Gauge / Radial Bar (type 15): filtered value as % of total. */
 export const gaugeOptions = {
   chart: {
@@ -2332,6 +2385,7 @@ export const gaugeOptions = {
           offsetY: -10,
           get color() { return apexSubtitleColor() },
           fontSize: dashboardChartTitlePx(),
+          formatter: (val: string) => wrapGaugeCenterLabel(val),
         },
         value: {
           get color() { return apexTitleColor() },

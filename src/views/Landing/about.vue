@@ -90,7 +90,7 @@ useHead({
   title: 'About KeSMIS | Kenya Slum Management Information System',
   meta: [
     { name: 'description', content: 'Learn about KeSMIS (Kenya Slum Management Information System) - the national geodatabase and information management system for slums and informal settlements across Kenya, implemented under KISIP.' },
-    { name: 'keywords', content: 'about KeSMIS, Kenya slum management, KISIP project, urban development Kenya, slum improvement, informal settlements Kenya, data collection platform' },
+    { name: 'keywords', content: 'about KeSMIS, Kenya slum management, intervention projects, urban development Kenya, slum improvement, informal settlements Kenya, data collection platform' },
     { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
     

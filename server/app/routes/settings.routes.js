@@ -91,6 +91,11 @@ module.exports = function (app) {
     [authJwt.verifyToken, hasPermission('settings:update')],
     controller.replaceCleanupFieldValue
   )
+  app.get(
+    '/api/v1/settings/data-cleanup/settlement-geometries',
+    [authJwt.verifyToken, hasPermission('settings:update')],
+    controller.getSettlementGeometryCleanup
+  )
 
   console.log('Settings routes registered: /api/v1/settings/all, /api/v1/settings/get, /api/v1/settings/update, /api/v1/settings/bulk-update, /api/v1/settings/vulnerability-matrix, /api/v1/settings/sms-balance, /api/v1/settings/sms-balance-check, /api/v1/settings/data-cleanup/*')
 }

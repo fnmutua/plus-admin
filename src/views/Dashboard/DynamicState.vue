@@ -36,6 +36,7 @@ import {
   buildApexTreemapSeries,
   getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
   heatmapOptions, gaugeOptions, scatterOptions,
+  applyGaugeLabelOptions,
 } from './chart-types'
 import { registerMap, getMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -1774,15 +1775,35 @@ const getCharts = async (
             : (liveMeta ?? renderPre?.meta)
           const tvaSubtitle =
             meta?.targetVsAchieved && meta.total != null
-              ? `${Number(meta.value ?? 0).toLocaleString()} / ${Number(meta.total).toLocaleString()} achieved`
+              ? Number(meta.total) > 0
+                ? `${Number(meta.value ?? 0).toLocaleString()} / ${Number(meta.total).toLocaleString()}\nachieved`
+                : `${Number(meta.value ?? 0).toLocaleString()} achieved\nno target set`
               : null
+          const gaugeLabels = applyGaugeLabelOptions(labels)
           thisChart.apexSeries = series
           thisChart.chart = {
             ...gaugeOptions,
             title:    { ...gaugeOptions.title,    text: chartTitle },
             subtitle: { ...gaugeOptions.subtitle, text: tvaSubtitle || subtitleWithSource },
-            labels,
+            labels: gaugeLabels.labels,
             series,
+            plotOptions: {
+              ...gaugeOptions.plotOptions,
+              radialBar: {
+                ...gaugeOptions.plotOptions.radialBar,
+                dataLabels: {
+                  ...gaugeOptions.plotOptions.radialBar.dataLabels,
+                  name: {
+                    ...gaugeOptions.plotOptions.radialBar.dataLabels.name,
+                    ...gaugeLabels.plotOptions.radialBar.dataLabels.name,
+                  },
+                  value: {
+                    ...gaugeOptions.plotOptions.radialBar.dataLabels.value,
+                    ...gaugeLabels.plotOptions.radialBar.dataLabels.value,
+                  },
+                },
+              },
+            },
           }
         } catch (err) {
           console.error('processGaugeChart:', thisChart?.id, err)

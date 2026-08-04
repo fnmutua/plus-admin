@@ -5,19 +5,20 @@
         <div class="card-header">
           <h2>Data Cleanup</h2>
           <p class="subtitle">
-            Normalize text field values across models. Select a model and field, pick one or more
-            current values, then replace them with another option.
+            Normalize text field values or review settlement boundary geometry issues.
           </p>
         </div>
       </template>
 
-      <div class="settings-content">
-        <ElAlert type="info" :closable="false" show-icon class="intro-alert">
-          Only text fields (STRING / TEXT / CHAR / ENUM) can be cleaned.
-          Changes update all matching rows in one pass.
-        </ElAlert>
+      <ElTabs v-model="activeTab" class="cleanup-tabs">
+        <ElTabPane label="Field values" name="fields">
+          <div class="settings-content">
+            <ElAlert type="info" :closable="false" show-icon class="intro-alert">
+              Only text fields (STRING / TEXT / CHAR / ENUM) can be cleaned.
+              Changes update all matching rows in one pass.
+            </ElAlert>
 
-        <div class="cleanup-form" v-loading="loadingModels">
+            <div class="cleanup-form" v-loading="loadingModels">
           <div class="form-row">
             <label class="form-label">Model</label>
             <ElSelect
@@ -143,8 +144,14 @@
               </p>
             </ElAlert>
           </div>
-        </div>
-      </div>
+            </div>
+          </div>
+        </ElTabPane>
+
+        <ElTabPane label="Settlement geometries" name="geometries">
+          <SettlementGeometryCleanup />
+        </ElTabPane>
+      </ElTabs>
     </ElCard>
   </div>
 </template>
@@ -158,8 +165,11 @@ import {
   ElMessage,
   ElMessageBox,
   ElOption,
-  ElSelect
+  ElSelect,
+  ElTabPane,
+  ElTabs
 } from 'element-plus'
+import SettlementGeometryCleanup from './SettlementGeometryCleanup.vue'
 import {
   listCleanupModels,
   listCleanupFields,
@@ -169,6 +179,8 @@ import {
   type CleanupFieldOption,
   type CleanupFieldValueOption
 } from '@/api/settings'
+
+const activeTab = ref('fields')
 
 const models = ref<CleanupModelOption[]>([])
 const fields = ref<CleanupFieldOption[]>([])
@@ -401,6 +413,10 @@ onMounted(loadModels)
   color: var(--el-text-color-secondary);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.cleanup-tabs :deep(.el-tabs__content) {
+  padding-top: 4px;
 }
 
 .settings-content {

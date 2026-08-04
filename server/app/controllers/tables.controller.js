@@ -5956,7 +5956,9 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       const like = `'%${kw}%'`;
       const tbl = `"${Model.tableName}"`;
       const searchCond = db.sequelize.literal(`(
-        EXISTS (SELECT 1 FROM indicator_category ic WHERE ic.id = ${tbl}."indicator_category_id"
+        LOWER(${tbl}."code") LIKE ${like}
+        OR LOWER(COALESCE(${tbl}."comments", '')) LIKE ${like}
+        OR EXISTS (SELECT 1 FROM indicator_category ic WHERE ic.id = ${tbl}."indicator_category_id"
                 AND (LOWER(ic.indicator_name) LIKE ${like} OR LOWER(ic.category_title) LIKE ${like}))
         OR EXISTS (SELECT 1 FROM project p WHERE p.id = ${tbl}."project_id" AND LOWER(p.title) LIKE ${like})
         OR EXISTS (SELECT 1 FROM settlement s WHERE s.id = ${tbl}."settlement_id" AND LOWER(s.name) LIKE ${like})
@@ -6266,11 +6268,62 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
     // Filing-grouped pagination: for indicator reports a "page" is N filings (rows
     // sharing a `code`), not N report rows — otherwise a filing's indicators split
-    // across two pages. Page the distinct codes, then fetch all rows for those codes.
+    // across two pages. Page the distinct codes, then fetch rows for those codes.
     const groupByCode = modelName === 'indicator_category_report' && req.body.groupByCode === true;
+    const filingSummaryOnly =
+      groupByCode && req.body.filingSummaryOnly === true;
+    const filingReportsForCode =
+      modelName === 'indicator_category_report' &&
+      typeof req.body.filingReportsForCode === 'string' &&
+      req.body.filingReportsForCode.trim() !== '';
     let filingTotal = null;
+    let filingCountsByCode = null;
+    let filingExtra = null;
 
-    if (groupByCode && !returnAll) {
+    if (filingReportsForCode) {
+      const code = req.body.filingReportsForCode.trim();
+      const codeWhere = {
+        [Sequelize.Op.and]: [baseQuery.where, { code }],
+      };
+      query.where = codeWhere;
+
+      if (!returnAll) {
+        query.limit = parsedLimit;
+        query.offset = (parsedPage - 1) * parsedLimit;
+
+        const statusRows = await Model.findAll({
+          attributes: [
+            'status',
+            [db.sequelize.fn('COUNT', db.sequelize.col(`${Model.tableName}.id`)), 'count'],
+          ],
+          where: codeWhere,
+          group: ['status'],
+          raw: true,
+        });
+        const filingStatusCounts = {};
+        for (const row of statusRows) {
+          filingStatusCounts[row.status || 'New'] = parseInt(row.count, 10) || 0;
+        }
+
+        const amountSum = await Model.sum('amount', { where: codeWhere });
+        const avgProgressRow = await Model.findOne({
+          attributes: [[db.sequelize.fn('AVG', db.sequelize.col(`${Model.tableName}.progress`)), 'avgProgress']],
+          where: codeWhere,
+          raw: true,
+        });
+
+        filingExtra = {
+          filingStatusCounts,
+          filingTotals: {
+            amountSum: amountSum ?? 0,
+            avgProgress:
+              avgProgressRow?.avgProgress != null
+                ? Number(avgProgressRow.avgProgress)
+                : null,
+          },
+        };
+      }
+    } else if (groupByCode && !returnAll) {
       const maxDate = db.sequelize.fn('MAX', db.sequelize.col(`${Model.tableName}.date`));
       const maxCreated = db.sequelize.fn('MAX', db.sequelize.col(`${Model.tableName}.createdAt`));
 
@@ -6294,12 +6347,130 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       });
 
       const pageCodes = codeRows.map((r) => r.code).filter((c) => c != null);
-      query.where = {
-        [Sequelize.Op.and]: [
-          baseQuery.where,
-          pageCodes.length ? { code: { [Sequelize.Op.in]: pageCodes } } : { id: null },
-        ],
-      };
+
+      if (filingSummaryOnly) {
+        if (pageCodes.length) {
+          const statusRows = await Model.findAll({
+            attributes: [
+              'code',
+              'status',
+              [db.sequelize.fn('COUNT', db.sequelize.col(`${Model.tableName}.id`)), 'count'],
+            ],
+            where: {
+              [Sequelize.Op.and]: [
+                baseQuery.where,
+                { code: { [Sequelize.Op.in]: pageCodes } },
+              ],
+            },
+            group: ['code', 'status'],
+            raw: true,
+          });
+
+          filingCountsByCode = {};
+          for (const row of statusRows) {
+            if (!filingCountsByCode[row.code]) {
+              filingCountsByCode[row.code] = { total: 0, byStatus: {}, settlementCount: 0, countyCount: 0 };
+            }
+            const count = parseInt(row.count, 10) || 0;
+            const status = row.status || 'New';
+            filingCountsByCode[row.code].byStatus[status] = count;
+            filingCountsByCode[row.code].total += count;
+          }
+
+          const locationRows = await Model.findAll({
+            attributes: [
+              'code',
+              [
+                db.sequelize.fn(
+                  'COUNT',
+                  db.sequelize.fn('DISTINCT', db.sequelize.col(`${Model.tableName}.settlement_id`))
+                ),
+                'settlementCount',
+              ],
+              [
+                db.sequelize.fn(
+                  'COUNT',
+                  db.sequelize.fn('DISTINCT', db.sequelize.col(`${Model.tableName}.county_id`))
+                ),
+                'countyCount',
+              ],
+            ],
+            where: {
+              [Sequelize.Op.and]: [
+                baseQuery.where,
+                { code: { [Sequelize.Op.in]: pageCodes } },
+              ],
+            },
+            group: ['code'],
+            raw: true,
+          });
+
+          for (const row of locationRows) {
+            if (!filingCountsByCode[row.code]) {
+              filingCountsByCode[row.code] = { total: 0, byStatus: {}, settlementCount: 0, countyCount: 0 };
+            }
+            filingCountsByCode[row.code].settlementCount = parseInt(row.settlementCount, 10) || 0;
+            filingCountsByCode[row.code].countyCount = parseInt(row.countyCount, 10) || 0;
+          }
+
+          const repIds = (
+            await Promise.all(
+              pageCodes.map((code) =>
+                Model.findOne({
+                  attributes: ['id'],
+                  where: {
+                    [Sequelize.Op.and]: [baseQuery.where, { code }],
+                  },
+                  order: [
+                    [db.sequelize.literal(`"${Model.tableName}"."date" DESC NULLS LAST`)],
+                    ['createdAt', 'DESC'],
+                    ['id', 'DESC'],
+                  ],
+                  raw: true,
+                })
+              )
+            )
+          )
+            .map((row) => row?.id)
+            .filter(Boolean);
+
+          if (repIds.length) {
+            query.where = { id: { [Sequelize.Op.in]: repIds } };
+          } else if (pageCodes.length) {
+            const fallbackRepIds = (
+              await Promise.all(
+                pageCodes.map((code) =>
+                  Model.findOne({
+                    attributes: ['id'],
+                    where: {
+                      [Sequelize.Op.and]: [baseQuery.where, { code }],
+                    },
+                    order: [['id', 'DESC']],
+                    raw: true,
+                  })
+                )
+              )
+            )
+              .map((row) => row?.id)
+              .filter(Boolean);
+
+            query.where = fallbackRepIds.length
+              ? { id: { [Sequelize.Op.in]: fallbackRepIds } }
+              : { id: null };
+          } else {
+            query.where = { id: null };
+          }
+        } else {
+          query.where = { id: null };
+        }
+      } else {
+        query.where = {
+          [Sequelize.Op.and]: [
+            baseQuery.where,
+            pageCodes.length ? { code: { [Sequelize.Op.in]: pageCodes } } : { id: null },
+          ],
+        };
+      }
     } else if (!returnAll) {
       query.limit = parsedLimit;
       query.offset = (parsedPage - 1) * parsedLimit;
@@ -6329,7 +6500,19 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
     const response = await Model.findAndCountAll(query);
 
-    const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
+    let processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
+
+    if (filingCountsByCode) {
+      processedData = processedData.map((row) => ({
+        ...row,
+        filingReportCount: filingCountsByCode[row.code]?.total ?? 1,
+        filingStatusCounts: filingCountsByCode[row.code]?.byStatus ?? {
+          [row.status || 'New']: 1,
+        },
+        filingSettlementCount: filingCountsByCode[row.code]?.settlementCount ?? 0,
+        filingCountyCount: filingCountsByCode[row.code]?.countyCount ?? 0,
+      }));
+    }
 
     const cacheData = {
       data: processedData,
@@ -6343,15 +6526,35 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
       cache_key,
       data: processedData,
       total: cacheData.total,
+      ...(filingExtra || {}),
       code: '0000',
     });
   }
 
-  const response = await Model.findAndCountAll(query);
+  let processedData;
+  let totalOut;
 
-  const processedData = response.rows.map(row => row.toJSON ? row.toJSON() : row);
+  if (returnAll && filingReportsForCode) {
+    const rows = await Model.findAll(query);
+    processedData = rows.map((row) => (row.toJSON ? row.toJSON() : row));
+    totalOut = processedData.length;
+  } else {
+    const response = await Model.findAndCountAll(query);
+    processedData = response.rows.map((row) => (row.toJSON ? row.toJSON() : row));
+    totalOut = filingReportsForCode ? response.count : (filingTotal ?? response.count);
+  }
 
-  const totalOut = filingTotal ?? response.count;
+  if (filingCountsByCode) {
+    processedData = processedData.map((row) => ({
+      ...row,
+      filingReportCount: filingCountsByCode[row.code]?.total ?? 1,
+      filingStatusCounts: filingCountsByCode[row.code]?.byStatus ?? {
+        [row.status || 'New']: 1,
+      },
+      filingSettlementCount: filingCountsByCode[row.code]?.settlementCount ?? 0,
+      filingCountyCount: filingCountsByCode[row.code]?.countyCount ?? 0,
+    }));
+  }
 
   console.log(`[modelPaginatedDatafilterByColumn] model=${modelName} returnAll=${returnAll} total=${totalOut} returned=${processedData.length}`)
 
@@ -6359,6 +6562,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     fromCache: false,
     data: processedData,
     total: totalOut,
+    ...(filingExtra || {}),
     code: '0000',
   });
 

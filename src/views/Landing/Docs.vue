@@ -426,7 +426,7 @@ const allNavGroups: NavGroup[] = [
           <ul>
             <li>Maintain a <strong>national geodatabase</strong> of all slums and informal settlements, including their locations, boundaries, demographics and linked infrastructure</li>
             <li>Support <strong>evidence-based planning</strong> and decision-making for urban development interventions by national and county governments</li>
-            <li>Enable the public to <strong>file grievances</strong> and <strong>report incidents</strong> related to KISIP projects through transparent, accessible channels</li>
+            <li>Enable the public to <strong>file grievances</strong> and <strong>report incidents</strong> related to intervention projects through transparent, accessible channels</li>
             <li>Track <strong>project performance</strong> through a structured Monitoring &amp; Evaluation (M&amp;E) framework with activities, indicators, configurations, and periodic reports</li>
             <li>Conduct <strong>climate risk and vulnerability assessments</strong> for informal settlements to inform resilience planning — including multi-group field filing via SlumMapper and versioned submission history on the web</li>
           </ul>
@@ -481,7 +481,7 @@ const allNavGroups: NavGroup[] = [
           <h2>What can you do from the landing page?</h2>
           <p>Without signing in, any visitor can:</p>
           <ul>
-            <li><strong>File a grievance</strong> related to KISIP projects through a guided multi-step form</li>
+            <li><strong>File a grievance</strong> related to intervention projects through a guided multi-step form</li>
             <li><strong>Report an incident</strong> (accident, disaster, or safety event) affecting informal settlements or project sites</li>
             <li><strong>Browse the Settlement Register</strong> &mdash; search, filter and view a public database of all informal settlements in Kenya, with map visualisation</li>
             <li><strong>Request settlement data</strong> &mdash; submit a formal <strong>Data Request</strong> (no login) when you need approved access to datasets beyond the public register</li>
@@ -604,7 +604,7 @@ const allNavGroups: NavGroup[] = [
         id: 'incident-section',
         label: 'Reporting an Incident',
         content: `
-          <p>The <strong>Incident Report</strong> button on the landing page opens the public incident reporting page. This allows anyone to report accidents, disasters, or safety events affecting informal settlements or KISIP project areas.</p>
+          <p>The <strong>Incident Report</strong> button on the landing page opens the public incident reporting page. This allows anyone to report accidents, disasters, or safety events affecting informal settlements or intervention project areas.</p>
           <img src="${incidentBtnImg}" alt="Incident Report button on the landing page" class="docs-screenshot" />
           <h2>How to report an incident</h2>
           <ol>
@@ -731,7 +731,7 @@ const allNavGroups: NavGroup[] = [
           <table><thead><tr><th>Statistic</th><th>Description</th></tr></thead><tbody>
             <tr><td><strong>Informal Settlements</strong></td><td>Total number of settlements registered in KeSMIS.</td></tr>
             <tr><td><strong>Residents Recorded</strong></td><td>Combined population across all registered settlements.</td></tr>
-            <tr><td><strong>KISIP Projects</strong></td><td>Total number of active KISIP projects.</td></tr>
+            <tr><td><strong>Intervention Projects</strong></td><td>Total number of active intervention projects across programmes.</td></tr>
             <tr><td><strong>24/7</strong></td><td>System availability &mdash; the platform is accessible around the clock.</td></tr>
           </tbody></table>
         `
@@ -1232,7 +1232,7 @@ const allNavGroups: NavGroup[] = [
 
               <h2>Interventions tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsProjectsImg}" alt="Settlement Details — Interventions tab" />
-              <p>Lists all KISIP intervention projects linked to this settlement in a table with columns for Project Code, Project Title, and Status. Click the action button to navigate to the full project details.</p>
+              <p>Lists all intervention projects linked to this settlement in a table with columns for Project Code, Project Title, and Status. Click the action button to navigate to the full project details.</p>
 
               <h2>Households tab</h2>
               <img class="docs-screenshot" src="${settlementDetailsHouseholdsImg}" alt="Settlement Details — Households tab" />
@@ -2214,7 +2214,7 @@ const allNavGroups: NavGroup[] = [
         id: 'mne-overview',
         label: 'Structure',
         content: `
-          <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across KISIP using a structured chain: <strong>Project &rarr; Activity &rarr; Indicator &rarr; Configuration &rarr; Report</strong>. It is accessible from the sidebar under <strong>M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
+          <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across intervention programmes (KISIP, SUD, and others) using a structured chain: <strong>Project &rarr; Activity &rarr; Indicator &rarr; Configuration &rarr; Report</strong>. It is accessible from the sidebar under <strong>M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
 
           <h2>Module structure</h2>
           <p>The M&amp;E module is organised into five main areas:</p>
@@ -2394,7 +2394,7 @@ const allNavGroups: NavGroup[] = [
           <img class="docs-screenshot" src="${meReportsAddImg}" alt="M&E filing a report form" />
           <p>Click the <strong>+</strong> button to open the <strong>Add Report</strong> drawer. Fill in the form in order (each dropdown filters the next):</p>
           <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Project</strong></td><td>Select the KISIP project. Options are filterable.</td></tr>
+            <tr><td><strong>Project</strong></td><td>Select the intervention project. Options are filterable.</td></tr>
             <tr><td><strong>Location</strong></td><td>Select the project location / settlement (hidden for national-scope projects).</td></tr>
             <tr><td><strong>Activity</strong></td><td>Select the activity; the list is filtered by the selected project.</td></tr>
             <tr><td><strong>Indicator</strong></td><td>Select the indicator configuration (indicator + dimension). The list is filtered by the selected activity.</td></tr>
@@ -2419,12 +2419,12 @@ const allNavGroups: NavGroup[] = [
         id: 'mne-beneficiaries',
         label: 'Beneficiaries',
         content: `
-          <p>The <strong>Beneficiaries</strong> page tracks beneficiary counts per project and location for KISIP programme reporting. Records are stored at project–location level with target and actual numbers by gender.</p>
+          <p>The <strong>Beneficiaries</strong> page tracks beneficiary counts per project and location for programme reporting. Records are stored at project–location level with target and actual numbers by gender.</p>
 
           <h2>What is tracked</h2>
           <p>Each beneficiary record links a <strong>project</strong> and a <strong>location</strong> (settlement) and stores:</p>
           <ul>
-            <li><strong>Project</strong> &mdash; the KISIP project the beneficiaries are reported under</li>
+            <li><strong>Project</strong> &mdash; the intervention project the beneficiaries are reported under</li>
             <li><strong>Settlement (Location)</strong> &mdash; the project location or settlement where beneficiaries are counted</li>
             <li><strong>Target (Female) / Target (Male)</strong> &mdash; planned number of female and male beneficiaries for that project–location</li>
             <li><strong>Actual (Female) / Actual (Male)</strong> &mdash; reported number of female and male beneficiaries reached</li>
@@ -2742,7 +2742,7 @@ const allNavGroups: NavGroup[] = [
         id: 'incidents-overview',
         label: 'Listing & Overview',
         content: `
-          <p>The <strong>Incidents</strong> module captures reports of accidents, disasters, or safety events affecting informal settlements and KISIP project areas. Incidents can be filed publicly via the landing page (no login required) or internally by staff. Each incident is assigned a unique reference code in the format <strong>INC-YYYY-NNNN</strong>.</p>
+          <p>The <strong>Incidents</strong> module captures reports of accidents, disasters, or safety events affecting informal settlements and intervention project areas. Incidents can be filed publicly via the landing page (no login required) or internally by staff. Each incident is assigned a unique reference code in the format <strong>INC-YYYY-NNNN</strong>.</p>
 
           <h2>Accessing the listing</h2>
           <img src="${incidentListingImg}" alt="Incidents listing" class="docs-screenshot" />

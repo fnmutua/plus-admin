@@ -101,6 +101,16 @@ function resolveVirtualField(field, tbl, filters) {
     }
   }
 
+  if (tbl === 'indicator_category_report') {
+    if (field === 'indicator_category.indicator_name' || field === 'indicator_name') {
+      return {
+        joinSql: `JOIN indicator_category ic ON ic.id = "${tbl}".indicator_category_id`,
+        xExpr:   'ic.indicator_name',
+        xAlias:  'indicator_name',
+      }
+    }
+  }
+
   return { joinSql: '', xExpr: safeCol(field), xAlias: field.split('.').pop() }
 }
 

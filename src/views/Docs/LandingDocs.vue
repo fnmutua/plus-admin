@@ -30,7 +30,7 @@
           </li>
           <li>
             <strong>File a Grievance</strong> – opens the public Form for submitting a grievance related to
-            KISIP/KENSUP projects.
+            KISIP, SUD, KENSUP and other programme projects.
           </li>
           <li>
             <strong>Incident Report</strong> – opens the public incident reporting Form for accidents or

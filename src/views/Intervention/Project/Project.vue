@@ -1198,7 +1198,7 @@ const DownloadXlsx = async () => {
 
 <template>
   <ContentWrap
-:title="t('KISIP Projects')"
+:title="t('Intervention Projects')"
     :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 

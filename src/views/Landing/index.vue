@@ -371,7 +371,7 @@
                 </div>
                 <div class="stat-item">
                   <div class="stat-number">{{ TotalProjs }}+</div>
-                  <div class="stat-text">KISIP Projects</div>
+                  <div class="stat-text">Intervention Projects</div>
                 </div>
                 <div class="stat-item">
                   <div class="stat-number">24/7</div>
@@ -433,7 +433,7 @@
                   Electronic Grievance Redress Mechanism
                 </h2>
                 <p class="hero-description">
-                  Submit, track, and resolve grievances related to KISIP projects and activities through our transparent and accessible platform.
+                  Submit, track, and resolve grievances related to intervention projects and activities through our transparent and accessible platform.
                 </p>
                 <ul class="hero-features">
                   <li>
@@ -505,7 +505,7 @@
         <div class="cta-container">
           <h2 class="cta-title">Access the System</h2>
           <p class="cta-description">
-            Authorized users can access KeSMIS to manage settlement data, process grievances, and monitor KISIP project activities.
+            Authorized users can access KeSMIS to manage settlement data, process grievances, and monitor intervention project activities.
           </p>
           <el-button
             type="primary"
@@ -732,7 +732,7 @@ const features = [
     id: 3,
     icon: 'mdi:file-document-multiple',
     title: 'Electronic Grievance Redress',
-    description: 'Integrated e-GRM system for receiving, tracking, and managing grievances related to KISIP projects and activities.'
+    description: 'Integrated e-GRM system for receiving, tracking, and managing grievances related to intervention projects and activities.'
   },
   {
     id: 4,
@@ -764,7 +764,7 @@ const steps = [
   {
     id: 1,
     title: 'User Authentication',
-    description: 'Access the system using authorized credentials provided by the KISIP project administration team.'
+    description: 'Access the system using authorized credentials provided by the KeSMIS administration team.'
   },
   {
     id: 2,

@@ -315,7 +315,7 @@ import { useHead } from '@unhead/vue'
 useHead({
   title: 'File a Grievance | KeSMIS Kenya Slum Management Information System',
   meta: [
-    { name: 'description', content: 'File a grievance with  KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project through our online grievance management system.' },
+    { name: 'description', content: 'File a grievance related to KeSMIS intervention projects. Submit complaints, feedback, or concerns about informal settlement improvement programmes through our online grievance management system.' },
     { name: 'keywords', content: 'file grievance, KISIP complaint, Kenya slum management grievance, online complaint form, KISIP feedback, grievance management system' },
     { name: 'author', content: 'Kenya Informal Settlements Improvement Project (KISIP)' },
     { name: 'robots', content: 'index, follow' },
@@ -335,7 +335,7 @@ useHead({
     // Twitter Card tags
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: 'File a Grievance - KeSMIS Kenya Slum Management Information System' },
-    { name: 'twitter:description', content: 'File a grievance with KeSMIS KISIP project. Submit complaints, feedback, or concerns about the Kenya Informal Settlements Improvement Project.' },
+    { name: 'twitter:description', content: 'File a grievance related to KeSMIS intervention projects. Submit complaints, feedback, or concerns about informal settlement improvement programmes.' },
     { name: 'twitter:image', content: 'https://kesmis.go.ke/twitter-card.jpg' },
     { name: 'twitter:image:alt', content: 'KeSMIS Logo - Kenya Slum Management Information System' },
     

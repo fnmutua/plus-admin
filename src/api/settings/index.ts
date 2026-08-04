@@ -316,3 +316,45 @@ export const replaceCleanupFieldValue = (payload: {
   })
 }
 
+export interface SettlementGeometryIssueRow {
+  id: number
+  name: string
+  county_id: number | null
+  county_name: string | null
+  subcounty_id: number | null
+  issue: 'no_boundary' | 'point' | 'invalid'
+  geometry_type: string | null
+  is_invalid: boolean | null
+}
+
+export interface SettlementGeometryCleanupResult {
+  summary: {
+    total_settlements: number
+    no_boundary: number
+    point: number
+    invalid: number
+  }
+  rows: SettlementGeometryIssueRow[]
+  total: number
+  page: number
+  limit: number
+  issue: string
+}
+
+export const getSettlementGeometryCleanup = (params: {
+  issue?: string
+  page?: number
+  limit?: number
+  county_id?: number | null
+  search?: string
+}): Promise<{
+  code: string
+  data: SettlementGeometryCleanupResult
+  message: string
+}> => {
+  return request.get({
+    url: prod + '/api/v1/settings/data-cleanup/settlement-geometries',
+    params
+  })
+}
+

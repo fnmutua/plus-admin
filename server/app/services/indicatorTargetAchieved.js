@@ -6,10 +6,9 @@
 
 const db = require('../models');
 const {
-  DEFAULT_FISCAL_YEAR,
-  loadProgrammeTarget,
   sumProjectTargets,
   sumCategoryAchieved,
+  resolveDashboardTarget,
   parseDashboardLocationFilters,
 } = require('./meReporting');
 
@@ -29,6 +28,24 @@ const COB_PORTFOLIO = [
   { categoryId: 14, label: 'Education blocks' },
 ];
 
+/** KISIP PDO indicators — for portfolio target vs achieved / delivery mix charts. */
+const KISIP_PDO_PORTFOLIO = [
+  { categoryId: 15, label: 'Access roads (km)' },
+  { categoryId: 23, label: 'Stormwater drainage (km)' },
+  { categoryId: 21, label: 'Street lights' },
+  { categoryId: 20, label: 'Floodlights' },
+  { categoryId: 26, label: 'Water connections' },
+  { categoryId: 19, label: 'Vending platforms' },
+  { categoryId: 25, label: 'Sewer (km)' },
+  { categoryId: 104, label: 'Water pipeline (km)' },
+];
+
+const KISIP_WATER_PORTFOLIO = [
+  { categoryId: 104, label: 'Water pipeline (km)' },
+  { categoryId: 26, label: 'Water connections' },
+  { categoryId: 25, label: 'Sewer (km)' },
+];
+
 function parseNum(value) {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
@@ -44,7 +61,7 @@ async function loadCategoryLabel(categoryId) {
 }
 
 function pctOf(achieved, target, { capDisplay = false } = {}) {
-  if (!target || target <= 0) return achieved > 0 ? 100 : 0;
+  if (!target || target <= 0) return 0;
   const pct = Math.round((achieved / target) * 1000) / 10;
   const capped = Math.min(999, pct);
   return capDisplay ? Math.min(100, capped) : capped;
@@ -66,8 +83,9 @@ async function resolveTargetAchievedRow(entry, chartFilters = []) {
       ? 'Project unit targets (filtered)'
       : 'Project unit targets (sum)';
   } else {
-    target = await loadProgrammeTarget(categoryId);
-    targetSource = `M&E programme target FY ${DEFAULT_FISCAL_YEAR}`;
+    const resolved = await resolveDashboardTarget(categoryId, location);
+    target = resolved.target;
+    targetSource = resolved.targetSource;
   }
 
   const achieved = await sumCategoryAchieved(categoryId, location, null, { approvedOnly: true });
@@ -106,6 +124,20 @@ function chartCategoryId(chart) {
   return null;
 }
 
+async function resolveKisipWaterPortfolio(chartFilters = []) {
+  const rows = await Promise.all(
+    KISIP_WATER_PORTFOLIO.map((entry) => resolveTargetAchievedRow(entry, chartFilters)),
+  );
+  return rows.filter((r) => r.target > 0 || r.achieved > 0);
+}
+
+async function resolveKisipPdoPortfolio(chartFilters = []) {
+  const rows = await Promise.all(
+    KISIP_PDO_PORTFOLIO.map((entry) => resolveTargetAchievedRow(entry, chartFilters)),
+  );
+  return rows.filter((r) => r.target > 0 || r.achieved > 0);
+}
+
 async function resolvePortfolioTargetAchieved(chartFilters = []) {
   const rows = await Promise.all(COB_PORTFOLIO.map((entry) => resolveTargetAchievedRow(entry, chartFilters)));
   return rows.filter((r) => r.target > 0 || r.achieved > 0);
@@ -133,6 +165,69 @@ async function resolveTargetVsAchievedChart(chart) {
       };
     }
 
+    return {
+      kind: 'render',
+      categories,
+      series: [
+        { name: 'Target', data: targetData },
+        { name: 'Achieved', data: achievedData },
+      ],
+      meta: { targetVsAchieved: true, rows },
+    };
+  }
+
+  if (mode === 'kisip_pdo') {
+    const rows = await resolveKisipPdoPortfolio(chartFilters);
+    const categories = rows.map((r) => r.label);
+    const targetData = rows.map((r) => r.target);
+    const achievedData = rows.map((r) => r.achieved);
+
+    if (chartType === 15) {
+      const totalTarget = targetData.reduce((a, b) => a + b, 0);
+      const totalAchieved = achievedData.reduce((a, b) => a + b, 0);
+      return {
+        kind: 'render',
+        categories: ['KISIP PDO'],
+        series: [pctOf(totalAchieved, totalTarget, { capDisplay: true })],
+        meta: { value: totalAchieved, total: totalTarget, targetVsAchieved: true },
+      };
+    }
+
+    if (chartType === 3 || chartType === 10) {
+      return {
+        kind: 'render',
+        categories,
+        series: achievedData.map(Number),
+        meta: { targetVsAchieved: true, rows },
+      };
+    }
+
+    return {
+      kind: 'render',
+      categories,
+      series: [
+        { name: 'Target', data: targetData },
+        { name: 'Achieved', data: achievedData },
+      ],
+      meta: { targetVsAchieved: true, rows },
+    };
+  }
+
+  if (mode === 'kisip_water') {
+    const rows = await resolveKisipWaterPortfolio(chartFilters);
+    const categories = rows.map((r) => r.label);
+    const achievedData = rows.map((r) => r.achieved);
+
+    if (chartType === 3 || chartType === 10) {
+      return {
+        kind: 'render',
+        categories,
+        series: achievedData.map(Number),
+        meta: { targetVsAchieved: true, rows },
+      };
+    }
+
+    const targetData = rows.map((r) => r.target);
     return {
       kind: 'render',
       categories,
@@ -195,7 +290,9 @@ function isTargetVsAchievedChart(chart) {
 
 module.exports = {
   COB_PORTFOLIO,
+  KISIP_PDO_PORTFOLIO,
   isTargetVsAchievedChart,
   resolveTargetVsAchievedChart,
   resolvePortfolioTargetAchieved,
+  resolveKisipPdoPortfolio,
 };

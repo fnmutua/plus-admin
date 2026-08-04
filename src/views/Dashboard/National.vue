@@ -15,6 +15,7 @@ import {
   buildApexTreemapSeries,
   getChartTimeFieldKey, getChartTimeGroupField, buildMultiVariableLineSeries, getSummaryResultValue,
   heatmapOptions, gaugeOptions, scatterOptions,
+  applyGaugeLabelOptions,
 } from './chart-types'
 import { registerMap } from 'echarts/core'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -2192,14 +2193,32 @@ async function processTreemapChart() {
           // cdata[0] = [label], cdata[1] = [percentage]  (from gaugeChart backend)
           const labels: string[]  = Array.isArray(cdata[0]) ? cdata[0] : [thisChart.title]
           const series: number[]  = Array.isArray(cdata[1]) ? cdata[1].map(Number) : [0]
+          const gaugeLabels = applyGaugeLabelOptions(labels)
 
           thisChart.apexSeries = series
           thisChart.chart = {
             ...gaugeOptions,
             title:    { ...gaugeOptions.title,    text: thisChart.title },
             subtitle: { ...gaugeOptions.subtitle, text: subtitleWithSource },
-            labels,
+            labels: gaugeLabels.labels,
             series,
+            plotOptions: {
+              ...gaugeOptions.plotOptions,
+              radialBar: {
+                ...gaugeOptions.plotOptions.radialBar,
+                dataLabels: {
+                  ...gaugeOptions.plotOptions.radialBar.dataLabels,
+                  name: {
+                    ...gaugeOptions.plotOptions.radialBar.dataLabels.name,
+                    ...gaugeLabels.plotOptions.radialBar.dataLabels.name,
+                  },
+                  value: {
+                    ...gaugeOptions.plotOptions.radialBar.dataLabels.value,
+                    ...gaugeLabels.plotOptions.radialBar.dataLabels.value,
+                  },
+                },
+              },
+            },
           }
         } catch (err) {
           console.error('processGaugeChart:', thisChart?.id, err)

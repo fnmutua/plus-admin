@@ -1,0 +1,1120 @@
+{
+  "generatedAt": "2026-08-04T06:36:07.073Z",
+  "source": "kisip-me-import.csv",
+  "importRows": 328,
+  "contractsWithData": 18,
+  "countiesWithData": 35,
+  "topContracts": [
+    {
+      "contract": "Unknown",
+      "counties": [
+        "Baringo",
+        "Bungoma",
+        "Elgeyo Marakwet",
+        "Embu",
+        "Homa Bay",
+        "Kiambu",
+        "Kilifi",
+        "Kirinyaga",
+        "Kisii",
+        "Kwale",
+        "Laikipia",
+        "Machakos",
+        "Makueni",
+        "Marsabit",
+        "Migori",
+        "Mombasa",
+        "Nakuru",
+        "Nandi",
+        "Nyeri",
+        "Taita Taveta",
+        "Tana River",
+        "Tharaka Nithi",
+        "Trans Nzoia",
+        "Turkana",
+        "Wajir",
+        "West Pokot"
+      ],
+      "settlements": 150,
+      "indicators": {
+        "comp11_titles": {
+          "planned": 34674,
+          "achieved": 0,
+          "settlements": 150
+        }
+      },
+      "score": 34674
+    },
+    {
+      "contract": "Phase 2 RFB",
+      "counties": [
+        "Kajiado",
+        "Kiambu",
+        "Kwale",
+        "Meru",
+        "Mombasa",
+        "Nandi",
+        "Nyamira",
+        "Nyandarua",
+        "Nyeri",
+        "Taita Taveta",
+        "Tharaka Nithi",
+        "Uasin Gishu",
+        "Wajir"
+      ],
+      "settlements": 40,
+      "indicators": {
+        "roads_km": {
+          "planned": 50.94457,
+          "achieved": 45.47561000000001,
+          "settlements": 39
+        },
+        "drainage_km": {
+          "planned": 67.60549,
+          "achieved": 56.64249,
+          "settlements": 39
+        },
+        "streetlights": {
+          "planned": 1446,
+          "achieved": 537,
+          "settlements": 29
+        },
+        "sewer_connections": {
+          "planned": 54.68200000000001,
+          "achieved": 42.13800000000001,
+          "settlements": 33
+        },
+        "highmast_lights": {
+          "planned": 26,
+          "achieved": 13,
+          "settlements": 16
+        },
+        "comp11_titles": {
+          "planned": 399,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "water_pipeline_km": {
+          "planned": 30.506999999999998,
+          "achieved": 25.029999999999998,
+          "settlements": 10
+        },
+        "water_connections": {
+          "planned": 1893,
+          "achieved": 290,
+          "settlements": 10
+        },
+        "vending_platforms": {
+          "planned": 2,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "footpaths_km": {
+          "planned": 352,
+          "achieved": 0,
+          "settlements": 2
+        }
+      },
+      "score": 5331.02516
+    },
+    {
+      "contract": "Phase 1 Lot 1",
+      "counties": [
+        "Kilifi",
+        "Nairobi"
+      ],
+      "settlements": 10,
+      "indicators": {
+        "roads_km": {
+          "planned": 9.469999999999999,
+          "achieved": 5.361,
+          "settlements": 7
+        },
+        "drainage_km": {
+          "planned": 10.158000000000001,
+          "achieved": 7.436999999999999,
+          "settlements": 7
+        },
+        "streetlights": {
+          "planned": 257,
+          "achieved": 39,
+          "settlements": 5
+        },
+        "sewer_connections": {
+          "planned": 4.25,
+          "achieved": 0,
+          "settlements": 3
+        },
+        "water_connections": {
+          "planned": 1500,
+          "achieved": 700,
+          "settlements": 3
+        },
+        "vending_platforms": {
+          "planned": 60,
+          "achieved": 60,
+          "settlements": 3
+        }
+      },
+      "score": 2652.676
+    },
+    {
+      "contract": "Phase 2 RFQ",
+      "counties": [
+        "Kwale",
+        "Meru",
+        "Mombasa",
+        "Nandi",
+        "Nyamira",
+        "Nyeri",
+        "Taita Taveta",
+        "Tharaka Nithi",
+        "Uasin Gishu",
+        "Wajir"
+      ],
+      "settlements": 27,
+      "indicators": {
+        "streetlights": {
+          "planned": 795,
+          "achieved": 789,
+          "settlements": 5
+        },
+        "highmast_lights": {
+          "planned": 40,
+          "achieved": 40,
+          "settlements": 20
+        },
+        "vending_platforms": {
+          "planned": 37,
+          "achieved": 35,
+          "settlements": 2
+        }
+      },
+      "score": 1736
+    },
+    {
+      "contract": "Phase 2 Lot 1",
+      "counties": [
+        "Bungoma",
+        "Elgeyo Marakwet",
+        "Lamu",
+        "Trans Nzoia"
+      ],
+      "settlements": 20,
+      "indicators": {
+        "drainage_km": {
+          "planned": 18.282999999999998,
+          "achieved": 17.942999999999998,
+          "settlements": 9
+        },
+        "highmast_lights": {
+          "planned": 20,
+          "achieved": 20,
+          "settlements": 17
+        },
+        "sewer_connections": {
+          "planned": 15.63,
+          "achieved": 11.796000000000001,
+          "settlements": 9
+        },
+        "roads_km": {
+          "planned": 17.34,
+          "achieved": 13.506,
+          "settlements": 8
+        },
+        "water_pipeline_km": {
+          "planned": 10.57,
+          "achieved": 10.57,
+          "settlements": 5
+        },
+        "water_connections": {
+          "planned": 536,
+          "achieved": 280,
+          "settlements": 5
+        },
+        "streetlights": {
+          "planned": 153,
+          "achieved": 122,
+          "settlements": 8
+        },
+        "vending_platforms": {
+          "planned": 72,
+          "achieved": 72,
+          "settlements": 2
+        }
+      },
+      "score": 1390.638
+    },
+    {
+      "contract": "Kisumu Lot 1 Phase 1 RFB",
+      "counties": [
+        "Kisumu"
+      ],
+      "settlements": 8,
+      "indicators": {
+        "roads_km": {
+          "planned": 10.042000000000002,
+          "achieved": 8.318999999999999,
+          "settlements": 4
+        },
+        "drainage_km": {
+          "planned": 21.898000000000003,
+          "achieved": 15.048000000000002,
+          "settlements": 5
+        },
+        "footpaths_km": {
+          "planned": 17.655,
+          "achieved": 0.975,
+          "settlements": 4
+        },
+        "highmast_lights": {
+          "planned": 9,
+          "achieved": 0,
+          "settlements": 2
+        },
+        "sewer_connections": {
+          "planned": 240,
+          "achieved": 0,
+          "settlements": 2
+        },
+        "water_pipeline_km": {
+          "planned": 1.44,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "water_connections": {
+          "planned": 46,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "vending_platforms": {
+          "planned": 111,
+          "achieved": 111,
+          "settlements": 3
+        }
+      },
+      "score": 592.377
+    },
+    {
+      "contract": "Phase 2 Lot 1 RFB",
+      "counties": [
+        "Homa Bay"
+      ],
+      "settlements": 6,
+      "indicators": {
+        "roads_km": {
+          "planned": 11.419999999999998,
+          "achieved": 7.401999999999999,
+          "settlements": 6
+        },
+        "drainage_km": {
+          "planned": 18.936999999999998,
+          "achieved": 1.502,
+          "settlements": 6
+        },
+        "highmast_lights": {
+          "planned": 8,
+          "achieved": 0,
+          "settlements": 5
+        },
+        "streetlights": {
+          "planned": 436,
+          "achieved": 0,
+          "settlements": 6
+        },
+        "vending_platforms": {
+          "planned": 1,
+          "achieved": 1,
+          "settlements": 1
+        }
+      },
+      "score": 485.26099999999997
+    },
+    {
+      "contract": "RFQ",
+      "counties": [
+        "Kajiado",
+        "Kiambu",
+        "Nyandarua"
+      ],
+      "settlements": 9,
+      "indicators": {
+        "highmast_lights": {
+          "planned": 11,
+          "achieved": 11,
+          "settlements": 4
+        },
+        "vending_platforms": {
+          "planned": 34,
+          "achieved": 34,
+          "settlements": 1
+        },
+        "streetlights": {
+          "planned": 195,
+          "achieved": 195,
+          "settlements": 5
+        }
+      },
+      "score": 480
+    },
+    {
+      "contract": "Phase 2 Lot 2 RFB",
+      "counties": [
+        "Homa Bay"
+      ],
+      "settlements": 10,
+      "indicators": {
+        "highmast_lights": {
+          "planned": 16,
+          "achieved": 4,
+          "settlements": 10
+        },
+        "streetlights": {
+          "planned": 420,
+          "achieved": 0,
+          "settlements": 6
+        },
+        "sewer_connections": {
+          "planned": 22.064999999999998,
+          "achieved": 0,
+          "settlements": 6
+        },
+        "drainage_km": {
+          "planned": 2.006,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "vending_platforms": {
+          "planned": 2,
+          "achieved": 0,
+          "settlements": 2
+        },
+        "water_pipeline_km": {
+          "planned": 0.708,
+          "achieved": 0,
+          "settlements": 1
+        }
+      },
+      "score": 466.779
+    },
+    {
+      "contract": "Phase 1 Lot 2",
+      "counties": [
+        "Kilifi",
+        "Nairobi"
+      ],
+      "settlements": 14,
+      "indicators": {
+        "roads_km": {
+          "planned": 10.925,
+          "achieved": 4.779,
+          "settlements": 8
+        },
+        "drainage_km": {
+          "planned": 4.834,
+          "achieved": 2.763,
+          "settlements": 6
+        },
+        "streetlights": {
+          "planned": 344,
+          "achieved": 0,
+          "settlements": 7
+        },
+        "sewer_connections": {
+          "planned": 5.470000000000001,
+          "achieved": 0.55,
+          "settlements": 6
+        },
+        "footpaths_km": {
+          "planned": 1,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "highmast_lights": {
+          "planned": 6,
+          "achieved": 6,
+          "settlements": 6
+        }
+      },
+      "score": 386.321
+    },
+    {
+      "contract": "RFB Phase 1 Lot 1",
+      "counties": [
+        "Nakuru"
+      ],
+      "settlements": 6,
+      "indicators": {
+        "roads_km": {
+          "planned": 3.287,
+          "achieved": 3.287,
+          "settlements": 3
+        },
+        "drainage_km": {
+          "planned": 3.287,
+          "achieved": 3.287,
+          "settlements": 3
+        },
+        "highmast_lights": {
+          "planned": 21,
+          "achieved": 9,
+          "settlements": 6
+        },
+        "sewer_connections": {
+          "planned": 3.287,
+          "achieved": 3.287,
+          "settlements": 3
+        },
+        "footpaths_km": {
+          "planned": 114,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "streetlights": {
+          "planned": 40,
+          "achieved": 40,
+          "settlements": 3
+        },
+        "vending_platforms": {
+          "planned": 40,
+          "achieved": 40,
+          "settlements": 3
+        }
+      },
+      "score": 323.722
+    },
+    {
+      "contract": "Kakamega Lot 1 Phase 1 RFB",
+      "counties": [
+        "Kakamega"
+      ],
+      "settlements": 5,
+      "indicators": {
+        "roads_km": {
+          "planned": 1.875,
+          "achieved": 0,
+          "settlements": 3
+        },
+        "drainage_km": {
+          "planned": 6,
+          "achieved": 0.193,
+          "settlements": 3
+        },
+        "water_connections": {
+          "planned": 155,
+          "achieved": 0,
+          "settlements": 2
+        },
+        "highmast_lights": {
+          "planned": 3,
+          "achieved": 0,
+          "settlements": 3
+        },
+        "footpaths_km": {
+          "planned": 1.767,
+          "achieved": 0,
+          "settlements": 2
+        },
+        "water_pipeline_km": {
+          "planned": 2.376,
+          "achieved": 1.785,
+          "settlements": 1
+        },
+        "streetlights": {
+          "planned": 51,
+          "achieved": 0,
+          "settlements": 2
+        }
+      },
+      "score": 222.996
+    }
+  ],
+  "topCounties": [
+    {
+      "county": "Kiambu",
+      "settlements": 15,
+      "contracts": [
+        "Phase 2 RFB",
+        "RFQ",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 7.01,
+          "achieved": 5.38,
+          "settlements": 5
+        },
+        "drainage_km": {
+          "planned": 7.01,
+          "achieved": 5.380000000000001,
+          "settlements": 5
+        },
+        "streetlights": {
+          "planned": 590,
+          "achieved": 196,
+          "settlements": 10
+        },
+        "sewer_connections": {
+          "planned": 6.779,
+          "achieved": 0.429,
+          "settlements": 5
+        },
+        "comp11_titles": {
+          "planned": 5003,
+          "achieved": 0,
+          "settlements": 5
+        }
+      },
+      "score": 5820.988
+    },
+    {
+      "county": "Tana River",
+      "settlements": 19,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 5812,
+          "achieved": 0,
+          "settlements": 19
+        }
+      },
+      "score": 5812
+    },
+    {
+      "county": "Mombasa",
+      "settlements": 10,
+      "contracts": [
+        "Phase 2 RFB",
+        "Phase 2 RFQ",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 2.3995699999999998,
+          "achieved": 1.92261,
+          "settlements": 3
+        },
+        "drainage_km": {
+          "planned": 5.41649,
+          "achieved": 2.35649,
+          "settlements": 3
+        },
+        "highmast_lights": {
+          "planned": 10,
+          "achieved": 0,
+          "settlements": 3
+        },
+        "comp11_titles": {
+          "planned": 2007,
+          "achieved": 0,
+          "settlements": 5
+        },
+        "water_pipeline_km": {
+          "planned": 4.886,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "water_connections": {
+          "planned": 860,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "streetlights": {
+          "planned": 700,
+          "achieved": 700,
+          "settlements": 3
+        }
+      },
+      "score": 4293.98116
+    },
+    {
+      "county": "Kilifi",
+      "settlements": 15,
+      "contracts": [
+        "Phase 1 Lot 1",
+        "Phase 1 Lot 2",
+        "Phase 1 Lot 3",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 12.621,
+          "achieved": 11.794,
+          "settlements": 7
+        },
+        "drainage_km": {
+          "planned": 10.423,
+          "achieved": 9.782,
+          "settlements": 7
+        },
+        "water_connections": {
+          "planned": 1500,
+          "achieved": 700,
+          "settlements": 3
+        },
+        "streetlights": {
+          "planned": 68,
+          "achieved": 39,
+          "settlements": 3
+        },
+        "highmast_lights": {
+          "planned": 4,
+          "achieved": 4,
+          "settlements": 1
+        },
+        "vending_platforms": {
+          "planned": 96,
+          "achieved": 96,
+          "settlements": 5
+        },
+        "comp11_titles": {
+          "planned": 469,
+          "achieved": 0,
+          "settlements": 2
+        }
+      },
+      "score": 3020.62
+    },
+    {
+      "county": "Taita Taveta",
+      "settlements": 14,
+      "contracts": [
+        "Phase 2 RFB",
+        "Phase 2 RFQ",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 2.411,
+          "achieved": 2.411,
+          "settlements": 2
+        },
+        "drainage_km": {
+          "planned": 2.411,
+          "achieved": 0.624,
+          "settlements": 2
+        },
+        "highmast_lights": {
+          "planned": 5,
+          "achieved": 5,
+          "settlements": 2
+        },
+        "comp11_titles": {
+          "planned": 2712,
+          "achieved": 0,
+          "settlements": 10
+        }
+      },
+      "score": 2729.857
+    },
+    {
+      "county": "Kirinyaga",
+      "settlements": 17,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 2593,
+          "achieved": 0,
+          "settlements": 17
+        }
+      },
+      "score": 2593
+    },
+    {
+      "county": "Wajir",
+      "settlements": 19,
+      "contracts": [
+        "Phase 2 RFB",
+        "Phase 2 RFQ",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 8.399,
+          "achieved": 8.725,
+          "settlements": 6
+        },
+        "drainage_km": {
+          "planned": 8.399,
+          "achieved": 8.065,
+          "settlements": 6
+        },
+        "highmast_lights": {
+          "planned": 5,
+          "achieved": 5,
+          "settlements": 5
+        },
+        "streetlights": {
+          "planned": 420,
+          "achieved": 325,
+          "settlements": 6
+        },
+        "sewer_connections": {
+          "planned": 8.399,
+          "achieved": 8.264999999999999,
+          "settlements": 6
+        },
+        "comp11_titles": {
+          "planned": 1300,
+          "achieved": 0,
+          "settlements": 7
+        }
+      },
+      "score": 2105.252
+    },
+    {
+      "county": "Turkana",
+      "settlements": 11,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 2024,
+          "achieved": 0,
+          "settlements": 11
+        }
+      },
+      "score": 2024
+    },
+    {
+      "county": "Laikipia",
+      "settlements": 8,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 1930,
+          "achieved": 0,
+          "settlements": 8
+        }
+      },
+      "score": 1930
+    },
+    {
+      "county": "Machakos",
+      "settlements": 9,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 1893,
+          "achieved": 0,
+          "settlements": 9
+        }
+      },
+      "score": 1893
+    },
+    {
+      "county": "Kwale",
+      "settlements": 7,
+      "contracts": [
+        "Phase 2 RFB",
+        "Phase 2 RFQ",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 2.164,
+          "achieved": 2.164,
+          "settlements": 1
+        },
+        "drainage_km": {
+          "planned": 2.26,
+          "achieved": 2.26,
+          "settlements": 1
+        },
+        "highmast_lights": {
+          "planned": 5,
+          "achieved": 5,
+          "settlements": 1
+        },
+        "streetlights": {
+          "planned": 70,
+          "achieved": 70,
+          "settlements": 1
+        },
+        "comp11_titles": {
+          "planned": 1525,
+          "achieved": 0,
+          "settlements": 5
+        }
+      },
+      "score": 1683.848
+    },
+    {
+      "county": "Baringo",
+      "settlements": 8,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 1487,
+          "achieved": 0,
+          "settlements": 8
+        }
+      },
+      "score": 1487
+    },
+    {
+      "county": "Marsabit",
+      "settlements": 4,
+      "contracts": [
+        "Unknown"
+      ],
+      "indicators": {
+        "comp11_titles": {
+          "planned": 1437,
+          "achieved": 0,
+          "settlements": 4
+        }
+      },
+      "score": 1437
+    },
+    {
+      "county": "Nyeri",
+      "settlements": 12,
+      "contracts": [
+        "Phase 2 RFB",
+        "Phase 2 RFQ",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 3.655,
+          "achieved": 2.77,
+          "settlements": 4
+        },
+        "drainage_km": {
+          "planned": 5.242,
+          "achieved": 2.3209999999999997,
+          "settlements": 4
+        },
+        "water_pipeline_km": {
+          "planned": 12.276,
+          "achieved": 11.280000000000001,
+          "settlements": 3
+        },
+        "water_connections": {
+          "planned": 586,
+          "achieved": 0,
+          "settlements": 3
+        },
+        "streetlights": {
+          "planned": 134,
+          "achieved": 46,
+          "settlements": 4
+        },
+        "sewer_connections": {
+          "planned": 3.655,
+          "achieved": 0.64,
+          "settlements": 4
+        },
+        "highmast_lights": {
+          "planned": 7,
+          "achieved": 6,
+          "settlements": 7
+        },
+        "footpaths_km": {
+          "planned": 350,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "comp11_titles": {
+          "planned": 209,
+          "achieved": 0,
+          "settlements": 2
+        }
+      },
+      "score": 1379.839
+    },
+    {
+      "county": "Homa Bay",
+      "settlements": 18,
+      "contracts": [
+        "Phase 2 Lot 1 RFB",
+        "Phase 2 Lot 2 RFB",
+        "Unknown"
+      ],
+      "indicators": {
+        "roads_km": {
+          "planned": 11.419999999999998,
+          "achieved": 7.401999999999999,
+          "settlements": 6
+        },
+        "drainage_km": {
+          "planned": 20.942999999999998,
+          "achieved": 1.502,
+          "settlements": 7
+        },
+        "highmast_lights": {
+          "planned": 24,
+          "achieved": 4,
+          "settlements": 15
+        },
+        "streetlights": {
+          "planned": 856,
+          "achieved": 0,
+          "settlements": 12
+        },
+        "vending_platforms": {
+          "planned": 3,
+          "achieved": 1,
+          "settlements": 3
+        },
+        "sewer_connections": {
+          "planned": 22.064999999999998,
+          "achieved": 0,
+          "settlements": 6
+        },
+        "water_pipeline_km": {
+          "planned": 0.708,
+          "achieved": 0,
+          "settlements": 1
+        },
+        "comp11_titles": {
+          "planned": 208,
+          "achieved": 0,
+          "settlements": 2
+        }
+      },
+      "score": 1160.04
+    }
+  ],
+  "indicators": [
+    {
+      "key": "comp11_titles",
+      "label": "Titles prepared",
+      "categoryId": 8,
+      "indicatorId": 8,
+      "planned": 35073,
+      "achieved": 0,
+      "settlements": 151
+    },
+    {
+      "key": "streetlights",
+      "label": "Street lights",
+      "categoryId": 21,
+      "indicatorId": 21,
+      "planned": 4170,
+      "achieved": 1745,
+      "settlements": 79
+    },
+    {
+      "key": "water_connections",
+      "label": "Household water connections",
+      "categoryId": 26,
+      "indicatorId": 26,
+      "planned": 4295,
+      "achieved": 1281,
+      "settlements": 24
+    },
+    {
+      "key": "vending_platforms",
+      "label": "Vending platforms",
+      "categoryId": 19,
+      "indicatorId": 19,
+      "planned": 395,
+      "achieved": 389,
+      "settlements": 20
+    },
+    {
+      "key": "sewer_connections",
+      "label": "Sewer connections (km)",
+      "categoryId": 25,
+      "indicatorId": 25,
+      "planned": 449.07400000000007,
+      "achieved": 61.46100000000001,
+      "settlements": 67
+    },
+    {
+      "key": "footpaths_km",
+      "label": "Footpaths (km)",
+      "categoryId": 17,
+      "indicatorId": 17,
+      "planned": 491.618,
+      "achieved": 3.1870000000000003,
+      "settlements": 13
+    },
+    {
+      "key": "highmast_lights",
+      "label": "Floodlights",
+      "categoryId": 20,
+      "indicatorId": 20,
+      "planned": 177,
+      "achieved": 116,
+      "settlements": 102
+    },
+    {
+      "key": "drainage_km",
+      "label": "Stormwater drainage (km)",
+      "categoryId": 23,
+      "indicatorId": 23,
+      "planned": 167.97449000000006,
+      "achieved": 115.16948999999997,
+      "settlements": 90
+    },
+    {
+      "key": "roads_km",
+      "label": "Access roads (km)",
+      "categoryId": 15,
+      "indicatorId": 15,
+      "planned": 122.47856999999998,
+      "achieved": 92.82460999999998,
+      "settlements": 85
+    },
+    {
+      "key": "water_pipeline_km",
+      "label": "Water pipeline (km)",
+      "categoryId": 104,
+      "indicatorId": 60,
+      "planned": 56.800999999999995,
+      "achieved": 46.754999999999995,
+      "settlements": 22
+    }
+  ],
+  "dashboardSeedHints": {
+    "programmeId": 18,
+    "programmeTitle": "KISIP2",
+    "dashboardTitle": "KISIP",
+    "recommendedSections": [
+      "Overview",
+      "Infrastructure delivery",
+      "Water & sanitation",
+      "Tenure (Comp 1.1)"
+    ],
+    "recommendedCards": [
+      {
+        "title": "Titles prepared",
+        "indicatorCategoryId": 8
+      },
+      {
+        "title": "Street lights",
+        "indicatorCategoryId": 21
+      },
+      {
+        "title": "Household water connections",
+        "indicatorCategoryId": 26
+      },
+      {
+        "title": "Vending platforms",
+        "indicatorCategoryId": 19
+      },
+      {
+        "title": "Sewer connections (km)",
+        "indicatorCategoryId": 25
+      },
+      {
+        "title": "Footpaths (km)",
+        "indicatorCategoryId": 17
+      }
+    ]
+  }
+}

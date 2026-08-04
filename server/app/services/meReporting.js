@@ -283,6 +283,92 @@ async function sumCategoryAchieved(categoryId, location = {}, transaction, optio
 }
 
 /**
+ * Sum planned targets from the latest approved report per (project, location).
+ * Matches PDO import rows where target = planned and amount = achieved.
+ */
+async function sumCategoryTargetFromReports(categoryId, location = {}, transaction, options = {}) {
+  const locSql = buildLocationSql(location, 'icr');
+  const statusSql = achievedStatusSql('icr', options);
+
+  const rows = await db.sequelize.query(
+    `
+      SELECT COALESCE(SUM(latest.target_val), 0)::numeric AS target_total
+      FROM (
+        SELECT DISTINCT ON (icr.project_id, COALESCE(icr.project_location_id, 0))
+          COALESCE(icr.target, 0)::numeric AS target_val
+        FROM indicator_category_report icr
+        WHERE icr.indicator_category_id = :categoryId
+          AND ${statusSql}
+          ${locSql}
+        ORDER BY icr.project_id, COALESCE(icr.project_location_id, 0), icr.id DESC
+      ) latest
+    `,
+    {
+      replacements: { categoryId },
+      type: QueryTypes.SELECT,
+      ...(transaction ? { transaction } : {}),
+    },
+  );
+  return parseNum(rows[0]?.target_total);
+}
+
+async function loadProgrammeEndTarget(categoryId, transaction) {
+  const rows = await db.sequelize.query(
+    `
+      SELECT target_value, target_kind, portfolio_denominator
+      FROM indicator_target
+      WHERE indicator_category_id = :categoryId
+        AND scope_type = 'programme'
+        AND fiscal_year = 'end-target'
+      ORDER BY id DESC
+      LIMIT 1
+    `,
+    {
+      replacements: { categoryId },
+      type: QueryTypes.SELECT,
+      ...(transaction ? { transaction } : {}),
+    },
+  );
+  return resolveTargetValue(rows[0]);
+}
+
+/**
+ * Resolve the best available target for dashboard target-vs-achieved gauges.
+ * Prefers PDO planned totals from M&E reports, then programme targets, then project targets.
+ */
+async function resolveDashboardTarget(categoryId, location = {}, transaction) {
+  const reportTarget = await sumCategoryTargetFromReports(
+    categoryId,
+    location,
+    transaction,
+    { approvedOnly: true },
+  );
+  if (reportTarget > 0) {
+    return { target: reportTarget, targetSource: 'PDO planned total (M&E reports)' };
+  }
+
+  const programmeTarget = await loadProgrammeTarget(categoryId);
+  if (programmeTarget > 0) {
+    return {
+      target: programmeTarget,
+      targetSource: `M&E programme target FY ${DEFAULT_FISCAL_YEAR}`,
+    };
+  }
+
+  const endTarget = await loadProgrammeEndTarget(categoryId, transaction);
+  if (endTarget > 0) {
+    return { target: endTarget, targetSource: 'Programme end-target' };
+  }
+
+  const projectTarget = await sumProjectTargets(categoryId, location, transaction);
+  if (projectTarget > 0) {
+    return { target: projectTarget, targetSource: 'Project-level targets' };
+  }
+
+  return { target: 0, targetSource: 'No target set' };
+}
+
+/**
  * Latest cumulative achieved grouped (e.g. by county name) for intervention charts.
  */
 async function sumCategoryAchievedGrouped(
@@ -364,10 +450,13 @@ module.exports = {
   parseAmount,
   resolveTargetValue,
   loadProgrammeTarget,
+  loadProgrammeEndTarget,
   sumProjectTargets,
   loadProjectTargetsForProject,
   loadLatestCumulativeByIndicator,
   sumCategoryAchieved,
+  sumCategoryTargetFromReports,
+  resolveDashboardTarget,
   sumCategoryAchievedGrouped,
   parseDashboardLocationFilters,
   buildLocationSql,

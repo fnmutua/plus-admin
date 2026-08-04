@@ -19,7 +19,7 @@ import {
   Search
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
@@ -34,6 +34,7 @@ import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
 import xlsx from "json-as-xlsx"
+import writeXlsxFile from 'write-excel-file'
 import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
@@ -205,6 +206,264 @@ const defaultPageSize = 5;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 
+/** Server-paginated reports inside an expanded filing. */
+const DEFAULT_NESTED_REPORT_PAGE_SIZE = 5;
+const NESTED_REPORT_PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
+const filingNestedPageSizes = reactive<Record<string, number>>({});
+const filingNestedSearchTexts = reactive<Record<string, string>>({});
+const filingNestedSearchTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+const filingDownloadLoading = reactive<Record<string, boolean>>({});
+
+function getFilingNestedPageSize(code: string) {
+  return filingNestedPageSizes[code] ?? DEFAULT_NESTED_REPORT_PAGE_SIZE;
+}
+
+function getFilingNestedSearch(code: string) {
+  return filingNestedSearchTexts[code] ?? '';
+}
+
+function isFilingNestedSearchActive(code: string) {
+  return getFilingNestedSearch(code).trim() !== '';
+}
+
+type FilingReportsCacheEntry = {
+  reports: any[]
+  total: number
+  loading: boolean
+  page: number
+  pageSize: number
+  totals?: { amountSum: number; avgProgress: number | null }
+  statusCounts?: Record<string, number>
+}
+
+const filingReportsCache = reactive<Record<string, FilingReportsCacheEntry>>({});
+
+function getFilingReportsEntry(code: string): FilingReportsCacheEntry | undefined {
+  return filingReportsCache[code];
+}
+
+function clearFilingReportsCache() {
+  for (const key of Object.keys(filingReportsCache)) {
+    delete filingReportsCache[key];
+  }
+  for (const key of Object.keys(filingNestedPageSizes)) {
+    delete filingNestedPageSizes[key];
+  }
+  for (const key of Object.keys(filingNestedSearchTexts)) {
+    delete filingNestedSearchTexts[key];
+  }
+  for (const key of Object.keys(filingNestedSearchTimers)) {
+    clearTimeout(filingNestedSearchTimers[key]);
+    delete filingNestedSearchTimers[key];
+  }
+}
+
+function filingReportCount(group: { reportCount?: number; reports?: any[]; first?: Record<string, any> }) {
+  if (group.reportCount != null) return group.reportCount;
+  if (group.first?.filingReportCount != null) return group.first.filingReportCount;
+  return group.reports?.length ?? 0;
+}
+
+function resolveFilingStatusCounts(group: {
+  statusCounts?: Record<string, number>
+  first?: Record<string, any>
+  reports?: any[]
+}) {
+  if (group.statusCounts) return group.statusCounts;
+  if (group.first?.filingStatusCounts) return group.first.filingStatusCounts;
+  const counts: Record<string, number> = {};
+  for (const r of group.reports || []) {
+    const s = r.status || 'New';
+    counts[s] = (counts[s] || 0) + 1;
+  }
+  return counts;
+}
+
+function filingReportsRangeLabel(filing: { code: string; reportCount?: number; reports?: any[]; first?: Record<string, any> }) {
+  const entry = getFilingReportsEntry(filing.code);
+  const total = entry?.total ?? filingReportCount(filing);
+  const nestedPageSize = getFilingNestedPageSize(filing.code);
+  const unit = isFilingNestedSearchActive(filing.code) ? 'match' : 'report';
+  const unitPlural = total === 1 ? unit : `${unit}s`;
+
+  if (total <= nestedPageSize) {
+    return `${total} ${unitPlural}`;
+  }
+
+  const page = entry?.page ?? 1;
+  const start = (page - 1) * nestedPageSize + 1;
+  const end = Math.min(page * nestedPageSize, total);
+  return `Showing ${start}–${end} of ${total} ${unitPlural}`;
+}
+
+function needsFilingNestedPagination(filing: { code: string; reportCount?: number; reports?: any[]; first?: Record<string, any> }) {
+  const total = getFilingReportsEntry(filing.code)?.total ?? filingReportCount(filing);
+  return total > getFilingNestedPageSize(filing.code);
+}
+
+function expandedFilingReports(filing: { code: string }) {
+  return getFilingReportsEntry(filing.code)?.reports ?? [];
+}
+
+function expandedFilingLoading(filing: { code: string }) {
+  return getFilingReportsEntry(filing.code)?.loading ?? false;
+}
+
+function getFilingSummaries(filing: { code: string }) {
+  return (param: { columns: any[]; data: any[] }) => {
+    const totals = getFilingReportsEntry(filing.code)?.totals;
+    if (totals) {
+      const sums: string[] = [];
+      param.columns.forEach((column, index) => {
+        if (index === 0) {
+          sums[index] = isFilingNestedSearchActive(filing.code) ? 'Filtered total' : 'Filing total';
+        } else if (column.property === 'amount') {
+          sums[index] = Number(totals.amountSum || 0).toLocaleString();
+        } else if (column.label === 'Progress %') {
+          sums[index] =
+            totals.avgProgress != null
+              ? `Avg: ${Number(totals.avgProgress).toFixed(1)}%`
+              : 'Avg: 0.0%';
+        } else {
+          sums[index] = '';
+        }
+      });
+      return sums;
+    }
+    return getSummaries(param);
+  };
+}
+
+async function onFilingNestedPageChange(code: string, page: number) {
+  await loadFilingReports(code, page);
+}
+
+async function onFilingNestedSizeChange(code: string, size: number) {
+  filingNestedPageSizes[code] = size;
+  await loadFilingReports(code, 1, size);
+}
+
+function onFilingNestedSearchInput(code: string, value: string) {
+  filingNestedSearchTexts[code] = value;
+  if (filingNestedSearchTimers[code]) {
+    clearTimeout(filingNestedSearchTimers[code]);
+  }
+  filingNestedSearchTimers[code] = setTimeout(() => {
+    loadFilingReports(code, 1);
+  }, 350);
+}
+
+function onFilingNestedSearchClear(code: string) {
+  filingNestedSearchTexts[code] = '';
+  loadFilingReports(code, 1);
+}
+
+function buildFilingDownloadForm(code: string, overrides: Record<string, any> = {}) {
+  const search = getFilingNestedSearch(code).trim();
+  const formData = buildReportQueryForm({
+    groupByCode: false,
+    filingSummaryOnly: false,
+    filingReportsForCode: code,
+    ...overrides,
+  }) as Record<string, any>;
+
+  delete formData.reportSearch;
+  if (search) {
+    formData.reportSearch = search;
+  }
+
+  return formData;
+}
+
+const FILING_DOWNLOAD_TIMEOUT = 180000;
+const FILING_DOWNLOAD_PAGE_SIZE = 100;
+
+async function fetchAllFilingReportsForDownload(code: string) {
+  try {
+    const res = await getSettlementListByCounty(
+      buildFilingDownloadForm(code, { returnAll: true }) as any,
+      { timeout: FILING_DOWNLOAD_TIMEOUT },
+    );
+    const reports = Array.isArray(res?.data) ? res.data : [];
+    if (reports.length) {
+      return reports;
+    }
+  } catch (error) {
+    console.warn('Filing bulk download failed, falling back to paged fetch:', error);
+  }
+
+  const all: any[] = [];
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (all.length < total) {
+    const res = await getSettlementListByCounty(
+      buildFilingDownloadForm(code, {
+        page,
+        limit: FILING_DOWNLOAD_PAGE_SIZE,
+        returnAll: false,
+      }) as any,
+      { timeout: FILING_DOWNLOAD_TIMEOUT },
+    );
+    const batch = Array.isArray(res?.data) ? res.data : [];
+    total = Number(res?.total ?? batch.length);
+    all.push(...batch);
+    if (!batch.length || all.length >= total) {
+      break;
+    }
+    page += 1;
+  }
+
+  return all;
+}
+
+async function writeFilingReportsExcel(code: string, reports: any[]) {
+  const headerRow = ['S/No', 'Indicator', 'Category', 'Project', 'Location', 'Amount', 'Progress %', 'Status', 'Date']
+    .map((value) => ({ value, fontWeight: 'bold' as const }));
+
+  const dataRows = reports.map((item, index) => [
+    index + 1,
+    item.indicator_category?.indicator_name || 'N/A',
+    item.indicator_category?.category_title || 'N/A',
+    item.project?.title || item.activity?.project?.title || '—',
+    getRowSettlementLabel(item),
+    reportAmountDisplay(item),
+    formatReportProgress(item),
+    item.status || 'New',
+    item.date ? formatDate(item.date) : '—',
+  ].map((value) => ({
+    type: String,
+    value: value == null ? '' : String(value),
+  })));
+
+  await writeXlsxFile([headerRow, ...dataRows], {
+    fileName: `${code.replace(/[^\w.-]+/g, '_')}_reports.xlsx`,
+  });
+}
+
+async function downloadFilingReports(filing: { code: string }) {
+  const code = filing.code;
+  if (filingDownloadLoading[code]) return;
+
+  filingDownloadLoading[code] = true;
+  try {
+    const reports = await fetchAllFilingReportsForDownload(code);
+    if (!reports.length) {
+      ElMessage.warning('No reports to download.');
+      return;
+    }
+
+    await writeFilingReportsExcel(code, reports);
+    ElMessage.success(`Downloaded ${reports.length} report${reports.length === 1 ? '' : 's'}.`);
+  } catch (error: any) {
+    console.error('Filing download failed:', error);
+    const message = error?.response?.data?.message || error?.message || 'Download failed. Please try again.';
+    ElMessage.error(message);
+  } finally {
+    filingDownloadLoading[code] = false;
+  }
+}
+
 // Function to update pageSize based on window width
 const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
@@ -215,12 +474,9 @@ const updatePageSize = () => {
 };
 
 onMounted(async () => {
-
-
   window.addEventListener('resize', updatePageSize);
-  updatePageSize(); // Initial check
-
-
+  updatePageSize();
+  await getInterventionsAll();
 })
 
 
@@ -381,6 +637,38 @@ function filingProjectLabel(group: { first: Record<string, any>; reports: any[] 
   return first.project?.title || first.activity?.project?.title || '—'
 }
 
+function filingLocationLabel(group: {
+  first: Record<string, any>
+  reportCount?: number
+  reports?: any[]
+}) {
+  const reportCount = filingReportCount(group)
+  const settlementCount = group.first?.filingSettlementCount
+  const countyCount = group.first?.filingCountyCount
+
+  if (reportCount <= 1) {
+    return getRowSettlementLabel(group.first)
+  }
+
+  if (settlementCount != null && settlementCount > 1) {
+    return `Multiple settlements · ${settlementCount}`
+  }
+
+  if (settlementCount === 1) {
+    return getRowSettlementLabel(group.first)
+  }
+
+  if (countyCount != null && countyCount > 1) {
+    return `Multiple counties · ${countyCount}`
+  }
+
+  if (reportCount > 1) {
+    return 'Multiple locations'
+  }
+
+  return getRowSettlementLabel(group.first)
+}
+
 // A percentage only means something against a target. `progress` is NOT NULL in the
 // DB, so a report filed for an indicator with no target set is stored as 0 — which
 // reads as "no progress" when it actually means "not measurable". Treat that pairing
@@ -405,27 +693,44 @@ function formatReportProgress(row: Record<string, any>) {
 }
 
 const filingGroups = computed(() => {
-  const groups = new Map<string, { code: string; first: Record<string, any>; reports: any[] }>()
+  const groups = new Map<string, {
+    code: string
+    first: Record<string, any>
+    reports: any[]
+    reportCount: number
+    statusCounts: Record<string, number>
+    sortTimestamp: number
+  }>()
+
   for (const row of tableDataList.value as any[]) {
     const key = row.code || `report-${row.id}`
     let group = groups.get(key)
     if (!group) {
-      group = { code: key, first: row, reports: [] }
+      group = {
+        code: key,
+        first: row,
+        reports: [row],
+        reportCount: row.filingReportCount ?? 1,
+        statusCounts: row.filingStatusCounts ?? { [row.status || 'New']: 1 },
+        sortTimestamp: 0,
+      }
       groups.set(key, group)
+    } else if (!row.filingReportCount) {
+      group.reports.push(row)
+      group.reportCount = group.reports.length
+      group.statusCounts = filingStatusCounts(group)
     }
-    group.reports.push(row)
   }
 
   return [...groups.values()]
     .map((group) => {
-      group.reports.sort((a, b) =>
-        String(a.project?.title || '').localeCompare(String(b.project?.title || '')),
-      )
       const representative = pickFilingRepresentative(group.reports) || group.first
       return {
         ...group,
         first: representative,
-        sortTimestamp: filingSortTimestamp(group),
+        reportCount: group.reportCount ?? filingReportCount(group),
+        statusCounts: resolveFilingStatusCounts(group),
+        sortTimestamp: filingSortTimestamp({ reports: [representative] }),
       }
     })
     .sort((a, b) => b.sortTimestamp - a.sortTimestamp)
@@ -445,10 +750,11 @@ const statusTagType = (status: string) =>
 
 // Filing row color: any rejection needs attention first, then fully-approved,
 // otherwise the filing still has pending reports.
-const filingRowClassName = ({ row }: { row: { reports: any[] } }) => {
-  const statuses = row.reports.map((r) => r.status || 'New')
-  if (statuses.some((s) => s === 'Rejected')) return 'danger-row'
-  if (statuses.every((s) => s === 'Approved')) return 'success-row'
+const filingRowClassName = ({ row }: { row: { statusCounts?: Record<string, number>; reports?: any[] } }) => {
+  const counts = resolveFilingStatusCounts(row)
+  const statuses = Object.keys(counts)
+  if (statuses.includes('Rejected')) return 'danger-row'
+  if (statuses.length && statuses.every((s) => s === 'Approved')) return 'success-row'
   return ''
 }
 //// ------------------parameters -----------------------////
@@ -576,14 +882,16 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
 }
 
 
-const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+const onPageChange = async (selPage: number) => {
   page.value = selPage
+  currentPage.value = selPage
   getFilteredData(filters, filterValues)
 }
 
-const onPageSizeChange = async (size: any) => {
+const onPageSizeChange = async (size: number) => {
   pageSize.value = size
+  page.value = 1
+  currentPage.value = 1
   getFilteredData(filters, filterValues)
 }
 
@@ -635,69 +943,132 @@ const getModeldefinition = async (selModel) => {
 }
 
 const loading = ref(false)
-const getFilteredData = async (selFilters, selfilterValues) => {
 
-  loading.value = true
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
+function buildReportQueryForm(overrides: Record<string, any> = {}) {
+  const formData: Record<string, any> = {
+    limit: pageSize.value,
+    page: currentPage.value,
+    curUser: 1,
+    model,
+    searchField: 'name',
+    searchKeyword: '',
+    assocModel: associated_Model,
+    filters: [...filters],
+    filterValues: [...filterValues],
+    associated_multiple_models,
+    nested_models,
+    groupByCode: true,
+    filingSummaryOnly: true,
+    ...overrides,
+  }
 
-  formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
-  
-  // Apply county restriction if user is county-restricted (unless super admin or national admin)
   if (isCountyRestricted.value && userCountyId.value) {
     const countyIndex = formData.filters.indexOf('county_id')
     if (countyIndex !== -1) {
-      // Update existing county_id filter
       formData.filterValues[countyIndex] = [userCountyId.value]
     } else {
-      // Add new county_id filter
       formData.filters.push('county_id')
       formData.filterValues.push([userCountyId.value])
     }
-    console.log('Applying county restriction filter for indicator reports, county_id:', userCountyId.value)
   }
-  
-  formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  // Page by filing (shared code), not by individual report row
-  formData.groupByCode = true
 
   if (filterProgrammeId.value != null) {
     formData.programmeId = filterProgrammeId.value
   }
 
-  // Free-text search across indicator name/category and project title
   if (reportSearchText.value?.trim()) {
     formData.reportSearch = reportSearchText.value.trim()
   }
 
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  return formData
+}
+
+async function loadFilingReports(code: string, nestedPage = 1, nestedPageSize?: number) {
+  const limit = nestedPageSize ?? getFilingNestedPageSize(code);
+  const search = getFilingNestedSearch(code).trim();
+  const existing = filingReportsCache[code];
+  if (existing?.loading) return;
+  if (
+    existing &&
+    existing.page === nestedPage &&
+    existing.pageSize === limit &&
+    existing.reports.length > 0 &&
+    !search
+  ) {
+    return;
+  }
+
+  filingReportsCache[code] = {
+    reports: filingReportsCache[code]?.reports ?? [],
+    total: filingReportsCache[code]?.total ?? 0,
+    loading: true,
+    page: nestedPage,
+    pageSize: limit,
+    totals: filingReportsCache[code]?.totals,
+    statusCounts: filingReportsCache[code]?.statusCounts,
+  }
+
+  try {
+    const formData = buildReportQueryForm({
+      groupByCode: false,
+      filingSummaryOnly: false,
+      filingReportsForCode: code,
+      page: nestedPage,
+      limit,
+    }) as Record<string, any>
+
+    // Filing-level search is separate from the main list search.
+    delete formData.reportSearch
+    if (search) {
+      formData.reportSearch = search
+    }
+
+    const res = await getSettlementListByCounty(formData as any)
+
+    filingReportsCache[code] = {
+      reports: res.data ?? [],
+      total: res.total ?? 0,
+      loading: false,
+      page: nestedPage,
+      pageSize: limit,
+      totals: (res as any).filingTotals,
+      statusCounts: (res as any).filingStatusCounts,
+    }
+  } catch (error) {
+    console.error('Failed to load filing reports:', error)
+    filingReportsCache[code] = {
+      reports: [],
+      total: 0,
+      loading: false,
+      page: nestedPage,
+      pageSize: limit,
+    }
+  }
+}
+
+const getFilteredData = async (selFilters, selfilterValues) => {
+
+  loading.value = true
+  clearFilingReportsCache()
+  setExpandedFiling(null)
+
+  page.value = currentPage.value
+
+  const formData = buildReportQueryForm({
+    filters: selFilters,
+    filterValues: selfilterValues,
+    limit: pageSize.value,
+    page: currentPage.value,
+  })
+
+  const res = await getSettlementListByCounty(formData as any)
 
   console.log('Reports collected........', res)
   console.log('First report item structure:', res.data?.[0])
 
-  // tableDataList.value = res.data.filter(item => item.indicator_category.indicator_level === 'activity');
-
   tableDataList.value = res.data
   loading.value = false
-
-  //tableDataList.value = res.data
   total.value = res.total
-
-
 }
 
 const projectOptions = ref([])
@@ -818,10 +1189,16 @@ const onFilingRowClick = (row: any, _column: any, event: MouseEvent) => {
   setExpandedFiling(expandedFilingKeys.value.includes(row.code) ? null : row.code)
 }
 
-// Fires for the expand arrow too, keeping it in step with row clicks
 const onFilingExpandChange = (row: any, expanded: boolean) => {
   setExpandedFiling(expanded ? row.code : null)
 }
+
+watch(expandedFilingKeys, (keys) => {
+  const code = keys[0]
+  if (code) {
+    loadFilingReports(code, 1)
+  }
+})
 
 const locationLevelFields = ['county_id', 'subcounty_id', 'ward_id', 'settlement_id']
 const levelFilterSpecs: Record<string, Record<string, any>> = {
@@ -1792,7 +2169,6 @@ loadProjectsWithLocations()
 loadProgrammeOptions()
 
 //getCategoryOptions()
-getInterventionsAll()
 
 
 
@@ -2625,23 +3001,50 @@ async function hydrateAdminIndicatorRows(selectedIds) {
                 </span>
                 <span class="filing-meta-sep">|</span>
                 <el-tag
-                  v-for="(count, status) in filingStatusCounts(filing)"
+                  v-for="(count, status) in resolveFilingStatusCounts(filing)"
                   :key="status"
                   :type="statusTagType(String(status))"
                   size="small"
                   class="filing-status-tag"
                 >
-                  {{ status }}<template v-if="filing.reports.length > 1"> ×{{ count }}</template>
+                  {{ status }}<template v-if="filingReportCount(filing) > 1"> ×{{ count }}</template>
                 </el-tag>
+                <span v-if="needsFilingNestedPagination(filing) || isFilingNestedSearchActive(filing.code)" class="filing-meta-sep">|</span>
+                <span v-if="needsFilingNestedPagination(filing) || isFilingNestedSearchActive(filing.code)" class="filing-meta-item filing-meta-range">
+                  {{ filingReportsRangeLabel(filing) }}
+                </span>
+              </div>
+
+              <div class="filing-nested-toolbar">
+                <el-input
+                  :model-value="getFilingNestedSearch(filing.code)"
+                  clearable
+                  size="small"
+                  placeholder="Search indicator or location…"
+                  :prefix-icon="Search"
+                  class="filing-nested-search"
+                  @input="(value: string) => onFilingNestedSearchInput(filing.code, value)"
+                  @clear="onFilingNestedSearchClear(filing.code)"
+                />
+                <el-tooltip content="Download Excel" placement="top">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    :icon="Download"
+                    :loading="filingDownloadLoading[filing.code]"
+                    @click.stop="downloadFilingReports(filing)"
+                  />
+                </el-tooltip>
               </div>
 
               <el-table
                 fit
                 table-layout="fixed"
-                :data="filing.reports"
+                :data="expandedFilingReports(filing)"
+                v-loading="expandedFilingLoading(filing)"
                 border
                 show-summary
-                :summary-method="getSummaries"
+                :summary-method="getFilingSummaries(filing)"
                 :show-overflow-tooltip="true"
                 :row-class-name="tableRowClassName"
                 style="width: 100%"
@@ -2669,6 +3072,15 @@ async function hydrateAdminIndicatorRows(selectedIds) {
         >
           <template #default="{ row }">
             {{ row.project?.title || row.activity?.project?.title || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          label="Location"
+          min-width="140"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            {{ getRowSettlementLabel(row) }}
           </template>
         </el-table-column>
         <el-table-column
@@ -2725,12 +3137,24 @@ async function hydrateAdminIndicatorRows(selectedIds) {
           </template>
         </el-table-column>
               </el-table>
+              <ElPagination
+                v-if="needsFilingNestedPagination(filing) || isFilingNestedSearchActive(filing.code)"
+                class="filing-nested-pagination"
+                layout="total, sizes, prev, pager, next"
+                :total="getFilingReportsEntry(filing.code)?.total ?? filingReportCount(filing)"
+                :current-page="getFilingReportsEntry(filing.code)?.page ?? 1"
+                :page-size="getFilingNestedPageSize(filing.code)"
+                :page-sizes="NESTED_REPORT_PAGE_SIZE_OPTIONS"
+                background
+                @current-change="(page: number) => onFilingNestedPageChange(filing.code, page)"
+                @size-change="(size: number) => onFilingNestedSizeChange(filing.code, size)"
+              />
             </div>
           </template>
         </el-table-column>
         <el-table-column label="Date" min-width="110" sortable :sort-method="(a, b) => b.sortTimestamp - a.sortTimestamp">
           <template #default="{ row }">
-            <el-badge is-dot :hidden="!row.reports.some(isReportNew)" class="report-new-badge">
+            <el-badge is-dot :hidden="!((resolveFilingStatusCounts(row).New ?? 0) > 0)" class="report-new-badge">
               {{ formatDate(row.first.date) }}
             </el-badge>
           </template>
@@ -2742,24 +3166,24 @@ async function hydrateAdminIndicatorRows(selectedIds) {
         </el-table-column>
         <el-table-column label="Location" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ getRowSettlementLabel(row.first) }}
+            {{ filingLocationLabel(row) }}
           </template>
         </el-table-column>
         <el-table-column label="Indicators" width="110" align="center">
           <template #default="{ row }">
-            {{ row.reports.length }}
+            {{ filingReportCount(row) }}
           </template>
         </el-table-column>
         <el-table-column label="Status" min-width="160">
           <template #default="{ row }">
             <el-tag
-              v-for="(count, status) in filingStatusCounts(row)"
+              v-for="(count, status) in resolveFilingStatusCounts(row)"
               :key="status"
               :type="statusTagType(String(status))"
               class="filing-status-tag"
               size="small"
             >
-              {{ status }}<template v-if="row.reports.length > 1"> ×{{ count }}</template>
+              {{ status }}<template v-if="filingReportCount(row) > 1"> ×{{ count }}</template>
             </el-tag>
           </template>
         </el-table-column>
@@ -3375,6 +3799,28 @@ target="#btn13" title="Documentation"
   font-style: italic;
   text-align: right;
   color: var(--el-text-color-secondary);
+}
+
+.filing-nested-pagination {
+  margin-top: 10px;
+  justify-content: flex-end;
+}
+
+.filing-nested-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 8px;
+}
+
+.filing-nested-search {
+  width: min(260px, 100%);
+}
+
+.filing-meta-range {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .filing-meta-row {
