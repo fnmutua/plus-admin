@@ -1148,6 +1148,11 @@ if (req.body.filterField && req.body.filterValue && req.body.filterOperator && r
     const operator  = filterOperators[i];
     operators.push(operator);
 
+    // Virtual chart modes — not DB columns (handled by /chart/render)
+    if (filterCol === 'target_vs_achieved' || String(filterCol).endsWith('.target_vs_achieved')) {
+      continue;
+    }
+
     if (operator === 'all') {
       continue;
     } else if (operator === 'or') {
@@ -1443,6 +1448,11 @@ if (req.body.filterField && req.body.filterValue && req.body.filterOperator && r
     const filterVal = filterValues[i];
     const operator  = filterOperators[i];
     operators.push(operator);
+
+    // Virtual chart modes — not DB columns (handled by /chart/render)
+    if (filterCol === 'target_vs_achieved' || String(filterCol).endsWith('.target_vs_achieved')) {
+      continue;
+    }
 
     // component_id / programme_id aren't columns on project_location or
     // indicator_category_report — they live on project (component_id) and

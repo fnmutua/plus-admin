@@ -45,7 +45,14 @@ function getChartTimeGroupField(model, chart) {
   return `${model}.${raw}`
 }
 
+function hasTargetVsAchievedFilter(chart) {
+  if (!Array.isArray(chart?.filters)) return false
+  return chart.filters.some((f) => f?.field === 'target_vs_achieved')
+}
+
 function shouldUseAxisEndpoint(chart) {
+  // Virtual mode — must use /chart/render (not SQL summary filters)
+  if (hasTargetVsAchievedFilter(chart)) return true
   if (chart.category && chart.category !== 'Status') return false
   const type = Number(chart.type)
   if (type === 12) {
@@ -121,11 +128,11 @@ function buildChartSummaryPayload(thisChart) {
 
   if (Array.isArray(filters)) {
     for (const item of filters) {
-      if (item?.field) {
-        filterFields.push(item.field)
-        filterValues.push(item.value)
-        filterOperators.push(item.operation)
-      }
+      // Virtual mode — not a DB column; handled by resolveTargetVsAchievedChart
+      if (!item?.field || item.field === 'target_vs_achieved') continue
+      filterFields.push(item.field)
+      filterValues.push(item.value)
+      filterOperators.push(item.operation)
     }
   }
 
@@ -333,11 +340,11 @@ function buildInterventionChartPayload(chart, indicatorCategoryIds) {
 
   if (Array.isArray(chart.filters)) {
     for (const item of chart.filters) {
-      if (item?.field) {
-        filterFields.push(item.field)
-        filterValues.push(item.value)
-        filterOperators.push(item.operation)
-      }
+      // Virtual mode — not a DB column; handled by resolveTargetVsAchievedChart
+      if (!item?.field || item.field === 'target_vs_achieved') continue
+      filterFields.push(item.field)
+      filterValues.push(item.value)
+      filterOperators.push(item.operation)
     }
   }
 

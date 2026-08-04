@@ -741,11 +741,11 @@ function buildChartSummaryFormData(thisChart: any) {
 
   if (filters) {
     for (const item of filters) {
-      if (item.field) {
-        filterFields.push(item.field)
-        filterValues.push(item.value)
-        filterOperators.push(item.operation)
-      }
+      // Virtual mode — not a DB column; handled by /chart/render
+      if (!item.field || item.field === 'target_vs_achieved') continue
+      filterFields.push(item.field)
+      filterValues.push(item.value)
+      filterOperators.push(item.operation)
     }
   }
 
@@ -943,8 +943,15 @@ function parseAxisJson(val: any) {
   return val
 }
 
+function hasTargetVsAchievedFilter(chart: any): boolean {
+  if (!Array.isArray(chart?.filters)) return false
+  return chart.filters.some((f: any) => f?.field === 'target_vs_achieved')
+}
+
 /** Route to /chart/render when axis config is present (incl. line/map/multi-line types). */
 function shouldUseAxisEndpoint(chart: any): boolean {
+  // Virtual mode — must use /chart/render (not SQL summary filters)
+  if (hasTargetVsAchievedFilter(chart)) return true
   if (chart.category && chart.category !== 'Status') return false
   const type = Number(chart.type)
   if (type === 12) {

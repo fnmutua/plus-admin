@@ -208,6 +208,8 @@ async function buildWhere(model, filters, ignoreEmpty, yField) {
 
     for (const f of filters) {
       if (!f.field || !f.operation || f.operation === 'all') continue
+      // Virtual chart mode — handled by resolveTargetVsAchievedChart, not SQL
+      if (f.field === 'target_vs_achieved' || String(f.field).endsWith('.target_vs_achieved')) continue
 
       const virtualClause = await resolveVirtualFilterClause(model, f.field, f.operation, f.value)
       if (virtualClause) {
