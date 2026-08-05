@@ -73,7 +73,7 @@ export const MAIN_NAV: NavItem[] = [
 ]
 
 export const HERO = {
-  headline: 'Transforming Informal Settlements Through Data, Planning and Inclusive Development',
+  headline: 'Transforming Informal Settlements and Slums Through Data, Planning and Inclusive Development',
   support:
     'Access settlement information, programme progress, maps, reports and digital services supporting sustainable urban development across Kenya.',
   primaryCta: { label: 'Sign in', action: 'route:/login' },
@@ -90,48 +90,57 @@ export const HERO_QUICK_LINKS = [
     label: 'Explore Settlements',
     icon: 'mdi:home-city-outline',
     action: `route:${PUBLIC_PAGES.settlementExplorer}`,
+    /** Already in MAIN_NAV / mobile menu */
+    hideOnMobile: true,
   },
   {
     id: 'projects',
     label: 'View Projects',
     icon: 'mdi:crane',
     action: `route:${PUBLIC_PAGES.projectExplorer}`,
+    hideOnMobile: true,
   },
   {
     id: 'grm',
     label: 'File a Grievance',
     icon: 'mdi:message-alert-outline',
     action: 'route:/grm',
+    hideOnMobile: true,
   },
   {
     id: 'data-request',
     label: 'Request Data',
     icon: 'mdi:database-outline',
     action: 'route:/data-request',
+    hideOnMobile: true,
   },
   {
     id: 'about',
     label: 'About KeSMIS',
     icon: 'mdi:information-outline',
     action: 'route:/about',
+    hideOnMobile: false,
   },
   {
     id: 'contact',
     label: 'Contact Us',
     icon: 'mdi:email-outline',
     action: 'route:/contact',
+    hideOnMobile: true,
   },
   {
     id: 'portal',
     label: 'Management Portal',
     icon: 'mdi:monitor-dashboard',
     action: 'route:/login',
+    hideOnMobile: true,
   },
   {
     id: 'docs',
     label: 'Documentation',
     icon: 'mdi:book-open-page-variant-outline',
     action: 'route:/docs',
+    hideOnMobile: false,
   },
 ] as const
 
@@ -355,7 +364,6 @@ export const FOOTER = {
   policies: [
     { label: 'Privacy', to: '/privacy' },
     { label: 'Terms of data use', to: '/terms-of-data-use' },
-    { label: 'Accessibility', to: '/faqs' },
     { label: 'Help', to: '/docs' },
   ],
 } as const

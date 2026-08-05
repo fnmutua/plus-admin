@@ -4,8 +4,7 @@
       <div class="gok-footer__brand">
         <img :src="INSTITUTION.logoSrcWhite" alt="KeSMIS" class="gok-footer__logo" width="200" height="50" loading="lazy" />
         <div>
-          <p class="gok-footer__full">{{ INSTITUTION.fullName }}</p>
-          <p class="gok-footer__desc">{{ INSTITUTION.programme }}</p>
+          <p class="gok-footer__full">{{ INSTITUTION.systemName }}</p>
         </div>
       </div>
 

@@ -38,7 +38,7 @@
             <h1 id="gok-hero-heading" class="gok-hero__title">{{ HERO.headline }}</h1>
           </div>
 
-          <form class="gok-hero__search" role="search" @submit.prevent="searchSettlements">
+          <form class="gok-hero__search" role="search" @submit.prevent="runSearch">
             <Icon icon="mdi:magnify" width="22" height="22" class="gok-hero__search-icon" aria-hidden="true" />
             <label class="sr-only" for="gok-hero-search">{{ HERO.searchPlaceholder }}</label>
             <input
@@ -48,16 +48,39 @@
               :placeholder="HERO.searchPlaceholder"
               autocomplete="off"
             />
-            <div class="gok-hero__search-actions">
-              <button type="submit" class="gok-btn gok-btn--search gok-btn--compact">
+
+            <!-- Desktop: two explicit search targets -->
+            <div class="gok-hero__search-actions gok-hero__search-actions--desktop">
+              <button type="button" class="gok-btn gok-btn--search gok-btn--compact" @click="searchSettlements">
                 Settlements
               </button>
-              <button
-                type="button"
-                class="gok-btn gok-btn--search-ghost gok-btn--compact"
-                @click="searchProjects"
-              >
+              <button type="button" class="gok-btn gok-btn--search-ghost gok-btn--compact" @click="searchProjects">
                 Projects
+              </button>
+            </div>
+
+            <!-- Mobile: compact target toggle + one Search -->
+            <div class="gok-hero__search-mobile">
+              <div class="gok-hero__target" role="group" aria-label="Search in">
+                <button
+                  type="button"
+                  class="gok-hero__target-btn"
+                  :class="{ 'is-active': searchTarget === 'settlements' }"
+                  @click="searchTarget = 'settlements'"
+                >
+                  Settlements
+                </button>
+                <button
+                  type="button"
+                  class="gok-hero__target-btn"
+                  :class="{ 'is-active': searchTarget === 'projects' }"
+                  @click="searchTarget = 'projects'"
+                >
+                  Projects
+                </button>
+              </div>
+              <button type="submit" class="gok-btn gok-btn--search gok-btn--compact">
+                Search
               </button>
             </div>
           </form>
@@ -68,6 +91,7 @@
               :key="item.id"
               type="button"
               class="gok-hero__quick-item"
+              :class="{ 'gok-hero__quick-item--hide-mobile': item.hideOnMobile }"
               @click="emit('action', item.action)"
             >
               <span class="gok-hero__quick-icon" aria-hidden="true">
@@ -114,6 +138,7 @@ const emit = defineEmits<{
 }>()
 
 const query = ref('')
+const searchTarget = ref<'settlements' | 'projects'>('settlements')
 const activeSlide = ref(0)
 const SLIDE_MS = 6500
 let timer: ReturnType<typeof setInterval> | null = null
@@ -124,6 +149,10 @@ function searchSettlements() {
 
 function searchProjects() {
   emit('search', query.value.trim(), 'projects')
+}
+
+function runSearch() {
+  emit('search', query.value.trim(), searchTarget.value)
 }
 
 function nextSlide() {
@@ -287,7 +316,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  background: #fff;
+  background: var(--gok-panel, #fff);
+  border: 1px solid color-mix(in srgb, var(--gok-border, #e3e8e5) 80%, transparent);
   border-radius: 999px;
   padding: 0.35rem 0.4rem 0.35rem 1rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
@@ -295,7 +325,7 @@ onBeforeUnmount(() => {
 
 .gok-hero__search-icon {
   flex-shrink: 0;
-  color: #8a968e;
+  color: var(--gok-muted, #8a968e);
 }
 
 .gok-hero__search input {
@@ -311,7 +341,7 @@ onBeforeUnmount(() => {
 }
 
 .gok-hero__search input::placeholder {
-  color: #8a968e;
+  color: var(--gok-muted, #8a968e);
   font-weight: 400;
 }
 
@@ -323,6 +353,40 @@ onBeforeUnmount(() => {
   display: flex;
   flex-shrink: 0;
   gap: 0.35rem;
+}
+
+.gok-hero__search-mobile {
+  display: none;
+}
+
+.gok-hero__target {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--gok-grey, #eef2f0);
+}
+
+.gok-hero__target-btn {
+  appearance: none;
+  flex: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.5rem;
+  background: transparent;
+  color: var(--gok-muted, #5c6b63);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gok-hero__target-btn.is-active {
+  background: var(--gok-panel, #fff);
+  color: var(--gok-green, #00843d);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .gok-hero__quick {
@@ -489,12 +553,12 @@ onBeforeUnmount(() => {
   }
 
   .gok-hero__photo {
-    height: min(48vh, 340px);
+    height: min(42vh, 300px);
   }
 
   .gok-hero__stage {
     width: min(100% - 1.25rem, var(--gok-max, 1160px));
-    transform: translate(-50%, 10%);
+    transform: translate(-50%, 8%);
   }
 
   .gok-hero__brand-full {
@@ -506,7 +570,7 @@ onBeforeUnmount(() => {
   }
 
   .gok-hero__intro {
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.75rem;
   }
 
   .gok-hero__title {
@@ -519,40 +583,52 @@ onBeforeUnmount(() => {
   }
 
   .gok-hero__panel-main {
-    padding: 0.9rem;
+    padding: 0.85rem;
   }
 
   .gok-hero__search {
     flex-wrap: wrap;
     border-radius: 14px;
     padding: 0.55rem 0.65rem;
+    gap: 0.5rem;
   }
 
-  .gok-hero__search-actions {
+  .gok-hero__search-icon {
+    display: none;
+  }
+
+  .gok-hero__search input {
     width: 100%;
+    flex: 1 1 100%;
+    padding: 0.35rem 0.15rem;
   }
 
-  .gok-hero__search-actions .gok-btn {
-    flex: 1;
+  .gok-hero__search-actions--desktop {
+    display: none;
   }
 
+  .gok-hero__search-mobile {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .gok-hero__search-mobile .gok-btn {
+    flex-shrink: 0;
+  }
+
+  /* Mobile: search + Sign in / Sign up only */
   .gok-hero__quick {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.2rem;
-    margin-top: 0.85rem;
-  }
-
-  .gok-hero__quick-label {
-    font-size: 0.65rem;
+    display: none;
   }
 
   .gok-hero__panel-foot {
-    padding: 0.85rem 0.9rem;
+    padding: 0.75rem 0.85rem;
   }
 
   .gok-hero__get-started {
-    width: 100%;
-    font-size: 0.88rem;
+    display: none;
   }
 
   .gok-hero__actions {

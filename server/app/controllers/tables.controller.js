@@ -16468,11 +16468,12 @@ exports.getOptimizedSettlements = async (req, res) => {
 
 // ========== Public Register (no auth) – landing page settlement register ==========
 
+/**
+ * Match national dashboard card "Total Number of Slums Mapped"
+ * (dashboard_card id=3): isApproved IN ('Approved', 'Decommissioned').
+ */
 const PUBLIC_SETTLEMENT_WHERE = {
-  isApproved: 'Approved',
-  isActive: 'true',  // DB column is varchar, not boolean
-  profiling_status: 'PROFILED',
-  is_qualified: true
+  isApproved: { [op.in]: ['Approved', 'Decommissioned'] },
 };
 
 let landingStatsCache = { data: null, expiresAt: 0 };
