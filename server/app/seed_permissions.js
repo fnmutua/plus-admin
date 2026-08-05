@@ -67,7 +67,7 @@ async function seedPermissions() {
       { name: 'support', description: 'Support role' },
       { name: 'donor', description: 'Donor: read-only access to settlements, projects, repository, facilities, and media (articles/video); view and download; no create/edit' },
       { name: 'demo', description: 'Demo role: GRM view-only — browse grievances, logs, and related read access; no create, update, resolve, or delete' },
-      { name: 'public', description: 'Public access role' }
+      { name: 'public', description: 'Guest / public: national dashboard and settlement/project maps only' }
     ];
 
     // Get all existing roles from database
@@ -4617,68 +4617,25 @@ async function seedPermissions() {
     "incident_document:read"
   ],
   "public": [
+    // Guest / Continue-as-Guest: national dashboard + settlement/project maps only.
+    // No documents, exports, OTP, verify, facilities, admin-unit tree, or history.
     "article:read",
     "chart_indicator:read",
-    "community_hall:read",
-    "community_project:read",
     "component:read",
-    "contractor:read",
-    "county:read",
-    "crime_hotspot:read",
     "dashboard:read",
     "dashboard_card:read",
     "dashboard_section:read",
     "dashboard_section_chart:read",
-    "data:export",
-    "document:read",
-    "document_category:read",
-    "document_type:read",
     "domain:read",
-    "dumping_site:read",
-    "education_facility:read",
-    "floodlight:read",
-    "hazard_zone:read",
-    "health_facility:read",
-    "indicator_category_report:read",
     "intervention:read",
     "intervention_type:read",
-    "lot:read",
-    "mast:read",
-    "other_facility:read",
-    "otp:read",
-    "parcel:read",
-    "path:read",
-    "piped_water:read",
-    "police:read",
-    "powerline:read",
     "programme_implementation:read",
     "project:read",
-    "project_beneficiary:read",
     "project_location:read",
-    "public_facility:read",
-    "railway:read",
-    "report:export",
-    "road:read",
-    "road_asset:read",
-    "settlement:export",
-    "settlement:export_data",
-    "settlement:history",
     "settlement:read",
-    "settlement:verify",
     "settlement:viewMap",
     "settlement:view_map",
-    "settlement_history:export",
-    "settlement_history:read",
-    "sewer:read",
-    "status:read",
-    "stream:read",
-    "streetlight:read",
-    "structure:read",
-    "subcounty:read",
-    "ward:read",
-    "water_point:read",
-    "health_facility:read",
-    "police_station:read"
+    "status:read"
   ]
 };
 
@@ -4722,11 +4679,18 @@ async function seedPermissions() {
       where: { name: 'notification:read' },
       defaults: { description: 'View own SMS and email delivery notifications' }
     })
-    const allRolesForNotification = await db.role.findAll()
+    // Guest/public should not get inbox notifications; staff roles only.
+    const allRolesForNotification = await db.role.findAll({
+      where: { name: { [db.Sequelize.Op.notIn]: ['public'] } },
+    })
     for (const role of allRolesForNotification) {
       await role.addPermission(notificationReadPerm)
     }
-    console.log(`✅ Granted notification:read to ${allRolesForNotification.length} roles`)
+    console.log(`✅ Granted notification:read to ${allRolesForNotification.length} roles (excluding public)`)
+    const publicRoleForNotif = await db.role.findOne({ where: { name: 'public' } })
+    if (publicRoleForNotif) {
+      await publicRoleForNotif.removePermission(notificationReadPerm)
+    }
 
     // SLUM upgrading department mirrors admin subordinates (except GRM) and parent role hierarchy
     const adminRole = await db.role.findOne({ where: { name: 'admin' } })

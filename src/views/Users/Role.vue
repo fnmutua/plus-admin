@@ -210,13 +210,12 @@ const fetchRolePermissions = async (roleId: any) => {
   selectedPermissions.value = ((res as any).data?.data || []).map((p: any) => p.id)
 }
 
-// Default permissions for new roles (read-only permissions based on public role)
+// Default permissions for new roles (read-only starter set — not guest-wide).
+// Deliberately excludes otp:read, settlement:verify, and bulk export.
 const getDefaultPermissions = () => {
   return [
     "article:read",
     "chart_indicator:read",
-    "collector:read",
-    "collector:submit",
     "community_hall:read",
     "community_project:read",
     "component:read",
@@ -227,7 +226,6 @@ const getDefaultPermissions = () => {
     "dashboard_card:read",
     "dashboard_section:read",
     "dashboard_section_chart:read",
-    "data:export",
     "document:read",
     "document_category:read",
     "document_type:read",
@@ -244,11 +242,11 @@ const getDefaultPermissions = () => {
     "lot:read",
     "mast:read",
     "other_facility:read",
-    "otp:read",
     "parcel:read",
     "path:read",
     "piped_water:read",
     "police:read",
+    "police_station:read",
     "powerline:read",
     "programme_implementation:read",
     "project:read",
@@ -256,17 +254,12 @@ const getDefaultPermissions = () => {
     "project_location:read",
     "public_facility:read",
     "railway:read",
-    "report:export",
     "road:read",
     "road_asset:read",
-    "settlement:export",
-    "settlement:export_data",
     "settlement:history",
     "settlement:read",
-    "settlement:verify",
     "settlement:viewMap",
     "settlement:view_map",
-    "settlement_history:export",
     "settlement_history:read",
     "sewer:read",
     "status:read",
@@ -276,8 +269,6 @@ const getDefaultPermissions = () => {
     "subcounty:read",
     "ward:read",
     "water_point:read",
-    "health_facility:read",
-    "police_station:read",
     "households:read"
   ]
 }
