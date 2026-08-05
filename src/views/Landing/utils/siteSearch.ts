@@ -39,19 +39,10 @@ function pushUnique(
 
 /**
  * Landing home sections — ids must match Vue templates:
- * ServiceQuickLinks #services, NationalStatistics #stats,
- * settlements CTA #settlements, ProgrammeCards #interventions,
- * CitizenEngagementCallout #grievances
+ * NationalStatistics #stats, settlements CTA #settlements,
+ * ProgrammeCards #interventions, CitizenEngagementCallout #grievances
  */
 const LANDING_SECTIONS: SiteSearchHit[] = [
-  {
-    id: 'sec-services',
-    title: 'Key service actions',
-    blurb: 'Quick access to the main public services available on KeSMIS.',
-    to: '/landing',
-    section: 'services',
-    kind: 'Section',
-  },
   {
     id: 'sec-stats',
     title: 'Programme figures at a glance',

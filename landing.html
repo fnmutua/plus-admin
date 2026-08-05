@@ -28,8 +28,9 @@
           gap: 12px;
         }
         .app-loading-logo {
-          width: 72px;
-          height: 72px;
+          width: min(280px, 72vw);
+          height: auto;
+          max-height: 72px;
           object-fit: contain;
         }
         .app-loading-title {
@@ -40,8 +41,13 @@
       </style>
       <div class="app-loading">
         <div class="app-loading-wrap">
-          <img src="/gok.png" class="app-loading-logo" alt="Government of Kenya" />
-          <div class="app-loading-title">KeSMIS</div>
+          <img
+            src="/landing/kesmis-exact-logo.png"
+            class="app-loading-logo"
+            alt="KeSMIS — Kenya Slum Management Information System"
+            width="280"
+            height="70"
+          />
         </div>
       </div>
     </div>

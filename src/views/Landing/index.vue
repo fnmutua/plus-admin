@@ -3,8 +3,6 @@
     <div class="gok-home">
       <HeroSection @action="handleAction" @search="onHeroSearch" />
 
-      <ServiceQuickLinks @select="onServiceSelect" />
-
       <NationalStatistics
         :settlements="NumSettlements"
         :population="Population"
@@ -41,12 +39,11 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useHead } from '@unhead/vue'
 import BaseLayout from './BaseLayout.vue'
 import HeroSection from './components/HeroSection.vue'
-import ServiceQuickLinks from './components/ServiceQuickLinks.vue'
 import NationalStatistics from './components/NationalStatistics.vue'
 import ProgrammeCards from './components/ProgrammeCards.vue'
 import CitizenEngagementCallout from './components/CitizenEngagementCallout.vue'
 import { getPublicLandingStats } from '@/api/register-public'
-import { INSTITUTION, MAP_SECTION, type ServiceCard } from './config/landing.config'
+import { INSTITUTION, MAP_SECTION } from './config/landing.config'
 import { goToPortalPath } from './utils/portalNav'
 
 useHead({
@@ -145,18 +142,6 @@ function onHeroSearch(query: string, target: 'settlements' | 'projects' = 'settl
   const path = target === 'projects' ? '/projects' : '/settlements'
   if (query) sessionStorage.setItem('kesmis_landing_search', query)
   router.push({ path, query: query ? { q: query } : {} })
-}
-
-function onServiceSelect(card: ServiceCard) {
-  if (card.portalPath) {
-    goPortal(card.portalPath)
-    return
-  }
-  if (card.to) {
-    go(card.to)
-    return
-  }
-  if (card.section) scrollToSection(card.section)
 }
 
 function onProgrammeSelect(item: { to?: string | null; section?: string; portalPath?: string }) {

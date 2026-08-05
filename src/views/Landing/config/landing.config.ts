@@ -19,8 +19,19 @@ export const INSTITUTION = {
   logoSrcWhite: '/landing/kesmis-exact-logo-light.png',
   crestSrc: '/gok.png',
   crestSrcWhite: '/gok-white.png',
-  heroImage: '/landing/kesmis-hero-settlement-upgrade.jpg',
+  /** Default / OG fallback — original settlement + skyline hero */
+  heroImage: '/landing/hero/hero-00-settlement-skyline.webp',
 } as const
+
+/** Rotating full-bleed hero backgrounds (compressed WebP). */
+export const HERO_IMAGES = [
+  '/landing/hero/hero-00-settlement-skyline.webp',
+  '/landing/hero/hero-01-road.webp',
+  '/landing/hero/hero-02-community.webp',
+  '/landing/hero/hero-03-aerial-roads.webp',
+  '/landing/hero/hero-04-aerial-loop.webp',
+  '/landing/hero/hero-05-streetlights.webp',
+] as const
 
 /** Primary nav — path, home section, or authenticated portal destination */
 export type NavItem = {
@@ -68,8 +79,61 @@ export const HERO = {
   primaryCta: { label: 'Sign in', action: 'route:/login' },
   secondaryCta: { label: 'Sign up', action: 'route:/register' },
   tertiaryCta: { label: 'File grievance', action: 'route:/grm' },
-  searchPlaceholder: 'Search by name…',
+  searchPlaceholder: 'Search settlements or projects by name…',
+  getStarted: 'Get started on KeSMIS today',
 } as const
+
+/** Icon row inside the hero panel — mirrors eCitizen quick-service arrangement */
+export const HERO_QUICK_LINKS = [
+  {
+    id: 'settlements',
+    label: 'Explore Settlements',
+    icon: 'mdi:home-city-outline',
+    action: `route:${PUBLIC_PAGES.settlementExplorer}`,
+  },
+  {
+    id: 'projects',
+    label: 'View Projects',
+    icon: 'mdi:crane',
+    action: `route:${PUBLIC_PAGES.projectExplorer}`,
+  },
+  {
+    id: 'grm',
+    label: 'File a Grievance',
+    icon: 'mdi:message-alert-outline',
+    action: 'route:/grm',
+  },
+  {
+    id: 'data-request',
+    label: 'Request Data',
+    icon: 'mdi:database-outline',
+    action: 'route:/data-request',
+  },
+  {
+    id: 'about',
+    label: 'About KeSMIS',
+    icon: 'mdi:information-outline',
+    action: 'route:/about',
+  },
+  {
+    id: 'contact',
+    label: 'Contact Us',
+    icon: 'mdi:email-outline',
+    action: 'route:/contact',
+  },
+  {
+    id: 'portal',
+    label: 'Management Portal',
+    icon: 'mdi:monitor-dashboard',
+    action: 'route:/login',
+  },
+  {
+    id: 'docs',
+    label: 'Documentation',
+    icon: 'mdi:book-open-page-variant-outline',
+    action: 'route:/docs',
+  },
+] as const
 
 export type ServiceCard = {
   id: string

@@ -1249,7 +1249,7 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 }
 
 .gok-grm__shell {
-  max-width: 56rem;
+  max-width: var(--gok-max, 1160px);
   margin: 0 auto;
   background: var(--gok-panel, #fff);
   border: 1px solid var(--gok-border, #e3e8e5);
@@ -1409,9 +1409,23 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 }
 
 .gok-grm :deep(.el-input__wrapper.is-focus),
-.gok-grm :deep(.el-textarea__inner:focus) {
+.gok-grm :deep(.el-textarea__inner:focus),
+.gok-grm :deep(.el-select__wrapper.is-focused),
+.gok-grm :deep(.el-select .el-input__wrapper.is-focus) {
   border-color: var(--gok-green, #00843d);
   box-shadow: 0 0 0 2px rgba(0, 132, 61, 0.15);
+}
+
+.gok-grm :deep(.el-select__wrapper) {
+  border-radius: 8px;
+  border: 1px solid var(--gok-border, #e3e8e5);
+  box-shadow: none;
+  background: var(--gok-panel, #fff);
+  min-height: 36px;
+}
+
+.gok-grm :deep(.el-select__wrapper:hover) {
+  border-color: var(--gok-green, #00843d);
 }
 
 .gok-grm :deep(.el-textarea__inner) {

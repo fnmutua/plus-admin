@@ -1,58 +1,45 @@
 <template>
   <section class="gok-hero" aria-labelledby="gok-hero-heading">
     <div class="gok-hero__photo" aria-hidden="true">
-      <img
-        :src="INSTITUTION.heroImage"
-        alt=""
-        class="gok-hero__img"
-        width="1600"
-        height="900"
-        fetchpriority="high"
-      />
+      <div class="gok-hero__slides">
+        <img
+          v-for="(src, i) in HERO_IMAGES"
+          :key="src"
+          :src="src"
+          alt=""
+          class="gok-hero__img"
+          :class="{ 'is-active': i === activeSlide }"
+          :width="1600"
+          :height="1066"
+          :fetchpriority="i === 0 ? 'high' : 'low'"
+          :loading="i === 0 ? 'eager' : 'lazy'"
+          decoding="async"
+        />
+      </div>
       <div class="gok-hero__overlay"></div>
+      <div class="gok-hero__dots" role="presentation">
+        <span
+          v-for="(_, i) in HERO_IMAGES"
+          :key="i"
+          class="gok-hero__dot"
+          :class="{ 'is-active': i === activeSlide }"
+        ></span>
+      </div>
     </div>
 
     <div class="gok-container gok-hero__stage">
       <div class="gok-hero__panel">
         <div class="gok-hero__panel-main">
-          <p class="gok-hero__eyebrow">{{ INSTITUTION.government }}</p>
-          <p class="gok-hero__brand">
-            <span class="gok-hero__brand-full">{{ INSTITUTION.fullName }}</span>
-            <span class="gok-hero__brand-short">{{ INSTITUTION.systemName }}</span>
-          </p>
-          <h1 id="gok-hero-heading" class="gok-hero__title">{{ HERO.headline }}</h1>
-          <p class="gok-hero__support">{{ HERO.support }}</p>
-
-          <div class="gok-hero__actions">
-            <button
-              type="button"
-              class="gok-btn gok-btn--primary"
-              @click="emit('action', HERO.primaryCta.action)"
-            >
-              <Icon icon="mdi:login" width="18" height="18" aria-hidden="true" />
-              {{ HERO.primaryCta.label }}
-            </button>
-            <button
-              type="button"
-              class="gok-btn gok-btn--secondary gok-hero__cta-secondary"
-              @click="emit('action', HERO.secondaryCta.action)"
-            >
-              <Icon icon="mdi:account-plus-outline" width="18" height="18" aria-hidden="true" />
-              {{ HERO.secondaryCta.label }}
-            </button>
-            <button
-              type="button"
-              class="gok-btn gok-btn--secondary gok-hero__cta-tertiary"
-              @click="emit('action', HERO.tertiaryCta.action)"
-            >
-              <Icon icon="mdi:message-alert-outline" width="18" height="18" aria-hidden="true" />
-              {{ HERO.tertiaryCta.label }}
-            </button>
+          <div class="gok-hero__intro">
+            <p class="gok-hero__brand">
+              <span class="gok-hero__brand-full">{{ INSTITUTION.fullName }}</span>
+              <span class="gok-hero__brand-short">{{ INSTITUTION.systemName }}</span>
+            </p>
+            <h1 id="gok-hero-heading" class="gok-hero__title">{{ HERO.headline }}</h1>
           </div>
-        </div>
 
-        <div class="gok-hero__panel-foot">
           <form class="gok-hero__search" role="search" @submit.prevent="searchSettlements">
+            <Icon icon="mdi:magnify" width="22" height="22" class="gok-hero__search-icon" aria-hidden="true" />
             <label class="sr-only" for="gok-hero-search">{{ HERO.searchPlaceholder }}</label>
             <input
               id="gok-hero-search"
@@ -62,22 +49,54 @@
               autocomplete="off"
             />
             <div class="gok-hero__search-actions">
-              <button
-                type="button"
-                class="gok-btn gok-btn--primary gok-btn--compact"
-                @click="searchSettlements"
-              >
+              <button type="submit" class="gok-btn gok-btn--search gok-btn--compact">
                 Settlements
               </button>
               <button
                 type="button"
-                class="gok-btn gok-btn--secondary gok-btn--compact"
+                class="gok-btn gok-btn--search-ghost gok-btn--compact"
                 @click="searchProjects"
               >
                 Projects
               </button>
             </div>
           </form>
+
+          <nav class="gok-hero__quick" aria-label="Quick services">
+            <button
+              v-for="item in HERO_QUICK_LINKS"
+              :key="item.id"
+              type="button"
+              class="gok-hero__quick-item"
+              @click="emit('action', item.action)"
+            >
+              <span class="gok-hero__quick-icon" aria-hidden="true">
+                <Icon :icon="item.icon" width="28" height="28" />
+              </span>
+              <span class="gok-hero__quick-label">{{ item.label }}</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Bottom: get started + Sign in / Sign up -->
+        <div class="gok-hero__panel-foot">
+          <p class="gok-hero__get-started">{{ HERO.getStarted }}</p>
+          <div class="gok-hero__actions">
+            <button
+              type="button"
+              class="gok-btn gok-btn--ghost"
+              @click="emit('action', HERO.primaryCta.action)"
+            >
+              {{ HERO.primaryCta.label }}
+            </button>
+            <button
+              type="button"
+              class="gok-btn gok-btn--register"
+              @click="emit('action', HERO.secondaryCta.action)"
+            >
+              {{ HERO.secondaryCta.label }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -85,9 +104,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
-import { HERO, INSTITUTION } from '../config/landing.config'
+import { HERO, HERO_IMAGES, HERO_QUICK_LINKS, INSTITUTION } from '../config/landing.config'
 
 const emit = defineEmits<{
   (e: 'action', action: string): void
@@ -95,6 +114,9 @@ const emit = defineEmits<{
 }>()
 
 const query = ref('')
+const activeSlide = ref(0)
+const SLIDE_MS = 6500
+let timer: ReturnType<typeof setInterval> | null = null
 
 function searchSettlements() {
   emit('search', query.value.trim(), 'settlements')
@@ -103,13 +125,34 @@ function searchSettlements() {
 function searchProjects() {
   emit('search', query.value.trim(), 'projects')
 }
+
+function nextSlide() {
+  activeSlide.value = (activeSlide.value + 1) % HERO_IMAGES.length
+}
+
+onMounted(() => {
+  const reduceMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduceMotion || HERO_IMAGES.length < 2) return
+
+  HERO_IMAGES.slice(1).forEach((src) => {
+    const img = new Image()
+    img.src = src
+  })
+
+  timer = setInterval(nextSlide, SLIDE_MS)
+})
+
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+})
 </script>
 
 <style scoped>
 .gok-hero {
   position: relative;
   overflow: visible;
-  /* Room for the small panel foot that hangs below the photo */
   padding-bottom: clamp(3.5rem, 10vh, 6.5rem);
   margin-bottom: 1.5rem;
   font-family: var(--gok-font, 'Montserrat', sans-serif);
@@ -117,68 +160,298 @@ function searchProjects() {
 
 .gok-hero__photo {
   position: relative;
-  height: min(52vh, 460px);
+  height: min(62vh, 560px);
   overflow: hidden;
+  background: #0b2e1c;
+}
+
+.gok-hero__slides {
+  position: absolute;
+  inset: 0;
 }
 
 .gok-hero__img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
   display: block;
+  opacity: 0;
+  transform: scale(1.04);
+  transition:
+    opacity 1.15s ease-in-out,
+    transform 7.5s ease-out;
+  will-change: opacity;
+}
+
+.gok-hero__img.is-active {
+  opacity: 1;
+  transform: scale(1);
+  z-index: 1;
 }
 
 .gok-hero__overlay {
   position: absolute;
   inset: 0;
+  z-index: 2;
   background:
     linear-gradient(
       105deg,
-      rgba(0, 107, 50, 0.72) 0%,
-      rgba(0, 132, 61, 0.55) 42%,
-      rgba(0, 0, 0, 0.28) 100%
+      rgba(62, 39, 18, 0.72) 0%,
+      rgba(92, 58, 28, 0.55) 42%,
+      rgba(0, 0, 0, 0.32) 100%
     );
 }
 
-/* Anchor to photo bottom; only ~18% of the panel hangs below */
+.gok-hero__dots {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 1rem;
+  z-index: 3;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.gok-hero__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  transition: background 0.25s ease, width 0.25s ease;
+}
+
+.gok-hero__dot.is-active {
+  width: 18px;
+  background: #fff;
+}
+
 .gok-hero__stage {
   position: absolute;
   left: 50%;
   bottom: 0;
-  z-index: 2;
+  z-index: 4;
   width: min(100% - 2rem, var(--gok-max, 1160px));
   transform: translate(-50%, 18%);
 }
 
+.gok-hero__intro {
+  margin: 0 0 1.1rem;
+  max-width: none;
+  width: 100%;
+  color: #fff;
+}
+
+.gok-hero__brand {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.gok-hero__brand-short {
+  display: none;
+}
+
+.gok-hero__title {
+  margin: 0;
+  width: 100%;
+  font-size: clamp(0.98rem, 1.55vw, 1.2rem);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.95);
+  text-wrap: balance;
+}
+
 .gok-hero__panel {
-  width: min(100%, 85%);
-  max-width: 56rem;
-  min-width: min(100%, 22rem);
-  border-radius: 14px;
+  width: 100%;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: var(--gok-shadow, 0 10px 36px rgba(0, 0, 0, 0.16));
-  color: var(--gok-charcoal, #212121);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
   animation: gok-hero-in 0.55s ease-out both;
-  transition: box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .gok-hero__panel-main {
-  padding: 1.75rem 1.75rem 1.35rem;
-  background: var(--gok-panel, #ffffff);
-  transition: background-color 0.2s ease;
+  padding: 1.25rem 1.35rem 1.15rem;
+  background: color-mix(in srgb, #1a2228 75%, transparent);
 }
 
-/* Lower band hangs below the photo — same panel, softer treatment */
+.gok-hero__search {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.4rem 0.35rem 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.gok-hero__search-icon {
+  flex-shrink: 0;
+  color: #8a968e;
+}
+
+.gok-hero__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gok-charcoal, #212121);
+  padding: 0.55rem 0.25rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.gok-hero__search input::placeholder {
+  color: #8a968e;
+  font-weight: 400;
+}
+
+.gok-hero__search input:focus {
+  outline: none;
+}
+
+.gok-hero__search-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
+}
+
+.gok-hero__quick {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 1.15rem;
+}
+
+.gok-hero__quick-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.2rem;
+  border-radius: 10px;
+  transition: background 0.15s ease, transform 0.15s ease;
+  font: inherit;
+}
+
+.gok-hero__quick-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.gok-hero__quick-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  color: #fff;
+}
+
+.gok-hero__quick-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 .gok-hero__panel-foot {
-  padding: 1rem 1.75rem 1.2rem;
-  background: linear-gradient(
-    180deg,
-    var(--gok-panel-foot, #f4f8f5) 0%,
-    var(--gok-panel-foot-end, #eef4f0) 100%
-  );
-  border-top: 1px solid color-mix(in srgb, var(--gok-green, #00843d) 18%, transparent);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.95rem 1.35rem;
+  background: color-mix(in srgb, var(--gok-green, #00843d) 92%, #003d1c);
+}
+
+.gok-hero__get-started {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.gok-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-left: auto;
+}
+
+.gok-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.62rem 1.25rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gok-btn--compact {
+  padding: 0.5rem 0.95rem;
+  font-size: 0.82rem;
+}
+
+.gok-btn--search {
+  background: var(--gok-green, #00843d);
+  color: #fff;
+}
+
+.gok-btn--search:hover {
+  background: var(--gok-green-dark, #006b32);
+}
+
+.gok-btn--search-ghost {
+  background: transparent;
+  color: var(--gok-green, #00843d);
+  border-color: color-mix(in srgb, var(--gok-green, #00843d) 35%, transparent);
+}
+
+.gok-btn--search-ghost:hover {
+  background: var(--gok-green-soft, #e8f5ee);
+}
+
+.gok-btn--ghost {
+  background: #fff;
+  color: #1a2228;
+}
+
+.gok-btn--ghost:hover {
+  background: #f3f5f4;
+}
+
+.gok-btn--register {
+  background: #16a34a;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.gok-btn--register:hover {
+  background: #15803d;
 }
 
 @keyframes gok-hero-in {
@@ -192,135 +465,6 @@ function searchProjects() {
   }
 }
 
-.gok-hero__eyebrow {
-  margin: 0 0 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--gok-green, #00843d);
-}
-
-.gok-hero__brand {
-  margin: 0 0 0.85rem;
-  font-size: clamp(1.2rem, 2.6vw, 1.75rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--gok-charcoal, #212121);
-  line-height: 1.2;
-}
-
-.gok-hero__brand-short {
-  display: none;
-}
-
-.gok-hero__title {
-  margin: 0 0 0.75rem;
-  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
-  font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
-  color: var(--gok-charcoal, #243029);
-}
-
-.gok-hero__support {
-  margin: 0 0 1.35rem;
-  font-size: 0.95rem;
-  font-weight: 400;
-  line-height: 1.55;
-  color: var(--gok-muted, #5c6b63);
-}
-
-.gok-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-}
-
-.gok-btn {
-  appearance: none;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 0.72rem 1.2rem;
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.gok-btn--primary {
-  background: var(--gok-green, #00843d);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 132, 61, 0.28);
-}
-
-.gok-btn--primary:hover {
-  background: var(--gok-green-dark, #006b32);
-}
-
-.gok-btn--secondary {
-  background: var(--gok-panel, #fff);
-  color: var(--gok-green, #00843d);
-  border-color: color-mix(in srgb, var(--gok-green, #00843d) 35%, transparent);
-}
-
-.gok-btn--secondary:hover {
-  background: var(--gok-green-soft, #e8f5ee);
-  border-color: var(--gok-green, #00843d);
-}
-
-.gok-btn--compact {
-  padding: 0.55rem 1rem;
-  font-size: 0.85rem;
-}
-
-.gok-hero__search {
-  display: flex;
-  gap: 0.45rem;
-  align-items: stretch;
-  background: var(--gok-white, #fff);
-  border: 1px solid color-mix(in srgb, var(--gok-green, #00843d) 16%, var(--gok-border, #e3e8e5));
-  border-radius: 8px;
-  padding: 0.3rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.gok-hero__search-actions {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: flex-end;
-}
-
-.gok-hero__search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--gok-charcoal, #212121);
-  padding: 0.5rem 0.7rem;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.gok-hero__search input::placeholder {
-  color: var(--gok-muted, #8a968e);
-  font-weight: 400;
-}
-
-.gok-hero__search input:focus {
-  outline: none;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -332,7 +476,12 @@ function searchProjects() {
   border: 0;
 }
 
-/* Mobile: lean hero — brand, headline, one CTA */
+@media (max-width: 960px) {
+  .gok-hero__quick {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .gok-hero {
     padding-bottom: 1.25rem;
@@ -340,29 +489,12 @@ function searchProjects() {
   }
 
   .gok-hero__photo {
-    height: min(38vh, 280px);
+    height: min(48vh, 340px);
   }
 
   .gok-hero__stage {
     width: min(100% - 1.25rem, var(--gok-max, 1160px));
-    transform: translate(-50%, 12%);
-  }
-
-  .gok-hero__panel {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
-    border-radius: 12px;
-  }
-
-  .gok-hero__panel-main {
-    padding: 1.15rem 1.1rem 1.15rem;
-  }
-
-  .gok-hero__eyebrow,
-  .gok-hero__support,
-  .gok-hero__panel-foot {
-    display: none;
+    transform: translate(-50%, 10%);
   }
 
   .gok-hero__brand-full {
@@ -373,29 +505,74 @@ function searchProjects() {
     display: inline;
   }
 
-  .gok-hero__brand {
-    margin-bottom: 0.55rem;
-    font-size: 1.35rem;
+  .gok-hero__intro {
+    margin-bottom: 0.85rem;
   }
 
   .gok-hero__title {
-    margin-bottom: 1rem;
-    font-size: 1.05rem;
-    line-height: 1.4;
+    font-size: clamp(0.92rem, 3.4vw, 1.05rem);
+    white-space: normal;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
-  .gok-hero__actions .gok-btn {
+  .gok-hero__panel-main {
+    padding: 0.9rem;
+  }
+
+  .gok-hero__search {
+    flex-wrap: wrap;
+    border-radius: 14px;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .gok-hero__search-actions {
     width: 100%;
+  }
+
+  .gok-hero__search-actions .gok-btn {
+    flex: 1;
+  }
+
+  .gok-hero__quick {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.2rem;
+    margin-top: 0.85rem;
+  }
+
+  .gok-hero__quick-label {
+    font-size: 0.65rem;
+  }
+
+  .gok-hero__panel-foot {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .gok-hero__get-started {
+    width: 100%;
+    font-size: 0.88rem;
+  }
+
+  .gok-hero__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .gok-hero__actions .gok-btn {
+    flex: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .gok-hero__panel {
     animation: none;
+  }
+
+  .gok-hero__img {
+    transition: opacity 0.01ms;
+    transform: none;
   }
 }
 </style>

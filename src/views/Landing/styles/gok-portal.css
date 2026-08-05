@@ -67,11 +67,42 @@
 }
 
 .gok-portal a:focus-visible,
-.gok-portal button:focus-visible,
+.gok-portal button:focus-visible {
+  outline: 3px solid var(--gok-green);
+  outline-offset: 2px;
+}
+
+/*
+ * Standalone native fields (header/hero search) keep a clear focus ring.
+ * Element Plus controls already style .el-input__wrapper / textarea focus —
+ * outlining the inner <input> or tabindex wrapper produces a mismatched rectangle.
+ */
 .gok-portal input:focus-visible,
+.gok-portal textarea:focus-visible,
 .gok-portal [tabindex]:focus-visible {
   outline: 3px solid var(--gok-green);
   outline-offset: 2px;
+}
+
+.gok-portal .el-input__inner:focus,
+.gok-portal .el-input__inner:focus-visible,
+.gok-portal .el-textarea__inner:focus,
+.gok-portal .el-textarea__inner:focus-visible,
+.gok-portal .el-select__input:focus,
+.gok-portal .el-select__input:focus-visible,
+.gok-portal .el-select__wrapper:focus,
+.gok-portal .el-select__wrapper:focus-visible,
+.gok-portal .el-select__wrapper input:focus,
+.gok-portal .el-select__wrapper input:focus-visible,
+.gok-portal .el-input__wrapper:focus,
+.gok-portal .el-input__wrapper:focus-visible,
+.gok-portal .el-input__wrapper input:focus,
+.gok-portal .el-input__wrapper input:focus-visible,
+.gok-portal .el-checkbox__original:focus,
+.gok-portal .el-checkbox__original:focus-visible,
+.gok-portal .el-radio__original:focus,
+.gok-portal .el-radio__original:focus-visible {
+  outline: none;
 }
 
 .gok-portal .gok-container {
