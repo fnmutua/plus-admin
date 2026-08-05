@@ -1,0 +1,240 @@
+/**
+ * Government of Kenya / KeSMIS landing portal design tokens.
+ * Typography and greens aligned with the eCitizen accounts experience.
+ * Import once from BaseLayout so all public landing pages inherit the system.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+.gok-portal {
+  --gok-green: #00843d;
+  --gok-green-dark: #006b32;
+  --gok-green-soft: #e8f5ee;
+  --gok-red: #bb0000;
+  --gok-charcoal: #212121;
+  --gok-grey: #f5f7f6;
+  --gok-white: #ffffff;
+  --gok-border: #e3e8e5;
+  --gok-muted: #5f6368;
+  --gok-nav: #333333;
+  --gok-panel: #ffffff;
+  --gok-panel-foot: #f4f8f5;
+  --gok-panel-foot-end: #eef4f0;
+  --gok-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.06);
+  --gok-radius: 10px;
+  --gok-font: 'Montserrat', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --gok-max: 1160px;
+  --gok-header-h: 104px;
+
+  /* Aliases used by About / Privacy / FAQs / Contact / GRM content pages */
+  --text-primary: var(--gok-charcoal);
+  --text-secondary: var(--gok-muted);
+  --bg-primary: var(--gok-panel);
+  --bg-secondary: var(--gok-grey);
+  --border-color: var(--gok-border);
+
+  font-family: var(--gok-font);
+  color: var(--gok-charcoal);
+  background: var(--gok-grey);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.gok-portal.dark-mode {
+  --gok-grey: #12181c;
+  --gok-white: #1a2228;
+  --gok-charcoal: #e8ecea;
+  --gok-muted: #a7b0ac;
+  --gok-border: #2c363c;
+  --gok-nav: #d5dbd7;
+  --gok-green-soft: #16331a;
+  --gok-panel: #1a2228;
+  --gok-panel-foot: #152028;
+  --gok-panel-foot-end: #12181c;
+  --gok-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.35);
+  background: var(--gok-grey);
+  color: var(--gok-charcoal);
+}
+
+.gok-portal.gok-portal--compact-header {
+  --gok-header-h: 88px;
+}
+
+.gok-portal *,
+.gok-portal *::before,
+.gok-portal *::after {
+  box-sizing: border-box;
+}
+
+.gok-portal a:focus-visible,
+.gok-portal button:focus-visible,
+.gok-portal input:focus-visible,
+.gok-portal [tabindex]:focus-visible {
+  outline: 3px solid var(--gok-green);
+  outline-offset: 2px;
+}
+
+.gok-portal .gok-container {
+  width: min(100% - 2rem, var(--gok-max));
+  margin-inline: auto;
+}
+
+.gok-portal .gok-section {
+  padding: 3.5rem 0;
+}
+
+.gok-portal .gok-section--tight {
+  padding: 2.5rem 0;
+}
+
+.gok-portal .gok-section-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 2.4vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--gok-charcoal);
+}
+
+.gok-portal .gok-section-lead {
+  margin: 0 0 1.75rem;
+  max-width: 42rem;
+  color: var(--gok-muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.gok-portal .gok-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gok-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gok-portal *,
+  .gok-portal *::before,
+  .gok-portal *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Allow page scroll on the public landing app shell */
+body.landing-page-active,
+html.landing-page-active {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+#app.landing-page-active {
+  overflow: visible !important;
+  height: auto !important;
+}
+
+/* Map InfoWindow popups (Google relocates DOM — must be global, not scoped) */
+.kesmis-map-popup {
+  min-width: 200px;
+  max-width: 280px;
+  padding: 2px 2px 4px;
+  font-family: var(--gok-font), 'Montserrat', 'Segoe UI', sans-serif;
+  color: var(--gok-charcoal, #1f2933);
+  line-height: 1.35;
+}
+
+.kesmis-map-popup__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gok-muted, #5f6b66);
+}
+
+.kesmis-map-popup__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--gok-charcoal, #1f2933);
+  line-height: 1.25;
+}
+
+.kesmis-map-popup__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  color: var(--gok-muted, #3d4a45);
+}
+
+.kesmis-map-popup__meta {
+  margin: 0.45rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  font-size: 0.8rem;
+  color: var(--gok-muted, #3d4a45);
+}
+
+.kesmis-map-popup__dot {
+  color: var(--gok-muted, #9aa5a0);
+}
+
+.kesmis-map-popup__badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--gok-green-soft, #eef3ef);
+  color: var(--gok-green-dark, #145224);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.kesmis-map-popup__place {
+  margin: 0.45rem 0 0;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--gok-border, #e8ecea);
+  font-size: 0.78rem;
+  color: var(--gok-muted, #5f6b66);
+  line-height: 1.4;
+}
+
+.kesmis-map-popup__loading {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--gok-muted, #5f6b66);
+}
+
+.gm-style .gm-style-iw-c {
+  padding: 12px 14px 10px !important;
+  border-radius: 10px !important;
+  box-shadow: var(--gok-shadow, 0 8px 24px rgba(31, 41, 51, 0.16)) !important;
+  background: var(--gok-panel, #fff) !important;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: hidden !important;
+  max-height: none !important;
+  background: transparent !important;
+}
+
+.gm-style .gm-style-iw-tc::after {
+  background: var(--gok-panel, #fff) !important;
+}
+
+.gm-style button.gm-ui-hover-effect {
+  top: 2px !important;
+  right: 2px !important;
+  width: 28px !important;
+  height: 28px !important;
+  opacity: 0.7;
+}
+
+.gm-style button.gm-ui-hover-effect:hover {
+  opacity: 1;
+}

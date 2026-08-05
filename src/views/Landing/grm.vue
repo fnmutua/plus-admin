@@ -1,309 +1,351 @@
 <template>
   <BaseLayout>
-    <div class="grievance-container" id="grievance-form">
-      <el-card class="grievance-card">
-        <section aria-label="Grievance Filing Process">
-          <h1 class="visually-hidden">File a Grievance with KISIP</h1>
-          <el-steps :active="active" finish-status="success" aria-label="Grievance filing steps">
-            <el-step title="Personal Details" />
-            <el-step title="Grievance Details" />
-            <el-step title="Complaint Details" />
-            <el-step title="Review & Submit" />
-          </el-steps>
-        </section>
+    <div class="gok-grm" id="grievance-form">
+      <div class="gok-container gok-grm__shell">
+        <header class="gok-grm__header">
+          <p class="gok-eyebrow">Electronic Grievance Redress</p>
+          <h1 class="gok-grm__title">File a grievance</h1>
+          <p class="gok-grm__lead">
+            Submit a complaint or concern related to programme activities. You can track progress using the
+            code you receive after submission.
+          </p>
+        </header>
+
+        <el-steps
+          :active="active"
+          finish-status="success"
+          align-center
+          class="gok-grm__steps"
+          aria-label="Grievance filing steps"
+        >
+          <el-step title="Personal" />
+          <el-step title="Location" />
+          <el-step title="Complaint" />
+          <el-step title="Submit" />
+        </el-steps>
 
         <el-form
-          :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules" size="small"
-          ref="dynamicFormRef">
-                <el-card shadow="hover">
-                  <el-row v-if="active === 0" :gutter="10">
-                    <!-- Step 1: Personal Details -->
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn1" label="Name of Complainant(s)" prop="name">
-                        <el-input v-model="grmForm.name" type="textarea" :rows="2" placeholder="Enter name(s) seperate by comma if more than one complainant" />
-                        <el-text type="info" size="small">This field allows you to enter one or more names. Please provide the complainant's full name(s) as it appears on the National ID. Fill Anonymous if you want anonymity.</el-text>
-                      </el-form-item>
+          ref="dynamicFormRef"
+          :model="grmForm"
+          class="gok-grm__form"
+          label-position="top"
+          :rules="currentStepRules"
+          size="default"
+        >
+          <el-row v-if="active === 0" :gutter="20">
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn1" label="Name of complainant(s)" prop="name">
+                <el-input
+                  v-model="grmForm.name"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="Full name(s). Use Anonymous if preferred"
+                />
+                <p class="gok-grm__hint">Separate multiple names with commas. Match National ID where possible.</p>
+              </el-form-item>
 
-                      <el-form-item id="btn2" label="Gender" prop="gender">
-                        <el-select v-model="grmForm.gender" placeholder="Select" style="width: 100%">
-                          <el-option label="Female" value="female" />
-                          <el-option label="Male" value="male" />
-                          <el-option label="Unspecified" value="unspecified" />
-                        </el-select>
-                        <el-text type="info" size="small">Please select the complainant's gender.</el-text>
-                      </el-form-item>
+              <el-form-item id="btn2" label="Gender" prop="gender">
+                <el-select v-model="grmForm.gender" placeholder="Select" style="width: 100%">
+                  <el-option label="Female" value="female" />
+                  <el-option label="Male" value="male" />
+                  <el-option label="Unspecified" value="unspecified" />
+                </el-select>
+              </el-form-item>
 
-                      <el-form-item id="btn3" label="Age" prop="age">
-                        <el-select v-model="grmForm.age" placeholder="Select" style="width: 100%">
-                          <el-option
-v-for="item in ageRanges" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                        </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the complainant's age bracket.</el-text>
-                      </el-form-item>
+              <el-form-item id="btn3" label="Age" prop="age">
+                <el-select v-model="grmForm.age" placeholder="Select" style="width: 100%">
+                  <el-option
+                    v-for="item in ageRanges"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
 
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn4" label="National ID" prop="national_id">
+                <el-input v-model="grmForm.national_id" placeholder="ID number" style="width: 100%" />
+                <p class="gok-grm__hint">Required especially for land-related complaints.</p>
+              </el-form-item>
 
-                    </el-col>
+              <el-form-item id="btn5" label="Phone" prop="phone">
+                <el-input
+                  v-model="grmForm.phone"
+                  placeholder="254…"
+                  style="width: 100%"
+                  :onChange="convertPhoneNumber"
+                />
+                <p class="gok-grm__hint">Used for status updates on this complaint.</p>
+              </el-form-item>
 
+              <el-form-item id="btn6" label="Email" prop="email">
+                <el-input v-model="grmForm.email" placeholder="Email address" style="width: 100%" />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn4" label="National ID" prop="national_id">
-                        <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">We require the complainant's national ID especially for land related complaints.</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn5" label="Phone" prop="phone">
-                        <el-input
-v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width: 100%"
-                          :onChange="convertPhoneNumber" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide the complainant's phone number. This is the number we will use to communicate regarding the status of the complaint.</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn6" label="Email" prop="email">
-                        <el-input v-model="grmForm.email" placeholder="Enter Email" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Please provide an email address. We may use this for our communication on the status of the complaint.</el-text>
-                      </el-form-item>
-                    </el-col>
-
-
-                  </el-row>
-
-
-
-                  <el-row v-if="active === 1" :gutter="10">
-                    <!-- Step 2: Grievance Details -->
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn10" label="County" prop="county_id">
-                        <el-select
-filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
-                          style="width: 100%">
-                          <el-option
-v-for="item in countiesOptions" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                        </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the county where the project is implemented.</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn10a" label="Project Phase" prop="project_phase">
-                        <el-select
-                          filterable v-model="grmForm.project_phase" placeholder="Select Project Phase"
-                          style="width: 100%">
-                          <el-option
-                            v-for="item in projectPhaseOptions" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                        </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the project phase (KISIP 1 or KISIP 2).</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn11" prop="settlement_id">
-                        <template #label>
-                          Settlement
-                          <span v-if="isFilteringSettlements" class="loading-dots" aria-live="polite" aria-busy="true">
-                            <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
-                          </span>
-                        </template>
-                        <el-select
-                        filterable v-model="grmForm.settlement_id" :placeholder="isFilteringSettlements ? 'Filtering settlements…' : 'Settlement'"
-                          :disabled="!grmForm.county_id || isFilteringSettlements" :loading="isFilteringSettlements"
-                          @change="handleSelectSettlement" style="width: 100%">
-                          <el-option
-v-for="item in settlementOptions" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                        </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the settlement within the selected county.</el-text>
-                      </el-form-item>
-
-                      
-                    </el-col>
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn12" label="Physical Address" prop="address">
-                        <el-input v-model="grmForm.address" placeholder="Enter physical address" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the complainant's physical address, e.g., near XXX Primary school, Plot No. XXX.</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn7a" label="Date Reported" prop="date_reported">
-                        <el-date-picker
-                          v-model="grmForm.date_reported"
-                          type="date"
-                          placeholder="Select date reported"
-                          style="width: 100%;"
-                          format="YYYY-MM-DD"
-                          :disabled-date="disableFutureDates"
-                        />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the date when the grievance was reported.</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn13" label="Complaint Type">
-                        <el-checkbox
-                          v-model="grmForm.isgbv"
-                          label="Is this complaint related to Gender-Based Violence?"
-                          size="large"
-                          style="display: block; margin-bottom: 4px;" />
- 
-                        <el-checkbox
-                          v-model="grmForm.isInCourt"
-                          label="Is this complaint currently in court?"
-                          size="large"
-                          style="display: block; margin-top: 12px; margin-bottom: 4px;" />
-                       </el-form-item>
-                    </el-col>
-
-
-                  </el-row>
-
-                  <el-row v-if="active === 2" :gutter="10">
-                    <!-- Step 3: Complaint Details -->
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-                        <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width: 100%">
-                          <el-option
-                            v-for="item in grievanceOptions"
-                            :key="item.value"
-                            :label="item.label"
-                            :value="item.value"
-                          />
-                        </el-select>
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Select the category that best describes the nature of the complaint.</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn15" label="Complaint Description" prop="description">
-                        <el-input
-                          v-model="grmForm.description" type="textarea" rows="2"
-                          placeholder="Describe your complaint" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Provide a detailed description of the complaint, including what happened, when, where, and who was involved.</el-text>
-                      </el-form-item>
-                    </el-col>
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn16" label="Plea/Request" prop="plea">
-                        <el-input
-                          v-model="grmForm.plea" type="textarea" rows="4" placeholder="Enter your plea/request"
-                          style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the complainant's plea or request regarding the complaint. What action would you like to be taken?</el-text>
-                      </el-form-item>
-                    </el-col>
-                  </el-row>
-
-                  <el-row v-if="active === 3" :gutter="10">
-                    <!-- Step 4: Review & Submit -->
-                    <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
-                      <el-form-item id="btn17" label="Witness Name" prop="witness">
-                        <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the name of the witness related to the grievance (optional).</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
-                        <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter the phone number of the witness (optional).</el-text>
-                      </el-form-item>
-
-                      <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
-                        <el-input
-v-model="grmForm.witness_statement" type="textarea"
-                          placeholder="Enter witness statement" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Provide a statement from the witness regarding the grievance (optional).</el-text>
-                      </el-form-item>
-                    </el-col>
-                    <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
-
-                      <el-form-item id="btn21" label="Are you the complainant?" prop="witness">
-                        <div style="display: flex; align-items: center; gap: 12px; padding: 4px 0;">
-                          <el-switch
-                            v-model="grmForm.self_reported"
-                            inline-prompt
-                            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
-                            active-text="Yes"
-                            inactive-text="No" />
-                        </div>
-                        <el-text type="info" size="small" class="switch-helper">Indicate if you are filing this grievance on behalf of yourself or someone else.</el-text>
-                      </el-form-item>
-
-                      <el-form-item v-if="!grmForm.self_reported" id="btn22" label="Your Name" prop="reporter_name">
-                        <el-input v-model="grmForm.reporter_name" placeholder="Your Name" style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your name if you are filing on behalf of someone else.</el-text>
-                      </el-form-item>
-
-                      <el-form-item v-if="!grmForm.self_reported" id="btn23" label="Your Phone" prop="reporter_phone">
-                        <el-input
-v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
-                          style="width: 100%" />
-                        <el-text type="info" size="small" style="display: block; margin-top: 4px;">Enter your phone number if you are filing on behalf of someone else.</el-text>
-                      </el-form-item>
-
-
-
-
-                      <el-upload
-id="btn20" class="upload-demo"
-                        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-                        :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
-                        v-model:file-list="fileList" :auto-upload="false" :on-exceed="handleExceed">
-                        <el-button type="primary">Upload Supporting Documentation</el-button>
-                        <template #tip>
-                          <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
-                          <el-text type="info" size="small" style="display: block; margin-top: 8px;">Upload supporting documents such as photos, reports, or other relevant files related to this grievance (optional).</el-text>
-                        </template>
-                      </el-upload>
-
-
-
-
-
-                    </el-col>
-
-                  </el-row>
-                </el-card>
-              </el-form>
-
-          <template #footer>
-            <div class="steps-navigation">
-              <div class="nav-group-left">
-                <el-tooltip content="Help" placement="top">
-                  <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain class="help-button">
-                    <span class="help-button-text">Help</span>
-                  </el-button>
-                </el-tooltip>
-
-                <el-button id="btn9" v-if="active > 0" @click="prev" :icon="ArrowLeft" class="prev-button">
-                  Previous
-                </el-button>
-              </div>
-              <div class="nav-group-right">
-                <el-button id="btn7" v-if="active < 3" @click="next" class="next-button">
-                  Next <el-icon class="el-icon--right">
-                    <ArrowRight />
-                  </el-icon>
-                </el-button>
-
-                <el-button
-                  id="btn2" 
-                  v-if="active === 3" 
-                  @click="submitForm"
-                  type="primary"
-                  class="submit-button"
+          <el-row v-if="active === 1" :gutter="20">
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn10" label="County" prop="county_id">
+                <el-select
+                  filterable
+                  v-model="grmForm.county_id"
+                  placeholder="County"
+                  style="width: 100%"
+                  @change="getSettlementByCounty"
                 >
-                  Submit
-                </el-button>
-                <el-button id="btn8" @click="resetForm" class="reset-button">Reset</el-button>
-              </div>
-            </div>
-          </template>
+                  <el-option
+                    v-for="item in countiesOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
 
-        </el-card>
+              <el-form-item id="btn10a" label="Project phase" prop="project_phase">
+                <el-select
+                  filterable
+                  v-model="grmForm.project_phase"
+                  placeholder="Select phase"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="item in projectPhaseOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item id="btn11" prop="settlement_id">
+                <template #label>
+                  Settlement
+                  <span v-if="isFilteringSettlements" class="loading-dots" aria-live="polite" aria-busy="true">
+                    <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                  </span>
+                </template>
+                <el-select
+                  filterable
+                  v-model="grmForm.settlement_id"
+                  :placeholder="isFilteringSettlements ? 'Filtering…' : 'Settlement'"
+                  :disabled="!grmForm.county_id || isFilteringSettlements"
+                  :loading="isFilteringSettlements"
+                  style="width: 100%"
+                  @change="handleSelectSettlement"
+                >
+                  <el-option
+                    v-for="item in settlementOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn12" label="Physical address" prop="address">
+                <el-input v-model="grmForm.address" placeholder="Landmark or plot reference" style="width: 100%" />
+              </el-form-item>
+
+              <el-form-item id="btn7a" label="Date reported" prop="date_reported">
+                <el-date-picker
+                  v-model="grmForm.date_reported"
+                  type="date"
+                  placeholder="Select date"
+                  style="width: 100%"
+                  format="YYYY-MM-DD"
+                  :disabled-date="disableFutureDates"
+                />
+              </el-form-item>
+
+              <el-form-item id="btn13" label="Complaint flags">
+                <div class="gok-grm__flags">
+                  <el-checkbox v-model="grmForm.isgbv" label="Related to gender-based violence" />
+                  <el-checkbox v-model="grmForm.isInCourt" label="Currently in court" />
+                </div>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row v-if="active === 2" :gutter="20">
+            <el-col :xs="24" :md="12">
+              <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of complaint" prop="nature">
+                <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width: 100%">
+                  <el-option
+                    v-for="item in grievanceOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item id="btn15" label="Complaint description" prop="description">
+                <el-input
+                  v-model="grmForm.description"
+                  type="textarea"
+                  :rows="4"
+                  placeholder="What happened, when, where, and who was involved"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn16" label="Plea / request" prop="plea">
+                <el-input
+                  v-model="grmForm.plea"
+                  type="textarea"
+                  :rows="4"
+                  placeholder="What action would you like taken?"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row v-if="active === 3" :gutter="20">
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn17" label="Witness name (optional)" prop="witness">
+                <el-input v-model="grmForm.witness" placeholder="Witness name" style="width: 100%" />
+              </el-form-item>
+
+              <el-form-item id="btn18" label="Witness phone (optional)" prop="witness_phone">
+                <el-input v-model="grmForm.witness_phone" placeholder="Witness phone" style="width: 100%" />
+              </el-form-item>
+
+              <el-form-item id="btn19" label="Witness statement (optional)" prop="witness_statement">
+                <el-input
+                  v-model="grmForm.witness_statement"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="Witness statement"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :md="12">
+              <el-form-item id="btn21" label="Are you the complainant?">
+                <el-switch
+                  v-model="grmForm.self_reported"
+                  inline-prompt
+                  style="--el-switch-on-color: #00843d; --el-switch-off-color: #bb0000"
+                  active-text="Yes"
+                  inactive-text="No"
+                />
+                <p class="gok-grm__hint">Turn off if filing on someone else’s behalf.</p>
+              </el-form-item>
+
+              <el-form-item v-if="!grmForm.self_reported" id="btn22" label="Your name" prop="reporter_name">
+                <el-input v-model="grmForm.reporter_name" placeholder="Your name" style="width: 100%" />
+              </el-form-item>
+
+              <el-form-item v-if="!grmForm.self_reported" id="btn23" label="Your phone" prop="reporter_phone">
+                <el-input v-model="grmForm.reporter_phone" placeholder="Your phone" style="width: 100%" />
+              </el-form-item>
+
+              <el-form-item label="Supporting documents (optional)">
+                <el-upload
+                  id="btn20"
+                  class="gok-grm__upload"
+                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                  multiple
+                  :on-preview="handlePreview"
+                  :on-remove="handleRemove"
+                  :before-remove="beforeRemove"
+                  :limit="3"
+                  v-model:file-list="fileList"
+                  :auto-upload="false"
+                  :on-exceed="handleExceed"
+                >
+                  <button type="button" class="gok-grm__upload-btn">Upload files</button>
+                  <template #tip>
+                    <p class="gok-grm__hint">PDF, JPG or PNG · max 500KB each · up to 3 files</p>
+                  </template>
+                </el-upload>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <div class="gok-grm__nav">
+            <div class="gok-grm__nav-left">
+              <el-tooltip content="Guided help" placement="top">
+                <button type="button" class="gok-grm__btn gok-grm__btn--ghost" @click="showTour">
+                  <el-icon><InfoFilled /></el-icon>
+                  Help
+                </button>
+              </el-tooltip>
+              <button
+                v-if="active > 0"
+                id="btn9"
+                type="button"
+                class="gok-grm__btn gok-grm__btn--ghost"
+                @click="prev"
+              >
+                <el-icon><ArrowLeft /></el-icon>
+                Previous
+              </button>
+            </div>
+            <div class="gok-grm__nav-right">
+              <button id="btn8" type="button" class="gok-grm__btn gok-grm__btn--ghost" @click="resetForm">
+                Reset
+              </button>
+              <button
+                v-if="active < 3"
+                id="btn7"
+                type="button"
+                class="gok-grm__btn gok-grm__btn--primary"
+                @click="next"
+              >
+                Next
+                <el-icon><ArrowRight /></el-icon>
+              </button>
+              <button
+                v-if="active === 3"
+                id="btn2"
+                type="button"
+                class="gok-grm__btn gok-grm__btn--primary"
+                @click="submitForm"
+              >
+                Submit grievance
+              </button>
+            </div>
+          </div>
+        </el-form>
       </div>
 
-      <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+      <el-tour
+        v-model="isTourVisible"
+        class="gok-grm-tour"
+        :z-index="100000"
+        :gap="{ offset: 10, radius: 8 }"
+        :mask="{ color: 'rgba(18, 24, 28, 0.55)' }"
+        @close="endTour"
+      >
         <el-tour-step
-v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
-          :description="step.content" />
+          v-for="(step, index) in filteredTourSteps"
+          :key="index"
+          :target="step.target"
+          :title="step.title"
+          :description="step.content"
+          :next-button-props="{ children: index === filteredTourSteps.length - 1 ? 'Done' : 'Next' }"
+          :prev-button-props="{ children: 'Back' }"
+        />
       </el-tour>
-    </BaseLayout>
+    </div>
+  </BaseLayout>
 </template>
 
 <script setup lang="ts">
 import { ref,watch, computed, nextTick } from 'vue';
 import {
-  ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
-  ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip, ElText, ElDatePicker,
+  ElForm, ElFormItem, ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
+  ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip, ElDatePicker,
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
@@ -948,245 +990,231 @@ const handleExceed = (files, fileList) => {
 
 const isTourVisible = ref(false)
 const showTour = () => {
-
   isTourVisible.value = true
-
-
 }
 
 const filteredTourSteps = computed(() => {
-
-  const fil = tourSteps.value.filter(step => step.step == active.value && step.visible == true);
-  console.log('filteredTourSteps', fil)
-  return fil
-});
-
+  return tourSteps.value.filter((step) => {
+    if (step.step !== active.value || !step.visible) return false
+    if (
+      grmForm.value.self_reported &&
+      (step.target === '#btn22' || step.target === '#btn23')
+    ) {
+      return false
+    }
+    return true
+  })
+})
 
 const endTour = () => {
-
+  isTourVisible.value = false
 }
 
-
 const tourSteps = ref([
-  // Step 0: Personal Details
   {
     step: 0,
     target: '#btn1',
-    title: 'Name',
-    content: 'Please provide the complainant\'s name as it appears on the National ID. Fill Anonymous if you want anonymity.',
-    visible: true
+    title: 'Complainant name',
+    content: 'Enter the full name as on the National ID, or Anonymous if preferred.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn2',
     title: 'Gender',
-    content: 'Please select the complainant\'s gender.',
-    visible: true
+    content: 'Select the complainant’s gender.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn3',
     title: 'Age',
-    content: 'Select the complainant\'s age bracket.',
-    visible: true
+    content: 'Choose the age bracket that applies.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn4',
     title: 'National ID',
-    content: 'We require the complainant\'s national ID especially for land related complaints.',
-    visible: true
+    content: 'Especially important for land-related complaints.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn5',
     title: 'Phone',
-    content: 'Please provide the complainant\'s phone number. We require this for our communication on the status of the complaint.',
-    visible: true
+    content: 'We use this number for status updates on the complaint.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn6',
-    title: 'Email (Optional)',
-    content: 'Please provide an email address. We may use this for our communication on the status of the complaint.',
-    visible: true
+    title: 'Email',
+    content: 'Optional. Used for updates if provided.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn7',
-    title: 'Next Button',
-    content: 'Click here to proceed to the next step and fill in the grievance details.',
-    visible: true
+    title: 'Continue',
+    content: 'Go to the location and project details step.',
+    visible: true,
   },
   {
     step: 0,
     target: '#btn8',
-    title: 'Reset Form',
-    content: 'Click here to clear all form fields and start over.',
-    visible: true
+    title: 'Reset',
+    content: 'Clear the form and start again.',
+    visible: true,
   },
-
-  // Step 1: Grievance Details
   {
     step: 1,
     target: '#btn10',
-    title: 'County Selection',
-    content: 'Select the county where the project is implemented.',
-    visible: true
+    title: 'County',
+    content: 'Select the county where the issue occurred.',
+    visible: true,
   },
   {
     step: 1,
     target: '#btn10a',
-    title: 'Project Phase',
-    content: 'Select the project phase (KISIP 1 or KISIP 2).',
-    visible: true
+    title: 'Project phase',
+    content: 'Choose KISIP 1 or KISIP 2.',
+    visible: true,
   },
   {
     step: 1,
     target: '#btn11',
-    title: 'Settlement Selection',
-    content: 'Select the settlement within the selected county.',
-    visible: true
+    title: 'Settlement',
+    content: 'Pick the settlement within the selected county.',
+    visible: true,
   },
   {
     step: 1,
     target: '#btn12',
-    title: 'Physical Address',
-    content: 'Enter the complainant\'s physical address, e.g., near XXX Primary school, Plot No. XXX.',
-    visible: true
+    title: 'Physical address',
+    content: 'Add a landmark or plot reference if known.',
+    visible: true,
   },
   {
     step: 1,
     target: '#btn13',
-    title: 'Complaint Type',
-    content: 'Indicate if the complaint is related to Gender-Based Violence or if it is currently in court.',
-    visible: true
+    title: 'Complaint flags',
+    content: 'Mark if this relates to GBV or is already in court.',
+    visible: true,
   },
   {
     step: 1,
     target: '#btn9',
-    title: 'Previous Button',
-    content: 'Click here to go back to the previous step.',
-    visible: true
+    title: 'Previous',
+    content: 'Return to personal details.',
+    visible: true,
   },
   {
     step: 1,
     target: '#btn7',
-    title: 'Next Button',
-    content: 'Click here to proceed to the complaint details step.',
-    visible: true
+    title: 'Continue',
+    content: 'Go to the complaint description step.',
+    visible: true,
   },
-
-  // Step 2: Complaint Details
   {
     step: 2,
     target: '#btn14',
-    title: 'Nature of Complaint',
-    content: 'Select the category that best describes the nature of the complaint.',
-    visible: true
+    title: 'Nature of complaint',
+    content: 'Select the category that best fits the issue.',
+    visible: true,
   },
   {
     step: 2,
     target: '#btn15',
-    title: 'Complaint Description',
-    content: 'Provide a detailed description of the complaint, including what happened, when, where, and who was involved.',
-    visible: true
+    title: 'Description',
+    content: 'Briefly explain what happened, when, where, and who was involved.',
+    visible: true,
   },
   {
     step: 2,
     target: '#btn16',
-    title: 'Plea/Request',
-    content: 'Enter the complainant\'s plea or request regarding the complaint. What action would you like to be taken?',
-    visible: true
+    title: 'Plea / request',
+    content: 'State the action you would like taken.',
+    visible: true,
   },
   {
     step: 2,
     target: '#btn9',
-    title: 'Previous Button',
-    content: 'Click here to go back to the previous step.',
-    visible: true
+    title: 'Previous',
+    content: 'Return to location details.',
+    visible: true,
   },
   {
     step: 2,
     target: '#btn7',
-    title: 'Next Button',
-    content: 'Click here to proceed to the review and submit step.',
-    visible: true
+    title: 'Continue',
+    content: 'Go to witness details and submission.',
+    visible: true,
   },
-
-  // Step 3: Review & Submit
   {
     step: 3,
     target: '#btn17',
-    title: 'Witness Name',
-    content: 'Enter the name of the witness related to the grievance (optional).',
-    visible: true
+    title: 'Witness name',
+    content: 'Optional. Add a witness if available.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn18',
-    title: 'Witness Phone',
-    content: 'Enter the phone number of the witness (optional).',
-    visible: true
+    title: 'Witness phone',
+    content: 'Optional contact number for the witness.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn19',
-    title: 'Witness Statement',
-    content: 'Provide a statement from the witness regarding the grievance (optional).',
-    visible: true
+    title: 'Witness statement',
+    content: 'Optional notes from the witness.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn21',
     title: 'Are you the complainant?',
-    content: 'Indicate if you are filing this grievance on behalf of yourself or someone else.',
-    visible: true
+    content: 'Turn off if you are filing on someone else’s behalf.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn22',
-    title: 'Reporter Name',
-    content: 'Enter your name if you are filing on behalf of someone else.',
-    visible: true
+    title: 'Your name',
+    content: 'Required when filing for someone else.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn23',
-    title: 'Reporter Phone',
-    content: 'Enter your phone number if you are filing on behalf of someone else.',
-    visible: true
+    title: 'Your phone',
+    content: 'Required when filing for someone else.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn20',
-    title: 'Supporting Documentation',
-    content: 'Upload any supporting documents related to the grievance. Only pdf/jpg/png files with a size less than 500KB are allowed (up to 3 files).',
-    visible: true
+    title: 'Supporting documents',
+    content: 'Optional PDF, JPG or PNG files (max 500KB each).',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn2',
-    title: 'Submit Button',
-    content: 'Click to submit your grievance. You will receive a notification via SMS with a reference code for future follow-ups.',
-    visible: true
-  },
-  {
-    step: 3,
-    target: '#btn9',
-    title: 'Previous Button',
-    content: 'Click here to go back to the previous step.',
-    visible: true
+    title: 'Submit',
+    content: 'Send the grievance. You will receive a tracking code.',
+    visible: true,
   },
   {
     step: 3,
     target: '#btn8',
-    title: 'Reset Form',
-    content: 'Click here to clear all form fields and start over.',
-    visible: true
-  }
-]);
-
+    title: 'Reset',
+    content: 'Clear all fields and start over.',
+    visible: true,
+  },
+])
 
 function convertPhoneNumber(phoneNumber: string | undefined) {
 
@@ -1213,847 +1241,392 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 
 
 <style scoped>
-/* Accessibility */
-.visually-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
+.gok-grm {
+  padding: 2.5rem 0 3.5rem;
+  background: var(--gok-grey, #f5f7f6);
+  color: var(--gok-charcoal, #212121);
+  font-family: var(--gok-font, 'Montserrat', sans-serif);
 }
 
-.grievance-container {
-  padding: 4rem 2rem;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  transition: background 0.3s ease, color 0.3s ease;
-  min-height: 100vh;
-}
-
-.grievance-card {
-  width: 100%;
-  max-width: 1280px;
+.gok-grm__shell {
+  max-width: 56rem;
   margin: 0 auto;
-  box-sizing: border-box;
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--gok-panel, #fff);
+  border: 1px solid var(--gok-border, #e3e8e5);
+  border-radius: 14px;
+  box-shadow: var(--gok-shadow, 0 10px 28px rgba(0, 0, 0, 0.06));
+  padding: 1.75rem 1.75rem 1.35rem;
 }
 
-.grievance-card :deep(.el-card__body) {
-  padding: 2.5rem;
+.gok-grm__header {
+  margin-bottom: 1.35rem;
 }
 
-@media (max-width: 768px) {
-  .grievance-container {
-    padding: 2rem 1rem;
-  }
-  
-  .grievance-card :deep(.el-card__body) {
-    padding: 1.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .grievance-container {
-    padding: 1.5rem 1rem;
-  }
-  
-  .grievance-card :deep(.el-card__body) {
-    padding: 1rem;
-  }
-}
-
-/* Steps Component */
-.el-steps {
-  margin-bottom: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-primary);
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
-}
-
-:deep(.el-step__title) {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
+.gok-grm__title {
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1.2;
+  color: var(--gok-charcoal, #212121);
 }
 
-:deep(.el-step__head) {
-  width: 24px;
-  height: 24px;
+.gok-grm__lead {
+  margin: 0;
+  max-width: 40rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--gok-muted, #5f6368);
 }
 
-:deep(.el-step__icon) {
-  width: 24px;
-  height: 24px;
-  font-size: 12px;
+.gok-grm__steps {
+  margin: 0 0 1.5rem;
+  padding: 0.85rem 0.5rem 0.35rem;
+  background: var(--gok-grey, #f5f7f6);
+  border-radius: 10px;
+  border: 1px solid var(--gok-border, #e3e8e5);
 }
 
-:deep(.el-step__line) {
-  top: 12px;
+.gok-grm__form :deep(.el-form-item) {
+  margin-bottom: 1.1rem;
 }
 
-:deep(.el-step__head.is-process) {
-  color: #00DC82;
-  border-color: #00DC82;
+.gok-grm__form :deep(.el-form-item__label) {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--gok-charcoal, #212121);
+  margin-bottom: 0.35rem;
 }
 
-:deep(.el-step__head.is-finish) {
-  color: #00DC82;
-  border-color: #00DC82;
+.gok-grm__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--gok-muted, #5f6368);
 }
 
-:deep(.el-step__head.is-process .el-step__icon) {
-  background-color: #00DC82;
-  border-color: #00DC82;
-  color: white;
-}
-
-:deep(.el-step__head.is-finish .el-step__icon) {
-  background-color: #00DC82;
-  border-color: #00DC82;
-  color: white;
-}
-
-:deep(.el-step__head.is-wait .el-step__icon) {
-  background-color: var(--bg-secondary);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
-
-/* Form Items */
-.el-form-item {
-  margin-bottom: 1rem;
-}
-
-:deep(.el-form-item__label) {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.01em;
-  line-height: 1.5;
-}
-
-/* Input Styling */
-:deep(.el-input__wrapper) {
-  border: 1px solid var(--border-color);
+.gok-grm__flags {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--gok-grey, #f5f7f6);
+  border: 1px solid var(--gok-border, #e3e8e5);
   border-radius: 8px;
-  transition: all 0.3s ease;
+}
+
+.gok-grm__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--gok-border, #e3e8e5);
+}
+
+.gok-grm__nav-left,
+.gok-grm__nav-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.gok-grm__btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.65rem 1.05rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.gok-grm__btn--primary {
+  background: var(--gok-green, #00843d);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 132, 61, 0.25);
+}
+
+.gok-grm__btn--primary:hover {
+  background: var(--gok-green-dark, #006b32);
+}
+
+.gok-grm__btn--ghost {
+  background: transparent;
+  border-color: var(--gok-border, #e3e8e5);
+  color: var(--gok-charcoal, #212121);
+}
+
+.gok-grm__btn--ghost:hover {
+  border-color: var(--gok-green, #00843d);
+  color: var(--gok-green, #00843d);
+  background: var(--gok-green-soft, #e8f5ee);
+}
+
+.gok-grm__upload-btn {
+  appearance: none;
+  border: 1px dashed color-mix(in srgb, var(--gok-green, #00843d) 45%, var(--gok-border));
+  background: var(--gok-green-soft, #e8f5ee);
+  color: var(--gok-green, #00843d);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gok-grm__upload-btn:hover {
+  border-style: solid;
+  border-color: var(--gok-green, #00843d);
+}
+
+/* Element Plus field chrome */
+.gok-grm :deep(.el-input__wrapper),
+.gok-grm :deep(.el-textarea__inner),
+.gok-grm :deep(.el-select .el-input__wrapper) {
+  border-radius: 8px;
   box-shadow: none;
-  background: var(--bg-primary);
+  background: var(--gok-panel, #fff);
 }
 
-:deep(.el-input__wrapper:hover) {
-  border-color: #00DC82;
+.gok-grm :deep(.el-input__wrapper) {
+  border: 1px solid var(--gok-border, #e3e8e5);
 }
 
-:deep(.el-input__wrapper.is-focus) {
-  border-color: #00DC82;
-  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
+.gok-grm :deep(.el-input__wrapper:hover),
+.gok-grm :deep(.el-textarea__inner:hover) {
+  border-color: var(--gok-green, #00843d);
 }
 
-:deep(.el-input__inner) {
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  line-height: 1.5;
+.gok-grm :deep(.el-input__wrapper.is-focus),
+.gok-grm :deep(.el-textarea__inner:focus) {
+  border-color: var(--gok-green, #00843d);
+  box-shadow: 0 0 0 2px rgba(0, 132, 61, 0.15);
 }
 
-:deep(.el-input.is-error .el-input__wrapper) {
-  border-color: #f56c6c;
-  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2);
-}
-
-:deep(.el-form-item__error) {
-  color: #f56c6c;
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-}
-
-
-
-/* Textarea Styling */
-:deep(.el-textarea__inner) {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  padding: 0.75rem;
-  font-size: 0.9375rem;
-  resize: none;
-  line-height: 1.6;
+.gok-grm :deep(.el-textarea__inner) {
+  border: 1px solid var(--gok-border, #e3e8e5);
   font-family: inherit;
 }
 
-:deep(.el-textarea__inner:hover) {
-  border-color: #00DC82;
-}
-
-:deep(.el-textarea__inner:focus) {
-  border-color: #00DC82;
-  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
-}
-
-:deep(.el-textarea.is-error .el-textarea__inner) {
-  border-color: #f56c6c;
-  box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2);
-}
-
-/* Select Styling */
-:deep(.el-select .el-input__wrapper) {
-  background: var(--bg-primary);
-}
-
-:deep(.el-select-dropdown) {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-}
-
-:deep(.el-select-dropdown__item) {
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  padding: 0.75rem 1rem;
-  transition: all 0.2s ease;
-}
-
-:deep(.el-select-dropdown__item.hover),
-:deep(.el-select-dropdown__item:hover) {
-  background: rgba(0, 220, 130, 0.05);
-}
-
-:deep(.el-select-dropdown__item.selected) {
-  color: #00DC82;
-  background: rgba(0, 220, 130, 0.1);
-  font-weight: 600;
-}
-
-/* Checkbox Styling */
-:deep(.el-checkbox__label) {
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  font-weight: 500;
-}
-
-:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background-color: #00DC82;
-  border-color: #00DC82;
-}
-
-:deep(.el-checkbox__inner:hover) {
-  border-color: #00DC82;
-}
-
-/* Checkbox styling improvements */
-:deep(.el-checkbox) {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 0;
-}
-
-:deep(.el-checkbox__input) {
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-:deep(.el-checkbox__label) {
-  padding-left: 8px;
-  line-height: 1.6;
-}
-
-/* Switch styling improvements */
-:deep(.el-switch) {
-  margin: 0;
-}
-
-:deep(.el-switch__label) {
-  font-size: 0.9rem;
-}
-
-/* Switch Styling */
-:deep(.el-switch__label.is-active) {
-  color: #00DC82;
-}
-
-:deep(.el-switch.is-checked .el-switch__core) {
-  background-color: #00DC82;
-  border-color: #00DC82;
-}
-
-/* Form item with checkboxes and switches */
-.el-form-item[id="btn13"],
-.el-form-item[id="btn17"],
-.el-form-item[id="btn21"] {
-  margin-bottom: 1rem;
-}
-
-/* Checkbox and switch helper text styling */
-.checkbox-helper,
-.switch-helper {
-  display: block;
-  margin-left: 28px;
-  margin-top: 2px;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  color: rgba(128, 128, 128, 0.6) !important;
-  opacity: 0.7;
-}
-
-.dark-mode .checkbox-helper,
-.dark-mode .switch-helper {
-  color: rgba(160, 160, 160, 0.5) !important;
-  opacity: 0.6;
-}
-
-/* Navigation Buttons */
-.steps-navigation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-primary);
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
-  border-top: 2px solid rgba(0, 220, 130, 0.2);
-  gap: 0.375rem;
-  position: relative;
-}
-
-.steps-navigation::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(0, 220, 130, 0.3) 0%, rgba(0, 184, 107, 0.2) 50%, rgba(0, 220, 130, 0.3) 100%);
-  border-radius: 12px 12px 0 0;
-}
-
-.steps-navigation > div {
-  display: flex;
-  gap: 0.375rem;
-  align-items: center;
-}
-
-.nav-group-left {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.nav-group-right {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-/* Help button text - hidden on mobile */
-.help-button-text {
-  display: inline;
-}
-
-@media (max-width: 768px) {
-  .help-button-text {
-    display: none;
-  }
-}
-
-/* Button Styling */
-:deep(.el-button) {
-  padding: 0.875rem 1.5rem;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  letter-spacing: -0.01em;
-  border: none;
-  position: relative;
-}
-
-/* Subtle color lining on buttons */
-:deep(.el-button--primary) {
-  background: #00DC82 !important;
-  border: 1px solid #00DC82 !important;
-  border-left: 3px solid rgba(0, 184, 107, 0.6) !important;
-  color: white !important;
-}
-
-:deep(.el-button--default) {
-  background: transparent !important;
-  border: 1px solid var(--border-color) !important;
-  border-left: 3px solid rgba(0, 220, 130, 0.2) !important;
-  color: var(--text-primary) !important;
-}
-
-:deep(.el-button--primary:hover) {
-  background: #00B86B !important;
-  border-color: #00B86B !important;
-  border-left-color: rgba(0, 184, 107, 0.8) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 220, 130, 0.3);
-}
-
-:deep(.el-button--default:hover) {
-  background: rgba(0, 220, 130, 0.1) !important;
-  border-color: #00DC82 !important;
-  border-left-color: rgba(0, 220, 130, 0.4) !important;
-  color: #00DC82 !important;
-}
-
-:deep(.el-button--info) {
-  background: transparent !important;
-  border: 1px solid var(--border-color) !important;
-  border-left: 3px solid rgba(98, 106, 239, 0.3) !important;
-  color: var(--text-primary) !important;
-}
-
-:deep(.el-button--info:hover) {
-  background: rgba(0, 220, 130, 0.1) !important;
-  border-color: #00DC82 !important;
-  border-left-color: rgba(98, 106, 239, 0.5) !important;
-  color: #00DC82 !important;
-}
-
-:deep(.el-button--danger) {
-  background: #f56c6c !important;
-  border-color: #f56c6c !important;
-  color: white !important;
-}
-
-:deep(.el-button--danger:hover) {
-  background: #e85a5a !important;
-  border-color: #e85a5a !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(245, 108, 108, 0.3);
-}
-
-  /* Animated dots shown next to Settlement label while filtering */
-  .loading-dots {
-    display: inline-block;
-    margin-left: 6px;
-  }
-  .loading-dots .dot {
-    display: inline-block;
-    animation: loading-blink 1.4s infinite both;
-  }
-  .loading-dots .dot:nth-child(2) {
-    animation-delay: .2s;
-  }
-  .loading-dots .dot:nth-child(3) {
-    animation-delay: .4s;
-  }
-  @keyframes loading-blink {
-    0% { opacity: 0.2; }
-    20% { opacity: 1; }
-    100% { opacity: 0.2; }
-  }
-
-/* Upload Styling */
-:deep(.el-upload) {
-  width: 100%;
-}
-
-:deep(.el-upload-dragger) {
-  width: 100%;
-  background: var(--bg-primary);
-  border: 2px dashed var(--border-color);
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-:deep(.el-upload-dragger:hover) {
-  border-color: #00DC82;
-  background: rgba(0, 220, 130, 0.02);
-}
-
-:deep(.el-upload__tip) {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-  line-height: 1.5;
-}
-
-:deep(.el-upload-list) {
-  margin-top: 1rem;
-}
-
-/* Status Result */
-.status-result {
-  margin-top: 2rem;
-  animation: fadeIn 0.3s ease-out;
-}
-
-.status-result :deep(.el-card) {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.status-result :deep(.el-card__body) {
-  padding: 1.5rem;
-}
-
-.status-result p {
-  color: var(--text-primary);
-  margin: 0.75rem 0;
-  font-size: 0.9375rem;
-  line-height: 1.7;
-}
-
-.status-result strong {
-  color: var(--text-primary);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin-right: 0.5rem;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Tabs Styling */
-:deep(.el-tabs__header) {
-  margin-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-:deep(.el-tabs__item) {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  padding: 0 1.5rem;
-  letter-spacing: -0.01em;
-  transition: all 0.3s ease;
-}
-
-:deep(.el-tabs__item.is-active) {
-  color: #00DC82;
-}
-
-:deep(.el-tabs__active-bar) {
-  background-color: #00DC82;
-  height: 3px;
-}
-
-:deep(.el-tabs__item:hover) {
-  color: #00DC82;
-}
-
-/* Card Styling */
-:deep(.el-card) {
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  background: var(--bg-primary);
-  overflow: hidden;
-}
-
-:deep(.el-card__body) {
-  padding: 1.5rem;
-}
-
-:deep(.el-card.shadow-hover:hover) {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: box-shadow 0.3s ease;
-}
-
-/* Text Styling */
-:deep(.el-text) {
-  color: rgb(139, 138, 138);
-  font-size: 0.7875rem;
-  line-height: 1.6;
-  display: block;
-  margin-top: 0.5rem;
-  font-style: italic;
-}
-
-/* Helper text - more subtle, pushed to background */
-:deep(.el-text[type="info"]) {
-  color: rgba(128, 128, 128, 0.6) !important;
-  font-size: 0.8125rem;
-  opacity: 0.7;
-}
-
-.dark-mode :deep(.el-text[type="info"]) {
-  color: rgba(160, 160, 160, 0.5) !important;
-  opacity: 0.6;
-}
-
-/* Dialog Styling */
-:deep(.el-dialog) {
-  border-radius: 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-}
-
-:deep(.el-dialog__header) {
-  padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-:deep(.el-dialog__title) {
-  font-size: 1.5rem;
+.gok-grm :deep(.el-step__title) {
+  font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
+  color: var(--gok-muted, #5f6368);
 }
 
-:deep(.el-dialog__body) {
-  padding: 1.5rem;
-  color: var(--text-primary);
+.gok-grm :deep(.el-step__title.is-process),
+.gok-grm :deep(.el-step__title.is-finish) {
+  color: var(--gok-green, #00843d);
 }
 
-:deep(.el-dialog__footer) {
-  padding: 1rem 1.5rem 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
+.gok-grm :deep(.el-step__head.is-process),
+.gok-grm :deep(.el-step__head.is-finish) {
+  color: var(--gok-green, #00843d);
+  border-color: var(--gok-green, #00843d);
 }
 
-/* Mobile Responsiveness */
+.gok-grm :deep(.el-step__head.is-process .el-step__icon),
+.gok-grm :deep(.el-step__head.is-finish .el-step__icon) {
+  background: var(--gok-green, #00843d);
+  border-color: var(--gok-green, #00843d);
+  color: #fff;
+}
+
+.gok-grm :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background: var(--gok-green, #00843d);
+  border-color: var(--gok-green, #00843d);
+}
+
+.gok-grm :deep(.el-checkbox__label) {
+  color: var(--gok-charcoal, #212121);
+  font-weight: 500;
+  white-space: normal;
+}
+
+.loading-dots {
+  display: inline-flex;
+  gap: 1px;
+  margin-left: 0.35rem;
+  color: var(--gok-green, #00843d);
+}
+
+.loading-dots .dot {
+  animation: gok-grm-blink 1.2s infinite both;
+}
+
+.loading-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes gok-grm-blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
 @media (max-width: 768px) {
-  .el-steps {
-    display: none;
+  .gok-grm {
+    padding: 1.25rem 0 2rem;
   }
 
-  .steps-navigation {
-    flex-direction: row;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    margin-top: 1rem;
-    position: sticky;
-    bottom: 0;
-    background: var(--bg-primary);
-    border-top: 2px solid rgba(0, 220, 130, 0.25);
-    border-radius: 0;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-    z-index: 10;
+  .gok-grm__shell {
+    border-radius: 12px;
+    padding: 1.2rem 1.1rem 1.1rem;
   }
 
-  .steps-navigation::before {
-    display: none;
+  .gok-grm__nav {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .steps-navigation > div {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
+  .gok-grm__nav-left,
+  .gok-grm__nav-right {
+    width: 100%;
+  }
+
+  .gok-grm__nav-right {
+    justify-content: stretch;
+  }
+
+  .gok-grm__btn {
     flex: 1;
+    justify-content: center;
   }
 
-  /* Help button - icon only on mobile */
-  .steps-navigation .nav-group-left :deep(.el-button--info) {
-    min-width: 44px;
-    width: 44px;
-    padding: 0.75rem;
-    flex-shrink: 0;
+  .gok-grm :deep(.el-step__title) {
+    font-size: 0.7rem;
   }
-
-  .steps-navigation .nav-group-left :deep(.el-button--info .help-button-text) {
-    display: none;
-  }
-
-  /* All buttons - flexible sizing on mobile */
-  .steps-navigation :deep(.el-button) {
-    flex: 1;
-    min-width: 0;
-    padding: 0.75rem 0.75rem;
-    font-size: 0.8125rem;
-    min-height: 44px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Help button stays fixed width */
-  .steps-navigation .nav-group-left :deep(.el-button--info) {
-    flex: 0 0 44px;
-  }
-
-  :deep(.el-step__title) {
-    font-size: 0.875rem;
-  }
-
-  :deep(.el-tabs__item) {
-    font-size: 0.875rem;
-    padding: 0 1rem;
-  }
-
-  .el-form-item {
-    margin-bottom: 1.25rem;
-  }
-
-  :deep(.el-card__body) {
-    padding: 1.25rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .el-form-item {
-    margin-bottom: 1rem;
-  }
-
-  :deep(.el-input__wrapper),
-  :deep(.el-textarea__inner) {
-    padding: 0.625rem;
-  }
-
-  .steps-navigation {
-    padding: 0.5rem 0.625rem;
-    gap: 0.375rem;
-    margin-top: 0.5rem;
-  }
-
-  .steps-navigation > div {
-    gap: 0.375rem;
-  }
-
-  /* All buttons stay in same row, smaller padding on very small screens */
-  .steps-navigation :deep(.el-button) {
-    flex: 1;
-    min-width: 0;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.75rem;
-    min-height: 44px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Help button stays icon-only and fixed width */
-  .steps-navigation .nav-group-left :deep(.el-button--info) {
-    width: 44px;
-    min-width: 44px;
-    flex: 0 0 44px;
-    padding: 0.75rem;
-  }
-
-  .el-steps {
-    padding: 0.5rem 0.375rem;
-    margin-bottom: 0.5rem;
-  }
-
-  :deep(.el-step__title) {
-    font-size: 0.8125rem;
-  }
-
-  :deep(.el-tabs__item) {
-    font-size: 0.8125rem;
-    padding: 0 0.75rem;
-  }
-}
-
-/* Dark Mode Support */
-.dark-mode .grievance-card {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-card) {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-steps) {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-input__wrapper) {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-input__wrapper:hover),
-.dark-mode :deep(.el-input__wrapper.is-focus) {
-  border-color: #00DC82;
-  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
-}
-
-.dark-mode :deep(.el-textarea__inner) {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
-  color: var(--text-primary);
-}
-
-.dark-mode :deep(.el-textarea__inner:hover),
-.dark-mode :deep(.el-textarea__inner:focus) {
-  border-color: #00DC82;
-  box-shadow: 0 0 0 2px rgba(0, 220, 130, 0.2);
-}
-
-.dark-mode :deep(.el-select .el-input__wrapper) {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-select-dropdown) {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-}
-
-.dark-mode .steps-navigation {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-tabs__header) {
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-dialog) {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-}
-
-.dark-mode :deep(.el-dialog__header),
-.dark-mode :deep(.el-dialog__footer) {
-  border-color: var(--border-color);
 }
 </style>
 
+<!-- Tour teleports to body — must be unscoped -->
 <style>
-.demo-form-inline .el-input {
-  --el-input-width: 220px;
+.gok-grm-tour {
+  --el-color-primary: #00843d;
+  --el-color-primary-light-3: #2f9a5c;
+  --el-color-primary-light-5: #66b58b;
+  --el-color-primary-light-7: #99cfb3;
+  --el-color-primary-light-9: #e8f5ee;
+  --el-color-primary-dark-2: #006b32;
+  font-family: 'Montserrat', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
-.demo-form-inline .el-select {
-  --el-select-width: 220px;
+.gok-grm-tour .el-tour__content {
+  border-radius: 12px !important;
+  border: 1px solid #e3e8e5;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14) !important;
+  padding: 1rem 1.1rem 1.05rem !important;
+  max-width: min(22rem, calc(100vw - 2rem));
+  background: #fff !important;
 }
 
-.demo-tabs {
+.gok-grm-tour .el-tour__title {
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+  color: #212121 !important;
+}
+
+.gok-grm-tour .el-tour__body,
+.gok-grm-tour .el-tour__description {
+  font-size: 0.85rem !important;
+  line-height: 1.5 !important;
+  color: #5f6368 !important;
+  font-weight: 500;
+}
+
+.gok-grm-tour .el-tour__closebtn .el-tour__close {
+  color: #5f6368;
+}
+
+.gok-grm-tour .el-tour__closebtn:hover .el-tour__close {
+  color: #00843d;
+}
+
+.gok-grm-tour .el-tour-indicators {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-@media (min-width: 768px) {
-  .demo-tabs {
-    flex-direction: row;
-  }
+.gok-grm-tour .el-tour-indicator {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 999px !important;
+  background: #d5dbd7 !important;
+  margin-right: 0 !important;
+}
+
+.gok-grm-tour .el-tour-indicator.is-active {
+  width: 18px !important;
+  background: #00843d !important;
+}
+
+.gok-grm-tour .el-tour__footer .el-button {
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.gok-grm-tour .el-tour__footer .el-button--primary {
+  background: #00843d !important;
+  border-color: #00843d !important;
+  color: #fff !important;
+}
+
+.gok-grm-tour .el-tour__footer .el-button--primary:hover {
+  background: #006b32 !important;
+  border-color: #006b32 !important;
+}
+
+.gok-grm-tour .el-tour__footer .el-button--default {
+  border-color: #e3e8e5;
+  color: #212121;
+  background: #fff;
+}
+
+.gok-grm-tour .el-tour__footer .el-button--default:hover {
+  border-color: #00843d;
+  color: #00843d;
+  background: #e8f5ee;
+}
+
+.gok-grm-tour .el-tour__arrow {
+  background: #fff !important;
+  border: 1px solid #e3e8e5;
+}
+
+.dark-mode .gok-grm-tour .el-tour__content {
+  background: #1a2228 !important;
+  border-color: #2c363c;
+}
+
+.dark-mode .gok-grm-tour .el-tour__title {
+  color: #e8ecea !important;
+}
+
+.dark-mode .gok-grm-tour .el-tour__body,
+.dark-mode .gok-grm-tour .el-tour__description {
+  color: #a7b0ac !important;
+}
+
+.dark-mode .gok-grm-tour .el-tour__arrow {
+  background: #1a2228 !important;
+  border-color: #2c363c;
+}
+
+.dark-mode .gok-grm-tour .el-tour__footer .el-button--default {
+  background: #1a2228;
+  border-color: #2c363c;
+  color: #e8ecea;
 }
 </style>

@@ -2599,6 +2599,7 @@ module.exports = function (app) {
 
   // Public settlement register (no auth) – landing page
   app.get('/api/public/landing/stats', controller.getPublicLandingStats)
+  app.get('/api/public/landing/counties-with-interventions', controller.getPublicCountiesWithInterventions)
   app.get('/api/public/register/counties', controller.getPublicRegisterCounties)
   app.get('/api/public/register/subcounties', controller.getPublicRegisterSubcounties)
   app.get('/api/public/register/wards', controller.getPublicRegisterWards)
@@ -2606,6 +2607,8 @@ module.exports = function (app) {
   app.get('/api/public/register/settlements/map', controller.getPublicRegisterSettlementsMap)
   app.get('/api/public/register/settlements/:id/map', controller.getPublicRegisterSettlementMap)
   app.get('/api/public/register/settlements/:id', controller.getPublicRegisterSettlement)
+  app.get('/api/public/projects/map', controller.getPublicProjectsMap)
+  app.get('/api/public/projects/locations/:id', controller.getPublicProjectLocation)
 
   /**
    * @swagger

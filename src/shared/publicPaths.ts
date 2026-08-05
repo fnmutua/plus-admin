@@ -8,6 +8,8 @@ export const PUBLIC_PATH_PREFIXES = [
   '/contact',
   '/faqs',
   '/about',
+  '/settlements',
+  '/projects',
   '/grm',
   '/incidents',
   '/docs',

@@ -2,12 +2,37 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import type { App } from 'vue'
 import { publicRoutes } from './publicRoutes'
+import {
+  consumePendingLandingSection,
+} from '@/views/Landing/utils/landingScroll'
 
 const router = createRouter({
   history: createWebHashHistory(),
   strict: true,
   routes: publicRoutes as RouteRecordRaw[],
-  scrollBehavior: () => ({ left: 0, top: 0 }),
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+
+    const section = consumePendingLandingSection()
+    if (section && (to.path === '/landing' || to.path === '/')) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const el = document.getElementById(section)
+          if (el) {
+            resolve({ el, top: 112, behavior: 'smooth' })
+          } else {
+            // Let BaseLayout retry — don't yank to top
+            resolve(false)
+          }
+        }, 80)
+      })
+    }
+
+    // Same-route navigations (e.g. in-page section scroll) — don't force top
+    if (to.path === from.path) return false
+
+    return { left: 0, top: 0 }
+  },
 })
 
 router.beforeEach((to, _from, next) => {

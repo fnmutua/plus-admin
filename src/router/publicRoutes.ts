@@ -49,6 +49,26 @@ export const publicRoutes: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/settlements',
+    component: () => import('@/views/Landing/LandingMapExplorer.vue'),
+    name: 'SettlementExplorer',
+    meta: {
+      hidden: true,
+      title: 'Settlement explorer',
+      noTagsView: true
+    }
+  },
+  {
+    path: '/projects',
+    component: () => import('@/views/Landing/LandingMapExplorer.vue'),
+    name: 'ProjectExplorer',
+    meta: {
+      hidden: true,
+      title: 'Project explorer',
+      noTagsView: true
+    }
+  },
+  {
     path: '/about',
     component: () => import('@/views/Landing/about.vue'),
     name: 'About',

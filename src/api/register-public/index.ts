@@ -131,10 +131,43 @@ export interface PublicLandingStats {
   settlements: number
   population: number
   projects: number
+  counties: number
 }
 
 export function getPublicLandingStats(): Promise<{ code: string; data: PublicLandingStats; cached?: boolean }> {
   return publicGet('/api/public/landing/stats')
+}
+
+/** GeoJSON for public project locations map (centroids). No auth. */
+export function getPublicProjectsMap(params?: {
+  county_id?: number | null
+  subcounty_id?: number | null
+  ward_id?: number | null
+  search?: string | null
+  limit?: number
+}): Promise<{ type: string; features: any[] }> {
+  const q = new URLSearchParams()
+  if (params?.county_id != null) q.set('county_id', String(params.county_id))
+  if (params?.subcounty_id != null) q.set('subcounty_id', String(params.subcounty_id))
+  if (params?.ward_id != null) q.set('ward_id', String(params.ward_id))
+  if (params?.search) q.set('search', params.search)
+  if (params?.limit != null) q.set('limit', String(params.limit))
+  const query = q.toString()
+  return publicGet(`/api/public/projects/map${query ? '?' + query : ''}`).then((res: any) => {
+    const fc = res?.data ?? res?.results ?? res
+    return fc && typeof fc === 'object' && Array.isArray(fc.features)
+      ? fc
+      : { type: 'FeatureCollection', features: [] }
+  })
+}
+
+/** One project_location for map popup. No auth. */
+export function getPublicProjectLocation(id: number): Promise<{
+  data?: any
+  results?: any
+  code?: string
+}> {
+  return publicGet(`/api/public/projects/locations/${id}`)
 }
 
 export function trackPageVisit(payload: {

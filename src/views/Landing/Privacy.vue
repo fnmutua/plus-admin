@@ -136,7 +136,7 @@ const scrollToSection = (sectionId: string, event?: Event) => {
   const element = document.getElementById(sectionId);
   if (element) {
     // Calculate offset to account for sticky header and navigation
-    const headerOffset = isMobile.value ? 100 : 140;
+    const headerOffset = isMobile.value ? 120 : 160;
     const elementPosition = element.getBoundingClientRect().top;
     const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -153,7 +153,7 @@ const scrollToSection = (sectionId: string, event?: Event) => {
 
 const updateActiveSection = () => {
   const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-  const headerOffset = isMobile.value ? 100 : 120;
+  const headerOffset = isMobile.value ? 120 : 140;
 
   for (let i = sections.length - 1; i >= 0; i--) {
     const section = document.getElementById(sections[i].id);
@@ -250,13 +250,13 @@ useHead({
   line-height: 1.2;
 }
 
-/* Navigation */
+/* Navigation — sit just below sticky site header */
 .privacy-nav {
   position: fixed;
-  top: 200px;
+  top: calc(var(--gok-header-h, 104px) + 1rem);
   left: calc((100vw - 1280px) / 2 + 2rem);
   width: 280px;
-  max-height: calc(100vh - 220px);
+  max-height: calc(100vh - var(--gok-header-h, 104px) - 2rem);
   overflow-y: auto;
   z-index: 10;
 }
@@ -318,7 +318,7 @@ useHead({
 }
 
 .privacy-section {
-  scroll-margin-top: 100px;
+  scroll-margin-top: calc(var(--gok-header-h, 104px) + 1.25rem);
 }
 
 .section-card {
@@ -409,7 +409,7 @@ useHead({
 
   .privacy-nav {
     position: fixed;
-    top: 70px;
+    top: var(--gok-header-h, 104px);
     left: 0;
     right: 0;
     width: 100%;
@@ -417,16 +417,16 @@ useHead({
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary, var(--gok-panel, #fff));
+    border-bottom: 1px solid var(--border-color, var(--gok-border));
     padding: 0.75rem 1rem;
-    z-index: 100;
+    z-index: 900;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .privacy-sections {
     margin-left: 0;
-    margin-top: 80px;
+    margin-top: 4.5rem;
   }
 
   .privacy-nav::-webkit-scrollbar {

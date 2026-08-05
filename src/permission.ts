@@ -18,7 +18,7 @@ const { loadStart, loadDone } = usePageLoading();
 
 const whiteList = [
   '/api-docs', '/login', '/register', '/logoff', '/privacy', '/status', '/status/:id',
-  '/grm', '/incidents', '/landing', '/about', '/contact', '/faqs', '/delete', '/docs',
+  '/grm', '/incidents', '/landing', '/about', '/settlements', '/projects', '/contact', '/faqs', '/delete', '/docs',
   '/data-request', '/dr-share', '/dr-clarify', '/regional-report'
 ]
 

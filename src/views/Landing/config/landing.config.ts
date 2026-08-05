@@ -1,0 +1,296 @@
+/**
+ * Landing portal content & route map.
+ * Update copy and placeholders here — do not invent official figures.
+ * Live stats come from GET /api/public/landing/stats (settlements, population, projects, counties).
+ */
+
+export const INSTITUTION = {
+  systemName: 'KeSMIS',
+  fullName: 'Kenya Slum Management Information System',
+  descriptor: 'National information system for informal settlements',
+  programme: 'Kenya Informal Settlements Improvement Project (KISIP)',
+  ministry: 'State Department for Housing and Urban Development',
+  government: 'Government of Kenya',
+  email: 'kisip2info@gmail.com',
+  helpline: '0800 724 349',
+  helplineTel: '0800724349',
+  address: 'Nairobi, Kenya',
+  logoSrc: '/landing/kesmis-exact-logo.png',
+  logoSrcWhite: '/landing/kesmis-exact-logo-light.png',
+  crestSrc: '/gok.png',
+  crestSrcWhite: '/gok-white.png',
+  heroImage: '/landing/kesmis-hero-settlement-upgrade.jpg',
+} as const
+
+/** Primary nav — path, home section, or authenticated portal destination */
+export type NavItem = {
+  id: string
+  label: string
+  /** Router path (public app) */
+  to?: string
+  /** Scroll target on /landing */
+  section?: string
+  /**
+   * Authenticated admin-app path (e.g. settlement/project explorer).
+   * Logged-in users are switched to the full app; others go to login with redirect.
+   */
+  portalPath?: string
+  /** Open in new tab */
+  external?: boolean
+}
+
+/** Portal explorers (admin app, auth required) */
+export const PORTAL_PATHS = {
+  settlementExplorer: '/dashboard/map',
+  projectExplorer: '/dashboard/prjmap',
+  nationalDashboard: '/dashboard/national',
+} as const
+
+/** Public landing-app pages (no auth) */
+export const PUBLIC_PAGES = {
+  settlementExplorer: '/settlements',
+  projectExplorer: '/projects',
+} as const
+
+export const MAIN_NAV: NavItem[] = [
+  { id: 'home', label: 'Home', to: '/landing' },
+  { id: 'settlements', label: 'Settlements', to: PUBLIC_PAGES.settlementExplorer },
+  { id: 'projects', label: 'Projects', to: PUBLIC_PAGES.projectExplorer },
+  { id: 'grievances', label: 'Grievances', to: '/grm' },
+  { id: 'data-request', label: 'Data request', to: '/data-request' },
+  { id: 'contact', label: 'Contact', to: '/contact' },
+]
+
+export const HERO = {
+  headline: 'Transforming Informal Settlements Through Data, Planning and Inclusive Development',
+  support:
+    'Access settlement information, programme progress, maps, reports and digital services supporting sustainable urban development across Kenya.',
+  primaryCta: { label: 'Sign in', action: 'route:/login' },
+  secondaryCta: { label: 'Sign up', action: 'route:/register' },
+  tertiaryCta: { label: 'File grievance', action: 'route:/grm' },
+  searchPlaceholder: 'Search by name…',
+} as const
+
+export type ServiceCard = {
+  id: string
+  title: string
+  description: string
+  icon: string
+  /** Existing public route, or null if not yet configured */
+  to: string | null
+  /** Scroll section on landing when to is null but section exists */
+  section?: string
+  /** Authenticated admin explorer path */
+  portalPath?: string
+  /** Mark for later route configuration */
+  pendingRoute?: boolean
+}
+
+export const SERVICE_CARDS: ServiceCard[] = [
+  {
+    id: 'settlements',
+    title: 'Explore Settlements',
+    description: 'Open the public settlement explorer map with clustered markers.',
+    icon: 'mdi:home-city-outline',
+    to: PUBLIC_PAGES.settlementExplorer,
+  },
+  {
+    id: 'projects',
+    title: 'View Projects',
+    description: 'Open the public project explorer map with clustered markers.',
+    icon: 'mdi:crane',
+    to: PUBLIC_PAGES.projectExplorer,
+  },
+  {
+    id: 'grm',
+    title: 'Submit or Track a Grievance',
+    description: 'Use the electronic Grievance Redress Mechanism.',
+    icon: 'mdi:message-text-outline',
+    to: '/grm',
+  },
+  {
+    id: 'portal',
+    title: 'Access the Management Portal',
+    description: 'Sign in to dashboards, M&E and administration.',
+    icon: 'mdi:monitor-dashboard',
+    to: '/login',
+    portalPath: PORTAL_PATHS.nationalDashboard,
+  },
+]
+
+/**
+ * Fallback / supplemental stats when API fields are unavailable.
+ * Live API provides: settlements, population, projects, counties.
+ * householdsReached remains a config placeholder until an endpoint exists.
+ */
+export const STATS_CONFIG = {
+  countiesCovered: {
+    label: 'Counties with interventions',
+    /** Live via GET /api/public/landing/stats → counties (project_location) */
+    value: null as number | null,
+    note: 'LIVE_VIA_LANDING_STATS',
+  },
+  householdsReached: {
+    label: 'Households reached',
+    /** CONFIG PLACEHOLDER */
+    value: null as number | null,
+    note: 'CONFIG_PLACEHOLDER',
+  },
+  reportsAvailable: {
+    label: 'Public resources',
+    value: null as number | null,
+    note: 'CONFIG_PLACEHOLDER',
+  },
+} as const
+
+export const PROGRAMMES = [
+  {
+    id: 'kisip',
+    title: 'KISIP interventions',
+    category: 'Intervention',
+    description:
+      'Kenya Informal Settlements Improvement Project — upgrading infrastructure, tenure security and living conditions in informal settlements.',
+    icon: 'mdi:city-variant-outline',
+    to: '/about' as string | null,
+    section: undefined as string | undefined,
+    portalPath: undefined as string | undefined,
+  },
+  {
+    id: 'infra',
+    title: 'Infrastructure delivery',
+    category: 'Intervention',
+    description:
+      'Access roads, drainage, water, sanitation, lighting and related settlement infrastructure investments.',
+    icon: 'mdi:road-variant',
+    to: PUBLIC_PAGES.projectExplorer as string | null,
+    section: undefined as string | undefined,
+    portalPath: undefined as string | undefined,
+  },
+  {
+    id: 'tenure',
+    title: 'Tenure and planning',
+    category: 'Intervention',
+    description:
+      'Planning, surveying and titling support to strengthen land tenure security for residents.',
+    icon: 'mdi:file-certificate-outline',
+    to: '/about' as string | null,
+    section: undefined as string | undefined,
+    portalPath: undefined as string | undefined,
+  },
+  {
+    id: 'kesmis',
+    title: 'Project explorer',
+    category: 'Map',
+    description:
+      'Browse intervention project locations across Kenya on an interactive clustered map.',
+    icon: 'mdi:map-marker-path',
+    to: PUBLIC_PAGES.projectExplorer as string | null,
+    section: undefined as string | undefined,
+    portalPath: undefined as string | undefined,
+  },
+] as const
+
+/**
+ * Publications — CONFIG PLACEHOLDER list until a public document API is exposed.
+ * Prefer linking to existing /docs for help content.
+ */
+export const PUBLICATIONS = [
+  {
+    id: 'docs-help',
+    title: 'KeSMIS user documentation',
+    category: 'Guidelines',
+    date: '2025-01-01',
+    fileType: 'Web',
+    to: '/docs',
+  },
+  {
+    id: 'data-request',
+    title: 'Request settlement or programme data',
+    category: 'Data',
+    date: '2025-01-01',
+    fileType: 'Form',
+    to: '/data-request',
+  },
+  {
+    id: 'privacy',
+    title: 'Privacy notice',
+    category: 'Policy',
+    date: '2025-01-01',
+    fileType: 'Web',
+    to: '/privacy',
+  },
+] as const
+
+/**
+ * News — CONFIG PLACEHOLDER until a public articles API exists.
+ * Authenticated articles live at /media/articles (admin app).
+ */
+export const NEWS_UPDATES = [
+  {
+    id: 'n1',
+    date: '2025-06-01',
+    title: 'KeSMIS supports national settlement upgrading',
+    summary:
+      'The platform continues to provide settlement registers, maps and grievance services for programme partners and the public.',
+    to: '/about',
+    image: '/landing/img003.png',
+  },
+  {
+    id: 'n2',
+    date: '2025-03-15',
+    title: 'Electronic Grievance Redress Mechanism',
+    summary:
+      'Citizens can submit and follow up grievances related to informal settlement programmes through e-GRM.',
+    to: '/grm',
+    image: null,
+  },
+  {
+    id: 'n3',
+    date: '2025-01-20',
+    title: 'Public settlement register',
+    summary:
+      'Explore profiled informal settlements across Kenya using the public register and map.',
+    to: null,
+    section: 'settlements',
+    image: '/landing/img007.png',
+  },
+] as const
+
+export const ENGAGEMENT = {
+  title: 'Have a concern, suggestion or grievance relating to a programme or settlement?',
+  body: 'Use the electronic Grievance Redress Mechanism or contact the programme team. Your feedback helps improve service delivery.',
+  actions: [
+    { label: 'Submit a grievance', to: '/grm', primary: true },
+    { label: 'Track a grievance', to: '/grm', primary: false },
+    { label: 'Contact the programme team', to: '/contact', primary: false },
+  ],
+} as const
+
+export const FOOTER = {
+  usefulLinks: [
+    { label: 'About KeSMIS', to: '/about' },
+    { label: 'FAQs', to: '/faqs' },
+    { label: 'Contact', to: '/contact' },
+    { label: 'Data request', to: '/data-request' },
+  ],
+  services: [
+    { label: 'Settlement explorer', to: PUBLIC_PAGES.settlementExplorer as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
+    { label: 'Project explorer', to: PUBLIC_PAGES.projectExplorer as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
+    { label: 'e-GRM', to: '/grm' as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
+    { label: 'Management portal', to: '/login' as string | null, section: undefined as string | undefined, portalPath: PORTAL_PATHS.nationalDashboard },
+  ],
+  publications: [] as { label: string; to: string }[],
+  policies: [
+    { label: 'Privacy', to: '/privacy' },
+    { label: 'Accessibility', to: '/faqs' },
+    { label: 'Help', to: '/docs' },
+  ],
+} as const
+
+export const MAP_SECTION = {
+  title: 'Settlements across Kenya',
+  body: 'Open the settlement explorer to browse informal settlements on a clustered national map.',
+  ctaLabel: 'Open settlement explorer',
+  ctaSection: 'settlements',
+  href: PUBLIC_PAGES.settlementExplorer,
+} as const

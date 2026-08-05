@@ -152,7 +152,7 @@ useHead({
 }
 
 .about-section {
-  scroll-margin-top: 100px;
+  scroll-margin-top: calc(var(--gok-header-h, 104px) + 1.25rem);
 }
 
 .section-card {

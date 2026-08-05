@@ -16478,30 +16478,71 @@ const PUBLIC_SETTLEMENT_WHERE = {
 let landingStatsCache = { data: null, expiresAt: 0 };
 const LANDING_STATS_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * Distinct counties that have at least one project_location (intervention).
+ * Falls back to settlement.county_id when project_location.county_id is null.
+ */
+async function countCountiesWithInterventions() {
+  const rows = await db.sequelize.query(
+    `
+    SELECT COUNT(*)::int AS counties
+    FROM (
+      SELECT DISTINCT COALESCE(pl.county_id, s.county_id) AS county_id
+      FROM project_location pl
+      INNER JOIN project p ON p.id = pl.project_id
+      LEFT JOIN settlement s ON s.id = pl.settlement_id
+      WHERE COALESCE(pl.county_id, s.county_id) IS NOT NULL
+    ) t
+    `,
+    { type: db.sequelize.QueryTypes.SELECT }
+  );
+  return Number(rows?.[0]?.counties) || 0;
+}
+
 /** GET /api/public/landing/stats – cached hero stats for landing page (no auth) */
 exports.getPublicLandingStats = async (_req, res) => {
   try {
     const now = Date.now();
-    if (landingStatsCache.data && landingStatsCache.expiresAt > now) {
+    if (
+      landingStatsCache.data &&
+      landingStatsCache.expiresAt > now &&
+      typeof landingStatsCache.data.counties === 'number'
+    ) {
       return res.status(200).json({ code: '0000', data: landingStatsCache.data, cached: true });
     }
 
-    const [settlements, population, projects] = await Promise.all([
+    const [settlements, population, projects, counties] = await Promise.all([
       db.models.settlement.count({ where: PUBLIC_SETTLEMENT_WHERE }),
       db.models.settlement.sum('population', { where: PUBLIC_SETTLEMENT_WHERE }),
       db.models.project.count(),
+      countCountiesWithInterventions(),
     ]);
 
     const data = {
       settlements: Number(settlements) || 0,
       population: Number(population) || 0,
       projects: Number(projects) || 0,
+      counties: Number(counties) || 0,
     };
 
     landingStatsCache = { data, expiresAt: now + LANDING_STATS_TTL_MS };
     return res.status(200).json({ code: '0000', data, cached: false });
   } catch (error) {
     console.error('getPublicLandingStats:', error);
+    return res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/** GET /api/public/landing/counties-with-interventions – distinct counties with project locations (no auth) */
+exports.getPublicCountiesWithInterventions = async (_req, res) => {
+  try {
+    const counties = await countCountiesWithInterventions();
+    return res.status(200).json({
+      code: '0000',
+      data: { counties },
+    });
+  } catch (error) {
+    console.error('getPublicCountiesWithInterventions:', error);
     return res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
   }
 };
@@ -16699,9 +16740,7 @@ exports.getPublicRegisterSettlementsMap = async (req, res) => {
     const geometryExpr = includePolygons
       ? 'ST_AsGeoJSON(geom, 8)::json'
       : `CASE WHEN ST_GeometryType(geom) = 'ST_Point' THEN ST_AsGeoJSON(geom, 8)::json ELSE ST_AsGeoJSON(ST_Centroid(geom), 8)::json END`;
-    const propsExpr = includePolygons
-      ? "json_build_object('id', id, 'name', name)"
-      : "json_build_object('id', id)";
+    const propsExpr = "json_build_object('id', id, 'name', name)";
 
     const qry = `
       SELECT row_to_json(fc) AS json_build_object
@@ -16801,6 +16840,119 @@ exports.getPublicRegisterSettlement = async (req, res) => {
     res.status(200).json({ data: row, code: '0000' });
   } catch (error) {
     console.error('getPublicRegisterSettlement:', error);
+    res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+/**
+ * GET /api/public/projects/map – project_location centroids as GeoJSON (no auth).
+ * Query: county_id, subcounty_id, ward_id, search (project title / location_name), limit
+ */
+exports.getPublicProjectsMap = async (req, res) => {
+  try {
+    const countyId = req.query.county_id ? parseInt(req.query.county_id, 10) : null;
+    const subcountyId = req.query.subcounty_id ? parseInt(req.query.subcounty_id, 10) : null;
+    const wardId = req.query.ward_id ? parseInt(req.query.ward_id, 10) : null;
+    const search = (req.query.search || '').toString().trim();
+    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit, 10) || 2000));
+
+    let whereClause = `pl.geom IS NOT NULL AND ST_IsEmpty(pl.geom) = false`;
+    const replacements = { lim: limit };
+
+    if (countyId && !isNaN(countyId)) {
+      whereClause += ' AND pl.county_id = :countyId';
+      replacements.countyId = countyId;
+    }
+    if (subcountyId && !isNaN(subcountyId)) {
+      whereClause += ' AND pl.subcounty_id = :subcountyId';
+      replacements.subcountyId = subcountyId;
+    }
+    if (wardId && !isNaN(wardId)) {
+      whereClause += ' AND pl.ward_id = :wardId';
+      replacements.wardId = wardId;
+    }
+    if (search) {
+      whereClause += ' AND (p.title ILIKE :searchTerm OR pl.location_name ILIKE :searchTerm)';
+      replacements.searchTerm = `%${search}%`;
+    }
+
+    const qry = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               COALESCE(array_to_json(array_agg(f)), '[]'::json) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 CASE
+                   WHEN ST_GeometryType(pl.geom) = 'ST_Point'
+                     THEN ST_AsGeoJSON(pl.geom, 8)::json
+                   ELSE ST_AsGeoJSON(ST_Centroid(pl.geom), 8)::json
+                 END AS geometry,
+                 json_build_object(
+                   'id', pl.id,
+                   'project_id', pl.project_id,
+                   'title', COALESCE(p.title, pl.location_name, 'Project location'),
+                   'location_name', pl.location_name
+                 ) AS properties
+          FROM project_location pl
+          LEFT JOIN project p ON p.id = pl.project_id
+          WHERE ${whereClause}
+          ORDER BY pl.id
+          LIMIT :lim
+        ) AS f
+      ) AS fc
+    `;
+
+    const result_geo = await db.sequelize.query(qry, {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    });
+    const geojson = result_geo[0]?.json_build_object || { type: 'FeatureCollection', features: [] };
+    if (!Array.isArray(geojson.features)) geojson.features = [];
+    res.status(200).json(geojson);
+  } catch (error) {
+    console.error('getPublicProjectsMap:', error);
+    res.status(500).json({ type: 'FeatureCollection', features: [], message: error.message });
+  }
+};
+
+/** GET /api/public/projects/locations/:id – one project_location for map popup (no auth) */
+exports.getPublicProjectLocation = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: 'Invalid id', code: 'INVALID_INPUT' });
+    }
+
+    const row = await db.models.project_location.findOne({
+      where: { id },
+      attributes: [
+        'id',
+        'project_id',
+        'location_name',
+        'location_type',
+        'physical_progress_pct',
+        'county_id',
+        'subcounty_id',
+        'ward_id',
+        'settlement_id',
+      ],
+      include: [
+        { model: db.models.project, as: 'project', attributes: ['id', 'title', 'status'], required: false },
+        { model: db.models.county, as: 'county', attributes: ['id', 'name'], required: false },
+        { model: db.models.subcounty, as: 'subcounty', attributes: ['id', 'name'], required: false },
+        { model: db.models.ward, as: 'ward', attributes: ['id', 'name'], required: false },
+        { model: db.models.settlement, as: 'settlement', attributes: ['id', 'name'], required: false },
+      ],
+    });
+
+    if (!row) {
+      return res.status(404).json({ message: 'Not found', code: 'NOT_FOUND' });
+    }
+    res.status(200).json({ data: row, code: '0000' });
+  } catch (error) {
+    console.error('getPublicProjectLocation:', error);
     res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });
   }
 };
