@@ -130,7 +130,7 @@
             type="button"
             class="gok-header__portal"
             :class="{ 'gok-header__portal--icon': isCompactScreen }"
-            :aria-label="isLoggedIn ? 'Sign out' : 'Portal login'"
+            :aria-label="isLoggedIn ? 'Sign out' : 'Portal'"
             @click="handleLoginOrLogout"
           >
             <Icon
@@ -139,7 +139,7 @@
               width="20"
               height="20"
             />
-            <span v-else>{{ isLoggedIn ? 'Sign out' : 'Portal login' }}</span>
+            <span v-else>{{ isLoggedIn ? 'Sign out' : 'Portal' }}</span>
           </button>
         </div>
       </div>
@@ -190,7 +190,7 @@
         </ul>
         <div class="gok-mobile-nav__foot">
           <button type="button" class="gok-mobile-nav__portal" @click="handleLoginOrLogout">
-            {{ isLoggedIn ? 'Sign out' : 'Portal login' }}
+            {{ isLoggedIn ? 'Sign out' : 'Portal' }}
           </button>
         </div>
       </div>
