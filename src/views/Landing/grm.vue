@@ -1273,7 +1273,8 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 
 .gok-grm__lead {
   margin: 0;
-  max-width: 40rem;
+  max-width: none;
+  width: 100%;
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--gok-muted, #5f6368);

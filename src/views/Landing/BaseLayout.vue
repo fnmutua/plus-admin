@@ -336,7 +336,14 @@ function goSearchHit(hit: SiteSearchHit) {
     return
   }
   if (hit.to) {
-    router.push(hit.to)
+    router.push(hit.to).then(() => {
+      // Route change afterEach also scrolls; reinforce after paint
+      requestAnimationFrame(() => {
+        window.scrollTo(0, 0)
+        document.documentElement.scrollTop = 0
+        document.body.scrollTop = 0
+      })
+    })
     return
   }
   // restore query if nothing to navigate
@@ -361,6 +368,8 @@ const onNav = (item: NavItem) => {
     if (item.to === '/landing' || item.to === '/') {
       if (router.currentRoute.value.path === '/landing' || router.currentRoute.value.path === '/') {
         window.scrollTo({ top: 0, behavior: 'smooth' })
+        document.documentElement.scrollTop = 0
+        document.body.scrollTop = 0
       } else {
         router.push('/landing')
       }

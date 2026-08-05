@@ -583,7 +583,8 @@ const resetForm = () => {
 
 .gok-dr__lead {
   margin: 0;
-  max-width: 40rem;
+  max-width: none;
+  width: 100%;
   font-size: 0.88rem;
   line-height: 1.4;
   color: var(--gok-muted, #5f6368);

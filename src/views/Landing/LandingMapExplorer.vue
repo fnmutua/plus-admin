@@ -1,93 +1,111 @@
 <template>
   <BaseLayout>
-    <div class="map-explorer">
+    <div class="map-explorer" :class="{ 'map-explorer--sidebar-open': sidebarOpen }">
       <aside class="map-explorer__sidebar" :aria-label="`${modeLabel} filters`">
         <div class="map-explorer__sidebar-head">
-          <h1>{{ modeLabel }} explorer</h1>
-          <p>{{ modeBlurb }}</p>
+          <div class="map-explorer__sidebar-titles">
+            <h1>{{ modeLabel }} explorer</h1>
+            <p class="map-explorer__blurb">{{ modeBlurb }}</p>
+          </div>
+          <button
+            type="button"
+            class="map-explorer__toggle"
+            :aria-expanded="sidebarOpen"
+            aria-controls="map-explorer-panel"
+            @click="sidebarOpen = !sidebarOpen"
+          >
+            <Icon :icon="sidebarOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'" width="20" height="20" />
+            <span>{{ sidebarOpen ? 'Hide filters' : 'Show filters' }}</span>
+          </button>
         </div>
 
-        <form class="map-explorer__filters" @submit.prevent="applyFilters">
-          <label class="field">
-            <span>Search</span>
-            <el-input
-              v-model="searchKeyword"
-              clearable
-              :placeholder="isProjects ? 'Project or location name…' : 'Settlement name…'"
-              @keyup.enter="applyFilters"
-            >
-              <template #prefix>
-                <Icon icon="mdi:magnify" width="16" />
-              </template>
-            </el-input>
-          </label>
+        <div
+          id="map-explorer-panel"
+          class="map-explorer__panel"
+          :class="{ 'is-collapsed': isCompact && !sidebarOpen }"
+        >
+          <form class="map-explorer__filters" @submit.prevent="applyFilters">
+            <label class="field">
+              <span>Search</span>
+              <el-input
+                v-model="searchKeyword"
+                clearable
+                :placeholder="isProjects ? 'Project or location name…' : 'Settlement name…'"
+                @keyup.enter="applyFilters"
+              >
+                <template #prefix>
+                  <Icon icon="mdi:magnify" width="16" />
+                </template>
+              </el-input>
+            </label>
 
-          <label class="field">
-            <span>County</span>
-            <el-select
-              v-model="selectedCounty"
-              clearable
-              filterable
-              placeholder="All counties"
-              @change="onCountyChange"
-            >
-              <el-option
-                v-for="c in countyOptions"
-                :key="c.value"
-                :label="c.label"
-                :value="c.value"
-              />
-            </el-select>
-          </label>
+            <label class="field">
+              <span>County</span>
+              <el-select
+                v-model="selectedCounty"
+                clearable
+                filterable
+                placeholder="All counties"
+                @change="onCountyChange"
+              >
+                <el-option
+                  v-for="c in countyOptions"
+                  :key="c.value"
+                  :label="c.label"
+                  :value="c.value"
+                />
+              </el-select>
+            </label>
 
-          <label class="field">
-            <span>Subcounty</span>
-            <el-select
-              v-model="selectedSubcounty"
-              clearable
-              filterable
-              placeholder="All subcounties"
-              :disabled="!selectedCounty"
-              @change="onSubcountyChange"
-            >
-              <el-option
-                v-for="s in subcountyOptions"
-                :key="s.value"
-                :label="s.label"
-                :value="s.value"
-              />
-            </el-select>
-          </label>
+            <label class="field">
+              <span>Subcounty</span>
+              <el-select
+                v-model="selectedSubcounty"
+                clearable
+                filterable
+                placeholder="All subcounties"
+                :disabled="!selectedCounty"
+                @change="onSubcountyChange"
+              >
+                <el-option
+                  v-for="s in subcountyOptions"
+                  :key="s.value"
+                  :label="s.label"
+                  :value="s.value"
+                />
+              </el-select>
+            </label>
 
-          <label class="field">
-            <span>Ward</span>
-            <el-select
-              v-model="selectedWard"
-              clearable
-              filterable
-              placeholder="All wards"
-              :disabled="!selectedSubcounty"
-            >
-              <el-option
-                v-for="w in wardOptions"
-                :key="w.value"
-                :label="w.label"
-                :value="w.value"
-              />
-            </el-select>
-          </label>
+            <label class="field">
+              <span>Ward</span>
+              <el-select
+                v-model="selectedWard"
+                clearable
+                filterable
+                placeholder="All wards"
+                :disabled="!selectedSubcounty"
+              >
+                <el-option
+                  v-for="w in wardOptions"
+                  :key="w.value"
+                  :label="w.label"
+                  :value="w.value"
+                />
+              </el-select>
+            </label>
 
-          <div class="map-explorer__actions">
-            <el-button type="primary" :loading="mapLoading" @click="applyFilters">
-              Update map
-            </el-button>
-            <el-button @click="resetFilters">Reset</el-button>
-          </div>
-        </form>
+            <div class="map-explorer__actions">
+              <el-button type="primary" :loading="mapLoading" @click="applyFilters">
+                Update map
+              </el-button>
+              <el-button @click="resetFilters">Reset</el-button>
+            </div>
+          </form>
 
-        <p class="map-explorer__status" role="status">{{ statusText }}</p>
+          <p class="map-explorer__status" role="status">{{ statusText }}</p>
 
-        <router-link class="map-explorer__back" to="/landing">← Back to home</router-link>
+          <router-link class="map-explorer__back" to="/landing">← Back to home</router-link>
+        </div>
       </aside>
 
       <div class="map-explorer__map-wrap">
@@ -215,6 +233,18 @@ const modeBlurb = computed(() =>
     ? 'Browse intervention project locations on the map. Click a cluster to zoom in, or a marker for details.'
     : 'Browse informal settlements on the map. Click a cluster to zoom in, or a marker for details.'
 )
+
+const isCompact = ref(false)
+/** Filters panel open — always true on desktop; collapsed by default on mobile. */
+const sidebarOpen = ref(true)
+
+const syncCompact = () => {
+  const compact = window.innerWidth <= 900
+  const wasCompact = isCompact.value
+  isCompact.value = compact
+  if (compact && !wasCompact) sidebarOpen.value = false
+  if (!compact) sidebarOpen.value = true
+}
 
 useHead({
   title: computed(() => `${modeLabel.value} explorer | ${INSTITUTION.systemName}`),
@@ -580,6 +610,8 @@ watch(isDark, () => {
 })
 
 onMounted(async () => {
+  syncCompact()
+  window.addEventListener('resize', syncCompact)
   hydrateSearchFromRoute()
   await loadCounties()
   try {
@@ -593,6 +625,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', syncCompact)
   clearMapMarkers()
 })
 </script>
@@ -615,17 +648,54 @@ onUnmounted(() => {
   overflow: auto;
 }
 
-.map-explorer__sidebar-head h1 {
-  margin: 0 0 0.4rem;
+.map-explorer__sidebar-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.map-explorer__sidebar-titles h1 {
+  margin: 0 0 0.35rem;
   font-size: 1.25rem;
   color: var(--gok-charcoal, #1f2933);
 }
 
-.map-explorer__sidebar-head p {
+.map-explorer__blurb {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.45;
   color: var(--gok-muted, #5f6b66);
+}
+
+.map-explorer__toggle {
+  display: none;
+  appearance: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--gok-border, #e2e6e4);
+  border-radius: 8px;
+  background: var(--gok-grey, #f5f7f6);
+  color: var(--gok-charcoal, #1f2933);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.map-explorer__toggle:hover {
+  border-color: var(--gok-green, #00843d);
+  color: var(--gok-green, #00843d);
+}
+
+.map-explorer__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
 }
 
 .map-explorer__filters {
@@ -703,8 +773,56 @@ onUnmounted(() => {
     min-height: auto;
   }
 
+  .map-explorer__sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--gok-border, #e2e6e4);
+    padding: 0.85rem 1rem;
+    gap: 0.65rem;
+    overflow: visible;
+  }
+
+  .map-explorer__sidebar-head {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .map-explorer__sidebar-titles h1 {
+    font-size: 1.1rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .map-explorer__blurb {
+    font-size: 0.85rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .map-explorer__toggle {
+    display: inline-flex;
+  }
+
+  .map-explorer__panel {
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.2s ease;
+    max-height: 70vh;
+    opacity: 1;
+  }
+
+  .map-explorer__panel.is-collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    pointer-events: none;
+  }
+
   .map-explorer__map {
-    min-height: 65vh;
+    min-height: 70vh;
+  }
+
+  .map-explorer--sidebar-open .map-explorer__map {
+    min-height: 55vh;
   }
 }
 </style>

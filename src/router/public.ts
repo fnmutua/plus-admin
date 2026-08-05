@@ -1,9 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import type { App } from 'vue'
+import { nextTick } from 'vue'
 import { publicRoutes } from './publicRoutes'
 import {
   consumePendingLandingSection,
+  scrollLandingPageToTop,
+  shouldSuppressLandingTopScroll,
 } from '@/views/Landing/utils/landingScroll'
 
 const router = createRouter({
@@ -11,7 +14,8 @@ const router = createRouter({
   strict: true,
   routes: publicRoutes as RouteRecordRaw[],
   scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) return savedPosition
+    // In-page navigation (side-nav section links) — leave scroll alone
+    if (to.path === from.path) return false
 
     const section = consumePendingLandingSection()
     if (section && (to.path === '/landing' || to.path === '/')) {
@@ -21,17 +25,21 @@ const router = createRouter({
           if (el) {
             resolve({ el, top: 112, behavior: 'smooth' })
           } else {
-            // Let BaseLayout retry — don't yank to top
             resolve(false)
           }
         }, 80)
       })
     }
 
-    // Same-route navigations (e.g. in-page section scroll) — don't force top
-    if (to.path === from.path) return false
+    if (savedPosition) return savedPosition
 
-    return { left: 0, top: 0 }
+    // New route (footer / policy / cross-page links) → always top
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        scrollLandingPageToTop('auto')
+        resolve({ left: 0, top: 0 })
+      })
+    })
   },
 })
 
@@ -50,6 +58,18 @@ router.beforeEach((to, _from, next) => {
     return
   }
   next()
+})
+
+router.afterEach((to, from) => {
+  if (to.path === from.path) return
+  // Landing in-page section jumps set this flag
+  if (shouldSuppressLandingTopScroll()) return
+
+  nextTick(() => {
+    scrollLandingPageToTop('auto')
+    setTimeout(() => scrollLandingPageToTop('auto'), 0)
+    setTimeout(() => scrollLandingPageToTop('auto'), 80)
+  })
 })
 
 export const setupPublicRouter = (app: App<Element>) => {

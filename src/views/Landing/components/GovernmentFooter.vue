@@ -87,8 +87,16 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
 
 <style scoped>
 .gok-footer {
-  background: var(--gok-charcoal);
-  color: rgba(255, 255, 255, 0.92);
+  /* Stay charcoal in light and dark — --gok-charcoal flips in dark mode */
+  --footer-bg: #212121;
+  --footer-bg-bottom: #1a1a1a;
+  --footer-text: rgba(255, 255, 255, 0.92);
+  --footer-muted: rgba(255, 255, 255, 0.78);
+  --footer-link: rgba(255, 255, 255, 0.9);
+  --footer-border: rgba(255, 255, 255, 0.15);
+
+  background: var(--footer-bg);
+  color: var(--footer-text);
   margin-top: auto;
 }
 
@@ -118,6 +126,7 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
 .gok-footer__name {
   margin: 0 0 0.25rem;
   font-size: 1.2rem;
+  color: var(--footer-text);
 }
 
 .gok-footer__full,
@@ -125,7 +134,7 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--footer-muted);
 }
 
 .gok-footer h3 {
@@ -133,6 +142,7 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
   font-size: 0.85rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: #fff;
 }
 
 .gok-footer ul {
@@ -143,11 +153,17 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
   flex-direction: column;
   gap: 0.45rem;
   font-size: 0.92rem;
+  color: var(--footer-muted);
+}
+
+.gok-footer li {
+  color: var(--footer-muted);
 }
 
 .gok-footer a,
+.gok-footer :deep(a),
 .gok-footer__btn {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--footer-link) !important;
   text-decoration: none;
   background: none;
   border: 0;
@@ -158,14 +174,18 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
 }
 
 .gok-footer a:hover,
+.gok-footer :deep(a:hover),
 .gok-footer__btn:hover {
+  color: #fff !important;
   text-decoration: underline;
 }
 
 .gok-footer__bottom {
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--footer-bg-bottom);
+  border-top: 1px solid var(--footer-border);
   padding: 1rem 0 1.25rem;
   font-size: 0.85rem;
+  color: var(--footer-muted);
 }
 
 .gok-footer__bottom-inner {
@@ -177,10 +197,11 @@ function onServiceClick(l: (typeof FOOTER.services)[number]) {
 
 .gok-footer__bottom p {
   margin: 0;
+  color: var(--footer-muted);
 }
 
 .gok-footer__attr {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 @media (max-width: 960px) {

@@ -193,8 +193,8 @@ onMounted(() => {
 
 .gok-settlements-cta__btn {
   appearance: none;
-  border: 1px solid var(--gok-border);
-  background: var(--gok-charcoal);
+  border: 1px solid var(--gok-green, #00843d);
+  background: var(--gok-green, #00843d);
   color: #fff;
   border-radius: var(--gok-radius);
   padding: 0.7rem 1.15rem;
@@ -205,7 +205,13 @@ onMounted(() => {
 }
 
 .gok-settlements-cta__btn:hover {
-  background: var(--gok-green-dark);
-  border-color: var(--gok-green-dark);
+  background: var(--gok-green-dark, #006b32);
+  border-color: var(--gok-green-dark, #006b32);
+  color: #fff;
+}
+
+.gok-settlements-cta__btn:focus-visible {
+  outline: 3px solid var(--gok-green, #00843d);
+  outline-offset: 2px;
 }
 </style>
