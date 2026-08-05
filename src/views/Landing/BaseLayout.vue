@@ -6,14 +6,37 @@
     <a class="gok-skip" href="#main-content">Skip to main content</a>
 
     <header class="gok-header" :class="{ 'gok-header--compact': isScrolled }" role="banner">
-      <div class="gok-header__inner">
+      <div class="gok-header__inner" :class="{ 'gok-header__inner--mobile': isCompactScreen }">
+        <!-- Mobile: 2 buttons left -->
+        <div v-if="isCompactScreen" class="gok-header__actions gok-header__actions--start">
+          <button
+            type="button"
+            class="gok-header__menu-btn"
+            :aria-expanded="menuOpen"
+            aria-controls="gok-mobile-nav"
+            aria-label="Open menu"
+            @click="toggleMenu"
+          >
+            <Icon :icon="menuOpen ? 'mdi:close' : 'mdi:menu'" width="22" height="22" />
+          </button>
+          <button
+            type="button"
+            class="gok-header__theme"
+            :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+            @click="toggleDark"
+          >
+            <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" width="18" height="18" />
+          </button>
+        </div>
+
         <router-link to="/landing" class="gok-header__brand" aria-label="KeSMIS home">
           <img
             :src="headerLogoSrc"
             alt="KeSMIS"
             class="gok-header__logo"
-            width="340"
-            height="68"
+            :class="{ 'gok-header__logo--mark': isCompactScreen }"
+            :width="isCompactScreen ? 48 : 340"
+            :height="isCompactScreen ? 48 : 68"
           />
         </router-link>
 
@@ -32,7 +55,7 @@
           </ul>
         </nav>
 
-        <div class="gok-header__actions">
+        <div class="gok-header__actions" :class="{ 'gok-header__actions--end': isCompactScreen }">
           <div v-if="!isCompactScreen" class="gok-header__search-wrap">
             <form
               class="gok-header__search"
@@ -80,7 +103,21 @@
             </p>
           </div>
 
+          <!-- Mobile search toggle (4th header button) -->
           <button
+            v-if="isCompactScreen"
+            type="button"
+            class="gok-header__search-btn"
+            :aria-expanded="mobileSearchOpen"
+            aria-controls="gok-mobile-search"
+            aria-label="Search site"
+            @click="toggleMobileSearch"
+          >
+            <Icon :icon="mobileSearchOpen ? 'mdi:close' : 'mdi:magnify'" width="20" height="20" />
+          </button>
+
+          <button
+            v-if="!isCompactScreen"
             type="button"
             class="gok-header__theme"
             :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
@@ -104,19 +141,39 @@
             />
             <span v-else>{{ isLoggedIn ? 'Sign out' : 'Portal login' }}</span>
           </button>
-
-          <button
-            v-if="isCompactScreen"
-            type="button"
-            class="gok-header__menu-btn"
-            :aria-expanded="menuOpen"
-            aria-controls="gok-mobile-nav"
-            aria-label="Open menu"
-            @click="menuOpen = !menuOpen"
-          >
-            <Icon :icon="menuOpen ? 'mdi:close' : 'mdi:menu'" width="22" height="22" />
-          </button>
         </div>
+      </div>
+
+      <!-- Mobile search panel -->
+      <div
+        v-if="isCompactScreen && mobileSearchOpen"
+        id="gok-mobile-search"
+        class="gok-mobile-search"
+      >
+        <form class="gok-mobile-search__form" role="search" @submit.prevent="onHeaderSearch">
+          <label class="sr-only" for="gok-header-search-mobile">Search site</label>
+          <input
+            id="gok-header-search-mobile"
+            v-model="searchQuery"
+            type="search"
+            placeholder="Search site…"
+            autocomplete="off"
+            @keydown.escape="closeMobileSearch"
+          />
+          <button type="submit" class="gok-mobile-search__go">Search</button>
+        </form>
+        <ul
+          v-if="searchQuery.trim() && searchHits.length"
+          class="gok-mobile-search__results"
+          role="listbox"
+        >
+          <li v-for="hit in searchHits" :key="hit.id" role="option">
+            <button type="button" @click="goSearchHit(hit)">
+              <span class="gok-header__search-kind">{{ hit.kind }}</span>
+              <span class="gok-header__search-title">{{ hit.title }}</span>
+            </button>
+          </li>
+        </ul>
       </div>
 
       <div
@@ -126,16 +183,16 @@
         role="dialog"
         aria-label="Mobile navigation"
       >
-        <ul>
+        <ul class="gok-mobile-nav__grid">
           <li v-for="item in MAIN_NAV" :key="item.id">
             <button type="button" @click="onNav(item)">{{ item.label }}</button>
           </li>
-          <li>
-            <button type="button" @click="handleLoginOrLogout">
-              {{ isLoggedIn ? 'Sign out' : 'Portal login' }}
-            </button>
-          </li>
         </ul>
+        <div class="gok-mobile-nav__foot">
+          <button type="button" class="gok-mobile-nav__portal" @click="handleLoginOrLogout">
+            {{ isLoggedIn ? 'Sign out' : 'Portal login' }}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -185,12 +242,18 @@ const appStore = useAppStoreWithOut()
 const dictStore = useDictStoreWithOut()
 const localeStore = useLocaleStoreWithOut()
 
-const COMPACT_BREAKPOINT = 960
+const COMPACT_BREAKPOINT = 1020
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1600)
 const isCompactScreen = computed(() => windowWidth.value <= COMPACT_BREAKPOINT)
 const menuOpen = ref(false)
+const mobileSearchOpen = ref(false)
 const isDark = computed(() => appStore.getIsDark)
-const headerLogoSrc = computed(() => (isDark.value ? INSTITUTION.logoSrcWhite : INSTITUTION.logoSrc))
+const headerLogoSrc = computed(() => {
+  if (isCompactScreen.value) {
+    return isDark.value ? INSTITUTION.logoMarkSrcWhite : INSTITUTION.logoMarkSrc
+  }
+  return isDark.value ? INSTITUTION.logoSrcWhite : INSTITUTION.logoSrc
+})
 const isScrolled = ref(false)
 const activeIndex = ref('home')
 const searchQuery = ref('')
@@ -229,6 +292,20 @@ function syncActiveFromRoute(path = route.path) {
 
 function closeSearch() {
   searchOpen.value = false
+}
+
+function closeMobileSearch() {
+  mobileSearchOpen.value = false
+}
+
+function toggleMobileSearch() {
+  mobileSearchOpen.value = !mobileSearchOpen.value
+  if (mobileSearchOpen.value) menuOpen.value = false
+}
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value
+  if (menuOpen.value) mobileSearchOpen.value = false
 }
 
 const prefersDarkQuery =
@@ -280,7 +357,10 @@ const handleScroll = () => {
 
 function handleResize() {
   windowWidth.value = window.innerWidth
-  if (windowWidth.value > COMPACT_BREAKPOINT && menuOpen.value) menuOpen.value = false
+  if (windowWidth.value > COMPACT_BREAKPOINT) {
+    if (menuOpen.value) menuOpen.value = false
+    if (mobileSearchOpen.value) mobileSearchOpen.value = false
+  }
 }
 
 watch(
@@ -329,6 +409,7 @@ const scrollToSection = async (sectionId: string) => {
 
 function goSearchHit(hit: SiteSearchHit) {
   searchOpen.value = false
+  mobileSearchOpen.value = false
   const q = searchQuery.value
   searchQuery.value = ''
   if (hit.section) {
@@ -476,6 +557,32 @@ defineExpose({ scrollToSection })
   box-sizing: border-box;
 }
 
+.gok-header__inner--mobile {
+  gap: 0.5rem;
+}
+
+.gok-header__inner--mobile .gok-header__brand {
+  margin-right: 0;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.gok-header__inner--mobile .gok-header__actions--start,
+.gok-header__inner--mobile .gok-header__actions--end {
+  flex: 0 0 auto;
+  margin-left: 0;
+  width: 5.2rem;
+  gap: 0.35rem;
+}
+
+.gok-header__inner--mobile .gok-header__actions--start {
+  justify-content: flex-start;
+}
+
+.gok-header__inner--mobile .gok-header__actions--end {
+  justify-content: flex-end;
+}
+
 .gok-header--compact .gok-header__inner {
   height: 88px;
   min-height: 88px;
@@ -504,9 +611,23 @@ defineExpose({ scrollToSection })
   background: transparent;
 }
 
+.gok-header__logo--mark {
+  width: 44px;
+  height: 44px;
+  max-width: 44px;
+  object-fit: contain;
+  object-position: center;
+}
+
 .gok-header--compact .gok-header__logo {
   height: 56px;
   max-width: min(280px, 52vw);
+}
+
+.gok-header--compact .gok-header__logo--mark {
+  width: 40px;
+  height: 40px;
+  max-width: 40px;
 }
 
 .gok-header__nav {
@@ -645,7 +766,8 @@ defineExpose({ scrollToSection })
 }
 
 .gok-header__theme,
-.gok-header__menu-btn {
+.gok-header__menu-btn,
+.gok-header__search-btn {
   appearance: none;
   border: 1px solid var(--gok-border);
   background: var(--gok-white);
@@ -657,6 +779,67 @@ defineExpose({ scrollToSection })
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.gok-mobile-search {
+  border-top: 1px solid var(--gok-border);
+  background: var(--gok-white);
+  padding: 0.65rem clamp(1rem, 2.5vw, 2rem) 0.85rem;
+}
+
+.gok-mobile-search__form {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.gok-mobile-search__form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--gok-border);
+  border-radius: 6px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-size: 0.95rem;
+  background: var(--gok-grey);
+  color: var(--gok-nav, #333333);
+}
+
+.gok-mobile-search__go {
+  appearance: none;
+  border: 0;
+  background: var(--gok-green);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gok-mobile-search__results {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.gok-mobile-search__results button {
+  width: 100%;
+  appearance: none;
+  border: 0;
+  background: var(--gok-grey, #f5f7f6);
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  gap: 0.1rem;
+  color: var(--gok-charcoal, #212121);
+  font: inherit;
 }
 
 .gok-header__portal {
@@ -690,32 +873,60 @@ defineExpose({ scrollToSection })
 .gok-mobile-nav {
   border-top: 1px solid var(--gok-border);
   background: var(--gok-white);
-  padding: 0.5rem clamp(1rem, 2.5vw, 2rem) 1rem;
+  padding: 0.75rem clamp(1rem, 2.5vw, 2rem) 1rem;
 }
 
-.gok-mobile-nav ul {
+.gok-mobile-nav__grid {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
-.gok-mobile-nav button {
+.gok-mobile-nav__grid button {
   width: 100%;
-  text-align: left;
+  text-align: center;
   appearance: none;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--gok-border);
+  background: var(--gok-grey, #f5f7f6);
   color: var(--gok-nav, #333333);
   font: inherit;
-  font-size: 1.05rem;
-  font-weight: 600;
-  padding: 0.85rem 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  padding: 0.85rem 0.5rem;
+  border-radius: 8px;
   cursor: pointer;
-  border-bottom: 1px solid var(--gok-border);
+  line-height: 1.25;
 }
 
-.gok-mobile-nav button:hover {
+.gok-mobile-nav__grid button:hover {
   color: var(--gok-green);
+  border-color: var(--gok-green);
+  background: var(--gok-green-soft, #e8f5ee);
+}
+
+.gok-mobile-nav__foot {
+  margin-top: 0.65rem;
+}
+
+.gok-mobile-nav__portal {
+  width: 100%;
+  appearance: none;
+  border: 0;
+  background: var(--gok-green);
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.85rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.gok-mobile-nav__portal:hover {
+  background: var(--gok-green-dark);
 }
 
 .gok-main {

@@ -3,20 +3,49 @@
     <div class="map-explorer" :class="{ 'map-explorer--sidebar-open': sidebarOpen }">
       <aside class="map-explorer__sidebar" :aria-label="`${modeLabel} filters`">
         <div class="map-explorer__sidebar-head">
+          <div
+            class="map-explorer__tabs"
+            role="tablist"
+            aria-label="Explorer type"
+          >
+            <router-link
+              class="map-explorer__tab"
+              :class="{ 'is-active': !isProjects }"
+              :to="PUBLIC_PAGES.settlementExplorer"
+              role="tab"
+              :aria-selected="!isProjects"
+            >
+              Settlements
+            </router-link>
+            <router-link
+              class="map-explorer__tab"
+              :class="{ 'is-active': isProjects }"
+              :to="PUBLIC_PAGES.projectExplorer"
+              role="tab"
+              :aria-selected="isProjects"
+            >
+              Projects
+            </router-link>
+          </div>
           <div class="map-explorer__sidebar-titles">
-            <h1>{{ modeLabel }} explorer</h1>
             <p class="map-explorer__blurb">{{ modeBlurb }}</p>
           </div>
-          <button
-            type="button"
-            class="map-explorer__toggle"
-            :aria-expanded="sidebarOpen"
-            aria-controls="map-explorer-panel"
-            @click="sidebarOpen = !sidebarOpen"
-          >
-            <Icon :icon="sidebarOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'" width="20" height="20" />
-            <span>{{ sidebarOpen ? 'Hide filters' : 'Show filters' }}</span>
-          </button>
+          <div class="map-explorer__toolbar" role="group" aria-label="Map navigation">
+            <router-link class="map-explorer__back-btn" to="/landing" aria-label="Back to home">
+              <Icon icon="mdi:chevron-left" width="20" height="20" aria-hidden="true" />
+              <span>Back</span>
+            </router-link>
+            <button
+              type="button"
+              class="map-explorer__toggle"
+              :aria-expanded="sidebarOpen"
+              aria-controls="map-explorer-panel"
+              @click="sidebarOpen = !sidebarOpen"
+            >
+              <Icon :icon="sidebarOpen ? 'mdi:chevron-up' : 'mdi:chevron-down'" width="20" height="20" />
+              <span>{{ sidebarOpen ? 'Hide filters' : 'Show filters' }}</span>
+            </button>
+          </div>
         </div>
 
         <div
@@ -246,7 +275,7 @@ import {
   getPublicRegisterSubcounties,
   getPublicRegisterWards,
 } from '@/api/register-public'
-import { INSTITUTION } from './config/landing.config'
+import { INSTITUTION, PUBLIC_PAGES } from './config/landing.config'
 import { LANDING_DARK_MAP_STYLES } from './utils/mapStyles'
 
 type ExplorerMode = 'settlements' | 'projects'
@@ -601,17 +630,26 @@ function fitToMarkers() {
     if (list.length === 1) {
       map.setCenter(list[0].position)
       map.setZoom(12)
+      mapCenter.value = { ...list[0].position }
+      mapZoom.value = 12
       return
     }
     const bounds = new google.maps.LatLngBounds()
     list.forEach((m) => bounds.extend(m.position))
     map.fitBounds(bounds, 48)
+    // Keep Vue bindings in sync after fit settles
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      const c = map.getCenter()
+      const z = map.getZoom()
+      if (c) mapCenter.value = { lat: c.lat(), lng: c.lng() }
+      if (typeof z === 'number') mapZoom.value = z
+    })
   } catch (e) {
     console.warn('fitToMarkers skipped', e)
   }
 }
 
-function syncMarkersToMap() {
+function syncMarkersToMap(opts: { fit?: boolean } = {}) {
   const map = getGoogleMap()
   if (!map || !window.google?.maps || !mapReady.value) return
 
@@ -626,7 +664,20 @@ function syncMarkersToMap() {
     return marker
   })
   clusterer = new MarkerClusterer({ map, markers: gMarkers })
-  fitToMarkers()
+  if (opts.fit !== false) fitToMarkers()
+}
+
+function captureMapViewport() {
+  const map = getGoogleMap()
+  if (!map) return
+  try {
+    const c = map.getCenter()
+    const z = map.getZoom()
+    if (c) mapCenter.value = { lat: c.lat(), lng: c.lng() }
+    if (typeof z === 'number') mapZoom.value = z
+  } catch {
+    /* ignore */
+  }
 }
 
 function applyMapTheme() {
@@ -749,14 +800,15 @@ function onMapIdle() {
     /* ignore */
   }
   applyMapTheme()
+  captureMapViewport()
   if (!mapReady.value) {
     mapReady.value = true
-    syncMarkersToMap()
+    syncMarkersToMap({ fit: true })
     schedulePolygonLoad()
     return
   }
   if (!gMarkers.length && markers.value.length) {
-    syncMarkersToMap()
+    syncMarkersToMap({ fit: false })
   }
   schedulePolygonLoad()
 }
@@ -808,9 +860,11 @@ async function onSubcountyChange() {
   }
 }
 
-async function loadMapData() {
+async function loadMapData(opts: { fit?: boolean; quiet?: boolean } = {}) {
   const seq = ++loadSeq
-  mapLoading.value = true
+  const quiet = opts.quiet === true
+  const shouldFit = opts.fit !== false
+  if (!quiet) mapLoading.value = true
   try {
     const searchTerm = searchKeyword.value?.trim() || ''
     const params = {
@@ -829,7 +883,19 @@ async function loadMapData() {
         ? fc
         : { type: 'FeatureCollection', features: fc?.features ?? [] }
     await nextTick()
-    syncMarkersToMap()
+    syncMarkersToMap({ fit: shouldFit })
+    if (!shouldFit) {
+      // Re-assert preserved viewport so Vue Map props don't drift
+      const map = getGoogleMap()
+      if (map) {
+        try {
+          map.setCenter(mapCenter.value)
+          map.setZoom(mapZoom.value)
+        } catch {
+          /* ignore */
+        }
+      }
+    }
   } catch (e) {
     if (seq !== loadSeq) return
     console.error(e)
@@ -841,12 +907,12 @@ async function loadMapData() {
         : 'Failed to load settlements on the map'
     )
   } finally {
-    if (seq === loadSeq) mapLoading.value = false
+    if (seq === loadSeq && !quiet) mapLoading.value = false
   }
 }
 
 function applyFilters() {
-  loadMapData()
+  loadMapData({ fit: true })
   schedulePolygonLoad()
 }
 
@@ -861,7 +927,16 @@ function resetFilters() {
   mapZoom.value = MAP_INITIAL_ZOOM
   closePopup()
   clearSettlementPolygons()
-  loadMapData()
+  const map = getGoogleMap()
+  if (map) {
+    try {
+      map.setCenter(MAP_INITIAL_CENTER)
+      map.setZoom(MAP_INITIAL_ZOOM)
+    } catch {
+      /* ignore */
+    }
+  }
+  loadMapData({ fit: false })
 }
 
 function closePopup() {
@@ -920,8 +995,11 @@ watch(mode, () => {
   wardOptions.value = []
   searchKeyword.value = ''
   clearSettlementPolygons()
+  // Keep the same camera so Settlements ↔ Projects doesn't jump/flicker
+  captureMapViewport()
   hydrateSearchFromRoute()
-  loadMapData()
+  loadMapData({ fit: false, quiet: true })
+  schedulePolygonLoad()
 })
 
 watch(isDark, () => {
@@ -977,6 +1055,40 @@ onUnmounted(() => {
   gap: 0.35rem;
 }
 
+.map-explorer__tabs {
+  display: flex;
+  width: 100%;
+  padding: 0.2rem;
+  gap: 0.2rem;
+  border-radius: 10px;
+  background: var(--gok-grey, #f5f7f6);
+  border: 1px solid var(--gok-border, #e2e6e4);
+}
+
+.map-explorer__tab {
+  flex: 1 1 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--gok-muted, #5f6b66);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.map-explorer__tab:hover {
+  color: var(--gok-charcoal, #1f2933);
+}
+
+.map-explorer__tab.is-active {
+  background: var(--gok-green, #00843d);
+  color: #fff;
+}
+
 .map-explorer__sidebar-titles h1 {
   margin: 0 0 0.35rem;
   font-size: 1.25rem;
@@ -1007,6 +1119,14 @@ onUnmounted(() => {
   font-size: 0.85rem;
   font-weight: 650;
   cursor: pointer;
+}
+
+.map-explorer__toolbar {
+  display: none;
+}
+
+.map-explorer__back-btn {
+  display: none;
 }
 
 .map-explorer__toggle:hover {
@@ -1202,8 +1322,55 @@ onUnmounted(() => {
     overflow: hidden;
   }
 
+  .map-explorer__toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.45rem;
+  }
+
+  .map-explorer__back-btn,
   .map-explorer__toggle {
     display: inline-flex;
+    appearance: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    margin-top: 0;
+    padding: 0.55rem 0.5rem;
+    border: 1px solid var(--gok-border, #e2e6e4);
+    border-radius: 8px;
+    background: var(--gok-grey, #f5f7f6);
+    color: var(--gok-charcoal, #1f2933);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 650;
+    text-decoration: none;
+    line-height: 1.1;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+
+  .map-explorer__back-btn {
+    flex: 1 1 33.333%;
+    min-width: 0;
+  }
+
+  .map-explorer__toggle {
+    flex: 2 1 66.666%;
+    min-width: 0;
+    width: auto;
+  }
+
+  .map-explorer__back-btn:hover,
+  .map-explorer__toggle:hover {
+    border-color: var(--gok-green, #00843d);
+    color: var(--gok-green, #00843d);
+  }
+
+  .map-explorer__panel .map-explorer__back {
+    display: none;
   }
 
   .map-explorer__panel {

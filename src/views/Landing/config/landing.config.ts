@@ -17,6 +17,10 @@ export const INSTITUTION = {
   address: 'Nairobi, Kenya',
   logoSrc: '/landing/kesmis-exact-logo.png',
   logoSrcWhite: '/landing/kesmis-exact-logo-light.png',
+  /** Icon-only mark (no crest / no wordmark) — mobile header & compact UI */
+  logoMarkSrc: '/landing/kesmis-mark.svg',
+  logoMarkSrcWhite: '/landing/kesmis-mark-white.svg',
+  logoMarkPng: '/landing/kesmis-mark.png',
   crestSrc: '/gok.png',
   crestSrcWhite: '/gok-white.png',
   /** Default / OG fallback */
