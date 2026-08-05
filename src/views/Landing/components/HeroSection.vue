@@ -10,7 +10,7 @@
           class="gok-hero__img"
           :class="{ 'is-active': i === activeSlide }"
           :width="1600"
-          :height="1066"
+          :height="900"
           :fetchpriority="i === 0 ? 'high' : 'low'"
           :loading="i === 0 ? 'eager' : 'lazy'"
           decoding="async"

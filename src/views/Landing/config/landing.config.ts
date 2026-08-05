@@ -19,18 +19,19 @@ export const INSTITUTION = {
   logoSrcWhite: '/landing/kesmis-exact-logo-light.png',
   crestSrc: '/gok.png',
   crestSrcWhite: '/gok-white.png',
-  /** Default / OG fallback — original settlement + skyline hero */
-  heroImage: '/landing/hero/hero-00-settlement-skyline.webp',
+  /** Default / OG fallback */
+  heroImage: '/landing/hero/hero-01-street.webp',
 } as const
 
-/** Rotating full-bleed hero backgrounds (compressed WebP). */
+/** Rotating full-bleed hero backgrounds (compressed WebP, ~1600×900). */
 export const HERO_IMAGES = [
-  '/landing/hero/hero-00-settlement-skyline.webp',
-  '/landing/hero/hero-01-road.webp',
-  '/landing/hero/hero-02-community.webp',
+  '/landing/hero/hero-01-street.webp',
   '/landing/hero/hero-03-aerial-roads.webp',
+  '/landing/hero/hero-06-hillside-sky.webp',
+  '/landing/hero/hero-02-hillside.webp',
+  '/landing/hero/hero-07-rooftops.webp',
+  '/landing/hero/hero-05-settlement-yard.webp',
   '/landing/hero/hero-04-aerial-loop.webp',
-  '/landing/hero/hero-05-streetlights.webp',
 ] as const
 
 /** Primary nav — path, home section, or authenticated portal destination */
