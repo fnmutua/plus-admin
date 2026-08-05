@@ -116,6 +116,8 @@ require('./server/app/routes/user.routes')(app)
 // Large JSON list payloads (settlements, projects, etc.) — gzip only, no response caching.
 app.use('/api/v1/data', require('./server/app/middleware/staticAssets').createCompressionMiddleware())
 app.use('/api/v1/hh', require('./server/app/middleware/staticAssets').createCompressionMiddleware())
+// Public landing map GeoJSON (points + settlement polygons) — gzip only.
+app.use('/api/public', require('./server/app/middleware/staticAssets').createCompressionMiddleware())
 require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/summary.routes')(app)
 

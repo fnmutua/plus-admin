@@ -140,6 +140,18 @@
               −
             </button>
           </div>
+          <div class="map-explorer__locate" role="group" aria-label="Location">
+            <button
+              type="button"
+              class="map-explorer__ctrl-btn map-explorer__ctrl-btn--icon"
+              aria-label="Locate me"
+              title="Locate me"
+              :disabled="locatingMe"
+              @click="locateMe"
+            >
+              <Icon icon="mdi:crosshairs-gps" width="18" height="18" />
+            </button>
+          </div>
         </div>
 
         <GoogleMap
@@ -262,8 +274,8 @@ const isProjects = computed(() => mode.value === 'projects')
 const modeLabel = computed(() => (isProjects.value ? 'Project' : 'Settlement'))
 const modeBlurb = computed(() =>
   isProjects.value
-    ? 'Browse intervention project locations on the map. Click a cluster to zoom in, or a marker for details.'
-    : 'Browse informal settlements on the map. Zoom in to see settlement boundaries; click a marker or polygon for details.'
+    ? 'Browse projects on the map. Click a marker for details.'
+    : 'Browse settlements on the map. Zoom in for boundaries.'
 )
 
 const isCompact = ref(false)
@@ -322,6 +334,9 @@ let gMarkers: google.maps.Marker[] = []
 let gPolygons: Array<google.maps.Polygon | google.maps.Polyline> = []
 let polygonLoadSeq = 0
 let polygonFetchTimer: ReturnType<typeof setTimeout> | null = null
+let userLocationMarker: google.maps.Marker | null = null
+const locatingMe = ref(false)
+const LOCATE_ZOOM = 14
 
 /** Show settlement boundary polygons at this zoom and above */
 const MIN_ZOOM_FOR_POLYGONS = 12
@@ -652,6 +667,79 @@ function zoomBy(delta: number) {
   }
 }
 
+function clearUserLocationMarker() {
+  if (!userLocationMarker) return
+  try {
+    userLocationMarker.setMap(null)
+  } catch {
+    /* ignore */
+  }
+  userLocationMarker = null
+}
+
+function showUserLocationMarker(pos: google.maps.LatLngLiteral) {
+  const map = getGoogleMap()
+  if (!map || !window.google?.maps) return
+  if (userLocationMarker) {
+    userLocationMarker.setPosition(pos)
+    userLocationMarker.setMap(map)
+    return
+  }
+  userLocationMarker = new google.maps.Marker({
+    map,
+    position: pos,
+    clickable: false,
+    zIndex: 10,
+    title: 'Your location',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 8,
+      fillColor: '#4285F4',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+    },
+  })
+}
+
+function locateMe() {
+  if (!navigator.geolocation) {
+    ElMessage.warning('Geolocation is not supported in this browser.')
+    return
+  }
+  const map = getGoogleMap()
+  if (!map) return
+  locatingMe.value = true
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      locatingMe.value = false
+      const pos = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }
+      mapCenter.value = pos
+      mapZoom.value = LOCATE_ZOOM
+      try {
+        map.panTo(pos)
+        map.setZoom(LOCATE_ZOOM)
+      } catch (e) {
+        console.warn('locateMe pan skipped', e)
+      }
+      showUserLocationMarker(pos)
+      schedulePolygonLoad()
+    },
+    (err) => {
+      locatingMe.value = false
+      if (err.code === err.PERMISSION_DENIED) {
+        ElMessage.error('Location permission denied. Allow location access to use Locate me.')
+      } else {
+        ElMessage.error('Could not get your location. Try again.')
+      }
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  )
+}
+
 function onMapIdle() {
   const map = getGoogleMap()
   if (!map) return
@@ -861,6 +949,7 @@ onUnmounted(() => {
   if (polygonFetchTimer) clearTimeout(polygonFetchTimer)
   clearSettlementPolygons()
   clearMapMarkers()
+  clearUserLocationMarker()
 })
 </script>
 
@@ -996,7 +1085,8 @@ onUnmounted(() => {
 }
 
 .map-explorer__basemap,
-.map-explorer__zoom {
+.map-explorer__zoom,
+.map-explorer__locate {
   display: flex;
   pointer-events: auto;
   overflow: hidden;
@@ -1048,6 +1138,17 @@ onUnmounted(() => {
 .map-explorer__ctrl-btn.is-active {
   background: var(--gok-green, #00843d);
   color: #fff;
+}
+
+.map-explorer__ctrl-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.map-explorer__locate .map-explorer__ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .map-explorer__map {
