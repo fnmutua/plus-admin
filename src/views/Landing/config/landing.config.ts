@@ -219,6 +219,14 @@ export const PUBLICATIONS = [
     fileType: 'Web',
     to: '/privacy',
   },
+  {
+    id: 'terms-of-data-use',
+    title: 'Terms of data use',
+    category: 'Policy',
+    date: '2026-08-05',
+    fileType: 'Web',
+    to: '/terms-of-data-use',
+  },
 ] as const
 
 /**
@@ -282,6 +290,7 @@ export const FOOTER = {
   publications: [] as { label: string; to: string }[],
   policies: [
     { label: 'Privacy', to: '/privacy' },
+    { label: 'Terms of data use', to: '/terms-of-data-use' },
     { label: 'Accessibility', to: '/faqs' },
     { label: 'Help', to: '/docs' },
   ],

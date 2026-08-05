@@ -240,7 +240,15 @@
               <el-col :span="24">
                 <el-form-item prop="agreed">
                   <el-checkbox v-model="form.agreed">
-                    I confirm the above declaration and agree to the terms of data use
+                    I confirm the above declaration and agree to the
+                    <router-link
+                      class="gok-dr__terms-link"
+                      to="/terms-of-data-use"
+                      target="_blank"
+                      @click.stop
+                    >
+                      terms of data use
+                    </router-link>
                   </el-checkbox>
                 </el-form-item>
               </el-col>
@@ -686,6 +694,17 @@ const resetForm = () => {
 
 .gok-dr__declare p {
   margin: 0;
+}
+
+.gok-dr__terms-link {
+  color: var(--gok-green, #00843d);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gok-dr__terms-link:hover {
+  color: var(--gok-green-dark, #006b32);
 }
 
 .gok-dr__nav {

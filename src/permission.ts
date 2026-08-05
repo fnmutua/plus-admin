@@ -17,7 +17,7 @@ const { start, done } = useNProgress();
 const { loadStart, loadDone } = usePageLoading();
 
 const whiteList = [
-  '/api-docs', '/login', '/register', '/logoff', '/privacy', '/status', '/status/:id',
+  '/api-docs', '/login', '/register', '/logoff', '/privacy', '/terms-of-data-use', '/status', '/status/:id',
   '/grm', '/incidents', '/landing', '/about', '/settlements', '/projects', '/contact', '/faqs', '/delete', '/docs',
   '/data-request', '/dr-share', '/dr-clarify', '/regional-report'
 ]

@@ -1497,7 +1497,7 @@ router.beforeEach((to, from, next) => {
 
 export const resetRouter = (): void => {
   const resetWhiteNameList = ['Redirect', 'Login', 'Register', 'NoFind', 'Root', 'Reset', 'Logoff', 
-    'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount','docs',
+    'Privacy', 'TermsOfDataUse', 'Contact','Landing','FAQs','About','GRM','DeleteAccount','docs',
     'DataRequest', 'DataRequestShare', 'DataRequestClarify', 'SharedDocuments', 'UploadSharePublic']
   router.getRoutes().forEach((route) => {
     const { name } = route

@@ -242,7 +242,7 @@ useHead({
 }
 
 .privacy-title {
-  margin-bottom: 2rem;
+  margin: 0 0 2rem 300px;
   color: var(--text-primary);
   font-size: 2.5rem;
   font-weight: 800;
@@ -404,7 +404,7 @@ useHead({
 
   .privacy-title {
     font-size: 2rem;
-    margin-bottom: 1rem;
+    margin: 4.5rem 0 1rem;
   }
 
   .privacy-nav {
@@ -426,7 +426,7 @@ useHead({
 
   .privacy-sections {
     margin-left: 0;
-    margin-top: 4.5rem;
+    margin-top: 0;
   }
 
   .privacy-nav::-webkit-scrollbar {

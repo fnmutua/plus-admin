@@ -187,6 +187,17 @@ export const publicRoutes: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/terms-of-data-use',
+    component: () => import('@/views/Landing/TermsOfDataUse.vue'),
+    name: 'TermsOfDataUse',
+    meta: {
+      hidden: true,
+      title: 'Terms of Data Use',
+      noTagsView: true,
+      public: true
+    }
+  },
+  {
     path: '/contact',
     component: () => import('@/views/Landing/Contact.vue'),
     name: 'Contact',

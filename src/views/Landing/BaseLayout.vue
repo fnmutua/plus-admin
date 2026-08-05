@@ -220,6 +220,7 @@ function syncActiveFromRoute(path = route.path) {
     p.startsWith('/docs') ||
     p.startsWith('/faqs') ||
     p.startsWith('/privacy') ||
+    p.startsWith('/terms-of-data-use') ||
     p.startsWith('/about')
   ) {
     activeIndex.value = ''

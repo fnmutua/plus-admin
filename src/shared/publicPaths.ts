@@ -5,6 +5,7 @@ export const PUBLIC_PATH_PREFIXES = [
   '/register',
   '/logoff',
   '/privacy',
+  '/terms-of-data-use',
   '/contact',
   '/faqs',
   '/about',
