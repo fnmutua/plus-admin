@@ -263,7 +263,7 @@ const modeLabel = computed(() => (isProjects.value ? 'Project' : 'Settlement'))
 const modeBlurb = computed(() =>
   isProjects.value
     ? 'Browse intervention project locations on the map. Click a cluster to zoom in, or a marker for details.'
-    : 'Browse informal settlements on the map. Click a cluster to zoom in, or a marker for details.'
+    : 'Browse informal settlements on the map. Zoom in to see settlement boundaries; click a marker or polygon for details.'
 )
 
 const isCompact = ref(false)
@@ -319,6 +319,171 @@ let loadSeq = 0
 
 let clusterer: MarkerClusterer | null = null
 let gMarkers: google.maps.Marker[] = []
+let gPolygons: Array<google.maps.Polygon | google.maps.Polyline> = []
+let polygonLoadSeq = 0
+let polygonFetchTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Show settlement boundary polygons at this zoom and above */
+const MIN_ZOOM_FOR_POLYGONS = 12
+
+function ringToPath(ring: number[][]): google.maps.LatLngLiteral[] {
+  return ring
+    .filter((c) => Array.isArray(c) && c.length >= 2)
+    .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+}
+
+function geometryToPolygonPaths(geometry: any): google.maps.LatLngLiteral[][] {
+  if (!geometry?.type || !geometry?.coordinates) return []
+  if (geometry.type === 'Polygon') {
+    const outer = geometry.coordinates?.[0]
+    return Array.isArray(outer) ? [ringToPath(outer)] : []
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return (geometry.coordinates || [])
+      .map((poly: number[][][]) => (Array.isArray(poly?.[0]) ? ringToPath(poly[0]) : []))
+      .filter((path: google.maps.LatLngLiteral[]) => path.length >= 3)
+  }
+  return []
+}
+
+function clearSettlementPolygons() {
+  gPolygons.forEach((poly) => {
+    try {
+      google.maps.event.clearInstanceListeners(poly)
+      poly.setMap(null)
+    } catch {
+      /* ignore */
+    }
+  })
+  gPolygons = []
+}
+
+function getViewportBbox(): { west: number; south: number; east: number; north: number } | null {
+  const map = getGoogleMap()
+  const bounds = map?.getBounds?.()
+  if (!bounds) return null
+  const ne = bounds.getNorthEast()
+  const sw = bounds.getSouthWest()
+  return {
+    west: sw.lng(),
+    south: sw.lat(),
+    east: ne.lng(),
+    north: ne.lat(),
+  }
+}
+
+function drawSettlementPolygons(features: any[]) {
+  const map = getGoogleMap()
+  if (!map || !window.google?.maps) return
+  clearSettlementPolygons()
+
+  const stroke = '#c62828'
+  const dashIcon: google.maps.IconSequence = {
+    icon: {
+      path: 'M 0,-1 0,1',
+      strokeOpacity: 1,
+      strokeColor: stroke,
+      scale: 2.2,
+    },
+    offset: '0',
+    repeat: '8px',
+  }
+
+  for (const feature of features) {
+    const paths = geometryToPolygonPaths(feature?.geometry)
+    if (!paths.length) continue
+    const id = Number(feature?.properties?.id)
+    const name = String(feature?.properties?.name || '')
+    // Transparent fill polygon for hit-testing / clicks
+    const poly = new google.maps.Polygon({
+      paths,
+      map,
+      strokeColor: stroke,
+      strokeOpacity: 0,
+      strokeWeight: 0,
+      fillColor: stroke,
+      fillOpacity: 0,
+      clickable: true,
+      zIndex: 2,
+    })
+    // Red dotted outline (Google Maps Polygon has no dash style; use Polyline icons)
+    for (const ring of paths) {
+      const line = new google.maps.Polyline({
+        path: ring,
+        map,
+        clickable: false,
+        strokeOpacity: 0,
+        strokeWeight: 2,
+        zIndex: 3,
+        icons: [dashIcon],
+      })
+      gPolygons.push(line)
+    }
+    if (Number.isFinite(id)) {
+      poly.addListener('click', (e: google.maps.MapMouseEvent) => {
+        const latLng = e.latLng
+        if (!latLng) return
+        onMarkerClick({
+          id,
+          title: name,
+          locationName: '',
+          position: { lat: latLng.lat(), lng: latLng.lng() },
+        })
+      })
+    }
+    gPolygons.push(poly)
+  }
+}
+
+async function loadSettlementPolygonsForView() {
+  if (isProjects.value) {
+    clearSettlementPolygons()
+    return
+  }
+  const map = getGoogleMap()
+  if (!map || !mapReady.value) return
+
+  const zoom = map.getZoom() ?? mapZoom.value
+  mapZoom.value = zoom
+  if (zoom < MIN_ZOOM_FOR_POLYGONS) {
+    clearSettlementPolygons()
+    return
+  }
+
+  const bbox = getViewportBbox()
+  if (!bbox) return
+
+  const seq = ++polygonLoadSeq
+  try {
+    const searchTerm = searchKeyword.value?.trim() || ''
+    const fc = await getPublicRegisterSettlementsMap({
+      county_id: selectedCounty.value ?? undefined,
+      subcounty_id: selectedSubcounty.value ?? undefined,
+      ward_id: selectedWard.value ?? undefined,
+      search: searchTerm || undefined,
+      polygons: true,
+      limit: 300,
+      ...bbox,
+    })
+    if (seq !== polygonLoadSeq) return
+    const features = (fc?.features || []).filter(
+      (f: any) => f?.geometry?.type === 'Polygon' || f?.geometry?.type === 'MultiPolygon'
+    )
+    drawSettlementPolygons(features)
+  } catch (e) {
+    if (seq !== polygonLoadSeq) return
+    console.warn('Settlement polygons load failed', e)
+  }
+}
+
+function schedulePolygonLoad() {
+  if (polygonFetchTimer) clearTimeout(polygonFetchTimer)
+  polygonFetchTimer = setTimeout(() => {
+    polygonFetchTimer = null
+    loadSettlementPolygonsForView()
+  }, 400)
+}
 
 const markers = computed<MapMarker[]>(() => {
   const features = geojson.value?.features ?? []
@@ -499,11 +664,13 @@ function onMapIdle() {
   if (!mapReady.value) {
     mapReady.value = true
     syncMarkersToMap()
+    schedulePolygonLoad()
     return
   }
   if (!gMarkers.length && markers.value.length) {
     syncMarkersToMap()
   }
+  schedulePolygonLoad()
 }
 
 async function loadCounties() {
@@ -592,6 +759,7 @@ async function loadMapData() {
 
 function applyFilters() {
   loadMapData()
+  schedulePolygonLoad()
 }
 
 function resetFilters() {
@@ -604,6 +772,7 @@ function resetFilters() {
   mapCenter.value = { ...MAP_INITIAL_CENTER }
   mapZoom.value = MAP_INITIAL_ZOOM
   closePopup()
+  clearSettlementPolygons()
   loadMapData()
 }
 
@@ -662,12 +831,14 @@ watch(mode, () => {
   subcountyOptions.value = []
   wardOptions.value = []
   searchKeyword.value = ''
+  clearSettlementPolygons()
   hydrateSearchFromRoute()
   loadMapData()
 })
 
 watch(isDark, () => {
   applyMapTheme()
+  if (gPolygons.length) schedulePolygonLoad()
 })
 
 onMounted(async () => {
@@ -687,6 +858,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', syncCompact)
+  if (polygonFetchTimer) clearTimeout(polygonFetchTimer)
+  clearSettlementPolygons()
   clearMapMarkers()
 })
 </script>

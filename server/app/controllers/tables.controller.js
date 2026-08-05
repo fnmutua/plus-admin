@@ -16719,6 +16719,15 @@ exports.getPublicRegisterSettlementsMap = async (req, res) => {
       ? Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 300))
       : Math.min(5000, Math.max(1, parseInt(req.query.limit, 10) || 2000));
 
+    const west = req.query.west != null ? parseFloat(req.query.west) : null;
+    const south = req.query.south != null ? parseFloat(req.query.south) : null;
+    const east = req.query.east != null ? parseFloat(req.query.east) : null;
+    const north = req.query.north != null ? parseFloat(req.query.north) : null;
+    const hasBbox =
+      [west, south, east, north].every((n) => Number.isFinite(n)) &&
+      west < east &&
+      south < north;
+
     let whereClause = '"isApproved" = \'Approved\' AND "isActive" = \'true\' AND geom IS NOT NULL AND ST_IsEmpty(geom) = false';
     const replacements = { lim: limit };
     if (countyId && !isNaN(countyId)) {
@@ -16737,6 +16746,14 @@ exports.getPublicRegisterSettlementsMap = async (req, res) => {
       whereClause += ' AND name ILIKE :searchTerm';
       replacements.searchTerm = '%' + search + '%';
     }
+    if (hasBbox) {
+      whereClause +=
+        ' AND ST_Intersects(geom, ST_MakeEnvelope(:west, :south, :east, :north, 4326))';
+      replacements.west = west;
+      replacements.south = south;
+      replacements.east = east;
+      replacements.north = north;
+    }
 
     const geometryExpr = includePolygons
       ? 'ST_AsGeoJSON(geom, 8)::json'
@@ -16747,7 +16764,7 @@ exports.getPublicRegisterSettlementsMap = async (req, res) => {
       SELECT row_to_json(fc) AS json_build_object
       FROM (
         SELECT 'FeatureCollection' AS type,
-               array_to_json(array_agg(f)) AS features
+               COALESCE(array_to_json(array_agg(f)), '[]'::json) AS features
         FROM (
           SELECT 'Feature' AS type,
                  ${geometryExpr} AS geometry,

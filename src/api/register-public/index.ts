@@ -78,6 +78,11 @@ export function getPublicRegisterSettlementsMap(params?: {
   search?: string | null
   limit?: number
   polygons?: boolean
+  /** Viewport bbox (WGS84) — used when loading polygons for the visible area */
+  west?: number
+  south?: number
+  east?: number
+  north?: number
 }): Promise<{ type: string; features: any[] }> {
   const q = new URLSearchParams()
   if (params?.county_id != null) q.set('county_id', String(params.county_id))
@@ -86,6 +91,17 @@ export function getPublicRegisterSettlementsMap(params?: {
   if (params?.search) q.set('search', params.search)
   if (params?.limit != null) q.set('limit', String(params.limit))
   if (params?.polygons) q.set('polygons', '1')
+  if (
+    params?.west != null &&
+    params?.south != null &&
+    params?.east != null &&
+    params?.north != null
+  ) {
+    q.set('west', String(params.west))
+    q.set('south', String(params.south))
+    q.set('east', String(params.east))
+    q.set('north', String(params.north))
+  }
   const query = q.toString()
   return publicGet(`/api/public/register/settlements/map${query ? '?' + query : ''}`).then((res: any) => {
     const fc = res?.data ?? res?.results ?? res
