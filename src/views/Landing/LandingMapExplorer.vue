@@ -113,6 +113,35 @@
           <span>{{ overlayText }}</span>
         </div>
 
+        <div v-if="mapInitialized" class="map-explorer__controls" aria-label="Map controls">
+          <div class="map-explorer__basemap" role="group" aria-label="Base map">
+            <button
+              type="button"
+              class="map-explorer__ctrl-btn"
+              :class="{ 'is-active': mapTypeId === 'roadmap' }"
+              @click="setMapType('roadmap')"
+            >
+              Road
+            </button>
+            <button
+              type="button"
+              class="map-explorer__ctrl-btn"
+              :class="{ 'is-active': mapTypeId === 'hybrid' }"
+              @click="setMapType('hybrid')"
+            >
+              Satellite
+            </button>
+          </div>
+          <div class="map-explorer__zoom" role="group" aria-label="Zoom">
+            <button type="button" class="map-explorer__ctrl-btn map-explorer__ctrl-btn--icon" aria-label="Zoom in" @click="zoomBy(1)">
+              +
+            </button>
+            <button type="button" class="map-explorer__ctrl-btn map-explorer__ctrl-btn--icon" aria-label="Zoom out" @click="zoomBy(-1)">
+              −
+            </button>
+          </div>
+        </div>
+
         <GoogleMap
           v-if="mapInitialized"
           ref="mapRef"
@@ -121,10 +150,11 @@
           :center="mapCenter"
           :zoom="mapZoom"
           :styles="mapStyles"
-          map-type-id="roadmap"
+          :map-type-id="mapTypeId"
           :street-view-control="false"
           :fullscreen-control="true"
           :map-type-control="false"
+          :zoom-control="false"
           @idle="onMapIdle"
           @click="closePopup"
         >
@@ -218,7 +248,9 @@ type MapMarker = {
 const route = useRoute()
 const appStore = useAppStoreWithOut()
 const isDark = computed(() => appStore.getIsDark)
-const mapStyles = computed(() => (isDark.value ? LANDING_DARK_MAP_STYLES : null))
+const mapStyles = computed(() =>
+  mapTypeId.value === 'roadmap' && isDark.value ? LANDING_DARK_MAP_STYLES : null
+)
 
 const MAP_INITIAL_CENTER = { lat: 0.1765, lng: 37.913 }
 const MAP_INITIAL_ZOOM = 6
@@ -267,6 +299,7 @@ const mapReady = ref(false)
 const mapLoading = ref(false)
 const mapCenter = ref({ ...MAP_INITIAL_CENTER })
 const mapZoom = ref(MAP_INITIAL_ZOOM)
+const mapTypeId = ref<'roadmap' | 'hybrid'>('roadmap')
 const geojson = ref<{ type: string; features: any[] }>({ type: 'FeatureCollection', features: [] })
 
 const searchKeyword = ref('')
@@ -420,9 +453,37 @@ function applyMapTheme() {
   const map = getGoogleMap()
   if (!map) return
   try {
-    map.setOptions({ styles: isDark.value ? LANDING_DARK_MAP_STYLES : [] })
+    map.setOptions({
+      styles: mapTypeId.value === 'roadmap' && isDark.value ? LANDING_DARK_MAP_STYLES : [],
+    })
   } catch (e) {
     console.warn('applyMapTheme skipped', e)
+  }
+}
+
+function setMapType(type: 'roadmap' | 'hybrid') {
+  mapTypeId.value = type
+  const map = getGoogleMap()
+  if (!map) return
+  try {
+    map.setMapTypeId(type)
+    applyMapTheme()
+  } catch (e) {
+    console.warn('setMapType skipped', e)
+  }
+}
+
+function zoomBy(delta: number) {
+  const map = getGoogleMap()
+  if (!map) return
+  try {
+    const current = map.getZoom()
+    if (typeof current !== 'number') return
+    const next = Math.min(20, Math.max(2, current + delta))
+    map.setZoom(next)
+    mapZoom.value = next
+  } catch (e) {
+    console.warn('zoomBy skipped', e)
   }
 }
 
@@ -746,6 +807,74 @@ onUnmounted(() => {
 .map-explorer__map-wrap {
   position: relative;
   min-height: 480px;
+}
+
+.map-explorer__controls {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  right: auto;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.map-explorer__basemap,
+.map-explorer__zoom {
+  display: flex;
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--gok-panel, #fff);
+  border: 1px solid var(--gok-border, #e2e6e4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+}
+
+.map-explorer__zoom {
+  flex-direction: column;
+}
+
+.map-explorer__ctrl-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--gok-charcoal, #1f2933);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.map-explorer__ctrl-btn + .map-explorer__ctrl-btn {
+  border-left: 1px solid var(--gok-border, #e2e6e4);
+}
+
+.map-explorer__zoom .map-explorer__ctrl-btn + .map-explorer__ctrl-btn {
+  border-left: 0;
+  border-top: 1px solid var(--gok-border, #e2e6e4);
+}
+
+.map-explorer__ctrl-btn--icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.map-explorer__ctrl-btn:hover {
+  background: var(--gok-grey, #f5f7f6);
+}
+
+.map-explorer__ctrl-btn.is-active {
+  background: var(--gok-green, #00843d);
+  color: #fff;
 }
 
 .map-explorer__map {
