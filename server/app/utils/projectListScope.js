@@ -74,6 +74,117 @@ async function expandProgrammeIds(rawIds) {
   return [...expanded];
 }
 
+const SUD_PROGRAMME_PATTERN =
+  /\bsud\b|slum upgrading|slum upgr|sdhud|mlhud\/sdhud|state department for housing/i;
+const KISIP_PROGRAMME_PATTERN =
+  /\bkisip\b|informal settlement improvement|informal settlements improvement/i;
+
+function programmeSearchText(row) {
+  return `${row?.title || ''} ${row?.acronym || ''} ${row?.code || ''}`.trim();
+}
+
+function classifyProgrammeFamilyFromText(text, directText) {
+  const isSud = SUD_PROGRAMME_PATTERN.test(text);
+  const isKisip = KISIP_PROGRAMME_PATTERN.test(text);
+  if (isSud && !isKisip) return 'SUD';
+  if (isKisip && !isSud) return 'KISIP';
+  if (isSud && isKisip) {
+    if (KISIP_PROGRAMME_PATTERN.test(directText || '')) return 'KISIP';
+    if (SUD_PROGRAMME_PATTERN.test(directText || '')) return 'SUD';
+  }
+  return null;
+}
+
+/**
+ * Resolve all programme IDs belonging to the SUD or KISIP family
+ * (any node whose ancestor chain classifies as that family).
+ * Used by the public project map filter.
+ */
+async function resolveProgrammeFamilyIds(family) {
+  const key = String(family || '')
+    .trim()
+    .toLowerCase();
+  if (key !== 'sud' && key !== 'kisip') return [];
+
+  const rows = await db.sequelize.query(
+    `SELECT id, title, acronym, code, "parentId" FROM programmex`,
+    {
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    }
+  );
+
+  const byId = new Map();
+  for (const row of rows) {
+    const id = parseInt(row.id, 10);
+    if (!isNaN(id)) byId.set(id, row);
+  }
+
+  const collectChainText = (startId) => {
+    const parts = [];
+    let direct = '';
+    const visited = new Set();
+    let id = startId;
+    while (id != null && !visited.has(id)) {
+      visited.add(id);
+      const node = byId.get(id);
+      if (!node) break;
+      const text = programmeSearchText(node);
+      if (!direct) direct = text;
+      parts.push(text);
+      const parentRaw = node.parentId;
+      id =
+        parentRaw != null && parentRaw !== ''
+          ? parseInt(parentRaw, 10)
+          : null;
+      if (id != null && isNaN(id)) id = null;
+    }
+    return { text: parts.join(' '), direct };
+  };
+
+  const target = key === 'sud' ? 'SUD' : 'KISIP';
+  const matchingIds = [];
+  for (const [id] of byId) {
+    const { text, direct } = collectChainText(id);
+    if (classifyProgrammeFamilyFromText(text, direct) === target) {
+      matchingIds.push(id);
+    }
+  }
+  return matchingIds;
+}
+
+/**
+ * Classify a single programme id as SUD / KISIP by walking its parent chain.
+ */
+async function classifyProgrammeFamily(programmeId) {
+  const id = parseInt(programmeId, 10);
+  if (!programmeId || isNaN(id)) return null;
+
+  const rows = await db.sequelize.query(
+    `WITH RECURSIVE chain AS (
+       SELECT id, title, acronym, code, "parentId", 0 AS depth
+       FROM programmex
+       WHERE id = :id
+       UNION ALL
+       SELECT p.id, p.title, p.acronym, p.code, p."parentId", c.depth + 1
+       FROM programmex p
+       INNER JOIN chain c ON p.id = c."parentId"
+       WHERE c.depth < 20
+     )
+     SELECT id, title, acronym, code FROM chain ORDER BY depth ASC`,
+    {
+      replacements: { id },
+      type: db.sequelize.QueryTypes.SELECT,
+      mapToModel: false,
+    }
+  );
+
+  if (!rows.length) return null;
+  const direct = programmeSearchText(rows[0]);
+  const text = rows.map(programmeSearchText).join(' ');
+  return classifyProgrammeFamilyFromText(text, direct);
+}
+
 /**
  * Resolve programme/project visibility for a user from role assignments.
  *
@@ -576,6 +687,8 @@ function buildOptimizedScopeSql(scope, modelName) {
 
 module.exports = {
   expandProgrammeIds,
+  resolveProgrammeFamilyIds,
+  classifyProgrammeFamily,
   getProjectProgrammeScope,
   applyProgrammeProjectScopeToQuery,
   buildOptimizedScopeSql,

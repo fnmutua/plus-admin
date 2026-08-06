@@ -53,6 +53,8 @@ const {
   buildProjectWardExistsLiteral,
   ensureDefaultProjectLocationForCreator,
   expandProgrammeIds,
+  resolveProgrammeFamilyIds,
+  classifyProgrammeFamily,
   getProjectProgrammeScope,
   shouldUseCreatorLocationFallback,
 } = require('../utils/projectListScope')
@@ -16872,6 +16874,7 @@ exports.getPublicProjectsMap = async (req, res) => {
     const subcountyId = req.query.subcounty_id ? parseInt(req.query.subcounty_id, 10) : null;
     const wardId = req.query.ward_id ? parseInt(req.query.ward_id, 10) : null;
     const search = (req.query.search || '').toString().trim();
+    const programmeFamily = (req.query.programme_family || '').toString().trim().toLowerCase();
     const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit, 10) || 2000));
 
     let whereClause = `pl.geom IS NOT NULL AND ST_IsEmpty(pl.geom) = false`;
@@ -16892,6 +16895,18 @@ exports.getPublicProjectsMap = async (req, res) => {
     if (search) {
       whereClause += ' AND (p.title ILIKE :searchTerm OR pl.location_name ILIKE :searchTerm)';
       replacements.searchTerm = `%${search}%`;
+    }
+    if (programmeFamily === 'sud' || programmeFamily === 'kisip') {
+      const familyIds = await resolveProgrammeFamilyIds(programmeFamily);
+      if (!familyIds.length) {
+        return res.status(200).json({ type: 'FeatureCollection', features: [] });
+      }
+      const safeIds = familyIds.map((v) => parseInt(v, 10)).filter((v) => !isNaN(v));
+      if (!safeIds.length) {
+        return res.status(200).json({ type: 'FeatureCollection', features: [] });
+      }
+      whereClause +=
+        ` AND p.component_id IN (SELECT c.id FROM component c WHERE c.programme_id IN (${safeIds.join(', ')}))`;
     }
 
     const qry = `
@@ -16957,7 +16972,26 @@ exports.getPublicProjectLocation = async (req, res) => {
         'settlement_id',
       ],
       include: [
-        { model: db.models.project, as: 'project', attributes: ['id', 'title', 'status'], required: false },
+        {
+          model: db.models.project,
+          as: 'project',
+          attributes: ['id', 'title', 'status', 'component_id'],
+          required: false,
+          include: [
+            {
+              model: db.models.component,
+              attributes: ['id', 'title', 'programme_id'],
+              required: false,
+              include: [
+                {
+                  model: db.models.programme,
+                  attributes: ['id', 'title', 'acronym'],
+                  required: false,
+                },
+              ],
+            },
+          ],
+        },
         { model: db.models.county, as: 'county', attributes: ['id', 'name'], required: false },
         { model: db.models.subcounty, as: 'subcounty', attributes: ['id', 'name'], required: false },
         { model: db.models.ward, as: 'ward', attributes: ['id', 'name'], required: false },
@@ -16968,7 +17002,34 @@ exports.getPublicProjectLocation = async (req, res) => {
     if (!row) {
       return res.status(404).json({ message: 'Not found', code: 'NOT_FOUND' });
     }
-    res.status(200).json({ data: row, code: '0000' });
+
+    const data = row.toJSON ? row.toJSON() : row;
+    const programme =
+      data.project?.component?.programme ||
+      null;
+    const programmeId =
+      programme?.id ??
+      data.project?.component?.programme_id ??
+      null;
+    const programmeFamily = await classifyProgrammeFamily(programmeId);
+
+    if (data.project) {
+      data.project.programme = programme
+        ? {
+            id: programme.id,
+            title: programme.title,
+            acronym: programme.acronym,
+            family: programmeFamily,
+          }
+        : programmeFamily
+          ? { family: programmeFamily }
+          : null;
+      data.project.programme_family = programmeFamily;
+      // Keep payload lean for the public popup
+      if (data.project.component) delete data.project.component;
+    }
+
+    res.status(200).json({ data, code: '0000' });
   } catch (error) {
     console.error('getPublicProjectLocation:', error);
     res.status(500).json({ message: 'Internal server error', code: 'SERVER_ERROR' });

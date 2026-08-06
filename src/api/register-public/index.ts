@@ -160,6 +160,8 @@ export function getPublicProjectsMap(params?: {
   subcounty_id?: number | null
   ward_id?: number | null
   search?: string | null
+  /** Filter to SUD or KISIP programme family */
+  programme_family?: 'sud' | 'kisip' | null
   limit?: number
 }): Promise<{ type: string; features: any[] }> {
   const q = new URLSearchParams()
@@ -167,6 +169,9 @@ export function getPublicProjectsMap(params?: {
   if (params?.subcounty_id != null) q.set('subcounty_id', String(params.subcounty_id))
   if (params?.ward_id != null) q.set('ward_id', String(params.ward_id))
   if (params?.search) q.set('search', params.search)
+  if (params?.programme_family === 'sud' || params?.programme_family === 'kisip') {
+    q.set('programme_family', params.programme_family)
+  }
   if (params?.limit != null) q.set('limit', String(params.limit))
   const query = q.toString()
   return publicGet(`/api/public/projects/map${query ? '?' + query : ''}`).then((res: any) => {

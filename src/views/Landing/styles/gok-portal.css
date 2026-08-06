@@ -226,6 +226,13 @@ html.landing-page-active {
   letter-spacing: 0.02em;
 }
 
+.kesmis-map-popup__badge--programme {
+  background: #e8eef8;
+  color: #1e3a5f;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .kesmis-map-popup__place {
   margin: 0.45rem 0 0;
   padding-top: 0.4rem;

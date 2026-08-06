@@ -68,6 +68,22 @@
               </el-input>
             </label>
 
+            <label v-if="isProjects" class="field">
+              <span>Programme</span>
+              <el-select
+                v-model="selectedProgrammeFamily"
+                clearable
+                placeholder="All programmes"
+              >
+                <el-option
+                  v-for="opt in programmeFamilyOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+            </label>
+
             <label class="field">
               <span>County</span>
               <el-select
@@ -215,11 +231,20 @@
                   </p>
                   <p class="kesmis-map-popup__meta">
                     <span
+                      v-if="popupProgrammeLabel"
+                      class="kesmis-map-popup__badge kesmis-map-popup__badge--programme"
+                    >{{ popupProgrammeLabel }}</span>
+                    <span
+                      v-if="popupProgrammeLabel && popupDetail.project?.status"
+                      class="kesmis-map-popup__dot"
+                      aria-hidden="true"
+                    >·</span>
+                    <span
                       v-if="popupDetail.project?.status"
                       class="kesmis-map-popup__badge"
                     >{{ popupDetail.project.status }}</span>
                     <span
-                      v-if="popupDetail.project?.status && popupDetail.physical_progress_pct != null"
+                      v-if="(popupProgrammeLabel || popupDetail.project?.status) && popupDetail.physical_progress_pct != null"
                       class="kesmis-map-popup__dot"
                       aria-hidden="true"
                     >·</span>
@@ -347,6 +372,11 @@ const searchKeyword = ref('')
 const selectedCounty = ref<number | null>(null)
 const selectedSubcounty = ref<number | null>(null)
 const selectedWard = ref<number | null>(null)
+const selectedProgrammeFamily = ref<'sud' | 'kisip' | null>(null)
+const programmeFamilyOptions = [
+  { value: 'kisip' as const, label: 'KISIP' },
+  { value: 'sud' as const, label: 'SUD' },
+]
 const countyOptions = ref<Array<{ value: number; label: string }>>([])
 const subcountyOptions = ref<Array<{ value: number; label: string }>>([])
 const wardOptions = ref<Array<{ value: number; label: string }>>([])
@@ -563,6 +593,20 @@ const popupHeading = computed(() => {
     )
   }
   return popupDetail.value?.name || popupTitleHint.value || 'Settlement'
+})
+
+const popupProgrammeLabel = computed(() => {
+  if (!isProjects.value) return ''
+  const project = popupDetail.value?.project
+  const family =
+    project?.programme_family
+    || project?.programme?.family
+    || null
+  if (family === 'SUD' || family === 'KISIP') return family
+  const acronym = String(project?.programme?.acronym || '').trim().toUpperCase()
+  if (acronym.includes('KISIP')) return 'KISIP'
+  if (acronym.includes('SUD') || acronym.includes('KENSUP')) return 'SUD'
+  return acronym || ''
 })
 
 const popupPlaceLine = computed(() => {
@@ -872,6 +916,7 @@ async function loadMapData(opts: { fit?: boolean; quiet?: boolean } = {}) {
       subcounty_id: selectedSubcounty.value ?? undefined,
       ward_id: selectedWard.value ?? undefined,
       search: searchTerm || undefined,
+      programme_family: isProjects.value ? selectedProgrammeFamily.value ?? undefined : undefined,
       limit: 2000,
     }
     const fc = isProjects.value
@@ -921,6 +966,7 @@ function resetFilters() {
   selectedCounty.value = null
   selectedSubcounty.value = null
   selectedWard.value = null
+  selectedProgrammeFamily.value = null
   subcountyOptions.value = []
   wardOptions.value = []
   mapCenter.value = { ...MAP_INITIAL_CENTER }
@@ -991,6 +1037,7 @@ watch(mode, () => {
   selectedCounty.value = null
   selectedSubcounty.value = null
   selectedWard.value = null
+  selectedProgrammeFamily.value = null
   subcountyOptions.value = []
   wardOptions.value = []
   searchKeyword.value = ''
