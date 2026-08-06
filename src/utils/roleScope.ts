@@ -56,6 +56,51 @@ export function userHasPrivilegedNationalOrRegionalLocation(roles: RoleWithLocat
 }
 
 /**
+ * County scope for dashboards / maps: staff assigned at county level (not national/super).
+ * Prefer roles[].user_roles over top-level user.county_id.
+ */
+export type UserCountyScopeRole = {
+  name?: string
+  user_roles?: {
+    location_level?: string | null
+    county_id?: number | string | null
+  }
+}
+
+export function getUserDashboardCountyScope(
+  userInfo: { roles?: UserCountyScopeRole[] } | null | undefined
+): {
+  isCountyStaff: boolean
+  countyIds: number[]
+  shouldDefaultToCounty: boolean
+} {
+  const roles = userInfo?.roles || []
+  const isSuperAdmin = roles.some(
+    (r) => r.name === 'super_admin' || r.name === 'root_admin'
+  )
+  const hasNational = userHasPrivilegedNationalLocation(roles)
+  const countyIds = [
+    ...new Set(
+      roles
+        .filter(
+          (r) =>
+            r.user_roles?.location_level === 'county' &&
+            r.user_roles?.county_id != null &&
+            r.user_roles?.county_id !== ''
+        )
+        .map((r) => Number(r.user_roles!.county_id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ),
+  ]
+  const isCountyStaff = !isSuperAdmin && !hasNational && countyIds.length > 0
+  return {
+    isCountyStaff,
+    countyIds,
+    shouldDefaultToCounty: isCountyStaff,
+  }
+}
+
+/**
  * Shape produced by `processedRoles` in SettlementDetails.vue (field null = national/regional).
  */
 export type ProcessedSettlementRole = {

@@ -3,7 +3,7 @@ const redis = require('redis')
 const NATIONAL_BUNDLE_KEY = 'dashboard:bundle:national'
 const LANDING_MAP_BUNDLE_KEY = 'map:bundle:landing:national'
 const PROJECT_MAP_BUNDLE_KEY = 'map:bundle:projects:national'
-const DASHBOARD_GEO_BUNDLE_KEY = 'dashboard:geo:bundle:national'
+const DASHBOARD_GEO_BUNDLE_KEY = 'dashboard:geo:bundle:national:v2'
 const TTL_SECONDS = Number(process.env.DASHBOARD_BUNDLE_TTL_SECONDS || 600)
 
 let client

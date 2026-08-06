@@ -2,6 +2,7 @@
 import { ref, watch, computed, onMounted, unref } from 'vue'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
+import { INSTITUTION } from '@/views/Landing/config/landing.config'
 
 const { getPrefixCls } = useDesign()
 
@@ -17,9 +18,13 @@ const layout = computed(() => appStore.getLayout)
 
 const collapse = computed(() => appStore.getCollapse)
 
-const logoSrc = computed(() =>
-  layout.value === 'classic' ? '/gok-white.png' : '/gok.png'
-)
+const isDark = computed(() => appStore.getIsDark)
+
+/** KeSMIS icon mark — white on dark sidebar / dark theme, colour otherwise */
+const logoSrc = computed(() => {
+  const useWhite = layout.value === 'classic' || isDark.value
+  return useWhite ? INSTITUTION.logoMarkSrcWhite : INSTITUTION.logoMarkSrc
+})
 
 const logoImgClass = computed(() =>
   layout.value === 'classic'
@@ -74,7 +79,7 @@ watch(
   ]" to="/">
     <img
       :src="logoSrc"
-      alt="Government of Kenya"
+      :alt="INSTITUTION.systemName"
       :class="logoImgClass"
     />
     <div
@@ -103,9 +108,7 @@ v-if="show" :class="[
 }
 
 .logo-img--sidebar {
-  height: calc(var(--logo-height) - 4px);
-  width: calc(var(--logo-height) - 4px);
-  filter: contrast(1.14) brightness(1.1) drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
-  image-rendering: -webkit-optimize-contrast;
+  height: calc(var(--logo-height) - 8px);
+  width: calc(var(--logo-height) - 8px);
 }
 </style>

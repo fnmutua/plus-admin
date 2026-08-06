@@ -66,10 +66,13 @@ import DashboardChartExportDrawer from './components/DashboardChartExportDrawer.
 
 import { useRouter } from 'vue-router'
 import { getDashboardBundle, type DashboardBundle } from '@/api/dashboard/bundle'
+import { getAuthUserInfo } from '@/hooks/web/authStorage'
+import { getUserDashboardCountyScope } from '@/utils/roleScope'
 
 const { push } = useRouter()
 
 const appStore = useAppStore()
+const dashboardUserCountyScope = getUserDashboardCountyScope(getAuthUserInfo())
 
 
 
@@ -3821,6 +3824,26 @@ const initializeDashboard = async () => {
     
     await Promise.all([getCountySubcountySep(), geoBundlePromise])
 
+    const defaultCountyIds = dashboardUserCountyScope.shouldDefaultToCounty
+      ? dashboardUserCountyScope.countyIds
+      : []
+
+    if (defaultCountyIds.length) {
+      selectCounty.value = defaultCountyIds as any
+      selectedCounties.value = defaultCountyIds as any
+      filterLevel.value = 'county'
+      dashboardBundleActive.value = false
+      dashboardBundlePayload.value = null
+      dashboardBundleRenderById.value = new Map()
+      dashboardBundleGroupById.value = new Map()
+      chartLiveRenderMetaById.value = new Map()
+      filteredSubCountyList.value = subCountyList.value.filter((option: any) =>
+        defaultCountyIds.includes(option.county_id)
+      )
+      await Promise.all([getCards(), getTabs()])
+      return
+    }
+
     const usedBundle = await tryLoadDashboardBundle()
     if (usedBundle) {
       await Promise.all([applyDashboardBundleCards(), applyDashboardBundleTabs()])
@@ -4406,24 +4429,23 @@ onBeforeUnmount(() => {
     </div>
   </template>
 
-  <div class="dashboard-tab-actions">
-    <el-tooltip content="Refresh data" placement="top">
-      <el-button
-        class="dashboard-refresh-btn"
-        text
-        :icon="Refresh"
-        :loading="dashboardRefreshing"
-        :disabled="dashboardRefreshing"
-        @click="hardRefreshDashboard"
-      />
-    </el-tooltip>
-    <DashboardChartExportDrawer
-      :export-api="chartExportApi"
-      :charts-loading="chartsLoading || dashboardRefreshing"
-    />
-  </div>
-
   <div v-show="!chartsLoading || tabs.length > 0" class="tabs-container main-tabs">
+    <div class="dashboard-tab-actions">
+      <el-tooltip content="Refresh data" placement="top">
+        <el-button
+          class="dashboard-refresh-btn"
+          text
+          :icon="Refresh"
+          :loading="dashboardRefreshing"
+          :disabled="dashboardRefreshing"
+          @click="hardRefreshDashboard"
+        />
+      </el-tooltip>
+      <DashboardChartExportDrawer
+        :export-api="chartExportApi"
+        :charts-loading="chartsLoading || dashboardRefreshing"
+      />
+    </div>
     <el-tabs v-model="activeTab" class="dashboard-tabs" tab-position="top">
       <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
           <el-row :gutter="20">
@@ -4686,18 +4708,24 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-tab-actions {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 6;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 2px;
-  flex-shrink: 0;
-  padding: 2px 4px 0;
-  margin-top: 2px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--el-bg-color, #fff) 88%, transparent);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
 }
 
 .dashboard-refresh-btn {
   margin: 0;
-  padding: 8px;
+  padding: 6px;
 }
 
 /* Do not set flex-direction on .dashboard-tabs — Element Plus uses column-reverse for tab-position="top". */
@@ -4740,6 +4768,7 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
+  padding-right: 88px;
 }
 
 .dashboard-tabs :deep(.el-tabs__nav-wrap::after) {
