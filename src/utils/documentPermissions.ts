@@ -100,6 +100,46 @@ export function canPublishDashboard(userInfo: any): boolean {
   )
 }
 
+/**
+ * A document flagged as private/protected on upload. Different endpoints spell the
+ * flag differently (`protectedFile` on the model, `protected` on the upload payload
+ * and repository responses), so accept either.
+ */
+export function isProtectedDocument(doc: any): boolean {
+  if (!doc) return false
+  return Boolean(
+    doc.protectedFile ?? doc.protected ?? doc['document.protectedFile'] ?? doc.document?.protectedFile
+  )
+}
+
+/**
+ * Mirrors the server's canUserSeeProtectedDocuments: root/super admins always;
+ * admin or staff scoped to national or county level. Ward, subcounty and
+ * settlement-only users never see private documents.
+ */
+export function canAccessProtectedDocuments(userInfo: any): boolean {
+  if (isSuperAdminUser(userInfo)) return true
+  const elevated = ['admin', 'staff', 'super_admin', 'root_admin']
+  return (userInfo?.roles ?? []).some((role: any) => {
+    const name = role?.name
+    if (name === 'super_admin' || name === 'root_admin') return true
+    const ur = role?.user_roles
+    if (!ur) return false
+    const level = ur.location_level
+    if (level === 'national' || level === 'county') return elevated.includes(name)
+    if ((level == null || level === '') && name === 'admin') return true
+    return false
+  })
+}
+
+/** A private document the current user may not open, download or act on. */
+export function isDocumentLockedFor(userInfo: any, doc: any): boolean {
+  return isProtectedDocument(doc) && !canAccessProtectedDocuments(userInfo)
+}
+
+export const LOCKED_DOCUMENT_MESSAGE =
+  'This is a private document. You do not have permission to open, download or modify it.'
+
 /** Unlink document from a facility-linked entity (does not delete the file). */
 export function canUnlinkDocumentFromFacility(userInfo: any): boolean {
   if (isSuperAdminUser(userInfo)) return true

@@ -19,8 +19,13 @@ import { getOneGeo } from '@/api/settlements'
 import { Icon } from '@iconify/vue';
 import {
   Download, UploadFilled, Edit, Back, CircleCloseFilled, Position, Delete, Loading,
-  Close, Plus, Setting, ArrowLeft, ArrowRight, Check, RefreshLeft,
+  Close, Plus, Setting, ArrowLeft, ArrowRight, Check, RefreshLeft, Lock,
 } from '@element-plus/icons-vue'
+import {
+  canAccessProtectedDocuments,
+  isProtectedDocument,
+  LOCKED_DOCUMENT_MESSAGE,
+} from '@/utils/documentPermissions'
 
 import { getCountyListApi, } from '@/api/counties'
 
@@ -143,6 +148,11 @@ const canAddMonitoringReport = computed(
   () => isSuperAdmin.value || hasPerm('programme_implementation:create')
 )
 const canUploadProjectDocument = computed(() => isSuperAdmin.value || hasPerm('document:upload'))
+// Private (protected) documents: only elevated roles may open or act on them.
+const canViewProtectedDocuments = computed(() => canAccessProtectedDocuments(userInfo))
+const isDocumentPrivate = (doc: any) => isProtectedDocument(doc)
+const isDocumentLocked = (doc: any) =>
+  isProtectedDocument(doc) && !canViewProtectedDocuments.value
 const canManageProjectTeam = computed(() => isSuperAdmin.value || hasPerm('project_team:create'))
 const canManageProjectContractors = computed(() => isSuperAdmin.value || hasPerm('project_contractor:create'))
 const canManageDocumentTypes = computed(() => isSuperAdmin.value || hasPerm('document_type:create'))
@@ -219,6 +229,11 @@ const canUserDeleteDocument = (document: any): boolean => {
     return false;
   }
 
+  // Private documents are locked for users without protected-document access
+  if (isDocumentLocked(document)) {
+    return false;
+  }
+
   // Super admins and root admins can delete any document
   if (isSuperAdmin.value) {
     return true;
@@ -256,6 +271,11 @@ const canUserDeleteDocument = (document: any): boolean => {
 const canUserUnlinkDocument = (document: any): boolean => {
   // Return false if document is undefined or null
   if (!document) {
+    return false;
+  }
+
+  // Private documents are locked for users without protected-document access
+  if (isDocumentLocked(document)) {
     return false;
   }
 
@@ -2076,6 +2096,10 @@ const downloadingAllDocs = ref(false)
 
 const downloadFile = async (data) => {
   if (!data?.id || !data?.name) return
+  if (isDocumentLocked(data)) {
+    ElMessage.warning(LOCKED_DOCUMENT_MESSAGE);
+    return;
+  }
   viewLoading.value = true;
   downloadingDocId.value = data.id || null
   const formData: Record<string, unknown> = {};
@@ -2119,8 +2143,19 @@ const downloadAllProjectDocuments = async () => {
       ElMessage.warning('No documents to download')
       return
     }
-    ElMessage.info(`Downloading ${allDocs.length} document(s)…`)
-    for (const doc of allDocs) {
+    // Skip private documents this user is not allowed to open
+    const downloadable = allDocs.filter((doc: any) => !isDocumentLocked(doc))
+    const lockedCount = allDocs.length - downloadable.length
+    if (!downloadable.length) {
+      ElMessage.warning('All documents on this project are private and locked for your account')
+      return
+    }
+    ElMessage.info(
+      lockedCount > 0
+        ? `Downloading ${downloadable.length} document(s) — ${lockedCount} private document(s) skipped`
+        : `Downloading ${downloadable.length} document(s)…`
+    )
+    for (const doc of downloadable) {
       await downloadFile(doc)
       await new Promise((resolve) => setTimeout(resolve, 350))
     }
@@ -8614,12 +8649,19 @@ function formatLocation(item) {
             </el-table-column>
             <el-table-column label="Name" min-width="200">
               <template #default="{ row }">
+                <el-tooltip
+                  v-if="isDocumentPrivate(row)"
+                  :content="isDocumentLocked(row) ? LOCKED_DOCUMENT_MESSAGE : 'Private document'"
+                  placement="top"
+                >
+                  <el-icon style="color: var(--el-color-warning); margin-right: 3px; vertical-align: -2px;"><Lock /></el-icon>
+                </el-tooltip>
                 <el-button
                   link
                   type="primary"
                   class="doc-name-link"
                   :loading="downloadingDocId === row.id"
-                  :disabled="downloadingDocId === row.id"
+                  :disabled="downloadingDocId === row.id || isDocumentLocked(row)"
                   @click="downloadFile(row)"
                 >
                   {{ row.name }}
@@ -8646,20 +8688,30 @@ function formatLocation(item) {
               <template #default="scope">
                 <div class="doc-table-actions">
                   <el-tooltip
-                    :content="downloadingDocId === scope.row.id ? 'Downloading…' : 'Download'"
+                    :content="
+                      isDocumentLocked(scope.row)
+                        ? LOCKED_DOCUMENT_MESSAGE
+                        : downloadingDocId === scope.row.id
+                          ? 'Downloading…'
+                          : 'Download'
+                    "
                     placement="top"
                   >
-                    <el-button
-                      plain
-                      circle
-                      size="small"
-                      :loading="downloadingDocId === scope.row.id"
-                      :disabled="downloadingDocId === scope.row.id"
-                      aria-label="Download"
-                      @click="downloadFile(scope.row)"
-                    >
-                      <Icon icon="fa-solid:download" />
-                    </el-button>
+                    <span class="doc-action-trigger">
+                      <el-button
+                        plain
+                        circle
+                        size="small"
+                        :type="isDocumentLocked(scope.row) ? 'warning' : undefined"
+                        :loading="downloadingDocId === scope.row.id"
+                        :disabled="downloadingDocId === scope.row.id || isDocumentLocked(scope.row)"
+                        :aria-label="isDocumentLocked(scope.row) ? 'Locked private document' : 'Download'"
+                        @click="downloadFile(scope.row)"
+                      >
+                        <el-icon v-if="isDocumentLocked(scope.row)"><Lock /></el-icon>
+                        <Icon v-else icon="fa-solid:download" />
+                      </el-button>
+                    </span>
                   </el-tooltip>
 
                   <el-popconfirm

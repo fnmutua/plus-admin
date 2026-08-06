@@ -9148,6 +9148,31 @@ exports.RemoveDocument = async (req, res) => {
   const totalFiles = filesToDelete.length
   console.log('Removing files:', filesToDelete)
 
+  // Private documents may only be deleted by users allowed to see protected files.
+  try {
+    const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
+    if (!canSeeProtected) {
+      for (const item of filesToDelete) {
+        const isObj = typeof item === 'object' && item !== null
+        const docId = isObj ? item.id : null
+        const docName = isObj ? item.name : item
+        let docRow = docId ? await db.models.document.findByPk(docId, { raw: true }) : null
+        if (!docRow && docName) {
+          docRow = await db.models.document.findOne({ where: { name: docName }, raw: true })
+        }
+        if (docRow?.protectedFile) {
+          return res.status(403).send({
+            message: 'One or more selected documents are private and cannot be deleted by your account.',
+            code: 'DELETE_FORBIDDEN'
+          })
+        }
+      }
+    }
+  } catch (guardErr) {
+    console.error('RemoveDocument protected-file check failed:', guardErr.message)
+    return res.status(500).send({ message: 'Delete Failed', code: 'DELETE_FAILED' })
+  }
+
   for (const item of filesToDelete) {
     try {
       if (typeof item === 'object' && item !== null) {
@@ -9284,6 +9309,15 @@ exports.unlinkDocument = async (req, res) => {
     }
 
     const docRow = await db.models.document.findByPk(document_id, { raw: true })
+    if (docRow?.protectedFile) {
+      const canSeeProtected = await canUserSeeProtectedDocuments(req.thisUser)
+      if (!canSeeProtected) {
+        return res.status(403).send({
+          code: '0000',
+          message: 'This is a private document. You are not allowed to unlink it.'
+        })
+      }
+    }
     const linkRow = {
       document_id: Number(document_id),
       entity_type: String(entity_type),

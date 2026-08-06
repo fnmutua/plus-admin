@@ -17,7 +17,7 @@ import {
   getOneSettlement,
 } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus, Lightning, Location, TrendCharts, SetUp, InfoFilled } from '@element-plus/icons-vue'
+import { Back, Upload, Search, Edit, More, RefreshLeft, Picture, Download, Loading, Plus, Lightning, Location, TrendCharts, SetUp, InfoFilled, Lock } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 import jsPDF from 'jspdf'
@@ -83,6 +83,11 @@ import {
 } from '@/utils/roleScope'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { revertHistory, getLinkedDocuments, unlinkDocument, deleteDocument } from '@/api/settlements'
+import {
+  canAccessProtectedDocuments,
+  isProtectedDocument,
+  LOCKED_DOCUMENT_MESSAGE,
+} from '@/utils/documentPermissions'
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
@@ -713,7 +718,17 @@ const activeName = ref(typeof route.query.tab === 'string' && route.query.tab ? 
 const viewLoading = ref(false)
 const loadingStates = ref({}) // Add this line to track loading state per document
 
+// Private (protected) documents: only elevated roles may open or act on them.
+const canViewProtectedDocuments = computed(() => canAccessProtectedDocuments(userInfo))
+const isDocumentPrivate = (doc: any) => isProtectedDocument(doc)
+const isDocumentLocked = (doc: any) =>
+  isProtectedDocument(doc) && !canViewProtectedDocuments.value
+
 const downloadFile = async (data) => {
+  if (isDocumentLocked(data)) {
+    ElMessage.warning(LOCKED_DOCUMENT_MESSAGE);
+    return;
+  }
   console.log(data);
   loadingStates.value[data.id] = true; // Set loading state for this specific document
   const formData = {};
@@ -1741,6 +1756,7 @@ const hasPerm = (perm: string) => {
 
 const canUserUnlinkDocument = (doc: any): boolean => {
   if (!doc) return false
+  if (isDocumentLocked(doc)) return false
   if (isSuperAdmin.value) return true
   if (!(hasPerm('settlement:deleteDocument') || hasPerm('document:update'))) return false
   if (userHasPrivilegedNationalOrRegionalLocation(userInfo.roles)) return true
@@ -1752,6 +1768,7 @@ const canUserUnlinkDocument = (doc: any): boolean => {
 
 const canUserDeleteDocument = (doc: any): boolean => {
   if (!doc) return false
+  if (isDocumentLocked(doc)) return false
   if (isSuperAdmin.value) return true
   if (!hasPerm('document:delete')) return false
   if (userHasPrivilegedNationalOrRegionalLocation(userInfo.roles)) return true
@@ -1797,6 +1814,10 @@ const toggleCollapse = (type) => {
 
 // Photo preview function
 const previewPhoto = async (photo, index) => {
+  if (isDocumentLocked(photo)) {
+    ElMessage.warning(LOCKED_DOCUMENT_MESSAGE);
+    return;
+  }
   currentPhoto.value = photo;
   currentPhotoIndex.value = index;
   previewLoading.value = true;
@@ -1834,7 +1855,11 @@ const closePhotoPreview = () => {
 // Download current photo
 const downloadCurrentPhoto = async () => {
   if (!currentPhoto.value) return;
-  
+  if (isDocumentLocked(currentPhoto.value)) {
+    ElMessage.warning(LOCKED_DOCUMENT_MESSAGE);
+    return;
+  }
+
   downloadLoading.value = true;
   try {
     const formData = {
@@ -3358,6 +3383,10 @@ const fetchDocumentTypes = async () => {
 
 // Open edit dialog
 const openEditDocumentDialog = (doc: any) => {
+  if (isDocumentLocked(doc)) {
+    ElMessage.warning(LOCKED_DOCUMENT_MESSAGE)
+    return
+  }
   currentDocument.value = doc
   editDocumentForm.id = doc.id
   // Get category from various possible locations (document.category references document_type.id)
@@ -3851,17 +3880,37 @@ const updateDocumentCategory = async () => {
                      :key="photo.id" 
                      class="photo-item"
                    >
-                                           <div 
-                        class="photo-placeholder"
-                        @click="previewPhoto(photo, index)"
-                      >
-                        <div class="placeholder-content">
-                          <el-icon class="placeholder-icon"><Picture /></el-icon>
-                          <span class="placeholder-text">Click to Preview</span>
-                        </div>
-                      </div>
+                     <el-tooltip
+                       :content="LOCKED_DOCUMENT_MESSAGE"
+                       placement="top"
+                       :disabled="!isDocumentLocked(photo)"
+                     >
+                       <div
+                         class="photo-placeholder"
+                         :class="{ 'photo-placeholder--locked': isDocumentLocked(photo) }"
+                         @click="previewPhoto(photo, index)"
+                       >
+                         <div class="placeholder-content">
+                           <el-icon class="placeholder-icon">
+                             <Lock v-if="isDocumentLocked(photo)" />
+                             <Picture v-else />
+                           </el-icon>
+                           <span class="placeholder-text">
+                             {{ isDocumentLocked(photo) ? 'Private — locked' : 'Click to Preview' }}
+                           </span>
+                         </div>
+                       </div>
+                     </el-tooltip>
                      <div class="photo-info">
-                       <div class="photo-name">{{ photo.name }}</div>
+                       <div class="photo-name">
+                         <el-icon
+                           v-if="isDocumentPrivate(photo)"
+                           style="color: var(--el-color-warning); margin-right: 3px; vertical-align: -2px;"
+                         >
+                           <Lock />
+                         </el-icon>
+                         {{ photo.name }}
+                       </div>
                        <div class="photo-format">{{ photo.format?.toUpperCase() }}</div>
                      </div>
                    </div>
@@ -3893,6 +3942,13 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                    <el-table-column type="index" width="50" />
                    <el-table-column label="Name">
                      <template #default="scope">
+                       <el-tooltip
+                         v-if="isDocumentPrivate(scope.row)"
+                         :content="isDocumentLocked(scope.row) ? LOCKED_DOCUMENT_MESSAGE : 'Private document'"
+                         placement="top"
+                       >
+                         <el-icon style="color: var(--el-color-warning); margin-right: 4px; vertical-align: -2px;"><Lock /></el-icon>
+                       </el-tooltip>
                        {{ scope.row.name }}
                        <el-tag v-if="scope.row._isLinked" size="small" type="info" style="margin-left:6px;">Linked</el-tag>
                      </template>
@@ -3901,20 +3957,30 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
                  <el-table-column fixed="right" label="" min-width="200">
                    <template #default="scope">
                      <div class="doc-actions">
-                       <el-button
-                         plain
-                         :loading="loadingStates[scope.row.id]"
-                         @click="downloadFile(scope.row)"
-                         class="doc-action-button"
+                       <el-tooltip
+                         :content="LOCKED_DOCUMENT_MESSAGE"
+                         placement="top"
+                         :disabled="!isDocumentLocked(scope.row)"
                        >
-                         <Icon icon="fa-solid:download" style="margin-right: 5px;" />
-                         Download
-                       </el-button>
-                       <el-button 
-                         v-if="isSuperAdmin && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')" 
-                         plain 
-                         type="primary" 
-                         :icon="Edit" 
+                         <span class="doc-action-trigger">
+                           <el-button
+                             plain
+                             :loading="loadingStates[scope.row.id]"
+                             :disabled="isDocumentLocked(scope.row)"
+                             @click="downloadFile(scope.row)"
+                             class="doc-action-button"
+                           >
+                             <el-icon v-if="isDocumentLocked(scope.row)" style="margin-right: 5px;"><Lock /></el-icon>
+                             <Icon v-else icon="fa-solid:download" style="margin-right: 5px;" />
+                             {{ isDocumentLocked(scope.row) ? 'Locked' : 'Download' }}
+                           </el-button>
+                         </span>
+                       </el-tooltip>
+                       <el-button
+                         v-if="isSuperAdmin && !isDocumentLocked(scope.row) && canUserAccessSettlement({id: route.params.id, county_id: profile.county_id}, 'edit')"
+                         plain
+                         type="primary"
+                         :icon="Edit"
                          @click="openEditDocumentDialog(scope.row)"
                          class="doc-action-button"
                        >
@@ -4856,6 +4922,11 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   margin: 0 !important;
 }
 
+/* Wrapper so tooltips still fire over disabled (locked) action buttons */
+.doc-action-trigger {
+  display: inline-flex;
+}
+
 .success-background {
   background-color: rgba(226, 248, 231, 0.4);
   /* Light green with 80% opacity */
@@ -5027,6 +5098,23 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
   background: var(--el-fill-color);
   border-color: var(--el-color-primary);
   transform: scale(1.02);
+}
+
+/* Private photo the current user may not open */
+.photo-placeholder--locked {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.photo-placeholder--locked:hover {
+  background: var(--el-fill-color-light);
+  border-color: var(--el-color-warning);
+  transform: none;
+}
+
+.photo-placeholder--locked .placeholder-icon,
+.photo-placeholder--locked:hover .placeholder-icon {
+  color: var(--el-color-warning);
 }
 
 .placeholder-content {
