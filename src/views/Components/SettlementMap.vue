@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { ref, reactive, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer } from 'element-plus'
+import { ElButton, ElTable, ElTableColumn, ElMessage, ElCollapse, ElCollapseItem, ElCheckbox, ElCheckboxGroup, ElDrawer, ElDialog } from 'element-plus'
 import {
   buildDrawerInlineSections,
   collectDrawerFieldTypes,
@@ -56,7 +56,7 @@ import { useAppStore } from '@/store/modules/app'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
-import { GOOGLE_MAP_DECLUTTER_STYLES } from '@/utils/googleMapStyles'
+import { googleRoadmapStyles } from '@/utils/googleMapStyles'
 
 
 // Performance optimizations
@@ -220,7 +220,7 @@ const layerFeatureCounts = ref({
   neighboringSettlements: 0,
 })
 
-const legendItems = [
+const legendItems = ref([
   { label: 'Residential', color: '#8C675D', landuseId: 0, show: false },
   { label: 'Industrial', color: '#800080', landuseId: 1, show: false },
   { label: 'Education', color: '#F6C567', landuseId: 2, show: false },
@@ -231,7 +231,7 @@ const legendItems = [
   { label: 'Transportation', color: '#DCDCDC', landuseId: 7, show: false },
   { label: 'Undeveloped', color: '#FDFD96', landuseId: 8, show: false },
   { label: 'Agricultural', color: '#FDFD96', landuseId: 9, show: false },
-]
+])
 
 const PointLegendItems = ref([
   { layer: 'crime_hotspot', label: 'Crime Hotspot', icon: 'icons/theft.png', show: false },
@@ -294,6 +294,15 @@ const PolyLineItems = ref([
   },
 ])
 
+const UTILITY_FEATURE_TYPES = new Set(['powerline', 'sewer', 'piped_water'])
+
+const facilityTypeVisible = reactive(
+  Object.fromEntries(PointLegendItems.value.map((item) => [item.layer, true])) as Record<
+    string,
+    boolean
+  >
+)
+
 // Helper function to update loading status
 const updateLoadingStatus = (status: string, progress: number) => {
   loadingStatus.value = status
@@ -316,7 +325,7 @@ const applyMapDataToState = (mapData: SettlementMapData) => {
       const landuseIdsFound = new Set(
         mapData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
       )
-      legendItems.forEach(item => {
+      legendItems.value.forEach(item => {
         item.show = landuseIdsFound.has(item.landuseId)
       })
       console.log(`✅ Loaded ${mapData.parcel.features.length} parcels`)
@@ -539,7 +548,7 @@ const loadSelectedLayersWithProgress = async (
     const landuseIdsFound = new Set(
       allData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
     )
-    legendItems.forEach(item => {
+    legendItems.value.forEach(item => {
       item.show = landuseIdsFound.has(item.landuseId)
     })
     console.log(`✅ Loaded ${allData.parcel.features.length} parcels`)
@@ -792,8 +801,7 @@ const loadSelectedLayersWithProgress = async (
   }
 
   console.log('other_points (all features) >>', other_points.value)
-  layerFeatureCounts.value.other_points = other_points.value.length
-  layerFeatureCounts.value.roads = roads.value.length
+  refreshMapKeyLegend()
 
   updateLoadingStatus('Finalizing features...', 82)
   
@@ -1153,8 +1161,7 @@ const loadSelectedLayers = async (layers: string[]) => {
   })
 
   console.log('other_points (all features) >>', other_points.value)
-  layerFeatureCounts.value.other_points = other_points.value.length
-  layerFeatureCounts.value.roads = roads.value.length
+  refreshMapKeyLegend()
 
   // Fit the map to all features
   if (polygons.value.length || parcels.value.length || roads.value.length  || schools.value.length || water_points.value.length || structures.value.length || other_points.value.length) {
@@ -1214,6 +1221,53 @@ const refreshLayerFeatureCounts = () => {
     other_points: other_points.value.length,
     roads: roads.value.length,
   }
+}
+
+/** Rebuild KEY visibility from currently loaded map data (incl. added neighbors). */
+const refreshMapKeyLegend = () => {
+  const facilityTypes = new Set(
+    other_points.value
+      .map((p) => p.properties?.featureType)
+      .filter((t): t is string => !!t && !UTILITY_FEATURE_TYPES.has(t))
+  )
+  const utilityTypes = new Set(
+    other_points.value
+      .map((p) => p.properties?.featureType)
+      .filter((t): t is string => !!t && UTILITY_FEATURE_TYPES.has(t))
+  )
+  if (roads.value.length) utilityTypes.add('road')
+
+  PointLegendItems.value = PointLegendItems.value.map((item) => ({
+    ...item,
+    show: facilityTypes.has(item.layer),
+  }))
+
+  PolyLineItems.value = PolyLineItems.value.map((item) => ({
+    ...item,
+    show:
+      item.layer === 'road'
+        ? roads.value.length > 0
+        : utilityTypes.has(item.layer),
+  }))
+
+  const landuseIdsFound = new Set(
+    parcels.value
+      .map((p) => p.properties?.landuse_id)
+      .filter((id) => id !== null && id !== undefined)
+  )
+  legendItems.value = legendItems.value.map((item) => ({
+    ...item,
+    show: landuseIdsFound.has(item.landuseId),
+  }))
+
+  // Ensure per-type toggles exist for any newly shown facility layers
+  PointLegendItems.value.forEach((item) => {
+    if (facilityTypeVisible[item.layer] === undefined) {
+      facilityTypeVisible[item.layer] = true
+    }
+  })
+
+  refreshLayerFeatureCounts()
 }
 
 const fetchSettlementMapDataRaw = async (settlementId: string): Promise<SettlementMapData | null> => {
@@ -1314,7 +1368,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
     const landuseIdsFound = new Set(
       mapData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
     )
-    legendItems.forEach(item => {
+    legendItems.value.forEach(item => {
       if (landuseIdsFound.has(item.landuseId)) {
         item.show = true
       }
@@ -1490,7 +1544,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
                 id: `line-${idPrefix}${model}-${properties?.id || index}-${lineIndex}`,
                 type: 'polyline',
                 path,
-                ...style,
+                options: style,
                 properties: {
                   ...properties,
                   featureType: model
@@ -1506,7 +1560,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
     }
   }
 
-  refreshLayerFeatureCounts()
+  refreshMapKeyLegend()
   loadedSettlementIds.value.add(settlementId)
 
   await nextTick()
@@ -2064,6 +2118,7 @@ const goToDrawerFacility = () => {
 }
 
 const selectedNeighbor = ref<{ id: string | number; name: string } | null>(null)
+const neighborDialogVisible = ref(false)
 
 const isSelectedNeighborAlreadyLoaded = computed(() =>
   !!selectedNeighbor.value?.id &&
@@ -2072,18 +2127,30 @@ const isSelectedNeighborAlreadyLoaded = computed(() =>
 
 const onNeighborClick = (feature: { properties?: { id?: string | number; name?: string } }) => {
   const neighborId = feature.properties?.id
-  if (!neighborId || drawerVisible.value) return
+  if (!neighborId || drawerVisible.value || neighborDialogVisible.value) return
 
   selectedNeighbor.value = {
     id: neighborId,
     name: feature.properties?.name || 'Unnamed Settlement',
   }
 
+  // Compact add-to-map dialog only while the map is fullscreen
+  if (isMapFullscreen.value) {
+    neighborDialogVisible.value = true
+    return
+  }
+
   openFeatureDrawer(feature, 'settlement')
 }
 
 const dismissNeighborDialog = () => {
+  neighborDialogVisible.value = false
   closeDrawer()
+}
+
+const closeNeighborDialogOnly = () => {
+  neighborDialogVisible.value = false
+  selectedNeighbor.value = null
 }
 
 const goToNeighborSettlement = () => {
@@ -2218,119 +2285,115 @@ const toggleOtherPoint = (visible: boolean) => {
   OtherPointVisible.value = visible
 }
 
-const setupMapTypeControl = () => {
-  if (!mapReady.value || !mapRef.value?.map) return
-  const grayscaleStyle = [
-    {
-      stylers: [{ saturation: -100 }]
-    }
-  ]
-  const darkModeStyle = [
-    { elementType: 'geometry', stylers: [{ color: '#212121' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#212121' }] },
-    {
-      featureType: 'administrative',
-      elementType: 'geometry',
-      stylers: [{ color: '#757575' }]
-    },
-    {
-      featureType: 'administrative.country',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#9e9e9e' }]
-    },
-    {
-      featureType: 'administrative.locality',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#bdbdbd' }]
-    },
-    {
-      featureType: 'poi',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#757575' }]
-    },
-    {
-      featureType: 'poi.park',
-      elementType: 'geometry',
-      stylers: [{ color: '#181818' }]
-    },
-    {
-      featureType: 'poi.park',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#616161' }]
-    },
-    {
-      featureType: 'road',
-      elementType: 'geometry.fill',
-      stylers: [{ color: '#2c2c2c' }]
-    },
-    {
-      featureType: 'road',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#8a8a8a' }]
-    },
-    {
-      featureType: 'road.arterial',
-      elementType: 'geometry',
-      stylers: [{ color: '#373737' }]
-    },
-    {
-      featureType: 'road.highway',
-      elementType: 'geometry',
-      stylers: [{ color: '#3c3c3c' }]
-    },
-    {
-      featureType: 'road.highway.controlled_access',
-      elementType: 'geometry',
-      stylers: [{ color: '#4e4e4e' }]
-    },
-    {
-      featureType: 'water',
-      elementType: 'geometry',
-      stylers: [{ color: '#0e1626' }]
-    },
-    {
-      featureType: 'water',
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#3d3d3d' }]
-    }
-  ]
-  const grayscaleMapType = new google.maps.StyledMapType(grayscaleStyle, { name: 'Grayscale' })
-  const darkModeMapType = new google.maps.StyledMapType(darkModeStyle, { name: 'Dark Mode' })
-  mapRef.value.map.mapTypes.set('grayscale', grayscaleMapType)
-  mapRef.value.map.mapTypes.set('dark', darkModeMapType)
-  const controlDiv = document.createElement('div')
-  const controlSelect = document.createElement('select')
-  controlDiv.style.padding = '5px'
-  controlDiv.style.backgroundColor = 'white'
-  controlDiv.style.border = '1px solid #ccc'
-  controlDiv.style.borderRadius = '2px'
-  controlDiv.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)'
-  controlSelect.style.fontSize = '14px'
-  controlSelect.style.padding = '2px'
-  controlSelect.style.margin = '5px'
-  const mapTypes = [
-    { id: 'roadmap', label: 'Map' },
-    { id: 'satellite', label: 'Satellite' },
-    { id: 'hybrid', label: 'Hybrid' },
-    { id: 'terrain', label: 'Terrain' },
-    { id: 'grayscale', label: 'Grayscale' },
-    { id: 'dark', label: 'Dark Mode' }
-  ]
-  mapTypes.forEach((type) => {
-    const option = document.createElement('option')
-    option.value = type.id
-    option.text = type.label
-    if (type.id === mapRef.value.map.getMapTypeId()) {
-      option.selected = true
-    }
-    controlSelect.appendChild(option)
+const facilityPoints = computed(() =>
+  other_points.value.filter((p) => {
+    const type = p.properties?.featureType
+    if (!type || UTILITY_FEATURE_TYPES.has(type)) return false
+    return facilityTypeVisible[type] !== false
   })
-  controlSelect.addEventListener('change', () => {
-    mapRef.value.map.setMapTypeId(controlSelect.value)
-  })
-  controlDiv.appendChild(controlSelect)
-  mapRef.value.map.controls[google.maps.ControlPosition.TOP_LEFT].push(controlDiv)
+)
+
+const utilityPolylines = computed(() => ({
+  powerline: other_points.value.filter((p) => p.properties?.featureType === 'powerline'),
+  sewer: other_points.value.filter((p) => p.properties?.featureType === 'sewer'),
+  piped_water: other_points.value.filter((p) => p.properties?.featureType === 'piped_water'),
+}))
+
+const facilityFeatureCount = computed(() => other_points.value.length)
+
+const visibleFacilityLegendItems = computed(() => {
+  const present = new Set(
+    other_points.value
+      .map((p) => p.properties?.featureType)
+      .filter((t): t is string => !!t && !UTILITY_FEATURE_TYPES.has(t))
+  )
+  return PointLegendItems.value.filter(
+    (item) => item.show || present.has(item.layer)
+  )
+})
+
+const visibleParcelLegendItems = computed(() =>
+  legendItems.value.filter((item) => item.show)
+)
+
+const mapTypeId = ref<'roadmap' | 'hybrid'>('roadmap')
+const isDarkMap = computed(() => appStore.getIsDark)
+const mapStyles = computed(() =>
+  mapTypeId.value === 'roadmap' ? googleRoadmapStyles(isDarkMap.value) : null
+)
+
+const applyMapTheme = () => {
+  const map = mapRef.value?.map
+  if (!map) return
+  try {
+    map.setOptions({
+      styles: mapTypeId.value === 'roadmap' ? googleRoadmapStyles(isDarkMap.value) : [],
+    })
+  } catch (e) {
+    console.warn('applyMapTheme skipped', e)
+  }
+}
+
+const setMapType = (type: 'roadmap' | 'hybrid') => {
+  mapTypeId.value = type
+  const map = mapRef.value?.map
+  if (!map) return
+  try {
+    map.setMapTypeId(type)
+    applyMapTheme()
+  } catch (e) {
+    console.warn('setMapType skipped', e)
+  }
+}
+
+const LOCATE_ZOOM = 14
+const locatingMe = ref(false)
+
+const mapContainerRef = ref<HTMLElement | null>(null)
+const isMapFullscreen = ref(false)
+
+const syncFullscreenState = () => {
+  const el = mapContainerRef.value
+  const active =
+    document.fullscreenElement === el ||
+    (document as any).webkitFullscreenElement === el
+  isMapFullscreen.value = !!active
+}
+
+const toggleMapFullscreen = async () => {
+  const el = mapContainerRef.value
+  if (!el) return
+  try {
+    if (
+      document.fullscreenElement === el ||
+      (document as any).webkitFullscreenElement === el
+    ) {
+      if (document.exitFullscreen) await document.exitFullscreen()
+      else if ((document as any).webkitExitFullscreen) {
+        await (document as any).webkitExitFullscreen()
+      }
+    } else if (el.requestFullscreen) {
+      await el.requestFullscreen()
+    } else if ((el as any).webkitRequestFullscreen) {
+      await (el as any).webkitRequestFullscreen()
+    }
+  } catch (e) {
+    console.warn('toggleMapFullscreen skipped', e)
+  }
+}
+
+const zoomBy = (delta: number) => {
+  const map = mapRef.value?.map
+  if (!map) return
+  try {
+    const current = map.getZoom()
+    if (typeof current !== 'number') return
+    const next = Math.min(20, Math.max(2, current + delta))
+    map.setZoom(next)
+    currentZoom.value = next
+  } catch (e) {
+    console.warn('zoomBy skipped', e)
+  }
 }
 
 const getSettlementBbox = () => {
@@ -2583,7 +2646,7 @@ const fetchNeighboringSettlements = async (customBbox?: { minLng: number; minLat
 // Debounced function to fetch neighbors on map view changes
 let neighborFetchTimeout: NodeJS.Timeout | null = null
 const fetchNeighborsOnViewChange = () => {
-  if (drawerVisible.value || neighborMapLoading.value) return
+  if (drawerVisible.value || neighborDialogVisible.value || neighborMapLoading.value) return
 
   // Clear existing timeout
   if (neighborFetchTimeout) {
@@ -2958,23 +3021,40 @@ const toggleImageryGroup = (selected: string[]) => {
 const userLocation = ref(null)
 
 const locateMe = () => {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude
-        const lng = position.coords.longitude
-        const pos = { lat, lng }
-        gmapCenter.value = pos
-        userLocation.value = pos
-        mapRef.value?.panTo(pos)
-      },
-      () => {
-        ElMessage.error('Geolocation permission denied or unavailable.')
-      }
-    )
-  } else {
+  if (!navigator.geolocation) {
     ElMessage.warning('Geolocation is not supported in this browser.')
+    return
   }
+  const map = mapRef.value?.map
+  if (!map) return
+  locatingMe.value = true
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      locatingMe.value = false
+      const pos = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }
+      gmapCenter.value = pos
+      userLocation.value = pos
+      try {
+        map.panTo(pos)
+        map.setZoom(LOCATE_ZOOM)
+        currentZoom.value = LOCATE_ZOOM
+      } catch (e) {
+        console.warn('locateMe pan skipped', e)
+      }
+    },
+    (err) => {
+      locatingMe.value = false
+      if (err?.code === err?.PERMISSION_DENIED) {
+        ElMessage.error('Location permission denied. Allow location access to use Locate me.')
+      } else {
+        ElMessage.error('Could not get your location. Try again.')
+      }
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  )
 }
 
 const userLocationMarker = computed(() => ({
@@ -3053,6 +3133,8 @@ onMounted(async () => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', updateWindowWidth)
     updateWindowWidth()
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState as EventListener)
   }
 
   watch(
@@ -3092,21 +3174,9 @@ onMounted(async () => {
           fetchNeighborsOnViewChange()
         }
 
-        // Setup dark mode watcher
-        const isDark = computed(() => appStore.getIsDark)
-        watch(
-          isDark,
-          (isDarkValue) => {
-            if (mapReady.value && mapRef.value?.map) {
-              const newMapType = isDarkValue ? 'dark' : 'grayscale'
-              mapRef.value.map.setMapTypeId(newMapType)
-              const controlSelect = mapRef.value.map.controls[google.maps.ControlPosition.TOP_LEFT][0]?.querySelector('select')
-              if (controlSelect) {
-                controlSelect.value = newMapType
-              }
-            }
-          }
-        )
+        watch(isDarkMap, () => {
+          if (mapReady.value) applyMapTheme()
+        })
       }
     }
   )
@@ -3119,6 +3189,8 @@ const mapEventListeners: google.maps.MapsEventListener[] = []
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateWindowWidth)
+    document.removeEventListener('fullscreenchange', syncFullscreenState)
+    document.removeEventListener('webkitfullscreenchange', syncFullscreenState as EventListener)
   }
   
   // Remove map event listeners
@@ -3268,7 +3340,7 @@ const loadMapData = async () => {
     updateLoadingStatus('Fetching map data...', 10)
     await loadSelectedLayersWithProgress(['settlement', 'parcels', 'structures', 'other_points'])
     updateLoadingStatus('Setting up map controls...', 90)
-    setupMapTypeControl()
+    applyMapTheme()
     updateLoadingStatus('Map ready!', 100)
     loadedSettlementIds.value.add(String(props.settlementId))
 
@@ -3300,7 +3372,7 @@ const loadMapData = async () => {
 </script>
 
  <template>
-    <div class="map-container" >
+    <div ref="mapContainerRef" class="map-container">
       <!-- Progressive Loading Overlay -->
       <div v-if="showProgressOverlay" class="loading-overlay">
         <div class="loading-content">
@@ -3316,20 +3388,107 @@ const loadMapData = async () => {
           </div>
         </div>
       </div>
+
+      <div v-if="mapReady" class="settlement-map__controls" aria-label="Map controls">
+        <div class="settlement-map__top-row">
+          <div class="settlement-map__basemap" role="group" aria-label="Base map">
+            <button
+              type="button"
+              class="settlement-map__ctrl-btn"
+              :class="{ 'is-active': mapTypeId === 'roadmap' }"
+              @click="setMapType('roadmap')"
+            >
+              Road
+            </button>
+            <button
+              type="button"
+              class="settlement-map__ctrl-btn"
+              :class="{ 'is-active': mapTypeId === 'hybrid' }"
+              @click="setMapType('hybrid')"
+            >
+              Satellite
+            </button>
+          </div>
+          <div class="settlement-map__download" role="group" aria-label="Download">
+            <button
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+              :aria-label="downloadButtonTitle"
+              :title="downloadButtonTitle"
+              :disabled="downloadLoading"
+              @click="downloadGeo"
+            >
+              <Icon
+                :icon="downloadLoading ? 'mdi:loading' : 'mdi:tray-arrow-down'"
+                width="18"
+                height="18"
+                :class="{ 'settlement-map__spin': downloadLoading }"
+              />
+            </button>
+          </div>
+        </div>
+        <div class="settlement-map__zoom" role="group" aria-label="Zoom">
+          <button
+            type="button"
+            class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+            aria-label="Zoom in"
+            @click="zoomBy(1)"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+            aria-label="Zoom out"
+            @click="zoomBy(-1)"
+          >
+            −
+          </button>
+        </div>
+        <div class="settlement-map__locate" role="group" aria-label="Location">
+          <button
+            type="button"
+            class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+            aria-label="Locate me"
+            title="Locate me"
+            :disabled="locatingMe"
+            @click="locateMe"
+          >
+            <Icon icon="mdi:crosshairs-gps" width="18" height="18" />
+          </button>
+        </div>
+        <div class="settlement-map__fullscreen" role="group" aria-label="Fullscreen">
+          <button
+            type="button"
+            class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+            :aria-label="isMapFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+            :title="isMapFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+            @click="toggleMapFullscreen"
+          >
+            <Icon
+              :icon="isMapFullscreen ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'"
+              width="18"
+              height="18"
+            />
+          </button>
+        </div>
+      </div>
       
       <GoogleMap
         ref="mapRef"
         :api-key="googleMapsApiKey"
-        :styles="GOOGLE_MAP_DECLUTTER_STYLES"
+        :styles="mapStyles"
         style="width: 100%; height: 100%"
         :center="gmapCenter"
         :zoom="8"
-        map-type-id="grayscale"
+        :map-type-id="mapTypeId"
         :map-type-control="false"
+        :zoom-control="false"
+        :fullscreen-control="false"
       >
-        <!-- Map content (unchanged) -->
+        <!-- Facility markers/polygons only (utilities use their own toggles) -->
         <template v-if="OtherPointVisible">
-          <template v-for="pnt in other_points" :key="pnt.id">
+          <template v-for="pnt in facilityPoints" :key="pnt.id">
             <Marker
               v-if="pnt.type === 'marker'"
               :options="{ position: pnt.position, icon: pnt.icon }"
@@ -3408,7 +3567,7 @@ const loadMapData = async () => {
           <Marker v-for="label in parcelLabels" :key="label.id" :options="label" />
         </div>
 
-      <div v-if="roadsVisible">
+      <div v-if="OtherPointVisible && roadsVisible">
         <Polyline
           v-for="road in roads"
           :key="road.id"
@@ -3417,14 +3576,29 @@ const loadMapData = async () => {
         />
       </div>
 
-      <div v-if="powerlineVisible">
-        <Polyline v-for="item in other_points.filter(p => p.properties?.featureType === 'powerline')" :key="item.id" :options="item" @click="onPointClick(item)" />
+      <div v-if="OtherPointVisible && powerlineVisible">
+        <Polyline
+          v-for="item in utilityPolylines.powerline"
+          :key="item.id"
+          :options="{ path: item.path, ...item.options }"
+          @click="onPointClick(item)"
+        />
       </div>
-      <div v-if="sewerVisible">
-        <Polyline v-for="item in other_points.filter(p => p.properties?.featureType === 'sewer')" :key="item.id" :options="item" @click="onPointClick(item)" />
+      <div v-if="OtherPointVisible && sewerVisible">
+        <Polyline
+          v-for="item in utilityPolylines.sewer"
+          :key="item.id"
+          :options="{ path: item.path, ...item.options }"
+          @click="onPointClick(item)"
+        />
       </div>
-      <div v-if="pipedWaterVisible">
-        <Polyline v-for="item in other_points.filter(p => p.properties?.featureType === 'piped_water')" :key="item.id" :options="item" @click="onPointClick(item)" />
+      <div v-if="OtherPointVisible && pipedWaterVisible">
+        <Polyline
+          v-for="item in utilityPolylines.piped_water"
+          :key="item.id"
+          :options="{ path: item.path, ...item.options }"
+          @click="onPointClick(item)"
+        />
       </div>
 
         <!-- Invisible neighbor click targets (above parcels for reliable clicks) -->
@@ -3568,6 +3742,49 @@ const loadMapData = async () => {
         </template>
       </ElDrawer>
 
+      <ElDialog
+        v-model="neighborDialogVisible"
+        class="neighbor-fs-dialog"
+        width="360px"
+        :append-to-body="false"
+        :close-on-click-modal="true"
+        :close-on-press-escape="true"
+        align-center
+        @closed="closeNeighborDialogOnly"
+      >
+        <template #header>
+          <div class="neighbor-fs-dialog__title">
+            {{ selectedNeighbor?.name || 'Nearby settlement' }}
+          </div>
+        </template>
+        <p class="neighbor-fs-dialog__text">
+          Add this settlement’s layers to the map, or open its details page.
+        </p>
+        <p class="neighbor-fs-dialog__meta">
+          {{ loadedSettlementCount }} of {{ MAX_LOADED_SETTLEMENTS }} settlements on map.
+        </p>
+        <p v-if="!canAddMoreSettlements" class="neighbor-fs-dialog__warn">
+          Maximum reached. Open details instead, or refresh to start over.
+        </p>
+        <p v-else-if="isSelectedNeighborAlreadyLoaded" class="neighbor-fs-dialog__info">
+          This settlement is already on the map.
+        </p>
+        <template #footer>
+          <div class="neighbor-fs-dialog__actions">
+            <ElButton @click="closeNeighborDialogOnly">Close</ElButton>
+            <ElButton
+              type="primary"
+              :loading="neighborMapLoading"
+              :disabled="!canAddMoreSettlements || isSelectedNeighborAlreadyLoaded"
+              @click="loadNeighborOnMap"
+            >
+              Add to Map
+            </ElButton>
+            <ElButton @click="goToNeighborSettlement">Details</ElButton>
+          </div>
+        </template>
+      </ElDialog>
+
       <div id="floating-div">
       <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">
         <h3 style="margin: 0; font-weight: bold; font-size: 16px; color: #333;">KEY</h3>
@@ -3582,39 +3799,78 @@ const loadMapData = async () => {
                 Labels ({{ layerFeatureCounts.parcelLabels }})
               </ElCheckbox>
             </div>
-            <div v-for="item in legendItems.filter(item => item.show)" :key="item.label" class="legend-item">
+            <div v-for="item in visibleParcelLegendItems" :key="item.label" class="legend-item">
               <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
               <div class="legend-label">{{ item.label }}</div>
             </div>
           </ElCollapseItem>
           <ElCollapseItem title="Layers">
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <ElCheckbox v-model="OtherPointVisible" @change="toggleOtherPoint">
-                Facilities ({{ layerFeatureCounts.other_points }})
-              </ElCheckbox>
-              <div v-for="item in PolyLineItems.filter(item => item.show)" :key="item.label" class="line-item">
-                <div class="line-color" :style="{ backgroundColor: item.color }"></div>
-                <div class="legend-label">{{ item.label }}</div>
+            <div class="key-layers">
+              <div class="key-group">
+                <ElCheckbox v-model="OtherPointVisible" @change="toggleOtherPoint">
+                  Facilities ({{ facilityFeatureCount + layerFeatureCounts.roads }})
+                </ElCheckbox>
+                <div
+                  class="key-group__nested"
+                  :class="{ 'is-dimmed': !OtherPointVisible }"
+                >
+                  <div
+                    v-for="item in visibleFacilityLegendItems"
+                    :key="item.layer"
+                    class="key-line-item"
+                  >
+                    <ElCheckbox
+                      v-model="facilityTypeVisible[item.layer]"
+                      :disabled="!OtherPointVisible"
+                    >
+                      <img :src="item.icon" class="legend-icon" alt="" />
+                      <span>{{ item.label }}</span>
+                    </ElCheckbox>
+                  </div>
+
+                  <div class="key-line-item">
+                    <ElCheckbox
+                      v-model="roadsVisible"
+                      :disabled="!OtherPointVisible"
+                      @change="toggleRoads"
+                    >
+                      <span class="key-line-swatch" style="background-color: red"></span>
+                      <span>Roads ({{ layerFeatureCounts.roads }})</span>
+                    </ElCheckbox>
+                  </div>
+                  <div class="key-line-item">
+                    <ElCheckbox
+                      v-model="powerlineVisible"
+                      :disabled="!OtherPointVisible"
+                    >
+                      <span class="key-line-swatch" style="background-color: green"></span>
+                      <span>Powerline</span>
+                    </ElCheckbox>
+                  </div>
+                  <div class="key-line-item">
+                    <ElCheckbox
+                      v-model="sewerVisible"
+                      :disabled="!OtherPointVisible"
+                    >
+                      <span class="key-line-swatch" style="background-color: #4B0082"></span>
+                      <span>Sewer</span>
+                    </ElCheckbox>
+                  </div>
+                  <div class="key-line-item">
+                    <ElCheckbox
+                      v-model="pipedWaterVisible"
+                      :disabled="!OtherPointVisible"
+                    >
+                      <span class="key-line-swatch" style="background-color: #00BFFF"></span>
+                      <span>Piped Water</span>
+                    </ElCheckbox>
+                  </div>
+                </div>
               </div>
-              <div v-for="item in PointLegendItems.filter(item => item.show)" :key="item.label" class="line-item">
-                <img :src="item.icon" class="legend-icon" />
-                <div class="legend-label">{{ item.label }}</div>
-              </div>
-              <ElCheckbox v-model="roadsVisible" @change="toggleRoads">
-                Roads ({{ layerFeatureCounts.roads }})
-              </ElCheckbox>
+
               <ElCheckbox v-model="StructureVisible" @change="toggleStructure">
                 Structures ({{ layerFeatureCounts.structures }})
               </ElCheckbox>
-            <ElCheckbox v-model="powerlineVisible">
-              Powerline
-            </ElCheckbox>
-            <ElCheckbox v-model="sewerVisible">
-              Sewer
-            </ElCheckbox>
-            <ElCheckbox v-model="pipedWaterVisible">
-              Piped Water
-            </ElCheckbox>
             </div>
           </ElCollapseItem>
           <ElCollapseItem v-if="availableImageryLayers.length > 0" title="Imagery">
@@ -3637,19 +3893,6 @@ const loadMapData = async () => {
         </ElCollapse>
       </div>
 
-      <ElButton circle title="Locate Me" class="geolocate-btn" plain @click="locateMe">
-        <Icon icon="mage:location-fill" />
-      </ElButton>
-    <ElButton
-      circle
-      :title="downloadButtonTitle"
-      class="download-btn"
-      plain
-      :loading="downloadLoading"
-      @click="downloadGeo"
-    >
-      <Icon icon="mdi:download" />
-      </ElButton>
     </div>
 </template>
 
@@ -3668,6 +3911,136 @@ const loadMapData = async () => {
   width: 100%;
 }
 
+.map-container:fullscreen,
+.map-container:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: #fff;
+}
+
+.settlement-map__controls {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  left: auto;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.settlement-map__top-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.settlement-map__basemap,
+.settlement-map__download,
+.settlement-map__zoom,
+.settlement-map__locate,
+.settlement-map__fullscreen {
+  display: flex;
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e6e4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+}
+
+.settlement-map__zoom {
+  flex-direction: column;
+}
+
+.settlement-map__ctrl-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #1f2933;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settlement-map__ctrl-btn + .settlement-map__ctrl-btn {
+  border-left: 1px solid #e2e6e4;
+}
+
+.settlement-map__zoom .settlement-map__ctrl-btn + .settlement-map__ctrl-btn {
+  border-left: 0;
+  border-top: 1px solid #e2e6e4;
+}
+
+.settlement-map__ctrl-btn--icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settlement-map__ctrl-btn:hover {
+  background: #f5f7f6;
+}
+
+.settlement-map__ctrl-btn.is-active {
+  background: #00843d;
+  color: #fff;
+}
+
+.settlement-map__ctrl-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.settlement-map__spin {
+  animation: settlement-map-spin 0.8s linear infinite;
+}
+
+@keyframes settlement-map-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dark .settlement-map__basemap,
+.dark .settlement-map__download,
+.dark .settlement-map__zoom,
+.dark .settlement-map__locate,
+.dark .settlement-map__fullscreen {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+.dark .settlement-map__ctrl-btn {
+  color: #e8e8e8;
+}
+
+.dark .settlement-map__ctrl-btn + .settlement-map__ctrl-btn,
+.dark .settlement-map__zoom .settlement-map__ctrl-btn + .settlement-map__ctrl-btn {
+  border-color: #444;
+}
+
+.dark .settlement-map__ctrl-btn:hover {
+  background: #3a3a3a;
+}
+
+.dark .settlement-map__ctrl-btn.is-active {
+  background: #00843d;
+  color: #fff;
+}
+
 #floating-div {
   position: absolute;
   bottom: 10px;
@@ -3677,8 +4050,25 @@ const loadMapData = async () => {
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 10;
-  height: fit-content;
-  max-width: 500px;
+  max-width: min(500px, calc(100% - 20px));
+  max-height: min(70vh, calc(100% - 20px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#floating-div::-webkit-scrollbar {
+  width: 6px;
+}
+
+#floating-div::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 3px;
+}
+
+#floating-div::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 #floating-div h3 {
@@ -3726,6 +4116,51 @@ const loadMapData = async () => {
   height: 30px;
   margin-right: 10px;
   object-fit: contain;
+}
+
+.key-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.key-group__nested {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 6px 22px;
+  padding-left: 8px;
+  border-left: 2px solid #e2e6e4;
+  transition: opacity 0.15s ease;
+}
+
+.key-group__nested.is-dimmed {
+  opacity: 0.4;
+}
+
+.key-line-item :deep(.el-checkbox__label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.2;
+}
+
+.key-line-item .legend-icon {
+  width: 22px;
+  height: 22px;
+  margin-right: 0;
+}
+
+.key-line-swatch {
+  display: inline-block;
+  width: 28px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.dark .key-group__nested {
+  border-left-color: #555;
 }
 
 /* Dark mode styles */
@@ -3784,44 +4219,6 @@ const loadMapData = async () => {
 .dark .el-table th,
 .dark .el-table td {
   border-color: #555;
-}
-
-.geolocate-btn {
-  position: absolute;
-  top: 15px;
-  right: 70px;
-  z-index: 1000;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.download-btn {
-  position: absolute;
-  top: 15px;
-  right: 120px;
-  z-index: 9999;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  background-color: white;
-  border: 1px solid #dcdfe6;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #606266;
-  transition: all 0.3s;
-  pointer-events: auto;
-}
-
-.download-btn:hover {
-  background-color: #f5f7fa;
-  border-color: #c0c4cc;
-  color: #409eff;
-}
-
-/* Ensure button stays visible in fullscreen */
-.map-container:fullscreen .download-btn,
-.map-container:-webkit-full-screen .download-btn,
-.map-container:-moz-full-screen .download-btn {
-  z-index: 99999;
-  position: fixed;
 }
 
 /* Progressive Loading Overlay */
@@ -4119,6 +4516,55 @@ const loadMapData = async () => {
   color: #606266;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.neighbor-fs-dialog :deep(.el-dialog) {
+  border-radius: 10px;
+  margin: 0 auto;
+}
+
+.neighbor-fs-dialog__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2933;
+  line-height: 1.3;
+  padding-right: 8px;
+}
+
+.neighbor-fs-dialog__text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.45;
+}
+
+.neighbor-fs-dialog__meta {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.neighbor-fs-dialog__warn {
+  margin: 0;
+  font-size: 12px;
+  color: #e6a23c;
+}
+
+.neighbor-fs-dialog__info {
+  margin: 0;
+  font-size: 12px;
+  color: #409eff;
+}
+
+.neighbor-fs-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dark .neighbor-fs-dialog__title {
+  color: #e8e8e8;
 }
 
 .drawer-neighbor-note p {
