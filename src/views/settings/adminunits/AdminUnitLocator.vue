@@ -7,6 +7,8 @@ import { Back, Location, Search, DocumentCopy } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { locateAdminUnitsByPointApi } from '@/api/adminunits'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
+import { GOOGLE_MAP_DECLUTTER_STYLES } from '@/utils/googleMapStyles'
+
 
 const router = useRouter()
 
@@ -222,6 +224,7 @@ const flyToCoordinates = () => {
           style="height: 600px; width: 100%; border-radius: 6px; overflow: hidden;"
         >
           <GoogleMap
+              :styles="GOOGLE_MAP_DECLUTTER_STYLES"
             ref="mapRef"
             :api-key="GOOGLE_MAPS_API_KEY"
             style="width: 100%; height: 100%;"

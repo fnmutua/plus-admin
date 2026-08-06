@@ -276,7 +276,7 @@ import {
   getPublicRegisterWards,
 } from '@/api/register-public'
 import { INSTITUTION, PUBLIC_PAGES } from './config/landing.config'
-import { LANDING_DARK_MAP_STYLES } from './utils/mapStyles'
+import { landingRoadmapStyles } from './utils/mapStyles'
 
 type ExplorerMode = 'settlements' | 'projects'
 type MapMarker = {
@@ -290,7 +290,7 @@ const route = useRoute()
 const appStore = useAppStoreWithOut()
 const isDark = computed(() => appStore.getIsDark)
 const mapStyles = computed(() =>
-  mapTypeId.value === 'roadmap' && isDark.value ? LANDING_DARK_MAP_STYLES : null
+  mapTypeId.value === 'roadmap' ? landingRoadmapStyles(isDark.value) : null
 )
 
 const MAP_INITIAL_CENTER = { lat: 0.1765, lng: 37.913 }
@@ -685,7 +685,7 @@ function applyMapTheme() {
   if (!map) return
   try {
     map.setOptions({
-      styles: mapTypeId.value === 'roadmap' && isDark.value ? LANDING_DARK_MAP_STYLES : [],
+      styles: mapTypeId.value === 'roadmap' ? landingRoadmapStyles(isDark.value) : [],
     })
   } catch (e) {
     console.warn('applyMapTheme skipped', e)

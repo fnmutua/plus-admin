@@ -15,6 +15,8 @@ import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
 import FacilityDetailsDocuments from '@/views/Facilities/components/FacilityDetailsDocuments.vue'
 import FacilityProfileInlineSections from '@/views/Facilities/components/FacilityProfileInlineSections.vue'
 import { useFacilityDetailsMobile } from '@/views/Facilities/composables/useFacilityDetailsMobile'
+import { GOOGLE_MAP_DECLUTTER_STYLES } from '@/utils/googleMapStyles'
+
 
 const { pageStyle, mapContainerStyle } = useFacilityDetailsMobile()
 
@@ -190,7 +192,11 @@ onMounted(loadProfile)
         <!-- Location tab -->
         <el-tab-pane label="Location" name="map">
           <div v-loading="mapLoading" :style="mapContainerStyle">
-            <GoogleMap v-if="activeTab === 'map'" ref="mapRef" :api-key="GOOGLE_MAPS_API_KEY"
+            <GoogleMap
+              v-if="activeTab === 'map'"
+              ref="mapRef"
+              :api-key="GOOGLE_MAPS_API_KEY"
+              :styles="GOOGLE_MAP_DECLUTTER_STYLES"
               style="width: 100%; height: 100%;" :center="mapCenter" :zoom="15"
               map-type-id="satellite" :map-type-control="true" :street-view-control="false" @ready="onMapReady">
               <Polygon v-for="poly in settlementPolygons" :key="poly.id" :options="poly" />

@@ -28,6 +28,8 @@ const {
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { canUnlinkDocumentFromFacility, canPermanentlyDeleteFacilityLinkedDocument } from '@/utils/documentPermissions'
+import { GOOGLE_MAP_DECLUTTER_STYLES } from '@/utils/googleMapStyles'
+
 
 const route = useRoute()
 const router = useRouter()
@@ -291,6 +293,7 @@ onMounted(loadProfile)
             v-loading="mapLoading" :style="mapContainerStyle"
           >
             <GoogleMap
+              :styles="GOOGLE_MAP_DECLUTTER_STYLES"
               v-if="activeTab === 'map'"
               ref="mapRef"
               :api-key="GOOGLE_MAPS_API_KEY"

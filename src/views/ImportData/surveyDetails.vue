@@ -44,6 +44,8 @@ import VChart from 'vue-echarts';
 
 import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline,Circle   } from 'vue3-google-map'
 import { GOOGLE_MAPS_API_KEY } from '@/config/googleMaps'
+import { GOOGLE_MAP_DECLUTTER_STYLES } from '@/utils/googleMapStyles'
+
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
@@ -2569,6 +2571,7 @@ v-for="(option, index) in uploadOptions"
  
  
           <GoogleMap
+              :styles="GOOGLE_MAP_DECLUTTER_STYLES"
               :api-key="GOOGLE_MAPS_API_KEY"
               style="width: 100%; height: 100%"
               :center="gmapCenter"

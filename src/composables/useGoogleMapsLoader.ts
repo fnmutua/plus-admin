@@ -1,4 +1,5 @@
 import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
+import { patchGoogleMapsDeclutterDefaults } from '@/utils/googleMapStyles'
 
 declare global {
   interface Window {
@@ -14,9 +15,13 @@ let optionsSet = false
  * (`setOptions()` + `importLibrary()`). The v2 loader removed the old
  * `Loader` class. We import the core libraries used across the app so
  * `window.google.maps` is fully populated for legacy callers.
+ *
+ * After load, Map is patched so every map gets shared declutter styles
+ * (hide transit + business POIs; keep roads and locality labels).
  */
 export function loadGoogleMapsApi(): Promise<void> {
   if (typeof window !== 'undefined' && window.google?.maps) {
+    patchGoogleMapsDeclutterDefaults()
     return Promise.resolve()
   }
 
@@ -50,6 +55,8 @@ export function loadGoogleMapsApi(): Promise<void> {
       if (!window.google?.maps) {
         throw new Error('Google Maps API failed to load')
       }
+
+      patchGoogleMapsDeclutterDefaults()
     })().catch((err) => {
       loadPromise = null
       throw err

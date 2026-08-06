@@ -16,6 +16,7 @@ import App from '@/AppPublic.vue'
 import './permission-public'
 import { createHead } from '@unhead/vue'
 import { restoreAuthSessionFromLocalStorage } from '@/hooks/web/authStorage'
+import { watchAndPatchGoogleMapsDeclutter } from '@/utils/googleMapStyles'
 
 const head = createHead()
 
@@ -33,5 +34,6 @@ export async function setupPublicApp() {
   setupPermission(app)
   app.use(head)
 
+  watchAndPatchGoogleMapsDeclutter()
   app.mount('#app')
 }

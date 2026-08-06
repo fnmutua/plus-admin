@@ -56,6 +56,8 @@ import { useAppStore } from '@/store/modules/app'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { GOOGLE_MAPS_API_KEY as googleMapsApiKey } from '@/config/googleMaps'
+import { GOOGLE_MAP_DECLUTTER_STYLES } from '@/utils/googleMapStyles'
+
 
 // Performance optimizations
 const apiCache = ref(new Map())
@@ -3318,7 +3320,8 @@ const loadMapData = async () => {
       <GoogleMap
         ref="mapRef"
         :api-key="googleMapsApiKey"
-      style="width: 100%; height: 100%"
+        :styles="GOOGLE_MAP_DECLUTTER_STYLES"
+        style="width: 100%; height: 100%"
         :center="gmapCenter"
         :zoom="8"
         map-type-id="grayscale"
