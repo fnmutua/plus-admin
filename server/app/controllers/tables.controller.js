@@ -4873,6 +4873,142 @@ exports.modelEditOneRecord = (req, res) => {
 
  
 
+// Facility models whose photos/documents may block delete (direct FK and/or document_link).
+const FACILITY_DOCUMENT_FK = {
+  health_facility: 'health_facility_id',
+  education_facility: 'education_facility_id',
+  road: 'road_id',
+  road_asset: 'road_asset_id',
+  water_point: 'water_point_id',
+  sewer: 'sewer_id',
+  other_facility: 'other_facility_id',
+  piped_water: 'piped_water_id',
+  police_station: 'police_station_id',
+  community_hall: 'community_hall_id',
+  community_project: 'community_project_id',
+  street_light: 'streetlight_id',
+  streetlight: 'streetlight_id',
+  powerline: 'powerline_id',
+  railway: 'railway_id',
+  floodlight: 'floodlight_id',
+  hazard_zone: 'hazard_zone_id',
+  mast: 'mast_id',
+  dumping_site: 'dumping_site_id',
+  crime_hotspot: 'crime_hotspot_id',
+};
+
+const FACILITY_MODELS_WITH_DOCUMENTS = new Set(Object.keys(FACILITY_DOCUMENT_FK));
+
+function facilityDocumentLinkEntityTypes(modelName) {
+  const aliases = {
+    street_light: ['street_light', 'streetlight'],
+    streetlight: ['street_light', 'streetlight'],
+    education_facility: ['education_facility', 'school'],
+  };
+  return aliases[modelName] || [modelName];
+}
+
+/**
+ * Remove documents tied to a facility (FK column and/or document_link) before deleting the facility.
+ * Uses destroyDocumentsWithDependencies so share items and links are cleared safely.
+ */
+async function deleteFacilityAssociatedDocuments(modelName, recordId, snapshotStore) {
+  const docIdSet = new Set();
+  const fkCol = FACILITY_DOCUMENT_FK[modelName];
+
+  if (fkCol) {
+    try {
+      if (db.models.document.rawAttributes?.[fkCol]) {
+        const fkRows = await db.models.document.findAll({
+          where: { [fkCol]: recordId },
+          attributes: ['id'],
+          raw: true,
+        });
+        fkRows.forEach((row) => docIdSet.add(row.id));
+      } else {
+        const fkRows = await sequelize.query(
+          `SELECT id FROM document WHERE ${sequelize.escapeId(fkCol)} = :recordId`,
+          { replacements: { recordId }, type: QueryTypes.SELECT },
+        );
+        fkRows.forEach((row) => docIdSet.add(row.id));
+      }
+    } catch (fkErr) {
+      console.warn(`Document FK lookup ${fkCol} for ${modelName}:`, fkErr.message);
+    }
+  }
+
+  const linkEntityTypes = facilityDocumentLinkEntityTypes(modelName);
+  const linkRows = await db.models.document_link.findAll({
+    where: {
+      entity_type: { [Op.in]: linkEntityTypes },
+      entity_id: recordId,
+    },
+    raw: true,
+  });
+  linkRows.forEach((row) => docIdSet.add(row.document_id));
+
+  if (!docIdSet.size) return 0;
+
+  const docIds = [...docIdSet];
+  const docs = await db.models.document.findAll({
+    where: { id: { [Op.in]: docIds } },
+    raw: true,
+  });
+
+  if (snapshotStore && docs.length) {
+    if (!snapshotStore.document) {
+      snapshotStore.document = { rows: [], isNested: true };
+    }
+    const existing = new Set(snapshotStore.document.rows.map((r) => r.id));
+    for (const doc of docs) {
+      if (!existing.has(doc.id)) {
+        snapshotStore.document.rows.push(doc);
+      }
+    }
+    if (linkRows.length) {
+      if (!snapshotStore.document_link) {
+        snapshotStore.document_link = { rows: [], isNested: true };
+      }
+      const existingLinks = new Set(
+        snapshotStore.document_link.rows.map((r) => `${r.document_id}:${r.entity_type}:${r.entity_id}`),
+      );
+      for (const link of linkRows) {
+        const key = `${link.document_id}:${link.entity_type}:${link.entity_id}`;
+        if (!existingLinks.has(key)) {
+          snapshotStore.document_link.rows.push(link);
+        }
+      }
+    }
+  }
+
+  const { UPLOAD_DIR } = require('../config/paths.config');
+  let deleted = 0;
+
+  for (const doc of docs) {
+    await destroyDocumentsWithDependencies({ id: doc.id });
+    const resolvedPath = doc.location
+      ? path.resolve(doc.location)
+      : path.join(UPLOAD_DIR, path.basename(doc.name));
+    try {
+      await fs.promises.unlink(resolvedPath);
+    } catch (fileErr) {
+      if (fileErr.code !== 'ENOENT') {
+        console.error(`Facility document file delete failed (${doc.id}):`, fileErr.message);
+      }
+    }
+    deleted++;
+  }
+
+  await db.models.document_link.destroy({
+    where: {
+      entity_type: { [Op.in]: linkEntityTypes },
+      entity_id: recordId,
+    },
+  });
+
+  return deleted;
+}
+
 // Recursively snapshot full rows then hard-delete a model's children before the model itself.
 // snapshotStore accumulates full association rows for future restoration.
 async function recursiveCascadeDelete(mdl, whereClause, snapshotStore, isNested = false) {
@@ -5003,6 +5139,26 @@ exports.modelDeleteOneRecord = async (req, res) => {
     const dependencyDetails = [];
     // Snapshot of full associated rows before cascade delete — used for restore
     const affectedAssociations = {};
+
+    if (!previewDependenciesOnly && FACILITY_MODELS_WITH_DOCUMENTS.has(modelName)) {
+      try {
+        const docCount = await deleteFacilityAssociatedDocuments(
+          modelName,
+          record.id,
+          affectedAssociations,
+        );
+        if (docCount > 0) {
+          deletedAssociations.push({ model: 'document', count: docCount });
+          console.log(`Pre-deleted ${docCount} document(s) for ${modelName} id ${record.id}`);
+        }
+      } catch (docDeleteErr) {
+        console.error(`Facility document pre-delete failed for ${modelName}:`, docDeleteErr);
+        return res.status(500).send({
+          message: `Cannot delete '${modelName}' record: failed to remove associated documents. ${docDeleteErr.message}`,
+          code: 'DOCUMENT_DELETE_FAILED',
+        });
+      }
+    }
 
     let archivedProjectFiles = null;
     if (modelName === 'project' && cascadeDelete && !previewDependenciesOnly) {
