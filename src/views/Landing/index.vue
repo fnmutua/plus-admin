@@ -11,19 +11,6 @@
         :loading="statsLoading"
       />
 
-      <section id="settlements" class="gok-section gok-settlements-cta" aria-labelledby="gok-settlements-cta-title">
-        <div class="gok-container gok-settlements-cta__inner">
-          <div>
-            <p class="gok-eyebrow">Settlements</p>
-            <h2 id="gok-settlements-cta-title" class="gok-section-title">{{ MAP_SECTION.title }}</h2>
-            <p class="gok-section-lead">{{ MAP_SECTION.body }}</p>
-          </div>
-          <button type="button" class="gok-settlements-cta__btn" @click="openSettlementExplorer">
-            {{ MAP_SECTION.ctaLabel }}
-          </button>
-        </div>
-      </section>
-
       <ProgrammeCards @select="onProgrammeSelect" />
 
       <CitizenEngagementCallout @action="(to) => go(to)" />
@@ -43,7 +30,7 @@ import NationalStatistics from './components/NationalStatistics.vue'
 import ProgrammeCards from './components/ProgrammeCards.vue'
 import CitizenEngagementCallout from './components/CitizenEngagementCallout.vue'
 import { getPublicLandingStats } from '@/api/register-public'
-import { INSTITUTION, MAP_SECTION } from './config/landing.config'
+import { INSTITUTION } from './config/landing.config'
 import { goToPortalPath } from './utils/portalNav'
 
 useHead({
@@ -114,10 +101,6 @@ function scrollToSection(sectionId: string) {
   window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
 }
 
-function openSettlementExplorer() {
-  router.push('/settlements')
-}
-
 function handleAction(action: string) {
   if (action.startsWith('route:')) {
     go(action.slice(6))
@@ -144,7 +127,16 @@ function onHeroSearch(query: string, target: 'settlements' | 'projects' = 'settl
   router.push({ path, query: query ? { q: query } : {} })
 }
 
-function onProgrammeSelect(item: { to?: string | null; section?: string; portalPath?: string }) {
+function onProgrammeSelect(item: {
+  to?: string | null
+  href?: string | null
+  section?: string
+  portalPath?: string
+}) {
+  if (item.href) {
+    window.open(item.href, '_blank', 'noopener,noreferrer')
+    return
+  }
   if (item.portalPath) {
     goPortal(item.portalPath)
     return
@@ -161,42 +153,5 @@ onMounted(() => {
 <style scoped>
 .gok-home {
   background: var(--gok-grey);
-}
-
-.gok-settlements-cta {
-  background: var(--gok-white);
-  border-block: 1px solid var(--gok-border);
-}
-
-.gok-settlements-cta__inner {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.gok-settlements-cta__btn {
-  appearance: none;
-  border: 1px solid var(--gok-green, #00843d);
-  background: var(--gok-green, #00843d);
-  color: #fff;
-  border-radius: var(--gok-radius);
-  padding: 0.7rem 1.15rem;
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.gok-settlements-cta__btn:hover {
-  background: var(--gok-green-dark, #006b32);
-  border-color: var(--gok-green-dark, #006b32);
-  color: #fff;
-}
-
-.gok-settlements-cta__btn:focus-visible {
-  outline: 3px solid var(--gok-green, #00843d);
-  outline-offset: 2px;
 }
 </style>

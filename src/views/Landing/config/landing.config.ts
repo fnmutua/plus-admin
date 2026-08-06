@@ -23,6 +23,15 @@ export const INSTITUTION = {
   logoMarkPng: '/landing/kesmis-mark.png',
   crestSrc: '/gok.png',
   crestSrcWhite: '/gok-white.png',
+  /** Official KISIP programme site */
+  kisipUrl: 'https://kisip.go.ke',
+  /** KISIP 2 components page (tab anchors: #tab-er4jf-1 … #tab-er4jf-4) */
+  kisip2Url: 'https://kisip.go.ke/kisip-2',
+  /**
+   * SUD / Kenya Slum Upgrading Programme public page under SDHUD
+   * (housingandurban.go.ke — no separate SUD domain).
+   */
+  sudUrl: 'https://housingandurban.go.ke/kenya-slum-upgrading-programme-kensup/',
   /** Default / OG fallback */
   heroImage: '/landing/hero/hero-01-street.webp',
 } as const
@@ -221,52 +230,47 @@ export const STATS_CONFIG = {
   },
 } as const
 
+/** Two main programmes under SDHUD — featured equally on the landing page. */
 export const PROGRAMMES = [
   {
     id: 'kisip',
-    title: 'KISIP interventions',
-    category: 'Intervention',
+    title: 'KISIP',
+    fullTitle: 'Kenya Informal Settlements Improvement Project',
+    category: 'Programme',
     description:
-      'Kenya Informal Settlements Improvement Project — upgrading infrastructure, tenure security and living conditions in informal settlements.',
+      'World Bank–supported upgrading of informal settlements — tenure security, infrastructure, socio-economic inclusion and institutional capacity under KISIP 2.',
     icon: 'mdi:city-variant-outline',
-    to: '/about' as string | null,
+    to: null as string | null,
+    href: INSTITUTION.kisip2Url as string | null,
     section: undefined as string | undefined,
     portalPath: undefined as string | undefined,
+    ctaLabel: 'Learn more on KISIP',
   },
   {
-    id: 'infra',
-    title: 'Infrastructure delivery',
-    category: 'Intervention',
+    id: 'sud',
+    title: 'SUD',
+    fullTitle: 'Kenya Slum Upgrading Programme',
+    category: 'Programme',
     description:
-      'Access roads, drainage, water, sanitation, lighting and related settlement infrastructure investments.',
-    icon: 'mdi:road-variant',
-    to: PUBLIC_PAGES.projectExplorer as string | null,
+      'National slum upgrading under the State Department for Housing and Urban Development — secure tenure, housing, infrastructure and livelihood support (KENSUP / SUD).',
+    icon: 'mdi:home-city-outline',
+    to: null as string | null,
+    href: INSTITUTION.sudUrl as string | null,
     section: undefined as string | undefined,
     portalPath: undefined as string | undefined,
-  },
-  {
-    id: 'tenure',
-    title: 'Tenure and planning',
-    category: 'Intervention',
-    description:
-      'Planning, surveying and titling support to strengthen land tenure security for residents.',
-    icon: 'mdi:file-certificate-outline',
-    to: '/about' as string | null,
-    section: undefined as string | undefined,
-    portalPath: undefined as string | undefined,
-  },
-  {
-    id: 'kesmis',
-    title: 'Project explorer',
-    category: 'Map',
-    description:
-      'Browse intervention project locations across Kenya on an interactive clustered map.',
-    icon: 'mdi:map-marker-path',
-    to: PUBLIC_PAGES.projectExplorer as string | null,
-    section: undefined as string | undefined,
-    portalPath: undefined as string | undefined,
+    ctaLabel: 'Learn more on SDHUD',
   },
 ] as const
+
+/** Secondary CTA under the two programme cards. */
+export const PROJECT_EXPLORER_CTA = {
+  id: 'project-explorer',
+  title: 'Project explorer',
+  description: 'Browse live intervention project locations across Kenya on an interactive clustered map.',
+  ctaLabel: 'Open project explorer',
+  to: PUBLIC_PAGES.projectExplorer,
+  icon: 'mdi:map-marker-path',
+} as const
 
 /**
  * Publications — CONFIG PLACEHOLDER list until a public document API is exposed.

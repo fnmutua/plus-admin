@@ -6,6 +6,7 @@ import {
   MAP_SECTION,
   NEWS_UPDATES,
   PROGRAMMES,
+  PROJECT_EXPLORER_CTA,
   PUBLICATIONS,
   PUBLIC_PAGES,
   SERVICE_CARDS,
@@ -39,8 +40,8 @@ function pushUnique(
 
 /**
  * Landing home sections — ids must match Vue templates:
- * NationalStatistics #stats, settlements CTA #settlements,
- * ProgrammeCards #interventions, CitizenEngagementCallout #grievances
+ * NationalStatistics #stats, ProgrammeCards #interventions,
+ * CitizenEngagementCallout #grievances
  */
 const LANDING_SECTIONS: SiteSearchHit[] = [
   {
@@ -55,14 +56,13 @@ const LANDING_SECTIONS: SiteSearchHit[] = [
     id: 'sec-settlements',
     title: MAP_SECTION.title,
     blurb: MAP_SECTION.body,
-    to: '/landing',
-    section: 'settlements',
-    kind: 'Section',
+    to: PUBLIC_PAGES.settlementExplorer,
+    kind: 'Map',
   },
   {
     id: 'sec-interventions',
     title: 'Projects and interventions',
-    blurb: 'Key intervention areas and programme themes on the landing page.',
+    blurb: 'KISIP and SUD programmes under the State Department for Housing and Urban Development.',
     to: '/landing',
     section: 'interventions',
     kind: 'Section',
@@ -141,27 +141,23 @@ export function buildSiteSearchIndex(): SiteSearchHit[] {
   }
 
   for (const p of PROGRAMMES) {
-    if (p.section) {
-      pushUnique(hits, seen, {
-        id: `prog-${p.id}`,
-        title: p.title,
-        blurb: p.description,
-        to: '/landing',
-        section: p.section,
-        kind: p.category,
-      })
-      continue
-    }
-    // Cards live under ProgrammeCards #interventions
     pushUnique(hits, seen, {
       id: `prog-${p.id}`,
-      title: p.title,
+      title: `${p.title} — ${p.fullTitle}`,
       blurb: p.description,
       to: '/landing',
       section: 'interventions',
-      kind: p.category,
+      kind: 'Programme',
     })
   }
+
+  pushUnique(hits, seen, {
+    id: `prog-${PROJECT_EXPLORER_CTA.id}`,
+    title: PROJECT_EXPLORER_CTA.title,
+    blurb: PROJECT_EXPLORER_CTA.description,
+    to: PROJECT_EXPLORER_CTA.to,
+    kind: 'Map',
+  })
 
   for (const pub of PUBLICATIONS) {
     pushUnique(hits, seen, {
