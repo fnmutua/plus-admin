@@ -14382,6 +14382,8 @@ exports.getSettlementMapData = async (req, res) => {
       'other_facility',
       'floodlight',
       'railway',
+      'road_asset',
+      'powerline_asset',
     ];
 
     const dataPromises = models.map(async (model) => {
