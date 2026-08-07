@@ -22,74 +22,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    frequency: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    
-    type_waste: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    cost_per_use: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    number_stances: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    
-    number_staff: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    number_phases: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    
-    size_reserve: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    rating: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    
-
-    number_vehicles: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    date_install: {
-      type: DataTypes.DATE,
-      allowNull: true
-    },
-
-    height: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-
     ownership_type: {
       type: DataTypes.STRING,
       allowNull: true
     },
-
-    hazard: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
 
     owner: {
       type: DataTypes.STRING,

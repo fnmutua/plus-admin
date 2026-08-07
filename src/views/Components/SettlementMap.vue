@@ -85,6 +85,7 @@ interface SettlementMapData {
   mast?: any
   dumping_site?: any
   hazard_zone?: any
+  other_facility?: any
 }
 
 interface ConsolidatedResponse {
@@ -245,6 +246,7 @@ const PointLegendItems = ref([
   { layer: 'water_point', label: 'Water Point', icon: 'icons/waterdrop.png', show: false },
   { layer: 'streetlight', label: 'Streetlight', icon: 'icons/lighthouse-2.png', show: false },
   { layer: 'mast', label: 'Mast', icon: 'icons/tower.png', show: false },
+  { layer: 'other_facility', label: 'Other Facility', icon: 'icons/amphitheater.png', show: false },
 ])
 
 const PolyLineItems = ref([
@@ -344,7 +346,7 @@ const applyMapDataToState = (mapData: SettlementMapData) => {
     }
 
     // Process point features
-    const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
+    const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone', 'other_facility']
     const allPointFeatures: any[] = []
 
     pointModels.forEach(model => {
@@ -591,7 +593,7 @@ const loadSelectedLayersWithProgress = async (
 
   // Process facilities and roads with chunked rendering
   updateLoadingStatus('Processing facilities and infrastructure...', 70)
-  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
+  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone', 'other_facility']
   const lineModels = ['road', 'powerline', 'sewer', 'piped_water']
 
   // Process point features with chunking for better performance
@@ -606,6 +608,7 @@ const loadSelectedLayersWithProgress = async (
         streetlight: 'icons/lighthouse-2.png',
         dumping_site: 'icons/landfill.png',
         hazard_zone: 'icons/caution.png',
+        other_facility: 'icons/amphitheater.png',
         community_project: 'icons/country.png',
         community_hall: 'icons/communitycentre.png',
         police_station: 'icons/police.png',
@@ -877,7 +880,7 @@ const loadSelectedLayers = async (layers: string[]) => {
     structure: allData.structure?.features?.length || 0,
     road: allData.road?.features?.length || 0,
     pointFeatures: Object.keys(allData).filter(key => 
-      ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone'].includes(key)
+      ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone', 'other_facility'].includes(key)
     ).map(key => ({ [key]: allData[key]?.features?.length || 0 }))
   })
 
@@ -975,7 +978,7 @@ const loadSelectedLayers = async (layers: string[]) => {
   }
 
   // Process facilities otherPoints
-  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
+  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone', 'other_facility']
   const lineModels = ['road', 'powerline', 'sewer', 'piped_water']
 
   // Process point features
@@ -993,6 +996,7 @@ const loadSelectedLayers = async (layers: string[]) => {
       streetlight: 'icons/lighthouse-2.png',
       dumping_site: 'icons/landfill.png',
       hazard_zone: 'icons/caution.png',
+      other_facility: 'icons/amphitheater.png',
       community_project: 'icons/country.png',
       community_hall: 'icons/communitycentre.png',
       police_station: 'icons/police.png',
@@ -1406,7 +1410,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
     })
   }
 
-  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone']
+  const pointModels = ['streetlight', 'crime_hotspot', 'community_project', 'health_facility', 'education_facility', 'water_point', 'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone', 'other_facility']
   const lineModels = ['road', 'powerline', 'sewer', 'piped_water']
   const iconMap: Record<string, string> = {
     water_point: 'icons/waterdrop.png',
@@ -1414,6 +1418,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
     streetlight: 'icons/lighthouse-2.png',
     dumping_site: 'icons/landfill.png',
     hazard_zone: 'icons/caution.png',
+    other_facility: 'icons/amphitheater.png',
     community_project: 'icons/country.png',
     community_hall: 'icons/communitycentre.png',
     police_station: 'icons/police.png',
@@ -3252,7 +3257,8 @@ const addSettlementLayersToZip = (
   const pointModels = [
     'streetlight', 'crime_hotspot', 'community_project', 'health_facility',
     'education_facility', 'water_point', 'sewer', 'piped_water', 'powerline',
-    'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone'
+    'community_hall', 'police_station', 'mast', 'dumping_site', 'hazard_zone',
+    'other_facility'
   ]
 
   pointModels.forEach((model) => {

@@ -313,19 +313,7 @@ const facilityForm = reactive({
   
   // Other Facility fields
   type: '',
-  frequency: '',
-  type_waste: '',
-  cost_per_use: null,
-  number_stances: null,
-  number_staff: null,
-  number_phases: '',
-  size_reserve: null,
-  rating: '',
-  number_vehicles: null,
-  date_install: null,
-  height: null,
-  hazard: '',
-  
+
   // Railway fields
   number_of_tracks: null,
   reserve_width_m: null,
@@ -2282,20 +2270,11 @@ const submitForm = async () => {
           Object.assign(formDataToSubmit, {
             type: facilityForm.type,
             condition: facilityForm.condition,
-            frequency: facilityForm.frequency,
-            type_waste: facilityForm.type_waste,
-            cost_per_use: facilityForm.cost_per_use,
-            number_stances: facilityForm.number_stances,
-            number_staff: facilityForm.number_staff,
-            number_phases: facilityForm.number_phases,
-            size_reserve: facilityForm.size_reserve,
-            rating: facilityForm.rating,
-            number_vehicles: facilityForm.number_vehicles,
-            date_install: (facilityForm.date_install && facilityForm.date_install !== 'Invalid date' && facilityForm.date_install !== null && facilityForm.date_install !== '' && !isNaN(Date.parse(facilityForm.date_install))) ? facilityForm.date_install : null,
-            height: facilityForm.height,
             ownership_type: facilityForm.ownership_type,
-            hazard: facilityForm.hazard,
-            owner: facilityForm.owner
+            owner: facilityForm.owner,
+            // other_facility's column is `createdBy`; the shared payload only sets `created_by`,
+            // which Sequelize drops for this model.
+            createdBy: userInfo.id
           })
         }
 
@@ -3078,53 +3057,10 @@ onMounted(async () => {
                 <el-option v-for="item in conditionFacilityOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
-            <el-form-item label="Frequency">
-              <el-input v-model="facilityForm.frequency" placeholder="Enter frequency" />
-            </el-form-item>
-            <el-form-item label="Type of Waste">
-              <el-input v-model="facilityForm.type_waste" placeholder="Enter type of waste" />
-            </el-form-item>
-            <el-form-item label="Cost per Use">
-              <el-input-number v-model="facilityForm.cost_per_use" :min="0" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="Number of Stances">
-              <el-input-number v-model="facilityForm.number_stances" :min="0" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="Number of Staff">
-              <el-input-number v-model="facilityForm.number_staff" :min="0" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="Number of Phases">
-              <el-input v-model="facilityForm.number_phases" placeholder="Enter number of phases" />
-            </el-form-item>
-            <el-form-item label="Size Reserve">
-              <el-input-number v-model="facilityForm.size_reserve" :min="0" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="Rating">
-              <el-input v-model="facilityForm.rating" placeholder="Enter rating" />
-            </el-form-item>
-            <el-form-item label="Number of Vehicles">
-              <el-input-number v-model="facilityForm.number_vehicles" :min="0" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="Date Installed">
-              <el-date-picker
-                v-model="facilityForm.date_install"
-                type="date"
-                placeholder="Select date"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-            <el-form-item label="Height">
-              <el-input-number v-model="facilityForm.height" :min="0" style="width: 100%" />
-            </el-form-item>
             <el-form-item label="Ownership Type">
               <el-select v-model="facilityForm.ownership_type" placeholder="Select ownership type" filterable style="width: 100%">
                 <el-option v-for="item in ownershipOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
-            </el-form-item>
-            <el-form-item label="Hazard">
-              <el-input v-model="facilityForm.hazard" placeholder="Enter hazard information" />
             </el-form-item>
             <el-form-item label="Owner/Operator">
               <el-input v-model="facilityForm.owner" placeholder="Enter owner/operator" />

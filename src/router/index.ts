@@ -534,6 +534,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         children: [
           { path: 'crime-hotspots', component: () => import('@/views/Facilities/Others/CrimeHotspots.vue'), name: 'OthersCrimeHotspots', meta: { title: 'Crime', icon: 'mdi:alert-octagon', permissions: ['facility:read'] } },
           { path: 'hazards', component: () => import('@/views/Facilities/Others/Hazards.vue'), name: 'OthersHazards', meta: { title: 'Hazards', icon: 'mdi:hazard-lights', permissions: ['facility:read'] } },
+          { path: 'other-facilities', component: () => import('@/views/Facilities/Others/OtherFacilities.vue'), name: 'OthersOtherFacilities', meta: { title: 'Other Facilities', icon: 'mdi:office-building-marker', permissions: ['facility:read'] } },
           { path: 'other/details/:id', component: () => import('@/views/Facilities/Other/OtherFacilityDetails.vue'), name: 'OtherFacilityDetails', meta: { hidden: true, props: true, title: 'Facility Profile', permissions: ['facility:read'] } }
         ]
       },
