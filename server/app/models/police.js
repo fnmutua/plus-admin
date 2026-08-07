@@ -27,7 +27,7 @@ module.exports = (sequelize) => {
       allowNull: true,
     },
     PC_Number_of_Vehicles: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
     PC_Condition: {
