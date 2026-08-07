@@ -14380,6 +14380,8 @@ exports.getSettlementMapData = async (req, res) => {
       'dumping_site',
       'hazard_zone',
       'other_facility',
+      'floodlight',
+      'railway',
     ];
 
     const dataPromises = models.map(async (model) => {
