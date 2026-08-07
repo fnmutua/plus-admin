@@ -4889,6 +4889,7 @@ const FACILITY_DOCUMENT_FK = {
   street_light: 'streetlight_id',
   streetlight: 'streetlight_id',
   powerline: 'powerline_id',
+  powerline_asset: 'powerline_asset_id',
   railway: 'railway_id',
   floodlight: 'floodlight_id',
   hazard_zone: 'hazard_zone_id',
