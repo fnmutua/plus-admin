@@ -291,7 +291,7 @@ async function sendSMS(sms_obj, adminRecipients) {
 }
 
 
-const USER_STATUS_ALERT_ROLES = ['support', 'root_admin', 'super_admin']
+const USER_STATUS_ALERT_ROLES = ['support']
 
 function buildUserStatusChangeMessage(affectedUser, isactive, actor, { greeting } = {}) {
   const statusText = isactive ? 'activated' : 'deactivated'

@@ -130,16 +130,22 @@
             type="button"
             class="gok-header__portal"
             :class="{ 'gok-header__portal--icon': isCompactScreen }"
-            :aria-label="isLoggedIn ? 'Sign out' : 'Portal'"
-            @click="handleLoginOrLogout"
+            aria-label="Portal"
+            @click="goToPortal"
           >
-            <Icon
-              v-if="isCompactScreen"
-              :icon="isLoggedIn ? 'mdi:logout' : 'mdi:login'"
-              width="20"
-              height="20"
-            />
-            <span v-else>{{ isLoggedIn ? 'Sign out' : 'Portal' }}</span>
+            <Icon v-if="isCompactScreen" icon="mdi:view-dashboard-outline" width="20" height="20" />
+            <span v-else>Portal</span>
+          </button>
+
+          <button
+            v-if="isLoggedIn && !isCompactScreen"
+            type="button"
+            class="gok-header__theme gok-header__signout"
+            aria-label="Sign out"
+            title="Sign out"
+            @click="handleLogout"
+          >
+            <Icon icon="mdi:logout" width="18" height="18" />
           </button>
         </div>
       </div>
@@ -189,8 +195,14 @@
           </li>
         </ul>
         <div class="gok-mobile-nav__foot">
-          <button type="button" class="gok-mobile-nav__portal" @click="handleLoginOrLogout">
-            {{ isLoggedIn ? 'Sign out' : 'Portal' }}
+          <button type="button" class="gok-mobile-nav__portal" @click="goToPortal">Portal</button>
+          <button
+            v-if="isLoggedIn"
+            type="button"
+            class="gok-mobile-nav__signout"
+            @click="handleLogout"
+          >
+            Sign out
           </button>
         </div>
       </div>
@@ -214,7 +226,7 @@ import { useDictStoreWithOut } from '@/store/modules/dict'
 import { useLocaleStoreWithOut } from '@/store/modules/locale'
 import { loginOutApi } from '@/api/login'
 import GovernmentFooter from './components/GovernmentFooter.vue'
-import { INSTITUTION, MAIN_NAV, type NavItem } from './config/landing.config'
+import { INSTITUTION, MAIN_NAV, PORTAL_PATHS, type NavItem } from './config/landing.config'
 import { goToPortalPath } from './utils/portalNav'
 import { searchLandingContent, type SiteSearchHit } from './utils/siteSearch'
 import {
@@ -478,33 +490,38 @@ const onFooterPortal = (path: string) => {
   })
 }
 
-const handleLoginOrLogout = async () => {
+/** Enter the authenticated portal (or login first, returning to the portal after). */
+const goToPortal = () => {
   menuOpen.value = false
-  if (isLoggedIn.value) {
-    try {
-      const userInfo = wsCache.get(appStore.getUserInfo)
-      if (userInfo) {
-        const userId = userInfo?.id ?? null
-        await loginOutApi({ userId })
-      }
-    } catch (error) {
-      console.error('Logout API call failed:', error)
+  goToPortalPath(PORTAL_PATHS.nationalDashboard, {
+    isLoggedIn: isLoggedIn.value,
+    push: (loc) => router.push(loc as any),
+  })
+}
+
+const handleLogout = async () => {
+  menuOpen.value = false
+  try {
+    const userInfo = wsCache.get(appStore.getUserInfo)
+    if (userInfo) {
+      const userId = userInfo?.id ?? null
+      await loginOutApi({ userId })
     }
-    wsCache.clear()
-    localStorage.clear()
-    sessionStorage.clear()
-    if ('caches' in window) {
-      const cacheNames = await caches.keys()
-      await Promise.all(cacheNames.map((name) => caches.delete(name)))
-    }
-    appStore.$reset()
-    dictStore.$reset()
-    localeStore.$reset()
-    window.location.replace(`${window.location.pathname}${window.location.search}#/login`)
-    window.location.reload()
-  } else {
-    router.push('/login')
+  } catch (error) {
+    console.error('Logout API call failed:', error)
   }
+  wsCache.clear()
+  localStorage.clear()
+  sessionStorage.clear()
+  if ('caches' in window) {
+    const cacheNames = await caches.keys()
+    await Promise.all(cacheNames.map((name) => caches.delete(name)))
+  }
+  appStore.$reset()
+  dictStore.$reset()
+  localeStore.$reset()
+  window.location.replace(`${window.location.pathname}${window.location.search}#/login`)
+  window.location.reload()
 }
 
 defineExpose({ scrollToSection })
@@ -907,8 +924,34 @@ defineExpose({ scrollToSection })
   background: var(--gok-green-soft, #e8f5ee);
 }
 
+.gok-header__signout:hover {
+  color: var(--gok-green);
+  border-color: var(--gok-green);
+}
+
 .gok-mobile-nav__foot {
   margin-top: 0.65rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.gok-mobile-nav__signout {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--gok-border);
+  background: var(--gok-grey, #f5f7f6);
+  color: var(--gok-nav, #333333);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.85rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.gok-mobile-nav__signout:hover {
+  color: var(--gok-green);
+  border-color: var(--gok-green);
 }
 
 .gok-mobile-nav__portal {
