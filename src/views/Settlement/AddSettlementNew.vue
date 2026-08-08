@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // @ts-nocheck
-import { ref, reactive, nextTick, computed, onMounted, onActivated, watch } from 'vue'
+import { ref, reactive, nextTick, computed, onMounted, onBeforeUnmount, onActivated, watch } from 'vue'
 import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
 
 
@@ -48,6 +48,7 @@ import { useSettlementLocation } from '@/composables/useSettlementLocation'
 import { loadGoogleMapsApi } from '@/composables/useGoogleMapsLoader'
 import { useGoogleMapsPolygonDraw } from '@/composables/useGoogleMapsPolygonDraw'
 import { useAppStoreWithOut } from '@/store/modules/app'
+import { googleRoadmapStyles } from '@/utils/googleMapStyles'
 import { useCache } from '@/hooks/web/useCache'
 import { userHasPrivilegedNationalLocation } from '@/utils/roleScope'
 import type { FormInstance } from 'element-plus'
@@ -189,6 +190,12 @@ const hasEditableSettlementBoundary = computed(
   () => !!(settlementPolygon.value || drawnPolygons.value.length > 0)
 )
 const isDrawingMode = ref(false)
+const drawButtonTitle = computed(() => {
+  if (isDrawingMode.value) return 'Stop drawing'
+  return hasEditableSettlementBoundary.value
+    ? 'Redraw boundary (replaces the current one)'
+    : 'Draw boundary'
+})
 const flyMarker = ref<any>(null)
 const mapLoading = ref(false)
 const mapError = ref<string | null>(null)
@@ -224,6 +231,132 @@ const editSnapPreviewActive = ref(false)
 let polygonGeometryUpdateTimer: ReturnType<typeof setTimeout> | null = null
 const currentZoom = ref(8)
 const MIN_ZOOM_FOR_LABELS = 16 // Hide labels when zoom is below this level
+
+/* ---- Custom map controls (mirrors SettlementMap.vue) ---- */
+const mapShell = ref<HTMLDivElement | null>(null)
+const isMapFullscreen = ref(false)
+const mapTypeId = ref<'roadmap' | 'hybrid'>('hybrid')
+const locatingMe = ref(false)
+const LOCATE_ZOOM = 14
+
+const applyMapTheme = () => {
+  if (!map.value) return
+  try {
+    map.value.setOptions({
+      styles: mapTypeId.value === 'roadmap' ? googleRoadmapStyles(appStore.getIsDark) : []
+    })
+  } catch (e) {
+    console.warn('applyMapTheme skipped', e)
+  }
+}
+
+const setMapType = (type: 'roadmap' | 'hybrid') => {
+  mapTypeId.value = type
+  if (!map.value) return
+  try {
+    map.value.setMapTypeId(type)
+    applyMapTheme()
+  } catch (e) {
+    console.warn('setMapType skipped', e)
+  }
+}
+
+const zoomBy = (delta: number) => {
+  if (!map.value) return
+  try {
+    const current = map.value.getZoom()
+    if (typeof current !== 'number') return
+    const next = Math.min(20, Math.max(2, current + delta))
+    map.value.setZoom(next)
+    currentZoom.value = next
+  } catch (e) {
+    console.warn('zoomBy skipped', e)
+  }
+}
+
+const locateMe = () => {
+  if (!navigator.geolocation) {
+    ElMessage.warning('Geolocation is not supported in this browser.')
+    return
+  }
+  if (!map.value) return
+  locatingMe.value = true
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      locatingMe.value = false
+      const pos = { lat: position.coords.latitude, lng: position.coords.longitude }
+      try {
+        map.value.panTo(pos)
+        map.value.setZoom(LOCATE_ZOOM)
+        currentZoom.value = LOCATE_ZOOM
+      } catch (e) {
+        console.warn('locateMe pan skipped', e)
+      }
+    },
+    (err: any) => {
+      locatingMe.value = false
+      if (err?.code === err?.PERMISSION_DENIED) {
+        ElMessage.error('Location permission denied. Allow location access to use Locate me.')
+      } else {
+        ElMessage.error('Could not get your location. Try again.')
+      }
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  )
+}
+
+const syncFullscreenState = () => {
+  const el = mapShell.value
+  const active =
+    !!el &&
+    (document.fullscreenElement === el || (document as any).webkitFullscreenElement === el)
+  isMapFullscreen.value = active
+  // Google needs a resize nudge after the container size changes
+  requestAnimationFrame(() => {
+    if (map.value && window.google?.maps) {
+      window.google.maps.event.trigger(map.value, 'resize')
+    }
+  })
+}
+
+const toggleMapFullscreen = async () => {
+  const el = mapShell.value
+  if (!el) return
+  try {
+    if (
+      document.fullscreenElement === el ||
+      (document as any).webkitFullscreenElement === el
+    ) {
+      if (document.exitFullscreen) await document.exitFullscreen()
+      else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen()
+    } else if (el.requestFullscreen) {
+      await el.requestFullscreen()
+    } else if ((el as any).webkitRequestFullscreen) {
+      await (el as any).webkitRequestFullscreen()
+    }
+  } catch (e) {
+    console.warn('toggleMapFullscreen skipped', e)
+  }
+}
+
+/**
+ * Dialogs and the form drawer are appended to <body>, which is not painted while
+ * only the map shell is fullscreen — leave fullscreen before opening any of them.
+ */
+const exitMapFullscreen = async () => {
+  if (!isMapFullscreen.value) return
+  try {
+    if (document.exitFullscreen) await document.exitFullscreen()
+    else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen()
+  } catch (e) {
+    console.warn('exitMapFullscreen skipped', e)
+  }
+}
+
+const openFlyDialog = async () => {
+  await exitMapFullscreen()
+  flyDialogVisible.value = true
+}
 
 // Step 3: Form Drawer
 const drawerVisible = ref(false)
@@ -1043,9 +1176,17 @@ const stopPolygonDrawing = () => {
 }
 
 const finishPolygonDrawing = () => {
-  if (!polygonDraw.finishDrawing()) {
-    ElMessage.warning('Add at least 3 points on the map, then finish the polygon')
+  if (polygonDraw.finishDrawing()) return
+
+  // Nothing was drawn — exit drawing mode and keep the boundary already on the map
+  // instead of demanding points the user never meant to place.
+  if (drawPointCount.value === 0 && hasEditableSettlementBoundary.value) {
+    stopPolygonDrawing()
+    ElMessage.info('Existing boundary kept — drag its corners on the map to adjust it')
+    return
   }
+
+  ElMessage.warning('Add at least 3 points on the map, then finish the polygon')
 }
 
 const waitForMapIdle = (mapInstance: any, maxMs = 6000) =>
@@ -1375,10 +1516,13 @@ const initializeMap = async (isStale = () => false) => {
     map.value = new window.google.maps.Map(mapContainer.value, {
       center,
       zoom,
-      mapTypeId: window.google.maps.MapTypeId.SATELLITE,
-      mapTypeControl: true,
+      mapTypeId: mapTypeId.value,
+      styles: mapTypeId.value === 'roadmap' ? googleRoadmapStyles(appStore.getIsDark) : [],
+      // Base map / zoom / locate / fullscreen are provided by our own overlay controls
+      mapTypeControl: false,
+      zoomControl: false,
       streetViewControl: true,
-      fullscreenControl: true,
+      fullscreenControl: false,
       disableDoubleClickZoom: true
     })
 
@@ -2192,11 +2336,30 @@ const toggleDrawingMode = async () => {
 
   if (isDrawingMode.value) {
     stopPolygonDrawing()
-  } else {
-    const started = await startPolygonDrawing()
-    if (started) {
-      ElMessage.info('Click to add points. Snaps to ward/neighbor corners and edges. Double-click to finish.')
+    return
+  }
+
+  // A finished new outline replaces the loaded boundary — make that explicit first.
+  if (hasEditableSettlementBoundary.value) {
+    await exitMapFullscreen()
+    try {
+      await ElMessageBox.confirm(
+        'Drawing a new outline replaces the boundary currently on the map once you finish it.\n\nTo adjust the existing boundary instead, close this and drag its corners directly.',
+        'Redraw boundary?',
+        {
+          confirmButtonText: 'Draw new boundary',
+          cancelButtonText: 'Keep current',
+          type: 'warning'
+        }
+      )
+    } catch {
+      return
     }
+  }
+
+  const started = await startPolygonDrawing()
+  if (started) {
+    ElMessage.info('Click to add points. Snaps to ward/neighbor corners and edges. Double-click to finish.')
   }
 }
 
@@ -3651,10 +3814,9 @@ const readShapefile = async (file: File) => {
 const showUploadDialog = ref(false)
 const fileList = ref([])
 
-const handleUploadClick = () => {
-  console.log('Upload clicked')
+const handleUploadClick = async () => {
+  await exitMapFullscreen()
   showUploadDialog.value = true
-  console.log('Show upload dialog', showUploadDialog.value)
 }
 
 // Compute vulnerability score when attributes change
@@ -3910,6 +4072,18 @@ const initializePage = async (query: Record<string, any> = route.query) => {
 onMounted(() => {
   syncEditModeFromRoute()
   void initializePage()
+  document.addEventListener('fullscreenchange', syncFullscreenState)
+  document.addEventListener('webkitfullscreenchange', syncFullscreenState as EventListener)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', syncFullscreenState)
+  document.removeEventListener('webkitfullscreenchange', syncFullscreenState as EventListener)
+})
+
+// The drawer renders in <body>, so it would be hidden behind a fullscreen map
+watch(drawerVisible, (open) => {
+  if (open) void exitMapFullscreen()
 })
 
 onBeforeRouteUpdate(async (to) => {
@@ -3991,7 +4165,7 @@ onActivated(() => {
             <el-button
               :type="isDrawingMode ? 'success' : 'default'"
               :icon="Edit"
-              title="Draw boundary"
+              :title="drawButtonTitle"
               @click="toggleDrawingMode"
               size="small"
               circle
@@ -4178,8 +4352,11 @@ onActivated(() => {
         </el-alert>
         <div v-if="mapLoading && !editLoading" class="map-status-banner">Loading map…</div>
         <div v-else-if="isDrawingMode" class="map-status-banner map-status-banner--drawing">
-          Drawing: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} —
-          click to add corners (white = nearby corners; yellow/cyan = snap target), double-click to finish
+          Drawing a <strong>new</strong> boundary: {{ drawPointCount }} point{{ drawPointCount === 1 ? '' : 's' }} —
+          click to add corners (white = nearby corners; yellow/cyan = snap target), double-click to finish.
+          <template v-if="hasEditableSettlementBoundary">
+            The current boundary is replaced only once the new one is finished — press ✓ with no points to keep it.
+          </template>
         </div>
         <div
           v-else-if="!isDrawingMode && editSnapPreviewActive && (settlementPolygon || drawnPolygons.length > 0)"
@@ -4199,7 +4376,139 @@ onActivated(() => {
         <div v-else-if="drawReady" class="map-status-banner map-status-banner--ready">
           Map ready — click Draw, then outline the settlement on the map
         </div>
-        <div ref="mapContainer" class="map-container"></div>
+        <div ref="mapShell" class="map-shell" :class="{ 'is-fullscreen': isMapFullscreen }">
+          <!-- Editing tools, top-left: the card header toolbar is out of view in fullscreen -->
+          <div v-if="isMapFullscreen" class="map-shell__tools" aria-label="Boundary tools">
+            <button
+              v-if="showUndoBoundaryButton"
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+              title="Undo boundary changes"
+              aria-label="Undo boundary changes"
+              :disabled="!canUndoBoundaryChanges"
+              @click="undoBoundaryChanges"
+            >
+              <Icon icon="mdi:undo-variant" width="18" height="18" />
+            </button>
+            <button
+              v-if="isDrawingMode"
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon is-success"
+              title="Finish polygon"
+              aria-label="Finish polygon"
+              @click="finishPolygonDrawing"
+            >
+              <Icon icon="mdi:check" width="18" height="18" />
+            </button>
+            <button
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+              :class="{ 'is-active': isDrawingMode }"
+              :title="drawButtonTitle"
+              :aria-label="drawButtonTitle"
+              :disabled="mapLoading || editLoading || !drawReady"
+              @click="toggleDrawingMode"
+            >
+              <Icon icon="mdi:vector-polyline-edit" width="18" height="18" />
+            </button>
+            <button
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+              title="Fly to coordinates"
+              aria-label="Fly to coordinates"
+              @click="openFlyDialog"
+            >
+              <Icon icon="mdi:airplane-takeoff" width="18" height="18" />
+            </button>
+            <button
+              v-if="drawnPolygons.length > 0 || settlementPolygon || settlementMarker || settlementGeometry || settlementForm.geom"
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon is-danger"
+              title="Delete boundary"
+              aria-label="Delete boundary"
+              @click="deleteDrawnShape"
+            >
+              <Icon icon="mdi:delete-outline" width="18" height="18" />
+            </button>
+            <button
+              type="button"
+              class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+              title="Upload boundary file"
+              aria-label="Upload boundary file"
+              @click="handleUploadClick"
+            >
+              <Icon icon="mdi:tray-arrow-up" width="18" height="18" />
+            </button>
+          </div>
+
+          <div class="settlement-map__controls" aria-label="Map controls">
+            <div class="settlement-map__basemap" role="group" aria-label="Base map">
+              <button
+                type="button"
+                class="settlement-map__ctrl-btn"
+                :class="{ 'is-active': mapTypeId === 'roadmap' }"
+                @click="setMapType('roadmap')"
+              >
+                Road
+              </button>
+              <button
+                type="button"
+                class="settlement-map__ctrl-btn"
+                :class="{ 'is-active': mapTypeId === 'hybrid' }"
+                @click="setMapType('hybrid')"
+              >
+                Satellite
+              </button>
+            </div>
+            <div class="settlement-map__zoom" role="group" aria-label="Zoom">
+              <button
+                type="button"
+                class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+                aria-label="Zoom in"
+                @click="zoomBy(1)"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+                aria-label="Zoom out"
+                @click="zoomBy(-1)"
+              >
+                −
+              </button>
+            </div>
+            <div class="settlement-map__locate" role="group" aria-label="Location">
+              <button
+                type="button"
+                class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+                aria-label="Locate me"
+                title="Locate me"
+                :disabled="locatingMe"
+                @click="locateMe"
+              >
+                <Icon icon="mdi:crosshairs-gps" width="18" height="18" />
+              </button>
+            </div>
+            <div class="settlement-map__fullscreen" role="group" aria-label="Fullscreen">
+              <button
+                type="button"
+                class="settlement-map__ctrl-btn settlement-map__ctrl-btn--icon"
+                :aria-label="isMapFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+                :title="isMapFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+                @click="toggleMapFullscreen"
+              >
+                <Icon
+                  :icon="isMapFullscreen ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'"
+                  width="18"
+                  height="18"
+                />
+              </button>
+            </div>
+          </div>
+
+          <div ref="mapContainer" class="map-container"></div>
+        </div>
       </div>
     </el-card>
 
@@ -5084,6 +5393,11 @@ onActivated(() => {
   margin: 0;
 }
 
+.map-shell {
+  position: relative;
+  width: 100%;
+}
+
 .map-container {
   width: 100%;
   height: calc(67vh);
@@ -5092,6 +5406,143 @@ onActivated(() => {
   overflow: hidden;
   border: 1px solid var(--el-border-color-lighter);
   position: relative;
+}
+
+.map-shell:fullscreen,
+.map-shell:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: #fff;
+}
+
+.map-shell:fullscreen .map-container,
+.map-shell:-webkit-full-screen .map-container {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Overlay controls — same look as SettlementMap.vue */
+.settlement-map__controls {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.map-shell__tools {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.map-shell__tools > .settlement-map__ctrl-btn,
+.settlement-map__basemap,
+.settlement-map__zoom,
+.settlement-map__locate,
+.settlement-map__fullscreen {
+  display: flex;
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e6e4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+}
+
+.settlement-map__zoom {
+  flex-direction: column;
+}
+
+.settlement-map__ctrl-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #1f2933;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settlement-map__basemap .settlement-map__ctrl-btn + .settlement-map__ctrl-btn {
+  border-left: 1px solid #e2e6e4;
+}
+
+.settlement-map__zoom .settlement-map__ctrl-btn + .settlement-map__ctrl-btn {
+  border-top: 1px solid #e2e6e4;
+}
+
+.settlement-map__ctrl-btn--icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settlement-map__ctrl-btn:hover:not(:disabled) {
+  background: #f5f7f6;
+}
+
+.settlement-map__ctrl-btn.is-active,
+.settlement-map__ctrl-btn.is-success {
+  background: #00843d;
+  color: #fff;
+}
+
+.settlement-map__ctrl-btn.is-danger {
+  color: #c0392b;
+}
+
+.settlement-map__ctrl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dark .map-shell__tools > .settlement-map__ctrl-btn,
+.dark .settlement-map__basemap,
+.dark .settlement-map__zoom,
+.dark .settlement-map__locate,
+.dark .settlement-map__fullscreen {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+.dark .settlement-map__ctrl-btn {
+  color: #e8e8e8;
+}
+
+.dark .settlement-map__basemap .settlement-map__ctrl-btn + .settlement-map__ctrl-btn,
+.dark .settlement-map__zoom .settlement-map__ctrl-btn + .settlement-map__ctrl-btn {
+  border-color: #444;
+}
+
+.dark .settlement-map__ctrl-btn:hover:not(:disabled) {
+  background: #3a3a3a;
+}
+
+.dark .settlement-map__ctrl-btn.is-active,
+.dark .settlement-map__ctrl-btn.is-success {
+  background: #00843d;
+  color: #fff;
 }
 
 /* Card body padding */
