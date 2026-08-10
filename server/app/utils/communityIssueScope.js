@@ -5,6 +5,10 @@ const { getCountyAdminScope } = require('./userListScope')
 
 const NATIONAL_BYPASS_ROLES = new Set(['root_admin', 'super_admin', 'support'])
 
+function resolveRequestUserId(req) {
+  return req.userid ?? req.userId ?? req.thisUser?.id ?? null
+}
+
 function roleAssignment(role) {
   return role?.user_roles || {}
 }
@@ -61,11 +65,12 @@ async function getCountyScopeIds(userId) {
 }
 
 async function applyCommunityIssueListScope(req, where = {}) {
-  if (await hasNationalCommunityIssueAccess(req.userId)) {
+  const userId = resolveRequestUserId(req)
+  if (await hasNationalCommunityIssueAccess(userId)) {
     return where
   }
 
-  const countyIds = await getCountyScopeIds(req.userId)
+  const countyIds = await getCountyScopeIds(userId)
   if (!countyIds.length) {
     return { ...where, id: -1 }
   }
@@ -78,9 +83,10 @@ async function applyCommunityIssueListScope(req, where = {}) {
 
 async function assertCommunityIssueAccess(req, issue) {
   if (!issue) return false
-  if (await hasNationalCommunityIssueAccess(req.userId)) return true
+  const userId = resolveRequestUserId(req)
+  if (await hasNationalCommunityIssueAccess(userId)) return true
 
-  const countyIds = await getCountyScopeIds(req.userId)
+  const countyIds = await getCountyScopeIds(userId)
   if (!countyIds.length) return false
 
   return countyIds.includes(Number(issue.county_id))

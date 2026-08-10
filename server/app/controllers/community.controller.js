@@ -23,6 +23,10 @@ const {
 
 const { Op } = Sequelize
 
+function resolveRequestUserId(req) {
+  return req.userid ?? req.userId ?? req.thisUser?.id ?? null
+}
+
 function parsePositiveInt(value) {
   if (value == null || value === '') return null
   const parsed = parseInt(String(value), 10)
@@ -351,7 +355,7 @@ exports.createIssue = async (req, res) => {
       return res.status(400).json({ message: errors.join('; ') })
     }
 
-    const record = await buildIssueRecord(payload, req.userId)
+    const record = await buildIssueRecord(payload, resolveRequestUserId(req))
 
     const created = await db.models.community_issue.create(record)
     notifyOnIssueCreated(req, created).catch((err) => {
@@ -407,7 +411,7 @@ exports.batchCreateIssues = async (req, res) => {
           resolution_note: payload.resolution_note ? String(payload.resolution_note).trim() : null,
           project_id: parsePositiveInt(payload.project_id),
           photo: payload.photo ? String(payload.photo) : null,
-          createdBy: req.userId || parsePositiveInt(payload.createdBy),
+          createdBy: resolveRequestUserId(req) || parsePositiveInt(payload.createdBy),
         })
 
         const row = await db.models.community_issue.create(record)
@@ -537,7 +541,7 @@ exports.updateIssueStatus = async (req, res) => {
 
     if (status === 'Resolved' || status === 'Closed') {
       updates.resolved_at = new Date()
-      updates.resolved_by = req.userId || issue.resolved_by || null
+      updates.resolved_by = resolveRequestUserId(req) || issue.resolved_by || null
       if (issue.isApproved === 'Pending') {
         updates.isApproved = 'Approved'
       }

@@ -102,6 +102,10 @@ async function getUserIdsWithHigherOrEqualRoles(viewerId) {
 
 /** County admin/staff scoped to one county in user_roles. */
 async function getCountyAdminScope(userId) {
+  if (!userId) {
+    return { isCountyAdmin: false, countyId: null };
+  }
+
   const assignments = await db.models.user_roles.findAll({
     where: { userid: userId, ...activeGrantWhere() },
     include: [{ model: db.role, attributes: ['name'] }],
