@@ -18,7 +18,7 @@ const { loadStart, loadDone } = usePageLoading();
 
 const whiteList = [
   '/api-docs', '/login', '/register', '/logoff', '/privacy', '/terms-of-data-use', '/status', '/status/:id',
-  '/grm', '/incidents', '/landing', '/about', '/settlements', '/projects', '/contact', '/faqs', '/delete', '/docs',
+  '/grm', '/incidents', '/community-issue', '/landing', '/about', '/settlements', '/projects', '/contact', '/faqs', '/delete', '/docs',
   '/data-request', '/dr-share', '/dr-clarify', '/regional-report'
 ]
 
@@ -28,6 +28,7 @@ const isPublicPath = (path: string): boolean =>
   path.startsWith('/reset') ||
   path.startsWith('/status') ||
   path.startsWith('/incidents/') ||
+  path.startsWith('/community-issues') ||
   path.startsWith('/share/') ||
   path.startsWith('/upload-share/') ||
   path.startsWith('/dr-share/') ||

@@ -347,11 +347,12 @@ export const NEWS_UPDATES = [
 ] as const
 
 export const ENGAGEMENT = {
-  title: 'Have a concern, suggestion or grievance relating to a programme or settlement?',
-  body: 'Use the electronic Grievance Redress Mechanism or contact the programme team. Your feedback helps improve service delivery.',
+  title: 'Have a concern, grievance, or settlement service issue?',
+  body: 'Use the electronic Grievance Redress Mechanism for formal complaints, or report maintenance and service issues in your settlement. Track progress online with your reference code.',
   actions: [
     { label: 'Submit a grievance', to: '/grm', primary: true },
-    { label: 'Track a grievance', to: '/grm', primary: false },
+    { label: 'Report community issue', to: '/community-issue', primary: true },
+    { label: 'Track community issue', to: '/community-issues', primary: false },
     { label: 'Contact the programme team', to: '/contact', primary: false },
   ],
 } as const
@@ -367,6 +368,7 @@ export const FOOTER = {
     { label: 'Settlement explorer', to: PUBLIC_PAGES.settlementExplorer as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
     { label: 'Project explorer', to: PUBLIC_PAGES.projectExplorer as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
     { label: 'e-GRM', to: '/grm' as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
+    { label: 'Report community issue', to: '/community-issue' as string | null, section: undefined as string | undefined, portalPath: undefined as string | undefined },
     { label: 'Management portal', to: '/login' as string | null, section: undefined as string | undefined, portalPath: PORTAL_PATHS.nationalDashboard },
   ],
   publications: [] as { label: string; to: string }[],

@@ -83,7 +83,14 @@ function prepareImportRecords(validRecords, modelName, currentUser) {
       createdBy: currentUser,
       updatedAt: timestamp,
       createdAt: item.createdAt || timestamp,
-      isApproved: 'Approved'
+    }
+
+    if (modelName === 'community_issue') {
+      record.isApproved = item.isApproved || 'Pending'
+      record.status = item.status || 'Submitted'
+      record.severity = item.severity || 'medium'
+    } else {
+      record.isApproved = 'Approved'
     }
 
     if (modelName === 'households') {

@@ -2472,6 +2472,54 @@ db.models.ward.hasMany(db.models.community_project, {
   foreignKey: 'ward_id'
 })
 
+/// community_issue
+db.models.community_issue.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+db.models.settlement.hasMany(db.models.community_issue, {
+  foreignKey: 'settlement_id'
+})
+db.models.community_issue.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+db.models.county.hasMany(db.models.community_issue, {
+  foreignKey: 'county_id'
+})
+db.models.community_issue.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+db.models.subcounty.hasMany(db.models.community_issue, {
+  foreignKey: 'subcounty_id'
+})
+db.models.community_issue.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+db.models.ward.hasMany(db.models.community_issue, {
+  foreignKey: 'ward_id'
+})
+db.models.community_issue.belongsTo(db.models.project, {
+  foreignKey: 'project_id'
+})
+db.models.project.hasMany(db.models.community_issue, {
+  foreignKey: 'project_id'
+})
+db.models.community_issue.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  as: 'reporterUser'
+})
+db.models.users.hasMany(db.models.community_issue, {
+  foreignKey: 'createdBy',
+  as: 'reportedCommunityIssues'
+})
+db.models.community_issue.belongsTo(db.models.users, {
+  foreignKey: 'resolved_by',
+  as: 'resolver'
+})
+db.models.users.hasMany(db.models.community_issue, {
+  foreignKey: 'resolved_by',
+  as: 'resolvedCommunityIssues'
+})
+
 /// mast   
 db.models.mast.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'

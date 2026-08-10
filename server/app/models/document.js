@@ -125,6 +125,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
+    community_issue_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
 
   }, {
     sequelize,

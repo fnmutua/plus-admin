@@ -4,6 +4,7 @@ benefit_type
 category
 cluster
 county
+community_issue
 education_facility
 facility_type
 grievance

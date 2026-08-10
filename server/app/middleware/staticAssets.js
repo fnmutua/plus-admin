@@ -25,16 +25,22 @@ function createCompressionMiddleware() {
 }
 
 /**
- * Long-cache immutable hashed assets; short/no-cache for HTML shells.
+ * Cache hints for non-hashed static files and HTML shells.
+ * Hashed /assets/* long-cache is applied only when the file is actually
+ * served (see createDistStatic setHeaders) so missing assets never get
+ * immutable Cache-Control on 404/HTML fallbacks.
  */
 function cacheControlMiddleware(req, res, next) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next()
 
   const urlPath = req.path || ''
 
+  // Do not set immutable here — express.static may 404 and leave the header on.
   if (urlPath.startsWith('/assets/') && HASHED_ASSET.test(urlPath)) {
-    res.setHeader('Cache-Control', `public, max-age=${ONE_YEAR_SECONDS}, immutable`)
-  } else if (/\.(?:js|mjs|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|ico)$/i.test(urlPath)) {
+    return next()
+  }
+
+  if (/\.(?:js|mjs|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|ico)$/i.test(urlPath)) {
     res.setHeader('Cache-Control', `public, max-age=${ONE_DAY_SECONDS}`)
   } else if (urlPath.endsWith('.html')) {
     res.setHeader('Cache-Control', 'no-cache')
@@ -90,6 +96,8 @@ function registerMissingAssetHandler(app, distDir) {
     if (fs.existsSync(filePath)) return next()
 
     if (/\.[a-z0-9]+$/i.test(urlPath)) {
+      // Never let browsers cache a miss for a content-hashed URL (deploy race).
+      res.setHeader('Cache-Control', 'no-store')
       res.status(404).type('text/plain').send('Not Found')
       return
     }

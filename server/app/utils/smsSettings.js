@@ -167,6 +167,14 @@ async function getDataRequestSMSStatus() {
   return await getSMSStatus('sms_data_request')
 }
 
+async function isCommunityIssueSMSEnabled() {
+  return await isSMSEnabled('sms_community_issue')
+}
+
+async function getCommunityIssueSMSStatus() {
+  return await getSMSStatus('sms_community_issue')
+}
+
 module.exports = {
   isSMSEnabled,
   getSMSStatus,
@@ -181,6 +189,8 @@ module.exports = {
   isFeedbackSMSEnabled,
   getFeedbackSMSStatus,
   isDataRequestSMSEnabled,
-  getDataRequestSMSStatus
+  getDataRequestSMSStatus,
+  isCommunityIssueSMSEnabled,
+  getCommunityIssueSMSStatus
 }
 

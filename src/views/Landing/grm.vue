@@ -9,6 +9,11 @@
             Submit a complaint or concern related to programme activities. You can track progress using the
             code you receive after submission.
           </p>
+          <p class="gok-grm__lead gok-grm__lead--alt">
+            Reporting a settlement service issue (water, roads, waste)?
+            <router-link to="/community-issue" class="gok-inline-link">Use the community issue form</router-link>
+            instead.
+          </p>
         </header>
 
         <el-steps
@@ -1278,6 +1283,21 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--gok-muted, #5f6368);
+}
+
+.gok-grm__lead--alt {
+  margin-top: 0.65rem;
+  font-size: 0.9rem;
+}
+
+.gok-inline-link {
+  color: var(--gok-green, #00a651);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.gok-inline-link:hover {
+  text-decoration: underline;
 }
 
 .gok-grm__steps {

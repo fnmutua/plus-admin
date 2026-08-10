@@ -33,6 +33,8 @@ export function isPublicBootstrapPath(path: string): boolean {
   if (p.startsWith('/reset')) return true
   if (p.startsWith('/status')) return true
   if (p.startsWith('/incidents/')) return true
+  if (p.startsWith('/community-issues')) return true
+  if (p === '/community-issue' || p.startsWith('/community-issue/')) return true
   if (p.startsWith('/share/')) return true
   if (p.startsWith('/upload-share/')) return true
   if (p.startsWith('/dr-share/')) return true

@@ -120,6 +120,7 @@ var _floodlight= require('./floodlight')
 var _hazard_zone= require('./hazard_zone')
 var _community_hall= require('./community_hall')
 var _community_project= require('./community_project')
+var _community_issue= require('./community_issue')
 var _mast= require('./mast')
 var _street_light= require('./street_light')
 var _dumping_site= require('./dumping_site')
@@ -268,6 +269,7 @@ function initModels(sequelize) {
 var hazard_zone = _hazard_zone(sequelize, DataTypes)
 var community_hall = _community_hall(sequelize, DataTypes)
 var community_project = _community_project(sequelize, DataTypes)
+var community_issue = _community_issue(sequelize, DataTypes)
 var mast = _mast(sequelize, DataTypes)
 var street_light = _street_light(sequelize, DataTypes)
 var dumping_site = _dumping_site(sequelize, DataTypes)
@@ -317,7 +319,7 @@ regional_report_submission_document.belongsTo(regional_report_submission, {
     communication,
     communication_recipient,
     user_notification,
-    beneficiary,otp,hazard_zone,community_hall,community_project,mast,street_light,dumping_site,
+    beneficiary,otp,hazard_zone,community_hall,community_project,community_issue,mast,street_light,dumping_site,
     powerline,powerline_asset,railway,railway_asset,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,
     county,

@@ -647,7 +647,30 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         ]
       },
-  
+
+      {
+        path: 'community',
+        component: Layout,
+        name: 'CommunityIssuesNav',
+        redirect: '/data/community/issues',
+        meta: {
+          title: 'Community Issues',
+          icon: 'mdi:map-marker-alert-outline',
+          permissions: ['community_issue:read'],
+        },
+        children: [
+          {
+            path: 'issues',
+            component: () => import('@/views/Community/CommunityIssues.vue'),
+            name: 'CommunityIssues',
+            meta: {
+              title: 'Issue Reports',
+              icon: 'mdi:alert-circle-outline',
+              permissions: ['community_issue:read'],
+            },
+          },
+        ],
+      },
 
     ]
   },

@@ -89,6 +89,17 @@ export const publicRoutes: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/community-issue',
+    component: () => import('@/views/Landing/CommunityIssueReport.vue'),
+    name: 'CommunityIssueReport',
+    meta: {
+      hidden: true,
+      title: 'Report community issue',
+      noTagsView: true,
+      public: true,
+    },
+  },
+  {
     path: '/data-request',
     component: () => import('@/views/Landing/DataRequest.vue'),
     name: 'DataRequest',
@@ -121,6 +132,28 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       icon:'pajamas:status',
       noCache: true
     }
+  },
+  {
+    path: '/community-issues',
+    component: () => import('@/views/Community/CommunityIssuePublic.vue'),
+    name: 'CommunityIssueTrack',
+    meta: {
+      hidden: true,
+      title: 'Community Issue Status',
+      noCache: true,
+      public: true,
+    },
+  },
+  {
+    path: '/community-issues/:id',
+    component: () => import('@/views/Community/CommunityIssuePublic.vue'),
+    name: 'CommunityIssuePublic',
+    meta: {
+      hidden: true,
+      title: 'Community Issue Status',
+      noCache: true,
+      public: true,
+    },
   },
   {
     path: '/share/:token',

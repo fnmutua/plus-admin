@@ -4896,6 +4896,7 @@ const FACILITY_DOCUMENT_FK = {
   mast: 'mast_id',
   dumping_site: 'dumping_site_id',
   crime_hotspot: 'crime_hotspot_id',
+  community_issue: 'community_issue_id',
 };
 
 const FACILITY_MODELS_WITH_DOCUMENTS = new Set(Object.keys(FACILITY_DOCUMENT_FK));
@@ -14225,6 +14226,7 @@ exports.xxgetSettlementMapData = async (req, res) => {
       'mast',
       'dumping_site',
       'hazard_zone',
+      'community_issue',
     ];
 
     const dataPromises = models.map(async (model) => {
@@ -14380,6 +14382,7 @@ exports.getSettlementMapData = async (req, res) => {
       'mast',
       'dumping_site',
       'hazard_zone',
+      'community_issue',
       'other_facility',
       'floodlight',
       'railway',
@@ -14528,6 +14531,7 @@ async function fetchSettlementGeoData(settlementId) {
     'mast',
     'dumping_site',
     'hazard_zone',
+    'community_issue',
     'public_facility',
     'other_facility',
   ];
