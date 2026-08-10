@@ -314,6 +314,11 @@ const defaultSettings = [
     description: 'Enable/disable SMS notifications to support officers for new data requests'
   },
   {
+    module: 'sms_community_issue',
+    enabled: true,
+    description: 'Enable/disable SMS notifications for community issue reports (reporter confirmation, status updates, admin alerts)'
+  },
+  {
     module: SMS_BALANCE_MODULE,
     enabled: true,
     description: 'Daily low bulk SMS balance check — notifies support users when credits fall below threshold',
