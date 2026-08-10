@@ -11,6 +11,9 @@
     <p v-if="boundaryLoadFailed && !mapLoadError" class="boundary-warning">
       Settlement boundary could not be loaded. You can still place a marker on the map.
     </p>
+    <p v-if="coordinatesOutsideSettlement && !mapLoadError" class="boundary-warning">
+      This location is outside the settlement boundary (e.g. mobile GPS). The recorded coordinates are still shown.
+    </p>
     <div v-if="latitude && longitude && showCoordinates" class="coords-row">
       <span>Lat: {{ latitude }}</span>
       <span>Lng: {{ longitude }}</span>
@@ -60,6 +63,7 @@ const emit = defineEmits<{
 
 const mapContainer = ref<HTMLElement | null>(null)
 const boundaryLoadFailed = ref(false)
+const coordinatesOutsideSettlement = ref(false)
 const mapLoading = ref(false)
 const mapLoadError = ref('')
 
@@ -212,10 +216,34 @@ function drawSettlementBoundary(fc: GeoJSON.FeatureCollection) {
     draggable: false,
   })
 
+  fitMapView()
+}
+
+function fitMapView(lat?: number | null, lng?: number | null) {
+  if (!map || !window.google?.maps) return
+
   const bounds = new window.google.maps.LatLngBounds()
-  paths.forEach((path) => bounds.extend(path))
-  map.fitBounds(bounds)
-  resizeMapSoon()
+  let hasExtent = false
+
+  if (settlementFeatureCollection?.features?.length) {
+    for (const feature of settlementFeatureCollection.features) {
+      const paths = pathsFromGeometry(feature.geometry as GeoJSON.Geometry)
+      for (const path of paths) {
+        bounds.extend(path)
+        hasExtent = true
+      }
+    }
+  }
+
+  if (lat != null && lng != null) {
+    bounds.extend({ lat, lng })
+    hasExtent = true
+  }
+
+  if (hasExtent) {
+    map.fitBounds(bounds, 48)
+    resizeMapSoon()
+  }
 }
 
 function placeMarker(lat: number, lng: number) {
@@ -271,10 +299,18 @@ function tryPlaceMarker(lat: number, lng: number) {
 function syncMarkerFromProps() {
   const lat = parseCoord(props.latitude)
   const lng = parseCoord(props.longitude)
-  if (lat == null || lng == null) return
-  if (isInsideSettlement(lng, lat)) {
-    placeMarker(lat, lng)
+
+  if (lat == null || lng == null) {
+    coordinatesOutsideSettlement.value = false
+    fitMapView()
+    return
   }
+
+  // Always show stored coordinates in view mode (mobile GPS may be outside the boundary).
+  placeMarker(lat, lng)
+  coordinatesOutsideSettlement.value =
+    Boolean(settlementFeatureCollection?.features?.length) && !isInsideSettlement(lng, lat)
+  fitMapView(lat, lng)
 }
 
 function bindMapClick() {
@@ -439,7 +475,7 @@ watch(
   () => props.settlementId,
   (settlementId) => {
     if (props.visible && map) {
-      loadSettlementBoundary(settlementId)
+      void loadSettlementBoundary(settlementId).then(() => syncMarkerFromProps())
     }
   }
 )
