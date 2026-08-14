@@ -11,6 +11,7 @@ import { useDesign } from '@/hooks/web/useDesign'
 import { NotificationBadge } from '@/components/NotificationBadge'
 import { MessageNotificationBell } from '@/components/MessageNotificationBell'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
+import { RouteSearch } from '@/components/RouteSearch'
 import AIAssistant from '@/components/AIAssistant'
 import Chat from '@/components/Chat'
 import { Icon } from '@iconify/vue'
@@ -93,7 +94,9 @@ export default defineComponent({
           </div>
         ) : undefined}
         <div class="h-full flex items-center">
-          <ThemeSwitch/> 
+          <RouteSearch class="<md:hidden"></RouteSearch>
+
+          <ThemeSwitch/>
 
           {screenfull.value ? (
             <Screenfull class="hover-tigger" color="var(--top-header-text-color)"></Screenfull>
