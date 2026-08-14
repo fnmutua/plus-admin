@@ -65,6 +65,7 @@ const handleDrawerClose = (done: () => void) => {
     title="Export charts"
     direction="rtl"
     size="560px"
+    :append-to-body="true"
     :close-on-click-modal="!chartsExportLoading"
     :before-close="handleDrawerClose"
   >
