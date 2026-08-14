@@ -94,7 +94,7 @@ export default defineComponent({
           </div>
         ) : undefined}
         <div class="h-full flex items-center">
-          <RouteSearch class="<md:hidden"></RouteSearch>
+          <RouteSearch></RouteSearch>
 
           <ThemeSwitch/>
 
