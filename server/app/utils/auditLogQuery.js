@@ -62,10 +62,12 @@ async function queryMergedAuditLogs({
   outcome = '',
   from = null,
   to = null,
-  actorIds = null
+  actorIds = null,
+  maxLimit = 200
 } = {}) {
   const pageNum = Math.max(1, parseInt(page, 10) || 1)
-  const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50))
+  const limitCeiling = Math.min(10000, Math.max(1, parseInt(maxLimit, 10) || 200))
+  const limitNum = Math.min(limitCeiling, Math.max(1, parseInt(limit, 10) || 50))
   const offset = (pageNum - 1) * limitNum
 
   const where = {}

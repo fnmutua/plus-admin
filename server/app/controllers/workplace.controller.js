@@ -362,6 +362,142 @@ exports.getMutations = async (req, res) => {
   }
 }
 
+exports.getTraffic = async (req, res) => {
+  try {
+    const scope = await requireScope(req, res)
+    if (!scope) return
+
+    const days = [1, 7, 30, 90].includes(Number(req.query?.days)) ? Number(req.query.days) : 30
+    const fromDate = daysAgo(days - 1)
+    const toDate = endOfDay()
+    let actorIds = null
+    if (!scope.isNational) {
+      actorIds = (await getScopedUserIdList(scope))
+        ?.filter((id) => !shouldSkipTrackingForUser(id)) || []
+    }
+
+    const result = await queryMergedAuditLogs({
+      page: 1,
+      limit: 10000,
+      maxLimit: 10000,
+      action: 'login',
+      from: fromDate,
+      to: toDate,
+      actorIds
+    })
+
+    const rows = actorIds && actorIds.length === 0 ? [] : result.data
+    const loginActorIds = [...new Set(rows.map((row) => row.actorId).filter(Boolean).map(Number).filter(Number.isFinite))]
+    const loginActorNames = [...new Set(rows.map((row) => row.actorName).filter(Boolean))]
+    const loginUsers = loginActorIds.length || loginActorNames.length
+      ? await Users.findAll({
+          where: {
+            [Op.or]: [
+              ...(loginActorIds.length ? [{ id: { [Op.in]: loginActorIds } }] : []),
+              ...(loginActorNames.length ? [{ username: { [Op.in]: loginActorNames } }] : [])
+            ]
+          },
+          attributes: ['id', 'username', 'county_id']
+        })
+      : []
+    const countyIds = [...new Set(loginUsers.map((user) => user.county_id).filter(Boolean))]
+    const countyRows = countyIds.length
+      ? await db.models.county.findAll({
+          where: { id: { [Op.in]: countyIds } },
+          attributes: ['id', 'name']
+        })
+      : []
+    const countyNameById = new Map(countyRows.map((county) => [String(county.id), county.name]))
+    const countyByActor = new Map()
+    loginUsers.forEach((user) => {
+      const county = countyNameById.get(String(user.county_id)) || 'Not assigned'
+      countyByActor.set(String(user.id), county)
+      countyByActor.set(String(user.username).toLowerCase(), county)
+    })
+    const daily = new Map()
+    const localDateKey = (value) => {
+      const date = new Date(value)
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${date.getFullYear()}-${month}-${day}`
+    }
+    const localHourKey = (value) => {
+      const date = new Date(value)
+      return `${localDateKey(date)}T${String(date.getHours()).padStart(2, '0')}:00`
+    }
+    if (days === 1) {
+      for (let hour = 0; hour < 24; hour += 1) {
+        const date = new Date(fromDate)
+        date.setHours(hour, 0, 0, 0)
+        daily.set(localHourKey(date), { successful: 0, failed: 0 })
+      }
+    } else {
+      for (let i = 0; i < days; i += 1) {
+        const date = new Date(fromDate)
+        date.setDate(date.getDate() + i)
+        daily.set(localDateKey(date), { successful: 0, failed: 0 })
+      }
+    }
+
+    const counties = new Map()
+    const uniqueUsers = new Set()
+    let successfulLogins = 0
+    let failedLogins = 0
+    rows.forEach((row) => {
+      const key = days === 1 ? localHourKey(row.timestamp) : localDateKey(row.timestamp)
+      const bucket = daily.get(key)
+      const failed = String(row.outcome || row.metadata?.legacyStatus || '').toLowerCase().includes('fail')
+      if (failed) failedLogins += 1
+      else successfulLogins += 1
+      if (bucket) bucket[failed ? 'failed' : 'successful'] += 1
+      if (row.actorId) uniqueUsers.add(String(row.actorId))
+      const county = countyByActor.get(String(row.actorId))
+        || countyByActor.get(String(row.actorName || '').toLowerCase())
+        || 'Not assigned'
+      counties.set(county, (counties.get(county) || 0) + 1)
+    })
+
+    const sessionScopeSql = actorIds ? 'AND user_id IN (:actorIds)' : ''
+    const [activeSessionRows, activeUsersRows] = actorIds && actorIds.length === 0
+      ? [[{ count: 0 }], [{ count: 0 }]]
+      : await Promise.all([
+          db.sequelize.query(
+            `SELECT COUNT(*) AS count FROM user_auth_sessions
+             WHERE revoked_at IS NULL AND expires_at >= NOW() ${sessionScopeSql}`,
+            { replacements: { actorIds: actorIds || [] }, type: db.sequelize.QueryTypes.SELECT }
+          ),
+          db.sequelize.query(
+            `SELECT COUNT(DISTINCT user_id) AS count FROM user_auth_sessions
+             WHERE revoked_at IS NULL AND expires_at >= NOW()
+             ${sessionScopeSql}`,
+            { replacements: { actorIds: actorIds || [] }, type: db.sequelize.QueryTypes.SELECT }
+          )
+        ])
+
+    res.status(200).send({
+      code: '0000',
+      message: 'Traffic analytics retrieved successfully',
+      data: {
+        days,
+        activeSessions: Number(activeSessionRows[0]?.count) || 0,
+        activeUsers: Number(activeUsersRows[0]?.count) || 0,
+        loginAttempts: successfulLogins + failedLogins,
+        successfulLogins,
+        failedLogins,
+        uniqueUsers: uniqueUsers.size,
+        timeline: [...daily.entries()].map(([date, counts]) => ({ date, ...counts })),
+        counties: [...counties.entries()]
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 8)
+      }
+    })
+  } catch (error) {
+    console.error('Workplace traffic error:', error)
+    res.status(500).send({ code: '9999', message: 'Unable to retrieve traffic analytics', error: error.message })
+  }
+}
+
 exports.getScope = async (req, res) => {
   try {
     const scope = await requireScope(req, res)

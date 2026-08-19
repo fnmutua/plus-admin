@@ -17,14 +17,18 @@ import {
   getActiveSessionsApi,
   getLoginAttemptsApi,
   getMutationsApi,
+  getWorkplaceTrafficApi,
   type ActiveSession,
   type LoginAttempt,
   type MutationLog,
+  type WorkplaceTraffic,
   type WorkplaceStats,
   type NewAccountsPeriod
 } from '@/api/dashboard/workplace'
 import { Icon } from '@iconify/vue'
 import { SwitchButton } from '@element-plus/icons-vue'
+import '@/plugins/echarts'
+import VChart from 'vue-echarts'
 
 const CARD_ICON_COLOR = '#409eff'
 const { push } = useRouter()
@@ -367,10 +371,107 @@ const onMutationFilterChange = () => {
   loadMutations()
 }
 
+// Tab D: traffic analytics
+const loadingTraffic = ref(false)
+const trafficDays = ref(30)
+const traffic = ref<WorkplaceTraffic>({
+  days: 30,
+  activeSessions: 0,
+  activeUsers: 0,
+  loginAttempts: 0,
+  successfulLogins: 0,
+  failedLogins: 0,
+  uniqueUsers: 0,
+  timeline: [],
+  counties: []
+})
+
+const trafficCards = computed(() => [
+  { label: 'Active Sessions', value: traffic.value.activeSessions, icon: 'mdi:access-point' },
+  { label: 'Active Users', value: traffic.value.activeUsers, icon: 'mdi:account-check-outline' },
+  { label: 'Login Attempts', value: traffic.value.loginAttempts, icon: 'mdi:login-variant' },
+  { label: 'Unique Users', value: traffic.value.uniqueUsers, icon: 'mdi:account-multiple-outline' }
+])
+
+const trafficTimelineOptions = computed(() => ({
+  tooltip: { trigger: 'axis' },
+  toolbox: {
+    show: true,
+    right: 4,
+    top: 0,
+    feature: {
+      saveAsImage: {
+        show: true,
+        title: 'Download chart',
+        name: `workplace-login-traffic-${trafficDays.value}-days`,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff'
+      }
+    }
+  },
+  legend: { data: ['Successful', 'Failed'], bottom: 0 },
+  grid: { left: 42, right: 20, top: 24, bottom: 50, containLabel: true },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: traffic.value.timeline.map((item) =>
+      trafficDays.value === 1
+        ? new Date(item.date).toLocaleTimeString(undefined, { hour: 'numeric', hour12: true })
+        : new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    )
+  },
+  yAxis: { type: 'value', minInterval: 1 },
+  series: [
+    { name: 'Successful', type: 'line', smooth: true, symbol: 'circle', data: traffic.value.timeline.map((item) => item.successful), color: '#67c23a', areaStyle: { opacity: 0.1 } },
+    { name: 'Failed', type: 'line', smooth: true, symbol: 'circle', data: traffic.value.timeline.map((item) => item.failed), color: '#f56c6c', areaStyle: { opacity: 0.08 } }
+  ]
+}))
+
+const trafficSourceOptions = computed(() => ({
+  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+  toolbox: {
+    show: true,
+    right: 4,
+    top: 0,
+    feature: {
+      saveAsImage: {
+        show: true,
+        title: 'Download chart',
+        name: `workplace-traffic-by-county-${trafficDays.value}-days`,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff'
+      }
+    }
+  },
+  legend: { type: 'scroll', orient: 'horizontal', bottom: 0 },
+  series: [{
+    name: 'County',
+    type: 'pie',
+    radius: ['42%', '68%'],
+    center: ['50%', '44%'],
+    avoidLabelOverlap: true,
+    label: { formatter: '{b}\n{d}%' },
+    data: traffic.value.counties
+  }]
+}))
+
+const loadTraffic = async () => {
+  loadingTraffic.value = true
+  try {
+    const res = await getWorkplaceTrafficApi(trafficDays.value)
+    if (res.data) traffic.value = res.data
+  } catch {
+    ElMessage.error('Failed to load traffic analytics')
+  } finally {
+    loadingTraffic.value = false
+  }
+}
+
 const onTabChange = (name: string | number) => {
   if (name === 'sessions' && !sessions.value.length) loadSessions()
   if (name === 'logins') loadLoginAttempts()
   if (name === 'mutations' && !mutations.value.length) loadMutations()
+  if (name === 'traffic' && !traffic.value.timeline.length) loadTraffic()
 }
 
 const init = async () => {
@@ -677,6 +778,48 @@ onMounted(init)
               </template>
             </el-skeleton>
           </el-tab-pane>
+
+          <el-tab-pane label="Traffic" name="traffic">
+            <div class="tab-toolbar sessions-toolbar">
+              <div class="traffic-description">Session and login activity for {{ stats.scopeLabel || 'your scope' }}</div>
+              <el-select v-model="trafficDays" size="small" style="width:150px" @change="loadTraffic">
+                <el-option label="Today" :value="1" />
+                <el-option label="Last 7 days" :value="7" />
+                <el-option label="Last 30 days" :value="30" />
+                <el-option label="Last 90 days" :value="90" />
+              </el-select>
+            </div>
+            <el-skeleton :loading="loadingTraffic" animated :rows="8">
+              <template #default>
+                <el-row :gutter="12" class="traffic-metrics">
+                  <el-col v-for="card in trafficCards" :key="card.label" :lg="6" :sm="12" :xs="24">
+                    <div class="traffic-metric">
+                      <Icon :icon="card.icon" width="26" :color="CARD_ICON_COLOR" />
+                      <div>
+                        <div class="traffic-metric-value">{{ card.value.toLocaleString() }}</div>
+                        <div class="traffic-metric-label">{{ card.label }}</div>
+                      </div>
+                    </div>
+                  </el-col>
+                </el-row>
+                <el-row :gutter="16" class="traffic-charts">
+                  <el-col :lg="16" :xs="24">
+                    <div class="traffic-chart-panel">
+                      <div class="traffic-chart-title">Login traffic over time</div>
+                      <v-chart class="traffic-chart" :option="trafficTimelineOptions" autoresize />
+                    </div>
+                  </el-col>
+                  <el-col :lg="8" :xs="24">
+                    <div class="traffic-chart-panel">
+                      <div class="traffic-chart-title">Traffic by county</div>
+                      <el-empty v-if="!traffic.counties.length" description="No county data" :image-size="55" />
+                      <v-chart v-else class="traffic-chart" :option="trafficSourceOptions" autoresize />
+                    </div>
+                  </el-col>
+                </el-row>
+              </template>
+            </el-skeleton>
+          </el-tab-pane>
         </el-tabs>
       </el-card>
     </template>
@@ -790,4 +933,15 @@ onMounted(init)
   gap: 8px;
   flex-wrap: wrap;
 }
+.traffic-description { font-size: 13px; color: var(--el-text-color-secondary); }
+.traffic-metrics { margin-bottom: 16px; }
+.traffic-metric {
+  display: flex; align-items: center; gap: 12px; padding: 16px;
+  border: 1px solid var(--el-border-color-lighter); border-radius: 8px; margin-bottom: 10px;
+}
+.traffic-metric-value { font-size: 22px; line-height: 1.1; font-weight: 700; color: var(--el-text-color-primary); }
+.traffic-metric-label { margin-top: 4px; font-size: 12px; color: var(--el-text-color-secondary); }
+.traffic-chart-panel { border: 1px solid var(--el-border-color-lighter); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+.traffic-chart-title { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }
+.traffic-chart { width: 100%; height: 340px; }
 </style>

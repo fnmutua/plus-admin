@@ -56,6 +56,18 @@ export type MutationLog = {
   outcome: string
 }
 
+export type WorkplaceTraffic = {
+  days: number
+  activeSessions: number
+  activeUsers: number
+  loginAttempts: number
+  successfulLogins: number
+  failedLogins: number
+  uniqueUsers: number
+  timeline: Array<{ date: string; successful: number; failed: number }>
+  counties: Array<{ name: string; value: number }>
+}
+
 export const getWorkplaceStatsApi = (
   period: NewAccountsPeriod = 'week'
 ): Promise<IResponse<WorkplaceStats>> => {
@@ -84,4 +96,8 @@ export const getMutationsApi = (data: {
   to?: string
 }): Promise<IResponse<MutationLog[]>> => {
   return request.post({ url: prod + '/api/v1/workplace/mutations', data, silent: true })
+}
+
+export const getWorkplaceTrafficApi = (days = 30): Promise<IResponse<WorkplaceTraffic>> => {
+  return request.get({ url: prod + '/api/v1/workplace/traffic', params: { days } })
 }

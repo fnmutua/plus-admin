@@ -32,6 +32,12 @@ module.exports = function (app) {
   )
 
   app.get(
+    '/api/v1/workplace/traffic',
+    [authJwt.verifyToken, authJwt.isSomeAdmin],
+    controller.getTraffic
+  )
+
+  app.get(
     '/api/v1/workplace/scope',
     [authJwt.verifyToken, authJwt.isSomeAdmin],
     controller.getScope
