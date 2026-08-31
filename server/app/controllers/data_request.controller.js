@@ -245,7 +245,11 @@ const notifySupportUsersBySms = async (supportUsers, message, requestId = null) 
 
   await Promise.allSettled(recipients.map(async (u) => {
     try {
-      await sendSMS(u.phone, message)
+      await sendSMS(u.phone, message, {
+        sourceModule: 'data_request',
+        sourceType: 'officer_alert',
+        sourceId: requestId
+      })
       console.log(`[DataRequest] SMS sent to ${u.name} (${u.phone})`)
       await notificationService.recordDelivery({
         userId: u.id,

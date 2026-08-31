@@ -14,6 +14,7 @@ const Sequelize = require('sequelize')
  const Role = db.role
  const { Op, literal } = require('sequelize');
  const notificationService = require('../services/notification.service')
+ const smsLogService = require('../services/smsLog.service')
  const cron = require('node-cron'); // Scheduler
  const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
  const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
@@ -306,10 +307,31 @@ async function sendNotificationSMS(sms_obj) {
       const { success, statusText } = parseSmsResponse(response)
       console.log('[SMS] sendNotificationSMS response:', response.data?.responses?.[0])
       notification.status = statusText
+      smsLogService.recordSmsLog({
+        sourceModule: 'grievance',
+        sourceType: notification.type || 'notification',
+        sourceId: notification.grievance_id,
+        destination: requestData.mobile,
+        message: requestData.message,
+        status: success ? 'sent' : 'failed',
+        providerCode: response?.data?.responses?.[0]?.['response-code'] || null,
+        providerMessage: statusText
+      }).catch((logError) => console.error('[SMS Log] grievance notification:', logError))
       persistNotification().catch((error) => console.error('Failed to save grievance notification:', error))
     })
     .catch((error) => {
       notification.status = parseSmsAxiosError(error)
+      const parsed = smsLogService.parseAdvantaAxiosError(error)
+      smsLogService.recordSmsLog({
+        sourceModule: 'grievance',
+        sourceType: notification.type || 'notification',
+        sourceId: notification.grievance_id,
+        destination: requestData.mobile,
+        message: requestData.message,
+        status: parsed.status,
+        providerCode: parsed.providerCode,
+        providerMessage: parsed.providerMessage
+      }).catch((logError) => console.error('[SMS Log] grievance notification:', logError))
       console.error('[SMS] sendNotificationSMS error:', error?.code || error?.message)
       persistNotification().catch((saveError) => console.error('Failed to save grievance notification:', saveError))
     });
@@ -374,10 +396,31 @@ async function sendCreateSMS(sms_obj,serverUrl) {
       const { success, statusText } = parseSmsResponse(response)
       console.log('[SMS] sendCreateSMS response:', response.data?.responses?.[0])
       notification.status = statusText
+      smsLogService.recordSmsLog({
+        sourceModule: 'grievance',
+        sourceType: notification.type || 'create_ack',
+        sourceId: notification.grievance_id || sms_obj.id,
+        destination: requestData.mobile,
+        message: requestData.message,
+        status: success ? 'sent' : 'failed',
+        providerCode: response?.data?.responses?.[0]?.['response-code'] || null,
+        providerMessage: statusText
+      }).catch((logError) => console.error('[SMS Log] grievance create:', logError))
       db.models.grievance_notification.create(notification).catch((err) => console.error('Failed to save create notification:', err));
     })
     .catch((error) => {
       notification.status = parseSmsAxiosError(error)
+      const parsed = smsLogService.parseAdvantaAxiosError(error)
+      smsLogService.recordSmsLog({
+        sourceModule: 'grievance',
+        sourceType: notification.type || 'create_ack',
+        sourceId: notification.grievance_id || sms_obj.id,
+        destination: requestData.mobile,
+        message: requestData.message,
+        status: parsed.status,
+        providerCode: parsed.providerCode,
+        providerMessage: parsed.providerMessage
+      }).catch((logError) => console.error('[SMS Log] grievance create:', logError))
       console.error('[SMS] sendCreateSMS error:', error?.code || error?.message)
       db.models.grievance_notification.create(notification).catch((err) => console.error('Failed to save create notification:', err));
     });

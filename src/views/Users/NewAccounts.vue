@@ -453,6 +453,7 @@ const activateDeactivate = async (data: TableSlotDefault) => {
     console.log('Activating user.....', data.row)
     await activateUserApi(data.row, { model: 'users' })
     ElMessage.success('User status updated successfully')
+    await getFilteredData(filters, filterValues)
   } catch (error) {
     console.error('Error updating user status:', error)
     ElMessage.error('Failed to update user status')
@@ -895,7 +896,7 @@ const removeRole = (index) => {
 }
 
 
-const updateUser = () => {
+const updateUser = async () => {
 
   tmp_roles.value.forEach(role => {
     if (role.location_level === "national") {
@@ -923,30 +924,24 @@ const updateUser = () => {
   }))
   console.log('form.value', form.value)
 
+  try {
+    const response = await updateUserApi(form.value)
+    dialogFormVisible.value = false
 
-
-
-
-  updateUserApi(form.value).then((response) => {
-
-    console.log("udapyetd")
-
-       // Find the index of the object with the matching ID
-       const index = tableDataList.value.findIndex(item => item.id === response.user.id);
-
-        if (index !== -1) {
-          // Replace the object with the updated response data
-          tableDataList.value[index] = response.user;
-
-          console.log('updated  tableDataList.value', tableDataList.value)
-        }
-
-
-
-
-  })
-
-  dialogFormVisible.value = false
+    if (response.user?.isactive) {
+      ElMessage.success('Role assigned and user activated successfully')
+      await getFilteredData(filters, filterValues)
+    } else {
+      const index = tableDataList.value.findIndex(item => item.id === response.user.id)
+      if (index !== -1) {
+        tableDataList.value[index] = response.user
+      }
+      ElMessage.success('User updated successfully')
+    }
+  } catch (error) {
+    console.error('Failed to update user:', error)
+    ElMessage.error('Failed to update user')
+  }
 }
 
 </script>

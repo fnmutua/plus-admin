@@ -139,6 +139,7 @@ var _data_request_message = require('./DataRequestMessage')
 var _communication = require('./communication')
 var _communication_recipient = require('./communication_recipient')
 var _user_notification = require('./user_notification')
+var _sms_log = require('./sms_log')
 
 
 
@@ -286,6 +287,7 @@ var data_request_message = _data_request_message(sequelize, DataTypes)
 var communication = _communication(sequelize, DataTypes)
 var communication_recipient = _communication_recipient(sequelize, DataTypes)
 var user_notification = _user_notification(sequelize, DataTypes)
+var sms_log = _sms_log(sequelize, DataTypes)
 
 // Communications associations: a broadcast has many per-channel recipient rows.
 communication.hasMany(communication_recipient, {
@@ -319,6 +321,7 @@ regional_report_submission_document.belongsTo(regional_report_submission, {
     communication,
     communication_recipient,
     user_notification,
+    sms_log,
     beneficiary,otp,hazard_zone,community_hall,community_project,community_issue,mast,street_light,dumping_site,
     powerline,powerline_asset,railway,railway_asset,floodlight,crime_hotspot,floodlight,police_station,
     beneficiary_parcel,

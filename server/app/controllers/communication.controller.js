@@ -14,9 +14,9 @@
 
 const db = require('../models')
 const { Op } = require('sequelize')
-const axios = require('axios')
 const nodemailer = require('nodemailer')
 const notificationService = require('../services/notification.service')
+const { sendSmsWithResult } = require('../utils/sms')
 const ADMIN_SEND_ROLES = new Set(['admin', 'super_admin', 'root_admin'])
 const ROLE_RANK_FALLBACK = {
   root_admin: 100,
@@ -67,41 +67,6 @@ function getMailTransporter() {
     }
   })
   return cachedTransporter
-}
-
-const SMS_URL = 'https://quicksms.advantasms.com/api/services/sendotp/'
-
-async function sendSMS(address, message) {
-  const phone = formatPhoneNumber(address)
-  if (!phone) {
-    return { ok: false, code: 'INVALID', message: 'Invalid phone number' }
-  }
-  try {
-    const response = await axios.post(SMS_URL, {
-      apikey: process.env.SMS_API_KEY,
-      partnerID: process.env.SMS_PARTNER_ID || '12108',
-      shortcode: process.env.SMS_SHORTCODE || 'KISIP',
-      message,
-      mobile: phone
-    })
-    const data = response && response.data
-    // AdvantaSMS returns either { responses: [...] } or a top-level { 'response-code': '200' }.
-    const respCode = String(
-      (data && (data['response-code'] || (data.responses && data.responses[0] && data.responses[0]['response-code']))) || '200'
-    )
-    const ok = respCode === '200' || respCode === '0' || respCode === 'OK' || respCode === '1000'
-    return {
-      ok,
-      code: respCode,
-      message: ok ? 'Sent' : (data && JSON.stringify(data)) || 'Provider rejected'
-    }
-  } catch (err) {
-    return {
-      ok: false,
-      code: err && err.response && err.response.status ? String(err.response.status) : 'ERROR',
-      message: (err && err.message) || 'SMS provider error'
-    }
-  }
 }
 
 async function sendEmail(address, subject, body) {
@@ -379,7 +344,12 @@ async function fanOutRecipients(communication, recipientRows) {
   for (const recipient of recipientRows) {
     let result
     if (recipient.channel === 'sms') {
-      result = await sendSMS(recipient.address, communication.body)
+      result = await sendSmsWithResult(recipient.address, communication.body, {
+        sourceModule: 'communication',
+        sourceType: 'broadcast',
+        sourceId: communication.id,
+        initiatedByUserId: communication.sender_id
+      })
     } else {
       result = await sendEmail(recipient.address, communication.subject, communication.body)
     }
@@ -666,7 +636,12 @@ exports.retryRecipient = async (req, res) => {
 
     let result
     if (recipient.channel === 'sms') {
-      result = await sendSMS(recipient.address, communication.body)
+      result = await sendSmsWithResult(recipient.address, communication.body, {
+        sourceModule: 'communication',
+        sourceType: 'broadcast',
+        sourceId: communication.id,
+        initiatedByUserId: communication.sender_id
+      })
     } else {
       result = await sendEmail(recipient.address, communication.subject, communication.body)
     }

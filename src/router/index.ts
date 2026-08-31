@@ -1402,6 +1402,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon: 'mdi:message-fast',
           permissions: ['communication:read']
         }
+      },
+
+      {
+        path: 'sms-logs',
+        component: () => import('@/views/Admin/SmsLogs.vue'),
+        name: 'AdminSmsLogs',
+        meta: {
+          title: 'SMS Log',
+          hidden: false,
+          icon: 'mdi:message-text-clock',
+          permissions: ['sms_log:read']
+        }
       }
     ]
   },

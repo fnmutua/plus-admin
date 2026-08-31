@@ -9,6 +9,7 @@ const { trackIncidentHistory, trackIncidentCreation, trackIncidentUpdate, trackI
 const nodemailer = require('nodemailer')
 const axios = require('axios')
 const notificationService = require('../services/notification.service')
+const smsLogService = require('../services/smsLog.service')
 const { isIncidentSMSEnabled } = require('../utils/smsSettings')
 // PDF generation moved to frontend using jsPDF
 
@@ -102,6 +103,17 @@ async function sendNotificationSMS(phone_number, message, incident = null, userI
   try {
     const response = await axios.post(url, requestData);
     console.log(`SMS sent to ${phone_number}:`, response.data);
+    const parsed = smsLogService.parseAdvantaResponse(response.data)
+    await smsLogService.recordSmsLog({
+      sourceModule: 'incident',
+      sourceType: 'alert',
+      sourceId: incident?.id || null,
+      destination: requestData.mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
     await notificationService.recordDelivery({
       userId,
       channel: 'sms',
@@ -116,6 +128,17 @@ async function sendNotificationSMS(phone_number, message, incident = null, userI
     return response.data;
   } catch (error) {
     console.error(`Error sending SMS to ${phone_number}:`, error);
+    const parsed = smsLogService.parseAdvantaAxiosError(error)
+    await smsLogService.recordSmsLog({
+      sourceModule: 'incident',
+      sourceType: 'alert',
+      sourceId: incident?.id || null,
+      destination: requestData.mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
     await notificationService.recordDelivery({
       userId,
       channel: 'sms',

@@ -7,6 +7,7 @@ const OTP = db.models.otp
 const axios = require('axios');
 const UserRoles = db.models.user_roles
 const { isUserSMSEnabled, isFeedbackSMSEnabled } = require('../utils/smsSettings')
+const smsLogService = require('../services/smsLog.service')
 
 const Sequelize = require('sequelize')
  const op = Sequelize.Op
@@ -1905,9 +1906,29 @@ async function sendNotificationSMS(phone_number, message) {
   try {
     const response = await axios.post(url, requestData);
     console.log(`SMS sent to ${phone_number}:`, response.data);
+    const parsed = smsLogService.parseAdvantaResponse(response.data)
+    await smsLogService.recordSmsLog({
+      sourceModule: 'user',
+      sourceType: 'notification',
+      destination: requestData.mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
     return response.data;
   } catch (error) {
     console.error(`Error sending SMS to ${phone_number}:`, error);
+    const parsed = smsLogService.parseAdvantaAxiosError(error)
+    await smsLogService.recordSmsLog({
+      sourceModule: 'user',
+      sourceType: 'notification',
+      destination: requestData.mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
     throw error;
   }
 }

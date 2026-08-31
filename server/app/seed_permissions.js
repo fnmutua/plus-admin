@@ -233,6 +233,9 @@ async function seedPermissions() {
       { name: 'communication:send_subordinates', description: 'Send SMS only to users in subordinate roles' },
       { name: 'communication:send_county', description: 'Send communications only within own county scope' },
 
+      // SMS delivery log
+      { name: 'sms_log:read', description: 'View SMS delivery log (source, destination, and status)' },
+
       // Notifications (user inbox)
       { name: 'notification:read', description: 'View own SMS and email delivery notifications' },
 
@@ -874,6 +877,7 @@ async function seedPermissions() {
     "communication:send",
     "communication:send_subordinates",
     "communication:send_county",
+    "sms_log:read",
     "community_hall:create",
     "community_hall:delete",
     "community_hall:read",
@@ -1320,6 +1324,7 @@ async function seedPermissions() {
     "communication:send",
     "communication:send_subordinates",
     "communication:send_county",
+    "sms_log:read",
     "community_hall:create",
     "community_hall:delete",
     "community_hall:read",
@@ -1763,6 +1768,7 @@ async function seedPermissions() {
     "communication:send",
     "communication:send_subordinates",
     "communication:send_county",
+    "sms_log:read",
     "community_hall:create",
     "community_hall:delete",
     "community_hall:read",

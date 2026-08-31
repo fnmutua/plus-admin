@@ -108,7 +108,11 @@ async function notifySupportUsers({ balance, threshold }) {
 
   for (const recipient of smsTargets) {
     try {
-      await sendSMS(recipient.phone, message)
+      await sendSMS(recipient.phone, message, {
+        sourceModule: 'balance_alert',
+        sourceType: 'low_balance',
+        sourceId: recipient.id
+      })
       smsSent += 1
     } catch (error) {
       console.error(`[SMS Balance Alert] SMS failed for user ${recipient.id}:`, error.message || error)

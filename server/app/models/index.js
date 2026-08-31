@@ -1543,6 +1543,17 @@ if (db.models.user_notification) {
   })
 }
 
+if (db.models.sms_log) {
+  db.models.sms_log.belongsTo(db.models.users, {
+    foreignKey: 'initiated_by_user_id',
+    as: 'initiator'
+  })
+  db.models.users.hasMany(db.models.sms_log, {
+    foreignKey: 'initiated_by_user_id',
+    as: 'smsLogs'
+  })
+}
+
 // Document share associations
 if (db.models.document_share && db.models.document_share_item) {
   db.models.document_share.belongsTo(db.models.users, { foreignKey: 'createdBy', as: 'creator' })

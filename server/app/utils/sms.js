@@ -1,4 +1,5 @@
 const axios = require('axios')
+const smsLogService = require('../services/smsLog.service')
 
 const SMS_URL = 'https://quicksms.advantasms.com/api/services/sendotp/'
 const SMS_BALANCE_URL = 'https://quicksms.advantasms.com/api/services/getbalance/'
@@ -32,22 +33,121 @@ function formatPhoneNumber(phoneNumber) {
   return cleaned
 }
 
-async function sendSMS(phoneNumber, message) {
+function buildLogMeta(meta = {}) {
+  return {
+    sourceModule: meta.sourceModule || meta.source_module || 'unknown',
+    sourceType: meta.sourceType || meta.source_type || null,
+    sourceId: meta.sourceId ?? meta.source_id ?? null,
+    initiatedByUserId: meta.initiatedByUserId ?? meta.initiated_by_user_id ?? null,
+    senderShortcode: meta.senderShortcode || process.env.SMS_SHORTCODE || 'KISIP'
+  }
+}
+
+async function sendSMS(phoneNumber, message, meta = {}) {
   const mobile = formatPhoneNumber(phoneNumber)
+  const logMeta = buildLogMeta(meta)
+
   if (!mobile || !message) {
     console.warn('[SMS] Invalid phone or message — skipping send')
+    await smsLogService.recordSmsLog({
+      ...logMeta,
+      destination: mobile || String(phoneNumber || ''),
+      message: message || '',
+      status: 'failed',
+      providerCode: 'INVALID',
+      providerMessage: 'Invalid phone or message'
+    })
     return null
   }
 
-  const response = await axios.post(SMS_URL, {
-    apikey: process.env.SMS_API_KEY,
-    partnerID: process.env.SMS_PARTNER_ID || '12108',
-    shortcode: process.env.SMS_SHORTCODE || 'KISIP',
-    message,
-    mobile
-  })
+  try {
+    const response = await axios.post(SMS_URL, {
+      apikey: process.env.SMS_API_KEY,
+      partnerID: process.env.SMS_PARTNER_ID || '12108',
+      shortcode: logMeta.senderShortcode,
+      message,
+      mobile
+    })
 
-  return response.data
+    const parsed = smsLogService.parseAdvantaResponse(response.data)
+    await smsLogService.recordSmsLog({
+      ...logMeta,
+      destination: mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
+
+    return response.data
+  } catch (error) {
+    const parsed = smsLogService.parseAdvantaAxiosError(error)
+    await smsLogService.recordSmsLog({
+      ...logMeta,
+      destination: mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
+    throw error
+  }
+}
+
+async function sendSmsWithResult(phoneNumber, message, meta = {}) {
+  const mobile = formatPhoneNumber(phoneNumber)
+  const logMeta = buildLogMeta(meta)
+
+  if (!mobile) {
+    await smsLogService.recordSmsLog({
+      ...logMeta,
+      destination: String(phoneNumber || ''),
+      message: message || '',
+      status: 'failed',
+      providerCode: 'INVALID',
+      providerMessage: 'Invalid phone number'
+    })
+    return { ok: false, code: 'INVALID', message: 'Invalid phone number' }
+  }
+
+  try {
+    const response = await axios.post(SMS_URL, {
+      apikey: process.env.SMS_API_KEY,
+      partnerID: process.env.SMS_PARTNER_ID || '12108',
+      shortcode: logMeta.senderShortcode,
+      message,
+      mobile
+    })
+    const parsed = smsLogService.parseAdvantaResponse(response.data)
+    await smsLogService.recordSmsLog({
+      ...logMeta,
+      destination: mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
+    return {
+      ok: parsed.status === 'sent',
+      code: parsed.providerCode,
+      message: parsed.providerMessage
+    }
+  } catch (error) {
+    const parsed = smsLogService.parseAdvantaAxiosError(error)
+    await smsLogService.recordSmsLog({
+      ...logMeta,
+      destination: mobile,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
+    return {
+      ok: false,
+      code: parsed.providerCode,
+      message: parsed.providerMessage
+    }
+  }
 }
 
 async function getAccountBalance() {
@@ -97,4 +197,10 @@ async function getAccountBalance() {
   }
 }
 
-module.exports = { formatPhoneNumber, sendSMS, getAccountBalance, ADVANTA_RESPONSE_MESSAGES }
+module.exports = {
+  formatPhoneNumber,
+  sendSMS,
+  sendSmsWithResult,
+  getAccountBalance,
+  ADVANTA_RESPONSE_MESSAGES
+}

@@ -21,6 +21,7 @@ const path = require('path');
 const requestIp = require('request-ip');
 const axios = require('axios');
 const notificationService = require('../services/notification.service')
+const smsLogService = require('../services/smsLog.service')
 const UserRoles = db.models.user_roles
 const { logAudit } = require('../utils/auditTrail')
 const {
@@ -160,6 +161,17 @@ async function sendBulkNotifications(entries) {
         { timeout: SMS_REQUEST_TIMEOUT_MS }
       )
       console.log('[SMS] Bulk SMS sent successfully:', response.data)
+      const parsed = smsLogService.parseAdvantaResponse(response.data)
+      await Promise.all(chunk.map((entry) => smsLogService.recordSmsLog({
+        sourceModule: 'auth',
+        sourceType: entry.sourceType || 'system',
+        sourceId: entry.sourceId || null,
+        destination: entry.phone,
+        message: entry.message,
+        status: parsed.status,
+        providerCode: parsed.providerCode,
+        providerMessage: parsed.providerMessage
+      })))
       await Promise.all(chunk.map((entry) => notificationService.recordDelivery({
         userId: entry.userId,
         channel: 'sms',
@@ -173,6 +185,17 @@ async function sendBulkNotifications(entries) {
       })))
     } catch (error) {
       console.error('[SMS] Error sending bulk SMS:', error.message || error)
+      const parsed = smsLogService.parseAdvantaAxiosError(error)
+      await Promise.all(chunk.map((entry) => smsLogService.recordSmsLog({
+        sourceModule: 'auth',
+        sourceType: entry.sourceType || 'system',
+        sourceId: entry.sourceId || null,
+        destination: entry.phone,
+        message: entry.message,
+        status: parsed.status,
+        providerCode: parsed.providerCode,
+        providerMessage: parsed.providerMessage
+      })))
       await Promise.all(chunk.map((entry) => notificationService.recordDelivery({
         userId: entry.userId,
         channel: 'sms',
@@ -419,6 +442,17 @@ async function sendNotification(phone_number, message, options = {}) {
     console.log(`[SMS] Attempting to send SMS to ${formattedPhone} (original: ${phone_number})`);
     const response = await axios.post(url, requestData, { timeout: SMS_REQUEST_TIMEOUT_MS });
     console.log(`[SMS] Message sent successfully to ${phone_number}:`, response.data);
+    const parsed = smsLogService.parseAdvantaResponse(response.data)
+    await smsLogService.recordSmsLog({
+      sourceModule: 'auth',
+      sourceType,
+      sourceId,
+      destination: formattedPhone,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
     await notificationService.recordDelivery({
       userId,
       channel: 'sms',
@@ -433,6 +467,17 @@ async function sendNotification(phone_number, message, options = {}) {
     return response.data; // Return response for further handling if needed
   } catch (error) {
     console.error(`[SMS] Error sending message to ${phone_number}:`, error.message || error);
+    const parsed = smsLogService.parseAdvantaAxiosError(error)
+    await smsLogService.recordSmsLog({
+      sourceModule: 'auth',
+      sourceType,
+      sourceId,
+      destination: formattedPhone,
+      message,
+      status: parsed.status,
+      providerCode: parsed.providerCode,
+      providerMessage: parsed.providerMessage
+    })
     await notificationService.recordDelivery({
       userId,
       channel: 'sms',
@@ -479,6 +524,17 @@ function buildAffectedUserMetadata(userLike) {
     phone: userLike.phone || null,
     isactive: userLike.isactive
   }
+}
+
+const UNASSIGNED_ROLE_NAMES = new Set(['public', 'guest'])
+
+function isAssignedRoleName(name) {
+  const n = String(name ?? '').trim().toLowerCase()
+  return n !== '' && !UNASSIGNED_ROLE_NAMES.has(n)
+}
+
+function snapshotHasAssignedRole(snapshot) {
+  return (snapshot || []).some((item) => isAssignedRoleName(item.roleName))
 }
 
 async function getUserRoleSnapshot(userId) {
@@ -754,6 +810,7 @@ exports.updateUser = async (req, res) => {
       return res.status(404).send({ message: "User not found" });
     }
 
+    const wasInactiveBefore = user.isactive === false
     const beforeRoles = await getUserRoleSnapshot(user.id)
 
     // Prepare update data - only include fields that are explicitly provided
@@ -907,6 +964,67 @@ exports.updateUser = async (req, res) => {
     });
     const afterRoles = await getUserRoleSnapshot(user.id)
     const roleChanges = diffRoleSnapshots(beforeRoles, afterRoles)
+
+    const shouldAutoActivate =
+      wasInactiveBefore &&
+      !snapshotHasAssignedRole(beforeRoles) &&
+      snapshotHasAssignedRole(afterRoles)
+
+    if (shouldAutoActivate) {
+      const previousIsActive = user.isactive
+      user.isactive = true
+      await user.save()
+
+      const phoneNumber = user.phone
+      const hasPhone = phoneNumber && typeof phoneNumber === 'string' && phoneNumber.trim() !== ''
+
+      void sendUserStatusChangeSms({
+        affectedUser: user,
+        isactive: true,
+        actor: req.thisUser,
+        userPhone: hasPhone ? phoneNumber : null,
+      }).catch((error) => {
+        console.error('[User Activation] Failed to send auto-activation SMS:', error.message || error)
+      })
+
+      if (user.email) {
+        try {
+          const requestBaseUrl = `${req.protocol}://${req.get('host')}`
+          const frontendBaseUrl = getFrontendBaseUrl(requestBaseUrl, req)
+          await sendActivationEmail(
+            user.email,
+            user.name || 'User',
+            user.username || user.email,
+            frontendBaseUrl,
+            user.id
+          )
+        } catch (emailError) {
+          console.error(`[User Activation] Failed to send auto-activation email to ${user.email}:`, emailError.message)
+        }
+      }
+
+      await logAudit({
+        req,
+        action: 'status_change',
+        actorType: 'user',
+        actorId: req.userid != null ? String(req.userid) : null,
+        actorName: req.thisUser?.username || null,
+        entityType: 'user',
+        entityId: user.id != null ? String(user.id) : null,
+        outcome: 'success',
+        statusCode: 200,
+        changes: {
+          field: 'isactive',
+          before: previousIsActive,
+          after: true,
+          event: 'activation',
+          trigger: 'role_assignment',
+        },
+        metadata: {
+          affectedUser: buildAffectedUserMetadata(user),
+        },
+      })
+    }
 
     if (roleChanges.changed) {
       const { forceLogoutUser } = require('../utils/forceLogoutUser')
@@ -2311,11 +2429,10 @@ exports.signupViaApp = async (req, res) => {
         };
 
         console.log(`[SMS Registration] Attempting to send OTP SMS to ${formattedPhone} (original: ${req.body.phone})`);
-        axios.post(url, requestData)
-        .then(response => {
-          console.log('[SMS Registration] OTP SMS sent successfully:', response.data);
-        })
-        .catch(error => {
+        sendNotification(formattedPhone, requestData.message, {
+          sourceType: 'otp_registration',
+          sourceId: user?.id || null
+        }).catch((error) => {
           console.error('[SMS Registration] Error sending OTP SMS:', error.message || error);
         });
       }
@@ -2466,11 +2583,10 @@ exports.signupGRC = async (req, res) => {
         };
 
         console.log(`[SMS Registration GRC] Attempting to send registration SMS to ${formattedPhone} (original: ${req.body.phone})`);
-        axios.post(url, requestData)
-        .then(response => {
-          console.log('[SMS Registration GRC] Registration SMS sent successfully:', response.data);
-        })
-        .catch(error => {
+        sendNotification(formattedPhone, requestData.message, {
+          sourceType: 'grc_registration',
+          sourceId: user?.id || null
+        }).catch((error) => {
           console.error('[SMS Registration GRC] Error sending registration SMS:', error.message || error);
         });
       }
@@ -2622,11 +2738,10 @@ exports.signupGRM = async (req, res) => {
         };
 
         console.log(`[SMS Registration GRM] Attempting to send registration SMS to ${formattedPhone} (original: ${req.body.phone})`);
-        axios.post(url, requestData)
-        .then(response => {
-          console.log('[SMS Registration GRM] Registration SMS sent successfully:', response.data);
-        })
-        .catch(error => {
+        sendNotification(formattedPhone, requestData.message, {
+          sourceType: 'grm_registration',
+          sourceId: user?.id || null
+        }).catch((error) => {
           console.error('[SMS Registration GRM] Error sending registration SMS:', error.message || error);
         });
       }
@@ -2840,6 +2955,14 @@ exports.signinViaApp = async (req, res) => {
         axios.post(url, requestData)
         .then(response => {
           console.log('Response:', response.data);
+          smsLogService.recordSmsLog({
+            sourceModule: 'auth',
+            sourceType: 'otp_login',
+            sourceId: user?.id || null,
+            destination: user_phone,
+            message: requestData.message,
+            ...smsLogService.parseAdvantaResponse(response.data)
+          }).catch((logError) => console.error('[SMS Log] login OTP:', logError))
           res.send({
             message: 'Check your phone for login verification SMS! ',
             code: '0000',
@@ -2849,6 +2972,17 @@ exports.signinViaApp = async (req, res) => {
         })
         .catch(error => {
           console.error('Error:', error);
+          const parsed = smsLogService.parseAdvantaAxiosError(error)
+          smsLogService.recordSmsLog({
+            sourceModule: 'auth',
+            sourceType: 'otp_login',
+            sourceId: user?.id || null,
+            destination: user_phone,
+            message: requestData.message,
+            status: parsed.status,
+            providerCode: parsed.providerCode,
+            providerMessage: parsed.providerMessage
+          }).catch((logError) => console.error('[SMS Log] login OTP:', logError))
           let msg = error.response && error.response.data && error.response.data.message ? error.response.data.message : "Our SMS service provider is down. Please try again later";
           res.status(500).send({ message:msg})
         });

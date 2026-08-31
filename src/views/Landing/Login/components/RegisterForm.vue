@@ -183,8 +183,7 @@ const rules = {
     { required: true, message: 'Please describe your intended use of the data', trigger: 'blur' },
     {
       validator: (_: any, value: string, cb: any) => {
-        if (!value || value.trim().length < 50)
-          return cb(new Error('Please provide at least 50 characters describing your intended use'))
+        if (!value || value.trim() === '') return cb(new Error('Please describe your intended use of the data'))
         cb()
       },
       trigger: 'blur'
@@ -461,9 +460,7 @@ const toPrivacy = () => {
                   v-model="formData.data_use_description"
                   type="textarea"
                   :rows="3"
-                  maxlength="150"
-                  show-word-limit
-                  placeholder="Briefly describe how you intend to use the data (min. 50 characters)"
+                  placeholder="Briefly describe how you intend to use the data"
                   class="auth-input"
                 />
               </el-form-item>

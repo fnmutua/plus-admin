@@ -132,7 +132,12 @@ async function sendTrackedSms({
   if (!mobile || !message) return
 
   try {
-    await sendSMS(mobile, message)
+    await sendSMS(mobile, message, {
+      sourceModule: 'community_issue',
+      sourceType,
+      sourceId,
+      initiatedByUserId: userId
+    })
     await notificationService.recordDelivery({
       userId,
       channel: 'sms',
