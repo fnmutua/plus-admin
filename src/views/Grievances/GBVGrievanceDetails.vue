@@ -560,40 +560,47 @@ const submitResolutionForm = async () => {
       }
 
 
-      console.log(form.value.new_status)
-      console.log(form.value.current_level)
-      // console.log(Grievance.value.current_level)
-      // Log the action 
+      // One request: the server validates the change and saves the grievance
+      // together with its action log, then documents are attached to that log.
+      const files = form.value.fileList || []
+      let res
+      try {
+        res = await updateGrievanceStatus({
+          grievance_id: Grievance.value.id,
+          code: Grievance.value.code,
+          new_status: form.value.new_status,
+          action: form.value.action,
+          resolution_date: form.value.resolution_date,
+          filer_present: form.value.filer_present,
+          field_verification_conducted: form.value.field_verification_conducted,
+          field_investigations: form.value.field_investigations,
+          agreement_reached: form.value.agreement_reached,
+          agreement: form.value.agreement,
+          point_disagreement: form.value.point_disagreement,
+          issues: form.value.issues,
+          reffered_to: form.value.reffered_to,
+          attachment_names: files.map((file) => file.name),
+        })
+      } catch (error) {
+        console.error('Error updating GBV grievance status:', error)
+        return
+      }
 
-      const res = await logGrievanceAction(form.value)
+      if (files.length > 0 && res?.data?.log_id) {
+        try {
+          await uploadFiles(res.data.log_id, Grievance.value.id)
+        } catch (error) {
+          console.error('Error uploading documents:', error)
+          ElMessage({
+            message: 'Status updated, but the documents were not uploaded. Please upload them again.',
+            type: 'warning',
+            duration: 8000,
+            showClose: true
+          })
+        }
+      }
 
-
-      /// Upload fies
-      await uploadFiles(res.data.id, Grievance.value.id)
-
-
-      console.log("checking  form.value.current_level.............", form.value.current_level)
-
-      const formData = {
-        code: Grievance.value.code,
-        new_status: form.value.new_status,
-        recipient: Grievance.value.phone,
-        grievance_id: Grievance.value.id,
-        action: form.value.action,
-        current_level: form.value.current_level,
-        action_by: userInfo.id,
-        action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
-
-      };
-
-
-      /// udpate the status
-      await updateGrievanceStatus(formData)
-
-      console.log('Grievance.value', Grievance.value)
-      console.log('res.data', res.data)
-
-      await generatePDFform(Grievance.value, res.data)
+      await generatePDFform(Grievance.value, res.data.log)
 
 
       ElMessage({

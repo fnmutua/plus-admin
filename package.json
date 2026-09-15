@@ -32,6 +32,7 @@
     "db:migrate:status": "sequelize-cli db:migrate:status",
     "test:import-upsert": "node --test server/tests/import-upsert-dry-run.test.js",
     "test:auth-settings": "node --test server/tests/auth-settings.test.js",
+    "test:grievance-workflow": "node --test server/tests/grievance-workflow.test.js",
     "swagger:generate": "node swagger-generate.js",
     "chat:server": "node server/websocket-chat.js",
     "chat:server-production": "node server/websocket-chat-https.js",

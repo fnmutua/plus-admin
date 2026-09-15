@@ -18,6 +18,7 @@ const Sequelize = require('sequelize')
  const cron = require('node-cron'); // Scheduler
  const { isGrievanceSMSEnabled, getGrievanceSMSStatus } = require('../utils/smsSettings')
  const { getActiveRolesGetOptions } = require('../utils/userRoleExpiry')
+ const grievanceWorkflow = require('../utils/grievanceWorkflow')
 
 const GRM_ACCESS_ROLE_NAMES = new Set(['grm', 'gbv', 'admin', 'staff', 'demo'])
 const userHasGRMAccess = (roles) => roles.some((role) => GRM_ACCESS_ROLE_NAMES.has(role.name))
@@ -132,6 +133,117 @@ const userHasRole = async (userInstance, roleName) => {
 }
 
 const isRootAdminUser = async (userInstance) => userHasRole(userInstance, 'root_admin')
+
+const LOG_DETAIL_FIELDS = [
+  'resolution_date', 'filer_present', 'field_verification_conducted', 'field_investigations',
+  'agreement_reached', 'agreement', 'point_disagreement', 'issues', 'reffered_to',
+]
+
+// Fields that only the workflow endpoints may change.
+const WORKFLOW_FIELDS = [
+  'id', 'code', 'status', 'current_level', 'current_status_date', 'status_expiry_date',
+  'date_resolved', 'date_closed', 'resolution', 'reffered_to_officer', 'reffered_to_support_staff',
+  'confirmed_by_national_grm', 'confirmed_by_user_id', 'date_confirmed_by_national_grm',
+  'confirmation_level', 'confirmation_notes',
+]
+
+const omitWorkflowFields = (data = {}) => {
+  const copy = { ...data }
+  for (const key of WORKFLOW_FIELDS) delete copy[key]
+  return copy
+}
+
+// Exact, case-insensitive code match (the old iLike '%code%' could hit the wrong grievance).
+const whereCodeEquals = (code) =>
+  Sequelize.where(Sequelize.fn('lower', Sequelize.col('code')), String(code).trim().toLowerCase())
+
+const getActorLevel = (scope) => {
+  if (grievanceWorkflow.hasNationalAuthority(scope)) return 'national'
+  if (scope.countyIds.size > 0) return 'county'
+  return 'settlement'
+}
+
+const loadUserScope = async (user) =>
+  grievanceWorkflow.getUserScope(await user.getRoles(getActiveRolesGetOptions()))
+
+// GRM officers who hold the desk for a grievance at the given level.
+async function findGrmOfficersForLevel(grievance, level, excludeUserId = null) {
+  const where = { roleid: 4 }
+  if (level === 'settlement') {
+    if (!grievance.settlement_id) return []
+    where.settlement_id = String(grievance.settlement_id)
+  } else if (level === 'county') {
+    if (!grievance.county_id) return []
+    where.county_id = String(grievance.county_id)
+    where.location_level = 'county'
+  } else {
+    where.location_level = 'national'
+  }
+  const users = await Users.findAll({ include: [{ model: UserRoles, where }] })
+  const seen = new Set()
+  return users.filter((u) => {
+    if (!u.phone || u.id === excludeUserId || seen.has(u.id)) return false
+    seen.add(u.id)
+    return true
+  })
+}
+
+function notifyOfficers(officers, grievance, message, extra = {}) {
+  for (const officer of officers) {
+    sendNotificationSMS({
+      message,
+      phone: officer.phone,
+      user_id: officer.id,
+      grievance_id: grievance.id,
+      grv_code: grievance.code,
+      status: grievance.status,
+      ...extra,
+    }).catch((err) => console.error('[GRM] officer notification failed:', err))
+  }
+}
+
+function buildStatusMessages({ requestedStatus, finalStatus, targetLevel, note, officerName, autoClosed }) {
+  const trimmed = typeof note === 'string' ? note.trim() : ''
+  const withNote = (base) => (trimmed ? `${base} ${trimmed}` : base)
+  const same = (text) => ({ complainant: text, log: text })
+
+  switch (requestedStatus) {
+    case 'Escalated': {
+      const base = `Your grievance has been escalated to the ${targetLevel} team.`
+      return { complainant: base, log: trimmed ? `${base} Reason: ${trimmed}` : base }
+    }
+    case 'Returned': {
+      const base = targetLevel === 'settlement'
+        ? 'Your grievance has been referred to the settlement Grievance Redress team for resolution.'
+        : 'Your grievance has been referred to the county team for resolution.'
+      return { complainant: base, log: trimmed ? `${base} Reason: ${trimmed}` : base }
+    }
+    case 'Resolved':
+      return same(withNote(autoClosed
+        ? 'Your grievance has been resolved and closed.'
+        : 'Your grievance has been resolved, subject to confirmation by KISIP National Team.'))
+    case 'Closed':
+      return same(withNote('Your grievance has been closed.'))
+    case 'Referred':
+      return same(withNote(officerName
+        ? `Your grievance has been referred to ${officerName} for action.`
+        : 'Your grievance has been referred for action.'))
+    default:
+      return same(trimmed || `Grievance status updated to ${finalStatus}.`)
+  }
+}
+
+class WorkflowError extends Error {
+  constructor(httpStatus, code, message, extra = {}) {
+    super(message)
+    this.httpStatus = httpStatus
+    this.code = code
+    this.extra = extra
+  }
+}
+
+const sendWorkflowError = (res, error) =>
+  res.status(error.httpStatus).send({ code: error.code, message: error.message, ...error.extra })
 
 
 exports.generateGRMCode = async (req, res) => {
@@ -473,6 +585,9 @@ exports.createGrievanceRecord = async (req, res) => {
     obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', national_id, process.env.AES_KEY);
 
     obj.code = generatedCode; // Assign the generated code
+    obj.status = obj.status || 'Sorting';
+    obj.current_level = grievanceWorkflow.LEVELS.includes(obj.current_level) ? obj.current_level : 'settlement';
+    Object.assign(obj, grievanceWorkflow.computeStatusDates(obj.status));
 
     console.log('Grievance record to be created:', obj);
 
@@ -648,6 +763,9 @@ exports.createGrievanceBatchRecords = async (req, res) => {
 
       
       obj.code = generatedCode;
+      obj.status = obj.status || 'Sorting';
+      obj.current_level = grievanceWorkflow.LEVELS.includes(obj.current_level) ? obj.current_level : 'settlement';
+      Object.assign(obj, grievanceWorkflow.computeStatusDates(obj.status));
 
       // Create grievance record
       const item = await db.models.grievance.create(obj);
@@ -783,54 +901,78 @@ exports.createGrievanceBatchRecords = async (req, res) => {
 };
 
 
+const ANONYMOUS_REPORT_WINDOW_MS = 24 * 60 * 60 * 1000
+
+// Validate and normalise one action-log entry against the grievance it belongs to.
+// Status changes are not accepted here — they go through /grv/status/update so the
+// grievance and its log stay consistent.
+async function prepareActionLog(raw, { user, scope }) {
+  const obj = sanitizeGrievanceLogPayload(raw)
+  if (!obj.grievance_id) {
+    throw new WorkflowError(400, '1001', 'grievance_id is required')
+  }
+  const grievance = await db.models.grievance.findByPk(obj.grievance_id)
+  if (!grievance) {
+    throw new WorkflowError(404, '1002', 'Grievance not found')
+  }
+
+  if (!user) {
+    // Public reporting page: only the initial "Reported" entry of a new grievance.
+    const createdAt = grievance.createdAt ? new Date(grievance.createdAt).getTime() : 0
+    const isFresh = Date.now() - createdAt <= ANONYMOUS_REPORT_WINDOW_MS
+    const alreadyReported = await db.models.grievance_log.count({
+      where: { grievance_id: grievance.id, action_type: 'Reported' },
+    })
+    if (obj.action_type !== 'Reported' || !isFresh || alreadyReported > 0) {
+      throw new WorkflowError(403, '9999', 'Only staff can record actions on an existing grievance')
+    }
+    obj.action_by = null
+    obj.action_level = 'none'
+  } else {
+    if (!scope.hasGrmAccess) {
+      throw new WorkflowError(403, '9999', 'Unauthorized access to grievances denied')
+    }
+    if (raw.new_status && raw.new_status !== grievance.status) {
+      throw new WorkflowError(409, 'USE_STATUS_ENDPOINT',
+        'Status changes must be submitted through the grievance status update')
+    }
+    obj.action_by = user.id
+  }
+
+  obj.prev_status = grievance.status
+  obj.new_status = grievance.status
+  if (!obj.action_type) obj.action_type = 'Updated'
+  if (VALID_GRIEVANCE_LOG_LEVELS.has(grievance.current_level)) obj.current_level = grievance.current_level
+
+  if (!obj.action) {
+    if (obj.action_type === 'Reported') {
+      const description = grievance.description
+        ? (grievance.description.length > 100 ? grievance.description.substring(0, 100) + '...' : grievance.description)
+        : null
+      obj.action = description
+        ? `Grievance reported: ${description}`
+        : `New grievance registered with code ${grievance.code || ''}`
+    } else {
+      obj.action = `${obj.action_type} action performed`
+    }
+  }
+  return obj
+}
+
 exports.logGrievanceAction = async (req, res) => {
   try {
-  
-    // Prepare the object for creation
-    let obj = sanitizeGrievanceLogPayload(req.body);
-
-    console.log('Log>>', obj)
-
-    // Ensure action field is set - if missing, provide a default based on action_type
-    if (!obj.action || obj.action === null || obj.action === '') {
-      const actionType = obj.action_type || 'Action';
-      if (actionType === 'Reported') {
-        // For Reported actions, try to get description from grievance if available
-        if (obj.grievance_id) {
-          try {
-            const grievance = await db.models.grievance.findByPk(obj.grievance_id);
-            if (grievance && grievance.description) {
-              const description = grievance.description.length > 100 
-                ? grievance.description.substring(0, 100) + '...' 
-                : grievance.description;
-              obj.action = `Grievance reported: ${description}`;
-            } else {
-              obj.action = `New grievance registered with code ${grievance?.code || ''}`;
-            }
-          } catch (grievanceErr) {
-            obj.action = `Grievance reported`;
-          }
-        } else {
-          obj.action = `Grievance reported`;
-        }
-      } else {
-        obj.action = `${actionType} action performed`;
-      }
-    }
-
-       // Create the record
-    const item = await db.models.grievance_log.create(obj);
-
-    console.log('Created log:', item);
+    const user = req.thisUser || null
+    const scope = user ? await loadUserScope(user) : null
+    const obj = await prepareActionLog(req.body || {}, { user, scope })
+    const item = await db.models.grievance_log.create(obj)
 
     res.status(200).send({
       data: item,
       code: '0000',
       message: 'Action Logged successfully.'
     });
-
   } catch (err) {
-   
+    if (err instanceof WorkflowError) return sendWorkflowError(res, err)
     console.error('logGrievanceAction failed:', err)
     res.status(500).send({
       message: 'Logging action failed',
@@ -839,8 +981,6 @@ exports.logGrievanceAction = async (req, res) => {
     });
   }
 };
- 
- 
 
 
  exports.bulkLogGrievanceActions = async (req, res) => {
@@ -849,7 +989,7 @@ exports.logGrievanceAction = async (req, res) => {
 
     // If logs is not an array, convert it to an array
     if (!Array.isArray(logs)) {
-      logs = [logs];
+      logs = logs ? [logs] : [];
     }
 
     // Check if logs array is empty
@@ -860,14 +1000,17 @@ exports.logGrievanceAction = async (req, res) => {
       });
     }
 
-    console.log('Logs to insert >>', logs);
+    const user = req.thisUser
+    const scope = await loadUserScope(user)
+    const prepared = []
+    for (const raw of logs) {
+      prepared.push(await prepareActionLog(raw || {}, { user, scope }))
+    }
 
-    const createdLogs = await db.models.grievance_log.bulkCreate(logs, {
+    const createdLogs = await db.models.grievance_log.bulkCreate(prepared, {
       validate: true,
       returning: true,
     });
-
-    console.log('Created logs:', createdLogs);
 
     res.status(200).send({
       data: createdLogs,
@@ -876,6 +1019,7 @@ exports.logGrievanceAction = async (req, res) => {
     });
 
   } catch (err) {
+    if (err instanceof WorkflowError) return sendWorkflowError(res, err)
     console.error('Error logging grievance actions:', err);
     res.status(500).send({
       code: '9999',
@@ -2417,371 +2561,255 @@ exports.modelImportGrievances = async (req, res) => {
     
     
 
- exports.updateGrievanceStatus = async (req, res) => {
-
+ // Allowed next statuses for the current user on one grievance.
+ exports.getGrievanceTransitions = async (req, res) => {
       try {
-
-
-        const user = req.thisUser;
-        console.log(user)
-    
-        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
-      //  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasSuperAdminRole = currentUserRoles.some(role => ['super_admin', 'root_admin','admin','staff'].includes(role.name));
-
-        const hasGRMRole = userHasGRMAccess(currentUserRoles);
-      
-        let settlement_id;
-        let county_id;
-
-        if (!hasGRMRole && !hasSuperAdminRole) {
-          return res.status(200).send({
-            data: [],
-            total: 0,
-            code: '9999',
-            message: 'Unauthorized access to grievances denied',
-          });
+        const { grievance_id, code } = req.body || {}
+        if (!grievance_id && !code) {
+          return res.status(400).send({ code: '1001', message: 'Grievance ID or code is required' })
         }
-      
-        if (!hasSuperAdminRole) {
-          const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
-          const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
-          const settlementGRCRole = currentUserRoles.find(role => role.user_roles.location_level === 'settlement');
-          if (hasCountyAdminRole) {
-            county_id = countyAdminRole?.user_roles?.county_id;
-          }
-
-          if (settlementGRCRole) {
-            settlement_id = settlementGRCRole?.user_roles?.settlement_id;
-            
-          }
-
-        }
-
-        
-        const grievanceCode = req.body.code;
-        const newStatus = req.body.new_status; // The new status to update
-        const action = req.body.action; // The new status to update
-        const current_level = req.body.current_level; // The new status to update
-
-        console.log('Updating status..... newStatus',newStatus)
-        console.log('Updating status..... newStatus',current_level)
-    
-        if (!grievanceCode ||  !newStatus) {
-          return res.status(400).send({
-            code: '1001',
-            message: 'Grievance code and new status are required',
-          });
-        }
-    
-        // Find grievance by grievance code and phone number
-        const findOptions = {
-          where: {
-            code: {
-              [op.iLike]: `%${grievanceCode}%`, // Case-insensitive partial matching for grievance code
-            } 
-          },
-        };
-    
-        //console.log('Find options:', findOptions);
-    
-        // Fetch grievance by grievance code and phone number
-        const grievance = await Grievance.findOne(findOptions);
-    
+        const grievance = await Grievance.findOne({
+          where: grievance_id ? { id: grievance_id } : whereCodeEquals(code),
+          attributes: ['id', 'code', 'status', 'current_level', 'county_id', 'settlement_id', 'isgbv', 'status_expiry_date'],
+        })
         if (!grievance) {
-          return res.status(404).send({
-            code: '1002',
-            message: 'No grievance found for the given code ',
-          });
+          return res.status(404).send({ code: '1002', message: 'No grievance found' })
         }
-
-
-        // -------- Escalated -------- //
-
-        if(newStatus =='Escalated') {
-        
-
-          const grm_officials = [];
-          const grm_officials_names = [];
-          
-          try {
-            const whereConditions = {
-              roleid: 4, // GRM Role
-            };
-            
-            const orConditions = [];
-            
-            // Add conditions only if values exist
-            if (settlement_id) {
-              orConditions.push({ settlement_id: settlement_id.toString() });
-            }
-            if (county_id) {
-              orConditions.push({ county_id: county_id.toString() });
-            }
-            
-            // Always include national level match
-            orConditions.push({ location_level: 'national' });
-            
-            if (orConditions.length > 0) {
-              whereConditions[Op.or] = orConditions;
-            }
-            
-            const grms = await Users.findAll({
-              include: [
-                {
-                  model: UserRoles,
-                  where: whereConditions,
-                },
-              ],
-            });
-            
-          
-            for (const grm of grms) {
-              if (grm.name) {
-                grm_officials_names.push(grm.name);
-              }
-          
-              if (grm.phone) {
-                const msg = `A grievance has been escalated/referred for your action. Please review and act accordingly.`;
-                
-                const msg_obj = {
-                  message: msg,
-                  phone: grm.phone,
-                user_id: grm.id,
-                  user_id: grm.id,
-                  grievance_id: grievance.id,
-                  grv_code: grievance.code,
-                  status: grievance.status
-                };
-          
-                // Send SMS notification
-                await sendNotificationSMS(msg_obj);
-              }
-            }
-          
-            console.log('GRM Officials:', grm_officials_names, grm_officials);
-          
-          } catch (error) {
-            console.error('Failed to retrieve GRM officials:', error);
-          }
-          
-
-
-
-        }
-
-        if (newStatus == 'Returned') {
-          const grm_officials = [];
-          const grm_officials_names = [];
-        
-          try {
-            let targetSettlementId = null;
-            let targetCountyId = null;
-        
-            // Determine the target level
-            if (current_level === 'settlement') {
-              // If the user is at county level, return to settlement level
-              targetSettlementId = grievance.settlement_id;
-            } else if (current_level === 'county') {
-              // If the user is at national level, return to county level
-              targetCountyId = grievance.county_id;
-            }
-        
-            console.log('targetSettlementId',  targetSettlementId)
-            console.log('targetCountyId',  targetSettlementId)
-            if (!targetSettlementId && !targetCountyId) {
-              console.warn('No valid target level found for returning grievance.');
-              return;
-            }
-        
-           
-            const whereConditions = {
-              roleid: 4, // GRM Role
-            };
-            
-            const orConditions = [];
-            
-            // Add conditions only if values exist
-            if (targetSettlementId) {
-              orConditions.push({ settlement_id: targetSettlementId.toString() });
-            }
-            if (targetCountyId) {
-              orConditions.push({ county_id: targetCountyId.toString() });
-            }
-            // Always include national level match
-             
-            if (orConditions.length > 0) {
-              whereConditions[Op.or] = orConditions;
-            }
-
-            console.log('orConditions',orConditions)
-            
-            const grms = await Users.findAll({
-              include: [
-                {
-                  model: UserRoles,
-                  where: whereConditions,
-                },
-              ],
-            });
-            
-          
-            for (const grm of grms) {
-              if (grm.name) {
-                grm_officials_names.push(grm.name);
-              }
-
-              console.log('grm_officials_names',grm_officials_names)
-          
-              if (grm.phone) {
-                const msg = `A grievance has been returned to your level for review and  action. Please address accordingly.`;
-                
-                const msg_obj = {
-                  message: msg,
-                  phone: grm.phone,
-                user_id: grm.id,
-                  user_id: grm.id,
-                  grievance_id: grievance.id,
-                  grv_code: grievance.code,
-                  status: grievance.status
-                };
-          
-                // Send SMS notification
-                await sendNotificationSMS(msg_obj);
-              }
-            }
-        
-            console.log('GRM Officials:', grm_officials_names, grm_officials);
-        
-          } catch (error) {
-            console.error('Failed to return grievance:', error);
-          }
-        }
-        
-    
-        if (newStatus == 'Referred' && req.body.reffered_to_officer) {
-          const grm_officials = [];
-          const grm_officials_names = [];
-        
-          try {
-            
-
-            const whereConditions = {
-              userid: req.body.reffered_to_officer,
-            };
-            
-            const grms = await Users.findAll({
-              include: [
-                {
-                  model: UserRoles,
-                  where: whereConditions,
-                },
-              ],
-            });
-            
-            console.log('grms',grms)
-
-            for (const grm of grms) {
-              if (grm.name) {
-                grm_officials_names.push(grm.name);
-              }
-
-              console.log('grm_officials_names',grm_officials_names)
-          
-              if (grm.phone) {
-                const msg = ` Has been referred to you  level for review and  action. Please address accordingly.`;
-                
-                const msg_obj = {
-                  message: action,
-                  phone: grm.phone,
-                user_id: grm.id,
-                  user_id: grm.id,
-                  grievance_id: grievance.id,
-                  grv_code: grievance.code,
-                  status: grievance.status
-                };
-          
-                // Send SMS notification
-                await sendNotificationSMS(msg_obj);
-              }
-            }
-        
-            console.log('GRM Officials:', grm_officials_names, grm_officials);
-        
-          } catch (error) {
-            console.error('Failed to notify referred officer:', error);
-          }
-        }
-        // Update the grievance status
-        grievance.status = newStatus;
-        grievance.current_level = current_level;
-        if (newStatus === 'Resolved' || newStatus === 'Closed') {
-          grievance.reffered_to_officer = null;
-        } else if (req.body.reffered_to_officer !== undefined) {
-          grievance.reffered_to_officer = req.body.reffered_to_officer;
-        }
-
-        // Auto-populate date fields when status changes to Resolved or Closed
-        if (newStatus === 'Resolved' ) {
-          grievance.date_resolved = new Date();
-          // Save the resolution (action taken) when grievance is resolved
-          if (req.body.resolution) {
-            grievance.resolution = req.body.resolution;
-          } else if (action) {
-            // Fallback to action if resolution is not provided
-            grievance.resolution = action;
-          }
-        } else if (newStatus === 'Closed' ) {
-          grievance.date_closed = new Date();
-        }
-
-        await grievance.save(); // Save the updated grievance
-
-        let msg_obj = {}
-        msg_obj.message =  action;
-        msg_obj.type = 'Notification'
-        msg_obj.phone = grievance.phone
-        msg_obj.grv_code = grievance.code
-        msg_obj.status = grievance.newStatus
-        msg_obj.grievance_id = grievance.id
-        msg_obj.sender_id = req.body.action_by
-        msg_obj.status = newStatus
-
-        console.log('Grievance ---->',msg_obj)
- 
-        if (newStatus != 'Referred') {
-      // Dont infrom the complainant that the grevance has been referred to an offcer
-          sendNotificationSMS(msg_obj)
-         }
-      
-
-        // Return success message
+        const scope = await loadUserScope(req.thisUser)
+        const canAct = grievanceWorkflow.canActOnGrievance(scope, grievance)
+        const allowed = grievanceWorkflow.getAllowedTransitions(grievance, scope)
         return res.status(200).send({
           code: '0000',
-          message: 'Grievance status updated successfully',
           data: {
-            grievance: grievance,
-            code: grievance.code,
-            date_reported: grievance.date_reported,
-            status: grievance.status, // The updated status of the grievance
+            grievance_id: grievance.id,
+            status: grievance.status,
+            current_level: grievance.current_level,
+            can_act: canAct,
+            is_national: grievanceWorkflow.hasNationalAuthority(scope),
+            allowed_statuses: allowed,
+            target_levels: Object.fromEntries(allowed.map((s) => [
+              s, grievanceWorkflow.computeTargetLevel(s, grievance.current_level, { isgbv: !!grievance.isgbv }),
+            ])),
+            // National override: any status/level, no documentation requirements.
+            override_statuses: grievanceWorkflow.getOverrideStatuses(grievance, scope),
           },
-        });
+        })
       } catch (error) {
-        console.error('Error updating grievance status:', error);
+        console.error('Error loading grievance transitions:', error)
+        return res.status(500).send({ code: '9999', message: 'Unable to load allowed actions.' })
+      }
+    }
 
-      
+ // Change a grievance's status. Validates the transition and the actor's
+ // scope, computes the new level and stage dates server-side, and writes the
+ // grievance update and its action log in one transaction. Notifications are
+ // sent only after commit.
+ exports.updateGrievanceStatus = async (req, res) => {
+      const user = req.thisUser
+      const body = req.body || {}
+      const requestedStatus = body.new_status
+      const note = body.action
+      const isOverride = body.override === true
+      // Overrides are silent unless the national officer asks for notifications.
+      const shouldNotify = !isOverride || body.notify === true
 
+      if ((!body.code && !body.grievance_id) || !requestedStatus) {
+        return res.status(400).send({
+          code: '1001',
+          message: 'Grievance code and new status are required',
+        })
+      }
+      if (isOverride && !(typeof note === 'string' && note.trim())) {
+        return res.status(400).send({
+          code: '1001',
+          message: 'A reason is required when overriding a grievance status',
+        })
+      }
 
+      let outcome
+      try {
+        const scope = await loadUserScope(user)
+        if (!scope.hasGrmAccess) {
+          return res.status(403).send({ code: '9999', message: 'Unauthorized access to grievances denied' })
+        }
+
+        outcome = await db.sequelize.transaction(async (transaction) => {
+          const grievance = await Grievance.findOne({
+            where: body.grievance_id ? { id: body.grievance_id } : whereCodeEquals(body.code),
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          })
+          if (!grievance) {
+            throw new WorkflowError(404, '1002', 'No grievance found for the given code')
+          }
+
+          const plan = isOverride
+            ? grievanceWorkflow.planStatusOverride({ grievance, requestedStatus, targetLevel: body.target_level, scope })
+            : grievanceWorkflow.planStatusChange({ grievance, requestedStatus, scope })
+          if (!plan.ok) {
+            throw new WorkflowError(plan.httpStatus, plan.code, plan.message, plan.allowed ? { allowed_statuses: plan.allowed } : {})
+          }
+
+          // Referral to an officer (standard workflow) must name a real user.
+          // With an override the officer is optional.
+          let officer = null
+          if (requestedStatus === 'Referred' && !grievance.isgbv && (!isOverride || body.reffered_to_officer)) {
+            if (!body.reffered_to_officer) {
+              throw new WorkflowError(400, '1001', 'Select the officer to refer this grievance to')
+            }
+            officer = await Users.findByPk(body.reffered_to_officer, { attributes: ['id', 'name', 'phone'], transaction })
+            if (!officer) {
+              throw new WorkflowError(400, '1003', 'The selected officer does not exist')
+            }
+          }
+
+          // Reject duplicate attachment names up front so an upload after commit cannot fail on them.
+          const attachmentNames = Array.isArray(body.attachment_names)
+            ? body.attachment_names.map((n) => String(n)).filter(Boolean)
+            : []
+          if (attachmentNames.length > 0) {
+            const repeated = attachmentNames.filter((n, i) => attachmentNames.indexOf(n) !== i)
+            const existing = await db.models.grievance_document.findAll({
+              where: { grievance_id: grievance.id, name: { [Op.in]: attachmentNames } },
+              attributes: ['name'],
+              transaction,
+            })
+            const clashes = [...new Set([...repeated, ...existing.map((d) => d.name)])]
+            if (clashes.length > 0) {
+              throw new WorkflowError(409, 'DUPLICATE_GRIEVANCE_DOCUMENT',
+                `Upload failed: ${clashes.join(', ')} already exists for this grievance. Rename the file or remove the existing one first.`,
+                { duplicates: clashes })
+            }
+          }
+
+          const now = new Date()
+          const prevStatus = grievance.status
+          const { finalStatus, targetLevel, autoClosed } = plan
+          const messages = buildStatusMessages({
+            requestedStatus, finalStatus, targetLevel, note, officerName: officer?.name, autoClosed,
+          })
+          if (isOverride) {
+            messages.log = `Status overridden by national GRM from "${prevStatus}" (${grievance.current_level}) to "${finalStatus}" (${targetLevel}). Reason: ${note.trim()}`
+          }
+
+          grievance.status = finalStatus
+          grievance.current_level = targetLevel
+          Object.assign(grievance, grievanceWorkflow.computeStatusDates(finalStatus, now))
+
+          if (finalStatus === 'Resolved' || finalStatus === 'Closed') {
+            grievance.reffered_to_officer = null
+          } else if (officer) {
+            grievance.reffered_to_officer = officer.id
+          }
+
+          if (requestedStatus === 'Resolved') {
+            grievance.date_resolved = now
+            const resolutionText = (typeof body.resolution === 'string' && body.resolution.trim())
+              || (typeof note === 'string' && note.trim())
+            if (resolutionText) grievance.resolution = resolutionText
+          }
+          if (finalStatus === 'Closed') {
+            grievance.date_closed = now
+          }
+
+          if (isOverride) {
+            // Moving a grievance back out of a finished state reopens it.
+            if (finalStatus !== 'Closed') {
+              grievance.date_closed = null
+              grievance.confirmed_by_national_grm = false
+              grievance.confirmed_by_user_id = null
+              grievance.date_confirmed_by_national_grm = null
+              grievance.confirmation_level = null
+            }
+            if (finalStatus !== 'Resolved' && finalStatus !== 'Closed') {
+              grievance.date_resolved = null
+            }
+          }
+
+          await grievance.save({ transaction })
+
+          const logPayload = sanitizeGrievanceLogPayload({
+            ...(isOverride ? {} : Object.fromEntries(LOG_DETAIL_FIELDS.map((f) => [f, body[f]]))),
+            grievance_id: grievance.id,
+            action_type: finalStatus,
+            action_by: user.id,
+            action: messages.log,
+            action_level: getActorLevel(scope),
+            current_level: targetLevel,
+            date_actioned: now,
+            prev_status: prevStatus,
+            new_status: finalStatus,
+            reffered_to_officer: officer?.id,
+          })
+          const log = await db.models.grievance_log.create(logPayload, { transaction })
+
+          return { grievance, log, officer, messages, requestedStatus, targetLevel, autoClosed, prevStatus }
+        })
+      } catch (error) {
+        if (error instanceof WorkflowError) return sendWorkflowError(res, error)
+        console.error('Error updating grievance status:', error)
         return res.status(500).send({
           code: '9999',
           message: 'Unable to update grievance status. Please try again later.',
-        });
+        })
       }
-    };
- 
- 
 
- 
+      // ---- Notifications (after commit; failures never undo the change) ----
+      const { grievance, log, officer, messages, targetLevel } = outcome
+      try {
+        if (!shouldNotify) {
+          // Silent override: no SMS to officers or the complainant.
+        } else if (requestedStatus === 'Escalated') {
+          const officers = await findGrmOfficersForLevel(grievance, targetLevel, user.id)
+          notifyOfficers(officers, grievance, 'A grievance has been escalated to your level for action. Please review and act accordingly.')
+        } else if (requestedStatus === 'Returned') {
+          const officers = await findGrmOfficersForLevel(grievance, targetLevel, user.id)
+          notifyOfficers(officers, grievance, 'A grievance has been returned to your level for review and action. Please address accordingly.')
+        } else if (officer?.phone) {
+          const trimmedNote = typeof note === 'string' ? note.trim() : ''
+          notifyOfficers([officer], grievance,
+            `Grievance ${grievance.code} has been referred to you for review and action.${trimmedNote ? ' ' + trimmedNote : ''}`,
+            { type: 'Referral', sender_id: user.id })
+        }
+
+        // Complainants are not told about internal referrals.
+        if (shouldNotify && requestedStatus !== 'Referred' && grievance.phone) {
+          sendNotificationSMS({
+            message: messages.complainant,
+            type: 'Notification',
+            phone: grievance.phone,
+            grv_code: grievance.code,
+            grievance_id: grievance.id,
+            sender_id: user.id,
+            status: grievance.status,
+          }).catch((err) => console.error('[GRM] complainant notification failed:', err))
+        }
+      } catch (notifyError) {
+        console.error('Grievance status updated but notifications failed:', notifyError)
+      }
+
+      return res.status(200).send({
+        code: '0000',
+        message: isOverride
+          ? 'Grievance status overridden successfully'
+          : outcome.autoClosed ? 'Grievance resolved and closed successfully' : 'Grievance status updated successfully',
+        data: {
+          grievance,
+          log,
+          log_id: log.id,
+          code: grievance.code,
+          date_reported: grievance.date_reported,
+          status: grievance.status,
+          prev_status: outcome.prevStatus,
+          current_level: grievance.current_level,
+          auto_closed: outcome.autoClosed,
+          override: isOverride,
+        },
+      })
+    };
+
+
+
     exports.updateGrievance = async (req, res) => {
       try {
         const user = req.thisUser;
@@ -2798,20 +2826,19 @@ exports.modelImportGrievances = async (req, res) => {
     
         const grievanceCode = req.body.code;
         let updatedData = req.body.updatedData;
-    
+
         if (!grievanceCode || !updatedData) {
           return res.status(400).send({
             code: '1001',
             message: 'Grievance code and update data are required',
           });
         }
-    
+
+        // Status, level, dates and assignment change only through the workflow endpoints.
+        updatedData = omitWorkflowFields(updatedData);
+
         const grievance = await Grievance.findOne({
-          where: {
-            code: {
-              [Op.iLike]: `%${grievanceCode}%`,
-            },
-          },
+          where: whereCodeEquals(grievanceCode),
         });
     
         if (!grievance) {
@@ -3019,21 +3046,20 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
       }
     };
     
+    // Refer one or more grievances to an officer. Each grievance is validated
+    // and updated together with its log entry in its own transaction; grievances
+    // that cannot be referred are reported back in `skipped`.
     exports.bulkUpdateReferredToOfficer = async (req, res) => {
       try {
         const user = req.thisUser;
-        const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
-        const hasSuperAdminRole = currentUserRoles.some(r => r.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(r =>
-          ['grm', 'gbv', 'admin', 'staff'].includes(r.name)
-        );
-        if (!hasGRMRole && !hasSuperAdminRole) {
+        const scope = await loadUserScope(user);
+        if (!scope.hasGrmAccess) {
           return res.status(403).send({
             code: '9999',
             message: 'Unauthorized access denied for updating grievances',
           });
         }
-    
+
         const { updates } = req.body;
         if (!Array.isArray(updates) || updates.length === 0) {
           return res.status(400).send({
@@ -3041,107 +3067,152 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
             message: 'An array of updates is required',
           });
         }
-    
+
         const updatedGrievances = [];
-        const grievanceCodes      = [];
-        const officerIds          = new Set();
-        const supportStaffIds     = new Set();
-    
-        // 1) Apply all updates
+        const skipped = [];
+        const officerCache = new Map();
+        const officerGrievances = new Map(); // officerId -> grievances
+        const supportStaffIds = new Set();
+
+        const loadOfficer = async (id) => {
+          const key = String(id);
+          if (!officerCache.has(key)) {
+            officerCache.set(key, await Users.findByPk(id, { attributes: ['id', 'name', 'phone'] }));
+          }
+          return officerCache.get(key);
+        };
+
         for (const u of updates) {
-          const {
-            grievance_id,
-            reffered_to_officer,
-            reffered_to_support_staff,
-            new_status
-          } = u;
-    
-          if (!grievance_id || !reffered_to_officer) continue;
-    
-          const grv = await Grievance.findByPk(grievance_id);
-          if (!grv) continue;
-    
-          grv.reffered_to_officer         = reffered_to_officer;
-          grv.reffered_to_support_staff   = reffered_to_support_staff;
-          grv.status                      = new_status;
-          await grv.save();
-    
-          const full = await Grievance.findByPk(grievance_id);
-          await updateGrievanceHistory(
-            grievance_id,
-            full.toJSON(),
-            user.id,
-            'Referred'
-          );
-    
-          updatedGrievances.push(full);
-          grievanceCodes.push(full.code);
-    
-          officerIds.add(reffered_to_officer);
-    
-          // — flatten support-staff array if needed —
-          if (Array.isArray(reffered_to_support_staff)) {
-            reffered_to_support_staff.forEach(id => supportStaffIds.add(id));
-          } else if (reffered_to_support_staff) {
-            supportStaffIds.add(reffered_to_support_staff);
+          const grievanceId = u?.grievance_id;
+          if (!grievanceId) {
+            skipped.push({ grievance_id: null, reason: 'Missing grievance ID' });
+            continue;
+          }
+          if (!u.reffered_to_officer) {
+            skipped.push({ grievance_id: grievanceId, code: u.code, reason: 'No officer selected' });
+            continue;
+          }
+          const officer = await loadOfficer(u.reffered_to_officer);
+          if (!officer) {
+            skipped.push({ grievance_id: grievanceId, code: u.code, reason: 'The selected officer does not exist' });
+            continue;
+          }
+          const supportStaff = Array.isArray(u.reffered_to_support_staff)
+            ? u.reffered_to_support_staff.filter((id) => id != null)
+            : (u.reffered_to_support_staff != null ? [u.reffered_to_support_staff] : []);
+
+          try {
+            const full = await db.sequelize.transaction(async (transaction) => {
+              const grv = await Grievance.findByPk(grievanceId, { transaction, lock: transaction.LOCK.UPDATE });
+              if (!grv) throw new WorkflowError(404, '1002', 'Grievance not found');
+
+              const plan = grievanceWorkflow.planStatusChange({ grievance: grv, requestedStatus: 'Referred', scope });
+              if (!plan.ok) throw new WorkflowError(plan.httpStatus, plan.code, plan.message);
+
+              const before = grv.toJSON();
+              const now = new Date();
+              const prevStatus = grv.status;
+
+              grv.status = plan.finalStatus;
+              grv.current_level = plan.targetLevel;
+              grv.reffered_to_officer = officer.id;
+              grv.reffered_to_support_staff = supportStaff;
+              Object.assign(grv, grievanceWorkflow.computeStatusDates(plan.finalStatus, now));
+              await grv.save({ transaction });
+
+              const note = typeof u.note === 'string' ? u.note.trim() : '';
+              const logAction = (typeof u.action === 'string' && u.action.trim())
+                || `Referred to ${officer.name}${note ? ': ' + note : ''}`;
+
+              await db.models.grievance_log.create(sanitizeGrievanceLogPayload({
+                grievance_id: grv.id,
+                action_type: 'Referred',
+                action_by: user.id,
+                action: logAction,
+                action_level: getActorLevel(scope),
+                current_level: plan.targetLevel,
+                date_actioned: now,
+                prev_status: prevStatus,
+                new_status: plan.finalStatus,
+                reffered_to_officer: officer.id,
+              }), { transaction });
+
+              await db.models.grievance_history.create({
+                grievance_id: grv.id,
+                changed_by: user.id,
+                change_type: 'Referred',
+                changes: { before, after: grv.toJSON() },
+              }, { transaction });
+
+              return grv;
+            });
+
+            updatedGrievances.push(full);
+            const key = String(officer.id);
+            if (!officerGrievances.has(key)) officerGrievances.set(key, []);
+            officerGrievances.get(key).push(full);
+            supportStaff.forEach((id) => supportStaffIds.add(String(id)));
+          } catch (err) {
+            if (!(err instanceof WorkflowError)) console.error('Bulk referral failed for grievance', grievanceId, err);
+            skipped.push({
+              grievance_id: grievanceId,
+              code: u.code,
+              reason: err instanceof WorkflowError ? err.message : 'Unexpected error',
+            });
           }
         }
-    
-        // 2) Build common message
-        if (grievanceCodes.length > 0) {
+
+        // Notifications after all commits.
+        if (updatedGrievances.length > 0) {
           const baseUrl = 'https://kesmis.go.ke/#/status';
-          const links   = updatedGrievances
-            .map(g => `${g.code}: ${baseUrl}/${g.id}`)
-            .join('\n');
-    
-          const commonMessage = 
-            `You have been referred these grievance(s) for review and action:\n${links}`;
-    
-          // 3) Send to each main officer
-          let mainofficerName
-          for (let oid of officerIds) {
-            const off = await Users.findByPk(oid);
-            mainofficerName=off.name
+          const linksFor = (list) => list.map((g) => `${g.code}: ${baseUrl}/${g.id}`).join('\n');
+          const officerNames = [];
+
+          for (const [officerId, list] of officerGrievances) {
+            const off = officerCache.get(officerId);
+            if (off?.name) officerNames.push(off.name);
             if (off?.phone) {
-              await sendNotificationSMS({
-                grievance_id: updatedGrievances[0].id,
-                phone       : off.phone,
-                grv_code    : grievanceCodes.join(', '),
-                message     : commonMessage,
-                sender_id   : user.id,
-                type        : 'Referral',
-                status      : 'Pending',
-              });
+              sendNotificationSMS({
+                grievance_id: list[0].id,
+                phone: off.phone,
+                user_id: off.id,
+                grv_code: list.map((g) => g.code).join(', '),
+                message: `You have been referred these grievance(s) for review and action:\n${linksFor(list)}`,
+                sender_id: user.id,
+                type: 'Referral',
+                status: 'Pending',
+              }).catch((err) => console.error('[GRM] referral notification failed:', err));
             }
           }
-    
-          // 4) Send to each support staff by ID
-          for (let sid of supportStaffIds) {
-            const staff = await Users.findByPk(sid);
+
+          const allLinks = linksFor(updatedGrievances);
+          for (const sid of supportStaffIds) {
+            const staff = await Users.findByPk(sid, { attributes: ['id', 'name', 'phone'] });
             if (staff?.phone) {
-              const supportMessage =
-                `Hello ${staff.name},\n` +
-                `You are requested to support  ${mainofficerName}  in resolution these grievance(s):\n${links}`;
-    
-              await sendNotificationSMS({
+              sendNotificationSMS({
                 grievance_id: updatedGrievances[0].id,
-                phone       : staff.phone,
-                grv_code    : grievanceCodes.join(', '),
-                message     : supportMessage,
-                sender_id   : user.id,
-                type        : 'Support Referral',
-                status      : 'Pending',
-              });
+                phone: staff.phone,
+                user_id: staff.id,
+                grv_code: updatedGrievances.map((g) => g.code).join(', '),
+                message: `Hello ${staff.name},\nYou are requested to support ${officerNames.join(', ')} in resolving these grievance(s):\n${allLinks}`,
+                sender_id: user.id,
+                type: 'Support Referral',
+                status: 'Pending',
+              }).catch((err) => console.error('[GRM] support referral notification failed:', err));
             }
           }
         }
-    
-        return res.status(200).send({
-          code   : '0000',
-          message: `${updatedGrievances.length} grievance(s) referred successfully`,
-          data   : updatedGrievances,
+
+        const status = updatedGrievances.length === 0 ? 409 : 200;
+        return res.status(status).send({
+          code: updatedGrievances.length === 0 ? 'NOTHING_REFERRED' : '0000',
+          message: skipped.length === 0
+            ? `${updatedGrievances.length} grievance(s) referred successfully`
+            : `${updatedGrievances.length} grievance(s) referred, ${skipped.length} skipped`,
+          data: updatedGrievances,
+          skipped,
         });
-    
+
       } catch (error) {
         console.error('Bulk referral error:', error);
         return res.status(500).send({
@@ -3150,8 +3221,8 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
         });
       }
     };
-    
-    
+
+
  exports.getGrievancesByKeyword = async (req, res) => {
       console.log('--------------------------------------------getGrievancesByKeyword');
       const user = req.thisUser;
@@ -3574,14 +3645,17 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     async function checkGrievances() {
       try {
         // Query grievances with non-null status_expiry_date
+        // Finished or parked grievances (Closed, Resolved, Rejected, In Court, Deleted) are not chased.
         const grievances = await Grievance.findAndCountAll({
           where: {
             status_expiry_date: { [Op.ne]: null },
+            status: { [Op.notIn]: [...grievanceWorkflow.INACTIVE_STATUSES] },
           },
         });
     
         // Loop through grievances and process notifications
         for (const grievance of grievances.rows) {
+         try {
               const {
                 id,
                 code,
@@ -3601,8 +3675,9 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
                 `ID: ${id}, Days to Expiry: ${daysToExpiry}, Settlement ID: ${settlement_id}`
               );
         
-              // Get grievance settlement details
-              const settlement = await getSettlementDetails(settlement_id);
+              // Get grievance settlement details (county-level grievances may have none)
+              const settlementRecord = settlement_id ? await getSettlementDetails(settlement_id) : null;
+              const settlement = settlementRecord || { id: null, name: 'N/A', county: { name: 'Unknown' } };
         
               // Check if grievance has expired
               if (daysToExpiry < 0) {
@@ -3615,17 +3690,19 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
           
               // Fetch officers based on grievance level and location
               let user;
-              if (current_level === 'settlement') {
+              if (current_level === 'settlement' && settlement_id) {
                 user = await findUserByGrievanceLevelAndLocation(
                   current_level,
                   settlement_id.toString()
                 );
-              } else if (current_level === 'county') {
+              } else if (current_level === 'county' && county_id) {
                 user = await findUserByGrievanceLevelAndLocation(
                   current_level,
                   county_id.toString()
                 );
-              } 
+              } else if (current_level === 'national') {
+                user = await findUserByGrievanceLevelAndLocation('national', null);
+              }
 
  
                // Process officer details if users are found
@@ -3648,7 +3725,8 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
               let superior_phones = [];
               let superior_names = [];
 
-              if (current_level === 'settlement') {
+              user = null;
+              if (current_level === 'settlement' && county_id) {
                 user = await findUserByGrievanceLevelAndLocation(
                   'county',
                   county_id.toString()
@@ -3773,10 +3851,10 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
 
                   }
 
-
-
-        
-               
+         } catch (grievanceError) {
+              // One bad record must not stop the rest of the run.
+              console.error(`Error processing expiry for grievance ${grievance.id}:`, grievanceError.message);
+         }
             }
         
             console.log('All notifications processed successfully.');
@@ -3808,6 +3886,10 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
     // });
 
         
+      // Only this job's task is tracked and replaced; other schedulers in the
+      // process (SMS balance, national dashboard) must not be touched.
+      let grievanceExpiryTask = null;
+
       // Function to schedule the job
       const scheduleWeeklyJob = () => {
         // Generate a random day of the week (0 = Sunday, 6 = Saturday)
@@ -3818,9 +3900,9 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
         console.log(`Scheduling job for 9:00 AM on day ${randomDay} (0=Sunday, 6=Saturday)`);
 
         // Schedule the job
-        cron.schedule(schedule, () => {
+        grievanceExpiryTask = cron.schedule(schedule, async () => {
           console.log(`Running grievance check... - 9:00 AM on day ${randomDay}`);
-          checkGrievances();
+          await checkGrievances();
 
           // Reschedule for the next week after the job runs
           rescheduleJob();
@@ -3829,10 +3911,10 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
 
       // Function to reschedule the job
       const rescheduleJob = () => {
-        // Cancel all scheduled tasks
-        cron.getTasks().forEach(task => task.destroy());
-
-        // Schedule a new job
+        if (grievanceExpiryTask) {
+          grievanceExpiryTask.stop();
+          grievanceExpiryTask = null;
+        }
         scheduleWeeklyJob();
       };
 
@@ -3984,11 +4066,23 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
                 // Convert record to JSON to ensure proper serialization
                 await updateGrievanceHistory(record.id, record.toJSON(), req.thisUser.id, "Delete");
                 
-                // Update the grievance record to mark it as deleted
-                await record.update({
-                  status: 'Deleted',
-                  current_status_date: new Date(),
-                  status_expiry_date: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days from now
+                // Mark the grievance deleted and record it in the action log, atomically
+                const prevStatus = record.status;
+                await db.sequelize.transaction(async (transaction) => {
+                  await record.update({
+                    status: 'Deleted',
+                    ...grievanceWorkflow.computeStatusDates('Deleted'),
+                  }, { transaction });
+                  await db.models.grievance_log.create(sanitizeGrievanceLogPayload({
+                    grievance_id: record.id,
+                    action_type: 'Deleted',
+                    action_by: req.thisUser.id,
+                    action: 'Grievance deleted',
+                    current_level: record.current_level,
+                    date_actioned: new Date(),
+                    prev_status: prevStatus,
+                    new_status: 'Deleted',
+                  }), { transaction });
                 });
                 
                 console.log('Grievance marked as deleted (soft delete)');
@@ -4185,10 +4279,36 @@ exports._bulkUpdateReferredToOfficer = async (req, res) => {
                   code: '0000',
               });
           }
-  
-          // If exists, update to its previous state
-          await grievance.update(beforeData);
-          await history.update({ status: 'Reverted' });
+
+          const isUndelete = history.change_type === 'Delete' && grievance.status === 'Deleted';
+          if (isUndelete) {
+              // Restoring a soft-deleted grievance brings back its previous workflow state.
+              const restoredStatus = beforeData.status || 'Sorting';
+              await db.sequelize.transaction(async (transaction) => {
+                  await grievance.update({
+                      ...omitWorkflowFields(beforeData),
+                      status: restoredStatus,
+                      current_level: beforeData.current_level || grievance.current_level,
+                      ...grievanceWorkflow.computeStatusDates(restoredStatus),
+                  }, { transaction });
+                  await db.models.grievance_log.create(sanitizeGrievanceLogPayload({
+                      grievance_id: grievance.id,
+                      action_type: 'Restored',
+                      action_by: req.thisUser?.id,
+                      action: 'Deleted grievance restored',
+                      current_level: grievance.current_level,
+                      date_actioned: new Date(),
+                      prev_status: 'Deleted',
+                      new_status: restoredStatus,
+                  }), { transaction });
+                  await history.update({ status: 'Reverted' }, { transaction });
+              });
+          } else {
+              // Reverting an edit restores details only; status, level and
+              // assignment stay under workflow control.
+              await grievance.update(omitWorkflowFields(beforeData));
+              await history.update({ status: 'Reverted' });
+          }
   
           res.status(200).send({
               message: 'Changes reverted successfully.',
@@ -4290,148 +4410,114 @@ exports.getGrievanceHistoryByGrievanceId = async (req, res) => {
 
 
 
+const phoneDigitsTail = (phone) => String(phone || '').replace(/\D/g, '').slice(-9)
+
+// Public endpoint: a complainant escalates their own grievance one level up.
+// They must supply the exact grievance code and the phone number it was filed
+// with, and escalation is only possible once the current stage is overdue or
+// the grievance was resolved/rejected (appeal).
 exports.updateGrievanceStatusByComplainant = async (req, res) => {
+  const { code, phone, action } = req.body || {};
+
+  if (!code || !phone) {
+    return res.status(400).send({
+      code: '1001',
+      message: 'Grievance code and the phone number used to report it are required',
+    });
+  }
+
+  let outcome;
   try {
-    const grievanceCode = req.body.code;
-    const newStatus = req.body.new_status;
-    const action = req.body.action;
-    const current_level = req.body.current_level;
-    const status_expiry_date = req.body.status_expiry_date;
-    const current_status_date = req.body.current_status_date;
-
-    console.log('Updating status..... newStatus', newStatus);
-    console.log('Updating status..... current_level', current_level);
-
-    if (!grievanceCode || !newStatus) {
-      return res.status(400).send({
-        code: '1001',
-        message: 'Grievance code and new status are required',
+    outcome = await db.sequelize.transaction(async (transaction) => {
+      const grievance = await Grievance.findOne({
+        where: whereCodeEquals(code),
+        transaction,
+        lock: transaction.LOCK.UPDATE,
       });
-    }
 
-    const findOptions = {
-      where: {
-        code: {
-          [op.iLike]: `%${grievanceCode}%`,
-        },
-      },
-    };
-
-    const grievance = await Grievance.findOne(findOptions);
-
-    if (!grievance) {
-      return res.status(404).send({
-        code: '1002',
-        message: 'No grievance found for the given code',
-      });
-    }
-
-    grievance.status = newStatus;
-    grievance.current_level = current_level;
-    grievance.status_expiry_date = status_expiry_date;
-    grievance.current_status_date = current_status_date;
-
-
-    await grievance.save();
-
-    let msg_obj = {
-      message: 'Your grievance has been successfully been escalated to the ' +current_level + ' team for action.' ,
-      type: 'Notification',
-      phone: grievance.phone,
-      grv_code: grievance.code,
-      status: newStatus,
-      grievance_id: grievance.id,
-      sender_id: req.body.action_by,
-    };
-
-    console.log('Grievance ---->', msg_obj);
-
-    sendNotificationSMS(msg_obj);
-
-
-    // ge the GRMS for ecalation 
-
-    const grm_officials = [];
-    const grm_officials_names = [];
-    
-    try {
-      const whereConditions = {
-        roleid: 4, // GRM Role
-      };
-      
-      const orConditions = [];
-      
-      // Add conditions only if values exist
-      if (current_level=='county') {
-        orConditions.push({ county_id: grievance.county_id.toString() });
-      }  
-      else {
-        // Always include national level match
-        orConditions.push({ location_level: 'national' });
-      
+      const tail = phoneDigitsTail(phone);
+      if (!grievance || tail.length < 9 || phoneDigitsTail(grievance.phone) !== tail) {
+        // Same response for unknown code and wrong phone.
+        throw new WorkflowError(404, '1002', 'No grievance found for the given code and phone number');
       }
-  
-    
-      if (orConditions.length > 0) {
-        whereConditions[Op.or] = orConditions;
+      if (grievance.isgbv) {
+        throw new WorkflowError(403, '9999', 'This grievance cannot be escalated online. Please contact the GRM team.');
       }
-      
-      const grms = await Users.findAll({
-        include: [
-          {
-            model: UserRoles,
-            where: whereConditions,
-          },
-        ],
-      });
-      
-    
-      for (const grm of grms) {
-        if (grm.name) {
-          grm_officials_names.push(grm.name);
-        }
-    
-        if (grm.phone) {
-          const msg = `A grievance has been escalated/referred for your action. Please review and act accordingly.`;
-          
-          const msg_obj = {
-            message: msg,
-            phone: grm.phone,
-            user_id: grm.id,
-            grievance_id: grievance.id,
-            grv_code: grievance.code,
-            status: grievance.status
-          };
-    
-          // Send SMS notification
-          await sendNotificationSMS(msg_obj);
-        }
+      if (grievanceWorkflow.TERMINAL_STATUSES.has(grievance.status)) {
+        throw new WorkflowError(409, 'INVALID_TRANSITION', `A grievance with status "${grievance.status}" cannot be escalated`);
       }
-    
-      console.log('GRM Officials:', grm_officials_names, grm_officials);
-    
-    } catch (error) {
-      console.error('Failed to retrieve GRM officials:', error);
-    }
-    
 
-    return res.status(200).send({
-      code: '0000',
-      message: 'Grievance has been escalated successfully',
-      data: {
-        grievance: grievance,
-        code: grievance.code,
-        date_reported: grievance.date_reported,
-        status: grievance.status,
-      },
+      const isAppeal = ['Resolved', 'Rejected'].includes(grievance.status);
+      const isOverdue = grievance.status_expiry_date && new Date(grievance.status_expiry_date) < new Date();
+      if (!isAppeal && !isOverdue) {
+        throw new WorkflowError(409, 'NOT_YET_ESCALATABLE',
+          'Your grievance is still within its processing period and cannot be escalated yet');
+      }
+
+      const targetLevel = grievanceWorkflow.computeTargetLevel('Escalated', grievance.current_level);
+      if (!targetLevel) {
+        throw new WorkflowError(409, 'INVALID_TRANSITION', 'Your grievance is already with the national team');
+      }
+
+      const now = new Date();
+      const prevStatus = grievance.status;
+      grievance.status = 'Escalated';
+      grievance.current_level = targetLevel;
+      grievance.reffered_to_officer = null;
+      Object.assign(grievance, grievanceWorkflow.computeStatusDates('Escalated', now));
+      await grievance.save({ transaction });
+
+      const reason = typeof action === 'string' ? action.trim().slice(0, 1000) : '';
+      const log = await db.models.grievance_log.create(sanitizeGrievanceLogPayload({
+        grievance_id: grievance.id,
+        action_type: 'Escalated',
+        action_by: null,
+        action: `Escalated to the ${targetLevel} team by the complainant.${reason ? ' Reason: ' + reason : ''}`,
+        action_level: 'none',
+        current_level: targetLevel,
+        date_actioned: now,
+        prev_status: prevStatus,
+        new_status: 'Escalated',
+      }), { transaction });
+
+      return { grievance, log, targetLevel };
     });
   } catch (error) {
-    console.error('Error updating grievance status:', error);
+    if (error instanceof WorkflowError) return sendWorkflowError(res, error);
+    console.error('Error escalating grievance by complainant:', error);
     return res.status(500).send({
       code: '9999',
       message: 'Unable to update grievance status. Please try again later.',
     });
   }
+
+  const { grievance, targetLevel } = outcome;
+  try {
+    sendNotificationSMS({
+      message: `Your grievance has been successfully escalated to the ${targetLevel} team for action.`,
+      type: 'Notification',
+      phone: grievance.phone,
+      grv_code: grievance.code,
+      status: grievance.status,
+      grievance_id: grievance.id,
+    }).catch((err) => console.error('[GRM] complainant notification failed:', err));
+
+    const officers = await findGrmOfficersForLevel(grievance, targetLevel);
+    notifyOfficers(officers, grievance, 'A grievance has been escalated to your level by the complainant. Please review and act accordingly.');
+  } catch (notifyError) {
+    console.error('Grievance escalated but notifications failed:', notifyError);
+  }
+
+  return res.status(200).send({
+    code: '0000',
+    message: 'Grievance has been escalated successfully',
+    data: {
+      code: grievance.code,
+      date_reported: grievance.date_reported,
+      status: grievance.status,
+      current_level: grievance.current_level,
+    },
+  });
 };
 
 // Export function
@@ -4472,84 +4558,52 @@ exports.xsendReminder = async (req, res) => {
 exports.sendReminder = async (req, res) => {
   try {
     const user = req.thisUser;
-    const currentUserRoles = await user.getRoles(getActiveRolesGetOptions());
-    const hasSuperAdminRole = currentUserRoles.some((role) => role.name === "super_admin");
-   // const hasGRMRole = currentUserRoles.some((role) => role.name === "grm" || role.name === "gbv");
-    const hasGRMRole = userHasGRMAccess(currentUserRoles);
+    const scope = await loadUserScope(user);
 
-    if (!hasGRMRole && !hasSuperAdminRole) {
+    if (!scope.hasGrmAccess) {
       return res.status(403).send({ code: "9999", message: "Unauthorized access to grievances denied" });
     }
 
-    const { grievance_id: grievance_id, new_status: new_status, action  } = req.body;
-    if (!grievance_id || !new_status) {
-      return res.status(400).send({ code: "1001", message: "Grievance ID and new status are required" });
+    const { grievance_id, action } = req.body || {};
+    if (!grievance_id) {
+      return res.status(400).send({ code: "1001", message: "Grievance ID is required" });
     }
 
-    const grievance = await Grievance.findOne({ 
-      where: { id: grievance_id } 
-    });
-
+    const grievance = await Grievance.findOne({ where: { id: grievance_id } });
     if (!grievance) {
       return res.status(404).send({ code: "1002", message: "No grievance found for the given ID" });
     }
-
-    // Get GRM officials based on grievance location
-    const grmOfficials = await Users.findAll({
-      include: [
-        {
-          model: UserRoles,
-          where: {
-            roleid: 4,
-            [Op.or]: [
-              { settlement_id: grievance.settlement_id ? grievance.settlement_id.toString() : null },
-              { county_id: grievance.county_id ? grievance.county_id.toString() : null },
-              { location_level: "national" },
-            ],
-          },
-        },
-      ],
-    });
-
-
-     // Prepare the object for creation
-     let obj = req.body;
-
-     console.log("Here to Remind..")
- 
-     console.log('Log>>', obj)
- 
-        // Create the record
-     const item = await db.models.grievance_log.create(obj);
-
-
-    if (item){
-          // Send SMS notifications to GRM officials
-          for (const grm of grmOfficials) {
-            if (grm.phone) {
-              const msg_obj = {
-                message: action,
-                phone: grm.phone,
-                user_id: grm.id,
-                grievance_id: grievance.id,
-                grv_code: grievance.code,
-                status: grievance.status,
-              };
-              await sendNotificationSMS(msg_obj);
-            }
-          }
+    if (grievanceWorkflow.INACTIVE_STATUSES.has(grievance.status)) {
+      return res.status(409).send({ code: "1003", message: `No reminder needed for a grievance with status "${grievance.status}"` });
     }
-  
 
-   
+    const message = (typeof action === 'string' && action.trim())
+      || `This is a reminder that grievance ${grievance.code} is pending resolution and requires your attention.`;
+
+    const item = await db.models.grievance_log.create(sanitizeGrievanceLogPayload({
+      grievance_id: grievance.id,
+      action_type: 'Reminder',
+      action_by: user.id,
+      action: message,
+      action_level: getActorLevel(scope),
+      current_level: grievance.current_level,
+      date_actioned: new Date(),
+      prev_status: grievance.status,
+      new_status: grievance.status,
+    }));
+
+    // Remind the desk currently holding the grievance.
+    const officers = await findGrmOfficersForLevel(grievance, grievance.current_level, user.id);
+    notifyOfficers(officers, grievance, message, { type: 'Reminder', sender_id: user.id });
+
     return res.status(200).send({
       code: "0000",
       message: "Grievance Reminder sent successfully",
-      data: { grievance, code: grievance.code, date_reported: grievance.date_reported, status: grievance.status },
+      data: { grievance, log: item, code: grievance.code, date_reported: grievance.date_reported, status: grievance.status },
     });
   } catch (error) {
-    console.error("Error updating grievance status:", error);
-    return res.status(500).send({ code: "9999", message: "Unable to update grievance status. Please try again later." });
+    console.error("Error sending grievance reminder:", error);
+    return res.status(500).send({ code: "9999", message: "Unable to send the reminder. Please try again later." });
   }
 };
 
@@ -4587,71 +4641,61 @@ exports.confirmGrievanceResolution = async (req, res) => {
       });
     }
 
-    const grievance = await Grievance.findOne({
-      where: { id: grievance_id }
-    });
-
-    if (!grievance) {
-      return res.status(404).send({
-        code: '1002',
-        message: 'Grievance not found',
-      });
-    }
-
-    // Validate that grievance is resolved and at the correct level
-    if (grievance.status !== 'Resolved') {
-      return res.status(400).send({
-        code: '1003',
-        message: 'Only resolved grievances can be confirmed',
-      });
-    }
-
-    if (!['settlement', 'county'].includes(grievance.current_level)) {
-      return res.status(400).send({
-        code: '1004',
-        message: 'Only grievances resolved at settlement or county level can be confirmed',
-      });
-    }
-
-    if (grievance.current_level !== confirmation_level) {
-      return res.status(400).send({
-        code: '1005',
-        message: `Confirmation level must match the grievance current level (${grievance.current_level})`,
-      });
-    }
-
-    // Update confirmation fields
-    grievance.confirmed_by_national_grm = true;
-    grievance.confirmed_by_user_id = user.id;
-    grievance.date_confirmed_by_national_grm = new Date();
-    grievance.confirmation_level = confirmation_level;
-    if (confirmation_notes) {
-      grievance.confirmation_notes = confirmation_notes;
-    }
-
-    // Close the grievance after confirmation
-    grievance.status = 'Closed';
-    grievance.date_closed = new Date();
-
-    await grievance.save();
-
-    // Log the confirmation action
+    let grievance;
     try {
-      const logData = {
-        grievance_id: grievance.id,
-        action_type: 'Updated',
-        action_by: user.id,
-        action: `Resolution confirmed by national GRM at ${confirmation_level} level`,
-        action_level: 'national',
-        current_level: grievance.current_level,
-        date_actioned: new Date(),
-        prev_status: 'Resolved',
-        new_status: 'Closed',
-      };
-      await db.models.grievance_log.create(logData);
-    } catch (logError) {
-      console.error('Error logging confirmation action:', logError);
-      // Don't fail the request if logging fails
+      grievance = await db.sequelize.transaction(async (transaction) => {
+        const grv = await Grievance.findOne({
+          where: { id: grievance_id },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (!grv) {
+          throw new WorkflowError(404, '1002', 'Grievance not found');
+        }
+        // Validate that grievance is resolved and at the correct level
+        if (grv.status !== 'Resolved') {
+          throw new WorkflowError(400, '1003', 'Only resolved grievances can be confirmed');
+        }
+        if (!['settlement', 'county'].includes(grv.current_level)) {
+          throw new WorkflowError(400, '1004', 'Only grievances resolved at settlement or county level can be confirmed');
+        }
+        if (grv.current_level !== confirmation_level) {
+          throw new WorkflowError(400, '1005', `Confirmation level must match the grievance current level (${grv.current_level})`);
+        }
+
+        const now = new Date();
+        grv.confirmed_by_national_grm = true;
+        grv.confirmed_by_user_id = user.id;
+        grv.date_confirmed_by_national_grm = now;
+        grv.confirmation_level = confirmation_level;
+        if (confirmation_notes) {
+          grv.confirmation_notes = confirmation_notes;
+        }
+
+        // Close the grievance after confirmation
+        grv.status = 'Closed';
+        grv.date_closed = now;
+        Object.assign(grv, grievanceWorkflow.computeStatusDates('Closed', now));
+        await grv.save({ transaction });
+
+        await db.models.grievance_log.create({
+          grievance_id: grv.id,
+          action_type: 'Closed',
+          action_by: user.id,
+          action: `Resolution confirmed by national GRM at ${confirmation_level} level${confirmation_notes ? ': ' + confirmation_notes : ''}`,
+          action_level: 'national',
+          current_level: grv.current_level,
+          date_actioned: now,
+          prev_status: 'Resolved',
+          new_status: 'Closed',
+        }, { transaction });
+
+        return grv;
+      });
+    } catch (txError) {
+      if (txError instanceof WorkflowError) return sendWorkflowError(res, txError);
+      throw txError;
     }
 
     // Send SMS to complainant about closure

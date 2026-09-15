@@ -2,6 +2,11 @@ const controller = require('../controllers/grievance.controller')
 const { authJwt } = require('../middleware')
 const { hasPermission } = require('../middleware/permission')
 
+// Verifies the token when one is sent; anonymous requests continue without a user
+// (the controller decides what anonymous callers may do).
+const optionalVerifyToken = (req, res, next) =>
+  req.headers['x-access-token'] ? authJwt.verifyToken(req, res, next) : next()
+
 module.exports = function (app) {
   app.use(function (req, res, next) {
     res.header('Access-Control-Allow-Headers', 'x-access-token, Origin, Content-Type, Accept')
@@ -304,7 +309,7 @@ module.exports = function (app) {
    *       404:
    *         description: Grievance not found
    */
-  app.post('/api/v1/grv/log',   controller.logGrievanceAction)
+  app.post('/api/v1/grv/log', [optionalVerifyToken], controller.logGrievanceAction)
 
   /**
    * @swagger
@@ -334,7 +339,7 @@ module.exports = function (app) {
    *       400:
    *         description: Bad request - validation error
    */
-  app.post('/api/v1/grv/log/bulk',   controller.bulkLogGrievanceActions)
+  app.post('/api/v1/grv/log/bulk', [authJwt.verifyToken, hasPermission('grievance:update')], controller.bulkLogGrievanceActions)
 
   /**
    * @swagger
@@ -427,6 +432,32 @@ module.exports = function (app) {
    *         description: Grievance not found
    */
   app.post('/api/v1/grv/status/update', [authJwt.verifyToken, hasPermission('grievance:update')],  controller.updateGrievanceStatus)
+
+  /**
+   * @swagger
+   * /api/v1/grv/transitions:
+   *   post:
+   *     tags: [Grievances]
+   *     summary: Allowed status changes
+   *     description: Statuses the current user may move a grievance to, with the level each would move it to
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               grievance_id:
+   *                 type: integer
+   *               code:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Allowed statuses
+   *       404:
+   *         description: Grievance not found
+   */
+  app.post('/api/v1/grv/transitions', [authJwt.verifyToken, hasPermission('grievance:read')], controller.getGrievanceTransitions)
 
   /**
    * @swagger
@@ -563,7 +594,7 @@ module.exports = function (app) {
    *       400:
    *         description: Bad request - validation error
    */
-  app.post('/api/v1/grv/upsert',   controller.modelImportGrievances)
+  app.post('/api/v1/grv/upsert', [authJwt.verifyToken, hasPermission('grievance:create')], controller.modelImportGrievances)
 
   /**
    * @swagger
@@ -727,10 +758,13 @@ module.exports = function (app) {
    *           schema:
    *             type: object
    *             properties:
-   *               grievanceId:
-   *                 type: integer
-   *                 description: Grievance ID
-   *               reason:
+   *               code:
+   *                 type: string
+   *                 description: Exact grievance code
+   *               phone:
+   *                 type: string
+   *                 description: Phone number the grievance was reported with
+   *               action:
    *                 type: string
    *                 description: Reason for escalation
    *     responses:

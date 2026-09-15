@@ -40,7 +40,7 @@ import PermissionWrapper from '@/components/PermissionWrapper.vue';
 import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction,revertGrievanceHistory,logGrievanceActionBulk, batchImportGrievances, getByKeyword, sendAcknowledgement } from '@/api/grievance'
+import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction,revertGrievanceHistory, batchImportGrievances, getByKeyword, sendAcknowledgement } from '@/api/grievance'
 import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
@@ -4177,42 +4177,47 @@ const submitResolutionForm = async () => {
     const officerLabelText = officerLabel.value;
 
     const bulkPayload = grievances.map(grievance => ({
-      code: grievance.code,
-      new_status: 'Referred',
-      recipient: grievance.phone,
       grievance_id: grievance.id,
-      action: `Referred to ${officerLabelText} : ${officerNote}`,
-      current_status_date: new Date(),
-      status_expiry_date: new Date(Date.now() + getStageDuration('Referred')),
-      action_by: userInfo.id,
-      action_level: current_user_roles[0] || 'settlement',
+      code: grievance.code,
       reffered_to_officer: form.value.reffered_to_officer || null,
       reffered_to_support_staff: form.value.reffered_to_support_staff || [],
-   
-
-      date_actioned:  new Date(Date.now()),
-      current_level: grievance.current_level,
-      prev_status: grievance.status,
-      action_type:  'Referred'
+      action: `Referred to ${officerLabelText} : ${officerNote}`,
     }));
 
-    console.log('Bulk Submission Payload:', bulkPayload);
-
     try {
-      const res = await logGrievanceActionBulk({ logs: bulkPayload });
-      const updated = await updateBulkGrievance({ updates: bulkPayload });
-      console.log(updated);
+      // The server validates each referral and writes the grievance update and
+      // its action log together; grievances it cannot refer come back in `skipped`.
+      const res: any = await updateBulkGrievance({ updates: bulkPayload });
+      const skipped = res?.skipped || [];
 
-      ElMessage({
-        message: res.message || 'Grievances updated successfully',
-        type: 'success'
-      });
+      if (skipped.length > 0) {
+        const details = skipped
+          .map((item) => `${item.code || item.grievance_id}: ${item.reason}`)
+          .join('; ');
+        ElMessage({
+          message: `${res.message}. Skipped — ${details}`,
+          type: 'warning',
+          duration: 8000,
+          showClose: true
+        });
+      } else {
+        ElMessage({
+          message: res?.message || 'Grievances referred successfully',
+          type: 'success'
+        });
+      }
 
       showReferralDialog.value = false;
-    } catch (err) {
+    } catch (err: any) {
+      const skipped = err?.response?.data?.skipped || [];
+      const details = skipped.map((item) => `${item.code || item.grievance_id}: ${item.reason}`).join('; ');
       ElMessage({
-        message: 'Error occurred while submitting referrals.',
-        type: 'error'
+        message: details
+          ? `No grievances were referred. ${details}`
+          : (err?.response?.data?.message || 'Error occurred while submitting referrals.'),
+        type: 'error',
+        duration: 8000,
+        showClose: true
       });
       console.error(err);
     }

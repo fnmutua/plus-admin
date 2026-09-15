@@ -52,6 +52,10 @@ export const getGrievanceStatus = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/status/update', data, silent })
  }
 
+ export const getGrievanceTransitions = (data: { grievance_id?: number | string; code?: string }): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/transitions', data, silent: true })
+ }
+
 
 
  export const updateGrievance  = (data: any, silent = false): Promise<IResponse> => {

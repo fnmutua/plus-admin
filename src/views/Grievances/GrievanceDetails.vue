@@ -7,7 +7,7 @@ import {
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendOverdueReminder,
+import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, getGrievanceTransitions, sendOverdueReminder,
   updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory,getGrievanceHistoryByGrievanceId, confirmGrievanceResolution} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
@@ -173,7 +173,17 @@ const statusDictionary = [
   { value: 'Closed', label: 'Close Grievance', supportedBy: ['Resolved', 'Closed'] },
 ]
 
-const StatusOptions = ref(statusDictionary.map(({ value, label }) => ({ value, label })))
+const StatusOptions = ref<{ value: string; label: string }[]>([])
+
+const getStatusOptionLabel = (status: string, targetLevel?: string | null) => {
+  if (status === 'Returned' && targetLevel) {
+    return `Send Back to ${targetLevel.charAt(0).toUpperCase()}${targetLevel.slice(1)}`
+  }
+  if (status === 'Escalated' && targetLevel) {
+    return `Escalate to ${targetLevel.charAt(0).toUpperCase()}${targetLevel.slice(1)}`
+  }
+  return statusDictionary.find((option) => option.value === status)?.label || status
+}
 
 const yesNoOptions = [
   { label: 'Yes', value: true },
@@ -372,7 +382,9 @@ const processGrievance = async() => {
     loading.value=false
 
   FullGrievanceData.value=res.data
-  shouldShowReminder.value= new Date(res.data.status_expiry_date) < new Date();
+  // Finished or parked grievances are not chased (the server refuses reminders for them).
+  shouldShowReminder.value = new Date(res.data.status_expiry_date) < new Date() &&
+    !['Closed', 'Resolved', 'Rejected', 'In Court', 'Deleted'].includes(res.data.status);
   console.log(  'shouldShowReminder.value', getStageDuration(res.data.status))
 
   // Get the Details of the Grievance
@@ -414,76 +426,39 @@ const processGrievance = async() => {
   console.log('res.data.current_level', res.data.current_level)
   console.log('current_user_roles', current_user_roles)
 
-  // Determine if user can act on this grievance based on their role level
-  // National GRM can act on all levels (national, county, settlement)
-  // County GRM can act on county-level and settlement-level grievances
-  // Settlement GRM can act on settlement-level grievances only
-  const userHasNationalRole = current_user_roles.includes('national') || isSuperAdmin.value
-  const userHasCountyRole = current_user_roles.includes('county')
-  const userHasSettlementRole = current_user_roles.includes('settlement')
-  const grievanceLevel = res.data.current_level
-
-  let canAct = false
-
-  if (userHasNationalRole) {
-    // National GRM can act on all levels
-    canAct = true
-    console.log('National GRM - can act on all levels')
-  } else if (userHasCountyRole && (grievanceLevel === 'county' || grievanceLevel === 'settlement')) {
-    // County GRM can act on county-level and settlement-level grievances
-    canAct = true
-    console.log('County GRM - can act on county-level and settlement-level grievances')
-  } else if (userHasSettlementRole && grievanceLevel === 'settlement') {
-    // Settlement GRM can act on settlement-level grievances only
-    canAct = true
-    console.log('Settlement GRM - can act on settlement-level grievances')
-  } else {
-    canAct = false
-    console.log('User role does not have permission for this grievance level')
+  // Allowed status changes come from the server, which enforces the same
+  // rules (transition table, level, and the user's location scope) on submit.
+  let transitions: {
+    can_act: boolean
+    allowed_statuses: string[]
+    target_levels: Record<string, string | null>
+    override_statuses?: string[]
+  } = {
+    can_act: false,
+    allowed_statuses: [],
+    target_levels: {},
+    override_statuses: []
+  }
+  try {
+    const transitionRes = await getGrievanceTransitions({ grievance_id: id })
+    transitions = transitionRes.data || transitions
+  } catch (error) {
+    console.error('Failed to load allowed grievance actions:', error)
   }
 
-  button_disabled.value = !canAct 
+  button_disabled.value = !transitions.can_act || transitions.allowed_statuses.length === 0
+  overrideStatuses.value = transitions.override_statuses || []
+  StatusOptions.value = transitions.allowed_statuses.map((value) => ({
+    value,
+    label: getStatusOptionLabel(value, transitions.target_levels?.[value])
+  }))
 
   const currentStatus = Grievance.value.status
-
-  const permitted = statusDictionary.filter(option => option.supportedBy.includes(currentStatus))
-  const allowCurrentStatus = ['Escalated', 'Referred'].includes(String(currentStatus))
-  StatusOptions.value = permitted
-    .filter(({ value }) => allowCurrentStatus || value !== currentStatus)
-    .map(({ value, label }) => ({ value, label }))
 
   if (currentStatus === 'Sorting') {
     button_label.value = 'Review and Sort';
     button_color.value = 'primary';
     button_icon.value = 'icon-park-solid:sort';
-  } else if (currentStatus == 'Investigation') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-  } else if (currentStatus == 'Under Review') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-  } else if (currentStatus == 'Escalated') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-  } else if (currentStatus == 'Referred') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-  } else if (currentStatus == 'ExternalReferral') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-  } else if (currentStatus == 'In Court') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-  } else if (currentStatus == 'Closed') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
   } else if (currentStatus == 'Resolved') {
     button_label.value = 'Review/Close grievance';
     button_color.value = 'success';
@@ -498,34 +473,6 @@ const processGrievance = async() => {
     showRefferalField.value = true
   } else {
     showRefferalField.value = false
-  }
-
-  if (!StatusOptions.value.some(opt => opt.value === 'ExternalReferral')) {
-    StatusOptions.value.push({
-      value: 'ExternalReferral',
-      label: 'Refer to External Agency',
-    })
-  }
-
-  if (Grievance.value.current_level === 'national') {
-    StatusOptions.value = StatusOptions.value.filter(option =>
-      option.value !== 'Escalated' && option.value !== 'Referred'
-    )
-    if (!StatusOptions.value.some(opt => opt.value === 'Returned')) {
-      StatusOptions.value.push({
-        value: 'Returned',
-        label: 'Send Back to County',
-      })
-    }
-  } else if (Grievance.value.current_level === 'county') {
-    if (!StatusOptions.value.some(opt => opt.value === 'Returned')) {
-      StatusOptions.value.push({
-        value: 'Returned',
-        label: 'Send Back to Settlement',
-      })
-    }
-  } else {
-    StatusOptions.value = StatusOptions.value.filter(opt => opt.value !== 'Returned')
   }
 
 
@@ -1221,89 +1168,91 @@ function getStageDuration(status) {
     return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
 
-const resolveActionLevel = () => {
-  const level = current_user_roles.find((value) => ['settlement', 'county', 'national'].includes(value))
-  return level || form.value.current_level || Grievance.value.current_level || 'settlement'
-}
-
-const buildGrievanceLogPayload = (msg: string, finalStatus: string) => ({
-  grievance_id: Grievance.value.id,
-  action_type: finalStatus,
-  action_by: userInfo.id,
-  action: msg,
-  date_actioned: new Date(),
-  prev_status: Grievance.value.status,
-  new_status: finalStatus,
-  current_level: form.value.current_level || Grievance.value.current_level || 'settlement',
-  action_level: resolveActionLevel(),
-  resolution_date: form.value.resolution_date,
-  filer_present: form.value.filer_present,
-  field_verification_conducted: form.value.field_verification_conducted,
-  field_investigations: form.value.field_investigations,
-  agreement_reached: form.value.agreement_reached,
-  agreement: form.value.agreement,
-  point_disagreement: form.value.point_disagreement,
-  issues: form.value.issues,
-  reffered_to: form.value.reffered_to,
-  reffered_to_officer: form.value.reffered_to_officer,
-})
-
-
-
 const dynamicFormRef = ref<FormInstance>()
 
-// Rollback function to revert status update if later steps fail
-const rollbackStatusUpdate = async (
-  previousStatus: string,
-  previousCurrentLevel: string,
-  previousStatusDate: Date | string | null,
-  previousStatusExpiryDate: Date | string | null,
-  options: { silent?: boolean } = {}
-) => {
-  const silent = options.silent === true
+// ---- National override: set any status/level without the normal workflow steps or documents ----
+const overrideStatuses = ref<string[]>([])
+const showOverrideDialog = ref(false)
+const isOverrideSubmitting = ref(false)
+const overrideFormRef = ref<FormInstance>()
+const overrideForm = ref({
+  new_status: null as string | null,
+  target_level: null as string | null,
+  action: '',
+  reffered_to_officer: null as number | null,
+  notify: false
+})
+const overrideLevelOptions = [
+  { value: 'settlement', label: 'Settlement' },
+  { value: 'county', label: 'County' },
+  { value: 'national', label: 'National' }
+]
+const overrideStatusOptions = computed(() =>
+  overrideStatuses.value.map((value) => ({
+    value,
+    label: value === Grievance.value.status
+      ? `${getStatusOptionLabel(value)} (current)`
+      : getStatusOptionLabel(value)
+  }))
+)
+const overrideRules = {
+  new_status: [{ required: true, message: 'Select the status to set', trigger: 'change' }],
+  target_level: [{ required: true, message: 'Select the level', trigger: 'change' }],
+  action: [{ required: true, message: 'Give a reason for the override', trigger: 'blur' }]
+}
+
+const openOverrideDialog = () => {
+  overrideForm.value = {
+    new_status: null,
+    target_level: Grievance.value.current_level || 'national',
+    action: '',
+    reffered_to_officer: null,
+    notify: false
+  }
+  showOverrideDialog.value = true
+  nextTick(() => overrideFormRef.value?.clearValidate())
+}
+
+const submitOverride = async () => {
+  if (!overrideFormRef.value) return
+  const valid = await overrideFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
   try {
-    if (!silent) {
-      ElMessage({
-        message: 'Reverting status update...',
-        type: 'warning',
-        duration: 2000
-      })
-    }
+    await ElMessageBox.confirm(
+      `Set grievance ${Grievance.value.code} to "${getStatusOptionLabel(overrideForm.value.new_status as string)}" at ${overrideForm.value.target_level} level? This bypasses the normal workflow and is recorded in the action log.`,
+      'Confirm status override',
+      { confirmButtonText: 'Override', cancelButtonText: 'Cancel', type: 'warning' }
+    )
+  } catch {
+    return
+  }
 
-    const rollbackData: any = {
-      code: Grievance.value.code,
-      new_status: previousStatus,
-      recipient: Grievance.value.telephone || Grievance.value.phone,
+  isOverrideSubmitting.value = true
+  try {
+    const res: any = await updateGrievanceStatus({
       grievance_id: Grievance.value.id,
-      action: 'Status update reverted due to error in subsequent steps',
-      current_level: previousCurrentLevel,
-      current_status_date: previousStatusDate || new Date(),
-      status_expiry_date: previousStatusExpiryDate || new Date(),
-      action_by: userInfo.id,
-      action_level: resolveActionLevel(),
-    }
-
-    if (previousStatus === 'Referred' && Grievance.value.reffered_to_officer) {
-      rollbackData.reffered_to_officer = Grievance.value.reffered_to_officer
-    }
-
-    await updateGrievanceStatus(rollbackData)
-    
-    if (!silent) {
-      ElMessage({
-        message: 'Status has been reverted to previous state',
-        type: 'warning',
-        duration: 3000
-      })
-    }
-  } catch (rollbackError) {
-    console.error('Error during rollback:', rollbackError)
+      code: Grievance.value.code,
+      override: true,
+      new_status: overrideForm.value.new_status,
+      target_level: overrideForm.value.target_level,
+      action: overrideForm.value.action,
+      reffered_to_officer: overrideForm.value.new_status === 'Referred' ? overrideForm.value.reffered_to_officer : undefined,
+      notify: overrideForm.value.notify
+    }, true)
+    showOverrideDialog.value = false
+    await processGrievance()
+    ElMessage({ message: res?.message || 'Grievance status overridden successfully', type: 'success' })
+  } catch (error: any) {
+    console.error('Error overriding grievance status:', error)
     ElMessage({
-      message: 'Failed to revert status. Please contact administrator.',
+      message: error?.response?.data?.message || error?.message || 'Failed to override the status',
       type: 'error',
-      duration: 5000
+      duration: 6000,
+      showClose: true
     })
-    throw rollbackError
+  } finally {
+    isOverrideSubmitting.value = false
   }
 }
 
@@ -1315,309 +1264,112 @@ const submitResolutionForm = async () => {
     error?.message ||
     fallback
   const isDuplicateDocumentError = (error: any) =>
-    error?.response?.status === 409 ||
-    error?.response?.data?.code === 'DUPLICATE_GRIEVANCE_DOCUMENT' ||
-    error?.isDuplicateDocument === true
+    error?.response?.status === 409 &&
+    error?.response?.data?.code === 'DUPLICATE_GRIEVANCE_DOCUMENT'
 
   const formInstance = dynamicFormRef
 
   formInstance.value.validate(async (valid: boolean) => {
-    if (valid) {
-      isResolutionSubmitting.value = true
-      try {
-      form.value.grievance_id = Grievance.value.id
-      form.value.action_type = form.value.new_status
-      form.value.action_by = userInfo.id  // remember t change 
-      form.value.date_actioned = new Date();
-      form.value.prev_status = Grievance.value.status
-      form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
-      //form.value.action =  'testing referral'
-
-      let msg = ''
-      if (form.value.new_status == 'Escalated') {
-        if (current_user_roles[0] == 'settlement') {
-          form.value.current_level = 'county';
-          msg = "Your grievance has been escalated to the county.";
-        } else {
-          form.value.current_level = 'national';
-          msg = "Your grievance has been escalated to the national team.";
-        }
-      } 
-      else if (form.value.new_status == 'Returned') {
-        if (current_user_roles[0] == 'county') {
-          form.value.current_level = 'settlement';
-          msg = "Your grievance has been referred to the settlement Grievance Redress team for resolution.";
-        } else {
-          form.value.current_level = 'county';
-          msg = "Your grievance has been referred to the county team for resolution.";
-        }
-      }
-      else if (form.value.new_status == 'Resolved') {
-        form.value.current_level = Grievance.value.current_level;
-          // Check if user is at national level
-          const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
-          if (isNationalLevel) {
-            // National GRM resolves - automatically close
-            msg = "Your grievance has been resolved and closed. " + form.value.action;
-          } else {
-            // County or Settlement resolves - subject to confirmation
-            msg = "Your grievance has been resolved, subject to confirmation by KISIP National Team. " + form.value.action;
-          }
-      }
-      else if (form.value.new_status == 'Closed') {
-        form.value.current_level = Grievance.value.current_level;
-        msg = "Your grievance has been closed. " + form.value.action;
-      }
-      else if (form.value.new_status == 'Referred') {
-        form.value.current_level = Grievance.value.current_level;
-        msg = "Your grievance has been referred to " + officerLabel.value + " for action. " + form.value.action;
-        form.value.action = 'Referred to ' + officerLabel.value +' : ' + form.value.action;
-      }
-      else {
-        form.value.current_level = Grievance.value.current_level;
-        msg = form.value.action;
-      }
-
-      console.log(form.value.new_status)
-      console.log(form.value.current_level)
-      console.log(Grievance.value.current_level)
-
-      console.log("checking issue.............",form.value)
-
-      // Store previous state for rollback if needed
-      const previousStatus = Grievance.value.status
-      const previousCurrentLevel = Grievance.value.current_level
-      const previousStatusDate = Grievance.value.current_status_date
-      const previousStatusExpiryDate = Grievance.value.status_expiry_date
-
-      // Check if user is at national level for auto-closure
-      const isNationalLevel = current_user_roles.includes('national') || isSuperAdmin.value;
-      const shouldAutoClose = isNationalLevel && form.value.new_status === 'Resolved';
-      const finalStatus = shouldAutoClose ? 'Closed' : form.value.new_status;
-
-      const formData: any = {
-        code: Grievance.value.code,
-          new_status: finalStatus,
-        recipient: Grievance.value.phone,
-        grievance_id: Grievance.value.id,
-        action: msg,
-        current_level: form.value.current_level,
-        current_status_date: new Date(),
-          status_expiry_date: new Date(Date.now() + getStageDuration(finalStatus)),
-        action_by: userInfo.id,
-        action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
-        reffered_to_officer: form.value.reffered_to_officer , // Extract id or set to null
-      };
-
-      // Explicitly send resolution field when grievance is resolved
-      // Use the action text directly (without the "Your grievance has been resolved. " prefix)
-      if (form.value.new_status === 'Resolved') {
-          formData.resolution = form.value.action || msg.replace(/^Your grievance has been resolved[^.]*\.\s*/, "");
-      }
-
-      const logPayload = buildGrievanceLogPayload(msg, finalStatus)
-
-      // Step 1: Update Status
-      console.log('Starting status update...', formData)
-      
-      let updatedGrievance
-      let statusUpdateSuccess = false
-      try {
-        console.log('Calling updateGrievanceStatus with:', formData)
-        updatedGrievance = await updateGrievanceStatus(formData, true)
-        console.log('updateGrievanceStatus returned:', updatedGrievance)
-        
-        // Check if the response indicates success
-        if (!updatedGrievance) {
-          throw new Error('No response from status update API')
-        }
-        
-        statusUpdateSuccess = true
-        
-        console.log('Status update successful! Response:', updatedGrievance)
-        console.log('About to show success message...')
-        
-        // Continue to next steps; show one final toast only.
-      } catch (error) {
-        console.error('Error updating status:', error)
-        ElMessage({
-          message: 'Failed to update status. Error: ' + (error?.response?.data?.message || error?.message || 'Unknown error'),
-          type: 'error',
-          duration: 5000
-        })
-        throw error // Stop execution if status update fails
-      }
-
-      // Step 2: Upload Documents (if any)
-      // Note: We need action_id for uploads, so we'll create log entry temporarily
-      // but only show success message after everything is done
-      let actionIdForLogging = null
-      let logRes = null
-      let uploadSuccess = false
-      let loggingSuccess = false
-      const hasFiles = form.value.fileList && form.value.fileList.length > 0
-      
-      try {
-        if (hasFiles) {
-          try {
-            // Create log entry temporarily to get action_id for file uploads
-            // We'll show the success message for logging at the end
-            const logData = logPayload;
-            logRes = await logGrievanceAction(logData, true)
-            actionIdForLogging = logRes.data.id
-            loggingSuccess = true
-            
-            await uploadFiles(actionIdForLogging, Grievance.value.id, true)
-            uploadSuccess = true
-          } catch (error) {
-            const isDuplicate = isDuplicateDocumentError(error)
-            const uploadMsg = extractApiErrorMessage(error, 'Document upload failed')
-
-            if (isDuplicate) {
-              console.warn('Duplicate document blocked during resolution upload:', error)
-            } else {
-              console.error('Error uploading documents:', error)
-            }
-
-            // Show the real failure reason first (e.g. duplicate filename 409)
-            ElMessage({
-              message: uploadMsg,
-              type: isDuplicate ? 'warning' : 'error',
-              duration: 7000,
-              showClose: true
-            })
-
-            // Then revert status so the user already knows why
-            if (statusUpdateSuccess) {
-              await rollbackStatusUpdate(
-                previousStatus,
-                previousCurrentLevel,
-                previousStatusDate,
-                previousStatusExpiryDate,
-                { silent: true }
-              )
-              ElMessage({
-                message: 'Status has been reverted to the previous state.',
-                type: 'warning',
-                duration: 4000
-              })
-              if (logRes && logRes.data && logRes.data.id) {
-                console.warn('Log entry created but upload failed. Log entry ID:', logRes.data.id)
-              }
-              const uploadError: any = new Error(`${uploadMsg}. Status has been reverted.`)
-              uploadError.isDuplicateDocument = isDuplicate
-              uploadError.alreadyNotified = true
-              throw uploadError
-            }
-          }
-        }
-
-        // Step 3: Log Action (only if not already logged for uploads)
-        if (!actionIdForLogging) {
-          try {
-            const logData = logPayload;
-            logRes = await logGrievanceAction(logData, true)
-            actionIdForLogging = logRes.data.id
-            loggingSuccess = true
-          } catch (error) {
-            console.error('Error logging action:', error)
-            // If logging fails, rollback status update
-            if (statusUpdateSuccess) {
-              await rollbackStatusUpdate(previousStatus, previousCurrentLevel, previousStatusDate, previousStatusExpiryDate)
-              if (uploadSuccess && actionIdForLogging) {
-                // Optionally delete uploaded files if logging fails
-                console.warn('Files uploaded but logging failed. Action ID:', actionIdForLogging)
-              }
-              throw new Error('Action logging failed. Status has been reverted.')
-            }
-          }
-        } else {
-          // Log was already created for uploads
-          loggingSuccess = true
-        }
-        
-        // Ensure we have a valid res object for downstream operations
-        const res = logRes || { 
-          data: { id: actionIdForLogging || null }, 
-          message: 'Grievance status updated successfully' 
-        }
-
-        // Success - close drawer immediately
-        isSubmittingSuccessfully.value = true
-        resetForm()
-        dialogFormVisible.value = false
-
-        // Continue with other operations in background
-        await processGrievance()
-
-        console.log('Old Grievance.value', Grievance.value)
-        console.log('New Grievance.value', updatedGrievance)
- 
-        // Auto-generation of resolution PDF has been disabled.
-
-        // Final summary message
-        let finalMessage = 'Grievance status updated successfully'
-        let messageType: 'success' | 'warning' = 'success'
-        
-        if (hasFiles && uploadSuccess && loggingSuccess) {
-          finalMessage = 'Status updated, documents uploaded, and action logged successfully'
-        } else if (hasFiles && uploadSuccess && !loggingSuccess) {
-          finalMessage = 'Status updated and documents uploaded successfully, but action logging failed'
-          messageType = 'warning'
-        } else if (hasFiles && !uploadSuccess && loggingSuccess) {
-          finalMessage = 'Status updated and action logged successfully, but document upload failed'
-          messageType = 'warning'
-        } else if (hasFiles && !uploadSuccess && !loggingSuccess) {
-          finalMessage = 'Status updated successfully, but document upload and action logging failed'
-          messageType = 'warning'
-        } else if (!hasFiles && loggingSuccess) {
-          finalMessage = 'Status updated and action logged successfully'
-        } else if (!hasFiles && !loggingSuccess) {
-          finalMessage = 'Status updated successfully, but action logging failed'
-          messageType = 'warning'
-        }
-        
-        ElMessage({
-          message: finalMessage,
-          type: messageType,
-          duration: 4000
-        })
-      } catch (rollbackError: any) {
-        // This catch handles rollback errors from Step 2 or Step 3
-        console.error('Rollback error:', rollbackError)
-        if (!rollbackError?.alreadyNotified) {
-          const isDuplicate = isDuplicateDocumentError(rollbackError)
-          ElMessage({
-            message: extractApiErrorMessage(rollbackError, 'Operation failed and status has been reverted'),
-            type: isDuplicate ? 'warning' : 'error',
-            duration: 5000,
-            showClose: true
-          })
-        }
-        // Refresh grievance data to reflect reverted state and stop to avoid duplicate error toast
-        await processGrievance()
-        return
-      }
-      } catch (error) {
-        console.error('Error submitting form:', error)
-        ElMessage({
-          message: extractApiErrorMessage(error, 'Failed to submit. Please try again.'),
-          type: 'error'
-        })
-      } finally {
-        isResolutionSubmitting.value = false
-      }
-    } else {
-      console.log('is Not Valid')
+    if (!valid) {
       ElMessage({
         message: 'Please provide all required details',
         type: 'error'
-      })    // felix - show message on success request 
+      })
+      return
+    }
 
+    isResolutionSubmitting.value = true
+    try {
+      const files = form.value.fileList || []
+      const requestedStatus = form.value.new_status
+
+      // One request: the server validates the change, works out the new level
+      // and stage dates, and saves the grievance together with its action log.
+      // Attachment names are checked for duplicates before anything is saved.
+      const payload: any = {
+        grievance_id: Grievance.value.id,
+        code: Grievance.value.code,
+        new_status: requestedStatus,
+        action: form.value.action,
+        reffered_to_officer: requestedStatus === 'Referred' ? form.value.reffered_to_officer : undefined,
+        resolution: requestedStatus === 'Resolved' ? form.value.action : undefined,
+        resolution_date: form.value.resolution_date,
+        filer_present: form.value.filer_present,
+        field_verification_conducted: form.value.field_verification_conducted,
+        field_investigations: form.value.field_investigations,
+        agreement_reached: form.value.agreement_reached,
+        agreement: form.value.agreement,
+        point_disagreement: form.value.point_disagreement,
+        issues: form.value.issues,
+        reffered_to: form.value.reffered_to,
+        attachment_names: files.map((file) => file.name)
+      }
+
+      let result
+      try {
+        result = await updateGrievanceStatus(payload, true)
+      } catch (error) {
+        console.error('Error updating status:', error)
+        ElMessage({
+          message: extractApiErrorMessage(error, 'Failed to update status. Please try again.'),
+          type: isDuplicateDocumentError(error) ? 'warning' : 'error',
+          duration: 6000,
+          showClose: true
+        })
+        // The grievance may have changed since the page loaded; refresh the allowed actions.
+        if (error?.response?.status === 409 && !isDuplicateDocumentError(error)) {
+          await processGrievance()
+        }
+        return
+      }
+
+      // The status change is saved. Attach documents to its log entry; a failed
+      // upload does not undo the change — the user can add documents afterwards.
+      const logId = result?.data?.log_id
+      let uploadError = ''
+      if (files.length > 0 && logId) {
+        try {
+          await uploadFiles(logId, Grievance.value.id, true)
+        } catch (error) {
+          console.error('Error uploading documents:', error)
+          uploadError = extractApiErrorMessage(error, 'Document upload failed')
+        }
+      }
+
+      isSubmittingSuccessfully.value = true
+      resetForm()
+      dialogFormVisible.value = false
+
+      await processGrievance()
+
+      if (uploadError) {
+        ElMessage({
+          message: `Status updated, but the documents were not uploaded (${uploadError}). Please add them using Upload Supporting Documents.`,
+          type: 'warning',
+          duration: 8000,
+          showClose: true
+        })
+      } else {
+        ElMessage({
+          message: result?.data?.auto_closed
+            ? 'Grievance resolved and closed successfully'
+            : files.length > 0
+              ? 'Status updated and documents uploaded successfully'
+              : 'Grievance status updated successfully',
+          type: 'success',
+          duration: 4000
+        })
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      ElMessage({
+        message: extractApiErrorMessage(error, 'Failed to submit. Please try again.'),
+        type: 'error'
+      })
+    } finally {
+      isResolutionSubmitting.value = false
     }
   });
-
-
 };
 
 
@@ -2761,7 +2513,7 @@ const formData = {}
           </div>
 
 
-  <template #header v-if="showActionButton || Grievance.status === 'Resolved'">
+  <template #header v-if="showActionButton || Grievance.status === 'Resolved' || overrideStatuses.length > 0">
     <div class="dialog-footer">
       <PermissionWrapper :permissions="['grievance:update']">
         <el-tooltip
@@ -2805,6 +2557,22 @@ const formData = {}
         <el-icon><Check /></el-icon>
         Confirm Resolution
       </el-button>
+
+      <!-- Status override for national GRM -->
+      <PermissionWrapper :permissions="['grievance:update']">
+        <el-tooltip content="Set any status or level without the normal workflow steps or documentation" placement="top">
+          <el-button
+            v-if="overrideStatuses.length > 0"
+            type="danger"
+            plain
+            @click="openOverrideDialog"
+            size="small"
+            class="responsive-button"
+          >
+            <Icon icon="mdi:shield-edit-outline" style="margin-right: 6px;" /> Override Status
+          </el-button>
+        </el-tooltip>
+      </PermissionWrapper>
     </div>
   </template>
   
@@ -3641,6 +3409,51 @@ width="340"
   </el-drawer>
 
 
+
+  <!-- National status override -->
+  <el-dialog
+    v-model="showOverrideDialog"
+    title="Override Grievance Status"
+    :width="isMobile ? '95%' : '520px'"
+    :close-on-click-modal="!isOverrideSubmitting"
+    :show-close="!isOverrideSubmitting"
+  >
+    <el-alert
+      type="warning"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 16px;"
+      :title="`Current: ${Grievance.status} (${Grievance.current_level || 'n/a'} level)`"
+      description="Normal transition rules and documentation requirements do not apply. The change and your reason are recorded in the action log."
+    />
+    <el-form ref="overrideFormRef" :model="overrideForm" :rules="overrideRules" label-position="top">
+      <el-form-item label="New status" prop="new_status">
+        <el-select v-model="overrideForm.new_status" placeholder="Select status" style="width: 100%">
+          <el-option v-for="item in overrideStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Level" prop="target_level">
+        <el-select v-model="overrideForm.target_level" placeholder="Select level" style="width: 100%">
+          <el-option v-for="item in overrideLevelOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+      <el-form-item v-if="overrideForm.new_status === 'Referred'" label="Officer (optional)">
+        <el-select v-model="overrideForm.reffered_to_officer" clearable filterable placeholder="Select officer" :loading="grmUsersLoading" style="width: 100%">
+          <el-option v-for="item in grmUsers" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Reason for override" prop="action">
+        <el-input v-model="overrideForm.action" type="textarea" :rows="3" placeholder="Why is the normal workflow being bypassed?" />
+      </el-form-item>
+      <el-form-item>
+        <el-switch v-model="overrideForm.notify" active-text="Send the usual SMS notifications" inactive-text="No notifications" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showOverrideDialog = false" :disabled="isOverrideSubmitting">Cancel</el-button>
+      <el-button type="danger" @click="submitOverride" :loading="isOverrideSubmitting">Override</el-button>
+    </template>
+  </el-dialog>
 
   <!-- Edit Grievance Drawer -->
   <el-drawer 
