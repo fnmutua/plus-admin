@@ -13,7 +13,7 @@ import {
 import { ElButton, ElSelect, ElCheckbox, ElCol,ElDrawer, ElIcon} from 'element-plus'
 import {
   Plus, 
-  Back,Postcard,TopRight,Lock,Guide,TakeawayBox,Upload,
+  Back,Postcard,TopRight,Lock,Guide,TakeawayBox,Upload,Stamp,
   CircleCheck, Warning,View, Clock,
   Delete, Search, Refresh, Share, Paperclip, Close, Phone, Loading, Filter,
   Document, InfoFilled, Download} from '@element-plus/icons-vue'
@@ -228,9 +228,10 @@ const GRIEVANCE_SEGMENT_STATUSES: Record<string, string[] | 'excludeDeleted'> = 
   ReceivedAll: 'excludeDeleted',
   Sorting: ['Sorting'],
   'Under Review': ['Under Review', 'Investigation', 'Returned'],
-  Pending: ['Escalated', 'In Court'],
+  Pending: ['Escalated'],
   Resolved: ['Resolved'],
   Referred: ['Referred', 'ExternalReferral'],
+  'In Court': ['In Court'],
   Closed: ['Closed'],
   Rejected: ['Rejected', 'Deleted'],
 }
@@ -238,7 +239,6 @@ const GRIEVANCE_SEGMENT_STATUSES: Record<string, string[] | 'excludeDeleted'> = 
 const LEGACY_GRIEVANCE_SEGMENT_MAP: Record<string, string> = {
   All: 'ReceivedAll',
   Escalated: 'Pending',
-  'In Court': 'Pending',
   ExternalReferral: 'Referred',
   AwaitingConfirmation: 'Resolved',
   RejectedDeleted: 'Rejected',
@@ -400,7 +400,7 @@ const Statuses = ref([
     icon: TopRight,
     count: 0,
     hidden: false,
-    description: 'Escalated for further review or pending court determination'
+    description: 'Escalated for further review'
   },
   {
     label: 'Resolved',
@@ -418,6 +418,14 @@ const Statuses = ref([
     count: 0,
     hidden: false,
     description: 'Referred internally or to an external agency for resolution'
+  },
+  {
+    label: 'In Court',
+    value: 'In Court',
+    icon: Stamp,
+    count: 0,
+    hidden: false,
+    description: 'Grievance is before a court and awaiting its determination'
   },
   {
     label: 'Closed',
@@ -443,6 +451,7 @@ const visibleStatuses = computed(() =>
   Statuses.value.filter((status) => {
     if (status.hidden) return false
     if (status.value === 'Rejected' && (status.count ?? 0) === 0) return false
+    if (status.value === 'In Court' && (status.count ?? 0) === 0) return false
     return true
   }),
 )
@@ -828,6 +837,7 @@ function validateGrievanceSegmentTallies(
     (segments.find((s) => s.value === 'Pending')?.count ?? 0) +
     (segments.find((s) => s.value === 'Resolved')?.count ?? 0) +
     (segments.find((s) => s.value === 'Referred')?.count ?? 0) +
+    (segments.find((s) => s.value === 'In Court')?.count ?? 0) +
     (segments.find((s) => s.value === 'Closed')?.count ?? 0) +
     rejectedLeaf
 
@@ -1036,7 +1046,11 @@ const getCounts = async () => {
     console.log('Updated segment counts:', leafCountMap, 'ReceivedAll:', receivedAllCount)
 
     const rejectedSegment = Statuses.value.find((s) => s.value === 'Rejected')
-    if (activeSegment.value === 'Rejected' && (rejectedSegment?.count ?? 0) === 0) {
+    const inCourtSegment = Statuses.value.find((s) => s.value === 'In Court')
+    if (
+      (activeSegment.value === 'Rejected' && (rejectedSegment?.count ?? 0) === 0) ||
+      (activeSegment.value === 'In Court' && (inCourtSegment?.count ?? 0) === 0)
+    ) {
       activeSegment.value = 'ReceivedAll'
       rejectedDeletedSubFilter.value = 'all'
       applyActiveSegmentStatusFilters()
