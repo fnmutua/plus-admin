@@ -18,6 +18,14 @@ export const PLATFORM_SETTINGS: SettingsLeafDefinition[] = [
     component: () => import('@/views/settings/SystemSettings.vue'),
   },
   {
+    path: 'ai-settings',
+    name: 'AISettings',
+    title: 'AI Settings',
+    icon: 'material-symbols:smart-toy-outline',
+    permissions: ['settings:update'],
+    component: () => import('@/views/settings/AISettings.vue'),
+  },
+  {
     path: 'climate-settings',
     name: 'ClimateSettings',
     title: 'Climate Settings',

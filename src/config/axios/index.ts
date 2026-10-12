@@ -8,7 +8,7 @@ import { getOrCreateDeviceId } from '@/hooks/web/authStorage'
 const { default_headers } = config
 
 const request = (option: any) => {
-  const { url, method, params, data, headersType, responseType, headers, silent, timeout } = option
+  const { url, method, params, data, headersType, responseType, headers, silent, timeout, signal } = option
 
   const token = getAccessTokenFromCache()
 
@@ -38,6 +38,8 @@ const request = (option: any) => {
     responseType,
     headers: finalHeaders,
     ...(timeout !== undefined ? { timeout } : {}),
+    // Lets a caller abort in flight — the chat Stop button relies on this.
+    ...(signal ? { signal } : {}),
     ...(silent ? { silent: true } : {})
   })
 }

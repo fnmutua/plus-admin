@@ -1,147 +1,98 @@
 import request from '@/config/axios'
-import type { 
-  IResponse, 
-  AIProvider, 
-  AIModel, 
-  AIConfig, 
-  DocumentProcessingRequest, 
-  DocumentProcessingResponse, 
-  DocumentProcessingStatus,
+import { apiOrigin } from '@/config/apiBase'
+import type {
+  IResponse,
+  AIProvidersResponse,
+  AIHealth,
+  AIStats,
+  AIIndexedDocument,
   AIQuestion,
   AIAnswer,
-  ConversationHistory,
-  AISearchRequest,
-  AISearchResult,
-  AIStats,
-  DocumentAIStats,
-  AIDatabaseStatus,
-  AILog
+  AIDocumentStatus,
+  AIReindexResponse,
+  AIModelsResponse,
+  AISetting,
+  AISettingChange,
+  AISettingsPayload
 } from './types'
-import { apiOrigin } from '@/config/apiBase'
 
-const dev = apiOrigin + ':4000' // Add the port for local Dev
-const prod = apiOrigin // remove the port for production
+const base = apiOrigin
 
-// AI Configuration and Provider Management
-export const getAIHealth = (): Promise<IResponse<any>> => {
-  return request.get({ url: prod + '/api/ai/health' })
-}
+/** Health of the database, chat provider and embedding provider. */
+export const getAIHealth = (): Promise<IResponse<AIHealth>> =>
+  request.get({ url: `${base}/api/ai/health` })
 
-export const getAIProviders = (): Promise<IResponse<AIProvider[]>> => {
-  return request.get({ url: prod + '/api/ai/providers' })
-}
+/** Providers this deployment can actually serve, plus the active selection. */
+export const getAIProviders = (): Promise<AIProvidersResponse> =>
+  request.get({ url: `${base}/api/ai/providers` })
 
-export const setAIProvider = (data: { provider: string }): Promise<IResponse<AIProvider>> => {
-  return request.post({ url: prod + '/api/ai/provider', data })
-}
+/**
+ * Ask a question about indexed documents.
+ * Pass an AbortSignal to let the caller stop generation mid-flight; aborting
+ * closes the connection, which the server propagates to the model.
+ */
+export const askAIDocument = (
+  data: AIQuestion,
+  signal?: AbortSignal
+): Promise<IResponse<AIAnswer> & AIAnswer> =>
+  request.post({ url: `${base}/api/ai/ask`, data, signal })
 
-export const getAIModels = (): Promise<IResponse<AIModel[]>> => {
-  return request.get({ url: prod + '/api/ai/models' })
-}
+/** Drop a conversation thread's stored history. */
+export const clearAISession = (sessionId: string): Promise<IResponse<{ removed: number }>> =>
+  request.delete({ url: `${base}/api/ai/session`, data: { sessionId } })
 
-// Document AI Processing - Updated to match actual backend routes
-export const processExistingDocumentsWithAI = (data: { 
-  documentIds?: string[], 
-  processAll?: boolean 
-}): Promise<IResponse<DocumentProcessingResponse>> => {
-  return request.post({ url: prod + '/api/v1/documents/ai/process', data })
-}
+/** Index-wide counts. */
+export const getAIStats = (): Promise<IResponse<AIStats>> =>
+  request.get({ url: `${base}/api/ai/stats` })
 
-export const getDocumentAIStatus = (documentId: string): Promise<IResponse<DocumentProcessingStatus>> => {
-  return request.get({ url: prod + `/api/v1/documents/${documentId}/ai/status` })
-}
+/** Every document in the AI index, newest first. */
+export const getAIIndexedDocuments = (): Promise<IResponse<AIIndexedDocument[]>> =>
+  request.get({ url: `${base}/api/ai/documents` })
 
-export const getAIProcessingStats = (): Promise<IResponse<AIStats>> => {
-  return request.get({ url: prod + '/api/v1/documents/ai/stats' })
-}
+/**
+ * Re-index one entry of the AI index by its index id. Waits for the result,
+ * so the timeout allows for a long PDF.
+ */
+export const reindexAIIndexEntry = (
+  id: string
+): Promise<IResponse<{ chunks: number; warning: string | null }>> =>
+  request.post({ url: `${base}/api/ai/index/${id}/reindex`, timeout: 10 * 60 * 1000 })
 
-// AI Chat and Querying
-export const askAIDocument = (data: AIQuestion): Promise<IResponse<AIAnswer>> => {
-  return request.post({ url: prod + '/api/ai/ask', data })
-}
+/** Indexing status for one document. */
+export const getDocumentAIStatus = (documentId: string | number): Promise<IResponse<AIDocumentStatus>> =>
+  request.get({ url: `${base}/api/ai/documents/${documentId}/status` })
 
-// Legacy functions for backward compatibility
-export const processDocumentAI = (data: DocumentProcessingRequest): Promise<IResponse<DocumentProcessingResponse>> => {
-  return request.post({ url: prod + '/api/v1/documents/ai/process', data })
-}
+/** Queue background indexing. Returns once queued, not once finished. */
+export const reindexDocuments = (data: {
+  documentIds?: (string | number)[]
+  processAll?: boolean
+  force?: boolean
+}): Promise<AIReindexResponse> =>
+  request.post({ url: `${base}/api/ai/reindex`, data })
 
-export const processDocumentBatchAI = (data: { 
-  documentIds: (string | number)[] 
-}): Promise<IResponse<DocumentProcessingResponse[]>> => {
-  return request.post({ url: prod + '/api/v1/documents/ai/process', data })
-}
+/**
+ * Models the given provider will serve, queried live rather than hardcoded.
+ * Chat-capable models only, newest first. The server returns the 10 most recent
+ * and never more, however large a `limit` asks for.
+ */
+export const getAIModels = (provider?: string, limit?: number): Promise<AIModelsResponse> =>
+  request.get({
+    url: `${base}/api/ai/models`,
+    params: {
+      ...(provider ? { provider } : {}),
+      ...(limit === undefined ? {} : { limit })
+    }
+  })
 
-export const getAIProcessingStatus = (data: { 
-  documentId: string | number 
-}): Promise<IResponse<DocumentProcessingStatus>> => {
-  return request.get({ url: prod + `/api/v1/documents/${data.documentId}/ai/status` })
-}
+/** Effective AI settings, with the environment value each one falls back to. */
+export const getAISettings = (): Promise<IResponse<AISettingsPayload>> =>
+  request.get({ url: `${base}/api/ai/settings` })
 
-export const getAIConversationHistory = (data: { 
-  sessionId: string 
-}): Promise<IResponse<ConversationHistory>> => {
-  return request.post({ url: prod + '/api/ai/conversation-history', data })
-}
-
-export const clearAIConversationHistory = (data: { 
-  sessionId: string 
-}): Promise<IResponse<boolean>> => {
-  return request.delete({ url: prod + '/api/ai/conversation-history', data })
-}
-
-// AI Statistics and Analytics
-export const getAIStats = (): Promise<IResponse<AIStats>> => {
-  return request.get({ url: prod + '/api/v1/documents/ai/stats' })
-}
-
-export const getAIDocumentStats = (data: { 
-  documentId?: string | number 
-}): Promise<IResponse<DocumentAIStats>> => {
-  return request.get({ url: prod + `/api/v1/documents/${data.documentId}/ai/status` })
-}
-
-// AI Embeddings and Search
-export const searchAIDocuments = (data: AISearchRequest): Promise<IResponse<AISearchResult>> => {
-  return request.post({ url: prod + '/api/ai/search', data })
-}
-
-export const getAIDocumentEmbeddings = (data: { 
-  documentId: string | number 
-}): Promise<IResponse<any>> => {
-  return request.post({ url: prod + '/api/ai/embeddings', data })
-}
-
-// AI Database Management
-export const initializeAIDatabase = (): Promise<IResponse<boolean>> => {
-  return request.post({ url: prod + '/api/ai/init-database' })
-}
-
-export const getAIDatabaseStatus = (): Promise<IResponse<AIDatabaseStatus>> => {
-  return request.get({ url: prod + '/api/ai/database-status' })
-}
-
-export const resetAIDatabase = (): Promise<IResponse<boolean>> => {
-  return request.post({ url: prod + '/api/ai/reset-database' })
-}
-
-// AI Configuration
-export const getAIConfig = (): Promise<IResponse<AIConfig>> => {
-  return request.get({ url: prod + '/api/ai/config' })
-}
-
-export const updateAIConfig = (data: Partial<AIConfig>): Promise<IResponse<AIConfig>> => {
-  return request.post({ url: prod + '/api/ai/config', data })
-}
-
-// AI Error Handling and Logs
-export const getAILogs = (data: { 
-  level?: string
-  limit?: number
-  documentId?: string | number
-}): Promise<IResponse<AILog[]>> => {
-  return request.post({ url: prod + '/api/ai/logs', data })
-}
-
-export const clearAILogs = (): Promise<IResponse<boolean>> => {
-  return request.delete({ url: prod + '/api/ai/logs' })
-} 
+/**
+ * Apply settings changes. Send `overridden: false` for a key to drop its
+ * override and fall back to the environment value.
+ */
+export const updateAISettings = (
+  settings: AISettingChange[]
+): Promise<IResponse<{ settings: AISetting[]; health: AIHealth }>> =>
+  request.put({ url: `${base}/api/ai/settings`, data: { settings } })

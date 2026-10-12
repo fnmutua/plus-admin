@@ -825,17 +825,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       
-      // {
-      //   path: 'ai-chat',
-      //   component: () => import('@/views/AI/DocumentChat.vue'),
-      //   name: 'DocumentAIChat',
-      //   meta: {
-      //     title: 'AI Chat',
-      //     hidden: false,
-      //     role: ['root_admin','admin', 'super_admin', 'monitoring', 'staff'  ] ,
-      //     icon:'material-symbols:smart-toy'
-      //   }
-      // },
       
       // {
       //   path: 'cleanup',
@@ -866,6 +855,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       
+      {
+        path: 'ai-index',
+        component: () => import('@/views/Repository/AIIndexedDocuments.vue'),
+        name: 'AIIndexedDocuments',
+        meta: {
+          title: 'AI Index',
+          hidden: false,
+          permissions: ['document:read'],
+          icon: 'material-symbols:smart-toy-outline'
+        }
+      },
+
       {
         path: 'shares',
         component: () => import('@/views/Repository/SharedDocumentsList.vue'),

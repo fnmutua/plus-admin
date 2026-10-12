@@ -1,214 +1,189 @@
-// AI Provider Types
+export interface IResponse<T> {
+  success: boolean
+  code?: string
+  message?: string
+  data?: T
+}
+
 export interface AIProvider {
-  id: string
+  id: 'ollama' | 'openai' | 'xai'
   name: string
   description: string
-  models: AIModel[]
+  /** False when the server holds no key for this provider; do not offer it. */
   isAvailable: boolean
-  config?: Record<string, any>
+  chat: boolean
+  embeddings: boolean
 }
 
-export interface AIModel {
-  id: string
-  name: string
-  provider: string
-  maxTokens: number
-  isAvailable: boolean
-  costPerToken?: number
-}
-
-// AI Configuration Types
-export interface AIConfig {
-  provider: string
-  model: string
-  temperature: number
-  maxTokens: number
-  chunkSize: number
-  chunkOverlap: number
-  enableAI: boolean
-}
-
-// Document Processing Types
-export interface DocumentProcessingRequest {
-  documentId: string | number
-  filename: string
-  forceReprocess?: boolean
-}
-
-export interface DocumentProcessingResponse {
+export interface AIProvidersResponse {
   success: boolean
-  documentId: string | number
-  status: 'processing' | 'completed' | 'failed'
-  message: string
-  chunks?: number
-  embeddings?: number
-  processingTime?: number
-  error?: string
+  data: AIProvider[]
+  active: { chat: string; model: string; embeddings: string }
 }
 
-export interface DocumentProcessingStatus {
-  documentId: string | number
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  progress: number
-  message: string
-  startedAt?: string
-  completedAt?: string
-  error?: string
+export interface AIHealth {
+  status: 'healthy' | 'degraded'
+  enabled: boolean
+  database: { connected: boolean; vectorSearchEnabled: boolean; error?: string | null }
+  chat: { provider: string; model: string; ok: boolean; error?: string }
+  embeddings: { provider: string; model: string; dimensions: number; ok: boolean; error?: string }
 }
 
-// Chat and Query Types
 export interface AIQuestion {
   question: string
+  /** Conversation thread key. Omit to use the caller's own thread. */
   sessionId?: string
   provider?: string
   model?: string
-  documentIds?: (string | number)[]
-  temperature?: number
-  maxTokens?: number
+}
+
+export interface AISource {
+  filename: string
+  preview: string
+  /** Cosine similarity for vector hits, ts_rank for keyword hits. */
+  similarity: number
+  chunkIndex: number
+  fileType?: string
+  fileSize?: number
 }
 
 export interface AIAnswer {
   answer: string
   sources: AISource[]
   tokens: number
+  usage?: { prompt: number; completion: number; total: number }
+  provider?: string
+  model?: string
   processingTime?: number
-  confidence?: number
-  sessionId?: string
+  /**
+   * Which path produced the sources: semantic search, the keyword fallback,
+   * a recency lookup for "the latest document", or nothing found.
+   */
+  retrieval: 'vector' | 'keyword' | 'recent' | 'none'
+  sessionId: string
 }
 
-export interface AISource {
-  filename: string
-  preview: string
-  similarity: string | number
-  distance?: string | number
-  chunkIndex?: number
-  fileSize?: string | number
-  fileType?: string
-  documentId?: string | number
-}
-
-export interface ChatMessage {
+/** One document in the AI index. */
+export interface AIIndexedDocument {
   id: string
-  type: 'user' | 'ai'
-  content: string
-  timestamp: string
-  sessionId: string
-  sources?: AISource[]
-  tokens?: number
-}
-
-export interface ConversationHistory {
-  sessionId: string
-  messages: ChatMessage[]
-  totalTokens: number
+  /** `document:<id>` for uploads, `path:<file>` for folder imports, `record:<model>:<id>` for rows. */
+  sourceKey: string | null
+  filename: string
+  filePath: string | null
+  fileType: string | null
+  fileSize: number
+  chunks: number
+  embeddings: number
   createdAt: string
   updatedAt: string
 }
 
-// Search Types
-export interface AISearchRequest {
-  query: string
-  limit?: number
-  threshold?: number
-  documentIds?: (string | number)[]
-  provider?: string
-  model?: string
-}
-
-export interface AISearchResult {
-  query: string
-  results: AISearchDocument[]
-  totalResults: number
-  processingTime: number
-}
-
-export interface AISearchDocument {
-  documentId: string | number
-  filename: string
-  similarity: number
-  chunks: AISearchChunk[]
-}
-
-export interface AISearchChunk {
-  content: string
-  similarity: number
-  page?: number
-  line?: number
-}
-
-// Statistics Types
 export interface AIStats {
-  totalDocuments: number
-  processedDocuments: number
-  totalChunks: number
-  totalEmbeddings: number
-  totalConversations: number
-  totalTokens: number
-  averageProcessingTime: number
-  lastProcessedAt?: string
-  databaseStatus: 'connected' | 'disconnected' | 'error'
-}
-
-export interface DocumentAIStats {
-  documentId: string | number
-  filename: string
+  available: boolean
+  documents: number
   chunks: number
   embeddings: number
-  processingTime: number
-  lastProcessedAt: string
-  status: 'processed' | 'pending' | 'failed'
-  conversations: number
-  tokensUsed: number
+  embeddingModels: number
+  sessions: number
+  sourceDocuments: number
+  processedDocuments: number
+  connected: boolean
+  vectorSearchEnabled: boolean
+  error?: string | null
 }
 
-// Database Types
-export interface AIDatabaseStatus {
-  isConnected: boolean
-  tables: string[]
-  documentCount: number
-  chunkCount: number
-  embeddingCount: number
-  conversationCount: number
-  lastBackup?: string
-  size?: string
-  version?: string
+export interface AIDocumentStatus {
+  documentId: string | number
+  filename: string
+  processed: boolean
+  processedAt: string | null
+  chunks: number
+  warning: string | null
 }
 
-// Log Types
-export interface AILog {
-  id: string
-  level: 'info' | 'warn' | 'error' | 'debug'
-  message: string
-  timestamp: string
-  documentId?: string | number
-  sessionId?: string
-  provider?: string
-  model?: string
-  metadata?: Record<string, any>
-}
-
-// Response Types
-export interface IResponse<T> {
+export interface AIReindexResponse {
   success: boolean
-  data?: T
-  message?: string
-  error?: string
   code?: string
-  // For AI responses that return answer directly
-  answer?: string
+  message: string
+  data: { queued: number }
+}
+
+export interface ChatMessage {
+  id: number
+  type: 'user' | 'ai'
+  content: string
+  timestamp: Date
   sources?: AISource[]
   tokens?: number
-  processingTime?: number
-  confidence?: number
-  sessionId?: string
+  provider?: string
+  model?: string
 }
 
-// Error Types
-export interface AIError {
-  code: string
-  message: string
-  details?: string
-  timestamp: string
-  documentId?: string | number
-  sessionId?: string
-} 
+export interface AIModel {
+  id: string
+  name: string
+  provider: string
+  size?: number
+  /** Release date (Ollama: pull date) as a unix timestamp; the list is sorted by it. */
+  created?: number
+}
+
+export interface AIModelsResponse {
+  success: boolean
+  data: AIModel[]
+  provider: string
+  /** How many models were asked for. 0 means the full catalogue. */
+  limit?: number
+  /** Present when the provider could not be reached; data is then empty. */
+  error?: string
+}
+
+export type AISettingGroup = 'general' | 'chat' | 'embeddings' | 'retrieval' | 'indexing' | 'credentials'
+export type AISettingType = 'boolean' | 'string' | 'url' | 'int' | 'number' | 'enum' | 'secret'
+
+export interface AISetting {
+  key: string
+  label: string
+  description: string
+  group: AISettingGroup
+  type: AISettingType
+  /** Allowed values when type is 'enum'. */
+  values: string[] | null
+  min: number | null
+  max: number | null
+  /** Changing this invalidates existing vectors; the UI warns before saving. */
+  requiresReindex: boolean
+  /** Value currently in effect. Always null for a credential. */
+  value: string | number | boolean | null
+  /** What it would fall back to with no override. Always null for a credential. */
+  envValue: string | number | boolean | null
+  overridden: boolean
+  /** Credentials only: the environment variable this falls back to. */
+  envVar?: string
+  /** Credentials only: whether a key is in effect, from either source. */
+  configured?: boolean
+  /** Credentials only: masked hint such as `sk-p…7Xa2`, enough to tell keys apart. */
+  hint?: string | null
+  /** Credentials only: whether the environment holds a key to fall back to. */
+  envConfigured?: boolean
+  /** Credentials only: a key was revoked here, so the environment one is ignored. */
+  revoked?: boolean
+  /** Credentials only: false when the server has no encryption key and cannot store one. */
+  storable?: boolean
+}
+
+export interface AISettingChange {
+  key: string
+  value?: string | number | boolean
+  /** false drops the override and reverts to the environment value. */
+  overridden?: boolean
+  /** Credentials only: clear the key and ignore the environment one. */
+  revoked?: boolean
+}
+
+export interface AISettingsPayload {
+  settings: AISetting[]
+  providers: AIProvider[]
+  /** Whether each API key is present in the environment. Keys are never sent. */
+  credentials: { openai: boolean; xai: boolean }
+}

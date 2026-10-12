@@ -2400,7 +2400,8 @@ const fetchAIProviders = async () => {
 
 const fetchAIModels = async () => {
   try {
-    const response = await getAIModels()
+    // Models are listed per provider now, queried live from the provider.
+    const response = await getAIModels(aiConfig.provider)
     if (response.success && response.data) {
       availableModels.value = response.data.filter(model => model.provider === aiConfig.provider)
       if (availableModels.value.length > 0 && !availableModels.value.find(m => m.id === aiConfig.model)) {

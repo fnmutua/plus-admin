@@ -197,7 +197,6 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
             if (id.includes('node_modules/echarts')) return 'echarts'
             if (id.includes('mapbox') || id.includes('@mapbox')) return 'mapbox'
             if (id.includes('@turf')) return 'turf'
-            if (id.includes('langchain') || id.includes('@langchain')) return 'langchain'
             if (id.includes('lodash')) return 'lodash'
             if (id.includes('@vue') || id.includes('vue-router') || id.includes('pinia')) {
               return 'vue-vendor'

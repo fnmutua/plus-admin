@@ -1,311 +1,304 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
-import { ElButton, ElInput, ElMessage, ElSelect, ElOption, ElDialog, ElDivider, ElBadge, ElOptionGroup } from 'element-plus'
+import { ref, reactive, computed, nextTick, watch } from 'vue'
+import {
+  ElDrawer, ElInput, ElButton, ElSelect, ElOption, ElOptionGroup,
+  ElMessage, ElTooltip
+} from 'element-plus'
 import { Icon } from '@iconify/vue'
-import { askAIDocument, getAIProviders, getAIModels, processExistingDocumentsWithAI } from '@/api/ai'
-import { useAppStore } from '@/store/modules/app'
+import { askAIDocument, getAIProviders, getAIModels, clearAISession } from '@/api/ai'
 import { getFile } from '@/api/summary'
-   
+import { useAppStore } from '@/store/modules/app'
+import type { AISource } from '@/api/ai/types'
+
 const appStore = useAppStore()
 
-// Modal state
-const visible = ref(false)
-
-// Chat state
-const chatMessages = ref<any[]>([])
-const currentQuestion = ref('')
-const isProcessing = ref(false)
-const sessionId = ref('default')
-const expandedSources = ref(new Set())
-const chatContainer = ref<HTMLElement>()
-
-const groupedModels = [
-  {
-    label: 'ollama',
-    disabled:false,
-    options: [
-      {
-        id: 'mistral',
-        name: 'mistral',
-      },
-      {
-        id: 'gemma3n',
-        name: 'gemma3n',
-      },
-      {
-        id: 'gemma3:1b',
-        name: 'gemma3:1b',
-      },
-      {
-        id: 'deepseek-r1:1.5b',
-        name: 'deepseek-r1:1.5',
-      },
-      {
-        id: 'llama3.2:1b',
-        name: 'llama3.2:1b',
-      },
-    ],
-  },
-  {
-    label: 'xai',
-    disabled:true,
-    options: [
-      {
-        id: 'grok-3-mini-fast',
-        name: 'grok-3-mini-fast',
-      },
-      {
-        id: 'grok-3-mini',
-        name: 'grok-3-m ini',
-      },
-      {
-        id: 'grok-3',
-        name: 'grok-3',
-      },
-      {
-        id: 'grok-4-0709',
-        name: 'grok-4-0709',
-      },
-    ],
-  },
-  {
-    label: 'openai',
-    options: [
-      {
-        id: 'o4-mini',
-        name: 'o4-mini',
-      },
-      {
-        id: 'gpt-4.1-mini',
-        name: 'gpt-4.1-mini',
-      },
-      {
-        id: 'o3',
-        name: 'o3',
-      },
-      {
-        id: 'gpt-4.1',
-        name: 'gpt-4.1',
-      },
-    ],
-  },
-]
-
-// AI Configuration
-const aiConfig = reactive({
-  provider: groupedModels[0].label,
-  model: groupedModels[0].options[0].id
-})
-
- 
- 
- 
- 
-
- 
-
- 
-
-// Process existing documents functionality
-const isProcessingExisting = ref(false)
- 
-// Load AI configuration
-const loadAIConfig = () => {
-  const saved = localStorage.getItem('aiConfig')
-  if (saved) {
-    try {
-      const config = JSON.parse(saved)
-      Object.assign(aiConfig, config)
-    } catch (error) {
-      console.error('Error loading AI config:', error)
-      // Fallback to first group and model
-      aiConfig.provider = groupedModels[0].label
-      aiConfig.model = groupedModels[0].options[0].id
-    }
-  } else {
-    // Set default to first group and model
-    aiConfig.provider = groupedModels[0].label
-    aiConfig.model = groupedModels[0].options[0].id
-  }
+interface ChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+  sources?: AISource[]
+  tokens?: number
+  provider?: string
+  model?: string
+  retrieval?: 'vector' | 'keyword' | 'recent' | 'none'
+  isError?: boolean
+  stopped?: boolean
 }
+
+/* ------------------------------------------------------------------ state */
+
+const visible = ref(false)
+const wide = ref(false)
+const messages = ref<ChatMessage[]>([])
+const draft = ref('')
+const isProcessing = ref(false)
+const scroller = ref<HTMLElement>()
+const composer = ref()
+const expandedSources = ref<Set<number>>(new Set())
+const copiedId = ref<number | null>(null)
+
+/** Present only while a question is in flight; aborting it stops the model. */
+let inFlight: AbortController | null = null
+const wasStopped = ref(false)
+/** Set when the stop came from a reset, where a "Stopped" note would land in
+ *  the new, empty thread and make no sense to the reader. */
+let discardStopNotice = false
+
+const newSessionId = () => `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const sessionId = ref(newSessionId())
+
+const isMobile = computed(() => appStore.getMobile || window.innerWidth <= 768)
+const drawerSize = computed(() => (isMobile.value ? '100%' : wide.value ? '820px' : '560px'))
+
+/* -------------------------------------------------------------- model picker */
+
+interface ModelOption { id: string; name: string }
+interface ModelGroup { label: string; provider: string; options: ModelOption[] }
+
+const groupedModels = ref<ModelGroup[]>([])
+const modelsLoading = ref(false)
+const serverDefault = reactive({ provider: '', model: '' })
+const aiConfig = reactive({ provider: '', model: '' })
+
+const findGroupFor = (modelId: string) =>
+  groupedModels.value.find((group) => group.options.some((option) => option.id === modelId))
 
 const saveAIConfig = () => {
   try {
     localStorage.setItem('aiConfig', JSON.stringify(aiConfig))
-  } catch (error) {
-    console.error('Error saving AI config:', error)
+  } catch {
+    /* private mode — the server default still applies */
   }
 }
 
- 
- 
- 
- 
+const reconcileSelection = () => {
+  const saved = findGroupFor(aiConfig.model)
+  if (aiConfig.model && saved) {
+    aiConfig.provider = saved.provider
+    return
+  }
 
- 
+  const preferred = findGroupFor(serverDefault.model)
+  const group = preferred || groupedModels.value[0]
 
- 
-
-// Handle model change
-const handleModelChange = () => {
-  // Find which group the selected model belongs to and update provider
-  for (const group of groupedModels) {
-    const foundModel = group.options.find(option => option.id === aiConfig.model)
-    if (foundModel) {
-      aiConfig.provider = group.label
-      break
-    }
+  if (group) {
+    aiConfig.provider = group.provider
+    aiConfig.model = preferred ? serverDefault.model : group.options[0].id
+  } else {
+    // Nothing to pick from: send nothing and let the server decide.
+    aiConfig.provider = ''
+    aiConfig.model = ''
   }
   saveAIConfig()
 }
 
- 
- 
- 
- 
+const loadModels = async () => {
+  modelsLoading.value = true
+  try {
+    const providers = await getAIProviders()
+    serverDefault.provider = providers.active?.chat || ''
+    serverDefault.model = providers.active?.model || ''
 
- 
+    const usable = (providers.data || []).filter((provider) => provider.isAvailable && provider.chat)
 
-// Chat functions
-const sendQuestion = async () => {
-  if (!currentQuestion.value.trim() || isProcessing.value) return
+    const groups = await Promise.all(
+      usable.map(async (provider) => {
+        const models = await getAIModels(provider.id).catch(() => ({ data: [] }))
+        return {
+          label: provider.name,
+          provider: provider.id,
+          options: (models.data || []).map((model) => ({ id: model.id, name: model.name }))
+        } as ModelGroup
+      })
+    )
 
-  const userMessage = {
-    id: Date.now(),
-    type: 'user',
-    content: currentQuestion.value,
-    timestamp: new Date()
+    groupedModels.value = groups.filter((group) => group.options.length > 0)
+  } catch (error) {
+    console.error('Could not load AI providers:', error)
+    groupedModels.value = []
+  } finally {
+    modelsLoading.value = false
+    reconcileSelection()
+  }
+}
+
+const handleModelChange = () => {
+  const group = findGroupFor(aiConfig.model)
+  if (group) aiConfig.provider = group.provider
+  saveAIConfig()
+}
+
+const loadAIConfig = async () => {
+  try {
+    const saved = localStorage.getItem('aiConfig')
+    if (saved) Object.assign(aiConfig, JSON.parse(saved))
+  } catch (error) {
+    console.error('Discarding unreadable saved AI config:', error)
+  }
+  await loadModels()
+}
+
+/* ------------------------------------------------------------- rendering */
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (character) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] as string
+  ))
+
+/**
+ * Minimal, safe formatting. The text is escaped first and only then given
+ * structure, so a model that emits HTML cannot inject it into the page.
+ */
+const render = (raw: string) => {
+  let html = escapeHtml(raw)
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => `<pre><code>${code.replace(/\n$/, '')}</code></pre>`)
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  // Citation filenames the prompt asks the model to emit, e.g. [report.pdf]
+  html = html.replace(/\[([^\]\n]+\.(?:pdf|docx|csv|txt|md|json|png|jpg))\]/gi, '<span class="cite">$1</span>')
+  return html
+}
+
+/** Group a message's chunk-level sources into one entry per document. */
+const groupSources = (sources: AISource[] = []) => {
+  const byFile = new Map<string, { filename: string; chunks: number; best: number; preview: string; fileType?: string; fileSize?: number }>()
+
+  for (const source of sources) {
+    const existing = byFile.get(source.filename)
+    if (existing) {
+      existing.chunks += 1
+      if (source.similarity > existing.best) {
+        existing.best = source.similarity
+        existing.preview = source.preview
+      }
+    } else {
+      byFile.set(source.filename, {
+        filename: source.filename,
+        chunks: 1,
+        best: source.similarity,
+        preview: source.preview,
+        fileType: source.fileType,
+        fileSize: source.fileSize
+      })
+    }
   }
 
-  chatMessages.value.push(userMessage)
-  const question = currentQuestion.value
-  currentQuestion.value = ''
+  return [...byFile.values()].sort((a, b) => b.best - a.best)
+}
+
+const formatFileSize = (bytes?: number) => {
+  if (!bytes) return ''
+  const units = ['B', 'KB', 'MB', 'GB']
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  return `${parseFloat((bytes / 1024 ** index).toFixed(1))} ${units[index]}`
+}
+
+const formatTime = (value: Date) =>
+  new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(value)
+
+/* -------------------------------------------------------------- behaviour */
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight
+  })
+}
+
+watch(messages, scrollToBottom, { deep: true })
+
+const SUGGESTIONS = [
+  'Summarise the most recently uploaded document',
+  'What key dates and deadlines are mentioned?',
+  'Which settlements are referred to in the documents?',
+  'What does the latest report cover?'
+]
+
+const askSuggestion = (text: string) => {
+  draft.value = text
+  sendQuestion()
+}
+
+const sendQuestion = async () => {
+  const question = draft.value.trim()
+  if (!question || isProcessing.value) return
+
+  messages.value.push({ id: Date.now(), role: 'user', content: question, timestamp: new Date() })
+  draft.value = ''
   isProcessing.value = true
+  wasStopped.value = false
+  inFlight = new AbortController()
+  scrollToBottom()
 
   try {
     const response = await askAIDocument({
       question,
       sessionId: sessionId.value,
-      provider: aiConfig.provider,
-      model: aiConfig.model
-    })
-
-    console.log('AI Response:', response) // Debug log
+      // Omitted when unset so the server uses its configured default.
+      ...(aiConfig.provider ? { provider: aiConfig.provider } : {}),
+      ...(aiConfig.model ? { model: aiConfig.model } : {})
+    }, inFlight.signal)
 
     if (response.success) {
-      const aiMessage = {
+      messages.value.push({
         id: Date.now() + 1,
-        type: 'ai',
-        content: response.answer || response.data?.answer || 'No response received',
+        role: 'assistant',
+        content: response.answer,
         timestamp: new Date(),
-        sources: response.sources || response.data?.sources || [],
-        tokens: response.tokens || response.data?.tokens || 0,
-        provider: aiConfig.provider,
-        model: aiConfig.model
-      }
-      chatMessages.value.push(aiMessage)
+        sources: response.sources || [],
+        tokens: response.tokens || 0,
+        provider: response.provider || aiConfig.provider,
+        model: response.model || aiConfig.model,
+        retrieval: response.retrieval
+      })
     } else {
-      ElMessage.error(response.message || 'Failed to get AI response')
+      throw new Error(response.message || 'The assistant returned no answer')
     }
   } catch (error: any) {
-    console.error('Error asking AI:', error)
-    
-    // Format error message from backend
-    let errorMessage = 'An error occurred while processing your request.'
-    
-    if (error.response?.data?.details) {
-      errorMessage = error.response.data.details
-    } else if (error.response?.data?.message) {
-      errorMessage = error.response.data.message
-    } else if (error.response?.data?.error?.message) {
-      errorMessage = error.response.data.error.message
-    } else if (error.message) {
-      errorMessage = error.message
+    // A stop is the user getting what they asked for, not a failure.
+    if (wasStopped.value || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
+      if (discardStopNotice) return
+      messages.value.push({
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: 'Stopped.',
+        timestamp: new Date(),
+        stopped: true
+      })
+      return
     }
-    
-    // Add error message to chat
-    const errorMessageObj = {
+
+    const detail = error?.response?.data?.message
+      || error?.response?.data?.details
+      || error?.message
+      || 'Something went wrong'
+    messages.value.push({
       id: Date.now() + 1,
-      type: 'ai',
-      content: `❌ **Error**: ${errorMessage}`,
+      role: 'assistant',
+      content: detail,
       timestamp: new Date(),
-      provider: aiConfig.provider,
-      model: aiConfig.model,
       isError: true
-    }
-    chatMessages.value.push(errorMessageObj)
-    
-    // Show toast notification
-    ElMessage.error(errorMessage)
+    })
   } finally {
+    inFlight = null
+    discardStopNotice = false
     isProcessing.value = false
-    nextTick(() => {
-      if (chatContainer.value) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-      }
-    })
+    scrollToBottom()
   }
 }
 
-const clearChatHistory = () => {
-  // Cancel any ongoing request
-  isProcessing.value = false
-  
-  // Clear chat messages
-  chatMessages.value = []
-  sessionId.value = 'default'
-  
-  // Clear current question
-  currentQuestion.value = ''
-  
-  ElMessage.success('Chat history cleared')
+/**
+ * Abort the in-flight request; the server relays it to the model, which stops
+ * generating instead of finishing an answer nobody is waiting for.
+ * @param silent true when the thread is being cleared, so no notice is shown.
+ */
+const stopGeneration = (silent = false) => {
+  if (!inFlight) return
+  wasStopped.value = true
+  discardStopNotice = silent
+  inFlight.abort()
 }
 
-const toggleSources = (index: number) => {
-  if (expandedSources.value.has(index)) {
-    expandedSources.value.delete(index)
-  } else {
-    expandedSources.value.add(index)
-  }
-}
-
-const formatTimestamp = (timestamp: Date) => {
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(timestamp)
-}
-
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-// Process existing documents functionality
-const processExistingDocuments = async () => {
-  isProcessingExisting.value = true
-  try {
-    const response = await processExistingDocumentsWithAI({ 
-      processAll: true
-    })
-    
-    if (response.success) {
-      ElMessage.success('AI processing started successfully')
-    } else {
-      ElMessage.error(response.message || 'Failed to start AI processing')
-    }
-  } catch (error) {
-    console.error('Error processing existing documents:', error)
-    ElMessage.error('Error: ' + (error instanceof Error ? error.message : String(error)))
-  } finally {
-    isProcessingExisting.value = false
-  }
-}
-
-// Handle Enter key
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -313,732 +306,816 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
-// Expose methods for parent component
-const openModal = () => {
-  visible.value = true
-  loadAIConfig()
-}
+const startNewChat = async () => {
+  stopGeneration(true)
+  isProcessing.value = false
+  messages.value = []
+  draft.value = ''
+  expandedSources.value = new Set()
 
-const closeModal = () => {
-  visible.value = false
-}
-
-const downloadFile = async (filename: string, format: string) => {
+  // Conversation memory lives on the server, so a new chat has to clear it
+  // there too, or the next answer still remembers the old thread.
   try {
-    ElMessage.info(`Starting download: ${filename}`)
-    let fname = filename
-    if (!/\.\w+$/.test(filename) && format) {
-      fname = filename + '.' + format
-    }
-    const formData: any = { filename: fname, responseType: 'blob' }
-    const response = await getFile(formData)
-    const url = window.URL.createObjectURL(new Blob([response.data]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', fname)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    ElMessage.success(`Download completed: ${fname}`)
+    await clearAISession(sessionId.value)
   } catch (error) {
-    console.error('Error downloading file:', error)
-    ElMessage.error('Download failed.')
+    console.error('Could not clear server-side history:', error)
+  }
+  sessionId.value = newSessionId()
+  nextTick(() => composer.value?.focus())
+}
+
+const toggleSources = (id: number) => {
+  const next = new Set(expandedSources.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedSources.value = next
+}
+
+const copyMessage = async (message: ChatMessage) => {
+  try {
+    await navigator.clipboard.writeText(message.content)
+    copiedId.value = message.id
+    setTimeout(() => { if (copiedId.value === message.id) copiedId.value = null }, 1600)
+  } catch {
+    ElMessage.error('Could not copy to clipboard')
   }
 }
 
-defineExpose({
-  openModal,
-  closeModal
-})
+const downloadFile = async (filename: string, fileType?: string) => {
+  try {
+    let name = filename
+    if (!/\.\w+$/.test(filename) && fileType) name = `${filename}.${fileType}`
+    const response = await getFile({ filename: name, responseType: 'blob' } as any)
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', name)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Download failed:', error)
+    ElMessage.error('Download failed')
+  }
+}
 
-onMounted(() => {
+const openModal = () => {
+  visible.value = true
   loadAIConfig()
-})
+  nextTick(() => composer.value?.focus())
+}
 
-watch(chatMessages, () => {
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-    }
-  });
-});
+const closeModal = () => {
+  stopGeneration()
+  visible.value = false
+}
 
-const isMobile = computed(() => appStore.getMobile || window.innerWidth <= 768)
-const dialogWidth = computed(() => isMobile.value ? '100%' : '50%')
+defineExpose({ openModal, closeModal })
 </script>
 
 <template>
-  <el-dialog
+  <ElDrawer
     v-model="visible"
-    title="KeSMIS AI Assistant"
-    :width="dialogWidth"
-    :before-close="closeModal"
-    class="ai-assistant-dialog"
-    top="4vh"
+    :size="drawerSize"
+    direction="rtl"
+    :with-header="false"
+    :close-on-click-modal="true"
+    class="ai-drawer"
+    @closed="closeModal"
   >
-    <!-- Custom header with model selector -->
-    <template #header>
-      <div class="dialog-header">
-        <span>KeSMIS AI Assistant</span>
-        <el-divider direction="vertical" class="header-divider" />
-        <div class="model-selector-container">
-          <label class="model-label">Model:</label>
-          <el-select 
-            v-model="aiConfig.model" 
-            placeholder="Model" 
-            class="header-model-select"
-            @change="handleModelChange"
+    <div class="ai-shell">
+      <!-- ─────────────────────────────── header -->
+      <header class="ai-header">
+        <div class="ai-brand">
+          <span class="ai-mark"><Icon icon="mingcute:ai-fill" /></span>
+          <div class="ai-title">
+            <strong>KeSMIS Assistant</strong>
+            <span class="ai-subtitle">Answers from your indexed documents</span>
+          </div>
+        </div>
+
+        <div class="ai-actions">
+          <ElSelect
+            v-model="aiConfig.model"
             size="small"
+            class="ai-model-select"
+            placeholder="Model"
+            :loading="modelsLoading"
+            :no-data-text="modelsLoading ? 'Loading…' : 'No models available'"
+            @change="handleModelChange"
           >
-            <el-option-group
+            <ElOptionGroup
               v-for="group in groupedModels"
-              :key="group.label"
+              :key="group.provider"
               :label="group.label"
             >
-              <el-option
+              <ElOption
                 v-for="model in group.options"
                 :key="model.id"
-                :label="model.name"
-                :disabled="group.disabled"
                 :value="model.id"
+                :label="model.name"
               />
-            </el-option-group>
-          </el-select>
+            </ElOptionGroup>
+          </ElSelect>
+
+          <ElTooltip content="New chat" placement="bottom">
+            <button class="icon-button" :disabled="!messages.length" @click="startNewChat">
+              <Icon icon="material-symbols:add-comment-outline" />
+            </button>
+          </ElTooltip>
+
+          <ElTooltip :content="wide ? 'Narrow' : 'Widen'" placement="bottom">
+            <button v-if="!isMobile" class="icon-button" @click="wide = !wide">
+              <Icon :icon="wide ? 'material-symbols:collapse-content' : 'material-symbols:expand-content'" />
+            </button>
+          </ElTooltip>
+
+          <ElTooltip content="Close" placement="bottom">
+            <button class="icon-button" @click="closeModal">
+              <Icon icon="material-symbols:close" />
+            </button>
+          </ElTooltip>
         </div>
-      </div>
-    </template>
+      </header>
 
-    <div class="ai-assistant-container">
-      <!-- Chat Messages -->
-      <div class="chat-layout">
-        <!-- Scrollable Messages Area -->
-        <div ref="chatContainer" class="chat-messages">
-          <div v-if="chatMessages.length === 0" class="welcome-message">
-            <h3>Welcome to KeSMIS AI Assistant</h3>
-             
-            <!-- Centered Input Area for Empty State -->
-            <div class="centered-input-container">
-              <div class="input-wrapper">
-                <el-input
-                  v-model="currentQuestion"
-                  placeholder="Ask me anything about KeSMIS, settlements, projects, or documents..."
-                  type="textarea"
-                  :rows="3"
-                  :autosize="{ minRows: 3, maxRows: 6 }"
-                  @keydown="handleKeyDown"
-                  :disabled="isProcessing"
-                  class="centered-chat-input"
-                />
-                <el-button 
-                  v-if="currentQuestion.trim()"
-                  @click="sendQuestion" 
-                  type="primary" 
-                  :disabled="isProcessing"
-                  class="send-button-inside"
-                  :loading="isProcessing"
-                >
-                  <Icon v-if="!isProcessing" icon="material-symbols:send" width="16" />
-                </el-button>
-              </div>
-              <div class="input-footer">
-                <span class="input-hint">Press Enter to send, Shift+Enter for new line</span>
-              </div>
-            </div>
+      <!-- ─────────────────────────────── transcript -->
+      <div ref="scroller" class="ai-scroll">
+        <div v-if="!messages.length" class="ai-empty">
+          <span class="empty-mark"><Icon icon="mingcute:ai-fill" /></span>
+          <h2>How can I help?</h2>
+          <p>
+            Ask about settlements, facilities, projects or any document that has been
+            indexed. Answers cite the files they come from.
+          </p>
+          <div class="suggestions">
+            <button
+              v-for="suggestion in SUGGESTIONS"
+              :key="suggestion"
+              class="suggestion"
+              @click="askSuggestion(suggestion)"
+            >
+              <span>{{ suggestion }}</span>
+              <Icon icon="material-symbols:arrow-forward" />
+            </button>
           </div>
+        </div>
 
-          <div v-for="(message, index) in chatMessages" :key="message.id" class="message-container">
-            <div :class="['message', message.type === 'user' ? 'user-message' : 'ai-message']">
-              <div class="message-avatar">
-                <Icon 
-                  :icon="message.type === 'user' ? 'material-symbols:person' : 'mingcute:mic-ai-fill'" 
-                  width="24" 
-                  :color="message.type === 'user' ? '#409eff' : '#67c23a'" 
-                />
-              </div>
-              <div class="message-content">
-                <div class="message-header">
-                  <span class="message-author">{{ message.type === 'user' ? 'You' : 'AI Assistant' }}</span>
-                  <span class="message-time">{{ formatTimestamp(message.timestamp) }}</span>
-                  <span v-if="message.tokens" class="message-tokens">{{ message.tokens }} tokens</span>
-                  <span v-if="message.type === 'ai' && message.provider" class="message-provider">{{ message.provider }} / {{ message.model }}</span>
+        <div v-else class="ai-thread">
+          <template v-for="message in messages" :key="message.id">
+            <!-- user turn: right-aligned bubble -->
+            <div v-if="message.role === 'user'" class="turn turn--user">
+              <div class="bubble">{{ message.content }}</div>
+            </div>
+
+            <!-- assistant turn: full width, no bubble -->
+            <div v-else class="turn turn--assistant">
+              <span class="turn-avatar" :class="{ 'is-error': message.isError }">
+                <Icon :icon="message.isError ? 'material-symbols:error-outline' : 'mingcute:ai-fill'" />
+              </span>
+
+              <div class="turn-body">
+                <div
+                  class="prose"
+                  :class="{ 'is-error': message.isError }"
+                  v-html="render(message.content)"
+                ></div>
+
+                <!-- Retrieval quality is surfaced, not hidden: a keyword answer
+                     is weaker than a vector one and the reader should know. -->
+                <div v-if="message.retrieval === 'keyword'" class="degraded">
+                  <Icon icon="material-symbols:warning-outline" />
+                  Vector search was unavailable — this used keyword matching.
                 </div>
-                <div class="message-text" :class="{ error: message.isError }" v-html="message.content.replace(/\n/g, '<br>')"></div>
-                
-                <!-- Sources -->
-                <div v-if="message.sources && message.sources.length > 0" class="message-sources">
-                  <el-button 
-                    @click="toggleSources(index)" 
-                    type="text" 
-                    size="small"
-                    class="sources-toggle"
-                  >
-                    <Icon 
-                      :icon="expandedSources.has(index) ? 'material-symbols:expand-less' : 'material-symbols:expand-more'" 
-                      width="16" 
-                      style="margin-right: 4px;"
+
+                <div v-if="message.sources?.length" class="sources">
+                  <button class="sources-toggle" @click="toggleSources(message.id)">
+                    <Icon
+                      :icon="expandedSources.has(message.id)
+                        ? 'material-symbols:keyboard-arrow-down'
+                        : 'material-symbols:chevron-right'"
                     />
-                    📚 Sources ({{ new Set(message.sources.map((s: any) => s.filename)).size }} documents)
-                  </el-button>
-                  
-                  <div v-if="expandedSources.has(index)" class="sources-content">
+                    {{ groupSources(message.sources).length }}
+                    source{{ groupSources(message.sources).length === 1 ? '' : 's' }}
+                  </button>
+
+                  <div v-if="expandedSources.has(message.id)" class="source-list">
                     <div
-                      v-for="document in Object.values(message.sources.reduce((acc: any, source: any) => {
-                        if (!acc[source.filename]) {
-                          acc[source.filename] = {
-                            filename: source.filename,
-                            chunks: [],
-                            maxSimilarity: 0,
-                            fileSize: source.fileSize,
-                            fileType: source.fileType
-                          };
-                        }
-                        acc[source.filename].chunks.push(source);
-                        if (source.similarity && parseFloat(source.similarity) > acc[source.filename].maxSimilarity) {
-                          acc[source.filename].maxSimilarity = parseFloat(source.similarity);
-                        }
-                        return acc;
-                      }, {})) as any" 
-                      :key="(document as any).filename" 
-                      class="source-document"
+                      v-for="source in groupSources(message.sources)"
+                      :key="source.filename"
+                      class="source"
                     >
-                      <div class="source-header">
-                        <strong>{{ (document as any).filename }}</strong>
-                        <el-button
-                          v-if="!(document as any).filename.toLowerCase().endsWith('.json')"
-                          type="text"
-                          size="small"
-                          style="margin-left: 10px; color: #409eff; font-size: 13px; vertical-align: middle;"
-                          :title="`Download ${ (document as any).filename }`"
-                          @click="downloadFile((document as any).filename, (document as any).fileType)"
+                      <div class="source-head">
+                        <Icon icon="material-symbols:description-outline" />
+                        <span class="source-name" :title="source.filename">{{ source.filename }}</span>
+                        <span class="source-score">{{ (source.best * 100).toFixed(0) }}%</span>
+                        <button
+                          v-if="source.fileType !== 'record'"
+                          class="icon-button icon-button--tiny"
+                          title="Download"
+                          @click="downloadFile(source.filename, source.fileType)"
                         >
-                          <Icon icon="material-symbols:download" width="16" style="margin-right: 2px;" />
-                          Download
-                        </el-button>
-                        <div class="source-badges">
-                          <el-badge v-if="(document as any).maxSimilarity > 0" :value="`${((document as any).maxSimilarity * 100).toFixed(1)}%`" class="similarity-badge" />
-                          <el-badge :value="`${(document as any).chunks.length} chunks`" class="chunks-badge" />
-                        </div>
+                          <Icon icon="material-symbols:download" />
+                        </button>
                       </div>
-                      <div v-if="(document as any).chunks[0].preview" class="source-preview">
-                        {{ (document as any).chunks[0].preview }}
-                      </div>
+                      <p class="source-preview">{{ source.preview }}</p>
                       <div class="source-meta">
-                        <span v-if="(document as any).fileSize">Size: {{ formatFileSize(parseInt((document as any).fileSize)) }}</span>
-                        <span v-if="(document as any).fileType"> • Type: {{ (document as any).fileType.toUpperCase() }}</span>
+                        <span>{{ source.chunks }} excerpt{{ source.chunks === 1 ? '' : 's' }}</span>
+                        <span v-if="source.fileSize"> · {{ formatFileSize(source.fileSize) }}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <!-- Loading indicator -->
-          <div v-if="isProcessing" class="message-container">
-            <div class="message ai-message">
-              <div class="message-avatar">
-                <Icon icon="ri:mic-ai-line" width="24" color="#67c23a" />
-              </div>
-              <div class="message-content">
-                <div class="loading-indicator">
-                  <div class="typing-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span>Analyzing data and documents...</span>
+                <div class="turn-foot">
+                  <button class="foot-action" @click="copyMessage(message)">
+                    <Icon :icon="copiedId === message.id ? 'material-symbols:check' : 'material-symbols:content-copy-outline'" />
+                    {{ copiedId === message.id ? 'Copied' : 'Copy' }}
+                  </button>
+                  <span class="foot-meta">{{ formatTime(message.timestamp) }}</span>
+                  <span v-if="message.model" class="foot-meta">{{ message.model }}</span>
+                  <span v-if="message.tokens" class="foot-meta">{{ message.tokens }} tokens</span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </template>
 
-        <!-- Fixed Input Area (only show when there are messages) -->
-        <div v-if="chatMessages.length > 0" class="chat-input-container">
-          <div class="input-wrapper">
-            <el-input
-              v-model="currentQuestion"
-              placeholder="Ask me anything about KeSMIS, settlements, projects, or documents..."
-              type="textarea"
-              :rows="4"
-              :autosize="{ minRows: 3, maxRows: 6 }"
-              @keydown="handleKeyDown"
-              :disabled="isProcessing"
-              class="chat-input"
-            />
-            <el-button 
-              v-if="currentQuestion.trim()"
-              @click="sendQuestion" 
-              type="primary" 
-              :disabled="isProcessing"
-              class="send-button-inside"
-              :loading="isProcessing"
-            >
-              <Icon v-if="!isProcessing" icon="material-symbols:send" width="16" />
-            </el-button>
-          </div>
-          <div class="input-footer">
-            <span class="input-hint">Press Enter to send, Shift+Enter for new line</span>
-            <el-button @click="clearChatHistory" type="warning" plain size="small" class="clear-chat-btn">
-              <Icon icon="material-symbols:clear-all" width="14" style="margin-right: 4px;" />
-              Clear Chat
-            </el-button>
+          <div v-if="isProcessing" class="turn turn--assistant">
+            <span class="turn-avatar"><Icon icon="mingcute:ai-fill" /></span>
+            <div class="turn-body">
+              <div class="dots"><span ></span><span ></span><span ></span></div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- ─────────────────────────────── composer -->
+      <footer class="ai-composer">
+        <div class="composer-box" :class="{ 'is-busy': isProcessing }">
+          <ElInput
+            ref="composer"
+            v-model="draft"
+            type="textarea"
+            :autosize="{ minRows: 1, maxRows: 8 }"
+            :disabled="isProcessing"
+            resize="none"
+            placeholder="Ask about your documents…"
+            @keydown="handleKeyDown"
+          />
+          <!-- While generating, the same control becomes Stop. One button in
+               one place, so there is never a send and a stop competing. -->
+          <button
+            v-if="isProcessing"
+            class="send send--stop"
+            title="Stop generating"
+            aria-label="Stop generating"
+            @click="stopGeneration"
+          >
+            <Icon icon="material-symbols:stop-rounded" />
+          </button>
+          <button
+            v-else
+            class="send"
+            :disabled="!draft.trim()"
+            title="Send"
+            aria-label="Send"
+            @click="sendQuestion"
+          >
+            <Icon icon="material-symbols:arrow-upward" />
+          </button>
+        </div>
+        <p class="composer-hint">
+          <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line.
+          Answers come only from indexed documents and can be wrong — check the sources.
+        </p>
+      </footer>
     </div>
-  </el-dialog>
+  </ElDrawer>
 </template>
 
 <style scoped>
-/* Grok-inspired typography and styling */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-.ai-assistant-dialog :deep(.el-dialog__body) {
-  padding: 0;
-}
-
-.ai-assistant-container {
-  display: flex;
-  height: 75vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.chat-layout {
+/* Palette is derived from Element Plus tokens so light and dark both work. */
+.ai-shell {
   display: flex;
   flex-direction: column;
-  flex: 1;
   height: 100%;
-  width: 100%;
-}
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
   background: var(--el-bg-color);
-}
-
-.welcome-message {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--el-text-color-regular);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-}
-
-.welcome-message h3 {
-  margin: 0 0 16px 0;
-  font-size: 24px;
-  font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
-.welcome-message p {
-  margin: 0 0 40px 0;
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--el-text-color-secondary);
-  max-width: 500px;
-}
-
-/* Centered Input Container */
-.centered-input-container {
-  width: 95%;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.centered-chat-input {
-  width: 100%;
-  position: relative;
-}
-
-.centered-chat-input :deep(.el-textarea__inner) {
-  border-radius: 16px;
-  resize: none;
-  padding: 16px 20px;
-  padding-right: 60px;
-  font-size: 16px;
-  line-height: 1.5;
-  min-height: 120px;
-  border: 1px solid var(--el-border-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.centered-chat-input :deep(.el-textarea__inner:focus) {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
-}
-
-.centered-input-container .input-wrapper {
+/* ── header ───────────────────────────────────────────────── */
+.ai-header {
   display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  margin-bottom: 12px;
-  width: 100%;
-  position: relative;
-}
-
-.send-button-inside {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 10;
-  transition: all 0.2s ease;
-}
-
-.send-button-inside:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.model-select-inside {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  width: 120px;
-  z-index: 10;
-}
-
-.model-select-inside :deep(.el-input__wrapper) {
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.model-select-inside :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.model-select-inside :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
-}
-
-.model-select-inside :deep(.el-select-dropdown) {
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.model-select-inside :deep(.el-select-dropdown__item) {
-  padding: 8px 16px;
-  font-size: 14px;
-}
-
-.model-select-inside :deep(.el-select-dropdown__item:hover) {
-  background-color: var(--el-color-primary-light-9);
-}
-
-.model-select-inside :deep(.el-select-dropdown__item.is-selected) {
-  background-color: var(--el-color-primary);
-  color: white;
-}
-
-.centered-input-container .input-footer {
-  text-align: center;
-}
-
-.centered-input-container .input-hint {
-  font-size: 12px;
-  color: var(--el-text-color-placeholder);
-}
-
-.message-container {
-  margin-bottom: 24px;
-}
-
-.message {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.message-avatar {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
+  gap: 12px;
   align-items: center;
-  justify-content: center;
-  background: var(--el-fill-color-light);
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.message-content {
-  flex: 1;
+.ai-brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
   min-width: 0;
 }
 
-.message-header {
+.ai-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-3));
+  border-radius: 9px;
+}
+
+.ai-title {
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.ai-title strong { font-size: 14px; font-weight: 600; }
+
+.ai-subtitle {
+  font-size: 11.5px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
 }
 
-.message-author {
-  font-weight: 600;
+.ai-model-select { width: 150px; }
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 17px;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--el-fill-color);
   color: var(--el-text-color-primary);
 }
 
-.message-time {
-  font-size: 12px;
-  color: var(--el-text-color-placeholder);
+.icon-button:disabled { opacity: 0.35; cursor: not-allowed; }
+.icon-button--tiny { width: 22px; height: 22px; font-size: 14px; }
+
+/* ── transcript ───────────────────────────────────────────── */
+.ai-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
-.message-tokens {
-  font-size: 12px;
-  color: var(--el-color-info);
-  background: var(--el-color-info-light-9);
-  padding: 2px 6px;
+.ai-scroll::-webkit-scrollbar { width: 8px; }
+.ai-scroll::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
   border-radius: 4px;
 }
 
-.message-provider {
-  font-size: 12px;
-  color: var(--el-color-success);
-  background: var(--el-color-success-light-9);
-  padding: 2px 6px;
-  border-radius: 4px;
+.ai-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px 20px 8px;
 }
 
-.message-text {
-  line-height: 1.6;
-  color: var(--el-text-color-primary);
-}
+.turn { display: flex; }
+.turn--user { justify-content: flex-end; }
 
-.message-text.error {
-  color: var(--el-color-danger);
-  background: var(--el-color-danger-light-9);
-  padding: 8px 12px;
-  border-radius: 6px;
-  border-left: 3px solid var(--el-color-danger);
-}
-
-.message-sources {
-  margin-top: 12px;
-}
-
-.sources-toggle {
-  color: var(--el-color-primary);
+.bubble {
+  max-width: 82%;
+  padding: 10px 14px;
   font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--el-fill-color);
+  border-radius: 16px 16px 4px 16px;
 }
 
-.sources-content {
-  margin-top: 12px;
-  padding: 12px;
-  background: var(--el-fill-color-light);
+.turn--assistant { gap: 12px; align-items: flex-start; }
+
+.turn-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  font-size: 15px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-3));
   border-radius: 8px;
 }
 
-.source-document {
-  margin-bottom: 12px;
+.turn-avatar.is-error {
+  background: var(--el-color-danger-light-3);
+}
+
+.turn-body { flex: 1; min-width: 0; }
+
+.prose {
+  font-size: 14px;
+  line-height: 1.68;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prose.is-error { color: var(--el-color-danger); }
+
+.prose :deep(pre) {
   padding: 12px;
-  background: var(--el-bg-color);
-  border-radius: 6px;
-  border: 1px solid var(--el-border-color-lighter);
+  margin: 10px 0;
+  overflow-x: auto;
+  font-size: 12.5px;
+  white-space: pre;
+  background: var(--el-fill-color-darker);
+  border-radius: 8px;
 }
 
-.source-header {
+.prose :deep(code) {
+  padding: 1px 5px;
+  font-family: var(--el-font-family-monospace, ui-monospace, monospace);
+  font-size: 0.9em;
+  background: var(--el-fill-color);
+  border-radius: 4px;
+}
+
+.prose :deep(pre code) { padding: 0; background: none; }
+
+.prose :deep(.cite) {
+  padding: 1px 6px;
+  font-size: 12px;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-radius: 4px;
+}
+
+.degraded {
   display: flex;
-  justify-content: space-between;
+  gap: 6px;
   align-items: center;
-  margin-bottom: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--el-color-warning);
 }
 
-.source-badges {
+/* ── sources ──────────────────────────────────────────────── */
+.sources { margin-top: 12px; }
+
+.sources-toggle {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px 4px 4px;
+  font-size: 12.5px;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+
+.sources-toggle:hover {
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-light);
+}
+
+.source-list {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+  margin-top: 8px;
 }
 
-.similarity-badge :deep(.el-badge__content) {
-  background: var(--el-color-success);
+.source {
+  padding: 10px 12px;
+  background: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
 }
 
-.chunks-badge :deep(.el-badge__content) {
-  background: var(--el-color-info);
+.source-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.source-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-score {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
+  border-radius: 20px;
 }
 
 .source-preview {
-  font-size: 14px;
-  color: var(--el-text-color-regular);
-  margin-bottom: 8px;
+  margin: 6px 0 0;
+  font-size: 12.5px;
   line-height: 1.5;
+  color: var(--el-text-color-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .source-meta {
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11.5px;
   color: var(--el-text-color-placeholder);
 }
 
-.loading-indicator {
+/* ── per-message footer ───────────────────────────────────── */
+.turn-foot {
   display: flex;
+  gap: 12px;
   align-items: center;
-  gap: 12px;
+  margin-top: 10px;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
-.typing-dots {
-  display: flex;
+.turn--assistant:hover .turn-foot,
+.turn-foot:focus-within { opacity: 1; }
+
+.foot-action {
+  display: inline-flex;
   gap: 4px;
-}
-
-.typing-dots span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--el-color-primary);
-  animation: typing 1.4s infinite ease-in-out;
-}
-
-.typing-dots span:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.typing-dots span:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes typing {
-  0%, 80%, 100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.chat-input-container {
-  padding: 20px;
-  border-top: 1px solid var(--el-border-color-light);
-  background: var(--el-bg-color);
-  display: flex;
-  justify-content: center;
-}
-
-.input-wrapper {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  position: relative;
-  width: 80%;
-  max-width: 800px;
-}
-
-.chat-input {
-  flex: 1;
-  position: relative;
-}
-
-.chat-input :deep(.el-textarea__inner) {
-  border-radius: 16px;
-  resize: none;
-  padding: 12px 16px;
-  padding-right: 60px;
-  font-size: 16px;
-  line-height: 1.5;
-  min-height: 120px;
-}
-
-.send-button {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  align-items: center;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  background: transparent;
+  border: none;
   padding: 0;
 }
 
-.input-footer {
-  margin-top: 8px;
-  text-align: center;
-}
+.foot-action:hover { color: var(--el-text-color-primary); }
 
-.input-hint {
-  font-size: 12px;
+.foot-meta {
+  font-size: 11.5px;
   color: var(--el-text-color-placeholder);
 }
 
-.clear-chat-btn {
-  margin-left: 10px;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .ai-assistant-container {
-    flex-direction: column;
-    height: 80vh;
-  }
-  
-  .chat-layout {
-    width: 100%;
-  }
-}
-
-.centered-input-container, .input-wrapper {
-  width: 95% !important;
-  max-width: 95% !important;
-}
-
-.dialog-header {
+/* ── empty state ──────────────────────────────────────────── */
+.ai-empty {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  width: 100%;
+  justify-content: center;
+  height: 100%;
+  padding: 32px 24px;
+  text-align: center;
 }
 
-.header-model-select {
-  width: 150px;
+.empty-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  font-size: 26px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-primary-light-3));
+  border-radius: 14px;
 }
 
-.header-model-select :deep(.el-input__wrapper) {
-  border-radius: 6px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color);
+.ai-empty h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
 }
 
-.header-model-select :deep(.el-input__wrapper:hover) {
-  border-color: var(--el-color-primary);
+.ai-empty p {
+  max-width: 380px;
+  margin: 0 0 24px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
 }
 
-.header-model-select :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 0 0 2px var(--el-color-primary-light-8);
-}
-
-.model-selector-container {
+.suggestions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
+  width: 100%;
+  max-width: 420px;
 }
 
-.model-label {
-  font-size: 14px;
+.suggestion {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  font-size: 13px;
+  text-align: left;
   color: var(--el-text-color-regular);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.header-divider {
-  margin: 0 16px;
-  height: 20px;
-}
-
-.header-divider :deep(.el-divider__text) {
+  cursor: pointer;
   background: transparent;
+  border: 1px solid var(--el-border-color);
+  border-radius: 12px;
+  transition: border-color 0.15s, background 0.15s;
 }
-</style> 
+
+.suggestion:hover {
+  background: var(--el-fill-color-light);
+  border-color: var(--el-color-primary);
+}
+
+.suggestion :deep(svg) {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--el-text-color-placeholder);
+}
+
+/* ── typing indicator ─────────────────────────────────────── */
+.dots { display: inline-flex; gap: 5px; padding: 8px 0; }
+
+.dots span {
+  width: 7px;
+  height: 7px;
+  background: var(--el-text-color-placeholder);
+  border-radius: 50%;
+  animation: blink 1.3s infinite ease-in-out;
+}
+
+.dots span:nth-child(2) { animation-delay: 0.18s; }
+.dots span:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots span { animation: none; opacity: 0.5; }
+}
+
+/* ── composer ─────────────────────────────────────────────── */
+.ai-composer {
+  flex-shrink: 0;
+  padding: 12px 20px 16px;
+  background: var(--el-bg-color);
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.composer-box {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 7px 7px 7px 14px;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color);
+  border-radius: 22px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.composer-box:focus-within {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
+}
+
+.composer-box :deep(.el-textarea__inner) {
+  padding: 6px 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--el-text-color-primary);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  resize: none;
+}
+
+.composer-box :deep(.el-textarea__inner):focus { box-shadow: none; }
+
+.send {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  color: var(--el-color-white);
+  cursor: pointer;
+  background: var(--el-color-primary);
+  border: none;
+  border-radius: 50%;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.send:hover:not(:disabled) { transform: scale(1.06); }
+
+.send--stop {
+  background: var(--el-text-color-primary);
+}
+
+.send--stop:hover { transform: scale(1.06); }
+
+.turn--stopped {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--el-text-color-placeholder);
+}
+
+.turn--stopped :deep(svg) { font-size: 15px; }
+
+.thinking {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.stop-inline {
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--el-border-color);
+  border-radius: 20px;
+}
+
+.stop-inline:hover {
+  color: var(--el-text-color-primary);
+  border-color: var(--el-text-color-placeholder);
+  background: var(--el-fill-color-light);
+}
+
+.send:disabled {
+  color: var(--el-text-color-placeholder);
+  cursor: not-allowed;
+  background: var(--el-fill-color-dark);
+}
+
+.composer-hint {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--el-text-color-placeholder);
+}
+
+.composer-hint kbd {
+  padding: 0 4px;
+  font-family: inherit;
+  font-size: 10.5px;
+  background: var(--el-fill-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+  .ai-thread { padding: 16px 14px 8px; }
+  .ai-composer { padding: 10px 14px 14px; }
+  .ai-model-select { width: 108px; }
+  .ai-subtitle { display: none; }
+  .bubble { max-width: 90%; }
+  /* Touch devices have no hover, so message actions stay visible. */
+  .turn-foot { opacity: 1; }
+}
+</style>
+
+<style>
+.ai-drawer .el-drawer__body {
+  padding: 0;
+  overflow: hidden;
+}
+</style>

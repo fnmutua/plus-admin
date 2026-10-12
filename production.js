@@ -252,6 +252,7 @@ app.use('/api/v1/hh', createCompressionMiddleware())
 // Public landing map GeoJSON (points + settlement polygons) — gzip only.
 app.use('/api/public', createCompressionMiddleware())
 require('./server/app/routes/all.routes')(app)
+require('./server/app/routes/ai.routes')(app)
 require('./server/app/routes/summary.routes')(app)
 
 // Dashboard bundle payloads (cards + all chart data) can be large; gzip cuts

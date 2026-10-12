@@ -25,9 +25,10 @@ module.exports = function(sequelize, DataTypes) {
       comment: 'Description of what this setting controls'
     },
     config_value: {
-      type: DataTypes.STRING(255),
+      // TEXT, not VARCHAR(255): encrypted AI provider keys are longer.
+      type: DataTypes.TEXT,
       allowNull: true,
-      comment: 'Optional config payload (e.g. numeric limits as string)'
+      comment: 'Optional config payload (e.g. numeric limits as string, or an encrypted credential)'
     },
     created_by: {
       type: DataTypes.INTEGER,
