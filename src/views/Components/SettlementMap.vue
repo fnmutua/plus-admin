@@ -41,6 +41,7 @@ import {
   type DrawerRecordMeta,
 } from './settlementMapDrawerInline'
 import { inlineSelectOptionsBase } from '@/views/Settlement/settlementInlineEditConfig'
+import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
 import { surveyStatusOptionsForPlanning } from '@/utils/validateSettlementAttributes'
 import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
 import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers, updateOneRecord } from '@/api/settlements'
@@ -1706,10 +1707,14 @@ const drawerActiveSelectFields = computed(() => {
   return []
 })
 
+const settlementTypesStore = useSettlementTypesStore()
+
 const syncDrawerSelectOptions = (kind: FeatureKind, featureType?: string) => {
   if (kind === 'settlement') {
     drawerSelectOptions.value = {
       ...inlineSelectOptionsBase,
+      // Managed list, not a hardcoded pair: see store/modules/settlementTypes.
+      settlement_type: settlementTypesStore.typeOptions,
       ...drawerVulnerabilitySelectOptions.value,
       survey_status: surveyStatusOptionsForPlanning(
         drawerRecordData.planning_status === '\u2014' ? null : drawerRecordData.planning_status
@@ -3148,6 +3153,7 @@ watch(userLocation, (newLocation) => {
 })
 
 onMounted(async () => {
+  settlementTypesStore.load()
   loadDrawerVulnerabilitySelectOptions()
 
   // Setup window resize listener for responsive drawer

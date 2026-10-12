@@ -48,8 +48,11 @@ const getCount = async () => {
 const getSettlementSummary = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterFields = ['settlement_type', 'isApproved']
-  countQuerry.criteria = ['Slum', 'Approved']
+  // Every approved settlement, whatever its type. This used to filter on
+  // settlement_type = 'Slum', which silently excluded the majority of the
+  // register now that types are managed rather than hardcoded.
+  countQuerry.filterFields = ['isApproved']
+  countQuerry.criteria = ['Approved']
   countQuerry.model = 'settlement'
   await getCountFilter(countQuerry, { model: 'settlement' }).then((response) => {
     totalState.NoSettlements = response.count
@@ -60,8 +63,11 @@ const getSettlementSummary = async () => {
 const getPopulationSummary = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterFields = ['settlement_type', 'isApproved']
-  countQuerry.criteria = ['Slum', 'Approved']
+  // Every approved settlement, whatever its type. This used to filter on
+  // settlement_type = 'Slum', which silently excluded the majority of the
+  // register now that types are managed rather than hardcoded.
+  countQuerry.filterFields = ['isApproved']
+  countQuerry.criteria = ['Approved']
   countQuerry.model = 'settlement'
   countQuerry.sumField = 'population'
   await getSumFilter(countQuerry).then((response) => {

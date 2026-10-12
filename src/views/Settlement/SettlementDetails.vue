@@ -38,6 +38,7 @@ import { getVulnerabilityMatrix, computeVulnerabilityScore } from '@/api/setting
 import { resolvePlanningSurveyFromRecord, surveyStatusOptionsForPlanning, normalizePlanningSurveyPair } from '@/utils/validateSettlementAttributes'
 import { buildSettlementEditQuery } from '@/utils/settlementEditNavigation'
 import { splitPopulationByCountySex, unwrapApiRecord } from '@/utils/countySexSplit'
+import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
 import {
   buildVulnerabilitySelectFallback,
   CLIMATE_VULN_ATTR_FIELDS,
@@ -654,7 +655,10 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
 
 const settlementId=ref(route.params.id)
 
+const settlementTypesStore = useSettlementTypesStore()
+
 onMounted(async () => {
+  settlementTypesStore.load()
   resetProfileCollapsedSections()
   mapLoading.value = true
   startMapLoadingTimeout()
@@ -1265,6 +1269,8 @@ async function loadVulnerabilityInlineSelectOptions() {
 
 const mergedInlineSelectOptions = computed(() => ({
   ...inlineSelectOptionsBase,
+  // Managed list, not a hardcoded pair: see store/modules/settlementTypes.
+  settlement_type: settlementTypesStore.typeOptions,
   ...vulnerabilityInlineSelectOptions.value,
   survey_status: surveyStatusOptionsForPlanning(
     profile.planning_status === '—' ? null : profile.planning_status

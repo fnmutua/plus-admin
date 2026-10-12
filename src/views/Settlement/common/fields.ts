@@ -119,10 +119,9 @@ const formFields: Field[][] = [
       type: "select",
       multiselect: "false",
       adminUnit: false,
-      options: [
-        { label: "Slum", value: "slum" },
-        { label: "Informal Settlement", value: "Informal Settlement" },
-      ],
+      // Filled at runtime from the managed settlement type list
+      // (store/modules/settlementTypes); see AddX.vue.
+      options: [],
     },
     { id: "btn6", name: "parcel_no", label: "Parcel No.", type: "text", multiselect: "false", adminUnit: false, options: [] },
     {

@@ -253,6 +253,7 @@ import { ElCard, ElPopconfirm, ElCascader, ElCascaderPanel, ElTooltip, ElTour, E
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields'
+import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
 import { subcountyOptions, wardOptions, settlementOptionsV2 } from './common/index'
 import { createHousehold, getOneHousehold, updateHousehold } from '@/api/households'
 import shortid from 'shortid';
@@ -734,7 +735,17 @@ const geomScope = ref([])
 const model = 'settlement'
 const component_id = ref()
 
+const settlementTypesStore = useSettlementTypesStore()
+
+/** Settlement types are managed in Settings, so the picker is filled at runtime. */
+const loadSettlementTypes = async () => {
+  await settlementTypesStore.load()
+  const field = formFields.flat().find((f) => f.name === 'settlement_type')
+  if (field) field.options = settlementTypesStore.typeOptions
+}
+
 onMounted(async () => {
+  loadSettlementTypes()
 
   //formData.value = JSON.parse(route.query.formData);
   // console.log('data>>',data)

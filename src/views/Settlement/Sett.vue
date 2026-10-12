@@ -21,13 +21,13 @@ import {
 import { ElMessage, ElSegmented, ElMessageBox } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning, View, RefreshLeft, Location, List, Document, Download, ArrowDown } from '@element-plus/icons-vue'
 import { ArrowLeft, ArrowRight, UploadFilled, Postcard, TopRight, Lock, Guide, TakeawayBox } from '@element-plus/icons-vue'
-import { ref, reactive, computed, nextTick, watch, watchEffect } from 'vue'
+import { ref, reactive, computed, nextTick, watch, watchEffect, onMounted, defineAsyncComponent, onActivated, onUnmounted } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter, useRoute } from 'vue-router'
 import { DeleteRecord, updateOneRecord, revertHistory, deleteDocument, revertMerge } from '@/api/settlements'
 import { useAppStore } from '@/store/modules/app'
+import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent, onMounted, onActivated, onUnmounted } from 'vue';
 import xlsx from "json-as-xlsx"
 import { searchByKeyWord } from '@/api/settlements'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
@@ -160,7 +160,6 @@ const isSuperAdmin = ref(
 const isNationalStaff = ref(false)
 const isCountyStaff = ref(false)
 const assignedCountyRoleIds = ref<any[]>([])
-const thisHistory = ref()
 const shouldShowCountyFilter = computed(() => {
   return isNationalStaff.value || isSuperAdmin.value || (isCountyStaff.value && assignedCountyRoleIds.value.length > 1)
 })
@@ -1034,7 +1033,6 @@ const deletedSettlements = ref([])
 const deletedSettlementsCount = ref(0)
 const deletedHistoryEntryCount = ref(0)
 const deletedSegmentRowsRaw = ref<any[]>([])
-const reviewIsRejectedSettlement = ref(false)
 const handleDeletedPageChange = (p: number) => {
   deletedPage.value = p
 }
@@ -1056,7 +1054,6 @@ const isMobile = computed(() => appStore.getMobile)
 const settlementPaginationLayout = computed(() =>
   isMobile.value ? 'prev, pager, next, total' : 'slot, prev, pager, next, total'
 )
-const reviewWindowWidth = ref(isMobile.value ? "100%" : "40%")
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
 /** Create-date range has both bounds selected. */
@@ -1675,9 +1672,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = false
 }
 
-const ShowReviewDialog = ref(false)
-const RejectDialog = ref(false)
-const settlement_raw = ref({})
 const DecommissionDialog = ref(false)
 const decommissionReason = ref('')
 const MergeDialog = ref(false)
@@ -1720,100 +1714,26 @@ watch(
   { flush: 'post' }
 )
 
+/**
+ * Open the full-page review for a submission. This used to fill a dialog with
+ * a handful of fields; the page shows the whole record, its documents and the
+ * approve/reject decision, and can be linked to another reviewer.
+ */
 const Review = (data: TableSlotDefault) => {
-  reviewIsRejectedSettlement.value = data._deletedTabSource === 'rejected'
-  ShowReviewDialog.value = true
-  settlement_raw.value.name = data.name
-  settlement_raw.value.area = data.area
-  settlement_raw.value.population = data.population
-  settlement_raw.value.description = data.description
-  settlement_raw.value.user = data.user.name + ' | ' + data.user.email
-  settlement_raw.value.date = data.createdAt
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.ward_id = data.ward_id
-  ruleForm.settlement_type = data.settlement_type
-  ruleForm.population = data.population
-  ruleForm.area = data.area
-  ruleForm.description = data.description
-  ruleForm.code = data.code
-  ruleForm.geom = data.geom
-  fileUploadList.value = data.documents
-  formHeader.value = "Review Settlement"
+  push({ name: 'SettlementReview', params: { id: data.id } })
 }
 
+/**
+ * Deleted-tab rows are history snapshots whose settlement is usually gone, so
+ * the review page is opened with the history record id and renders the
+ * snapshot. Nothing there can be approved; it is a record of what was removed.
+ */
 const DeleteReview = async (data: TableSlotDefault) => {
-  reviewIsRejectedSettlement.value = false
-  ShowReviewDialog.value = true
-  await getThisHistory(data.history_id)
-  settlement_raw.value.name = data.name
-  settlement_raw.value.area = data.area
-  settlement_raw.value.population = data.population
-  settlement_raw.value.description = data.description
-  settlement_raw.value.date = data.createdAt
-  settlement_raw.value.user = thisHistory.value[0].user.name
-  settlement_raw.value.delete_date = thisHistory.value[0].createdAt
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.ward_id = data.ward_id
-  ruleForm.settlement_type = data.settlement_type
-  ruleForm.population = data.population
-  ruleForm.area = data.area
-  ruleForm.description = data.description
-  ruleForm.code = data.code
-  ruleForm.geom = data.geom
-  fileUploadList.value = data.documents
-  formHeader.value = "Review Deleted Settlement"
-}
-
-const approve = async () => {
-  ruleForm.isApproved = 'Approved'
-  ruleForm.reviewerId = userInfo.id
-  ruleForm.model = 'settlement'
-  await updateOneRecord(ruleForm).then(() => { })
-  ShowReviewDialog.value = false
-  if (activeSegment.value === 'New') {
-    const idx = tableDataListNew.value.findIndex(item => item.id === ruleForm.id)
-    if (idx !== -1) tableDataListNew.value.splice(idx, 1)
-  } else if (activeSegment.value === 'Deleted' && reviewIsRejectedSettlement.value) {
-    deletedSettlements.value = deletedSettlements.value.filter(
-      (item: any) => item.id !== ruleForm.id || item._deletedTabSource !== 'rejected'
-    )
-    deletedSegmentRowsRaw.value = deletedSegmentRowsRaw.value.filter(
-      (item: any) => item.id !== ruleForm.id || item._deletedTabSource !== 'rejected'
-    )
-    deletedSettlementsCount.value = deletedSettlements.value.length
-    await getCounts()
-  } else {
-    getFilteredData(filters, filterValues)
-  }
-}
-
-const reject = async () => {
-  RejectDialog.value = true
-}
-
-const rejectReason = ref('')
-const confirmReject = async () => {
-  ruleForm.reject_msg = rejectReason.value
-  ruleForm.isApproved = 'Rejected'
-  ruleForm.model = 'settlement'
-  ruleForm.reviewerId = userInfo.id
-  await updateOneRecord(ruleForm).then(() => { })
-  RejectDialog.value = false
-  ShowReviewDialog.value = false
-  if (activeSegment.value === 'New') {
-    const idx = tableDataListNew.value.findIndex(item => item.id === ruleForm.id)
-    if (idx !== -1) tableDataListNew.value.splice(idx, 1)
-  } else if (activeSegment.value === 'Deleted' && reviewIsRejectedSettlement.value) {
-    await loadDeletedSegment()
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  push({
+    name: 'SettlementReview',
+    params: { id: data.id },
+    query: data.history_id ? { history: String(data.history_id) } : {}
+  })
 }
 
 const viewOnMap = (data: TableSlotDefault) => {
@@ -2280,10 +2200,11 @@ const filterByWard = async (ward_id: any) => {
 
 getAllSetllementsInitially('Approved')
 
-const typeOptions = [
-  { value: 1, label: 'Slum' },
-  { value: 2, label: 'Informal Settlement' },
-]
+// Settlement types come from the managed list in Settings, not a hardcoded
+// array: see store/modules/settlementTypes.
+const settlementTypesStore = useSettlementTypesStore()
+const typeOptions = computed(() => settlementTypesStore.typeOptions)
+onMounted(() => settlementTypesStore.load())
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -5395,30 +5316,6 @@ const filteredSegments = computed(() => {
   return Statuses.value.filter(option => !option.hidden);
 });
 
-const getThisHistory = async (sett_id) => {
-  try {
-    const model = 'settlement_history';
-    const formData = {
-      model,
-      searchField: 'name',
-      excludeGeom: false,
-      associated_multiple_models: ['users'],
-      filters: ['id'],
-      filterValues: [[sett_id]]
-    };
-    const res = await getSettlementListByCounty(formData);
-    if (res && res.data) {
-      thisHistory.value = res.data
-    } else {
-      thisHistory.value = [];
-    }
-  } catch (error) {
-    console.error("Error fetching history:", error.message);
-    throw new Error("Failed to fetch history. Please try again later.");
-  }
-};
- 
-
 // Watch activeSegment to ensure non-national/non-admin users always stay on Approved
 watch(activeSegment, (newValue) => {
   if (newValue === 'Duplicates') {
@@ -5576,35 +5473,11 @@ function sortByGeometry(a, b) {
   return bPriority - aPriority; // Higher priority (Polygon) first
 }
 
-// Memoized settlement type map for performance
-const settlementTypeMap: Record<string, string> = {
-  'slum': 'Slum',
-  'informal_settlement': 'Informal Settlement',
-  'informal settlement': 'Informal Settlement',
-  'Informal Settlement': 'Informal Settlement',
-  'Slum': 'Slum',
-  '1': 'Slum',
-  '2': 'Informal Settlement'
-};
-
-// Helper to get settlement type label - optimized with memoization
+// Settlement type labels come from the managed list, which also resolves the
+// legacy values ('1', '2', 'slum', 'informal_settlement') written by the old
+// hardcoded dropdowns.
 function getSettlementTypeLabel(type) {
-  if (!type) return 'N/A';
-  
-  // Fast lookup from map
-  const key = typeof type === 'string' ? type.toLowerCase() : String(type);
-  if (settlementTypeMap[key]) {
-    return settlementTypeMap[key];
-  }
-  
-  // Handle numeric values (legacy support)
-  if (typeof type === 'number') {
-    const typeOption = typeOptions.find(opt => opt.value === type);
-    return typeOption ? typeOption.label : 'Unknown';
-  }
-  
-  // Return original if not mapped
-  return type;
+  return settlementTypesStore.labelFor(type);
 }
 
 // Helper to group duplicates by name
@@ -6893,40 +6766,6 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
     </el-dialog>
 
 
-
-    <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
-      <el-descriptions title="" direction="vertical" :column="2" size="small" border>
-        <el-descriptions-item label="Name">{{ settlement_raw.name }}</el-descriptions-item>
-        <el-descriptions-item label="Area(Ha)" :span="2">{{ settlement_raw.area }}</el-descriptions-item>
-        <el-descriptions-item label="Population">{{ settlement_raw.population }}</el-descriptions-item>
-        <el-descriptions-item label="Description"> {{ settlement_raw.description }} </el-descriptions-item>
-        <el-descriptions-item label="Submitted By"> {{ settlement_raw.user }} </el-descriptions-item>
-        <el-descriptions-item label="Date"> {{ settlement_raw.date }} </el-descriptions-item>
-
-        <el-descriptions-item v-if="activeSegment === 'Deleted' && !reviewIsRejectedSettlement" label="Deleted By"> {{ settlement_raw.user }} </el-descriptions-item>
-        <el-descriptions-item v-if="activeSegment === 'Deleted' && !reviewIsRejectedSettlement" label="Date Deleted"> {{ settlement_raw.delete_date }} </el-descriptions-item>
- 
-
-      </el-descriptions>
-      <template #footer>
-        <span v-if="showAdminButtons && (activeSegment != 'Deleted' || reviewIsRejectedSettlement)" class="dialog-footer">
-          <el-button type="success" @click="approve">Approve</el-button>
-          <el-button type="danger" @click="reject">Reject</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
-      <el-input v-model="rejectReason" placeholder="" />
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="RejectDialog = false">Cancel</el-button>
-          <el-button type="primary" @click="confirmReject">
-            Confirm
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
 
     <el-dialog v-model="DecommissionDialog" title="Decommission Settlement" width="30%">
       <el-form>

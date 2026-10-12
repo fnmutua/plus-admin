@@ -711,19 +711,26 @@ exports.countsByCounty = async (req, res) => {
       }
     });
 
-    const slumsCountPromise = db.models.settlement.count({
-      where: {
-        county_id: countyId,
-        settlement_type: { [Op.iLike]: '%slum%' }
+    // Counts per settlement type, joined to the managed type list so a renamed
+    // or newly added type is reported without a code change. Previously this
+    // was two counts matching '%slum%' and '%informal%', which could not see a
+    // type that was named anything else.
+    const settlementTypeCountsPromise = sequelize.query(
+      `SELECT COALESCE(t.code, lower(regexp_replace(trim(s.settlement_type), '[^a-zA-Z0-9]+', '_', 'g'))) AS code,
+              trim(s.settlement_type) AS label,
+              COUNT(*)::int AS total
+         FROM settlement s
+         LEFT JOIN settlement_type t ON lower(trim(t.type)) = lower(trim(s.settlement_type))
+        WHERE s.county_id = :countyId
+          AND s.settlement_type IS NOT NULL
+          AND trim(s.settlement_type) <> ''
+        GROUP BY 1, 2
+        ORDER BY 3 DESC`,
+      {
+        replacements: { countyId },
+        type: QueryTypes.SELECT
       }
-    });
-
-    const informalSettlementsCountPromise = db.models.settlement.count({
-      where: {
-        county_id: countyId,
-        settlement_type: { [Op.iLike]: '%informal%' }
-      }
-    });
+    );
 
     // Roads - calculate length from geometry using PostGIS (km)
     const roadsLengthPromise = sequelize.query(
@@ -767,8 +774,7 @@ exports.countsByCounty = async (req, res) => {
       grievances,
       projects,
       totalPopulation,
-      slumsCount,
-      informalSettlementsCount,
+      settlementTypeCounts,
       roadsLengthResult,
       floodlightsCount,
       schoolsCount,
@@ -779,8 +785,7 @@ exports.countsByCounty = async (req, res) => {
       grievancesPromise,
       projectsPromise,
       totalPopulationPromise,
-      slumsCountPromise,
-      informalSettlementsCountPromise,
+      settlementTypeCountsPromise,
       roadsLengthPromise,
       floodlightsCountPromise,
       schoolsCountPromise,
@@ -797,13 +802,23 @@ exports.countsByCounty = async (req, res) => {
       ? parseFloat(roadsLengthResult[0].total_length_km || 0)
       : 0;
 
+    const byTypeCode = Object.fromEntries((settlementTypeCounts || []).map((row) => [row.code, row.total]));
+
     const result = {
       settlements,
       projects,
       grievances,
       total_population: totalPopulation || 0,
-      slums: slumsCount || 0,
-      informal_settlements: informalSettlementsCount || 0,
+      // Kept for the cards that already read these two keys; both now come
+      // from the managed types rather than a pattern match.
+      slums: byTypeCode.slum || 0,
+      informal_settlements: byTypeCode.informal_settlement || 0,
+      // Every type present in this county, so a new type shows up on its own.
+      settlements_by_type: (settlementTypeCounts || []).map((row) => ({
+        code: row.code,
+        label: row.label,
+        total: row.total
+      })),
       roads_length_km: isNaN(roadsLengthKm) ? 0 : roadsLengthKm,
       floodlights: floodlightsCount || 0,
       schools: schoolsCount || 0,

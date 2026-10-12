@@ -91,10 +91,10 @@ export const inlineSelectOptionsBase: Record<
   string,
   Array<{ label: string; value: string | number | boolean }>
 > = {
-  settlement_type: [
-    { label: 'Slum', value: 'slum' },
-    { label: 'Informal Settlement', value: 'Informal Settlement' },
-  ],
+  // Filled from the managed settlement type list where these options are
+  // merged (SettlementDetails.vue, SettlementMap.vue). Kept as a key so the
+  // field is still treated as a select by settlementSelectFields.
+  settlement_type: [],
   parcel_owner_type: [
     { label: 'Private', value: 'Private' },
     { label: 'Public', value: 'Public' },

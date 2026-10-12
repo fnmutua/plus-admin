@@ -133,6 +133,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           },
           {
+            path: 'review/:id',
+            component: () => import('@/views/Settlement/SettlementReview.vue'),
+            name: 'SettlementReview',
+            meta: {
+              hidden: true,
+              title: 'Review Settlement',
+              icon: 'material-symbols:rate-review-outline',
+              noCache: true,
+              permissions: ['settlement:read'],
+            }
+          },
+          {
             path: ':id',
           //  component: 'views/Settlement/SettlementDetails',
             component: () => import('@/views/Settlement/SettlementDetails.vue'),

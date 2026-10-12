@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { ref, reactive, nextTick, computed, onMounted, onBeforeUnmount, onActivated, watch } from 'vue'
 import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
+import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
 
 
 declare global {
@@ -548,10 +549,9 @@ const focusFirstValidationError = (fields: Record<string, unknown> | undefined) 
 }
 
 // Settlement type options
-const settlementTypeOptions = [
-  { label: 'Slum', value: 'slum' },
-  { label: 'Informal Settlement', value: 'Informal Settlement' }
-]
+// Managed in Settings rather than hardcoded: see store/modules/settlementTypes.
+const settlementTypesStore = useSettlementTypesStore()
+const settlementTypeOptions = computed(() => settlementTypesStore.typeOptions)
 
 // Yes/No options
 const yesNoOptions = [
@@ -4070,6 +4070,7 @@ const initializePage = async (query: Record<string, any> = route.query) => {
 
 // Initialize on mount
 onMounted(() => {
+  settlementTypesStore.load()
   syncEditModeFromRoute()
   void initializePage()
   document.addEventListener('fullscreenchange', syncFullscreenState)

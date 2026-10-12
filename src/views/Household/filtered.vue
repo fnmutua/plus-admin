@@ -607,20 +607,6 @@ const getProgrammeOptions = async () => {
   })
 }
 
-const typeOptions = [
-  {
-    value: 1,
-    label: 'Slum'
-  },
-  {
-    value: 2,
-    label: 'Informal Settlement'
-  },
-  {
-    value: 3,
-    label: 'Project Location'
-  }
-]
 const settOptions = ref([])
 
 const getCountyNames = async () => {

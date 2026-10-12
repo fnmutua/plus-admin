@@ -2,7 +2,8 @@
 import { Form, FormExpose } from '@/components/Form'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, onMounted, ref } from 'vue'
+import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
+import { reactive, onMounted, ref, computed } from 'vue'
 import {
   ElButton,
   ElSelect,
@@ -124,21 +125,11 @@ var bounds = ref()
  
 const projectScopeGeo = ref([])
 
-const typeOptions = [
-  {
-    value: '1',
-    label: 'Slum'
-  },
-  {
-    value: '2',
-    label: 'Informal Settlement'
-  },
-
-  {
-    value: '3',
-    label: 'Project Location'
-  },
-]
+// Settlement types come from the managed list in Settings, not a hardcoded
+// array: see store/modules/settlementTypes.
+const settlementTypesStore = useSettlementTypesStore()
+const typeOptions = computed(() => settlementTypesStore.typeOptions)
+onMounted(() => settlementTypesStore.load())
 
 
 

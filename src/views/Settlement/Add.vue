@@ -2,7 +2,7 @@
 import { Form, FormExpose } from '@/components/Form'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, unref, ref } from 'vue'
+import { reactive, unref, ref, onMounted, computed } from 'vue'
 import {
   ElButton,
   ElSelect,
@@ -113,20 +113,11 @@ const rules = reactive<FormRules>({
 })
 
 const countries = 'ke'
-const typeOptions = [
-  {
-    value: '1',
-    label: 'Slum'
-  },
-  {
-    value: '2',
-    label: 'Informal Settlement'
-  },
-  {
-    value: '3',
-    label: 'Project Location'
-  }
-]
+// Settlement types come from the managed list in Settings, not a hardcoded
+// array: see store/modules/settlementTypes.
+const settlementTypesStore = useSettlementTypesStore()
+const typeOptions = computed(() => settlementTypesStore.typeOptions)
+onMounted(() => settlementTypesStore.load())
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return

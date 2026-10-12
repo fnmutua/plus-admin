@@ -18,6 +18,14 @@ export const PLATFORM_SETTINGS: SettingsLeafDefinition[] = [
     component: () => import('@/views/settings/SystemSettings.vue'),
   },
   {
+    path: 'settlement-types',
+    name: 'SettlementTypes',
+    title: 'Settlement Types',
+    icon: 'material-symbols:location-city',
+    permissions: ['settlement_type:manage'],
+    component: () => import('@/views/settings/SettlementTypes.vue'),
+  },
+  {
     path: 'ai-settings',
     name: 'AISettings',
     title: 'AI Settings',

@@ -214,7 +214,8 @@ const profile = reactive({
   name: '',
   county: '',
   subcounty: '',
-  type: 'Slum',
+  // Filled from the record being displayed; no default type is assumed.
+  type: '',
   description:
     'Kibera (Kinubi: Forest or Jungle[1]) is a division of Nairobi Area, Kenya, and neighbourhood of the city of Nairobi, 6.6 kilometres (4.1 mi) from the city centre.[2] Kibera is the largest slum in Nairobi, and the largest urban slum in Africa.[3][4][5] The 2009 Kenya Population and Housing Census reports Kiberas population as 170,070, contrary to previous estimates of one or two million people.[6] ',
   area_ha: '',

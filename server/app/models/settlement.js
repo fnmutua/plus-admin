@@ -152,6 +152,21 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue: 'Pending'
       },
 
+      // Review trail. The reject reason is shown back to the submitter, so a
+      // rejection explains itself rather than only changing a status.
+      reject_msg: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      reviewerId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      reviewedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+
 
 
       // Additional Fields - 2025 
