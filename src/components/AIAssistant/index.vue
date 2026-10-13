@@ -53,7 +53,8 @@ const newSessionId = () => `chat-${Date.now()}-${Math.random().toString(36).slic
 const sessionId = ref(newSessionId())
 
 const isMobile = computed(() => appStore.getMobile || window.innerWidth <= 768)
-const drawerSize = computed(() => (isMobile.value ? '100%' : wide.value ? '820px' : '560px'))
+// Wider than before: answers now contain tables, and 560px wrapped every row.
+const drawerSize = computed(() => (isMobile.value ? '100%' : wide.value ? '1100px' : '720px'))
 
 /* -------------------------------------------------------------- model picker */
 
@@ -154,14 +155,92 @@ const escapeHtml = (value: string) =>
  * Minimal, safe formatting. The text is escaped first and only then given
  * structure, so a model that emits HTML cannot inject it into the page.
  */
-const render = (raw: string) => {
-  let html = escapeHtml(raw)
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => `<pre><code>${code.replace(/\n$/, '')}</code></pre>`)
+const inline = (text: string) => {
+  let html = text
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>')
   html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
   // Citation filenames the prompt asks the model to emit, e.g. [report.pdf]
-  html = html.replace(/\[([^\]\n]+\.(?:pdf|docx|csv|txt|md|json|png|jpg))\]/gi, '<span class="cite">$1</span>')
+  html = html.replace(
+    /\[([^\]\n]+\.(?:pdf|docx|doc|csv|tsv|txt|md|json|xml|zip|xlsx|png|jpg))\]/gi,
+    '<span class="cite">$1</span>'
+  )
   return html
+}
+
+const tableRow = (line: string) =>
+  line.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim())
+
+/** A row of dashes under the header, which is what makes a block a table. */
+const isTableDivider = (line = '') => /^\s*\|?[\s:-]*-[\s|:-]*\|?\s*$/.test(line) && line.includes('-')
+
+/**
+ * Minimal, safe formatting. The text is escaped first and only then given
+ * structure, so a model that emits HTML cannot inject it into the page.
+ *
+ * Tables and lists are rendered because the answers are full of them: a list
+ * of nine counties and their strategy documents reads as a table and as raw
+ * pipe characters otherwise.
+ */
+const render = (raw: string) => {
+  const escaped = escapeHtml(raw)
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => `\u0000PRE${btoa(unescape(encodeURIComponent(code.replace(/\n$/, ''))))}\u0000`)
+
+  const lines = escaped.split('\n')
+  const out: string[] = []
+  let list: { type: 'ul' | 'ol'; items: string[] } | null = null
+
+  const closeList = () => {
+    if (!list) return
+    out.push(`<${list.type}>${list.items.map((item) => `<li>${item}</li>`).join('')}</${list.type}>`)
+    list = null
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+
+    // table: a header row, a divider, then rows until a non-table line
+    if (line.includes('|') && isTableDivider(lines[i + 1])) {
+      closeList()
+      const header = tableRow(line)
+      const body: string[][] = []
+      i += 2
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim()) {
+        body.push(tableRow(lines[i]))
+        i += 1
+      }
+      i -= 1
+
+      out.push(
+        '<table class="answer-table"><thead><tr>'
+        + header.map((cell) => `<th>${inline(cell)}</th>`).join('')
+        + '</tr></thead><tbody>'
+        + body.map((row) => `<tr>${row.map((cell) => `<td>${inline(cell)}</td>`).join('')}</tr>`).join('')
+        + '</tbody></table>'
+      )
+      continue
+    }
+
+    const bullet = line.match(/^\s*[-*]\s+(.*)$/)
+    const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/)
+
+    if (bullet || numbered) {
+      const type = bullet ? 'ul' : 'ol'
+      if (!list || list.type !== type) {
+        closeList()
+        list = { type, items: [] }
+      }
+      list.items.push(inline((bullet || numbered)![1]))
+      continue
+    }
+
+    closeList()
+    if (line.trim()) out.push(`<p>${inline(line)}</p>`)
+  }
+
+  closeList()
+
+  return out.join('')
+    .replace(/\u0000PRE([A-Za-z0-9+/=]+)\u0000/g, (_m, code) => `<pre><code>${decodeURIComponent(escape(atob(code)))}</code></pre>`)
 }
 
 /** Group a message's chunk-level sources into one entry per document. */
@@ -785,6 +864,42 @@ defineExpose({ openModal, closeModal })
 }
 
 .prose :deep(pre code) { padding: 0; background: none; }
+
+/* Structure of a rendered answer. :deep(), because v-html output carries no
+   scoped-style attributes. */
+.prose :deep(p) { margin: 6px 0; }
+
+.prose :deep(ul),
+.prose :deep(ol) {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.prose :deep(li) { margin: 2px 0; }
+
+.prose :deep(table.answer-table) {
+  width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.prose :deep(table.answer-table th),
+.prose :deep(table.answer-table td) {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.prose :deep(table.answer-table th) {
+  font-weight: 600;
+  background: var(--el-fill-color-light);
+}
+
+.prose :deep(table.answer-table tbody tr:nth-child(even)) {
+  background: var(--el-fill-color-lighter);
+}
 
 .prose :deep(.cite) {
   padding: 1px 6px;
