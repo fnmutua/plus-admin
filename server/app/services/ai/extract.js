@@ -97,7 +97,15 @@ async function extractArchive(filePath, filename) {
   const JSZip = require('jszip')
   const os = require('os')
 
-  const archive = await JSZip.loadAsync(await fs.promises.readFile(filePath))
+  let archive
+  try {
+    archive = await JSZip.loadAsync(await fs.promises.readFile(filePath))
+  } catch (error) {
+    // JSZip handles stored and deflated entries only. Real archives in the
+    // register use LZMA (method 14) as well, which it rejects as "corrupted".
+    console.warn(`[ai] ${filename}: ${error.message} — retrying with python zipfile`)
+    return extractArchiveViaPython(filePath, filename)
+  }
   const members = Object.values(archive.files)
     .filter((entry) => !entry.dir)
     .filter((entry) => ARCHIVE_MEMBER_TYPES.has(path.extname(entry.name).toLowerCase()))
@@ -148,6 +156,83 @@ async function extractArchive(filePath, filename) {
     + (skipped ? `, ${skipped} skipped` : ''))
 
   return parts.join('\n\n')
+}
+
+/**
+ * Extract an archive with python's zipfile, which reads compression methods
+ * JSZip does not (LZMA, bzip2).
+ *
+ * python3 is a given on these hosts and its zipfile is part of the standard
+ * library, so this costs no dependency. Member names are reduced to their
+ * basename on the python side, so a crafted path cannot write outside the
+ * temporary directory.
+ */
+async function extractArchiveViaPython(filePath, filename) {
+  const { execFile } = require('child_process')
+  const os = require('os')
+  const { promisify } = require('util')
+  const run = promisify(execFile)
+
+  const workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ai-zip-py-'))
+  const script = `
+import json, os, sys, zipfile
+src, out = sys.argv[1], sys.argv[2]
+allowed = set(${JSON.stringify([...ARCHIVE_MEMBER_TYPES])})
+limits = ${JSON.stringify(ARCHIVE_LIMITS)}
+written, total = [], 0
+try:
+    with zipfile.ZipFile(src) as zf:
+        members = [i for i in zf.infolist() if not i.is_dir()
+                   and os.path.splitext(i.filename)[1].lower() in allowed]
+        members.sort(key=lambda i: -i.file_size)
+        for info in members:
+            if len(written) >= limits["members"] or total >= limits["totalBytes"]:
+                break
+            if info.file_size > limits["memberBytes"]:
+                continue
+            target = os.path.join(out, "%03d_%s" % (len(written), os.path.basename(info.filename)))
+            try:
+                with zf.open(info) as src_f, open(target, "wb") as dst:
+                    dst.write(src_f.read())
+            except Exception as exc:
+                print("skip %s: %s" % (info.filename, exc), file=sys.stderr)
+                continue
+            written.append({"name": info.filename, "path": target})
+            total += info.file_size
+except Exception as exc:
+    print(str(exc), file=sys.stderr)
+    sys.exit(2)
+json.dump(written, sys.stdout)
+`
+
+  try {
+    const { stdout, stderr } = await run('python3', ['-c', script, filePath, workDir], {
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: 5 * 60 * 1000
+    })
+    if (stderr.trim()) console.warn(`[ai] ${filename}: ${stderr.trim().split('\n')[0]}`)
+
+    const members = JSON.parse(stdout || '[]')
+    const parts = []
+
+    for (const member of members) {
+      try {
+        const text = await extractText(member.path, member.name)
+        if (text && text.trim()) parts.push(`<<< file: ${member.name} >>>\n${text.trim()}`)
+      } catch (error) {
+        console.warn(`[ai] ${filename}: could not read ${member.name} — ${error.message}`)
+      }
+    }
+
+    if (!parts.length) return null
+    console.log(`[ai] ${filename}: read ${parts.length} of ${members.length} archived file(s) via python`)
+    return parts.join('\n\n')
+  } catch (error) {
+    console.warn(`[ai] ${filename}: archive unreadable — ${error.message}`)
+    return null
+  } finally {
+    await fs.promises.rm(workDir, { recursive: true, force: true }).catch(() => {})
+  }
 }
 
 /**
