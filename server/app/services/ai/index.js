@@ -17,11 +17,14 @@ const provider = require('./provider')
 const store = require('./store')
 const { extractText, recordToText, chunkText, isSupported } = require('./extract')
 const { describeError } = require('./describeError')
+const register = require('./register')
 
 const SYSTEM_PROMPT = [
   'You are a document assistant for KeSMIS, a settlement management information system.',
   'Use only the excerpts in the CONTEXT block. Never use outside knowledge, and never invent facts, figures, names or sources.',
   'When asked to summarise, describe or list, do that from what the excerpts actually contain.',
+  'A block headed "Current counts from the KeSMIS database" is authoritative for how many records exist:',
+  'use those figures for counting questions, and do not count document names instead.',
   'A block headed "The following ... indexed document(s) match this question" is the document list itself.',
   'When the question asks what is indexed, or to list or count documents, answer with that list:',
   'give the filenames as a list and state how many there are. Do not summarise it away.',
@@ -355,6 +358,30 @@ async function retrieve(question) {
   if (RECENCY_QUESTION.test(question)) {
     const recent = await store.latestDocumentChunks(topK)
     if (recent.length) return { chunks: recent, mode: 'recency', vectorError: null, corrections: [] }
+  }
+
+  // A counting question about the register is answered from the tables, not
+  // from documents: asked of the index alone, "how many settlements are in the
+  // register?" produced "60 indexed document entries" against a true 1,049.
+  const registerCounts = await register.counts(question).catch(() => null)
+  if (registerCounts) {
+    const [vectorHits, termHits] = await Promise.all([
+      provider.embedOne(question)
+        .then((embedded) => store.searchByVector(embedded, provider.embeddingModelId(), topK, minSimilarity))
+        .catch(() => []),
+      store.searchByTerms(distinctiveTerms(question), topK).catch(() => [])
+    ])
+
+    const counts = {
+      filename: 'KeSMIS database',
+      file_type: 'counts',
+      chunk_index: 0,
+      similarity: 1,
+      retrieval: 'counts',
+      content: registerCounts
+    }
+    const extra = fuseByRank([vectorHits, termHits].filter((list) => list.length), Math.floor(topK / 2))
+    return { chunks: [counts, ...extra], mode: 'counts', vectorError: null, corrections: [] }
   }
 
   if (asksForList(question)) {
