@@ -234,10 +234,15 @@ async function embed(texts) {
     if (!remote.apiKey) {
       throw new ProviderError(`Provider "${provider}" is not configured`, { provider })
     }
-    const data = await postJson(`${remote.baseUrl}/embeddings`, {
-      model,
-      input: texts
-    }, {
+    const body = { model, input: texts }
+    // OpenAI's text-embedding-3-* models can return a shortened vector, so the
+    // stored column can stay vector(384) instead of being migrated to 1536.
+    // Older models (ada-002) reject the parameter, hence the model test.
+    if (/^text-embedding-3/.test(String(model)) && dimensions) {
+      body.dimensions = dimensions
+    }
+
+    const data = await postJson(`${remote.baseUrl}/embeddings`, body, {
       headers: { Authorization: `Bearer ${remote.apiKey}` },
       timeoutMs,
       provider
