@@ -39,7 +39,7 @@ const handleCommand = (command: string | number | object) => {
   }
   else if (command == 'Accounts') {
     push({
-      path: '/users/new',
+      path: '/admin/users/new',
       name: 'NewAccounts'
     })
 
@@ -47,7 +47,7 @@ const handleCommand = (command: string | number | object) => {
 
   else if (command == 'Feedback') {
     push({
-      path: '/users/new',
+      path: '/admin/users/new',
       name: 'Feedback'
     })
 

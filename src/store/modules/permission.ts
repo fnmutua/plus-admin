@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { adminRoutes, constantRouterMap  } from '@/router'
+import { adminRoutes, constantRouterMap, mneRoute  } from '@/router'
 import { flatMultiLevelRoutes } from '@/utils/routerHelper'
 import { store } from '../index'
 import { cloneDeep } from 'lodash-es'
@@ -288,7 +288,13 @@ const regionalReportsRouteChild = {
 // at least resolve to the parent layout (or fall through to the wildcard 404)
 // rather than producing a blank <router-view/> when the dynamic API fails.
 const ensureSubprogrammesRoute = () => {
-  subprograms.value[0].children = [summaryRouteChild, regionalReportsRouteChild, ...(((programmeComponentOptions.value as any) || []))]
+  // M&E sits last, after the dynamic programme/component tree.
+  subprograms.value[0].children = [
+    summaryRouteChild,
+    regionalReportsRouteChild,
+    ...(((programmeComponentOptions.value as any) || [])),
+    mneRoute as any
+  ]
   const existingIndex = adminRoutes.findIndex(route => route.path === '/subprogrammes')
   if (existingIndex >= 0) {
     adminRoutes[existingIndex] = subprograms.value[0]
@@ -633,7 +639,12 @@ const subprograms = ref([
       title: 'Projects',
       icon: 'icon-park-solid:love-and-help',
       alwaysShow: true,
-      role: ['admin', 'super_admin']
+      // Was role: ['admin', 'super_admin']. M&E now lives in this group, and
+      // the route filter drops a parent's whole subtree when the parent's own
+      // gate fails — that gate would have hidden M&E from monitoring, staff,
+      // support, grm and even root_admin, which is not in that list. Gating on
+      // the children's permissions keeps each child's own rules in charge.
+      permissions: ['project:read', 'activity:read']
     },
     children: [
 

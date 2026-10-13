@@ -38,6 +38,9 @@ declare module 'vue-router' {
     alwaysShow?: boolean
     /** When true, sidebar keeps this submenu collapsed unless the active route is inside it. */
     menuCollapse?: boolean
+    /** Pins the entry to the bottom of the sidebar, below a divider, instead of
+     * the scrolling list. Vertical layouts only. */
+    footer?: boolean
     title?: string
     icon?: string
     noCache?: boolean

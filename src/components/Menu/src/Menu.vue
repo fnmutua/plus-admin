@@ -46,6 +46,18 @@ export default defineComponent({
       unref(layout) === 'cutMenu' ? permissionStore.getMenuTabRouters : permissionStore.getRouters
     )
 
+    // Routes flagged `meta.footer` are pinned to the bottom of the sidebar,
+    // below a divider, instead of sitting in the scrolling list — for entries
+    // like Documentation that are reference material rather than daily work.
+    const mainRouters = computed(() => unref(routers).filter((r) => !r.meta?.footer))
+    const footerRouters = computed(() => unref(routers).filter((r) => r.meta?.footer))
+
+    // Only a vertical sidebar has a bottom to pin to; a horizontal menu bar
+    // keeps them inline.
+    const hasFooter = computed(
+      () => unref(menuMode) === 'vertical' && unref(footerRouters).length > 0
+    )
+
     const collapse = computed(() => appStore.getCollapse)
 
     const uniqueOpened = computed(() => appStore.getUniqueOpened)
@@ -76,14 +88,15 @@ export default defineComponent({
     }
 
     const renderMenuWrap = () => {
+      const items = unref(hasFooter) ? unref(mainRouters) : unref(routers)
       if (unref(layout) === 'top') {
-        return renderMenu()
+        return renderMenu(items)
       } else {
-        return <ElScrollbar>{renderMenu()}</ElScrollbar>
+        return <ElScrollbar>{renderMenu(items)}</ElScrollbar>
       }
     }
 
-    const renderMenu = () => {
+    const renderMenu = (items = unref(routers)) => {
       return (
         <ElMenu
           key={unref(activeMenu)}
@@ -102,7 +115,7 @@ export default defineComponent({
           {{
             default: () => {
               const { renderMenuItem } = useRenderMenuItem(unref(menuMode))
-              return renderMenuItem(unref(routers))
+              return renderMenuItem(items)
             }
           }}
         </ElMenu>
@@ -115,13 +128,19 @@ export default defineComponent({
         class={[
           `${prefixCls} ${prefixCls}__${unref(menuMode)}`,
           'h-[100%] overflow-hidden flex-col bg-[var(--left-menu-bg-color)]',
+          { flex: unref(hasFooter) },
           {
             'w-[var(--left-menu-min-width)]': unref(collapse) && unref(layout) !== 'cutMenu',
             'w-[var(--left-menu-max-width)]': !unref(collapse) && unref(layout) !== 'cutMenu'
           }
         ]}
       >
-        {renderMenuWrap()}
+        {unref(hasFooter)
+          ? [
+              <div class="flex-1 min-h-0 overflow-hidden">{renderMenuWrap()}</div>,
+              <div class={`${prefixCls}__footer`}>{renderMenu(unref(footerRouters))}</div>
+            ]
+          : renderMenuWrap()}
       </div>
     )
   }
@@ -152,6 +171,15 @@ export default defineComponent({
     height: 100%;
     border-left: 1px solid var(--left-menu-border-color);
     content: '';
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    /* A mid-grey at low alpha, so the rule reads on both the dark sidebar and
+       a light one. --left-menu-border-color is not used here: its value is
+       quoted ('#eee') in styles/var.css, which is not a valid colour, so any
+       border using it is never painted. */
+    border-top: 1px solid rgba(144, 147, 153, 0.35);
   }
 
   :deep(.@{elNamespace}-menu) {

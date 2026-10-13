@@ -16,6 +16,124 @@ export const constantRouterMap: AppRouteRecordRaw[] = publicRoutes
  
  
 
+/**
+ * M&E, nested under the Projects (/subprogrammes) group.
+ *
+ * That group is assembled at login in store/modules/permission.ts, so this is
+ * exported and appended there as its last child rather than living in the
+ * static tree. Paths changed from /mne/* to /subprogrammes/mne/*; the old ones
+ * redirect (see mneRedirects below).
+ */
+export const mneRoute: AppRouteRecordRaw = {
+    path: 'mne',
+    component: Layout,
+    redirect: '/subprogrammes/mne/overview',
+    name: 'MonitoringEvaluation',
+    meta: {
+      title: 'M&E',
+      icon: 'uis:graph-bar',
+      permissions: ['activity:read'],
+      alwaysShow: false
+    },
+    children: [
+
+       {
+        path: 'overview',
+        component: () => import('@/views/Indicators/MonitoringOverview.vue'),
+        name: 'MonitoringOverview',
+        meta: {
+          title: 'Structure',
+          icon: 'mdi:sitemap',
+          permissions: ['activity:read'],
+        }
+       },
+
+         {
+        path: 'framework',
+        //component: 'views/Facilities/Water/Water',
+        //component: () => import('@/views/Facilities/Water/Water.vue'),
+        component: Layout,
+        name: 'IdnicatorConfig',
+        meta: {
+          icon: 'icon-park-solid:dashboard-car',
+          permissions: ['indicator_category_report:read'],
+          title: 'Framework'
+        },
+        children: [
+          {
+            path: 'activity',
+            component: () => import('@/views/Indicators/Activity.vue'),
+            name: 'ProgrammeActivity',
+            meta: {
+              title: 'Activities',
+              icon:'icon-park-outline:activity-source',
+              permissions: ['activity:read'],
+            }
+          },
+          {
+            path: 'indicators',
+         //   component: 'views/Indicators/indicator',
+            component: () => import('@/views/Indicators/indicator.vue'),
+            name: 'Indicators',
+            meta: {
+              title: 'Indicators',
+              hidden: false,
+              icon:'cil:gauge',
+              permissions: ['indicator_category_report:read'],
+
+            }
+          },
+          {
+            path: 'config',
+         //   component: 'views/Indicators/indicator_category',
+            component: () => import('@/views/Indicators/indicator_category.vue'),
+            name: 'IndicatorConfigs',
+            meta: {
+              title: 'Configuration',
+              permissions: ['indicator_category_report:read'],
+              icon:'material-symbols:settings',
+              hidden: false
+            }
+          },
+        {
+          path: 'category',
+        // component: 'views/Indicators/category',
+          component: () => import('@/views/Indicators/category.vue'),
+          name: 'IndicatorCategory',
+          meta: {
+            title: 'Category',
+            icon: 'vaadin:options',
+            permissions: ['category:read'],
+            hidden:true
+          }
+          },
+        
+        ]
+      },
+     
+ 
+      {
+        path: 'reports',
+        component: () => import('@/views/Indicators/indicator_category_report.vue'),
+        name: 'PastReports',
+        meta: {
+          title: 'Reports',
+          permissions: ['indicator_category_report:read'],
+          icon: 'mdi:file-document-plus',
+        },
+      },
+      {
+        path: 'reports/past',
+        redirect: '/subprogrammes/mne/reports',
+        meta: {
+          hidden: true,
+        },
+      },
+ 
+
+    ]
+  }
+
 export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/dashboard',
@@ -690,116 +808,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   
   
   {
-    path: '/mne',
-    component: Layout,
-    redirect: '/mne/overview',
-    name: 'MonitoringEvaluation',
-    meta: {
-      title: 'M&E',
-      icon: 'uis:graph-bar',
-      permissions: ['activity:read'],
-      alwaysShow: false
-    },
-    children: [
-
-       {
-        path: 'overview',
-        component: () => import('@/views/Indicators/MonitoringOverview.vue'),
-        name: 'MonitoringOverview',
-        meta: {
-          title: 'Structure',
-          icon: 'mdi:sitemap',
-          permissions: ['activity:read'],
-        }
-       },
-
-         {
-        path: 'framework',
-        //component: 'views/Facilities/Water/Water',
-        //component: () => import('@/views/Facilities/Water/Water.vue'),
-        component: Layout,
-        name: 'IdnicatorConfig',
-        meta: {
-          icon: 'icon-park-solid:dashboard-car',
-          permissions: ['indicator_category_report:read'],
-          title: 'Framework'
-        },
-        children: [
-          {
-            path: 'activity',
-            component: () => import('@/views/Indicators/Activity.vue'),
-            name: 'ProgrammeActivity',
-            meta: {
-              title: 'Activities',
-              icon:'icon-park-outline:activity-source',
-              permissions: ['activity:read'],
-            }
-          },
-          {
-            path: 'indicators',
-         //   component: 'views/Indicators/indicator',
-            component: () => import('@/views/Indicators/indicator.vue'),
-            name: 'Indicators',
-            meta: {
-              title: 'Indicators',
-              hidden: false,
-              icon:'cil:gauge',
-              permissions: ['indicator_category_report:read'],
-
-            }
-          },
-          {
-            path: 'config',
-         //   component: 'views/Indicators/indicator_category',
-            component: () => import('@/views/Indicators/indicator_category.vue'),
-            name: 'IndicatorConfigs',
-            meta: {
-              title: 'Configuration',
-              permissions: ['indicator_category_report:read'],
-              icon:'material-symbols:settings',
-              hidden: false
-            }
-          },
-        {
-          path: 'category',
-        // component: 'views/Indicators/category',
-          component: () => import('@/views/Indicators/category.vue'),
-          name: 'IndicatorCategory',
-          meta: {
-            title: 'Category',
-            icon: 'vaadin:options',
-            permissions: ['category:read'],
-            hidden:true
-          }
-          },
-        
-        ]
-      },
-     
- 
-      {
-        path: 'reports',
-        component: () => import('@/views/Indicators/indicator_category_report.vue'),
-        name: 'PastReports',
-        meta: {
-          title: 'Reports',
-          permissions: ['indicator_category_report:read'],
-          icon: 'mdi:file-document-plus',
-        },
-      },
-      {
-        path: 'reports/past',
-        redirect: '/mne/reports',
-        meta: {
-          hidden: true,
-        },
-      },
- 
-
-    ]
-  },
-  
-  {
     path: '/repo',
     component: Layout,
     redirect: '/repo/open',
@@ -807,7 +815,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'Repository',
       icon: 'material-symbols:home-storage-rounded',
-      permissions: ['document:read'],
+      // Includes article:read so the nested Media group is reachable by roles
+      // that can see articles — the route filter drops a parent's whole
+      // subtree when the parent's own gate fails.
+      permissions: ['document:read', 'article:read'],
       alwaysShow: false
     },
     children: [
@@ -891,77 +902,77 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
 
+      // Media moved under Repository to shorten the side nav. Paths changed
+      // from /media/* to /repo/media/*; the old ones redirect.
+      {
+        path: 'media',
+        component: Layout,
+        redirect: '/repo/media/video',
+        name: 'Media',
+        meta: {
+          title: 'Media',
+          icon: 'ion:radio-button-on-outline',
+          alwaysShow: true,
+          permissions: ['article:read'],
+        },
+        children: [
+          {
+            path: 'video',
+          //  component: 'views/Users/County',
+            component: () => import('@/views/Media/Media.vue'),
+            name: 'Video',
+            meta: {
+              title: 'Video',
+              hidden: false,
+ 
+              icon:'tabler:video-filled'
+            }
+          },
+          {
+            path: 'live-streams',
+            component: () => import('@/views/Media/Live.vue'),
+            name: 'LiveStreams',
+            meta: {
+              title: 'Live Streams',
+              hidden: false,
+              icon:'material-symbols:live-tv'
+            }
+          },
+          {
+            path: 'articles',
+          //  component: 'views/Users/County',
+            component: () => import('@/views/Media/Article.vue'),
+            name: 'Articles',
+            meta: {
+              title: 'Articles',
+              hidden: false,
+              icon:'lucide:newspaper'
+            }
+          },
+
+          {
+            path: 'addx',
+            component: () => import('@/views/Media/AddX.vue'),
+            name: 'AddArticleX',
+            meta: {
+              hidden: true,
+              props: true,
+              icon:'bi:house-add',
+              title: 'Add Article',
+              permissions: ['article:create'],
+            }
+          },
+
+        ]
+      },
+
+
     
 
 
     ]
 
   },
-
-
-  {
-    path: '/media',
-    component: Layout,
-    redirect: '/media/video',
-    name: 'Media',
-    meta: {
-      title: 'Media',
-      icon: 'ion:radio-button-on-outline',
-      permissions: ['article:read'],
-      alwaysShow: false
-    },
-    children: [
-      {
-        path: 'video',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Media/Media.vue'),
-        name: 'Video',
-        meta: {
-          title: 'Video',
-          hidden: false,
- 
-          icon:'tabler:video-filled'
-        }
-      },
-      {
-        path: 'live-streams',
-        component: () => import('@/views/Media/Live.vue'),
-        name: 'LiveStreams',
-        meta: {
-          title: 'Live Streams',
-          hidden: false,
-          icon:'material-symbols:live-tv'
-        }
-      },
-      {
-        path: 'articles',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Media/Article.vue'),
-        name: 'Articles',
-        meta: {
-          title: 'Articles',
-          hidden: false,
-          icon:'lucide:newspaper'
-        }
-      },
-
-      {
-        path: 'addx',
-        component: () => import('@/views/Media/AddX.vue'),
-        name: 'AddArticleX',
-        meta: {
-          hidden: true,
-          props: true,
-          icon:'bi:house-add',
-          title: 'Add Article',
-          permissions: ['article:create'],
-        }
-      },
-
-    ]
-  
-  },
-
 
 
   {
@@ -972,7 +983,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'GRM',
       icon: 'hugeicons:complaint',
-      permissions: ['grievance:read'],
+      // Includes incident:read for the nested Incidents group: the route
+      // filter drops a parent's whole subtree when the parent's gate fails.
+      permissions: ['grievance:read', 'incident:read'],
       alwaysShow: false
     },
     children: [
@@ -1061,74 +1074,35 @@ export const adminRoutes: AppRouteRecordRaw[] = [
    
 
 
-    ]
-  },
-
-  {
-    path: '/inc',
-    component: Layout,
-    redirect: '/inc/open',
-    name: 'Incidents',
-    meta: {
-      title: 'Incidents',
-      icon: 'mdi:alert-decagram',
-      permissions: ['incident:read'],
-      alwaysShow: false
-    },
-    children: [
+      // Incidents moved under GRM to shorten the side nav. Paths changed from
+      // /inc/* to /grm/inc/*; the old ones redirect.
       {
-        path: 'open',
-        component: () => import('@/views/Incidents/Open.vue'),
-        name: 'OpenIncidents',
+        path: 'inc',
+        component: Layout,
+        redirect: '/grm/inc/open',
+        name: 'Incidents',
         meta: {
           title: 'Incidents',
-          icon:'mdi:alert',
+          icon: 'mdi:alert-decagram',
           permissions: ['incident:read'],
-        }
-      }
+          alwaysShow: false
+        },
+        children: [
+          {
+            path: 'open',
+            component: () => import('@/views/Incidents/Open.vue'),
+            name: 'OpenIncidents',
+            meta: {
+              title: 'Incidents',
+              icon:'mdi:alert',
+              permissions: ['incident:read'],
+            }
+          }
+        ]
+      },
+
     ]
   },
-  // {
-  //   path: '/gbv',
-  //   component: Layout,
-  //   redirect: '/gbv/open',
-  //   name: 'GBV',
-  //   meta: {
-  //     title: 'GBV Grievances',
-  //     icon: 'hugeicons:complaint',
-  //     role: [ 'super_admin',  'gbv'] ,
-  //     locationLevel:['national','county','settlement'],
-  //     alwaysShow: false
-  //   },
-  //   children: [ 
-  //     //  {
-  //     //   path: 'open',
-  //     //   component: () => import('@/views/Grievances/GBV.vue'),
-  //     //  name: 'GBVGrievances',
-  //     //  meta: {
-  //     //    title: 'GBV',
-  //     //    icon:'ph:gender-intersex-bold',
-  //     //    role: [  'super_admin', 'gbv' ] ,
-  //     //    locationLevel:['national','county','settlement'],
-  //     //  }
-  //     //  },
-
-  //      {
-  //       path: ':id',
-  //       component: () => import('@/views/Grievances/GBVGrievanceDetails.vue'),
-  //       name: 'GBVGrievanceDetails',
-  //       meta: {
-  //         hidden: true,
-  //         title: 'GBV Grievance Details',
-  //         icon:'ion:document-attach',
-  //         role: [  'super_admin', 'gbv' ] ,
-  //         locationLevel:['national','county','settlement'],
-  //         noCache: true
-  //       }
-  //     },
-
-  //   ]
-  // },
 
   {
     path: '/interventions',
@@ -1161,127 +1135,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   },
   
 
-  {
-    path: '/users',
-    component: Layout,
-    redirect: '/users/all',
-    name: 'systemUsers',
-    meta: {
-      title: 'Users',
-      icon: 'wpf:usershield',
-      alwaysShow: true,
-      permissions: ['user:read'],
-
-    },
-    children: [
-       
-      {
-        path: 'all',
-       // component: 'views/Users/User',
-        component: () => import('@/views/Users/User.vue'),
-        name: 'staff',
-        meta: {
-          title: 'All',
-          hidden: false,
-          icon: 'teenyicons:users-outline',
-          permissions: ['user:read'],
-        }
-      },
-      {
-        path: 'admin',
-       // component: 'views/Users/User',
-        component: () => import('@/views/Users/AdminUsers.vue'),
-        name: 'AdminStaff',
-        meta: {
-          title: 'Admin',
-          hidden: false,
-          icon: 'mdi:shield-user',
-          permissions: ['user:read'],
-        }
-      },
-      {
-        path: 'super-admin',
-        component: () => import('@/views/Users/SuperAdminUsers.vue'),
-        name: 'SuperAdminStaff',
-        meta: {
-          title: 'Super Admins',
-          hidden: false,
-          icon: 'mdi:shield-crown',
-          permissions: ['user:read'],
-          roles: ['root_admin'],
-        }
-      },
-      
-
-      {
-        path: 'grm',
-       // component: 'views/Users/User',
-        component: () => import('@/views/Users/GrmUsers.vue'),
-        name: 'GRM_Staff',
-        meta: {
-          title: 'GRM',
-          hidden: false,
-          icon: 'flowbite:user-headset-solid',
-          permissions: ['user:read'],
-        }
-      },
-      
-      {
-        path: 'support',
-       // component: 'views/Users/User',
-        component: () => import('@/views/Users/SupportUsers.vue'),
-        name: 'Support_Staff',
-        meta: {
-          title: 'Support',
-          hidden: false,
-          icon: 'mdi:account-cog',
-          permissions: ['user:read'],
-        }
-      },
-
-      {
-        path: 'new',
-       // component: 'views/Users/User',
-        component: () => import('@/views/Users/NewAccounts.vue'),
-        name: 'NewAccounts',
-        meta: {
-          title: 'New',
-          hidden: false,
-          icon: 'grommet-icons:user-new',
-          permissions: ['user:create'],
-
-        }
-      },
-      // {
-      //   path: 'grc',
-      //   component: () => import('@/views/Grievances/GRC.vue'),
-      //  name: 'GRC',
-      //  meta: {
-      //    title: 'GRC',
-      //    icon:'fluent:people-checkmark-20-filled',
-      //    role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
-      //    locationLevel:['national','county','settlement'],
-
-      //  }
-      // },
-      // {
-      //   path: 'profile',
-      //   component: () => import('@/views/Users/Profile.vue'),
-      //   name: 'userProfile',
-      //   meta: {
-      //     title: 'Profile',
-      //     hidden: false,
-      //     icon:'pajamas:profile'
-      //   }
-      // }, 
-
-   
-
-    ]
-  },
- 
-
- 
   {
     path: '/prj',
     component: Layout,
@@ -1327,6 +1180,64 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   },
 
  
+  // Incidents lives under /grm now; these keep old links working.
+  {
+    path: '/inc',
+    component: Layout,
+    redirect: '/grm/inc/open',
+    name: 'IncidentsLegacy',
+    meta: { hidden: true },
+    children: [
+      { path: 'open', redirect: '/grm/inc/open', meta: { hidden: true } },
+    ]
+  },
+
+  // M&E lives under /subprogrammes now; these keep old links working.
+  {
+    path: '/mne',
+    component: Layout,
+    redirect: '/subprogrammes/mne/overview',
+    name: 'MonitoringEvaluationLegacy',
+    meta: { hidden: true },
+    children: [
+      { path: 'overview', redirect: '/subprogrammes/mne/overview', meta: { hidden: true } },
+      { path: 'framework', redirect: '/subprogrammes/mne/framework', meta: { hidden: true } },
+      { path: 'reports', redirect: '/subprogrammes/mne/reports', meta: { hidden: true } },
+    ]
+  },
+
+  // Media lives under /repo now; these keep old links working.
+  {
+    path: '/media',
+    component: Layout,
+    redirect: '/repo/media/video',
+    name: 'MediaLegacy',
+    meta: { hidden: true },
+    children: [
+      { path: 'video', redirect: '/repo/media/video', meta: { hidden: true } },
+      { path: 'live-streams', redirect: '/repo/media/live-streams', meta: { hidden: true } },
+      { path: 'articles', redirect: '/repo/media/articles', meta: { hidden: true } },
+      { path: 'addx', redirect: '/repo/media/addx', meta: { hidden: true } },
+    ]
+  },
+
+  // Users lives under /admin now; these keep old links and bookmarks working.
+  {
+    path: '/users',
+    component: Layout,
+    redirect: '/admin/users/all',
+    name: 'systemUsersLegacy',
+    meta: { hidden: true },
+    children: [
+      { path: 'all', redirect: '/admin/users/all', meta: { hidden: true } },
+      { path: 'admin', redirect: '/admin/users/admin', meta: { hidden: true } },
+      { path: 'super-admin', redirect: '/admin/users/super-admin', meta: { hidden: true } },
+      { path: 'grm', redirect: '/admin/users/grm', meta: { hidden: true } },
+      { path: 'support', redirect: '/admin/users/support', meta: { hidden: true } },
+      { path: 'new', redirect: '/admin/users/new', meta: { hidden: true } },
+    ]
+  },
+
   settingsRoute,
 
   {
@@ -1336,12 +1247,139 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: t('Admin'),
       icon: 'ant-design:dashboard-filled',
-      permissions: ['admin:all'],
+      // The union of the children's permissions, not 'admin:all'. The route
+      // filter drops a parent — and its whole subtree — when the parent's own
+      // gate fails, so a narrow gate here would hide Users from the roles that
+      // have user:read but are not administrators.
+      permissions: [
+        'admin:all', 'user:read', 'user:create', 'roles:read', 'data_request:read',
+        'feedback:read', 'logs:read', 'communication:read', 'sms_log:read'
+      ],
 
      },
  
 
     children: [
+      // Users moved under Admin to shorten the side nav. Paths changed from
+      // /users/* to /admin/users/*; the old ones redirect (see usersRedirects).
+      {
+        path: 'users',
+        component: Layout,
+        redirect: '/admin/users/all',
+        name: 'systemUsers',
+        meta: {
+          title: 'Users',
+          icon: 'wpf:usershield',
+          alwaysShow: true,
+          permissions: ['user:read'],
+        },
+        children: [
+       
+          {
+            path: 'all',
+           // component: 'views/Users/User',
+            component: () => import('@/views/Users/User.vue'),
+            name: 'staff',
+            meta: {
+              title: 'All',
+              hidden: false,
+              icon: 'teenyicons:users-outline',
+              permissions: ['user:read'],
+            }
+          },
+          {
+            path: 'admin',
+           // component: 'views/Users/User',
+            component: () => import('@/views/Users/AdminUsers.vue'),
+            name: 'AdminStaff',
+            meta: {
+              title: 'Admin',
+              hidden: false,
+              icon: 'mdi:shield-user',
+              permissions: ['user:read'],
+            }
+          },
+          {
+            path: 'super-admin',
+            component: () => import('@/views/Users/SuperAdminUsers.vue'),
+            name: 'SuperAdminStaff',
+            meta: {
+              title: 'Super Admins',
+              hidden: false,
+              icon: 'mdi:shield-crown',
+              permissions: ['user:read'],
+              roles: ['root_admin'],
+            }
+          },
+      
+
+          {
+            path: 'grm',
+           // component: 'views/Users/User',
+            component: () => import('@/views/Users/GrmUsers.vue'),
+            name: 'GRM_Staff',
+            meta: {
+              title: 'GRM',
+              hidden: false,
+              icon: 'flowbite:user-headset-solid',
+              permissions: ['user:read'],
+            }
+          },
+      
+          {
+            path: 'support',
+           // component: 'views/Users/User',
+            component: () => import('@/views/Users/SupportUsers.vue'),
+            name: 'Support_Staff',
+            meta: {
+              title: 'Support',
+              hidden: false,
+              icon: 'mdi:account-cog',
+              permissions: ['user:read'],
+            }
+          },
+
+          {
+            path: 'new',
+           // component: 'views/Users/User',
+            component: () => import('@/views/Users/NewAccounts.vue'),
+            name: 'NewAccounts',
+            meta: {
+              title: 'New',
+              hidden: false,
+              icon: 'grommet-icons:user-new',
+              permissions: ['user:create'],
+
+            }
+          },
+          // {
+          //   path: 'grc',
+          //   component: () => import('@/views/Grievances/GRC.vue'),
+          //  name: 'GRC',
+          //  meta: {
+          //    title: 'GRC',
+          //    icon:'fluent:people-checkmark-20-filled',
+          //    role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
+          //    locationLevel:['national','county','settlement'],
+
+          //  }
+          // },
+          // {
+          //   path: 'profile',
+          //   component: () => import('@/views/Users/Profile.vue'),
+          //   name: 'userProfile',
+          //   meta: {
+          //     title: 'Profile',
+          //     hidden: false,
+          //     icon:'pajamas:profile'
+          //   }
+          // }, 
+
+   
+
+        ]
+      },
+
       {
         path: 'roles',
         component: () => import('@/views/Users/Role.vue'),
@@ -1440,23 +1478,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'My Space',
       icon: 'wpf:usershield',
-      alwaysShow: true,
+      // Off the side nav: Profile is reached from the user menu in the header
+      // and Notifications from the bell, so a whole nav group for two pages
+      // was clutter. The routes still work.
+      hidden: true,
 
     },
     children: [  
      
-      {
-        path: 'profile',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/Profile.vue'),
-        name: 'userProfile',
-        meta: {
-          title: 'Profile',
-          hidden: false,
-          icon:'pajamas:profile',
-          permissions: ['user:read', 'user:update']
-        }
-      },
+      // Profile now lives at /profile as a footer item; this keeps old links.
+      { path: 'profile', redirect: '/profile', meta: { hidden: true } },
       {
         path: 'notifications',
         component: () => import('@/views/Notifications/Notifications.vue'),
@@ -1478,8 +1509,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     component: Layout,
     name: 'DocumentationNav',
     meta: {
-      title: 'Documentation',
+      title: 'Help',
       icon: 'mdi:book-open-page-variant',
+      // Pinned to the bottom of the sidebar, under a divider (see Menu.vue).
+      footer: true,
     },
     children: [
       {
@@ -1487,34 +1520,40 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: { render: () => null },
         name: 'Documentation',
         meta: {
-          title: 'Documentation',
+          title: 'Help',
           icon: 'mdi:book-open-page-variant',
         }
       }
     ]
   },
 
+  // The profile page. Off the sidebar on purpose: the avatar menu in the
+  // header already links here, so a second entry was duplication.
   {
-    path: '/data-request-form',
+    path: '/profile',
     component: Layout,
-    name: 'DataRequestFormNav',
+    name: 'MyProfileNav',
     meta: {
-      title: 'Data Request',
-      icon: 'mdi:database-arrow-right',
+      title: 'My Profile',
+      icon: 'pajamas:profile',
+      hidden: true,
+      permissions: ['user:read', 'user:update'],
     },
     children: [
       {
         path: '',
-        component: { render: () => null },
-        name: 'DataRequestForm',
+        component: () => import('@/views/Users/Profile.vue'),
+        name: 'userProfile',
         meta: {
-          title: 'Data Request',
-          icon: 'mdi:database-arrow-right',
+          title: 'My Profile',
+          icon: 'pajamas:profile',
+          permissions: ['user:read', 'user:update'],
         }
       }
     ]
   },
 
+  
 ]
 
  

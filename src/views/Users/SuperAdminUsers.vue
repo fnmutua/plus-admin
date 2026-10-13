@@ -136,7 +136,7 @@ onMounted(async () => {
 
   if (!isRootAdmin.value) {
     ElMessage.error('Only root administrators can manage super admins')
-    push({ path: '/users/all', name: 'staff' })
+    push({ path: '/admin/users/all', name: 'staff' })
   }
 })
 
