@@ -320,7 +320,14 @@ async function catalogue(question, limit = 60) {
   const terms = distinctiveTerms(question, 8)
   if (!terms.length) return []
 
-  const documents = await store.searchDocuments(terms, limit)
+  // Corrected first, exactly as the excerpt search does: "coutny spefici
+  // straggies" has to find the county strategy documents, and matching raw
+  // filenames against a typo finds whatever merely shares a correct word —
+  // a validation report for two counties, rather than the strategies.
+  const resolved = await store.resolveTerms(terms).catch(() => [])
+  const searchTerms = resolved.length ? [...new Set(resolved.map((entry) => entry.corrected))] : terms
+
+  const documents = await store.searchDocuments(searchTerms, limit)
   if (!documents.length) return []
 
   const listing = documents
