@@ -410,7 +410,7 @@ async function resolveTerms(terms, { maxEdits = 2 } = {}) {
        WHERE (term % $1 OR term LIKE left($1, 3) || '%')
          AND abs(length(term) - length($1)) <= $2
        ORDER BY edits ASC, df DESC
-       LIMIT 25
+       LIMIT 60
     `, [term, maxEdits])
 
     const viable = rows.filter((row) => Number(row.edits) <= maxEdits && row.term !== term)
@@ -422,16 +422,26 @@ async function resolveTerms(terms, { maxEdits = 2 } = {}) {
     // which is itself a typo sitting in two. The ratio has to be large so a
     // rare place name is not swapped for an everyday word.
     if (best) {
+      // The window is the full edit budget, not best.edits + 1: a typo that
+      // happens to sit in the corpus once ("coutny") has distance 0 from
+      // itself, which would stop "county" — two edits away and in thousands of
+      // chunks — from ever being considered.
       const commoner = viable.find(
-        (row) => Number(row.edits) <= Number(best.edits) + 1 && Number(row.df) >= Number(best.df) * 100
+        (row) => Number(row.edits) <= maxEdits && Number(row.df) >= Math.max(Number(best.df) * 100, 50)
       )
       if (commoner) best = commoner
     }
 
-    if (best) {
+    // Correcting an unknown word into one that is itself near-junk makes
+    // things worse: "spefici" became "speci" (2 chunks), and the term search
+    // weights rarity, so those two chunks would outvote everything. Leaving it
+    // uncorrected is better — a term no document contains is simply dropped.
+    const junk = known === undefined && best && best.term !== term && Number(best.df) < 5
+
+    if (best && !junk) {
       resolved.push({ term, corrected: best.term, df: Number(best.df) })
     } else {
-      resolved.push({ term, corrected: term, df: 0 })
+      resolved.push({ term, corrected: term, df: known ?? 0 })
     }
   }
 
