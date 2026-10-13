@@ -157,6 +157,9 @@ const escapeHtml = (value: string) =>
  */
 const inline = (text: string) => {
   let html = text
+  // The model puts <br> inside table cells to stack filenames. Everything was
+  // escaped first, so this restores that one tag and nothing else.
+  html = html.replace(/&lt;br\s*\/?&gt;/gi, '<br>')
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>')
   html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
   // Citation filenames the prompt asks the model to emit, e.g. [report.pdf]
