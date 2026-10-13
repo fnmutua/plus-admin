@@ -21,7 +21,11 @@ interface ChatMessage {
   tokens?: number
   provider?: string
   model?: string
-  retrieval?: 'vector' | 'keyword' | 'recent' | 'none'
+  retrieval?: string
+  /** Set only when the embedding call itself failed. */
+  vectorError?: string | null
+  /** Misspellings mapped to indexed words, e.g. kichecko -> kicheko. */
+  corrections?: Array<{ term: string; corrected: string }>
   isError?: boolean
   stopped?: boolean
 }
@@ -249,7 +253,9 @@ const sendQuestion = async () => {
         tokens: response.tokens || 0,
         provider: response.provider || aiConfig.provider,
         model: response.model || aiConfig.model,
-        retrieval: response.retrieval
+        retrieval: response.retrieval,
+        vectorError: (response as any).vectorError ?? null,
+        corrections: (response as any).corrections ?? []
       })
     } else {
       throw new Error(response.message || 'The assistant returned no answer')
@@ -481,11 +487,25 @@ defineExpose({ openModal, closeModal })
                   v-html="render(message.content)"
                 ></div>
 
-                <!-- Retrieval quality is surfaced, not hidden: a keyword answer
-                     is weaker than a vector one and the reader should know. -->
-                <div v-if="message.retrieval === 'keyword'" class="degraded">
+                <!-- Spelling corrections, the way a search engine reports them. -->
+                <div v-if="message.corrections?.length" class="corrected">
+                  <Icon icon="material-symbols:spellcheck" />
+                  Searched for
+                  <template v-for="(fix, i) in message.corrections" :key="fix.term">
+                    <strong>{{ fix.corrected }}</strong><template v-if="i < message.corrections.length - 1">, </template>
+                  </template>
+                </div>
+
+                <!-- Retrieval quality is surfaced, not hidden. Only an actual
+                     embedding failure is a warning; a keyword-only answer is
+                     weaker but not broken. -->
+                <div v-if="message.vectorError" class="degraded">
                   <Icon icon="material-symbols:warning-outline" />
-                  Vector search was unavailable — this used keyword matching.
+                  Semantic search failed ({{ message.vectorError }}) — this used word matching only.
+                </div>
+                <div v-else-if="message.retrieval === 'keyword' || message.retrieval === 'terms'" class="degraded">
+                  <Icon icon="material-symbols:info-outline" />
+                  Matched on words only — no semantically similar passages were found.
                 </div>
 
                 <div v-if="message.sources?.length" class="sources">
@@ -772,6 +792,15 @@ defineExpose({ openModal, closeModal })
   color: var(--el-color-primary);
   background: var(--el-color-primary-light-9);
   border-radius: 4px;
+}
+
+.corrected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .degraded {

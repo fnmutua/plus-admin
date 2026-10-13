@@ -61,7 +61,12 @@ export interface AIAnswer {
    * Which path produced the sources: semantic search, the keyword fallback,
    * a recency lookup for "the latest document", or nothing found.
    */
-  retrieval: 'vector' | 'keyword' | 'recent' | 'none'
+  /** 'hybrid' | 'vector' | 'keyword' | 'terms' | 'recency' | 'none'. */
+  retrieval: string
+  /** Set only when the embedding call failed, not when it merely found nothing. */
+  vectorError?: string | null
+  /** Misspellings mapped onto indexed words. */
+  corrections?: Array<{ term: string; corrected: string; df: number }>
   sessionId: string
 }
 

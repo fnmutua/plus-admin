@@ -52,6 +52,8 @@ function init() {
     try {
       await db.query('CREATE EXTENSION IF NOT EXISTS vector')
       await db.query('CREATE EXTENSION IF NOT EXISTS pg_trgm')
+      // levenshtein(), for mapping a misspelled word to one that is indexed.
+      await db.query('CREATE EXTENSION IF NOT EXISTS fuzzystrmatch')
 
       await db.query(`
         CREATE TABLE IF NOT EXISTS documents (
@@ -283,6 +285,222 @@ async function searchByKeyword(question, topK) {
 }
 
 /**
+ * Chunks matching the question's distinctive words, ranked so that rare words
+ * count for more than common ones.
+ *
+ * websearch_to_tsquery ANDs every term, so "socio-economic aspects of Kicheko"
+ * matches nothing even though five chunks name Kicheko. Vector search is no
+ * help either: it scores "Kicheko" close to Kipkaren, Kemeloi and Katorongot,
+ * because an embedding captures "Kenyan settlement planning report", not which
+ * place a document is about.
+ *
+ * Counting matches equally does not work either — thousands of chunks contain
+ * "socio" and "economic", so they bury the five that matter. Each term is
+ * therefore weighted by how rare it is, which is what makes a place name
+ * decisive. Everything here goes through the full-text index.
+ *
+ * @param {string[]} terms Distinctive words, already filtered by the caller.
+ */
+/**
+ * Vocabulary of indexed words, with a trigram index for fuzzy lookup.
+ *
+ * A misspelled place name finds nothing: "kichecko" is not in any chunk, and
+ * an embedding puts it next to Kipkaren rather than Kicheko. Keeping the
+ * corpus's own words in one small table lets a typo be mapped to the word that
+ * was actually indexed, which is cheaper than a trigram index over every
+ * chunk's full text.
+ */
+async function ensureVocabulary() {
+  const db = getPool()
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS chunk_terms (
+      term TEXT PRIMARY KEY,
+      df INTEGER NOT NULL DEFAULT 0
+    )
+  `)
+  await db.query(`CREATE INDEX IF NOT EXISTS ix_chunk_terms_trgm ON chunk_terms USING GIN (term gin_trgm_ops)`)
+}
+
+/**
+ * Rebuild the vocabulary from the indexed chunks. Scans every chunk, so it is
+ * a maintenance step (after indexing), not something a question triggers.
+ *
+ * Words are taken as they are written, not as ts_stat's lexemes: those are
+ * stemmed, so "informal" is stored only as "inform" and a typo can never be
+ * matched against the word a user actually typed. Search stems the corrected
+ * word anyway, so the surface form is the useful one to keep.
+ */
+async function refreshVocabulary() {
+  await ensureVocabulary()
+  const db = getPool()
+  const client = await db.connect()
+
+  try {
+    await client.query('BEGIN')
+    await client.query('TRUNCATE chunk_terms')
+    const { rowCount } = await client.query(`
+      INSERT INTO chunk_terms (term, df)
+      SELECT word, count(*)::int AS df
+        FROM (
+          SELECT DISTINCT c.id, w.word
+            FROM document_chunks c,
+                 LATERAL regexp_split_to_table(lower(c.content), $$[^a-z']+$$) AS w(word)
+           WHERE length(w.word) BETWEEN 3 AND 40
+             AND w.word ~ $$^[a-z][a-z']*$$
+        ) AS per_chunk
+       GROUP BY word
+    `)
+    await client.query('COMMIT')
+    await db.query('ANALYZE chunk_terms')
+    return rowCount
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Map each term to the closest word in the vocabulary, so a misspelling
+ * searches for what is actually indexed.
+ *
+ * A term already in the vocabulary is returned untouched. One that is not is
+ * replaced only when a close trigram match exists — a genuinely unknown word
+ * stays as it is rather than being bent into an unrelated one.
+ *
+ * @returns {Promise<Array<{term: string, corrected: string, df: number}>>}
+ */
+async function resolveTerms(terms, { maxEdits = 2 } = {}) {
+  if (!terms.length) return []
+  const db = getPool()
+
+  const { rows: known } = await db.query(
+    'SELECT term, df FROM chunk_terms WHERE term = ANY($1::text[])',
+    [terms]
+  )
+  const byTerm = new Map(known.map((row) => [row.term, row.df]))
+  const resolved = []
+
+  // A word in only a handful of chunks is still checked against the vocabulary:
+  // misspellings exist inside the documents too ("settlments" in 11 chunks),
+  // and the term search weights rarity, so a corpus typo would otherwise cast
+  // the deciding vote for any question that repeats it.
+  const RARE = 25
+
+  for (const term of terms) {
+    const known = byTerm.get(term)
+    if (known !== undefined && known > RARE) {
+      resolved.push({ term, corrected: term, df: known })
+      continue
+    }
+
+    // Trigram narrows the field using the index; edit distance then decides,
+    // because trigrams mishandle transpositions — "infromal" scores higher
+    // against the junk word "infrom" (one chunk) than against "informal".
+    // Among equal distances the commoner word wins, which keeps a real word
+    // from losing to a typo that happens to sit in the corpus.
+    // Candidates come from two cheap, indexed lookups: trigram similarity, and
+    // a shared three-letter prefix. Trigrams miss transpositions — "mavkoo"
+    // scores 0.14 against "mavoko" — while the prefix catches them, and the
+    // prefix misses a wrong first letter, which trigrams catch.
+    const { rows } = await db.query(`
+      SELECT term, df, levenshtein($1, term) AS edits
+        FROM chunk_terms
+       WHERE (term % $1 OR term LIKE left($1, 3) || '%')
+         AND abs(length(term) - length($1)) <= $2
+       ORDER BY edits ASC, df DESC
+       LIMIT 25
+    `, [term, maxEdits])
+
+    const viable = rows.filter((row) => Number(row.edits) <= maxEdits && row.term !== term)
+    // A known word keeps itself as the baseline; an unknown one has none.
+    let best = known !== undefined ? { term, df: known, edits: 0 } : viable[0]
+
+    // A far commoner word one edit further away is the better bet: "infromal"
+    // is a typo of "informal" (tens of thousands of chunks), not of "infomal",
+    // which is itself a typo sitting in two. The ratio has to be large so a
+    // rare place name is not swapped for an everyday word.
+    if (best) {
+      const commoner = viable.find(
+        (row) => Number(row.edits) <= Number(best.edits) + 1 && Number(row.df) >= Number(best.df) * 100
+      )
+      if (commoner) best = commoner
+    }
+
+    if (best) {
+      resolved.push({ term, corrected: best.term, df: Number(best.df) })
+    } else {
+      resolved.push({ term, corrected: term, df: 0 })
+    }
+  }
+
+  return resolved
+}
+
+async function searchByTerms(terms, limit) {
+  if (!terms.length) return []
+  const db = getPool()
+
+  // Every predicate below is spelled exactly as ix_chunks_fts is defined —
+  // to_tsvector('english', content) — so the GIN index is used. Wrapping the
+  // expression in a subquery instead costs a full scan: 24s versus 60ms.
+  const tsv = `to_tsvector('english', c.content)`
+
+  // Corpus size from the planner's estimate: exact enough for a weighting, and
+  // free, where count(*) over every chunk is not.
+  const { rows: [estimate] } = await db.query(
+    `SELECT GREATEST(reltuples, 1)::bigint AS total FROM pg_class WHERE relname = 'document_chunks'`
+  )
+  const total = Number(estimate?.total) || 1
+
+  const frequencies = await Promise.all(terms.map(async (term) => {
+    const { rows } = await db.query(
+      `SELECT count(*)::int AS df FROM document_chunks c WHERE ${tsv} @@ plainto_tsquery('english', $1)`,
+      [term]
+    )
+    return { term, df: rows[0].df }
+  }))
+
+  // Inverse document frequency: a term in 5 of 127,431 chunks outweighs one in
+  // 40,000 by an order of magnitude, which is what makes a place name decisive.
+  const weighted = frequencies
+    .filter((entry) => entry.df > 0)
+    .map((entry) => ({ ...entry, weight: Math.log(1 + total / entry.df) }))
+
+  if (!weighted.length) return []
+
+  const params = weighted.map((entry) => entry.term)
+  const score = weighted
+    .map((entry, i) => `(CASE WHEN ${tsv} @@ plainto_tsquery('english', $${i + 1}) THEN ${entry.weight.toFixed(6)} ELSE 0 END)`)
+    .join(' + ')
+  const anyTerm = weighted.map((_, i) => `plainto_tsquery('english', $${i + 1})`).join(' || ')
+  const maxScore = weighted.reduce((sum, entry) => sum + entry.weight, 0)
+
+  // Candidates are capped per term rather than scoring everything that matches
+  // any term: a common word like "economic" matches tens of thousands of
+  // chunks, and ordering all of them took seconds. A rare term returns fewer
+  // rows than the cap, so the words that decide the ranking are still exact.
+  const perTerm = Math.max(limit * 10, 200)
+  const candidates = weighted
+    .map((_, i) => `(SELECT id FROM document_chunks WHERE to_tsvector('english', content) @@ plainto_tsquery('english', $${i + 1}) LIMIT ${perTerm})`)
+    .join(' UNION ')
+
+  const { rows } = await db.query(`
+    WITH candidates AS (${candidates})
+    SELECT d.filename, d.file_type, d.file_size, c.content, c.chunk_index,
+           (${score}) / ${maxScore.toFixed(6)} AS similarity
+      FROM document_chunks c
+      JOIN candidates ON candidates.id = c.id
+      JOIN documents d ON d.id = c.document_id
+     ORDER BY similarity DESC, length(c.content) ASC
+     LIMIT $${weighted.length + 1}
+  `, [...params, limit])
+
+  return rows.map((row) => ({ ...row, similarity: Number(row.similarity), retrieval: 'terms' }))
+}
+
+/**
  * source_key -> stored metadata for every document under a key prefix.
  * Lets a folder scan skip files that have not changed since last indexed.
  */
@@ -449,6 +667,10 @@ module.exports = {
   replaceDocument,
   searchByVector,
   searchByKeyword,
+  searchByTerms,
+  ensureVocabulary,
+  refreshVocabulary,
+  resolveTerms,
   latestDocumentChunks,
   listFingerprints,
   recentTurns,

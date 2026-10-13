@@ -189,23 +189,121 @@ async function ingestRecord(record, modelName) {
 const RECENCY_QUESTION =
   /\b(most[- ]recent(ly)?|latest|newest|last)\b[^.?!]{0,40}\b(document|upload|file|report|pdf|docx)\b/i
 
+// Words that carry no retrieval signal. Short tokens are dropped separately,
+// so this only needs the common long ones.
+const STOPWORDS = new Set([
+  'about', 'above', 'after', 'again', 'against', 'already', 'also', 'and', 'any', 'are',
+  'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'can', 'cannot',
+  'could', 'describe', 'detail', 'details', 'did', 'does', 'doing', 'during', 'each', 'explain',
+  'few', 'for', 'from', 'further', 'give', 'had', 'has', 'have', 'having', 'her', 'here', 'hers',
+  'him', 'his', 'how', 'into', 'its', 'itself', 'just', 'list', 'main', 'more', 'most', 'much',
+  'must', 'myself', 'nor', 'not', 'now', 'off', 'once', 'only', 'other', 'ought', 'our', 'ours',
+  'out', 'over', 'own', 'please', 'same', 'should', 'show', 'some', 'such', 'summarise',
+  'summarize', 'summary', 'than', 'that', 'the', 'their', 'theirs', 'them', 'then', 'there',
+  'these', 'they', 'this', 'those', 'through', 'tell', 'under', 'until', 'very', 'was', 'were',
+  'what', 'when', 'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'would', 'your',
+  'yours', 'yourself'
+])
+
+/**
+ * The question's distinctive words: place and programme names, document titles.
+ * Capped, because each one costs a pattern in the literal search.
+ */
+function distinctiveTerms(question, limit = 6) {
+  const seen = new Set()
+
+  // Hyphens split, matching how the vocabulary is built: "socio-economic"
+  // becomes socio + economic, so a rare name in the same question is not
+  // competing with a token no document contains.
+  for (const raw of String(question).toLowerCase().split(/[^a-z0-9'’]+/)) {
+    const term = raw.replace(/^'+|'+$/g, '')
+    if (term.length < 4 || STOPWORDS.has(term) || seen.has(term)) continue
+    seen.add(term)
+    if (seen.size >= limit) break
+  }
+
+  return [...seen]
+}
+
+/**
+ * Merge ranked result lists by reciprocal rank fusion.
+ *
+ * Each list votes with 1/(K + rank), so a chunk returned by two searches
+ * outranks one returned by either alone — which is the whole point of running
+ * them together. K dampens the top of each list so a single search cannot
+ * monopolise the result.
+ */
+function fuseByRank(lists, limit, K = 20) {
+  const scores = new Map()
+
+  for (const list of lists) {
+    list.forEach((chunk, index) => {
+      const key = `${chunk.filename}#${chunk.chunk_index}`
+      const entry = scores.get(key) || { chunk, score: 0, paths: new Set() }
+      entry.score += 1 / (K + index + 1)
+      entry.paths.add(chunk.retrieval)
+      // Keep the copy with a similarity a reader can interpret.
+      if (chunk.retrieval === 'vector') entry.chunk = chunk
+      scores.set(key, entry)
+    })
+  }
+
+  return [...scores.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((entry) => ({ ...entry.chunk, retrieval: [...entry.paths].sort().join('+') }))
+}
+
+/**
+ * Find the excerpts an answer is built from.
+ *
+ * Hybrid on purpose: embeddings are good at meaning and tolerate misspellings,
+ * literal matching is good at names. Either alone gets a question like
+ * "socio-economic aspects of Kicheko" wrong — vectors return similarly-named
+ * settlements, keywords return nothing at all.
+ */
 async function retrieve(question) {
   const { topK, minSimilarity } = config.retrieval
 
   if (RECENCY_QUESTION.test(question)) {
     const recent = await store.latestDocumentChunks(topK)
-    if (recent.length) return recent
+    if (recent.length) return { chunks: recent, mode: 'recency', vectorError: null, corrections: [] }
   }
 
-  try {
-    const vector = await provider.embedOne(question)
-    const hits = await store.searchByVector(vector, provider.embeddingModelId(), topK, minSimilarity)
-    if (hits.length) return hits
-  } catch (error) {
-    console.warn('[ai] vector search unavailable, using keyword search:', error.message)
-  }
+  let vectorError = null
+  const vector = (async () => {
+    try {
+      const embedded = await provider.embedOne(question)
+      return await store.searchByVector(embedded, provider.embeddingModelId(), topK, minSimilarity)
+    } catch (error) {
+      vectorError = error.message
+      console.warn('[ai] vector search unavailable:', error.message)
+      return []
+    }
+  })()
 
-  return store.searchByKeyword(question, topK)
+  // Distinctive words are mapped onto words that are actually indexed, so a
+  // misspelled place name still finds its documents: "KICHECKO" searches for
+  // "kicheko". Without this the literal search returns nothing and the vector
+  // search answers about a similarly-named settlement instead.
+  const terms = distinctiveTerms(question)
+  const resolved = await store.resolveTerms(terms).catch(() => [])
+  const corrections = resolved.filter((entry) => entry.corrected !== entry.term)
+  const searchTerms = resolved.length ? resolved.map((entry) => entry.corrected) : terms
+
+  const [vectorHits, keywordHits, termHits] = await Promise.all([
+    vector,
+    store.searchByKeyword(question, topK).catch(() => []),
+    store.searchByTerms(searchTerms, topK).catch(() => [])
+  ])
+
+  const lists = [vectorHits, keywordHits, termHits].filter((list) => list.length)
+  if (!lists.length) return { chunks: [], mode: 'none', vectorError, corrections }
+
+  const chunks = fuseByRank(lists, topK)
+  const mode = lists.length > 1 ? 'hybrid' : chunks[0].retrieval
+
+  return { chunks, mode, vectorError, corrections }
 }
 
 function buildContext(chunks) {
@@ -243,7 +341,7 @@ async function ask({ question, sessionId = 'default', userId, provider: requeste
     throw Object.assign(new Error('AI database is unavailable'), { status: 503 })
   }
 
-  const chunks = await retrieve(question)
+  const { chunks, mode, vectorError, corrections } = await retrieve(question)
 
   if (!chunks.length) {
     return {
@@ -251,7 +349,9 @@ async function ask({ question, sessionId = 'default', userId, provider: requeste
       sources: [],
       tokens: 0,
       sessionId,
-      retrieval: 'none'
+      retrieval: 'none',
+      vectorError,
+      corrections
     }
   }
 
@@ -313,7 +413,13 @@ async function ask({ question, sessionId = 'default', userId, provider: requeste
     provider: completion.provider,
     model: completion.model,
     processingTime: completion.ms,
-    retrieval: used[0].retrieval,
+    retrieval: mode,
+    // Set only when the embedding call failed, so the UI can tell "vector
+    // search is broken" apart from "vector search found nothing useful".
+    vectorError,
+    // [{ term: 'kichecko', corrected: 'kicheko' }] — worth showing, as a
+    // search engine shows "results for ...".
+    corrections,
     sessionId
   }
 }
@@ -382,6 +488,17 @@ async function fillMissingEmbeddings({ batchSize, limit = Infinity, onProgress =
   return { missing, embedded, failed, modelId, error: lastError ? lastError.message : null }
 }
 
+/**
+ * Rebuild the spelling vocabulary that typo correction relies on.
+ *
+ * Indexing new documents introduces new words — place names above all — so
+ * this runs at the end of an indexing pass rather than on a question.
+ */
+async function refreshVocabulary() {
+  if (!(await store.init())) throw Object.assign(new Error('AI database is unavailable'), { status: 503 })
+  return store.refreshVocabulary()
+}
+
 async function health() {
   await settings.ensureLoaded()
   const dbReady = await store.init()
@@ -403,6 +520,7 @@ module.exports = {
   listDocuments,
   getDocument,
   fillMissingEmbeddings,
+  refreshVocabulary,
   health,
   availableProviders,
   listModels: provider.listModels,

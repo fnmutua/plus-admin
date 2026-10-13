@@ -12,8 +12,20 @@ const { config } = require('./config')
 
 const TEXT_EXTENSIONS = new Set(['.txt', '.md', '.markdown', '.json', '.log', '.xml', '.html', '.htm'])
 
+/** Types we can read out of an archive. Archives inside archives are not followed. */
+const ARCHIVE_MEMBER_TYPES = new Set(['.pdf', '.docx', '.csv', '.tsv', ...TEXT_EXTENSIONS])
+
 /** Extensions we can turn into text. Anything else is skipped, not failed. */
-const SUPPORTED = new Set(['.pdf', '.docx', '.csv', '.tsv', ...TEXT_EXTENSIONS])
+const SUPPORTED = new Set(['.pdf', '.docx', '.csv', '.tsv', '.zip', ...TEXT_EXTENSIONS])
+
+// Guards for archives. A zip is attacker-shaped input even when it is only a
+// consultant's report bundle: 1,661 of them are in the register, and one bad
+// file should cost a skipped document rather than the indexing run.
+const ARCHIVE_LIMITS = {
+  members: 60,          // files read per archive
+  memberBytes: 40 * 1024 * 1024,   // uncompressed size of any one member
+  totalBytes: 200 * 1024 * 1024    // uncompressed total per archive
+}
 
 function isSupported(filename) {
   return SUPPORTED.has(path.extname(filename).toLowerCase())
@@ -62,7 +74,80 @@ async function extractText(filePath, filename = filePath) {
     return fs.promises.readFile(filePath, 'utf8')
   }
 
+  if (ext === '.zip') {
+    return extractArchive(filePath, filename)
+  }
+
   return null
+}
+
+/**
+ * Read the supported files out of a zip and return them as one text, each
+ * member introduced by its path.
+ *
+ * Archives hold the bundled reports — plans, surveys, design packages — so
+ * skipping them left the richest documents unread. Members are extracted to
+ * temporary files because pdf-parse and mammoth want a path or a whole buffer,
+ * and the temporary file is always removed.
+ *
+ * Nested archives are not followed, and the limits above bound the work: a
+ * malformed or hostile zip costs this one document, not the run.
+ */
+async function extractArchive(filePath, filename) {
+  const JSZip = require('jszip')
+  const os = require('os')
+
+  const archive = await JSZip.loadAsync(await fs.promises.readFile(filePath))
+  const members = Object.values(archive.files)
+    .filter((entry) => !entry.dir)
+    .filter((entry) => ARCHIVE_MEMBER_TYPES.has(path.extname(entry.name).toLowerCase()))
+    // Largest first: if the limits cut the archive short, keep the substance.
+    .sort((a, b) => (b._data?.uncompressedSize || 0) - (a._data?.uncompressedSize || 0))
+
+  if (!members.length) return null
+
+  const parts = []
+  const read = []
+  let totalBytes = 0
+
+  for (const entry of members) {
+    if (read.length >= ARCHIVE_LIMITS.members) break
+    if (totalBytes >= ARCHIVE_LIMITS.totalBytes) break
+
+    const size = entry._data?.uncompressedSize || 0
+    if (size > ARCHIVE_LIMITS.memberBytes) {
+      console.warn(`[ai] ${filename}: skipping ${entry.name} (${Math.round(size / 1024 / 1024)}MB)`)
+      continue
+    }
+
+    const temp = path.join(
+      await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ai-zip-')),
+      path.basename(entry.name)
+    )
+
+    try {
+      await fs.promises.writeFile(temp, await entry.async('nodebuffer'))
+      const text = await extractText(temp, entry.name)
+      if (text && text.trim()) {
+        parts.push(`<<< file: ${entry.name} >>>\n${text.trim()}`)
+        read.push(entry.name)
+        totalBytes += size
+      }
+    } catch (error) {
+      // One unreadable member does not spoil the archive.
+      console.warn(`[ai] ${filename}: could not read ${entry.name} — ${error.message}`)
+    } finally {
+      await fs.promises.rm(path.dirname(temp), { recursive: true, force: true }).catch(() => {})
+    }
+  }
+
+  if (!parts.length) return null
+
+  const skipped = members.length - read.length
+  console.log(`[ai] ${filename}: read ${read.length} of ${members.length} archived file(s)`
+    + (skipped ? `, ${skipped} skipped` : ''))
+
+  return parts.join('\n\n')
 }
 
 /**
@@ -135,4 +220,4 @@ function chunkText(text, { size = config.chunk.size, overlap = config.chunk.over
     .slice(0, max)
 }
 
-module.exports = { extractText, recordToText, chunkText, isSupported, SUPPORTED }
+module.exports = { extractText, recordToText, chunkText, isSupported, SUPPORTED, ARCHIVE_LIMITS }

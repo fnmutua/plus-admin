@@ -19,6 +19,13 @@
 //                                                   any files (resumable)
 //   node tools/ai-reindex.js --fill-embeddings --limit 5000 --batch 8
 //
+//   node tools/ai-reindex.js --ext zip --force      only documents with that
+//                                                   extension (repeatable)
+//
+//   node tools/ai-reindex.js --refresh-vocabulary   rebuild the spelling
+//                                                   vocabulary used to match
+//                                                   misspelled search words
+//
 //   --concurrency N                                 default 2
 //
 // Folder mode is idempotent: each file is keyed by its absolute path, so a
@@ -82,7 +89,7 @@ function progressFor(position, label) {
 function parseArgs(argv) {
   const options = {
     all: false, ids: [], dirs: [], concurrency: 2, force: false, recursive: true, dryRun: false,
-    fillEmbeddings: false, limit: Infinity, batch: null
+    fillEmbeddings: false, limit: Infinity, batch: null, refreshVocabulary: false, exts: []
   }
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -92,6 +99,12 @@ function parseArgs(argv) {
       case '--flat': options.recursive = false; break
       case '--dry-run': options.dryRun = true; break
       case '--fill-embeddings': options.fillEmbeddings = true; break
+      case '--refresh-vocabulary': options.refreshVocabulary = true; break
+      case '--ext': {
+        const ext = String(argv[++i] || '').trim().toLowerCase()
+        if (ext) options.exts.push(ext.startsWith('.') ? ext : `.${ext}`)
+        break
+      }
       case '--limit': options.limit = Math.max(1, parseInt(argv[++i], 10) || Infinity); break
       case '--batch': options.batch = Math.max(1, parseInt(argv[++i], 10) || 0) || null; break
       case '--id': options.ids.push(argv[++i]); break
@@ -228,6 +241,12 @@ async function runDatabase(options) {
   // document the previous pipeline marked as failed.
   else if (!options.all) where.aiProcessed = { [Op.not]: true }
 
+  // --ext narrows by filename, for re-reading one type after its support was
+  // added: the 1,661 archives were all marked "Unsupported file type".
+  if (options.exts.length) {
+    where.name = { [Op.or]: options.exts.map((ext) => ({ [Op.iLike]: `%${ext}` })) }
+  }
+
   const documents = await db.models.document.findAll({
     where,
     attributes: ['id', 'name', 'location', 'size']
@@ -317,6 +336,20 @@ async function runFillEmbeddings(options) {
   return outcome
 }
 
+/**
+ * Keep the spelling vocabulary in step after indexing. A failure here costs
+ * typo tolerance on new words, not the indexing that just succeeded, so it is
+ * reported and swallowed.
+ */
+async function refreshVocabularyQuietly() {
+  try {
+    const words = await ai.refreshVocabulary()
+    console.log(`vocabulary: ${words.toLocaleString()} words`)
+  } catch (error) {
+    console.warn(`vocabulary not rebuilt (${error.message}); misspelled search words may not match`)
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2))
 
@@ -341,8 +374,15 @@ async function main() {
     process.exit(1)
   }
 
+  if (options.refreshVocabulary) {
+    const words = await ai.refreshVocabulary()
+    console.log(`vocabulary rebuilt: ${words.toLocaleString()} words`)
+    return
+  }
+
   if (options.fillEmbeddings) {
     const outcome = await runFillEmbeddings(options)
+    await refreshVocabularyQuietly()
     const stats = await ai.stats()
     console.log(`\nembedded ${outcome.embedded}, failed ${outcome.failed}`
       + (outcome.error ? ` — last error: ${outcome.error}` : ''))
@@ -351,6 +391,8 @@ async function main() {
   }
 
   const result = options.dirs.length ? await runFolders(options) : await runDatabase(options)
+
+  await refreshVocabularyQuietly()
 
   const stats = await ai.stats()
   console.log(`\nindexed ${result.indexed}, skipped/failed ${result.failed}`)
