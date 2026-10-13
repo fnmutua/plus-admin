@@ -30,9 +30,60 @@ const SYSTEM_PROMPT = [
 
 const disabled = (message) => ({ success: false, skipped: true, message })
 
-// Chunks are embedded in batches so a long document reports progress as it goes
-// rather than sitting silent on a single request.
-const EMBED_BATCH = 32
+// Chunks are embedded in batches so a long document reports progress as it
+// goes rather than sitting silent on one enormous request.
+const FALLBACK_BATCH = 8
+
+/**
+ * Embed chunks batch by batch, keeping what succeeds.
+ *
+ * A slow host is the normal failure here, not a broken one: on production, a
+ * 60s timeout against a loaded Ollama left 991 documents with no vectors at
+ * all because one failed batch used to discard every vector already computed
+ * for that document. So a failed batch is retried once in smaller pieces, and
+ * whatever was embedded before the failure is kept — a document with some
+ * vectors is useful, and the rest can be filled in later without re-reading
+ * the file (see fillMissingEmbeddings).
+ *
+ * @returns {{vectors: Array|null, warning: string|null}} `vectors` is sparse:
+ *          index i holds the vector for chunk i, or undefined.
+ */
+async function embedChunks(chunks, { filename, onProgress = () => {} }) {
+  const batchSize = Math.max(1, config.embed.batchSize)
+  const vectors = []
+  let failure = null
+
+  for (let start = 0; start < chunks.length && !failure; start += batchSize) {
+    const slice = chunks.slice(start, start + batchSize)
+
+    try {
+      vectors.push(...await provider.embed(slice))
+    } catch (error) {
+      // One retry in smaller pieces: a batch of 32 can time out where 8 will not.
+      try {
+        for (let inner = 0; inner < slice.length; inner += FALLBACK_BATCH) {
+          vectors.push(...await provider.embed(slice.slice(inner, inner + FALLBACK_BATCH)))
+        }
+      } catch (retryError) {
+        failure = retryError
+        break
+      }
+    }
+
+    onProgress({ stage: 'embedding', done: vectors.length, total: chunks.length })
+  }
+
+  if (!failure) return { vectors, warning: null }
+
+  const done = vectors.length
+  const warning = done
+    ? `Embedded ${done} of ${chunks.length} chunks (${failure.message}); the rest are keyword-only until re-embedded`
+    : `Embedding failed (${failure.message}); indexed for keyword search only`
+
+  console.warn(`[ai] ${warning} — ${filename}`)
+  // Keep the partial vectors: store.replaceDocument writes only the ones present.
+  return { vectors: done ? vectors : null, warning }
+}
 
 /** Index text that has already been extracted. Shared by both ingest paths. */
 async function indexText({ sourceKey, filename, filePath, fileType, fileSize, text, metadata, onProgress = () => {} }) {
@@ -40,20 +91,7 @@ async function indexText({ sourceKey, filename, filePath, fileType, fileSize, te
   if (!chunks.length) return { success: false, message: 'No text content to index' }
   onProgress({ stage: 'chunked', chars: text.length, chunks: chunks.length })
 
-  let vectors = []
-  let warning = null
-
-  try {
-    for (let start = 0; start < chunks.length; start += EMBED_BATCH) {
-      vectors.push(...await provider.embed(chunks.slice(start, start + EMBED_BATCH)))
-      onProgress({ stage: 'embedding', done: vectors.length, total: chunks.length })
-    }
-  } catch (error) {
-    // Chunks are still worth storing: keyword search works without vectors.
-    vectors = null
-    warning = `Embedding failed (${error.message}); indexed for keyword search only`
-    console.warn(`[ai] ${warning} — ${filename}`)
-  }
+  const { vectors, warning } = await embedChunks(chunks, { filename, onProgress })
 
   onProgress({ stage: 'storing', chunks: chunks.length })
   const result = await store.replaceDocument({
@@ -295,6 +333,55 @@ async function getDocument(id) {
   return store.getDocument(id)
 }
 
+/**
+ * Give vectors to chunks that have none, without touching the source files.
+ *
+ * This is the cheap way back from a failed embedding run: the text is already
+ * extracted and chunked in the database, so only the embedding calls remain.
+ * Safe to interrupt and re-run — it always asks for what is still missing.
+ *
+ * @param {{batchSize?: number, limit?: number, onProgress?: Function}} options
+ */
+async function fillMissingEmbeddings({ batchSize, limit = Infinity, onProgress = () => {} } = {}) {
+  await settings.ensureLoaded()
+  if (!config.enabled) throw Object.assign(new Error('AI is disabled'), { status: 503 })
+  if (!(await store.init())) throw Object.assign(new Error('AI database is unavailable'), { status: 503 })
+
+  const modelId = provider.embeddingModelId()
+  const size = Math.max(1, batchSize || config.embed.batchSize)
+  const missing = await store.countMissingEmbeddings(modelId)
+
+  onProgress({ stage: 'start', missing, modelId, batchSize: size })
+
+  let embedded = 0
+  let failed = 0
+  let lastError = null
+
+  while (embedded + failed < Math.min(missing, limit)) {
+    const take = Math.min(size, Math.min(missing, limit) - embedded - failed)
+    const rows = await store.chunksMissingEmbeddings(modelId, take)
+    if (!rows.length) break
+
+    try {
+      const vectors = await provider.embed(rows.map((row) => row.content))
+      await store.saveEmbeddings(
+        rows.map((row, index) => ({ chunkId: row.id, vector: vectors[index] })).filter((row) => row.vector),
+        modelId
+      )
+      embedded += rows.length
+      onProgress({ stage: 'batch', embedded, failed, missing, filename: rows[0].filename })
+    } catch (error) {
+      // Leave these chunks for the next run rather than looping on them.
+      failed += rows.length
+      lastError = error
+      onProgress({ stage: 'error', embedded, failed, missing, message: error.message })
+      if (failed >= size * 3) break
+    }
+  }
+
+  return { missing, embedded, failed, modelId, error: lastError ? lastError.message : null }
+}
+
 async function health() {
   await settings.ensureLoaded()
   const dbReady = await store.init()
@@ -315,6 +402,7 @@ module.exports = {
   stats,
   listDocuments,
   getDocument,
+  fillMissingEmbeddings,
   health,
   availableProviders,
   listModels: provider.listModels,

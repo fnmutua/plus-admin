@@ -14,6 +14,11 @@
 //   node tools/ai-reindex.js --dir ./docs --flat    do not descend into subfolders
 //   node tools/ai-reindex.js --dir ./docs --dry-run list what would be indexed
 //
+//   node tools/ai-reindex.js --fill-embeddings      give vectors to chunks that
+//                                                   have none, without re-reading
+//                                                   any files (resumable)
+//   node tools/ai-reindex.js --fill-embeddings --limit 5000 --batch 8
+//
 //   --concurrency N                                 default 2
 //
 // Folder mode is idempotent: each file is keyed by its absolute path, so a
@@ -75,7 +80,10 @@ function progressFor(position, label) {
 }
 
 function parseArgs(argv) {
-  const options = { all: false, ids: [], dirs: [], concurrency: 2, force: false, recursive: true, dryRun: false }
+  const options = {
+    all: false, ids: [], dirs: [], concurrency: 2, force: false, recursive: true, dryRun: false,
+    fillEmbeddings: false, limit: Infinity, batch: null
+  }
 
   for (let i = 0; i < argv.length; i += 1) {
     switch (argv[i]) {
@@ -83,6 +91,9 @@ function parseArgs(argv) {
       case '--force': options.force = true; break
       case '--flat': options.recursive = false; break
       case '--dry-run': options.dryRun = true; break
+      case '--fill-embeddings': options.fillEmbeddings = true; break
+      case '--limit': options.limit = Math.max(1, parseInt(argv[++i], 10) || Infinity); break
+      case '--batch': options.batch = Math.max(1, parseInt(argv[++i], 10) || 0) || null; break
       case '--id': options.ids.push(argv[++i]); break
       case '--dir': options.dirs.push(resolveDir(argv[++i])); break
       case '--concurrency': options.concurrency = Math.max(1, parseInt(argv[++i], 10) || 2); break
@@ -268,12 +279,57 @@ async function runDatabase(options) {
   return { indexed, failed }
 }
 
+/**
+ * Fill in missing vectors. Nothing is re-extracted: the chunks are already in
+ * the database, so this only makes the embedding calls that failed before.
+ */
+async function runFillEmbeddings(options) {
+  let started = Date.now()
+  let lastReport = 0
+
+  const outcome = await ai.fillMissingEmbeddings({
+    batchSize: options.batch,
+    limit: options.limit,
+    onProgress: (event) => {
+      if (event.stage === 'start') {
+        console.log(`${event.missing.toLocaleString()} chunk(s) without a vector for ${event.modelId}`)
+        console.log(`embedding ${event.batchSize} at a time`
+          + (options.limit === Infinity ? '' : `, stopping after ${options.limit.toLocaleString()}`) + '\n')
+        started = Date.now()
+      }
+      if (event.stage === 'batch') {
+        // One line every 2s: a long run should not scroll past unreadably.
+        if (Date.now() - lastReport < 2000) return
+        lastReport = Date.now()
+        const rate = event.embedded / Math.max(1, (Date.now() - started) / 1000)
+        const left = Math.min(event.missing, options.limit) - event.embedded - event.failed
+        console.log(`  ${event.embedded.toLocaleString()} embedded`
+          + (event.failed ? `, ${event.failed} failed` : '')
+          + ` — ${rate.toFixed(1)}/s, ~${Math.round(left / Math.max(rate, 0.01) / 60)} min left`
+          + ` (${event.filename})`)
+      }
+      if (event.stage === 'error') {
+        console.error(`  batch failed: ${event.message}`)
+      }
+    }
+  })
+
+  return outcome
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2))
 
   if (!(await ai.init())) {
     console.error('AI database is not reachable. Check AI_DB_* in your environment.')
     process.exit(1)
+  }
+
+  if (options.fillEmbeddings && options.dryRun) {
+    const stats = await ai.stats()
+    console.log(`${stats.chunks.toLocaleString()} chunks, ${stats.embeddings.toLocaleString()} with vectors`
+      + ` — ${(stats.chunks - stats.embeddings).toLocaleString()} would be embedded`)
+    return
   }
 
   const health = await ai.health()
@@ -283,6 +339,15 @@ async function main() {
   if (!health.embeddings.ok && !options.dryRun) {
     console.error('Refusing to run: documents would be indexed without vectors.')
     process.exit(1)
+  }
+
+  if (options.fillEmbeddings) {
+    const outcome = await runFillEmbeddings(options)
+    const stats = await ai.stats()
+    console.log(`\nembedded ${outcome.embedded}, failed ${outcome.failed}`
+      + (outcome.error ? ` — last error: ${outcome.error}` : ''))
+    console.log(`index now holds ${stats.documents} documents / ${stats.chunks} chunks / ${stats.embeddings} embeddings`)
+    return
   }
 
   const result = options.dirs.length ? await runFolders(options) : await runDatabase(options)

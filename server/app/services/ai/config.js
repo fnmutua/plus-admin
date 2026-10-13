@@ -91,7 +91,10 @@ const config = {
     // Must match the vector(N) column. all-minilm is 384; switching models
     // means setting this AND reindexing — store.js refuses to guess.
     dimensions: int(process.env.AI_EMBED_DIMENSIONS, 384),
-    timeoutMs: int(process.env.AI_EMBED_TIMEOUT_MS, 60000)
+    timeoutMs: int(process.env.AI_EMBED_TIMEOUT_MS, 60000),
+    // Chunks per embedding request. Smaller batches finish inside the timeout
+    // on a loaded host; larger ones are faster when there is headroom.
+    batchSize: int(process.env.AI_EMBED_BATCH, 32)
   },
 
   ollamaUrl: OLLAMA_URL,

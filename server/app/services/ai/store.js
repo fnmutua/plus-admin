@@ -360,6 +360,64 @@ async function listDocuments() {
   }))
 }
 
+/**
+ * Chunks that have no vector for the given model, oldest first.
+ *
+ * Text extraction and chunking are the expensive, file-dependent part of
+ * indexing; embedding is not. When embeddings fail — a slow host, a timeout —
+ * the chunks are still stored, so the gap can be closed from the database
+ * alone, without the original files being present.
+ */
+async function chunksMissingEmbeddings(modelId, limit) {
+  const { rows } = await getPool().query(`
+    SELECT c.id, c.content, d.filename
+      FROM document_chunks c
+      JOIN documents d ON d.id = c.document_id
+     WHERE NOT EXISTS (
+       SELECT 1 FROM embeddings e WHERE e.chunk_id = c.id AND e.model_name = $1
+     )
+     ORDER BY c.document_id, c.chunk_index
+     LIMIT $2
+  `, [modelId, limit])
+  return rows
+}
+
+/** How many chunks still lack a vector for this model. */
+async function countMissingEmbeddings(modelId) {
+  const { rows } = await getPool().query(`
+    SELECT count(*)::int AS missing
+      FROM document_chunks c
+     WHERE NOT EXISTS (
+       SELECT 1 FROM embeddings e WHERE e.chunk_id = c.id AND e.model_name = $1
+     )
+  `, [modelId])
+  return rows[0].missing
+}
+
+/** Store vectors for chunks that already exist. */
+async function saveEmbeddings(rows, modelId) {
+  if (!rows.length) return 0
+  const db = getPool()
+  const client = await db.connect()
+
+  try {
+    await client.query('BEGIN')
+    for (const { chunkId, vector } of rows) {
+      await client.query(`
+        INSERT INTO embeddings (chunk_id, embedding_vector, model_name)
+        VALUES ($1, $2::vector, $3)
+      `, [chunkId, toVector(vector), modelId])
+    }
+    await client.query('COMMIT')
+    return rows.length
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 /** One indexed document's identity, without its content. */
 async function getDocument(id) {
   const { rows } = await getPool().query(
@@ -399,5 +457,8 @@ module.exports = {
   stats,
   listDocuments,
   getDocument,
+  chunksMissingEmbeddings,
+  countMissingEmbeddings,
+  saveEmbeddings,
   status
 }
