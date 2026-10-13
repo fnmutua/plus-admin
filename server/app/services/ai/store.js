@@ -438,6 +438,40 @@ async function resolveTerms(terms, { maxEdits = 2 } = {}) {
   return resolved
 }
 
+/**
+ * Documents whose name or text matches the given terms, as a catalogue rather
+ * than as excerpts.
+ *
+ * "List all the county strategies that are indexed" is a question about the
+ * index, not about any passage in it: retrieval returns twelve excerpts, which
+ * cannot enumerate seventeen documents however well it ranks them.
+ */
+async function searchDocuments(terms, limit) {
+  if (!terms.length) return []
+
+  const patterns = terms.map((term) => `%${term}%`)
+  const nameMatch = terms.map((_, i) => `d.filename ILIKE $${i + 1}`).join(' OR ')
+  const nameScore = terms
+    .map((_, i) => `(CASE WHEN d.filename ILIKE $${i + 1} THEN 1 ELSE 0 END)`)
+    .join(' + ')
+
+  const { rows } = await getPool().query(`
+    SELECT d.filename, d.file_type,
+           (SELECT count(*) FROM document_chunks c WHERE c.document_id = d.id) AS chunks,
+           (${nameScore}) AS name_matches
+      FROM documents d
+     WHERE ${nameMatch}
+     ORDER BY name_matches DESC, d.filename ASC
+     LIMIT $${terms.length + 1}
+  `, [...patterns, limit])
+
+  return rows.map((row) => ({
+    filename: row.filename,
+    fileType: row.file_type,
+    chunks: Number(row.chunks)
+  }))
+}
+
 async function searchByTerms(terms, limit) {
   if (!terms.length) return []
   const db = getPool()
@@ -668,6 +702,7 @@ module.exports = {
   searchByVector,
   searchByKeyword,
   searchByTerms,
+  searchDocuments,
   ensureVocabulary,
   refreshVocabulary,
   resolveTerms,

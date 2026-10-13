@@ -22,6 +22,8 @@ const SYSTEM_PROMPT = [
   'You are a document assistant for KeSMIS, a settlement management information system.',
   'Use only the excerpts in the CONTEXT block. Never use outside knowledge, and never invent facts, figures, names or sources.',
   'When asked to summarise, describe or list, do that from what the excerpts actually contain.',
+  'A block headed "The following ... indexed document(s) match this question" is the document list itself:',
+  'enumerate those filenames when asked what is indexed, and say how many there are.',
   'Only if the excerpts genuinely do not address the question, say so plainly.',
   // Citing every claim produced an answer where the same filename followed
   // all six bullets, which is noise rather than provenance.
@@ -266,12 +268,58 @@ function fuseByRank(lists, limit, K = 20) {
  * "socio-economic aspects of Kicheko" wrong — vectors return similarly-named
  * settlements, keywords return nothing at all.
  */
+// "List every county strategy", "how many reports are indexed", "which
+// documents mention X" — questions about the index rather than about a passage
+// in it. Twelve excerpts cannot enumerate seventeen documents, so these are
+// answered from a catalogue of matching documents instead.
+const CATALOGUE_QUESTION =
+  /\b(list|enumerate|inventory)\b|\bhow many\b|\b(which|what)\b[^.?!]{0,40}\b(documents?|reports?|files?|strategies|strategys)\b/i
+
+/** Documents matching the question, as one block the model can enumerate. */
+async function catalogue(question, limit = 60) {
+  const terms = distinctiveTerms(question, 8)
+  if (!terms.length) return []
+
+  const documents = await store.searchDocuments(terms, limit)
+  if (!documents.length) return []
+
+  const listing = documents
+    .map((doc) => `- ${doc.filename} (${doc.chunks} excerpt${doc.chunks === 1 ? '' : 's'} indexed)`)
+    .join('\n')
+
+  // Shaped like a chunk so context building and source reporting are unchanged.
+  return [{
+    filename: 'index catalogue',
+    file_type: 'catalogue',
+    chunk_index: 0,
+    similarity: 1,
+    retrieval: 'catalogue',
+    content: `The following ${documents.length} indexed document(s) match this question.`
+      + ` This is the document list itself, not their contents:\n${listing}`
+  }]
+}
+
 async function retrieve(question) {
   const { topK, minSimilarity } = config.retrieval
 
   if (RECENCY_QUESTION.test(question)) {
     const recent = await store.latestDocumentChunks(topK)
     if (recent.length) return { chunks: recent, mode: 'recency', vectorError: null, corrections: [] }
+  }
+
+  if (CATALOGUE_QUESTION.test(question)) {
+    const listing = await catalogue(question)
+    // Excerpts still follow, so the answer can describe as well as enumerate.
+    if (listing.length) {
+      const [vectorHits, termHits] = await Promise.all([
+        provider.embedOne(question)
+          .then((embedded) => store.searchByVector(embedded, provider.embeddingModelId(), topK, minSimilarity))
+          .catch(() => []),
+        store.searchByTerms(distinctiveTerms(question), topK).catch(() => [])
+      ])
+      const extra = fuseByRank([vectorHits, termHits].filter((list) => list.length), Math.floor(topK / 2))
+      return { chunks: [...listing, ...extra], mode: 'catalogue', vectorError: null, corrections: [] }
+    }
   }
 
   let vectorError = null
