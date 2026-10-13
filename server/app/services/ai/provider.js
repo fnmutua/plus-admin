@@ -88,6 +88,27 @@ async function remoteCompletion({ remote, provider, model, messages, signal }) {
         signal
       })
       QUIRKS.set(cacheKey, quirks)
+
+      // A reasoning model counts its thinking against the completion budget,
+      // so a cap that is too low returns an empty answer with finish_reason
+      // 'length' — 1024 tokens spent entirely on reasoning, nothing written.
+      // Raise the ceiling once rather than handing back a blank reply.
+      const choice = data.choices?.[0]
+      const empty = !choice?.message?.content?.trim()
+      if (empty && choice?.finish_reason === 'length' && !quirks.raisedCap) {
+        quirks.raisedCap = true
+        QUIRKS.set(cacheKey, quirks)
+        const raised = Math.min(Math.max(config.chat.maxTokens * 4, 4096), 32768)
+        console.warn(`[ai] ${cacheKey} returned nothing within ${body[quirks.tokenParam]} tokens`
+          + ` (reasoning used the budget); retrying with ${raised}`)
+        return postJson(`${remote.baseUrl}/chat/completions`, { ...body, [quirks.tokenParam]: raised }, {
+          headers: { Authorization: `Bearer ${remote.apiKey}` },
+          timeoutMs: config.chat.timeoutMs,
+          provider,
+          signal
+        })
+      }
+
       return data
     } catch (error) {
       // Only a 400 naming the offending parameter is worth adapting to, and
@@ -183,8 +204,17 @@ async function chat({ system, messages, provider, model, signal }) {
   })
 
   const usage = data.usage || {}
+  const choice = data.choices?.[0]
+  if (!choice?.message?.content?.trim() && choice?.finish_reason === 'length') {
+    throw new ProviderError(
+      `${useProvider}/${useModel} produced no answer within the token limit.`
+      + ' Raise "Max answer tokens" in AI Settings — a reasoning model spends that budget thinking.',
+      { provider: useProvider, status: 502 }
+    )
+  }
+
   return {
-    content: data.choices?.[0]?.message?.content?.trim() || '',
+    content: choice?.message?.content?.trim() || '',
     tokens: {
       prompt: usage.prompt_tokens || 0,
       completion: usage.completion_tokens || 0,

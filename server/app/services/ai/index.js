@@ -276,6 +276,45 @@ function fuseByRank(lists, limit, K = 20) {
 const CATALOGUE_QUESTION =
   /\b(list|enumerate|inventory)\b|\bhow many\b|\b(which|what)\b[^.?!]{0,40}\b(documents?|reports?|files?|strategies|strategys)\b/i
 
+/** Words that ask for an enumeration, matched allowing for typos. */
+const CATALOGUE_WORDS = ['list', 'listing', 'enumerate', 'inventory', 'catalogue', 'catalog']
+
+/** Levenshtein distance, bounded — only small distances matter here. */
+function editDistance(a, b, max = 2) {
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i)
+
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i]
+    for (let j = 1; j <= b.length; j += 1) {
+      current[j] = Math.min(
+        previous[j] + 1,
+        current[j - 1] + 1,
+        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      )
+    }
+    previous = current
+  }
+
+  return previous[b.length]
+}
+
+/**
+ * Does this question ask for an enumeration?
+ *
+ * The literal spelling cannot be relied on: "give me a lst of counties with
+ * coutny spefici straggies" asks for a list and must be answered with one.
+ */
+function asksForList(question) {
+  if (CATALOGUE_QUESTION.test(question)) return true
+
+  return String(question)
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((token) => token.length >= 3)
+    .some((token) => CATALOGUE_WORDS.some((word) => editDistance(token, word) <= (word.length > 6 ? 2 : 1)))
+}
+
 /** Documents matching the question, as one block the model can enumerate. */
 async function catalogue(question, limit = 60) {
   const terms = distinctiveTerms(question, 8)
@@ -308,7 +347,7 @@ async function retrieve(question) {
     if (recent.length) return { chunks: recent, mode: 'recency', vectorError: null, corrections: [] }
   }
 
-  if (CATALOGUE_QUESTION.test(question)) {
+  if (asksForList(question)) {
     const listing = await catalogue(question)
     // Excerpts still follow, so the answer can describe as well as enumerate.
     if (listing.length) {
