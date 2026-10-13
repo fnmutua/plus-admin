@@ -1,4 +1,32 @@
 const Sequelize = require('sequelize')
+
+/**
+ * Values older clients write for settlement_type, mapped onto the canonical
+ * labels held in the settlement_type table.
+ *
+ * Types are managed data now (Settings -> Platform -> Settlement Types), but
+ * SlumMapper builds already installed on phones keep sending 'slum', and a
+ * queued offline record can arrive months later. Folding these on save keeps
+ * the register from drifting again — that drift is what put 'Informal' and
+ * 'slum' variants in the data in the first place. Anything unrecognised is
+ * left exactly as sent, so a newly added type is never mangled.
+ */
+const CANONICAL_SETTLEMENT_TYPE = {
+  slum: 'Slum',
+  informal: 'Informal Settlement',
+  informal_settlement: 'Informal Settlement',
+  'informal settlement': 'Informal Settlement',
+  1: 'Slum',
+  2: 'Informal Settlement'
+}
+
+const canonicalSettlementType = (value) => {
+  if (value === null || value === undefined) return value
+  const raw = String(value).trim()
+  if (!raw) return value
+  return CANONICAL_SETTLEMENT_TYPE[raw.toLowerCase()] || raw
+}
+
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'settlement',
@@ -328,6 +356,26 @@ module.exports = function (sequelize, DataTypes) {
       tableName: 'settlement',
       schema: 'public',
       timestamps: true,
+      hooks: {
+        // Instance writes (create, instance.save) …
+        beforeValidate: (instance) => {
+          if (instance.changed('settlement_type')) {
+            instance.settlement_type = canonicalSettlementType(instance.settlement_type)
+          }
+        },
+        // … and the bulk path the generic edit endpoint uses.
+        beforeBulkUpdate: (options) => {
+          const values = options.attributes || options.fields
+          if (values && values.settlement_type !== undefined) {
+            values.settlement_type = canonicalSettlementType(values.settlement_type)
+          }
+        },
+        beforeBulkCreate: (instances) => {
+          instances.forEach((instance) => {
+            instance.settlement_type = canonicalSettlementType(instance.settlement_type)
+          })
+        }
+      },
       indexes: [
         {
           name: 'settlement_pkey',
