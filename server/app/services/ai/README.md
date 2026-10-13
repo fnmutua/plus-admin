@@ -22,19 +22,29 @@ Chat and embedding providers are set independently, because xAI serves no
 embeddings endpoint — "chat on Grok, embed locally" has to be expressible.
 
 ```bash
-# Chat (default: ollama)
-AI_PROVIDER=ollama              # ollama | openai | xai
+# Chat (default: ollama). Any id in the catalog is valid.
+AI_PROVIDER=ollama
 AI_MODEL=llama3.2
 OLLAMA_BASE_URL=http://localhost:11434
 
-# Embeddings (default: ollama)
-AI_EMBED_PROVIDER=ollama        # ollama | openai
+# Embeddings (default: ollama). Any catalog id that serves embeddings.
+AI_EMBED_PROVIDER=ollama
 AI_EMBED_MODEL=all-minilm
 AI_EMBED_DIMENSIONS=384         # MUST match the vector(N) column
 
 # Optional remotes
 OPENAI_API_KEY=...
 XAI_API_KEY=...
+ANTHROPIC_API_KEY=...          # Claude. Chat only.
+# ANTHROPIC_MODEL=claude-sonnet-4-6
+
+# Another OpenAI-compatible host, no code change. Restart after editing.
+# AI_EXTRA_PROVIDERS=groq
+# GROQ_BASE_URL=https://api.groq.com/openai/v1
+# GROQ_API_KEY=...
+# GROQ_MODEL=llama-3.3-70b-versatile
+# GROQ_EMBEDS=false
+# GROQ_NAME=Groq
 
 # Vector database
 AI_DB_HOST=... AI_DB_NAME=... AI_DB_USER=... AI_DB_PASSWORD=... AI_DB_PORT=5432

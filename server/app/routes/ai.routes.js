@@ -60,7 +60,7 @@ module.exports = function (app) {
    *     parameters:
    *       - in: query
    *         name: provider
-   *         schema: { type: string, enum: [ollama, openai, xai] }
+   *         schema: { type: string, description: 'Provider id from the server catalog' }
    *       - in: query
    *         name: limit
    *         description: How many models to return, newest first. Capped at 10.
@@ -87,7 +87,7 @@ module.exports = function (app) {
    *             properties:
    *               question:  { type: string }
    *               sessionId: { type: string, description: Conversation thread key }
-   *               provider:  { type: string, enum: [ollama, openai, xai] }
+   *               provider:  { type: string, description: 'Provider id from the server catalog' }
    *               model:     { type: string }
    *     responses:
    *       200: { description: Answer with cited sources and token usage }

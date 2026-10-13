@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import {
-  ElCard, ElTabs, ElTabPane, ElSwitch, ElSelect, ElOption, ElInput,
+  ElCard, ElTabs, ElTabPane, ElSwitch, ElSelect, ElOption, ElInput, ElCheckbox,
   ElInputNumber, ElButton, ElTag, ElMessage, ElMessageBox, ElAlert, ElEmpty, ElTooltip
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
@@ -12,7 +12,7 @@ import type { AISetting, AIHealth, AIStats, AIProvider, AISettingChange } from '
 
 const loading = ref(true)
 const saving = ref(false)
-const activeTab = ref('chat')
+const activeTab = ref('status')
 
 const settings = ref<AISetting[]>([])
 const providers = ref<AIProvider[]>([])
@@ -31,7 +31,7 @@ const modelsLoading = reactive<Record<string, boolean>>({})
  * switch. Choosing a value is the whole interaction; the environment value is
  * still reachable through the "Use environment value" link.
  */
-const DIRECT_KEYS = ['ai_provider', 'ai_embed_provider', 'ai_model', 'ai_embed_model']
+const DIRECT_KEYS = ['ai_provider', 'ai_embed_provider', 'ai_model', 'ai_embed_model', 'ai_user_providers']
 const isDirect = (key: string) => DIRECT_KEYS.includes(key)
 
 /** Which provider setting governs each model setting. */
@@ -41,16 +41,18 @@ const PROVIDER_OF: Record<string, string> = {
 }
 
 const GROUPS: { name: string; label: string; icon: string; hint: string }[] = [
+  { name: 'providers', label: 'Providers', icon: 'material-symbols:checklist',
+    hint: 'Tick what users can choose.' },
   { name: 'chat', label: 'Chat', icon: 'material-symbols:forum-outline',
-    hint: 'Which service answers questions, and how.' },
+    hint: 'Default model and its limits.' },
   { name: 'embeddings', label: 'Embeddings', icon: 'material-symbols:polyline-outline',
-    hint: 'How document text is turned into vectors. Changing these requires reindexing.' },
+    hint: 'Vector generation. Changes require a reindex.' },
   { name: 'retrieval', label: 'Retrieval', icon: 'material-symbols:search',
-    hint: 'How much context each answer is built from.' },
+    hint: 'How much context each answer gets.' },
   { name: 'indexing', label: 'Indexing', icon: 'material-symbols:database-outline',
-    hint: 'How documents are split before being stored.' },
+    hint: 'How documents are split.' },
   { name: 'general', label: 'General', icon: 'material-symbols:tune',
-    hint: 'Service-wide switches.' }
+    hint: 'Service switches.' }
 ]
 
 const groupOf = (name: string) => settings.value.filter((setting) => setting.group === name)
@@ -60,11 +62,27 @@ const changed = computed(() =>
     const edit = draft[setting.key]
     if (!edit) return false
     if (edit.overridden !== setting.overridden) return true
-    return edit.overridden && String(edit.value) !== String(setting.value)
+    if (!edit.overridden) return false
+    // Arrays compare by content, and order is not meaningful for a provider list.
+    if (Array.isArray(edit.value) || Array.isArray(setting.value)) {
+      const before = [...((setting.value as string[]) || [])].sort().join(',')
+      const after = [...((edit.value as string[]) || [])].sort().join(',')
+      return before !== after
+    }
+    return String(edit.value) !== String(setting.value)
   })
 )
 
 const needsReindex = computed(() => changed.value.some((setting) => setting.requiresReindex))
+
+/** Shown when a setting is on its environment value: arrays read as a list. */
+const formatEffective = (setting: AISetting) =>
+  Array.isArray(setting.value)
+    ? (setting.value as string[]).map((id) => providerLabel(id)).join(', ')
+    : String(setting.value)
+
+const providerDescription = (id: string) =>
+  providers.value.find((p) => p.id === id)?.description || ''
 
 const providerLabel = (id: string) => providers.value.find((p) => p.id === id)?.name || id
 
@@ -143,7 +161,11 @@ async function writeKey(setting: AISetting, change: Partial<AISettingChange>, do
 
 const seedDraft = () => {
   for (const setting of settings.value) {
-    draft[setting.key] = { value: setting.value, overridden: setting.overridden }
+    draft[setting.key] = {
+      // Cloned: a shared array would mutate the loaded value too, hiding the diff.
+      value: Array.isArray(setting.value) ? [...setting.value] : setting.value,
+      overridden: setting.overridden
+    }
   }
 }
 
@@ -205,6 +227,15 @@ const modelsPending = (modelKey: string) => Boolean(modelsLoading[providerValue(
 /** Re-query after an `ollama pull`, without reloading the page. */
 const refreshModels = (modelKey: string) => loadModelsFor(providerValue(modelKey), true)
 
+/**
+ * A tick is an override, like choosing from the provider dropdown. Without
+ * this the save bar stays hidden: `changed` ignores a setting still sitting on
+ * its environment value.
+ */
+const onTicksChange = (key: string) => {
+  if (draft[key]) draft[key].overridden = true
+}
+
 const onProviderChange = (providerKey: string) => {
   const provider = String(draft[providerKey]?.value ?? '')
   draft[providerKey].overridden = true
@@ -235,19 +266,23 @@ const save = async () => {
 
   // Switching provider clears the model; saving that blank would be rejected
   // by the server, so catch it here with a message that points at the field.
-  const blank = changed.value.find(
-    (setting) => isDirect(setting.key) && !String(draft[setting.key].value ?? '').trim()
-  )
+  const blank = changed.value.find((setting) => {
+    const value = draft[setting.key].value
+    if (!isDirect(setting.key)) return false
+    return Array.isArray(value) ? value.length === 0 : !String(value ?? '').trim()
+  })
   if (blank) {
-    ElMessage.warning(`Choose a value for "${blank.label}" before saving`)
+    ElMessage.warning(
+      Array.isArray(draft[blank.key].value)
+        ? `Tick at least one option for "${blank.label}" before saving`
+        : `Choose a value for "${blank.label}" before saving`
+    )
     return
   }
 
   if (needsReindex.value) {
     const confirmed = await ElMessageBox.confirm(
-      'These changes alter how documents are turned into vectors. Existing vectors '
-      + 'will no longer match and searches will fall back to keyword results until '
-      + 'you reindex. Continue?',
+      'Existing vectors stop matching until you reindex. Continue?',
       'Reindex required',
       { confirmButtonText: 'Save anyway', cancelButtonText: 'Cancel', type: 'warning' }
     ).catch(() => false)
@@ -268,7 +303,7 @@ const save = async () => {
       settings.value = response.data.settings
       health.value = response.data.health
       seedDraft()
-      ElMessage.success('AI settings saved — applied immediately, no restart needed')
+      ElMessage.success('Saved')
     } else {
       ElMessage.error(response.message || 'Could not save settings')
     }
@@ -320,10 +355,7 @@ onMounted(load)
         <div class="card-header">
           <div>
             <h2>AI Settings</h2>
-            <p class="subtitle">
-              Control which model answers questions and how documents are indexed.
-              Changes apply immediately — no restart.
-            </p>
+            <p class="subtitle">Applied immediately. No restart.</p>
           </div>
           <ElButton :loading="loading" text @click="load">
             <Icon icon="material-symbols:refresh" /> Reload
@@ -331,73 +363,87 @@ onMounted(load)
         </div>
       </template>
 
-      <!-- Live status strip: the fastest way to see if anything is broken. -->
-      <div v-if="health" class="status-strip">
-        <div class="status-item" :class="health.database.connected ? 'ok' : 'bad'">
-          <Icon :icon="health.database.connected ? 'material-symbols:check-circle' : 'material-symbols:error'" />
-          <div>
-            <span class="status-label">Vector database</span>
-            <span class="status-value">
-              {{ health.database.connected ? 'Connected' : 'Unreachable' }}
-              <template v-if="health.database.connected">
-                · {{ health.database.vectorSearchEnabled ? 'vector search on' : 'keyword only' }}
-              </template>
-            </span>
-          </div>
-        </div>
-
-        <div class="status-item" :class="health.chat.ok ? 'ok' : 'bad'">
-          <Icon :icon="health.chat.ok ? 'material-symbols:check-circle' : 'material-symbols:error'" />
-          <div>
-            <span class="status-label">Chat</span>
-            <span class="status-value">{{ health.chat.provider }} / {{ health.chat.model }}</span>
-          </div>
-        </div>
-
-        <div class="status-item" :class="health.embeddings.ok ? 'ok' : 'bad'">
-          <Icon :icon="health.embeddings.ok ? 'material-symbols:check-circle' : 'material-symbols:error'" />
-          <div>
-            <span class="status-label">Embeddings</span>
-            <span class="status-value">
-              {{ health.embeddings.provider }} / {{ health.embeddings.model }} ({{ health.embeddings.dimensions }}d)
-            </span>
-          </div>
-        </div>
-
-        <div v-if="stats" class="status-item neutral">
-          <Icon icon="material-symbols:database-outline" />
-          <div>
-            <span class="status-label">Index</span>
-            <span class="status-value">
-              {{ stats.documents }} docs · {{ stats.chunks }} chunks · {{ stats.embeddings }} vectors
-            </span>
-          </div>
-        </div>
-
-        <ElButton size="small" text @click="refreshHealth">Re-check</ElButton>
-      </div>
-
-      <ElAlert
-        v-if="health && !health.database.connected"
-        type="error"
-        show-icon
-        :closable="false"
-        class="status-alert"
-        title="The vector database is unreachable"
-        :description="health.database.error || 'Check AI_DB_* in the environment.'"
-      />
-      <ElAlert
-        v-else-if="health && !health.embeddings.ok"
-        type="warning"
-        show-icon
-        :closable="false"
-        class="status-alert"
-        title="Embeddings are unavailable — answers fall back to keyword search"
-        :description="health.embeddings.error || ''"
-      />
-
       <div v-loading="loading" class="settings-body">
         <ElTabs v-model="activeTab">
+          <!-- Status: health and index counts, previously a strip above the
+               tabs. It is a report rather than a setting, so it is not driven
+               by GROUPS. -->
+          <ElTabPane name="status">
+            <template #label>
+              <span class="tab-label"><Icon icon="material-symbols:monitor-heart-outline" /> Status</span>
+            </template>
+
+            <p class="tab-hint">Read-only.</p>
+
+            <ElEmpty v-if="!health" description="Checking…" :image-size="60" />
+
+        <!-- Live status strip: the fastest way to see if anything is broken. -->
+        <div v-if="health" class="status-strip">
+          <div class="status-item" :class="health.database.connected ? 'ok' : 'bad'">
+            <Icon :icon="health.database.connected ? 'material-symbols:check-circle' : 'material-symbols:error'" />
+            <div>
+              <span class="status-label">Vector database</span>
+              <span class="status-value">
+                {{ health.database.connected ? 'Connected' : 'Unreachable' }}
+                <template v-if="health.database.connected">
+                  · {{ health.database.vectorSearchEnabled ? 'vector search on' : 'keyword only' }}
+                </template>
+              </span>
+            </div>
+          </div>
+
+          <div class="status-item" :class="health.chat.ok ? 'ok' : 'bad'">
+            <Icon :icon="health.chat.ok ? 'material-symbols:check-circle' : 'material-symbols:error'" />
+            <div>
+              <span class="status-label">Chat</span>
+              <span class="status-value">{{ health.chat.provider }} / {{ health.chat.model }}</span>
+            </div>
+          </div>
+
+          <div class="status-item" :class="health.embeddings.ok ? 'ok' : 'bad'">
+            <Icon :icon="health.embeddings.ok ? 'material-symbols:check-circle' : 'material-symbols:error'" />
+            <div>
+              <span class="status-label">Embeddings</span>
+              <span class="status-value">
+                {{ health.embeddings.provider }} / {{ health.embeddings.model }} ({{ health.embeddings.dimensions }}d)
+              </span>
+            </div>
+          </div>
+
+          <div v-if="stats" class="status-item neutral">
+            <Icon icon="material-symbols:database-outline" />
+            <div>
+              <span class="status-label">Index</span>
+              <span class="status-value">
+                {{ stats.documents }} docs · {{ stats.chunks }} chunks · {{ stats.embeddings }} vectors
+              </span>
+            </div>
+          </div>
+
+          <ElButton size="small" text @click="refreshHealth">Re-check</ElButton>
+        </div>
+
+        <ElAlert
+          v-if="health && !health.database.connected"
+          type="error"
+          show-icon
+          :closable="false"
+          class="status-alert"
+          title="The vector database is unreachable"
+          :description="health.database.error || 'Check AI_DB_* in the environment.'"
+        />
+        <ElAlert
+          v-else-if="health && !health.embeddings.ok"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="status-alert"
+          title="Embeddings are unavailable — answers fall back to keyword search"
+          :description="health.embeddings.error || ''"
+        />
+          </ElTabPane>
+
+
           <ElTabPane v-for="group in GROUPS" :key="group.name" :name="group.name">
             <template #label>
               <span class="tab-label"><Icon :icon="group.icon" /> {{ group.label }}</span>
@@ -409,12 +455,28 @@ onMounted(load)
               <ElEmpty description="Nothing to configure here" />
             </div>
 
-            <div
-              v-for="setting in groupOf(group.name)"
-              :key="setting.key"
-              class="setting-row"
-              :class="{ 'is-overridden': draft[setting.key]?.overridden }"
-            >
+            <!-- Provider ticks are a plain list: label and control columns
+                 either side of three checkboxes read as a form, not options. -->
+            <template v-for="setting in groupOf(group.name)" :key="setting.key">
+              <div v-if="setting.type === 'enums'" class="tick-list">
+                <ElCheckbox
+                  v-for="option in setting.values || []"
+                  :key="option"
+                  v-model="draft[setting.key].value"
+                  :value="option"
+                  :disabled="providerUnavailable(option)"
+                  @change="onTicksChange(setting.key)"
+                >
+                  {{ providerLabel(option) }}
+                  <span v-if="providerUnavailable(option)" class="tick-note-inline">no API key</span>
+                </ElCheckbox>
+              </div>
+
+              <div
+                v-else
+                class="setting-row"
+                :class="{ 'is-overridden': draft[setting.key]?.overridden }"
+              >
               <div class="setting-info">
                 <div class="setting-title">
                   {{ setting.label }}
@@ -529,7 +591,7 @@ onMounted(load)
                     />
                   </template>
 
-                  <span v-else class="effective-value">{{ String(setting.value) }}</span>
+                  <span v-else class="effective-value">{{ formatEffective(setting) }}</span>
                 </template>
 
                 <ElButton
@@ -541,109 +603,106 @@ onMounted(load)
                 >
                   Reset
                 </ElButton>
+                </div>
+              </div>
+            </template>
+
+            <!-- Each provider's key sits with its tick, so one tab answers
+                 "who can users pick, and is it configured". -->
+            <div v-if="group.name === 'providers'" class="provider-credentials">
+              <h4>API keys</h4>
+              <p class="tab-hint">Stored encrypted. Never shown again. Empty = use the environment variable.</p>
+  
+              <div class="credential-list">
+                <div v-for="setting in credentialSettings" :key="setting.key" class="credential-row">
+                  <div class="credential-head">
+                    <Icon
+                      :icon="setting.configured ? 'material-symbols:check-circle' : 'material-symbols:cancel'"
+                      :class="setting.configured ? 'ok-icon' : 'bad-icon'"
+                    />
+                    <strong>{{ setting.label }}</strong>
+                    <el-tag v-if="setting.revoked" size="small" type="danger">Revoked</el-tag>
+                    <el-tag v-else-if="setting.overridden" size="small" type="warning">Stored here</el-tag>
+                    <el-tag v-else-if="setting.configured" size="small" type="info">
+                      From {{ setting.envVar }}
+                    </el-tag>
+                    <span v-else class="credential-note">Not configured</span>
+                    <span v-if="setting.hint" class="credential-note">{{ setting.hint }}</span>
+                  </div>
+  
+                  <p class="credential-note">{{ setting.description }}</p>
+  
+                  <el-alert
+                    v-if="setting.revoked"
+                    type="error"
+                    :closable="false"
+                    show-icon
+                    title="Revoked here"
+                    :description="setting.envConfigured
+                      ? 'This provider is disabled and the environment key is ignored. Save a new key, or allow the environment key again.'
+                      : 'This provider is disabled until a new key is saved.'"
+                  />
+  
+                  <el-alert
+                    v-if="setting.storable === false"
+                    type="warning"
+                    :closable="false"
+                    show-icon
+                    title="This server cannot store keys: set SETTINGS_ENCRYPTION_KEY and restart."
+                  />
+  
+                  <div v-else class="credential-actions">
+                    <el-input
+                      v-model="keyDraft[setting.key]"
+                      type="password"
+                      show-password
+                      clearable
+                      :placeholder="setting.configured ? 'Enter a new key to replace the current one' : 'Paste the API key'"
+                      style="max-width: 420px"
+                      @keyup.enter="saveKey(setting)"
+                    />
+                    <el-button
+                      type="primary"
+                      :disabled="!(keyDraft[setting.key] || '').trim()"
+                      :loading="keySaving[setting.key]"
+                      @click="saveKey(setting)"
+                    >
+                      Save key
+                    </el-button>
+                    <el-button
+                      v-if="setting.overridden && !setting.revoked && setting.envConfigured"
+                      :loading="keySaving[setting.key]"
+                      @click="useEnvKey(setting)"
+                    >
+                      Use {{ setting.envVar }}
+                    </el-button>
+                    <el-button
+                      v-if="setting.configured"
+                      type="danger"
+                      plain
+                      :loading="keySaving[setting.key]"
+                      @click="revokeKey(setting)"
+                    >
+                      Revoke
+                    </el-button>
+                    <el-button
+                      v-if="setting.revoked && setting.envConfigured"
+                      :loading="keySaving[setting.key]"
+                      @click="unrevokeKey(setting)"
+                    >
+                      Allow {{ setting.envVar }} again
+                    </el-button>
+                  </div>
+                </div>
               </div>
             </div>
           </ElTabPane>
+
         </ElTabs>
-
-        <div class="credentials">
-          <h3>Provider credentials</h3>
-          <p class="tab-hint">
-            A key set here is encrypted before it is stored and is never sent back to this
-            page — only a masked hint. Leave a field empty to keep using the environment
-            variable. Ollama needs no key.
-          </p>
-
-          <div class="credential-list">
-            <div v-for="setting in credentialSettings" :key="setting.key" class="credential-row">
-              <div class="credential-head">
-                <Icon
-                  :icon="setting.configured ? 'material-symbols:check-circle' : 'material-symbols:cancel'"
-                  :class="setting.configured ? 'ok-icon' : 'bad-icon'"
-                />
-                <strong>{{ setting.label }}</strong>
-                <el-tag v-if="setting.revoked" size="small" type="danger">Revoked</el-tag>
-                <el-tag v-else-if="setting.overridden" size="small" type="warning">Stored here</el-tag>
-                <el-tag v-else-if="setting.configured" size="small" type="info">
-                  From {{ setting.envVar }}
-                </el-tag>
-                <span v-else class="credential-note">Not configured</span>
-                <span v-if="setting.hint" class="credential-note">{{ setting.hint }}</span>
-              </div>
-
-              <p class="credential-note">{{ setting.description }}</p>
-
-              <el-alert
-                v-if="setting.revoked"
-                type="error"
-                :closable="false"
-                show-icon
-                title="Revoked here"
-                :description="setting.envConfigured
-                  ? 'This provider is disabled and the environment key is ignored. Save a new key, or allow the environment key again.'
-                  : 'This provider is disabled until a new key is saved.'"
-              />
-
-              <el-alert
-                v-if="setting.storable === false"
-                type="warning"
-                :closable="false"
-                show-icon
-                title="This server cannot store keys: set SETTINGS_ENCRYPTION_KEY and restart."
-              />
-
-              <div v-else class="credential-actions">
-                <el-input
-                  v-model="keyDraft[setting.key]"
-                  type="password"
-                  show-password
-                  clearable
-                  :placeholder="setting.configured ? 'Enter a new key to replace the current one' : 'Paste the API key'"
-                  style="max-width: 420px"
-                  @keyup.enter="saveKey(setting)"
-                />
-                <el-button
-                  type="primary"
-                  :disabled="!(keyDraft[setting.key] || '').trim()"
-                  :loading="keySaving[setting.key]"
-                  @click="saveKey(setting)"
-                >
-                  Save key
-                </el-button>
-                <el-button
-                  v-if="setting.overridden && !setting.revoked && setting.envConfigured"
-                  :loading="keySaving[setting.key]"
-                  @click="useEnvKey(setting)"
-                >
-                  Use {{ setting.envVar }}
-                </el-button>
-                <el-button
-                  v-if="setting.configured"
-                  type="danger"
-                  plain
-                  :loading="keySaving[setting.key]"
-                  @click="revokeKey(setting)"
-                >
-                  Revoke
-                </el-button>
-                <el-button
-                  v-if="setting.revoked && setting.envConfigured"
-                  :loading="keySaving[setting.key]"
-                  @click="unrevokeKey(setting)"
-                >
-                  Allow {{ setting.envVar }} again
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <div class="maintenance">
           <h3>Index maintenance</h3>
-          <p class="tab-hint">
-            Indexing runs in the background. Reindex after changing the embedding model
-            or dimensions, otherwise existing vectors are ignored.
-          </p>
+          <p class="tab-hint">Runs in the background. Reindex after changing the embedding model or dimensions.</p>
           <div class="maintenance-actions">
             <ElButton :loading="reindexing" @click="runReindex(false)">
               Index new documents
@@ -693,15 +752,28 @@ onMounted(load)
   color: var(--el-text-color-secondary);
 }
 
+.settings-body .status-strip {
+  /* Vertical: an admin reads it top to bottom, and the values vary in length. */
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 0;
+}
+
 .status-strip {
+  /* One item per row: read top to bottom, and the values vary in length. */
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   padding: 12px 14px;
   margin-bottom: 16px;
   background: var(--el-fill-color-light);
   border-radius: 10px;
+}
+
+/* The Re-check button is the last child; keep it left-aligned, not stretched. */
+.status-strip > .el-button {
+  align-self: flex-start;
 }
 
 .status-item {
@@ -814,7 +886,35 @@ onMounted(load)
   color: var(--el-text-color-placeholder);
 }
 
-.credentials,
+/* Providers tab: one tick per provider, with its note beneath the label. */
+.provider-credentials {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.provider-credentials h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+
+.tick-note-inline {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+
+
+/* Only the maintenance block is still a section under the tabs; credentials
+   lives in a tab of its own and needs no separator. */
 .maintenance {
   padding-top: 20px;
   margin-top: 8px;

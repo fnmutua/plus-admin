@@ -6,7 +6,7 @@ const pool = new Pool({
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'document_ai',
     password: process.env.DB_PASSWORD || '***REDACTED***',
-    port: process.env.DB_PORT || 5445,
+    port: process.env.DB_PORT || process.env.AI_DB_PORT || 5432,
 });
 
 async function resetDatabase() {

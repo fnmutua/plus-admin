@@ -36,11 +36,16 @@ exports.health = async (req, res) => {
   }
 }
 
+/**
+ * Providers a user may pick. Narrowed by the "Providers offered to users"
+ * setting; the settings screen uses its own listing so an administrator can
+ * still see credentials for every provider.
+ */
 exports.providers = (req, res) => {
   return res.json({
     success: true,
     code: '0000',
-    data: ai.availableProviders(),
+    data: ai.availableProviders().filter((provider) => provider.offered),
     active: { chat: config.chat.provider, model: config.chat.model, embeddings: config.embed.provider }
   })
 }
@@ -328,10 +333,9 @@ exports.getSettings = async (req, res) => {
         providers,
         // Effective presence, which may come from a stored credential rather
         // than the environment. The keys themselves are never returned.
-        credentials: {
-          openai: Boolean(config.remotes.openai.apiKey),
-          xai: Boolean(config.remotes.xai.apiKey)
-        }
+        credentials: Object.fromEntries(
+          Object.entries(config.remotes).map(([id, remote]) => [id, Boolean(remote.apiKey)])
+        )
       }
     })
   } catch (error) {

@@ -15,7 +15,24 @@
 // before being stored, are never sent back to the client, and fall back to
 // the environment variable when no override is active.
 
-const { config } = require('./config')
+const { config, catalog } = require('./config')
+
+const chatProviderIds = catalog.filter((entry) => entry.chat).map((entry) => entry.id)
+const embedProviderIds = catalog.filter((entry) => entry.embeddings).map((entry) => entry.id)
+
+// One write-only key field per remote. Built-ins and AI_EXTRA_PROVIDERS share
+// this, so a new host gets a field without another setting being written by hand.
+const credentialDefinitions = catalog
+  .filter((entry) => entry.apiKeyEnv)
+  .map((entry) => ({
+    key: `ai_${entry.id}_api_key`,
+    path: `remotes.${entry.id}.apiKey`,
+    type: 'secret',
+    group: 'credentials',
+    envVar: entry.apiKeyEnv,
+    label: `${entry.name} API key`,
+    description: entry.keyDescription
+  }))
 const secrets = require('./secrets')
 
 const PREFIX = 'ai_'
@@ -47,16 +64,16 @@ const DEFINITIONS = [
     type: 'boolean',
     group: 'general',
     label: 'Document AI enabled',
-    description: 'Turn the assistant and all document indexing off without redeploying.'
+    description: 'Turns the assistant and all indexing off.'
   },
   {
     key: 'ai_provider',
     path: 'chat.provider',
     type: 'enum',
-    values: ['ollama', 'openai', 'xai'],
+    values: chatProviderIds,
     group: 'chat',
     label: 'Chat provider',
-    description: 'Which service answers questions. Ollama runs locally and sends nothing off the host.'
+    description: 'Service that answers when a user picks nothing.'
   },
   {
     key: 'ai_model',
@@ -65,6 +82,15 @@ const DEFINITIONS = [
     group: 'chat',
     label: 'Chat model',
     description: 'Model name as the provider knows it.'
+  },
+  {
+    key: 'ai_user_providers',
+    path: 'userProviders',
+    type: 'enums',
+    values: chatProviderIds,
+    group: 'providers',
+    label: 'Providers offered to users',
+    description: 'Providers users may choose. Unticked ones are refused even if named in a request.'
   },
   {
     key: 'ai_temperature',
@@ -84,7 +110,7 @@ const DEFINITIONS = [
     max: 8192,
     group: 'chat',
     label: 'Max answer tokens',
-    description: 'Upper bound on answer length.'
+    description: 'Maximum answer length.'
   },
   {
     key: 'ai_timeout_ms',
@@ -94,7 +120,7 @@ const DEFINITIONS = [
     max: 600000,
     group: 'chat',
     label: 'Response timeout (ms)',
-    description: 'How long to wait for an answer. Large local models on modest hardware need well over a minute.'
+    description: 'How long to wait for an answer.'
   },
   {
     key: 'ai_context_tokens',
@@ -104,7 +130,7 @@ const DEFINITIONS = [
     max: 131072,
     group: 'chat',
     label: 'Maximum context window',
-    description: 'Ceiling for the model context. The window per question is sized to the actual prompt.'
+    description: 'Ceiling for the model context window.'
   },
   {
     key: 'ai_keep_alive',
@@ -112,7 +138,7 @@ const DEFINITIONS = [
     type: 'string',
     group: 'chat',
     label: 'Ollama keep-alive',
-    description: 'How long Ollama holds the model in memory, e.g. 30m. Prevents a reload on every question.'
+    description: 'How long Ollama holds the model in memory, e.g. 30m.'
   },
   {
     key: 'ai_ollama_url',
@@ -126,10 +152,10 @@ const DEFINITIONS = [
     key: 'ai_embed_provider',
     path: 'embed.provider',
     type: 'enum',
-    values: ['ollama', 'openai'],
+    values: embedProviderIds,
     group: 'embeddings',
     label: 'Embedding provider',
-    description: 'xAI serves no embeddings, so this is set separately from the chat provider.'
+    description: 'Service that generates vectors. xAI and Claude do not.'
   },
   {
     key: 'ai_embed_model',
@@ -137,7 +163,7 @@ const DEFINITIONS = [
     type: 'string',
     group: 'embeddings',
     label: 'Embedding model',
-    description: 'Changing this requires a reindex — old vectors are ignored, not reused.',
+    description: 'Changing this requires a reindex.',
     reindex: true
   },
   {
@@ -148,7 +174,7 @@ const DEFINITIONS = [
     max: 600000,
     group: 'embeddings',
     label: 'Embedding timeout (ms)',
-    description: 'How long to wait for a batch of vectors. Indexing large files on a loaded host needs headroom.'
+    description: 'How long to wait for a batch of vectors.'
   },
   {
     key: 'ai_embed_dimensions',
@@ -158,7 +184,7 @@ const DEFINITIONS = [
     max: 4096,
     group: 'embeddings',
     label: 'Embedding dimensions',
-    description: 'Must match the model output and the vector column. Mismatch disables vector search.',
+    description: 'Must match the model output and the vector column.',
     reindex: true
   },
   {
@@ -169,7 +195,7 @@ const DEFINITIONS = [
     max: 50,
     group: 'retrieval',
     label: 'Chunks per question',
-    description: 'How many excerpts are retrieved and passed to the model.'
+    description: 'Excerpts retrieved per question.'
   },
   {
     key: 'ai_min_similarity',
@@ -179,7 +205,7 @@ const DEFINITIONS = [
     max: 1,
     group: 'retrieval',
     label: 'Minimum similarity',
-    description: 'Excerpts scoring below this are discarded as noise.'
+    description: 'Excerpts scoring below this are discarded.'
   },
   {
     key: 'ai_max_context_chars',
@@ -189,7 +215,7 @@ const DEFINITIONS = [
     max: 400000,
     group: 'retrieval',
     label: 'Maximum context characters',
-    description: 'Hard cap on the excerpt text sent with a question - roughly four characters per token. Excerpts beyond it are dropped, so keep it well inside the context window.'
+    description: 'Cap on excerpt text per question, roughly 4 characters per token.'
   },
   {
     key: 'ai_history_turns',
@@ -199,26 +225,9 @@ const DEFINITIONS = [
     max: 20,
     group: 'retrieval',
     label: 'Conversation memory',
-    description: 'Previous question/answer pairs carried into each new question. 0 disables memory.'
+    description: 'Previous question/answer pairs kept. 0 disables memory.'
   },
-  {
-    key: 'ai_openai_api_key',
-    path: 'remotes.openai.apiKey',
-    type: 'secret',
-    group: 'credentials',
-    envVar: 'OPENAI_API_KEY',
-    label: 'OpenAI API key',
-    description: 'Enables OpenAI for chat and embeddings. Stored encrypted; never shown again once saved.'
-  },
-  {
-    key: 'ai_xai_api_key',
-    path: 'remotes.xai.apiKey',
-    type: 'secret',
-    group: 'credentials',
-    envVar: 'XAI_API_KEY',
-    label: 'xAI (Grok) API key',
-    description: 'Enables Grok for chat. xAI serves no embeddings, so those stay with Ollama or OpenAI.'
-  },
+  ...credentialDefinitions,
   {
     key: 'ai_chunk_size',
     path: 'chunk.size',
@@ -227,7 +236,7 @@ const DEFINITIONS = [
     max: 8000,
     group: 'indexing',
     label: 'Chunk size',
-    description: 'Characters per indexed excerpt. Applies to documents indexed from now on.',
+    description: 'Characters per excerpt. Applies to new indexing.',
     reindex: true
   },
   {
@@ -238,7 +247,7 @@ const DEFINITIONS = [
     max: 5000,
     group: 'indexing',
     label: 'Maximum chunks per document',
-    description: 'Ceiling on excerpts taken from one file. A longer document is truncated past this point.',
+    description: 'Excerpt ceiling per file. Longer documents are truncated.',
     reindex: true
   },
   {
@@ -249,7 +258,7 @@ const DEFINITIONS = [
     max: 2000,
     group: 'indexing',
     label: 'Chunk overlap',
-    description: 'Characters repeated between neighbouring excerpts so sentences are not cut in half.',
+    description: 'Characters repeated between neighbouring excerpts.',
     reindex: true
   }
 ]
@@ -288,6 +297,18 @@ function coerce(definition, raw) {
 
     case 'boolean':
       return raw === true || raw === 'true'
+
+    case 'enums': {
+      const raw_list = Array.isArray(raw) ? raw : String(raw).split(',')
+      const values = [...new Set(raw_list.map((value) => String(value).trim().toLowerCase()).filter(Boolean))]
+      if (!values.length) throw new SettingsError(`${definition.label} needs at least one provider`)
+
+      const unknown = values.filter((value) => !definition.values.includes(value))
+      if (unknown.length) {
+        throw new SettingsError(`${definition.label}: unknown provider "${unknown[0]}"`)
+      }
+      return values
+    }
 
     case 'enum': {
       // Case-insensitive: provider ids are identifiers, not display text.

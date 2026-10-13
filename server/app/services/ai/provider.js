@@ -73,7 +73,11 @@ async function remoteCompletion({ remote, provider, model, messages, signal }) {
 
   for (let attempt = 0; ; attempt += 1) {
     const body = { model, messages }
-    if (quirks.sendTemperature) body.temperature = config.chat.temperature
+    // Current Claude models reject any temperature below 1. Omitting it lets
+    // the model use its own default instead of failing the answer.
+    const sendTemperature = quirks.sendTemperature
+      && !(remote.omitLowTemperature && config.chat.temperature < 1)
+    if (sendTemperature) body.temperature = config.chat.temperature
     body[quirks.tokenParam] = config.chat.maxTokens
 
     try {
@@ -335,8 +339,12 @@ async function listModels(name, { limit = 0 } = {}) {
   if (!remote) throw new ProviderError(`Unknown provider "${useProvider}"`, { provider: useProvider })
   if (!remote.apiKey) throw new ProviderError(`Provider "${useProvider}" is not configured`, { provider: useProvider })
 
+  const headers = remote.auth === 'anthropic'
+    ? { 'x-api-key': remote.apiKey, 'anthropic-version': '2023-06-01' }
+    : { Authorization: `Bearer ${remote.apiKey}` }
+
   const response = await fetch(`${remote.baseUrl}/models`, {
-    headers: { Authorization: `Bearer ${remote.apiKey}` },
+    headers,
     signal: AbortSignal.timeout(10000)
   })
   if (!response.ok) {
@@ -346,7 +354,13 @@ async function listModels(name, { limit = 0 } = {}) {
 
   const models = (data.data || [])
     .filter((model) => !NOT_CHAT.test(model.id))
-    .map((model) => ({ id: model.id, name: model.id, provider: useProvider, created: model.created || 0 }))
+    .map((model) => ({
+      id: model.id,
+      name: model.display_name || model.id,
+      provider: useProvider,
+      // OpenAI reports a unix timestamp; Anthropic reports an ISO date.
+      created: model.created || (model.created_at ? Date.parse(model.created_at) / 1000 : 0)
+    }))
     // `created` is the model's release date, so this puts the current
     // generation first and leaves dated snapshots further down.
     .sort((a, b) => b.created - a.created)

@@ -6,11 +6,13 @@ export interface IResponse<T> {
 }
 
 export interface AIProvider {
-  id: 'ollama' | 'openai' | 'xai'
+  id: string
   name: string
   description: string
   /** False when the server holds no key for this provider; do not offer it. */
   isAvailable: boolean
+  /** False when an administrator has not offered this provider to users. */
+  offered?: boolean
   chat: boolean
   embeddings: boolean
 }
@@ -138,8 +140,8 @@ export interface AIModelsResponse {
   error?: string
 }
 
-export type AISettingGroup = 'general' | 'chat' | 'embeddings' | 'retrieval' | 'indexing' | 'credentials'
-export type AISettingType = 'boolean' | 'string' | 'url' | 'int' | 'number' | 'enum' | 'secret'
+export type AISettingGroup = 'general' | 'chat' | 'embeddings' | 'retrieval' | 'indexing' | 'providers' | 'credentials'
+export type AISettingType = 'boolean' | 'string' | 'url' | 'int' | 'number' | 'enum' | 'enums' | 'secret'
 
 export interface AISetting {
   key: string
@@ -153,8 +155,8 @@ export interface AISetting {
   max: number | null
   /** Changing this invalidates existing vectors; the UI warns before saving. */
   requiresReindex: boolean
-  /** Value currently in effect. Always null for a credential. */
-  value: string | number | boolean | null
+  /** Value currently in effect. An array for 'enums'; always null for a credential. */
+  value: string | number | boolean | string[] | null
   /** What it would fall back to with no override. Always null for a credential. */
   envValue: string | number | boolean | null
   overridden: boolean
@@ -174,7 +176,7 @@ export interface AISetting {
 
 export interface AISettingChange {
   key: string
-  value?: string | number | boolean
+  value?: string | number | boolean | string[]
   /** false drops the override and reverts to the environment value. */
   overridden?: boolean
   /** Credentials only: clear the key and ignore the environment one. */
@@ -185,5 +187,5 @@ export interface AISettingsPayload {
   settings: AISetting[]
   providers: AIProvider[]
   /** Whether each API key is present in the environment. Keys are never sent. */
-  credentials: { openai: boolean; xai: boolean }
+  credentials: Record<string, boolean>
 }
