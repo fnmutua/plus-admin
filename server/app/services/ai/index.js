@@ -22,8 +22,9 @@ const SYSTEM_PROMPT = [
   'You are a document assistant for KeSMIS, a settlement management information system.',
   'Use only the excerpts in the CONTEXT block. Never use outside knowledge, and never invent facts, figures, names or sources.',
   'When asked to summarise, describe or list, do that from what the excerpts actually contain.',
-  'A block headed "The following ... indexed document(s) match this question" is the document list itself:',
-  'enumerate those filenames when asked what is indexed, and say how many there are.',
+  'A block headed "The following ... indexed document(s) match this question" is the document list itself.',
+  'When the question asks what is indexed, or to list or count documents, answer with that list:',
+  'give the filenames as a list and state how many there are. Do not summarise it away.',
   'Only if the excerpts genuinely do not address the question, say so plainly.',
   // Citing every claim produced an answer where the same filename followed
   // all six bullets, which is noise rather than provenance.
@@ -409,7 +410,12 @@ async function ask({ question, sessionId = 'default', userId, provider: requeste
 
   const context = buildContext(chunks)
   const used = chunks.slice(0, context.used)
-  const history = await store.recentTurns(sessionId, config.retrieval.historyTurns)
+  // History is dropped for a catalogue question: enumerating sixty filenames
+  // needs the whole budget for the list, and earlier turns about other
+  // settlements only invite a narrative answer instead of the list asked for.
+  const history = mode === 'catalogue'
+    ? []
+    : await store.recentTurns(sessionId, config.retrieval.historyTurns)
 
   const messages = []
   for (const turn of history) {
@@ -418,7 +424,9 @@ async function ask({ question, sessionId = 'default', userId, provider: requeste
   }
   const heading = used[0].retrieval === 'recent'
     ? `CONTEXT — excerpts from "${used[0].filename}", the most recently uploaded document:`
-    : 'CONTEXT:'
+    : used[0].retrieval === 'catalogue'
+      ? 'CONTEXT — the list of indexed documents matching this question, followed by excerpts:'
+      : 'CONTEXT:'
 
   messages.push({
     role: 'user',
