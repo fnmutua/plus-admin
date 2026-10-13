@@ -10,6 +10,8 @@ import {
 } from '@/api/settlementTypes'
 import type { SettlementTypeItem } from '@/api/settlementTypes/types'
 import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
+import { useAppStore } from '@/store/modules/app'
+import TableActions from '@/views/Components/TableActions.vue'
 
 /**
  * The settlement types every picker in the system is built from.
@@ -29,6 +31,20 @@ const editing = ref<SettlementTypeItem | null>(null)
 const form = reactive({ label: '', description: '', active: true })
 
 const settlementTypesStore = useSettlementTypesStore()
+const appStore = useAppStore()
+const isMobile = computed(() => appStore.getMobile)
+
+// Same per-row dropdown the settlement list uses, so the column stays one
+// button wide however many actions a row has.
+const actionColumnWidth = computed(() => (isMobile.value ? '70px' : '90px'))
+const dialogWidth = computed(() => (isMobile.value ? '92%' : '480px'))
+
+/** A type still in use can be deactivated but not removed. */
+const rowButtons = (row: SettlementTypeItem): string[] => [
+  'edit',
+  row.active ? 'deactivate' : 'activate',
+  ...(row.settlements > 0 ? [] : ['remove'])
+]
 
 const inUseCount = computed(() => editing.value?.settlements ?? 0)
 const renaming = computed(() =>
@@ -172,50 +188,50 @@ onMounted(load)
           </p>
         </div>
         <div class="actions">
-          <el-button :icon="Refresh" :loading="loading" @click="load">Refresh</el-button>
-          <el-button type="primary" :icon="Plus" @click="openAdd">Add type</el-button>
+          <el-button :icon="Refresh" :loading="loading" :size="isMobile ? 'small' : 'default'" @click="load">
+            {{ isMobile ? '' : 'Refresh' }}
+          </el-button>
+          <el-button type="primary" :icon="Plus" :size="isMobile ? 'small' : 'default'" @click="openAdd">
+            {{ isMobile ? 'Add' : 'Add type' }}
+          </el-button>
         </div>
       </div>
     </template>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="mb-3" />
 
-    <el-table :data="types" stripe border>
-      <el-table-column prop="label" label="Type" min-width="200" />
-      <el-table-column prop="code" label="Code" min-width="170">
+    <!-- Code and description are dropped on a phone; the label, usage count and
+         whether it is offered are what the list is read for. -->
+    <el-table :data="types" stripe border :size="isMobile ? 'small' : 'default'">
+      <el-table-column prop="label" label="Type" min-width="150" show-overflow-tooltip />
+      <el-table-column v-if="!isMobile" prop="code" label="Code" min-width="170">
         <template #default="{ row }">
           <span class="code">{{ row.code }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="description" label="Description" min-width="220">
+      <el-table-column v-if="!isMobile" prop="description" label="Description" min-width="220" show-overflow-tooltip>
         <template #default="{ row }">{{ row.description || '—' }}</template>
       </el-table-column>
-      <el-table-column label="Settlements" width="130" align="right">
+      <el-table-column :label="isMobile ? 'Use' : 'Settlements'" :width="isMobile ? 70 : 130" align="right">
         <template #default="{ row }">{{ row.settlements.toLocaleString() }}</template>
       </el-table-column>
-      <el-table-column label="Offered" width="110" align="center">
+      <el-table-column label="Offered" :width="isMobile ? 85 : 110" align="center">
         <template #default="{ row }">
           <el-tag :type="row.active ? 'success' : 'info'" size="small">
             {{ row.active ? 'Yes' : 'No' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="" width="230" align="right">
+      <el-table-column label="Actions" :width="actionColumnWidth" align="center" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="openEdit(row)">Edit</el-button>
-          <el-button size="small" @click="toggleActive(row)">
-            {{ row.active ? 'Deactivate' : 'Activate' }}
-          </el-button>
-          <el-button
-            size="small"
-            type="danger"
-            plain
-            :disabled="row.settlements > 0"
-            :title="row.settlements > 0 ? 'In use — deactivate instead' : 'Remove'"
-            @click="remove(row)"
-          >
-            Remove
-          </el-button>
+          <TableActions
+            :item="row"
+            :buttons="rowButtons(row)"
+            @edit="openEdit"
+            @activate="toggleActive"
+            @deactivate="toggleActive"
+            @remove="remove"
+          />
         </template>
       </el-table-column>
     </el-table>
@@ -223,7 +239,7 @@ onMounted(load)
     <el-dialog
       v-model="dialogOpen"
       :title="editing ? `Edit ${editing.label}` : 'Add settlement type'"
-      width="480px"
+      :width="dialogWidth"
     >
       <el-form label-position="top">
         <el-form-item label="Label">
@@ -295,5 +311,23 @@ onMounted(load)
 
 .mb-3 {
   margin-bottom: 12px;
+}
+
+/* On a phone the title and the buttons each get their own row, and the table
+   scrolls horizontally with the actions column pinned. */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .actions {
+    justify-content: flex-end;
+  }
+
+  .hint {
+    font-size: 12px;
+  }
 }
 </style>

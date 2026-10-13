@@ -131,6 +131,34 @@
             <span style="margin-left: 8px;">Undo Decommission</span>
           </el-dropdown-item>
 
+          <!-- Activate / deactivate a managed list entry (e.g. settlement types) -->
+          <el-dropdown-item
+            v-if="buttons.includes('activate')"
+            @click="onActivate(item)"
+            divided>
+            <el-icon><CircleCheck /></el-icon>
+            <span style="margin-left: 8px;">Activate</span>
+          </el-dropdown-item>
+
+          <el-dropdown-item
+            v-if="buttons.includes('deactivate')"
+            @click="onDeactivate(item)"
+            divided>
+            <el-icon><Remove /></el-icon>
+            <span style="margin-left: 8px;">Deactivate</span>
+          </el-dropdown-item>
+
+          <!-- Remove: the caller confirms, unlike 'delete' whose dialog below
+               is written for settlements. -->
+          <el-dropdown-item
+            v-if="buttons.includes('remove')"
+            @click="onRemove(item)"
+            divided
+            class="danger-action">
+            <el-icon><Delete /></el-icon>
+            <span style="margin-left: 8px;">Remove</span>
+          </el-dropdown-item>
+
           <el-dropdown-item 
             v-if="buttons.includes('delete')" 
             @click="handleDeleteClick(item)"
@@ -189,7 +217,7 @@
 <script lang="ts" setup>
 import { ref, PropType, computed } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElDialog, ElAlert } from 'element-plus';
-import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus, Connection, RefreshLeft } from '@element-plus/icons-vue';
+import { Setting, Edit, TopRight, Position, Delete, View, Download, TakeawayBox, Location, Plus, Connection, RefreshLeft, CircleCheck, Remove } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -199,7 +227,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "undoDecommission", "addGeometry", "share", "merge", "updateLocation", "addFacility", "linkToSettlement"]);
+const emit = defineEmits(["edit", "viewOnMap", "viewProfile", "review", "preview", "delete", "download", "decommission", "undoDecommission", "addGeometry", "share", "merge", "updateLocation", "addFacility", "linkToSettlement", "activate", "deactivate", "remove"]);
 
 // Simple mobile detection for per-row actions (non-reactive to resize, good enough)
 const isMobile = computed(() => window.innerWidth <= 768);
@@ -214,6 +242,18 @@ const onViewProfile = (item) => {
 
 const onEdit = (item) => {
   emit("edit", item);
+};
+
+const onActivate = (item) => {
+  emit("activate", item);
+};
+
+const onDeactivate = (item) => {
+  emit("deactivate", item);
+};
+
+const onRemove = (item) => {
+  emit("remove", item);
 };
 
 const onViewOnMap = (item) => {
