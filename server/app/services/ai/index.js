@@ -341,6 +341,7 @@ async function catalogue(question, limit = 60) {
     chunk_index: 0,
     similarity: 1,
     retrieval: 'catalogue',
+    corrections: resolved.filter((entry) => entry.corrected !== entry.term),
     content: `The following ${documents.length} indexed document(s) match this question.`
       + ` This is the document list itself, not their contents:\n${listing}`
   }]
@@ -365,7 +366,12 @@ async function retrieve(question) {
         store.searchByTerms(distinctiveTerms(question), topK).catch(() => [])
       ])
       const extra = fuseByRank([vectorHits, termHits].filter((list) => list.length), Math.floor(topK / 2))
-      return { chunks: [...listing, ...extra], mode: 'catalogue', vectorError: null, corrections: [] }
+      return {
+        chunks: [...listing, ...extra],
+        mode: 'catalogue',
+        vectorError: null,
+        corrections: listing[0].corrections || []
+      }
     }
   }
 

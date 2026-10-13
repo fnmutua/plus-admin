@@ -458,27 +458,53 @@ async function resolveTerms(terms, { maxEdits = 2 } = {}) {
  */
 async function searchDocuments(terms, limit) {
   if (!terms.length) return []
+  const db = getPool()
 
-  const patterns = terms.map((term) => `%${term}%`)
-  const nameMatch = terms.map((_, i) => `d.filename ILIKE $${i + 1}`).join(' OR ')
-  const nameScore = terms
-    .map((_, i) => `(CASE WHEN d.filename ILIKE $${i + 1} THEN 1 ELSE 0 END)`)
+  // Filenames are matched through the English dictionary, not with ILIKE:
+  // "strategies" has to find "...County Slum Upgrading and Prevention
+  // Strategy 2025-2035.pdf", and a literal match never will. Underscores and
+  // dashes become spaces first so "Machakos_Kicheko_Settlement" tokenises.
+  const tsv = `to_tsvector('english', regexp_replace(d.filename, '[_\\-.]+', ' ', 'g'))`
+
+  const frequencies = await Promise.all(terms.map(async (term) => {
+    const { rows } = await db.query(
+      `SELECT count(*)::int AS df FROM documents d WHERE ${tsv} @@ plainto_tsquery('english', $1)`,
+      [term]
+    )
+    return { term, df: rows[0].df }
+  }))
+
+  const { rows: [sizeRow] } = await db.query('SELECT count(*)::int AS total FROM documents')
+  const total = sizeRow.total || 1
+
+  // Rarity decides again: nearly every filename holds "county", so a document
+  // matching "strategy" as well must rank above one matching "county" alone.
+  const weighted = frequencies
+    .filter((entry) => entry.df > 0)
+    .map((entry) => ({ ...entry, weight: Math.log(1 + total / entry.df) }))
+
+  if (!weighted.length) return []
+
+  const params = weighted.map((entry) => entry.term)
+  const score = weighted
+    .map((entry, i) => `(CASE WHEN ${tsv} @@ plainto_tsquery('english', $${i + 1}) THEN ${entry.weight.toFixed(6)} ELSE 0 END)`)
     .join(' + ')
+  const anyTerm = weighted.map((_, i) => `plainto_tsquery('english', $${i + 1})`).join(' || ')
 
-  const { rows } = await getPool().query(`
-    SELECT d.filename, d.file_type,
-           (SELECT count(*) FROM document_chunks c WHERE c.document_id = d.id) AS chunks,
-           (${nameScore}) AS name_matches
+  const { rows } = await db.query(`
+    SELECT d.filename, d.file_type, (${score}) AS score,
+           (SELECT count(*) FROM document_chunks c WHERE c.document_id = d.id) AS chunks
       FROM documents d
-     WHERE ${nameMatch}
-     ORDER BY name_matches DESC, d.filename ASC
-     LIMIT $${terms.length + 1}
-  `, [...patterns, limit])
+     WHERE ${tsv} @@ (${anyTerm})
+     ORDER BY score DESC, d.filename ASC
+     LIMIT $${weighted.length + 1}
+  `, [...params, limit])
 
   return rows.map((row) => ({
     filename: row.filename,
     fileType: row.file_type,
-    chunks: Number(row.chunks)
+    chunks: Number(row.chunks),
+    score: Number(row.score)
   }))
 }
 
