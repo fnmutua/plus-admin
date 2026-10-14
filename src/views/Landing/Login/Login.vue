@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, unref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, unref, watch } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { ElButton, ElForm, ElFormItem, ElInput, ElTabs, ElTabPane, FormInstance, ElMessage, ElMessageBox, ElLink, ElDialog } from 'element-plus'
 import { InputPassword } from '@/components/InputPassword'
@@ -30,10 +30,70 @@ const loginForm = reactive({
   password: ''
 })
 
+function loginIdentifierMessage(raw: string): string | null {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return 'Enter your username, email, or phone number'
+  if (trimmed.includes('@')) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      return 'Enter the email address saved on your account'
+    }
+    return null
+  }
+  // Spaces or a leading + mean a phone number, not a username. Usernames never contain spaces.
+  const phoneAttempt = trimmed.startsWith('+') || (/[\s().-]/.test(trimmed) && /^[\d\s()+.-]+$/.test(trimmed))
+  if (phoneAttempt) {
+    const compact = trimmed.replace(/[\s()\-.]/g, '')
+    const kenya = /^(?:\+?254|0)[17]\d{8}$/.test(compact) || /^[17]\d{8}$/.test(compact)
+    if (!kenya) return 'Enter a Kenyan mobile number, for example 0712345678'
+    return null
+  }
+  if (/\s/.test(trimmed)) {
+    return 'Use your username, not your full name. Usernames have no spaces.'
+  }
+  if (!/^[A-Za-z0-9._+-]{1,80}$/.test(trimmed)) {
+    return 'Use your username, the email on your account, or your phone number'
+  }
+  return null
+}
+
 const rules = {
-  username: [required()],
+  username: [
+    required(),
+    {
+      validator: (_: unknown, value: string, callback: (err?: Error) => void) => {
+        const message = loginIdentifierMessage(value)
+        callback(message ? new Error(message) : undefined)
+      },
+      trigger: ['blur', 'change']
+    }
+  ],
   password: [required()]
 }
+
+const identifierHint = ref('')
+
+function onIdentifierInput(value: string) {
+  // A letter plus a space is a person's name. Usernames, emails, and phone
+  // numbers never look like that, so the name is dropped instead of stored.
+  if (/[A-Za-z]/.test(value) && /\s/.test(value)) {
+    loginForm.username = ''
+    nextTick(() => {
+      identifierHint.value = 'Usernames have no spaces.'
+    })
+    return
+  }
+  loginForm.username = value
+}
+
+function blockNameSpace(event: KeyboardEvent) {
+  if (event.key !== ' ') return
+  const current = loginForm.username
+  if (!current || /[A-Za-z@]/.test(current)) event.preventDefault()
+}
+
+const canSignIn = computed(
+  () => loginIdentifierMessage(loginForm.username) === null && loginForm.password.trim().length > 0
+)
 
 const loginLoading = ref(false)
 const guestLoading = ref(false)
@@ -102,6 +162,13 @@ const handleForgotPassword = async () => {
     resetPasswordLoading.value = false
   }
 }
+
+watch(
+  () => loginForm.username,
+  () => {
+    identifierHint.value = ''
+  }
+)
 
 watch(
   () => currentRoute.value,
@@ -212,7 +279,9 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
 }
 
 const signIn = async () => {
+  if (!canSignIn.value) return
   ;(appStore as any).dynamicRouter = true
+  loginForm.username = loginForm.username.trim()
   const formRef = unref(loginFormRef)
   await formRef?.validate(async (isValid) => {
     if (isValid) {
@@ -263,6 +332,13 @@ const signIn = async () => {
             'Device limit reached',
             { type: 'warning', dangerouslyUseHTMLString: true, confirmButtonText: 'OK' }
           )
+        } else if (
+          code === 'USER_NOT_FOUND' ||
+          code === 'INVALID_PASSWORD' ||
+          code === 'INVALID_CREDENTIALS' ||
+          error?.response?.status === 404
+        ) {
+          identifierHint.value = 'Incorrect username or password.'
         } else {
           ElMessage.error(msg || error?.message || 'Login failed. Please check your credentials.')
         }
@@ -335,12 +411,15 @@ const toRegister = () => {
                   <span class="form-label">Username, Email, or Phone</span>
                 </template>
               <el-input
-                v-model="loginForm.username"
+                :model-value="loginForm.username"
                 placeholder="Enter your username, email, or phone number"
                 class="auth-input"
                 autocomplete="username"
                 clearable
+                @update:model-value="onIdentifierInput"
+                @keydown="blockNameSpace"
               />
+              <p v-if="identifierHint" class="login-hint">{{ identifierHint }}</p>
               </el-form-item>
 
               <el-form-item prop="password" class="form-field-item">
@@ -369,6 +448,7 @@ const toRegister = () => {
               <ElButton
                 type="primary"
                 :loading="loginLoading"
+                :disabled="!canSignIn"
                 class="auth-button"
                 native-type="submit"
                 block
@@ -590,6 +670,13 @@ const toRegister = () => {
   color: #00B86B;
 }
 
+.login-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--el-color-danger);
+}
+
 :deep(.el-form-item) {
   margin-bottom: 0;
   display: flex;
@@ -728,6 +815,16 @@ const toRegister = () => {
 
 .auth-button:active {
   transform: scale(0.98);
+}
+
+.auth-button.is-disabled,
+.auth-button.is-disabled:hover,
+.auth-button.is-disabled:active {
+  background: #d5d8de;
+  color: #6b7280;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .divider {

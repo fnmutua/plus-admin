@@ -13,6 +13,16 @@ const { isAuthSMSEnabled } = require('../utils/smsSettings')
 const Op = db.Sequelize.Op
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
+
+// Same body for a missing account and a wrong password, so the response
+// does not say which one it was. The hash is cost 8, matching stored passwords,
+// so a miss takes a compare too.
+const INVALID_CREDENTIALS_BODY = {
+  accessToken: null,
+  code: 'INVALID_CREDENTIALS',
+  message: 'Incorrect username or password.'
+}
+const DUMMY_PASSWORD_HASH = '$2a$08$Askba5in2iAHKRRYCXnQdOCDncdFT/PZRI7REQ7BKLu74UoZChPke'
 const nodemailer = require('nodemailer')
 const turf = require('@turf/turf');
 
@@ -649,7 +659,7 @@ exports.signup = (req, res) => {
   User.create({
     username: req.body.username.trim().toLowerCase(),
     name: req.body.name,
-    phone: req.body.phone,
+    phone: canonicalStoredPhone(req.body.phone) || req.body.phone,
     email: req.body.email,
     avatar: req.body.avatar,
     county_id: req.body.county_id,
@@ -823,7 +833,8 @@ exports.updateUser = async (req, res) => {
       // For phone: preserve existing value if undefined/null, but allow empty string to clear it
       if (field === 'phone') {
         if (req.body.hasOwnProperty('phone') && req.body.phone !== undefined && req.body.phone !== null) {
-          updateData[field] = req.body[field];
+          const rawPhone = req.body.phone
+          updateData.phone = rawPhone === '' ? '' : (canonicalStoredPhone(rawPhone) || rawPhone)
         }
         // If phone is undefined/null, don't include it in updateData (preserves existing value)
       } else {
@@ -1314,15 +1325,17 @@ exports.reset = async (req, res) => {
     if (isEmail) {
       user = await User.findOne({ where: { email: emailOrPhone } })
     } else {
-      const normalizedPhone = formatPhoneNumber(emailOrPhone)
-      const phoneVariants = [
-        normalizedPhone,
-        '+' + normalizedPhone,
-        '0' + normalizedPhone.substring(3)
-      ]
-      user = await User.findOne({
-        where: { [Op.or]: phoneVariants.map(p => ({ phone: p })) }
+      const variants = buildLoginLookupVariants(emailOrPhone)
+      const matches = await User.findAll({
+        where: {
+          [Op.or]: variants.flatMap((variant) => ([
+            { phone: { [Op.iLike]: variant } },
+            { username: { [Op.iLike]: variant } }
+          ]))
+        },
+        limit: 5
       })
+      user = await pickLoginUser(matches, emailOrPhone)
     }
 
     if (!user) {
@@ -1543,7 +1556,7 @@ exports.signin = async (req, res) => {
         console.log('Logging in whereClause:', whereClause)
 
  
-    User.findOne({
+    User.findAll({
       where:{ [Op.or]:
               whereClause
             },
@@ -1551,8 +1564,10 @@ exports.signin = async (req, res) => {
               {
                 model: UserRoles,
               }
-            ]
+            ],
+            limit: 5
     })
+    .then((users) => pickLoginUser(users, req.body.username))
     .then(async (user) => {
     
       console.log(user)
@@ -1566,13 +1581,14 @@ exports.signin = async (req, res) => {
           actorType: 'anonymous',
           entityType: 'auth',
           outcome: 'failure',
-          statusCode: 404
+          statusCode: 401
         });
-        return res.status(404).send({ message: 'User Not found.' })
+        bcrypt.compareSync(String(req.body.password || ''), DUMMY_PASSWORD_HASH)
+        return res.status(401).send(INVALID_CREDENTIALS_BODY)
       }
       var passwordIsValid = user.password
         ? bcrypt.compareSync(req.body.password, user.password)
-        : false
+        : bcrypt.compareSync(String(req.body.password || ''), DUMMY_PASSWORD_HASH)
       if (!passwordIsValid) {
  
         instlog.userId = 0
@@ -1586,10 +1602,7 @@ exports.signin = async (req, res) => {
           outcome: 'failure',
           statusCode: 401
         });
-        return res.status(401).send({
-          accessToken: null,
-          message: 'Invalid Password! '
-        })
+        return res.status(401).send(INVALID_CREDENTIALS_BODY)
       }
 
       if (!user.isactive) {
@@ -2343,7 +2356,7 @@ exports.signupViaApp = async (req, res) => {
     const user = await User.create({
       username: phone,
       name: name,
-      phone: phone,
+      phone: canonicalStoredPhone(phone) || phone,
       organization_name: req.body.organization_name,
       password: hashedPassword // Set to null if password is null
     });
@@ -2482,7 +2495,7 @@ exports.signupGRC = async (req, res) => {
     const user = await User.create({
       username: phone,
       name: name,
-      phone: phone,
+      phone: canonicalStoredPhone(phone) || phone,
       isactive:true,
       country_name: 'KE',
       organization_name: req.body.organization_name,
@@ -2637,7 +2650,7 @@ exports.signupGRM = async (req, res) => {
     const user = await User.create({
       username: phone,
       name: name,
-      phone: phone,
+      phone: canonicalStoredPhone(phone) || phone,
       isactive:true,
       country_name: 'KE',
       organization_name: req.body.organization_name,
@@ -2799,6 +2812,16 @@ function looksLikeKenyaPhone(value) {
   return /^(?:\+?254|0)[17]\d{8}$/.test(cleaned);
 }
 
+/**
+ * Every spelling of an identifier that should find the same account.
+ *
+ * Phone numbers are stored three ways — 317 as 0712…, 238 as +254712…, 7 as
+ * 254712… — because the format was never normalised at sign-up. Only the 0 and
+ * 254 forms were generated here, so the 238 users on file with a + could not
+ * log in with their phone number at all: 404 "User not found", thirty times in
+ * three minutes in one case. All three forms are produced now, and separators
+ * a person might type are dropped first.
+ */
 function buildLoginLookupVariants(identifier) {
   if (identifier == null) return [];
   const trimmed = String(identifier).trim();
@@ -2806,15 +2829,59 @@ function buildLoginLookupVariants(identifier) {
 
   const variants = new Set([trimmed, trimmed.toLowerCase()]);
 
-  if (looksLikeKenyaPhone(trimmed)) {
-    const normalized = convertPhoneNumber(trimmed.replace(/\s/g, ''));
-    if (normalized) variants.add(normalized);
-    if (normalized.startsWith('0')) {
-      variants.add('254' + normalized.substring(1));
+  // "0712 345 678", "0712-345-678" and "(0712) 345678" are the same number —
+  // but only for something that is all digits and punctuation. Stripping dots
+  // from an email turns felix.mutua@gmail.com into a different address.
+  const PHONE_SHAPED = /^[\d\s()+.-]+$/;
+  const compact = PHONE_SHAPED.test(trimmed) ? trimmed.replace(/[\s()\-.]/g, '') : trimmed;
+  if (compact && compact !== trimmed) variants.add(compact);
+
+  // A bare subscriber number is what people read off the back of a phone:
+  // 712345678 means 0712345678.
+  const subscriber = /^[17]\d{8}$/.test(compact) ? compact : null;
+  if (looksLikeKenyaPhone(compact) || subscriber) {
+    const local = subscriber ? '0' + subscriber : convertPhoneNumber(compact);
+    if (local) {
+      const tail = local.startsWith('0') ? local.substring(1) : local;
+      variants.add(local);
+      variants.add('254' + tail);
+      variants.add('+254' + tail);
+      variants.add(tail);
     }
   }
 
   return [...variants].filter(Boolean);
+}
+
+/** Kenyan mobile stored one way: +254 followed by the 9-digit subscriber number. */
+function canonicalStoredPhone(value) {
+  const plus = buildLoginLookupVariants(value).find((variant) => /^\+254[17]\d{8}$/.test(variant));
+  return plus || null;
+}
+
+/**
+ * The account a login attempt means, when more than one row matches.
+ *
+ * Six phone numbers are on two accounts each — a self-registered one named
+ * after the number and a later named one. findOne() returned whichever the
+ * planner felt like, so a correct password could still be rejected. An exact
+ * match on what was typed wins; otherwise the account that has actually been
+ * used.
+ */
+async function pickLoginUser(users, typed) {
+  if (users.length <= 1) return users[0] || null;
+
+  const wanted = String(typed || '').trim().toLowerCase();
+  const exactness = (user) => {
+    if (String(user.username || '').toLowerCase() === wanted) return 3;
+    if (String(user.email || '').toLowerCase() === wanted) return 2;
+    return 0;
+  };
+  const lastUsed = (user) => new Date(user.last_login || 0).getTime();
+
+  return [...users].sort(
+    (a, b) => exactness(b) - exactness(a) || lastUsed(b) - lastUsed(a) || a.id - b.id
+  )[0];
 }
 
 function buildSigninWhereClause(username, phone) {
@@ -2853,22 +2920,18 @@ exports.signinViaApp = async (req, res) => {
 
  console.log(user_phone)
  
-    User.findOne({
+    // Same variant set as the web sign-in: matching only the 0712… form meant
+    // the 238 accounts stored as +254712… could not log in from the app.
+    User.findAll({
       where: {
-        [Op.or]: [
-          {
-            username: {  // chek user input against username 
-              [Op.iLike]: user_phone 
-            }
-          },
-          {
-            phone: {  // chek user input against username 
-              [Op.iLike]: user_phone
-            }
-          },
-        ]
-      }
+        [Op.or]: buildLoginLookupVariants(req.body.phone).flatMap((variant) => ([
+          { username: { [Op.iLike]: variant } },
+          { phone: { [Op.iLike]: variant } }
+        ]))
+      },
+      limit: 5
     })
+    .then((users) => pickLoginUser(users, req.body.phone))
     .then(async (user) => {
       if (!user) {
          instlog.userId = 0
@@ -2880,9 +2943,10 @@ exports.signinViaApp = async (req, res) => {
           actorType: 'anonymous',
           entityType: 'auth',
           outcome: 'failure',
-          statusCode: 404
+          statusCode: 401
         });
-        return res.status(404).send({ message: 'No account is associated with this number' })
+        bcrypt.compareSync(String(req.body.password || req.body.phone || ''), DUMMY_PASSWORD_HASH)
+        return res.status(401).send(INVALID_CREDENTIALS_BODY)
       }
   
       if (!user.isactive) {
