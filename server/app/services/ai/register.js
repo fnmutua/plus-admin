@@ -183,6 +183,24 @@ async function placeMaps(db) {
   return placeCache.maps
 }
 
+/**
+ * A typed word is this label, or a misspelling of about the same length.
+ *
+ * "county" is three edits from "subcounty". Allowed as a match, the word
+ * "county" was read as a subcounty question, the subcounty was not found,
+ * and the county itself was then skipped — "settlements in Machakos county"
+ * came back as the national total.
+ */
+function closeLabel(token, words) {
+  return words.some((word) => {
+    if (token === word) return true
+    if (token.length + 2 < word.length) return false
+    return matchesAny([token], [word])
+  })
+}
+
+const mentions = (tokens, words) => tokens.some((token) => closeLabel(token, words))
+
 /** "county id 16", "subcountyid 80", "ward id 394". The number itself is exact. */
 function idsInQuestion(question) {
   const parts = String(question).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
@@ -197,16 +215,16 @@ function idsInQuestion(question) {
 
     for (const spec of PLACE_IDS) {
       const glued = parts[i].match(/^([a-z]+)(\d{1,4})$/)
-      if (glued && matchesAny([glued[1]], spec.labels)) {
+      if (glued && closeLabel(glued[1], spec.labels)) {
         found[spec.kind] = Number(glued[2])
         continue
       }
-      if (matchesAny([parts[i]], [spec.labels[0]]) && /^\d{1,4}$/.test(parts[i + 1] || '')) {
+      if (closeLabel(parts[i], [spec.labels[0]]) && /^\d{1,4}$/.test(parts[i + 1] || '')) {
         found[spec.kind] = Number(parts[i + 1])
         continue
       }
       if (
-        matchesAny([parts[i]], [spec.labels[1]])
+        closeLabel(parts[i], [spec.labels[1]])
         && ['id', 'no', 'number'].includes(parts[i + 1])
         && /^\d{1,4}$/.test(parts[i + 2] || '')
         && !(spec.kind === 'county' && i > 0 && matchesAny([parts[i - 1]], ['sub']))
@@ -328,9 +346,10 @@ async function placeInQuestion(db, question, tokens) {
     return words.length > 0 && words.every((word) => tokens.includes(word))
   }
 
-  const asksWard = matchesAny(tokens, ['ward', 'wards', 'wardid'])
-  const asksSub = matchesAny(tokens, ['subcounty', 'subcounties', 'subcountyid'])
+  const asksWard = mentions(tokens, ['ward', 'wards', 'wardid'])
+  const asksSub = mentions(tokens, ['subcounty', 'subcounties', 'subcountyid'])
     || tokens.some((token, index) => matchesAny([token], ['sub']) && matchesAny([tokens[index + 1] || ''], ['county']))
+  const asksCounty = !asksSub && mentions(tokens, ['county', 'counties', 'countyid'])
 
   const countyHits = namedRows(maps.counties, tokens)
   const county = countyHits[0] || null
@@ -350,6 +369,11 @@ async function placeInQuestion(db, question, tokens) {
     const countyName = tokenise(county.name).join(' ')
     subHits = subHits.filter((row) => exactName(row) && tokenise(row.name).join(' ') !== countyName)
     wardHits = wardHits.filter(exactName)
+  }
+
+  // "in Machakos county" is the county, not a ward whose name is a near miss.
+  if (asksCounty && county && exactName(county) && !asksWard) {
+    return describePlace(county, 'county', maps)
   }
 
   // "Ward" selects a ward. Otherwise a subcounty of that name wins, including
