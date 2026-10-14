@@ -18,6 +18,7 @@ const store = require('./store')
 const { extractText, recordToText, chunkText, isSupported } = require('./extract')
 const { describeError } = require('./describeError')
 const register = require('./register')
+const { matchesAny, tokenise } = require('./words')
 
 const SYSTEM_PROMPT = [
   'You are a document assistant for KeSMIS, a settlement management information system.',
@@ -284,53 +285,26 @@ const CATALOGUE_QUESTION =
 /** Words that ask for an enumeration, matched allowing for typos. */
 const CATALOGUE_WORDS = ['list', 'listing', 'enumerate', 'inventory', 'catalogue', 'catalog']
 
-/** Levenshtein distance, bounded — only small distances matter here. */
-function editDistance(a, b, max = 2) {
-  if (Math.abs(a.length - b.length) > max) return max + 1
-  let previous = Array.from({ length: b.length + 1 }, (_, i) => i)
-
-  for (let i = 1; i <= a.length; i += 1) {
-    const current = [i]
-    for (let j = 1; j <= b.length; j += 1) {
-      current[j] = Math.min(
-        previous[j] + 1,
-        current[j - 1] + 1,
-        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-      )
-    }
-    previous = current
-  }
-
-  return previous[b.length]
-}
-
 /**
  * Does this question ask for an enumeration?
  *
  * The literal spelling cannot be relied on: "give me a lst of counties with
  * coutny spefici straggies" asks for a list and must be answered with one.
  */
-function asksForList(question) {
+function asksForList(question, terms = []) {
   if (CATALOGUE_QUESTION.test(question)) return true
-
-  return String(question)
-    .toLowerCase()
-    .split(/[^a-z]+/)
-    .filter((token) => token.length >= 3)
-    .some((token) => CATALOGUE_WORDS.some((word) => editDistance(token, word) <= (word.length > 6 ? 2 : 1)))
+  return matchesAny([...tokenise(question), ...terms], CATALOGUE_WORDS)
 }
 
-/** Documents matching the question, as one block the model can enumerate. */
-async function catalogue(question, limit = 60) {
-  const terms = distinctiveTerms(question, 8)
-  if (!terms.length) return []
-
-  // Corrected first, exactly as the excerpt search does: "coutny spefici
-  // straggies" has to find the county strategy documents, and matching raw
-  // filenames against a typo finds whatever merely shares a correct word —
-  // a validation report for two counties, rather than the strategies.
-  const resolved = await store.resolveTerms(terms).catch(() => [])
-  const searchTerms = resolved.length ? [...new Set(resolved.map((entry) => entry.corrected))] : terms
+/**
+ * Documents matching the question, as one block the model can enumerate.
+ *
+ * Takes the corrected words rather than the question: matching raw filenames
+ * against a typo finds whatever merely shares a correct word — "coutny spefici
+ * straggies" found a two-county validation report rather than the strategies.
+ */
+async function catalogue(searchTerms, corrections = [], limit = 60) {
+  if (!searchTerms.length) return []
 
   const documents = await store.searchDocuments(searchTerms, limit)
   if (!documents.length) return []
@@ -346,7 +320,7 @@ async function catalogue(question, limit = 60) {
     chunk_index: 0,
     similarity: 1,
     retrieval: 'catalogue',
-    corrections: resolved.filter((entry) => entry.corrected !== entry.term),
+    corrections,
     content: `The following ${documents.length} indexed document(s) match this question.`
       + ` This is the document list itself, not their contents:\n${listing}`
   }]
@@ -360,16 +334,27 @@ async function retrieve(question) {
     if (recent.length) return { chunks: recent, mode: 'recency', vectorError: null, corrections: [] }
   }
 
+  // Spelling is corrected once, here, and every branch below routes on the
+  // corrected words. Distinctive words are mapped onto words that are actually
+  // indexed, so a misspelled place name still finds its documents: "KICHECKO"
+  // searches for "kicheko". Doing this after the routing checks sent "umber of
+  // settleemnts in kenya" to the documents, which correctly answered that they
+  // do not state Kenya's total — the register does.
+  const terms = distinctiveTerms(question, 8)
+  const resolved = await store.resolveTerms(terms).catch(() => [])
+  const corrections = resolved.filter((entry) => entry.corrected !== entry.term)
+  const searchTerms = resolved.length ? [...new Set(resolved.map((entry) => entry.corrected))] : terms
+
   // A counting question about the register is answered from the tables, not
   // from documents: asked of the index alone, "how many settlements are in the
   // register?" produced "60 indexed document entries" against a true 1,049.
-  const registerCounts = await register.counts(question).catch(() => null)
+  const registerCounts = await register.counts(question, searchTerms).catch(() => null)
   if (registerCounts) {
     const [vectorHits, termHits] = await Promise.all([
       provider.embedOne(question)
         .then((embedded) => store.searchByVector(embedded, provider.embeddingModelId(), topK, minSimilarity))
         .catch(() => []),
-      store.searchByTerms(distinctiveTerms(question), topK).catch(() => [])
+      store.searchByTerms(searchTerms, topK).catch(() => [])
     ])
 
     const counts = {
@@ -381,26 +366,21 @@ async function retrieve(question) {
       content: registerCounts
     }
     const extra = fuseByRank([vectorHits, termHits].filter((list) => list.length), Math.floor(topK / 2))
-    return { chunks: [counts, ...extra], mode: 'counts', vectorError: null, corrections: [] }
+    return { chunks: [counts, ...extra], mode: 'counts', vectorError: null, corrections }
   }
 
-  if (asksForList(question)) {
-    const listing = await catalogue(question)
+  if (asksForList(question, searchTerms)) {
+    const listing = await catalogue(searchTerms, corrections)
     // Excerpts still follow, so the answer can describe as well as enumerate.
     if (listing.length) {
       const [vectorHits, termHits] = await Promise.all([
         provider.embedOne(question)
           .then((embedded) => store.searchByVector(embedded, provider.embeddingModelId(), topK, minSimilarity))
           .catch(() => []),
-        store.searchByTerms(distinctiveTerms(question), topK).catch(() => [])
+        store.searchByTerms(searchTerms, topK).catch(() => [])
       ])
       const extra = fuseByRank([vectorHits, termHits].filter((list) => list.length), Math.floor(topK / 2))
-      return {
-        chunks: [...listing, ...extra],
-        mode: 'catalogue',
-        vectorError: null,
-        corrections: listing[0].corrections || []
-      }
+      return { chunks: [...listing, ...extra], mode: 'catalogue', vectorError: null, corrections }
     }
   }
 
@@ -415,15 +395,6 @@ async function retrieve(question) {
       return []
     }
   })()
-
-  // Distinctive words are mapped onto words that are actually indexed, so a
-  // misspelled place name still finds its documents: "KICHECKO" searches for
-  // "kicheko". Without this the literal search returns nothing and the vector
-  // search answers about a similarly-named settlement instead.
-  const terms = distinctiveTerms(question)
-  const resolved = await store.resolveTerms(terms).catch(() => [])
-  const corrections = resolved.filter((entry) => entry.corrected !== entry.term)
-  const searchTerms = resolved.length ? resolved.map((entry) => entry.corrected) : terms
 
   const [vectorHits, keywordHits, termHits] = await Promise.all([
     vector,

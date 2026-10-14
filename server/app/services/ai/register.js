@@ -9,11 +9,14 @@
 // confidently wrong, because documents are all it can see. These counts come
 // from the tables themselves.
 
+const { matchesAny, tokenise } = require('./words')
+
 const ENTITIES = [
   {
     key: 'settlements',
     label: 'Settlements',
     match: /\bsettlements?\b/i,
+    words: ['settlement', 'settlements'],
     model: 'settlement',
     // Breakdowns worth volunteering: a bare total hides that 37 are
     // decommissioned and 8 still pending review.
@@ -26,6 +29,7 @@ const ENTITIES = [
     key: 'documents',
     label: 'Documents',
     match: /\b(documents?|files?|uploads?)\b/i,
+    words: ['document', 'documents', 'uploads'],
     model: 'document',
     groupBy: [{ column: 'aiProcessed', label: 'indexed for search' }]
   },
@@ -33,6 +37,7 @@ const ENTITIES = [
     key: 'projects',
     label: 'Projects',
     match: /\bprojects?\b/i,
+    words: ['project', 'projects'],
     model: 'project',
     groupBy: []
   },
@@ -40,6 +45,7 @@ const ENTITIES = [
     key: 'grievances',
     label: 'Grievances',
     match: /\bgrievances?\b/i,
+    words: ['grievance', 'grievances'],
     model: 'grievance',
     groupBy: [{ column: 'status', label: 'by status' }]
   },
@@ -47,6 +53,7 @@ const ENTITIES = [
     key: 'incidents',
     label: 'Incidents',
     match: /\bincidents?\b/i,
+    words: ['incident', 'incidents'],
     model: 'incident',
     groupBy: [{ column: 'status', label: 'by status' }]
   }
@@ -61,8 +68,30 @@ const ENTITIES = [
  */
 const COUNT_QUESTION = /\b(how many|number of|count of|total (number|count)?)\b/i
 
-const asksForCount = (question) =>
-  COUNT_QUESTION.test(question) && ENTITIES.some((entity) => entity.match.test(question))
+/** The same ask, allowing for typos: "umber of", "hwo mnay", "toatl". */
+const COUNT_WORDS = ['number', 'numbers', 'count', 'total', 'many', 'tally']
+
+/**
+ * Entities this question counts.
+ *
+ * Both the counting word and the entity are matched on near-spellings, and
+ * against the corrected words retrieval resolved as well as what was typed:
+ * "umber of settleemnts in kenya" is a question about the register, and
+ * checking the literal spelling sent it to the documents, which answered that
+ * they do not state Kenya's total.
+ *
+ * @param {string} question
+ * @param {string[]} [terms] Words already corrected against the index.
+ */
+function wanted(question, terms = []) {
+  const tokens = [...tokenise(question), ...terms]
+  if (!COUNT_QUESTION.test(question) && !matchesAny(tokens, COUNT_WORDS)) return []
+
+  return ENTITIES.filter((entity) =>
+    entity.match.test(question) || matchesAny(tokens, entity.words))
+}
+
+const asksForCount = (question, terms = []) => wanted(question, terms).length > 0
 
 /** Count rows per value of a column, largest group first. */
 async function groupCounts(db, modelName, column) {
@@ -84,11 +113,14 @@ async function groupCounts(db, modelName, column) {
 /**
  * Counts for whichever entities the question names.
  *
+ * @param {string} question
+ * @param {string[]} [terms] Corrected question words, from retrieval.
  * @returns {Promise<string|null>} A text block for the context, or null when
  *          nothing matched or the database could not be read.
  */
-async function counts(question) {
-  if (!asksForCount(question)) return null
+async function counts(question, terms = []) {
+  const entities = wanted(question, terms)
+  if (!entities.length) return null
 
   let db
   try {
@@ -98,10 +130,9 @@ async function counts(question) {
     return null
   }
 
-  const wanted = ENTITIES.filter((entity) => entity.match.test(question))
   const parts = []
 
-  for (const entity of wanted) {
+  for (const entity of entities) {
     const model = db.models[entity.model]
     if (!model) continue
 
