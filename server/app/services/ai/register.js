@@ -66,7 +66,7 @@ const ENTITIES = [
  * "count of grievances". A question about what a document *says* is left to
  * retrieval.
  */
-const COUNT_QUESTION = /\b(how many|number of|count of|total (number|count)?)\b/i
+const COUNT_QUESTION = /\b(how many|number of|count of|total (number|count)?|no\.)\b/i
 
 /** The same ask, allowing for typos: "umber of", "hwo mnay", "toatl". */
 const COUNT_WORDS = ['number', 'numbers', 'count', 'total', 'many', 'tally']
@@ -101,7 +101,10 @@ const ASKING_WORDS = [
 const SCOPE_WORDS = [
   'kenya', 'kenyan', 'country', 'countrywide', 'nationwide', 'national',
   'register', 'registered', 'recorded', 'records', 'system', 'kesmis',
-  'database', 'total', 'there', 'altogether', 'overall'
+  'database', 'total', 'there', 'altogether', 'overall',
+  'county', 'counties', 'countyid',
+  'subcounty', 'subcounties', 'subcountyid',
+  'ward', 'wards', 'wardid'
 ]
 
 /** The entities a counting question names outright. */
@@ -117,6 +120,7 @@ const SETTLEMENTS = ENTITIES.find((entity) => entity.key === 'settlements')
 // edited, and consulted on every counting question.
 const TYPE_CACHE_MS = 5 * 60 * 1000
 let typeCache = { at: 0, labels: [] }
+let placeCache = { at: 0, maps: null }
 
 /** Words that distinguish one type from another: "Informal Settlement" → informal. */
 const SHARED_TYPE_WORDS = new Set(['settlement', 'settlements', 'area', 'areas', 'type', 'types'])
@@ -135,13 +139,270 @@ async function settlementTypeLabels(db) {
   return labels
 }
 
+const PLACE_COLUMN = { county: 'county_id', subcounty: 'subcounty_id', ward: 'ward_id' }
+
+const PLACE_IDS = [
+  { kind: 'ward', labels: ['wardid', 'ward'] },
+  { kind: 'subcounty', labels: ['subcountyid', 'subcounty'] },
+  { kind: 'county', labels: ['countyid', 'county'] }
+]
+
+async function placeMaps(db) {
+  if (placeCache.maps && Date.now() - placeCache.at < TYPE_CACHE_MS) return placeCache.maps
+
+  const read = async (modelName, fields) => {
+    const model = db.models[modelName]
+    if (!model) return []
+    const rows = await model.findAll({ attributes: fields, raw: true })
+    return rows
+      .map((row) => ({
+        id: Number(row.id),
+        name: String(row.name || '').trim(),
+        county_id: row.county_id == null ? null : Number(row.county_id),
+        subcounty_id: row.subcounty_id == null ? null : Number(row.subcounty_id)
+      }))
+      .filter((row) => row.id && row.name)
+  }
+
+  const [counties, subs, wards] = await Promise.all([
+    read('county', ['id', 'name']),
+    read('subcounty', ['id', 'name', 'county_id']),
+    read('ward', ['id', 'name', 'county_id', 'subcounty_id'])
+  ])
+
+  placeCache = {
+    at: Date.now(),
+    maps: {
+      counties,
+      subs,
+      wards,
+      countyById: new Map(counties.map((row) => [row.id, row])),
+      subById: new Map(subs.map((row) => [row.id, row]))
+    }
+  }
+  return placeCache.maps
+}
+
+/** "county id 16", "subcountyid 80", "ward id 394". The number itself is exact. */
+function idsInQuestion(question) {
+  const parts = String(question).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const found = {}
+
+  for (let i = 0; i < parts.length; i += 1) {
+    // "sub county id 80" is a subcounty, not county 80.
+    if (matchesAny([parts[i]], ['sub']) && matchesAny([parts[i + 1] || ''], ['county'])) {
+      const number = ['id', 'no', 'number'].includes(parts[i + 2]) ? parts[i + 3] : parts[i + 2]
+      if (/^\d{1,4}$/.test(number || '')) found.subcounty = Number(number)
+    }
+
+    for (const spec of PLACE_IDS) {
+      const glued = parts[i].match(/^([a-z]+)(\d{1,4})$/)
+      if (glued && matchesAny([glued[1]], spec.labels)) {
+        found[spec.kind] = Number(glued[2])
+        continue
+      }
+      if (matchesAny([parts[i]], [spec.labels[0]]) && /^\d{1,4}$/.test(parts[i + 1] || '')) {
+        found[spec.kind] = Number(parts[i + 1])
+        continue
+      }
+      if (
+        matchesAny([parts[i]], [spec.labels[1]])
+        && ['id', 'no', 'number'].includes(parts[i + 1])
+        && /^\d{1,4}$/.test(parts[i + 2] || '')
+        && !(spec.kind === 'county' && i > 0 && matchesAny([parts[i - 1]], ['sub']))
+      ) found[spec.kind] = Number(parts[i + 2])
+    }
+  }
+
+  return found
+}
+
+// Ordinary question words are not place names. One edit turned "are" into the
+// ward "Lare", and "number" into "Ndumberi", so a national question came back
+// as a single ward. Built on first use: the rank and measure lists are
+// declared further down.
+let notAPlace = null
+function reservedPlaceTokens() {
+  if (notAPlace) return notAPlace
+  notAPlace = new Set([
+    ...COUNT_WORDS,
+    ...SCOPE_WORDS,
+    ...ASKING_WORDS,
+    ...RANK_EXACT,
+    ...RANK_WORDS,
+    ...SMALLEST_WORDS,
+    ...Object.keys(NUMBER_WORDS),
+    ...MEASURES.flatMap((measure) => measure.words),
+    ...ENTITIES.flatMap((entity) => entity.words),
+    'how', 'are', 'the', 'for', 'and', 'with', 'from', 'that', 'this',
+    'what', 'which', 'where', 'when', 'into', 'per'
+  ])
+  return notAPlace
+}
+
+/** A name word matches a question word exactly, or loosely when both are long. */
+function nameWordMatches(word, tokens) {
+  const reserved = reservedPlaceTokens()
+  return tokens.some((token) => {
+    if (token === word) return true
+    if (word.length < 6 || token.length < 6 || reserved.has(token)) return false
+    return matchesAny([token], [word])
+  })
+}
+
+/**
+ * Places whose whole name appears in the question, longest name first.
+ *
+ * A shorter name that is only the start of a longer one is dropped: "Athi"
+ * is not a second match once "Athi River" has matched.
+ */
+function namedRows(rows, tokens) {
+  const hits = rows.filter((row) => {
+    const words = tokenise(row.name).filter((word) => word.length >= 3)
+    return words.length > 0 && words.every((word) => nameWordMatches(word, tokens))
+  })
+  const kept = hits.filter((hit) => {
+    const words = tokenise(hit.name)
+    return !hits.some((other) => {
+      if (other === hit) return false
+      const longer = tokenise(other.name)
+      return longer.length > words.length && words.every((word) => longer.includes(word))
+    })
+  })
+  // "Kiambu" must not also select "Kiambaa" once the exact name is present.
+  const exact = kept.filter((row) => {
+    const words = tokenise(row.name).filter((word) => word.length >= 3)
+    return words.every((word) => tokens.includes(word))
+  })
+  const chosen = exact.length ? exact : kept
+  chosen.sort((a, b) => tokenise(b.name).length - tokenise(a.name).length || b.name.length - a.name.length)
+  return chosen
+}
+
+function describePlace(row, kind, maps) {
+  const county = row.county_id ? maps.countyById.get(row.county_id) : null
+  const sub = row.subcounty_id ? maps.subById.get(row.subcounty_id) : null
+  return {
+    kind,
+    id: row.id,
+    name: row.name,
+    countyName: county ? county.name : null,
+    subcountyName: sub ? sub.name : null
+  }
+}
+
+function oneOrAmbiguous(hits, kind, maps) {
+  if (hits.length === 1) return describePlace(hits[0], kind, maps)
+  if (hits.length > 1) {
+    return { ambiguous: true, kind, options: hits.map((row) => describePlace(row, kind, maps)) }
+  }
+  return null
+}
+
+/**
+ * The place this question is about, or null.
+ *
+ * A ward id, then a subcounty id, then a county id. Failing an id, the name.
+ * The most specific named place wins: "Machakos Town" is the subcounty, not
+ * the county Machakos. A ward name shared by several wards is not guessed.
+ */
+async function placeInQuestion(db, question, tokens) {
+  const maps = await placeMaps(db)
+  const written = idsInQuestion(question)
+
+  if (written.ward) {
+    const row = maps.wards.find((item) => item.id === written.ward)
+    if (row) return describePlace(row, 'ward', maps)
+  }
+  if (written.subcounty) {
+    const row = maps.subs.find((item) => item.id === written.subcounty)
+    if (row) return describePlace(row, 'subcounty', maps)
+  }
+  if (written.county) {
+    const row = maps.counties.find((item) => item.id === written.county)
+    if (row) return describePlace(row, 'county', maps)
+  }
+
+  const exactName = (row) => {
+    const words = tokenise(row.name).filter((word) => word.length >= 3)
+    return words.length > 0 && words.every((word) => tokens.includes(word))
+  }
+
+  const asksWard = matchesAny(tokens, ['ward', 'wards', 'wardid'])
+  const asksSub = matchesAny(tokens, ['subcounty', 'subcounties', 'subcountyid'])
+    || tokens.some((token, index) => matchesAny([token], ['sub']) && matchesAny([tokens[index + 1] || ''], ['county']))
+
+  const countyHits = namedRows(maps.counties, tokens)
+  const county = countyHits[0] || null
+  let subHits = namedRows(maps.subs, tokens)
+  let wardHits = namedRows(maps.wards, tokens)
+  if (county) {
+    subHits = subHits.filter((row) => row.county_id === county.id)
+    wardHits = wardHits.filter((row) => row.county_id === county.id)
+  }
+  if (subHits.length === 1) {
+    wardHits = wardHits.filter((row) => row.subcounty_id === subHits[0].id)
+  }
+
+  // "Kiambu" is the county, even though a subcounty has the same name.
+  // A longer exact name, such as "Machakos Town", is left in place.
+  if (county && exactName(county) && !asksSub && !asksWard) {
+    const countyName = tokenise(county.name).join(' ')
+    subHits = subHits.filter((row) => exactName(row) && tokenise(row.name).join(' ') !== countyName)
+    wardHits = wardHits.filter(exactName)
+  }
+
+  // "Ward" selects a ward. Otherwise a subcounty of that name wins, including
+  // when a ward shares it. A ward name alone still matches when no subcounty does.
+  if (asksWard) {
+    const ward = oneOrAmbiguous(wardHits, 'ward', maps)
+    if (ward) return ward
+  } else if (subHits.length) {
+    // "Kiambu" said on its own is the county when a subcounty has the same
+    // name. "Machakos Town" is longer than the county, so it stays a subcounty.
+    const countyName = county ? tokenise(county.name).join(' ') : ''
+    const distinct = asksSub || !countyName
+      ? subHits
+      : subHits.filter((row) => tokenise(row.name).join(' ') !== countyName)
+    const sub = oneOrAmbiguous(distinct, 'subcounty', maps)
+    if (sub) return sub
+  } else {
+    const ward = oneOrAmbiguous(wardHits, 'ward', maps)
+    if (ward) return ward
+  }
+
+  if (county && !asksWard && !asksSub) return describePlace(county, 'county', maps)
+  return null
+}
+
+function placeLabel(place) {
+  if (place.kind === 'ward') {
+    const parents = [place.subcountyName, place.countyName].filter(Boolean).join(', ')
+    return `${place.name} ward${parents ? ` (${parents})` : ''} (ward ID ${place.id})`
+  }
+  if (place.kind === 'subcounty') {
+    const county = place.countyName ? `, ${place.countyName}` : ''
+    return `${place.name} subcounty${county} (subcounty ID ${place.id})`
+  }
+  return `${place.name} (county ID ${place.id})`
+}
+
+function ambiguousPlaceText(place) {
+  const options = place.options.slice(0, 8)
+    .map((option) => `  ${placeLabel(option)}`)
+    .join('\n')
+  const more = place.options.length > 8 ? `\n  …and ${place.options.length - 8} more` : ''
+  return `More than one ${place.kind} has that name, so there is no single count. `
+    + `Ask again with one of these:\n${options}${more}`
+}
+
 /**
  * Counts for the settlement types this question names, if any.
  *
  * A plural is one edit away from its singular, so "slums" finds "Slum"
  * without the list having to spell both.
  */
-async function typeCounts(db, tokens) {
+async function typeCounts(db, tokens, where) {
   const labels = await settlementTypeLabels(db)
   const named = labels.filter((label) => {
     const words = typeWords(label)
@@ -149,7 +410,7 @@ async function typeCounts(db, tokens) {
   })
   if (!named.length) return []
 
-  const rows = await groupCounts(db, 'settlement', 'settlement_type')
+  const rows = await groupCounts(db, 'settlement', 'settlement_type', where)
   const byLabel = new Map(
     rows.map((row) => [String(row.value ?? '').trim().toLowerCase(), row.total])
   )
@@ -218,7 +479,7 @@ function rankLimit(question, tokens) {
  * settlement in a league table is a wrong answer, and silently dropping it
  * without saying so is a different wrong answer.
  */
-async function ranking(db, question, tokens, types) {
+async function ranking(db, question, tokens, types, place) {
   if (!asksForRanking(question, tokens)) return null
 
   const measure = MEASURES.find((entry) => matchesAny(tokens, entry.words))
@@ -238,6 +499,10 @@ async function ranking(db, question, tokens, types) {
     conditions.push(`lower(trim(s.settlement_type)) IN (${labels.map((_, i) => `$${i + 1}`).join(', ')})`)
     bind.push(...labels)
   }
+  if (place && PLACE_COLUMN[place.kind]) {
+    conditions.push(`s.${PLACE_COLUMN[place.kind]} = $${bind.length + 1}`)
+    bind.push(place.id)
+  }
 
   // The column and the limit come from the whitelist above, never from the
   // question; the type labels are bound.
@@ -254,7 +519,8 @@ async function ranking(db, question, tokens, types) {
   if (!rows.length) return null
 
   const scope = labels.length ? ` of type ${types.map((type) => `"${type.label}"`).join(' or ')}` : ''
-  const heading = `${ascending ? 'Lowest' : 'Top'} ${rows.length} settlements${scope} by `
+  const where = place ? ` in ${placeLabel(place)}` : ''
+  const heading = `${ascending ? 'Lowest' : 'Top'} ${rows.length} settlements${scope}${where} by `
     + `${measure.label}, from the KeSMIS database (approved settlements only):`
   const lines = rows.map((row, index) =>
     `${index + 1}. ${row.name} (${row.county || 'county not recorded'}) — `
@@ -264,12 +530,13 @@ async function ranking(db, question, tokens, types) {
 }
 
 /** Count rows per value of a column, largest group first. */
-async function groupCounts(db, modelName, column) {
+async function groupCounts(db, modelName, column, where) {
   const model = db.models[modelName]
   if (!model || !model.rawAttributes[column]) return []
 
   const rows = await model.findAll({
     attributes: [column, [db.sequelize.fn('count', db.sequelize.col('*')), 'total']],
+    where: where || undefined,
     group: [column],
     order: [[db.sequelize.literal('total'), 'DESC']],
     raw: true
@@ -290,8 +557,14 @@ async function groupCounts(db, modelName, column) {
  *          its own; null when nothing matched or the database was unreadable.
  */
 async function lookup(question, terms = []) {
-  const counting = asksForCount(question, terms)
-  if (!counting && !asksForRanking(question, terms)) return null
+  let counting = asksForCount(question, terms)
+  const rankingAsked = asksForRanking(question, terms)
+  // "settlements in Mavoko" names a place and nothing else to look up.
+  // It never says "how many", so it used to miss the register and the
+  // answer was that the excerpts do not state the total.
+  const tokensPreview = [...tokenise(question), ...terms]
+  const namesSettlements = matchesAny(tokensPreview, SETTLEMENTS.words)
+  if (!counting && !rankingAsked && !namesSettlements) return null
 
   let db
   try {
@@ -302,19 +575,54 @@ async function lookup(question, terms = []) {
   }
 
   const tokens = [...tokenise(question), ...terms]
-  const types = await typeCounts(db, tokens).catch((error) => {
+  const place = await placeInQuestion(db, question, tokens).catch((error) => {
+    console.warn('[ai] could not resolve place:', error.message)
+    return null
+  })
+
+  const named = wanted(question, tokens)
+  if (!counting && !rankingAsked && place && namesSettlements) counting = true
+  if (!counting && !rankingAsked) return null
+
+  const placeNames = (place && place.ambiguous ? place.options : [place].filter(Boolean))
+    .flatMap((item) => [
+      ...tokenise(item.name),
+      ...tokenise(item.countyName || ''),
+      ...tokenise(item.subcountyName || '')
+    ])
+  const accounted = [
+    ...COUNT_WORDS,
+    ...SCOPE_WORDS,
+    ...RANK_EXACT,
+    ...RANK_WORDS,
+    ...SMALLEST_WORDS,
+    ...Object.keys(NUMBER_WORDS),
+    ...ASKING_WORDS,
+    ...MEASURES.flatMap((measure) => measure.words),
+    ...named.flatMap((entity) => entity.words),
+    ...placeNames
+  ]
+
+  if (place && place.ambiguous) {
+    const leftover = terms.filter((term) => !matchesAny([term], accounted))
+    return { text: ambiguousPlaceText(place), exhaustive: leftover.length === 0, leftover }
+  }
+
+  const where = place ? { [PLACE_COLUMN[place.kind]]: place.id } : undefined
+
+  const types = await typeCounts(db, tokens, where).catch((error) => {
     console.warn('[ai] could not count settlement types:', error.message)
     return []
   })
+  accounted.push(...types.flatMap((type) => typeWords(type.label)))
 
-  const ranked = await ranking(db, question, tokens, types).catch((error) => {
+  const ranked = await ranking(db, question, tokens, types, place).catch((error) => {
     console.warn('[ai] could not rank settlements:', error.message)
     return null
   })
 
   // A ranking question is not a counting question, so the counts are only
   // built when one was actually asked for.
-  const named = wanted(question, tokens)
   const entities = counting ? [...named] : []
   // Naming a type is asking about settlements, whether or not the word
   // "settlement" appears: "how many slums are there" is the same question.
@@ -330,8 +638,16 @@ async function lookup(question, terms = []) {
     if (!model) continue
 
     try {
-      const total = await model.count()
-      const lines = [`${entity.label}: ${total.toLocaleString()} in total`]
+      // A place question must not be answered with the national total.
+      // Documents and projects are not stored against a county, subcounty, or ward.
+      const column = place && PLACE_COLUMN[place.kind]
+      if (column && !model.rawAttributes[column]) {
+        parts.push(`${entity.label}: not stored against a ${place.kind}, so there is no ${placeLabel(place)} total.`)
+        continue
+      }
+
+      const total = await model.count(where ? { where } : {})
+      const lines = [`${entity.label}: ${total.toLocaleString()} in ${place ? placeLabel(place) : 'total'}`]
 
       // The type the question asked about, stated plainly before the
       // breakdowns, so it is not left to be read out of a list.
@@ -342,7 +658,13 @@ async function lookup(question, terms = []) {
       }
 
       for (const group of entity.groupBy) {
-        const rows = await groupCounts(db, entity.model, group.column)
+        const column = place && PLACE_COLUMN[place.kind]
+        const rows = await groupCounts(
+          db,
+          entity.model,
+          group.column,
+          column && model.rawAttributes[column] ? where : undefined
+        )
         if (!rows.length) continue
         const summary = rows
           .slice(0, 8)
@@ -363,27 +685,17 @@ async function lookup(question, terms = []) {
   // Anything in the question the register did not account for — a place name,
   // a year — still has to be looked up in the documents. Nothing left over
   // means the register's own figures are the whole answer.
-  const accounted = [
-    ...COUNT_WORDS,
-    ...SCOPE_WORDS,
-    ...RANK_EXACT,
-    ...RANK_WORDS,
-    ...SMALLEST_WORDS,
-    ...Object.keys(NUMBER_WORDS),
-    ...ASKING_WORDS,
-    ...MEASURES.flatMap((measure) => measure.words),
-    // Every entity the question names, counted or merely ranked.
-    ...named.flatMap((entity) => entity.words),
-    ...types.flatMap((type) => typeWords(type.label))
-  ]
   const leftover = terms.filter((term) => !matchesAny([term], accounted))
 
   const blocks = []
   if (ranked) blocks.push(ranked.text)
   if (parts.length) {
-    blocks.push('Current counts from the KeSMIS database (authoritative, not from any document).'
-      + ' These are register-wide totals, not filtered by place or date:\n'
-      + parts.join('\n'))
+    const scope = place
+      ? `Counts for ${placeLabel(place)} from the KeSMIS database (authoritative, not from any document). `
+        + 'These figures are for that place only, and are not filtered by date:'
+      : 'Current counts from the KeSMIS database (authoritative, not from any document). '
+        + 'These are register-wide totals, not filtered by place or date:'
+    blocks.push(`${scope}\n${parts.join('\n')}`)
   }
 
   return { text: blocks.join('\n\n'), exhaustive: leftover.length === 0, leftover }
