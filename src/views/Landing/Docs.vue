@@ -443,6 +443,7 @@ const allNavGroups: NavGroup[] = [
             <tr><td><strong>Communications</strong></td><td>Admin tool for one-off <strong>SMS and email broadcasts</strong> to role groups, named users, or custom address lists &mdash; with delivery history, per-recipient status, and retry. Distinct from automated workflow SMS configured under Settings.</td></tr>
             <tr><td><strong>Repository</strong></td><td>Document storage, drone imagery, secure <strong>download</strong> share links, and <strong>upload share links</strong> that let external contributors submit files without a KeSMIS login.</td></tr>
             <tr><td><strong>Media</strong></td><td>Videos, live streams and articles related to programme activities.</td></tr>
+            <tr><td><strong>Document AI</strong></td><td>An assistant that answers questions from the documents held in KeSMIS, citing the files it used.</td></tr>
             <tr><td><strong>Users &amp; Roles</strong></td><td>Role-based access control with granular permissions per module.</td></tr>
             <tr><td><strong>Settings</strong></td><td>System configuration &mdash; platform settings, admin units, programmes, dashboard builder, SMS, climate settings, and population estimation.</td></tr>
           </tbody></table>
@@ -836,6 +837,33 @@ const allNavGroups: NavGroup[] = [
     label: 'Dashboard',
     icon: 'mdi:view-dashboard-outline',
     children: [
+      {
+        id: 'app-navigation',
+        label: 'Side Navigation',
+        content: `
+          <p>After signing in, the menu on the left lists the modules your role can reach. Related modules are grouped, so the list stays short enough to scan: expand a group to see its pages.</p>
+
+          <h2>The menu</h2>
+          <table><thead><tr><th>Group</th><th>Contains</th></tr></thead><tbody>
+            <tr><td><strong>Dashboards</strong></td><td>Status, maps, project dashboards and any configured dashboards</td></tr>
+            <tr><td><strong>Data</strong></td><td>Settlements (with households, climate assessments), facilities, community committees, surveys and imports</td></tr>
+            <tr><td><strong>Projects</strong></td><td>Programme summary, regional reports, the programme and component tree, and <strong>M&amp;E</strong> at the foot of the group</td></tr>
+            <tr><td><strong>Repository</strong></td><td>Documents, Import, Imagery, Document Shares, <strong>AI Index</strong> and <strong>Media</strong> (video, live streams, articles)</td></tr>
+            <tr><td><strong>GRM</strong></td><td>Grievances, referred cases, GBV cases and <strong>Incidents</strong></td></tr>
+            <tr><td><strong>Admin</strong></td><td><strong>Users</strong> (all, admins, GRM, support, new accounts), Roles, Data Requests, Communications, Feedback, Logs and the SMS log</td></tr>
+            <tr><td><strong>Settings</strong></td><td>Platform settings, including System, AI, Settlement Types, Climate and Population</td></tr>
+          </tbody></table>
+          <p><strong>Help</strong> sits on its own at the bottom of the menu, below a divider, and opens this documentation in a new tab.</p>
+
+          <blockquote>The menu was reorganised in October 2026. Users moved under Admin, Media under Repository, Incidents under GRM, and M&amp;E into Projects. Old links still work &mdash; <code>/users/all</code>, <code>/media/articles</code>, <code>/inc/open</code> and <code>/mne/overview</code> redirect to their new locations &mdash; so existing bookmarks do not need changing.</blockquote>
+
+          <h2>Your profile and notifications</h2>
+          <p>These are not in the menu. Your <strong>profile</strong> opens from the avatar at the top right, and <strong>notifications</strong> from the bell icon beside it.</p>
+
+          <h2>What you can see</h2>
+          <p>The menu is built from your permissions, so two users rarely see the same list. A group appears only when you can open at least one page inside it, which is why a colleague may describe a menu entry you do not have.</p>
+        `
+      },
       {
         id: 'dash-overview',
         label: 'Overview',
@@ -1276,11 +1304,13 @@ const allNavGroups: NavGroup[] = [
             content: `
               <p>Settlements in KeSMIS follow a defined lifecycle from creation to approval, and can be decommissioned, merged, or deleted by authorised users.</p>
               <h2>Review workflow</h2>
-              <p>When a new settlement is submitted, it enters a <strong>Pending</strong> state. Administrators can review it from the <strong>New</strong> tab:</p>
+              <p>When a new settlement is submitted, it enters a <strong>Pending</strong> state. Administrators review it from the <strong>New</strong> tab: the <strong>Review</strong> action opens a full page for that submission rather than a dialog, so the whole record is visible while you decide. The page can be linked to another reviewer, and survives a refresh.</p>
+              <p>It shows who submitted the settlement and when, its name, type, code, county, constituency and ward, population, area, whether a boundary is defined, the description, and any attached documents. <strong>View on map</strong> and <strong>Full details</strong> open the usual pages.</p>
               <ul>
                 <li><strong>Approve</strong> &mdash; moves the settlement to the Approved list, making it visible to all users and included in dashboards and reports</li>
-                <li><strong>Reject</strong> &mdash; marks the settlement as rejected with a rejection message explaining why. Rejected records appear in the <strong>Deleted</strong> tab and can be reviewed again</li>
+                <li><strong>Reject</strong> &mdash; asks for a reason, which is <strong>stored with the record</strong> alongside who decided and when, and shown if the settlement is reviewed again. Rejected records appear in the <strong>Deleted</strong> tab and can still be approved later</li>
               </ul>
+              <p>The same page opens from the <strong>Deleted</strong> tab. For a settlement that was deleted or merged it shows the record as it was, who removed it and when &mdash; a history entry with nothing to decide, so no approve or reject buttons appear.</p>
               <img src="${settlementApproveImg}" alt="Review and approve settlement" class="docs-screenshot" />
 
               <h2>Editing a settlement</h2>
@@ -1815,6 +1845,176 @@ const allNavGroups: NavGroup[] = [
         ]
       },
       {
+        id: 'data-surveys',
+        label: 'Surveys',
+        icon: 'mdi:clipboard-text-outline',
+        children: [
+          {
+            id: 'data-surveys-listing',
+            label: 'Survey Projects',
+            content: `
+          <p>The <strong>Surveys</strong> module integrates with <a href="https://collector.kesmis.go.ke/#/" target="_blank"><strong>ODK Central</strong></a> (the field data collector) to display and manage survey submissions collected via mobile devices.</p>
+
+          <img class="docs-screenshot" src="${surveyListingImg}" alt="Survey Projects listing" />
+
+          <h2>Dashboard summary</h2>
+          <p>At the top of the page, five summary cards show real-time statistics pulled from the collector:</p>
+          <table><thead><tr><th>Card</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>Data Collection Projects</strong></td><td>Total number of ODK projects</td></tr>
+            <tr><td><strong>Data Collection Forms</strong></td><td>Total number of survey forms across all projects</td></tr>
+            <tr><td><strong>Total Submissions</strong></td><td>Combined submission count from all forms</td></tr>
+            <tr><td><strong>Latest Submission</strong></td><td>Relative time since the most recent submission (e.g. "3 days ago")</td></tr>
+            <tr><td><strong>Total Enumerators</strong></td><td>Number of field enumerators with a download button to export the enumerator list as CSV</td></tr>
+          </tbody></table>
+
+          <h2>Project listing</h2>
+          <p>Below the summary, a table lists all data collection projects. Each row represents a project and can be <strong>expanded</strong> to reveal its individual forms.</p>
+          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>#</strong></td><td>Row index</td></tr>
+            <tr><td><strong>Category</strong></td><td>Project category / description (sortable)</td></tr>
+            <tr><td><strong>Name</strong></td><td>Project name (sortable)</td></tr>
+            <tr><td><strong>#Forms</strong></td><td>Number of forms in the project (sortable)</td></tr>
+            <tr><td><strong>Latest Submission</strong></td><td>Time since the project's most recent submission (sortable)</td></tr>
+          </tbody></table>
+
+          <h2>Filtering &amp; Search</h2>
+          <ul>
+            <li><strong>Category</strong> &mdash; multi-select dropdown to filter projects by category</li>
+            <li><strong>Search</strong> &mdash; free-text search by project name</li>
+          </ul>
+          <p>Pagination supports page sizes of 5, 10, 15, 20, 50 or 100.</p>
+        `
+      },
+      {
+        id: 'data-surveys-details',
+        label: 'Form Details',
+        content: `
+          <p>Expand a project row to see its forms, then <strong>double-click</strong> a form to open the <strong>Form Details</strong> page. This page has three tabs: <strong>Data</strong>, <strong>Map</strong> and <strong>Charts</strong>.</p>
+
+          <h2>Data tab</h2>
+          <img class="docs-screenshot" src="${formDetail1Img}" alt="Form Details — Data tab" />
+          <p>The Data tab presents all submissions for the selected form in a scrollable virtual table.</p>
+          <ul>
+            <li><strong>Column selector</strong> &mdash; multi-select dropdown to choose which fields (properties) to display as columns. By default, the first 7 fields are shown.</li>
+            <li><strong>Filter By</strong> &mdash; select any visible field, then pick specific values to filter the table</li>
+            <li><strong>Pagination</strong> &mdash; page sizes of 5, 10, 15, 20, 50, 100 or 500 records</li>
+            <li><strong>Attachments column</strong> &mdash; displays the number of attachments (photos, files) associated with each submission</li>
+          </ul>
+
+          <h2>Map tab</h2>
+          <img class="docs-screenshot" src="${formDetail2MapImg}" alt="Form Details — Map tab" />
+          <p>The Map tab renders all submissions with valid geometry (Point, LineString or Polygon) on a Google Map. Features include:</p>
+          <ul>
+            <li>Points as markers (clustered for large datasets), lines as polylines, polygons with red dashed outlines and vertex dots</li>
+            <li>Click any feature to open an <strong>InfoWindow</strong> popup showing all properties and attachment download links</li>
+            <li><strong>Locate Me</strong> button to centre the map on your current GPS position</li>
+          </ul>
+
+          <h2>Charts tab</h2>
+          <img class="docs-screenshot" src="${formDetail3ChartImg}" alt="Form Details — Charts tab" />
+          <p>The Charts tab lets you build quick visualisations from the survey data:</p>
+          <ol>
+            <li>Select one or more <strong>fields</strong> to analyse</li>
+            <li>Choose a <strong>chart type</strong> &mdash; Pie, Bar, Multiple Variable Bar, or Stacked Bar</li>
+            <li>Choose a <strong>computation method</strong> &mdash; Count or Proportion (%)</li>
+          </ol>
+          <p>Charts are rendered automatically and can be saved as images via the chart toolbar.</p>
+        `
+      },
+      {
+        id: 'data-surveys-download',
+        label: 'Downloading Data & Attachments',
+        content: `
+          <p>The Surveys module provides multiple ways to download data and attachments. All download actions require the <code>survey:export</code> permission.</p>
+
+          <img class="docs-screenshot" src="${formDetail4DownloadImg}" alt="Downloading data and attachments" />
+
+          <h2>Downloading survey data</h2>
+          <p>From the <strong>project listing</strong>, expand a project to see its forms. Each form row has two download buttons:</p>
+          <table><thead><tr><th>Button</th><th>Format</th><th>Description</th></tr></thead><tbody>
+            <tr><td><strong>CSV</strong></td><td>Comma-separated values</td><td>Downloads all submissions for the form as a CSV file</td></tr>
+            <tr><td><strong>GeoJSON</strong></td><td>GeoJSON FeatureCollection</td><td>Downloads all submissions with geometry as a GeoJSON file (for use in GIS software)</td></tr>
+          </tbody></table>
+
+          <p>From the <strong>Form Details</strong> page (Data tab), an additional <strong>Download</strong> component lets you export the current table view with field selection.</p>
+
+          <h2>Downloading enumerators</h2>
+          <p>Click the download button on the <strong>Total Enumerators</strong> summary card to export a CSV listing all enumerators and their assigned projects.</p>
+
+          <h2>Downloading attachments</h2>
+          <p>Attachments are photos, documents or other files uploaded by field enumerators alongside their submissions.</p>
+          <ul>
+            <li><strong>Bulk download</strong> &mdash; click the <strong>Download attachments</strong> button in the Data tab toolbar to download a ZIP file containing attachments for all submissions on the current page</li>
+            <li><strong>From the map</strong> &mdash; click a feature, then use the download buttons in the InfoWindow popup</li>
+          </ul>
+          <blockquote>Note &mdash; Bulk attachment downloads are limited to <strong>100 files at a time</strong>. If the current page exceeds this limit, the system will display a warning. Reduce the page size or apply filters to stay within the limit.</blockquote>
+        `
+          }
+        ]
+      }
+    ],
+    children: [
+      {
+        id: 'data-import',
+        label: 'Import GIS Data',
+        content: `
+          <p>The <strong>Import GIS Data</strong> module allows administrators and authorised users to bulk-import geospatial datasets directly into KeSMIS. It uses a guided <strong>four-step wizard</strong> to upload a file, select the destination table, map source fields to database columns, and review before committing the import.</p>
+
+          <img class="docs-screenshot" src="${importGis1Img}" alt="Import GIS Data — Upload step" />
+
+          <h2>Supported file formats</h2>
+          <table><thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>GeoJSON</td><td><code>.json</code>, <code>.geojson</code></td><td>Must be a valid FeatureCollection. CRS is assumed WGS 84 (EPSG:4326).</td></tr>
+            <tr><td>Shapefile (zipped)</td><td><code>.zip</code></td><td>ZIP must contain <code>.shp</code>, <code>.shx</code>, <code>.dbf</code> and optionally <code>.prj</code>.</td></tr>
+            <tr><td>KML</td><td><code>.kml</code></td><td>Google Earth markup format.</td></tr>
+            <tr><td>KMZ</td><td><code>.kmz</code></td><td>Compressed KML archive.</td></tr>
+          </tbody></table>
+          <blockquote>All uploaded files are automatically validated. If the file contains no valid features or is malformed, an error is shown and the wizard does not advance.</blockquote>
+
+          <h2>Step 1 — Upload File</h2>
+          <p>Click <strong>Upload File</strong> and select a file (or drag-and-drop). Once parsed, a confirmation shows the number of features found and the wizard advances to Step 2.</p>
+
+          <h2>Step 2 — Select Destination Table</h2>
+          <img class="docs-screenshot" src="${importGis2DestImg}" alt="Import GIS Data — Select destination table" />
+          <p>Choose which KeSMIS entity to store the imported features as:</p>
+          <table><thead><tr><th>Category</th><th>Tables</th></tr></thead><tbody>
+            <tr><td><strong>Core</strong></td><td>Projects, Settlements, Parcels, Structures</td></tr>
+            <tr><td><strong>Infrastructure</strong></td><td>Roads, Road Assets, Sewer, Piped Water, Railway, Powerline, Streetlight, Floodlights</td></tr>
+            <tr><td><strong>Social Amenities</strong></td><td>Health Facility, School, Water Point, Police Station, Community Hall, Community Project</td></tr>
+            <tr><td><strong>Environment</strong></td><td>Hazard Zones, Crime Hotspots, Dumping, Telcom Mast</td></tr>
+          </tbody></table>
+          <p>If the source data contains a <code>pcode</code> property, the importer automatically resolves parent entities (county, sub-county, ward or settlement) so imported features are correctly linked to the admin hierarchy.</p>
+
+          <h2>Step 3 — Match Fields</h2>
+          <img class="docs-screenshot" src="${importGis2MatchImg}" alt="Import GIS Data — Match fields" />
+          <p>A two-column mapping table lists every source property alongside a dropdown of available database columns. <strong>Fuzzy matching</strong> pre-fills likely mappings automatically.</p>
+          <ul>
+            <li>Each database column can only be mapped once — already-mapped columns are greyed out</li>
+            <li>Use <strong>Search fields</strong> to filter the list when working with many properties</li>
+            <li>Unmapped source fields are excluded from the import</li>
+          </ul>
+
+          <h2>Step 4 — Review &amp; Import</h2>
+          <img class="docs-screenshot" src="${importGis2ReviewImg}" alt="Import GIS Data — Review and import" />
+          <p>A JSON preview shows 1, 5 or 10 sample records to verify mappings before committing.</p>
+          <ul>
+            <li><strong>Import</strong> — submits all features to the database</li>
+            <li><strong>Back</strong> — returns to field-matching to adjust mappings</li>
+            <li><strong>Reset</strong> — discards everything and restarts from Step 1</li>
+          </ul>
+          <p>A success notification shows the number of imported features. Failed features are listed with reasons; successfully validated features are still imported.</p>
+          <blockquote>Geometry coordinates with a Z (altitude) component are automatically stripped to 2D before storage.</blockquote>
+        `
+      }
+    ]
+  },
+  {
+    id: 'projects',
+    label: 'Projects',
+    icon: 'mdi:clipboard-text-multiple-outline',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
+    subgroups: [
+      {
         id: 'data-projects',
         label: 'Projects',
         icon: 'mdi:briefcase-outline',
@@ -2041,422 +2241,375 @@ const allNavGroups: NavGroup[] = [
         ]
       },
       {
-        id: 'data-surveys',
-        label: 'Surveys',
-        icon: 'mdi:clipboard-text-outline',
+        id: 'mne',
+        label: 'M&E',
+        icon: 'mdi:chart-bar',
+        roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
         children: [
-          {
-            id: 'data-surveys-listing',
-            label: 'Survey Projects',
-            content: `
-          <p>The <strong>Surveys</strong> module integrates with <a href="https://collector.kesmis.go.ke/#/" target="_blank"><strong>ODK Central</strong></a> (the field data collector) to display and manage survey submissions collected via mobile devices.</p>
+        {
+          id: 'mne-overview',
+          label: 'Structure',
+          content: `
+            <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across intervention programmes (KISIP, SUD, and others) using a structured chain: <strong>Project &rarr; Activity &rarr; Indicator &rarr; Configuration &rarr; Report</strong>. It is accessible from the sidebar under <strong>Projects &rarr; M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
 
-          <img class="docs-screenshot" src="${surveyListingImg}" alt="Survey Projects listing" />
+            <h2>Module structure</h2>
+            <p>The M&amp;E module is organised into five main areas:</p>
+            <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
+              <tr><td><strong>Structure</strong></td><td>Visual overview of how projects, activities, indicators, configurations, and reports connect</td></tr>
+              <tr><td><strong>Activities</strong></td><td>Define programme-level activities that indicators are tracked against</td></tr>
+              <tr><td><strong>Framework</strong></td><td>Configure the indicator hierarchy &mdash; indicators, configurations (dimensions), and categories</td></tr>
+              <tr><td><strong>Monitoring</strong></td><td>Submit and review indicator reports, track progress, and manage supporting documents</td></tr>
+              <tr><td><strong>Beneficiaries</strong></td><td>Track individuals and communities benefiting from programme interventions</td></tr>
+            </tbody></table>
 
-          <h2>Dashboard summary</h2>
-          <p>At the top of the page, five summary cards show real-time statistics pulled from the collector:</p>
-          <table><thead><tr><th>Card</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Data Collection Projects</strong></td><td>Total number of ODK projects</td></tr>
-            <tr><td><strong>Data Collection Forms</strong></td><td>Total number of survey forms across all projects</td></tr>
-            <tr><td><strong>Total Submissions</strong></td><td>Combined submission count from all forms</td></tr>
-            <tr><td><strong>Latest Submission</strong></td><td>Relative time since the most recent submission (e.g. "3 days ago")</td></tr>
-            <tr><td><strong>Total Enumerators</strong></td><td>Number of field enumerators with a download button to export the enumerator list as CSV</td></tr>
-          </tbody></table>
+            <h2>How it works</h2>
+            <ol>
+              <li><strong>Define Activities</strong> &mdash; create the programme activities that form the implementation layer of the results framework</li>
+              <li><strong>Create Indicators</strong> &mdash; define measurable indicators at project or activity level</li>
+              <li><strong>Configure dimensions</strong> &mdash; for each indicator, set up one or more configurations linking it to a reporting category and frequency</li>
+              <li><strong>Submit reports</strong> &mdash; periodically report actual values against configured indicators, attach supporting documents, and track progress toward targets</li>
+            </ol>
+            <p>Start from <strong>M&amp;E &rarr; Structure</strong> for a worked example of the full chain. All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>M&amp;E tab</strong> in the Settlement Details page.</p>
+          `
+        },
+        {
+          id: 'mne-activities',
+          label: 'Activities',
+          content: `
+            <p>Activities represent programme-level work streams (e.g. "Settlement Profiling", "Tenure Regularisation", "Infrastructure Development"). They form the top tier of the M&amp;E results framework and serve as the parent grouping for indicators.</p>
 
-          <h2>Project listing</h2>
-          <p>Below the summary, a table lists all data collection projects. Each row represents a project and can be <strong>expanded</strong> to reveal its individual forms.</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row index</td></tr>
-            <tr><td><strong>Category</strong></td><td>Project category / description (sortable)</td></tr>
-            <tr><td><strong>Name</strong></td><td>Project name (sortable)</td></tr>
-            <tr><td><strong>#Forms</strong></td><td>Number of forms in the project (sortable)</td></tr>
-            <tr><td><strong>Latest Submission</strong></td><td>Time since the project's most recent submission (sortable)</td></tr>
-          </tbody></table>
+            <h2>Activity listing</h2>
+            <img class="docs-screenshot" src="${meActivitiesListingImg}" alt="M&E Activities listing" />
+            <p>Navigate to <strong>M&amp;E &rarr; Activities</strong> to view the activity table. The listing displays:</p>
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Id</strong></td><td>Auto-generated record identifier</td></tr>
+              <tr><td><strong>Short Title</strong></td><td>Abbreviated name used on SlumMapper mobile for brevity when reporting in the field</td></tr>
+              <tr><td><strong>Title</strong></td><td>Full descriptive name of the activity</td></tr>
+              <tr><td><strong>Code</strong></td><td>System-generated unique code</td></tr>
+              <tr><td><strong>Actions</strong></td><td>Edit and Delete (permission-gated)</td></tr>
+            </tbody></table>
+            <p>All columns are sortable. The table is paginated with page sizes of 5, 10, 20, 50, 200 or all records.</p>
 
-          <h2>Filtering &amp; Search</h2>
-          <ul>
-            <li><strong>Category</strong> &mdash; multi-select dropdown to filter projects by category</li>
-            <li><strong>Search</strong> &mdash; free-text search by project name</li>
-          </ul>
-          <p>Pagination supports page sizes of 5, 10, 15, 20, 50 or 100.</p>
-        `
-      },
-      {
-        id: 'data-surveys-details',
-        label: 'Form Details',
-        content: `
-          <p>Expand a project row to see its forms, then <strong>double-click</strong> a form to open the <strong>Form Details</strong> page. This page has three tabs: <strong>Data</strong>, <strong>Map</strong> and <strong>Charts</strong>.</p>
+            <h2>Searching &amp; filtering</h2>
+            <p>Use the <strong>Search Activity</strong> multi-select dropdown to filter by one or more activities. Click the <strong>filter</strong> button to clear all filters and reset the view.</p>
 
-          <h2>Data tab</h2>
-          <img class="docs-screenshot" src="${formDetail1Img}" alt="Form Details — Data tab" />
-          <p>The Data tab presents all submissions for the selected form in a scrollable virtual table.</p>
-          <ul>
-            <li><strong>Column selector</strong> &mdash; multi-select dropdown to choose which fields (properties) to display as columns. By default, the first 7 fields are shown.</li>
-            <li><strong>Filter By</strong> &mdash; select any visible field, then pick specific values to filter the table</li>
-            <li><strong>Pagination</strong> &mdash; page sizes of 5, 10, 15, 20, 50, 100 or 500 records</li>
-            <li><strong>Attachments column</strong> &mdash; displays the number of attachments (photos, files) associated with each submission</li>
-          </ul>
+            <h2>Adding an activity</h2>
+            <img class="docs-screenshot" src="${meActivitiesAddImg}" alt="M&E Add Activity dialog" />
+            <p>Click the <strong>+</strong> button to open the Add Activity dialog. Fill in:</p>
+            <ul>
+              <li><strong>Title</strong> &mdash; full name of the activity (required, minimum 3 characters)</li>
+              <li><strong>Short Title</strong> &mdash; abbreviated name used on SlumMapper mobile for brevity when reporting in the field</li>
+            </ul>
+            <p>A unique code is auto-generated on submission. The new activity appears immediately in the listing.</p>
 
-          <h2>Map tab</h2>
-          <img class="docs-screenshot" src="${formDetail2MapImg}" alt="Form Details — Map tab" />
-          <p>The Map tab renders all submissions with valid geometry (Point, LineString or Polygon) on a Google Map. Features include:</p>
-          <ul>
-            <li>Points as markers (clustered for large datasets), lines as polylines, polygons with red dashed outlines and vertex dots</li>
-            <li>Click any feature to open an <strong>InfoWindow</strong> popup showing all properties and attachment download links</li>
-            <li><strong>Locate Me</strong> button to centre the map on your current GPS position</li>
-          </ul>
+            <h2>Editing &amp; deleting</h2>
+            <img class="docs-screenshot" src="${meActivitiesEditDeleteImg}" alt="M&E Activity edit and delete actions" />
+            <ul>
+              <li><strong>Edit</strong> &mdash; click the Edit action to open the dialog pre-filled with the current values. Modify and click <strong>Save</strong>. Requires <code>activity:update</code> permission.</li>
+              <li><strong>Delete</strong> &mdash; click the Delete action and confirm in the popup. Requires <code>activity:delete</code> permission.</li>
+            </ul>
 
-          <h2>Charts tab</h2>
-          <img class="docs-screenshot" src="${formDetail3ChartImg}" alt="Form Details — Charts tab" />
-          <p>The Charts tab lets you build quick visualisations from the survey data:</p>
-          <ol>
-            <li>Select one or more <strong>fields</strong> to analyse</li>
-            <li>Choose a <strong>chart type</strong> &mdash; Pie, Bar, Multiple Variable Bar, or Stacked Bar</li>
-            <li>Choose a <strong>computation method</strong> &mdash; Count or Proportion (%)</li>
-          </ol>
-          <p>Charts are rendered automatically and can be saved as images via the chart toolbar.</p>
-        `
-      },
-      {
-        id: 'data-surveys-download',
-        label: 'Downloading Data & Attachments',
-        content: `
-          <p>The Surveys module provides multiple ways to download data and attachments. All download actions require the <code>survey:export</code> permission.</p>
+            <h2>Export</h2>
+            <p>Click the <strong>Download</strong> button to export the activity list as an Excel file containing Id, Title, and Code columns.</p>
+          `
+        },
+        {
+          id: 'mne-framework',
+          label: 'Framework & Indicators',
+          content: `
+            <p>The <strong>Framework</strong> section under <strong>Projects &rarr; M&amp;E</strong> contains the building blocks that define what is measured and how. It is organised into sub-pages accessible from the sidebar: <strong>Indicators</strong>, <strong>Configuration</strong>, and <strong>Category</strong>.</p>
 
-          <img class="docs-screenshot" src="${formDetail4DownloadImg}" alt="Downloading data and attachments" />
+            <h2>Indicators</h2>
+            <p>Navigate to <strong>M&amp;E &rarr; Framework &rarr; Indicators</strong> to manage the master list of measurable metrics. Each indicator defines <em>what</em> is being tracked.</p>
+            <img class="docs-screenshot" src="${meIndicatorListingImg}" alt="M&E Indicators listing" />
 
-          <h2>Downloading survey data</h2>
-          <p>From the <strong>project listing</strong>, expand a project to see its forms. Each form row has two download buttons:</p>
-          <table><thead><tr><th>Button</th><th>Format</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>CSV</strong></td><td>Comma-separated values</td><td>Downloads all submissions for the form as a CSV file</td></tr>
-            <tr><td><strong>GeoJSON</strong></td><td>GeoJSON FeatureCollection</td><td>Downloads all submissions with geometry as a GeoJSON file (for use in GIS software)</td></tr>
-          </tbody></table>
+            <h3>Listing</h3>
+            <p>The indicator table displays:</p>
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Id</strong></td><td>Auto-generated record identifier</td></tr>
+              <tr><td><strong>Title</strong></td><td>Name of the indicator (e.g. "Settlements", "Households", "Roads"). The verb or dimension (e.g. "profiled", "mapped") is added later in Configuration.</td></tr>
+              <tr><td><strong>Activity</strong></td><td>The parent activity this indicator belongs to</td></tr>
+              <tr><td><strong>Type</strong></td><td>Output or Impact</td></tr>
+              <tr><td><strong>Actions</strong></td><td>Edit and Delete (permission-gated)</td></tr>
+            </tbody></table>
+            <p>All columns are sortable. Use the <strong>search bar</strong> to find indicators by name or the <strong>activity filter</strong> to show indicators for a specific activity. Click the filter button to clear all active filters.</p>
 
-          <p>From the <strong>Form Details</strong> page (Data tab), an additional <strong>Download</strong> component lets you export the current table view with field selection.</p>
+            <h3>Adding an indicator</h3>
+            <img class="docs-screenshot" src="${meIndicatorAdd1Img}" alt="M&E Add Indicator — form step 1" />
+            <p>Click the <strong>+</strong> button to open the Add Indicator drawer. The form has two steps:</p>
+            <p><strong>Step 1 — Indicator details</strong></p>
+            <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Level</strong></td><td>Select <em>Activity</em> or <em>Project</em>. This determines whether the indicator is tracked at the activity or project level.</td></tr>
+              <tr><td><strong>Activity</strong></td><td>Appears when Level is "Activity". Select the parent activity from the dropdown. You can also create a new activity inline using the <strong>+</strong> button next to the dropdown.</td></tr>
+              <tr><td><strong>Title</strong></td><td>The base name of the indicator without the verb/dimension (e.g. "Settlements", "Households", "Roads"). The specific dimension (e.g. "profiled", "mapped", "constructed") is defined separately in Configuration. Required field.</td></tr>
+            </tbody></table>
+            <p><strong>Step 2 — Measurement</strong></p>
+            <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Type</strong></td><td>Select <em>Output</em> (direct deliverable) or <em>Impact</em> (outcome / longer-term effect)</td></tr>
+              <tr><td><strong>Format</strong></td><td>How the indicator is quantified: <em>Number</em> or <em>Percent</em></td></tr>
+              <tr><td><strong>Unit</strong></td><td>The unit of measurement: Kilometre (Km), Number (No.), Yes/No, Household (HH), or type a custom unit</td></tr>
+            </tbody></table>
+            <img class="docs-screenshot" src="${meIndicatorAdd2Img}" alt="M&E Add Indicator — form step 2" />
+            <p>A unique code (UUID) is auto-generated on submission. The new indicator appears immediately in the listing. A built-in <strong>Help</strong> tour is available to guide you through the form fields.</p>
 
-          <h2>Downloading enumerators</h2>
-          <p>Click the download button on the <strong>Total Enumerators</strong> summary card to export a CSV listing all enumerators and their assigned projects.</p>
+            <h3>Editing &amp; deleting indicators</h3>
+            <ul>
+              <li><strong>Edit</strong> &mdash; click the Edit action to reopen the form pre-filled with current values. Modify and click <strong>Save</strong>. Requires <code>indicator:update</code> permission.</li>
+              <li><strong>Delete</strong> &mdash; click the Delete action and confirm. Requires <code>indicator:delete</code> permission.</li>
+            </ul>
 
-          <h2>Downloading attachments</h2>
-          <p>Attachments are photos, documents or other files uploaded by field enumerators alongside their submissions.</p>
-          <ul>
-            <li><strong>Bulk download</strong> &mdash; click the <strong>Download attachments</strong> button in the Data tab toolbar to download a ZIP file containing attachments for all submissions on the current page</li>
-            <li><strong>From the map</strong> &mdash; click a feature, then use the download buttons in the InfoWindow popup</li>
-          </ul>
-          <blockquote>Note &mdash; Bulk attachment downloads are limited to <strong>100 files at a time</strong>. If the current page exceeds this limit, the system will display a warning. Reduce the page size or apply filters to stay within the limit.</blockquote>
-        `
-          }
+            <h3>Export</h3>
+            <p>Click the <strong>Download</strong> button to export the indicator list as an Excel file. A <strong>Download All</strong> option is also available to export the full dataset including associated records.</p>
+
+            <hr/>
+
+            <h2>Configuration (Dimensions)</h2>
+            <p>Navigate to <strong>M&amp;E &rarr; Framework &rarr; Configuration</strong> to set up indicator configurations. A configuration links an indicator to a specific context &mdash; defining <em>where</em>, <em>when</em>, and <em>how much</em>.</p>
+
+            <h3>Listing</h3>
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Id</strong></td><td>Record identifier</td></tr>
+              <tr><td><strong>Activity</strong></td><td>Parent activity, or <em>Project level</em> for project-scoped configurations</td></tr>
+              <tr><td><strong>Indicator</strong></td><td>The indicator being configured</td></tr>
+              <tr><td><strong>Dimension</strong></td><td>Category title / dimension label for this configuration</td></tr>
+              <tr><td><strong>Location</strong></td><td>Linked settlement or project location, when applicable</td></tr>
+              <tr><td><strong>Actions</strong></td><td>Edit and Delete</td></tr>
+            </tbody></table>
+            <img class="docs-screenshot" src="${meIndicatorConfigImg}" alt="M&E Indicator Configuration listing" />
+
+            <h3>Creating a configuration</h3>
+            <p>Click <strong>+</strong> to open the drawer. The form has two steps:</p>
+            <p><strong>Step 1 — Indicator setup</strong></p>
+            <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Indicator level</strong></td><td><em>Project</em> (applies across the whole project) or <em>Activity</em> (tied to one implementation activity)</td></tr>
+              <tr><td><strong>Activity</strong></td><td>Required when level is Activity. Select the work package this indicator tracks.</td></tr>
+              <tr><td><strong>Indicator</strong></td><td>Select the indicator. The list filters based on the chosen level and activity. Use <strong>+</strong> to create a new indicator inline.</td></tr>
+            </tbody></table>
+            <p><strong>Step 2 — Reporting</strong></p>
+            <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Category / Dimension</strong></td><td>Select or create the reporting dimension (e.g. Male/Female, Trained/Untrained)</td></tr>
+              <tr><td><strong>Frequency</strong></td><td>How often reports are expected (e.g. monthly, quarterly, annually)</td></tr>
+            </tbody></table>
+            <p>A unique code is generated from the combination of indicator, activity, and category IDs. Use the column picker in the toolbar to show or hide table columns. Configurations can also be <strong>bulk imported</strong> from Excel using the built-in import wizard (Upload File &rarr; Match Fields &rarr; Review &rarr; Import).</p>
+
+            <h3>Editing &amp; deleting configurations</h3>
+            <ul>
+              <li><strong>Edit</strong> &mdash; click the Edit action to modify the configuration. Requires <code>indicator_category:update</code> permission.</li>
+              <li><strong>Delete</strong> &mdash; click the Delete action and confirm. Requires <code>indicator_category:delete</code> permission.</li>
+            </ul>
+
+            <hr/>
+
+            <h2>Categories</h2>
+            <p>Categories group related indicators together for organised reporting and dashboard display. They are managed from <strong>M&amp;E &rarr; Framework &rarr; Category</strong>.</p>
+          `
+        },
+        {
+          id: 'mne-reports',
+          label: 'Reports',
+          content: `
+            <p>The <strong>Monitoring</strong> section is where indicator data is reported and tracked. It contains two sub-pages: <strong>Reports (New)</strong> for active submission and review, and <strong>Reports</strong> for the historical archive.</p>
+
+            <h2>Submitting reports (New)</h2>
+            <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports (New)</strong> to file indicator reports. The listing shows submitted reports with their current status:</p>
+            <img class="docs-screenshot" src="${meReportsImg}" alt="M&E Reports (New) listing" />
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Indicator</strong></td><td>Name of the indicator</td></tr>
+              <tr><td><strong>Category</strong></td><td>Dimension / category title</td></tr>
+              <tr><td><strong>Activity</strong></td><td>Linked activity, or <em>Project level</em> for project-scoped configurations</td></tr>
+              <tr><td><strong>Settlement</strong></td><td>The settlement or area the report covers</td></tr>
+              <tr><td><strong>Qty / Status</strong></td><td>The reported quantity or qualitative status value</td></tr>
+              <tr><td><strong>Progress %</strong></td><td>Percentage progress toward the target</td></tr>
+              <tr><td><strong>Date</strong></td><td>Date of the report</td></tr>
+              <tr><td><strong>Status</strong></td><td>Approval status (New, Approved, Rejected)</td></tr>
+              <tr><td><strong>Documents</strong></td><td>Count of attached supporting documents, with a button to view them</td></tr>
+              <tr><td><strong>Actions</strong></td><td>Review, view on map, documents, and delete (permission-gated)</td></tr>
+            </tbody></table>
+
+            <h3>Filing a report</h3>
+            <img class="docs-screenshot" src="${meReportsAddImg}" alt="M&E filing a report form" />
+            <p>Click the <strong>+</strong> button to open the <strong>Add Report</strong> drawer. Fill in the form in order (each dropdown filters the next):</p>
+            <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Project</strong></td><td>Select the intervention project. Options are filterable.</td></tr>
+              <tr><td><strong>Location</strong></td><td>Select the project location / settlement (hidden for national-scope projects).</td></tr>
+              <tr><td><strong>Activity</strong></td><td>Select the activity; the list is filtered by the selected project.</td></tr>
+              <tr><td><strong>Indicator</strong></td><td>Select the indicator configuration (indicator + dimension). The list is filtered by the selected activity.</td></tr>
+              <tr><td><strong>Date</strong></td><td>Pick the reporting date.</td></tr>
+              <tr><td><strong>Quantity</strong></td><td>Enter the reported amount (number).</td></tr>
+              <tr><td><strong>Progress %</strong></td><td>Optional. Enter progress toward target (0–100).</td></tr>
+              <tr><td><strong>Comments</strong></td><td>Optional. Free-text comments.</td></tr>
+            </tbody></table>
+            <p>Click <strong>Submit</strong> to save. The report is created in <em>New</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>M&amp;E tab</strong> in Settlement Details.</p>
+
+            <h3>Filtering</h3>
+            <p>Filter reports by <strong>settlement</strong> (searchable remote lookup) or <strong>indicator</strong>. County-level users automatically see only reports for their assigned county.</p>
+
+            <h2>Past reports</h2>
+            <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports</strong> to view and manage the full report archive. This page uses the same column structure as Reports (New) and supports add, edit, review, and export workflows for historical indicator reports.</p>
+
+            <h2>Export</h2>
+            <p>All report listings can be exported to Excel. Use the <strong>Download</strong> button in the toolbar. A custom field selector lets you choose which columns to include in the export.</p>
+          `
+        },
+        {
+          id: 'mne-beneficiaries',
+          label: 'Beneficiaries',
+          content: `
+            <p>The <strong>Beneficiaries</strong> page tracks beneficiary counts per project and location for programme reporting. Records are stored at project–location level with target and actual numbers by gender.</p>
+
+            <h2>What is tracked</h2>
+            <p>Each beneficiary record links a <strong>project</strong> and a <strong>location</strong> (settlement) and stores:</p>
+            <ul>
+              <li><strong>Project</strong> &mdash; the intervention project the beneficiaries are reported under</li>
+              <li><strong>Settlement (Location)</strong> &mdash; the project location or settlement where beneficiaries are counted</li>
+              <li><strong>Target (Female) / Target (Male)</strong> &mdash; planned number of female and male beneficiaries for that project–location</li>
+              <li><strong>Actual (Female) / Actual (Male)</strong> &mdash; reported number of female and male beneficiaries reached</li>
+              <li><strong>Comments</strong> &mdash; optional notes</li>
+            </ul>
+            <p>The listing table shows <strong>Project</strong>, <strong>Settlement</strong>, <strong>Female Beneficiaries</strong>, and <strong>Male Beneficiaries</strong> (actual counts). Rows can be expanded for more detail.</p>
+
+            <h2>Listing &amp; management</h2>
+            <img class="docs-screenshot" src="${meBeneficiariesListingImg}" alt="M&E Beneficiaries listing" />
+            <p>The beneficiary listing is a paginated table with search and filter capabilities. Authorised users can add, edit, and delete beneficiary records. The data can be exported to Excel for external reporting and analysis.</p>
+
+            <h3>Adding a beneficiary record</h3>
+            <img class="docs-screenshot" src="${meBeneficiariesAddImg}" alt="M&E Add Beneficiary dialog" />
+            <p>Click the <strong>+</strong> button to open the Add Beneficiary dialog. The form has three steps: <strong>Project Details</strong> (select Project and Location/settlement), <strong>Beneficiaries</strong> (enter Target and Actual counts for female and male, plus optional comments), and <strong>Submit</strong>. Location options are filtered by the selected project.</p>
+
+            <blockquote>Note &mdash; Beneficiary data is accessible only to national-level users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</blockquote>
+          `
+        }
         ]
-      }
+      },
     ],
-    children: [
-      {
-        id: 'data-import',
-        label: 'Import GIS Data',
-        content: `
-          <p>The <strong>Import GIS Data</strong> module allows administrators and authorised users to bulk-import geospatial datasets directly into KeSMIS. It uses a guided <strong>four-step wizard</strong> to upload a file, select the destination table, map source fields to database columns, and review before committing the import.</p>
-
-          <img class="docs-screenshot" src="${importGis1Img}" alt="Import GIS Data — Upload step" />
-
-          <h2>Supported file formats</h2>
-          <table><thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead><tbody>
-            <tr><td>GeoJSON</td><td><code>.json</code>, <code>.geojson</code></td><td>Must be a valid FeatureCollection. CRS is assumed WGS 84 (EPSG:4326).</td></tr>
-            <tr><td>Shapefile (zipped)</td><td><code>.zip</code></td><td>ZIP must contain <code>.shp</code>, <code>.shx</code>, <code>.dbf</code> and optionally <code>.prj</code>.</td></tr>
-            <tr><td>KML</td><td><code>.kml</code></td><td>Google Earth markup format.</td></tr>
-            <tr><td>KMZ</td><td><code>.kmz</code></td><td>Compressed KML archive.</td></tr>
-          </tbody></table>
-          <blockquote>All uploaded files are automatically validated. If the file contains no valid features or is malformed, an error is shown and the wizard does not advance.</blockquote>
-
-          <h2>Step 1 — Upload File</h2>
-          <p>Click <strong>Upload File</strong> and select a file (or drag-and-drop). Once parsed, a confirmation shows the number of features found and the wizard advances to Step 2.</p>
-
-          <h2>Step 2 — Select Destination Table</h2>
-          <img class="docs-screenshot" src="${importGis2DestImg}" alt="Import GIS Data — Select destination table" />
-          <p>Choose which KeSMIS entity to store the imported features as:</p>
-          <table><thead><tr><th>Category</th><th>Tables</th></tr></thead><tbody>
-            <tr><td><strong>Core</strong></td><td>Projects, Settlements, Parcels, Structures</td></tr>
-            <tr><td><strong>Infrastructure</strong></td><td>Roads, Road Assets, Sewer, Piped Water, Railway, Powerline, Streetlight, Floodlights</td></tr>
-            <tr><td><strong>Social Amenities</strong></td><td>Health Facility, School, Water Point, Police Station, Community Hall, Community Project</td></tr>
-            <tr><td><strong>Environment</strong></td><td>Hazard Zones, Crime Hotspots, Dumping, Telcom Mast</td></tr>
-          </tbody></table>
-          <p>If the source data contains a <code>pcode</code> property, the importer automatically resolves parent entities (county, sub-county, ward or settlement) so imported features are correctly linked to the admin hierarchy.</p>
-
-          <h2>Step 3 — Match Fields</h2>
-          <img class="docs-screenshot" src="${importGis2MatchImg}" alt="Import GIS Data — Match fields" />
-          <p>A two-column mapping table lists every source property alongside a dropdown of available database columns. <strong>Fuzzy matching</strong> pre-fills likely mappings automatically.</p>
-          <ul>
-            <li>Each database column can only be mapped once — already-mapped columns are greyed out</li>
-            <li>Use <strong>Search fields</strong> to filter the list when working with many properties</li>
-            <li>Unmapped source fields are excluded from the import</li>
-          </ul>
-
-          <h2>Step 4 — Review &amp; Import</h2>
-          <img class="docs-screenshot" src="${importGis2ReviewImg}" alt="Import GIS Data — Review and import" />
-          <p>A JSON preview shows 1, 5 or 10 sample records to verify mappings before committing.</p>
-          <ul>
-            <li><strong>Import</strong> — submits all features to the database</li>
-            <li><strong>Back</strong> — returns to field-matching to adjust mappings</li>
-            <li><strong>Reset</strong> — discards everything and restarts from Step 1</li>
-          </ul>
-          <p>A success notification shows the number of imported features. Failed features are listed with reasons; successfully validated features are still imported.</p>
-          <blockquote>Geometry coordinates with a Z (altitude) component are automatically stripped to 2D before storage.</blockquote>
-        `
-      }
-    ]
-  },
-  {
-    id: 'mne',
-    label: 'M&E',
-    icon: 'mdi:chart-bar',
-    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
-    children: [
-      {
-        id: 'mne-overview',
-        label: 'Structure',
-        content: `
-          <p>The <strong>Monitoring &amp; Evaluation (M&amp;E)</strong> module tracks programme performance across intervention programmes (KISIP, SUD, and others) using a structured chain: <strong>Project &rarr; Activity &rarr; Indicator &rarr; Configuration &rarr; Report</strong>. It is accessible from the sidebar under <strong>M&amp;E</strong> and is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</p>
-
-          <h2>Module structure</h2>
-          <p>The M&amp;E module is organised into five main areas:</p>
-          <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
-            <tr><td><strong>Structure</strong></td><td>Visual overview of how projects, activities, indicators, configurations, and reports connect</td></tr>
-            <tr><td><strong>Activities</strong></td><td>Define programme-level activities that indicators are tracked against</td></tr>
-            <tr><td><strong>Framework</strong></td><td>Configure the indicator hierarchy &mdash; indicators, configurations (dimensions), and categories</td></tr>
-            <tr><td><strong>Monitoring</strong></td><td>Submit and review indicator reports, track progress, and manage supporting documents</td></tr>
-            <tr><td><strong>Beneficiaries</strong></td><td>Track individuals and communities benefiting from programme interventions</td></tr>
-          </tbody></table>
-
-          <h2>How it works</h2>
-          <ol>
-            <li><strong>Define Activities</strong> &mdash; create the programme activities that form the implementation layer of the results framework</li>
-            <li><strong>Create Indicators</strong> &mdash; define measurable indicators at project or activity level</li>
-            <li><strong>Configure dimensions</strong> &mdash; for each indicator, set up one or more configurations linking it to a reporting category and frequency</li>
-            <li><strong>Submit reports</strong> &mdash; periodically report actual values against configured indicators, attach supporting documents, and track progress toward targets</li>
-          </ol>
-          <p>Start from <strong>M&amp;E &rarr; Structure</strong> for a worked example of the full chain. All M&amp;E data can be exported to Excel. Reports filed at the settlement level also appear on the settlement's <strong>M&amp;E tab</strong> in the Settlement Details page.</p>
-        `
-      },
-      {
-        id: 'mne-activities',
-        label: 'Activities',
-        content: `
-          <p>Activities represent programme-level work streams (e.g. "Settlement Profiling", "Tenure Regularisation", "Infrastructure Development"). They form the top tier of the M&amp;E results framework and serve as the parent grouping for indicators.</p>
-
-          <h2>Activity listing</h2>
-          <img class="docs-screenshot" src="${meActivitiesListingImg}" alt="M&E Activities listing" />
-          <p>Navigate to <strong>M&amp;E &rarr; Activities</strong> to view the activity table. The listing displays:</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Id</strong></td><td>Auto-generated record identifier</td></tr>
-            <tr><td><strong>Short Title</strong></td><td>Abbreviated name used on SlumMapper mobile for brevity when reporting in the field</td></tr>
-            <tr><td><strong>Title</strong></td><td>Full descriptive name of the activity</td></tr>
-            <tr><td><strong>Code</strong></td><td>System-generated unique code</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit and Delete (permission-gated)</td></tr>
-          </tbody></table>
-          <p>All columns are sortable. The table is paginated with page sizes of 5, 10, 20, 50, 200 or all records.</p>
-
-          <h2>Searching &amp; filtering</h2>
-          <p>Use the <strong>Search Activity</strong> multi-select dropdown to filter by one or more activities. Click the <strong>filter</strong> button to clear all filters and reset the view.</p>
-
-          <h2>Adding an activity</h2>
-          <img class="docs-screenshot" src="${meActivitiesAddImg}" alt="M&E Add Activity dialog" />
-          <p>Click the <strong>+</strong> button to open the Add Activity dialog. Fill in:</p>
-          <ul>
-            <li><strong>Title</strong> &mdash; full name of the activity (required, minimum 3 characters)</li>
-            <li><strong>Short Title</strong> &mdash; abbreviated name used on SlumMapper mobile for brevity when reporting in the field</li>
-          </ul>
-          <p>A unique code is auto-generated on submission. The new activity appears immediately in the listing.</p>
-
-          <h2>Editing &amp; deleting</h2>
-          <img class="docs-screenshot" src="${meActivitiesEditDeleteImg}" alt="M&E Activity edit and delete actions" />
-          <ul>
-            <li><strong>Edit</strong> &mdash; click the Edit action to open the dialog pre-filled with the current values. Modify and click <strong>Save</strong>. Requires <code>activity:update</code> permission.</li>
-            <li><strong>Delete</strong> &mdash; click the Delete action and confirm in the popup. Requires <code>activity:delete</code> permission.</li>
-          </ul>
-
-          <h2>Export</h2>
-          <p>Click the <strong>Download</strong> button to export the activity list as an Excel file containing Id, Title, and Code columns.</p>
-        `
-      },
-      {
-        id: 'mne-framework',
-        label: 'Framework & Indicators',
-        content: `
-          <p>The <strong>Framework</strong> section under M&amp;E contains the building blocks that define what is measured and how. It is organised into sub-pages accessible from the sidebar: <strong>Indicators</strong>, <strong>Configuration</strong>, and <strong>Category</strong>.</p>
-
-          <h2>Indicators</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Framework &rarr; Indicators</strong> to manage the master list of measurable metrics. Each indicator defines <em>what</em> is being tracked.</p>
-          <img class="docs-screenshot" src="${meIndicatorListingImg}" alt="M&E Indicators listing" />
-
-          <h3>Listing</h3>
-          <p>The indicator table displays:</p>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Id</strong></td><td>Auto-generated record identifier</td></tr>
-            <tr><td><strong>Title</strong></td><td>Name of the indicator (e.g. "Settlements", "Households", "Roads"). The verb or dimension (e.g. "profiled", "mapped") is added later in Configuration.</td></tr>
-            <tr><td><strong>Activity</strong></td><td>The parent activity this indicator belongs to</td></tr>
-            <tr><td><strong>Type</strong></td><td>Output or Impact</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit and Delete (permission-gated)</td></tr>
-          </tbody></table>
-          <p>All columns are sortable. Use the <strong>search bar</strong> to find indicators by name or the <strong>activity filter</strong> to show indicators for a specific activity. Click the filter button to clear all active filters.</p>
-
-          <h3>Adding an indicator</h3>
-          <img class="docs-screenshot" src="${meIndicatorAdd1Img}" alt="M&E Add Indicator — form step 1" />
-          <p>Click the <strong>+</strong> button to open the Add Indicator drawer. The form has two steps:</p>
-          <p><strong>Step 1 — Indicator details</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Level</strong></td><td>Select <em>Activity</em> or <em>Project</em>. This determines whether the indicator is tracked at the activity or project level.</td></tr>
-            <tr><td><strong>Activity</strong></td><td>Appears when Level is "Activity". Select the parent activity from the dropdown. You can also create a new activity inline using the <strong>+</strong> button next to the dropdown.</td></tr>
-            <tr><td><strong>Title</strong></td><td>The base name of the indicator without the verb/dimension (e.g. "Settlements", "Households", "Roads"). The specific dimension (e.g. "profiled", "mapped", "constructed") is defined separately in Configuration. Required field.</td></tr>
-          </tbody></table>
-          <p><strong>Step 2 — Measurement</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Type</strong></td><td>Select <em>Output</em> (direct deliverable) or <em>Impact</em> (outcome / longer-term effect)</td></tr>
-            <tr><td><strong>Format</strong></td><td>How the indicator is quantified: <em>Number</em> or <em>Percent</em></td></tr>
-            <tr><td><strong>Unit</strong></td><td>The unit of measurement: Kilometre (Km), Number (No.), Yes/No, Household (HH), or type a custom unit</td></tr>
-          </tbody></table>
-          <img class="docs-screenshot" src="${meIndicatorAdd2Img}" alt="M&E Add Indicator — form step 2" />
-          <p>A unique code (UUID) is auto-generated on submission. The new indicator appears immediately in the listing. A built-in <strong>Help</strong> tour is available to guide you through the form fields.</p>
-
-          <h3>Editing &amp; deleting indicators</h3>
-          <ul>
-            <li><strong>Edit</strong> &mdash; click the Edit action to reopen the form pre-filled with current values. Modify and click <strong>Save</strong>. Requires <code>indicator:update</code> permission.</li>
-            <li><strong>Delete</strong> &mdash; click the Delete action and confirm. Requires <code>indicator:delete</code> permission.</li>
-          </ul>
-
-          <h3>Export</h3>
-          <p>Click the <strong>Download</strong> button to export the indicator list as an Excel file. A <strong>Download All</strong> option is also available to export the full dataset including associated records.</p>
-
-          <hr/>
-
-          <h2>Configuration (Dimensions)</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Framework &rarr; Configuration</strong> to set up indicator configurations. A configuration links an indicator to a specific context &mdash; defining <em>where</em>, <em>when</em>, and <em>how much</em>.</p>
-
-          <h3>Listing</h3>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Id</strong></td><td>Record identifier</td></tr>
-            <tr><td><strong>Activity</strong></td><td>Parent activity, or <em>Project level</em> for project-scoped configurations</td></tr>
-            <tr><td><strong>Indicator</strong></td><td>The indicator being configured</td></tr>
-            <tr><td><strong>Dimension</strong></td><td>Category title / dimension label for this configuration</td></tr>
-            <tr><td><strong>Location</strong></td><td>Linked settlement or project location, when applicable</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Edit and Delete</td></tr>
-          </tbody></table>
-          <img class="docs-screenshot" src="${meIndicatorConfigImg}" alt="M&E Indicator Configuration listing" />
-
-          <h3>Creating a configuration</h3>
-          <p>Click <strong>+</strong> to open the drawer. The form has two steps:</p>
-          <p><strong>Step 1 — Indicator setup</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Indicator level</strong></td><td><em>Project</em> (applies across the whole project) or <em>Activity</em> (tied to one implementation activity)</td></tr>
-            <tr><td><strong>Activity</strong></td><td>Required when level is Activity. Select the work package this indicator tracks.</td></tr>
-            <tr><td><strong>Indicator</strong></td><td>Select the indicator. The list filters based on the chosen level and activity. Use <strong>+</strong> to create a new indicator inline.</td></tr>
-          </tbody></table>
-          <p><strong>Step 2 — Reporting</strong></p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Category / Dimension</strong></td><td>Select or create the reporting dimension (e.g. Male/Female, Trained/Untrained)</td></tr>
-            <tr><td><strong>Frequency</strong></td><td>How often reports are expected (e.g. monthly, quarterly, annually)</td></tr>
-          </tbody></table>
-          <p>A unique code is generated from the combination of indicator, activity, and category IDs. Use the column picker in the toolbar to show or hide table columns. Configurations can also be <strong>bulk imported</strong> from Excel using the built-in import wizard (Upload File &rarr; Match Fields &rarr; Review &rarr; Import).</p>
-
-          <h3>Editing &amp; deleting configurations</h3>
-          <ul>
-            <li><strong>Edit</strong> &mdash; click the Edit action to modify the configuration. Requires <code>indicator_category:update</code> permission.</li>
-            <li><strong>Delete</strong> &mdash; click the Delete action and confirm. Requires <code>indicator_category:delete</code> permission.</li>
-          </ul>
-
-          <hr/>
-
-          <h2>Categories</h2>
-          <p>Categories group related indicators together for organised reporting and dashboard display. They are managed from <strong>M&amp;E &rarr; Framework &rarr; Category</strong>.</p>
-        `
-      },
-      {
-        id: 'mne-reports',
-        label: 'Reports',
-        content: `
-          <p>The <strong>Monitoring</strong> section is where indicator data is reported and tracked. It contains two sub-pages: <strong>Reports (New)</strong> for active submission and review, and <strong>Reports</strong> for the historical archive.</p>
-
-          <h2>Submitting reports (New)</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports (New)</strong> to file indicator reports. The listing shows submitted reports with their current status:</p>
-          <img class="docs-screenshot" src="${meReportsImg}" alt="M&E Reports (New) listing" />
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Indicator</strong></td><td>Name of the indicator</td></tr>
-            <tr><td><strong>Category</strong></td><td>Dimension / category title</td></tr>
-            <tr><td><strong>Activity</strong></td><td>Linked activity, or <em>Project level</em> for project-scoped configurations</td></tr>
-            <tr><td><strong>Settlement</strong></td><td>The settlement or area the report covers</td></tr>
-            <tr><td><strong>Qty / Status</strong></td><td>The reported quantity or qualitative status value</td></tr>
-            <tr><td><strong>Progress %</strong></td><td>Percentage progress toward the target</td></tr>
-            <tr><td><strong>Date</strong></td><td>Date of the report</td></tr>
-            <tr><td><strong>Status</strong></td><td>Approval status (New, Approved, Rejected)</td></tr>
-            <tr><td><strong>Documents</strong></td><td>Count of attached supporting documents, with a button to view them</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Review, view on map, documents, and delete (permission-gated)</td></tr>
-          </tbody></table>
-
-          <h3>Filing a report</h3>
-          <img class="docs-screenshot" src="${meReportsAddImg}" alt="M&E filing a report form" />
-          <p>Click the <strong>+</strong> button to open the <strong>Add Report</strong> drawer. Fill in the form in order (each dropdown filters the next):</p>
-          <table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Project</strong></td><td>Select the intervention project. Options are filterable.</td></tr>
-            <tr><td><strong>Location</strong></td><td>Select the project location / settlement (hidden for national-scope projects).</td></tr>
-            <tr><td><strong>Activity</strong></td><td>Select the activity; the list is filtered by the selected project.</td></tr>
-            <tr><td><strong>Indicator</strong></td><td>Select the indicator configuration (indicator + dimension). The list is filtered by the selected activity.</td></tr>
-            <tr><td><strong>Date</strong></td><td>Pick the reporting date.</td></tr>
-            <tr><td><strong>Quantity</strong></td><td>Enter the reported amount (number).</td></tr>
-            <tr><td><strong>Progress %</strong></td><td>Optional. Enter progress toward target (0–100).</td></tr>
-            <tr><td><strong>Comments</strong></td><td>Optional. Free-text comments.</td></tr>
-          </tbody></table>
-          <p>Click <strong>Submit</strong> to save. The report is created in <em>New</em> status for review. You can attach supporting documents (photos, PDFs, spreadsheets) to the report after submission via the Documents action in the listing. Once approved, reports linked to a settlement appear on that settlement's <strong>M&amp;E tab</strong> in Settlement Details.</p>
-
-          <h3>Filtering</h3>
-          <p>Filter reports by <strong>settlement</strong> (searchable remote lookup) or <strong>indicator</strong>. County-level users automatically see only reports for their assigned county.</p>
-
-          <h2>Past reports</h2>
-          <p>Navigate to <strong>M&amp;E &rarr; Monitoring &rarr; Reports</strong> to view and manage the full report archive. This page uses the same column structure as Reports (New) and supports add, edit, review, and export workflows for historical indicator reports.</p>
-
-          <h2>Export</h2>
-          <p>All report listings can be exported to Excel. Use the <strong>Download</strong> button in the toolbar. A custom field selector lets you choose which columns to include in the export.</p>
-        `
-      },
-      {
-        id: 'mne-beneficiaries',
-        label: 'Beneficiaries',
-        content: `
-          <p>The <strong>Beneficiaries</strong> page tracks beneficiary counts per project and location for programme reporting. Records are stored at project–location level with target and actual numbers by gender.</p>
-
-          <h2>What is tracked</h2>
-          <p>Each beneficiary record links a <strong>project</strong> and a <strong>location</strong> (settlement) and stores:</p>
-          <ul>
-            <li><strong>Project</strong> &mdash; the intervention project the beneficiaries are reported under</li>
-            <li><strong>Settlement (Location)</strong> &mdash; the project location or settlement where beneficiaries are counted</li>
-            <li><strong>Target (Female) / Target (Male)</strong> &mdash; planned number of female and male beneficiaries for that project–location</li>
-            <li><strong>Actual (Female) / Actual (Male)</strong> &mdash; reported number of female and male beneficiaries reached</li>
-            <li><strong>Comments</strong> &mdash; optional notes</li>
-          </ul>
-          <p>The listing table shows <strong>Project</strong>, <strong>Settlement</strong>, <strong>Female Beneficiaries</strong>, and <strong>Male Beneficiaries</strong> (actual counts). Rows can be expanded for more detail.</p>
-
-          <h2>Listing &amp; management</h2>
-          <img class="docs-screenshot" src="${meBeneficiariesListingImg}" alt="M&E Beneficiaries listing" />
-          <p>The beneficiary listing is a paginated table with search and filter capabilities. Authorised users can add, edit, and delete beneficiary records. The data can be exported to Excel for external reporting and analysis.</p>
-
-          <h3>Adding a beneficiary record</h3>
-          <img class="docs-screenshot" src="${meBeneficiariesAddImg}" alt="M&E Add Beneficiary dialog" />
-          <p>Click the <strong>+</strong> button to open the Add Beneficiary dialog. The form has three steps: <strong>Project Details</strong> (select Project and Location/settlement), <strong>Beneficiaries</strong> (enter Target and Actual counts for female and male, plus optional comments), and <strong>Submit</strong>. Location options are filtered by the selected project.</p>
-
-          <blockquote>Note &mdash; Beneficiary data is accessible only to national-level users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>monitoring</code>, or <code>staff</code> roles.</blockquote>
-        `
-      }
-    ]
+    children: []
   },
   {
     id: 'grm',
     label: 'Grievance Redress (GRM)',
     icon: 'mdi:message-alert-outline',
     roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
+    subgroups: [
+      {
+        id: 'incidents',
+        label: 'Incidents',
+        icon: 'mdi:alert-decagram-outline',
+        roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
+        children: [
+        {
+          id: 'incidents-overview',
+          label: 'Listing & Overview',
+          content: `
+            <p>The <strong>Incidents</strong> module captures reports of accidents, disasters, or safety events affecting informal settlements and intervention project areas. Incidents can be filed publicly via the landing page (no login required) or internally by staff. Each incident is assigned a unique reference code in the format <strong>INC-YYYY-NNNN</strong>.</p>
+
+            <h2>Accessing the listing</h2>
+            <img src="${incidentListingImg}" alt="Incidents listing" class="docs-screenshot" />
+            <p>Navigate to <strong>GRM &rarr; Incidents</strong> in the main menu. The listing is a paginated table sorted newest first. Only authenticated users with the appropriate role can access the internal listing. The public can look up an individual incident by its reference code on the landing page without logging in.</p>
+
+            <h2>Columns</h2>
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Code</strong></td><td>Unique reference (INC-YYYY-NNNN)</td></tr>
+              <tr><td><strong>Reported By</strong></td><td>Name of the person who filed the report</td></tr>
+              <tr><td><strong>County / Settlement</strong></td><td>Geographic location of the incident</td></tr>
+              <tr><td><strong>Incident Types</strong></td><td>One or more incident categories selected at submission</td></tr>
+              <tr><td><strong>Severity</strong></td><td>Severity level assigned to the incident</td></tr>
+              <tr><td><strong>Status</strong></td><td>Current workflow status (Open, In Progress, Closed, etc.)</td></tr>
+              <tr><td><strong>Date Occurred</strong></td><td>Date and time the incident took place</td></tr>
+            </tbody></table>
+
+            <h2>Search and filters</h2>
+            <img src="${incidentSearchImg}" alt="Incident search and filters" class="docs-screenshot" />
+            <p>Use the <strong>search bar</strong> to filter by keyword across the incident description, reference code, and location text. Use the <strong>County</strong> and <strong>Settlement</strong> filter dropdowns to narrow results by location. All filters can be combined.</p>
+
+            <h2>SMS notifications on submission</h2>
+            <p>When a new incident is submitted, the system automatically sends two sets of SMS notifications:</p>
+            <ul>
+              <li><strong>Reporter acknowledgement</strong> &mdash; an SMS is sent to the reporter&apos;s phone confirming receipt of the report, including the reference code and a public tracking link</li>
+              <li><strong>Safeguards team alert</strong> &mdash; all users with the safeguards role receive an SMS with the reference code, location, incident type, severity, and a direct link to the record</li>
+            </ul>
+          `
+        },
+        {
+          id: 'incidents-reporting',
+          label: 'Reporting an Incident',
+          content: `
+            <img src="${incidentAddButtonImg}" alt="Report Incident button" class="docs-screenshot" />
+            <p>Click the <strong>Report Incident</strong> button in the toolbar to open the reporting drawer. The form pre-populates the reporter name, phone, and role from your logged-in account. County-restricted users will have their county locked and can only select settlements within their assigned county.</p>
+            <img src="${incidentAddImg}" alt="Report incident form" class="docs-screenshot" />
+
+            <h2>Form steps</h2>
+            <p>The form is a seven-step wizard. Each step must pass validation before proceeding. Use the arrow buttons at the top of the drawer to move between steps.</p>
+            <table><thead><tr><th>Step</th><th>Fields</th><th>Required</th></tr></thead><tbody>
+              <tr><td><strong>1 &mdash; Incident Details</strong></td><td>Date occurred, time occurred, county, settlement, location text, reporter name, reporter role, reporter phone</td><td>All fields required</td></tr>
+              <tr><td><strong>2 &mdash; Worker Details</strong></td><td>Worker name, designation, site supervisor, department</td><td>All fields required</td></tr>
+              <tr><td><strong>3 &mdash; Categories</strong></td><td>Incident types (multi-select), mechanisms, indirect causes, activity leading to incident</td><td>At least one selection each</td></tr>
+              <tr><td><strong>4 &mdash; Causes</strong></td><td>Direct causes, root causes (multi-select checklists)</td><td>At least one selection each</td></tr>
+              <tr><td><strong>5 &mdash; Narrative</strong></td><td>Full description, consequences, immediate action taken, severity</td><td>All fields required</td></tr>
+              <tr><td><strong>6 &mdash; Actions</strong></td><td>Corrective actions to prevent recurrence &mdash; each entry requires: action description, responsible party, priority (High/Medium/Low), due date</td><td>At least one action required</td></tr>
+              <tr><td><strong>7 &mdash; Prepared By</strong></td><td>Preparer name and job title</td><td>Both required</td></tr>
+            </tbody></table>
+
+            <h2>After submission</h2>
+            <p>On submission the system assigns a unique <strong>INC-YYYY-NNNN</strong> reference code, sends an <strong>SMS acknowledgement</strong> to the reporter&apos;s phone with the code and a public tracking link, and notifies all <strong>safeguards team members</strong> via SMS with the reference code, location, type, severity, and a direct link to the record.</p>
+          `
+        },
+        {
+          id: 'incidents-management',
+          label: 'Management',
+          content: `
+            <img src="${incidentManagementButtonsImg}" alt="Incident management action buttons" class="docs-screenshot" />
+            <p>Each incident row in the listing has a set of action buttons. On mobile these collapse into a dropdown menu.</p>
+            <table><thead><tr><th>Button</th><th>Function</th></tr></thead><tbody>
+              <tr><td><strong>Edit</strong></td><td>Opens the multi-step edit drawer pre-filled with the incident&apos;s current data. All fields can be updated. Changes are tracked in the audit history.</td></tr>
+              <tr><td><strong>Change Status</strong></td><td>Opens a drawer to update the incident status. A mandatory <em>Action Taken</em> note must be provided. Optionally attach supporting documents to the status update.</td></tr>
+              <tr><td><strong>View History</strong></td><td>Opens a side panel showing the full audit trail — every create, edit, and status change — plus a Documents tab listing all attached files with download links.</td></tr>
+              <tr><td><strong>Generate PDF</strong></td><td>Generates and downloads a formatted PDF report of the incident including basic info, worker details, causes, narrative, corrective actions, attached documents list, and change history. A QR code linking to the public status page is embedded on the first page.</td></tr>
+              <tr><td><strong>Delete</strong></td><td>Permanently deletes the incident after confirmation. All associated documents (including files on disk) and history records are also removed. This action cannot be undone.</td></tr>
+            </tbody></table>
+
+            <h2>Incident record fields</h2>
+            <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
+              <tr><td><strong>Reporter</strong></td><td>Reported by, reporter role, reporter phone, date and time reported</td></tr>
+              <tr><td><strong>Location</strong></td><td>County, sub-county, ward, settlement, location text, site supervisor, department</td></tr>
+              <tr><td><strong>Worker</strong></td><td>Worker name, designation (relevant for project-site incidents)</td></tr>
+              <tr><td><strong>Incident</strong></td><td>Date and time occurred, incident types (multi-select), severity, description (full narrative)</td></tr>
+              <tr><td><strong>Causes</strong></td><td>Mechanisms, direct causes, indirect causes, activity leading to incident, root causes (all multi-select checklists)</td></tr>
+              <tr><td><strong>Consequences &amp; Response</strong></td><td>Consequences of the incident, immediate action taken</td></tr>
+              <tr><td><strong>Corrective Actions</strong></td><td>Structured list of actions to avoid recurrence &mdash; each action has a responsible party, priority level, and due date</td></tr>
+              <tr><td><strong>Prepared By</strong></td><td>Name, job title, and date of the person preparing the report</td></tr>
+            </tbody></table>
+
+            <h2>Updating an incident</h2>
+            <img src="${incidentEditImg}" alt="Incident edit form" class="docs-screenshot" />
+            <p>Authorised staff can edit any field on the incident record. All changes are tracked in the audit history. If the <strong>status</strong> is being changed, an <strong>Action Taken</strong> narrative is required before saving &mdash; this is enforced by the system and the update will be rejected without it.</p>
+
+            <h2>Status workflow</h2>
+            <p>Incidents progress through a status lifecycle. The current status is shown as a badge on the record and in the listing. Changing status opens a prompt for an action note that is logged to the incident history.</p>
+
+            <h2>Documents</h2>
+            <p>Supporting documents (photos, reports, forms) can be attached to an incident. Upload files from the documents section on the incident detail page. The system accepts all common image and document formats. Uploaded files are stored securely and can be downloaded or deleted by authorised users.</p>
+
+            <h2>Audit history</h2>
+            <p>Every create, update, status change, and deletion is recorded in the incident history. Each history entry captures the action type, the fields changed (with old and new values), the user who made the change, and the timestamp. The history is read-only and cannot be altered.</p>
+
+            <h2>PDF report</h2>
+            <img src="${incidentPdfImg}" alt="Incident PDF report" class="docs-screenshot" />
+            <p>A formatted PDF report can be generated from the incident detail page. It compiles the full incident record, attached documents list, and audit history into a printable document suitable for safeguards reporting and external submission.</p>
+
+            <h2>Deleting an incident</h2>
+            <p>Deleting an incident permanently removes the record along with all associated documents (including physical files on disk) and history entries. This action is irreversible. Only authorised admin users can delete incidents.</p>
+          `
+        }
+        ]
+      },
+    ],
     children: [
       {
         id: 'grm-overview',
         label: 'Overview',
         content: `
           <p>The <strong>Grievance Redress Mechanism (GRM)</strong> is KeSMIS's end-to-end complaint management system for KISIP programmes. Any member of the public can submit a grievance without logging in &mdash; by phone, online form, or toll-free helpline &mdash; and track its progress using a unique tracking code. Internally, authorised staff receive, review, assign, and resolve grievances through a structured workflow with full audit trail.</p>
-          <p>The GRM module is accessible from the sidebar under <strong>GRM</strong>. Access is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>grm</code>, or <code>staff</code> roles.</p>
+          <p>The GRM module is accessible from the sidebar under <strong>GRM</strong>, which also contains <strong>Incidents</strong>. Access is available to users with <code>root_admin</code>, <code>super_admin</code>, <code>admin</code>, <code>grm</code>, or <code>staff</code> roles.</p>
 
           <h2>Module structure</h2>
           <table><thead><tr><th>Section</th><th>Purpose</th></tr></thead><tbody>
@@ -2733,122 +2886,166 @@ const allNavGroups: NavGroup[] = [
     ]
   },
   {
-    id: 'incidents',
-    label: 'Incidents',
-    icon: 'mdi:alert-decagram-outline',
-    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
-    children: [
-      {
-        id: 'incidents-overview',
-        label: 'Listing & Overview',
-        content: `
-          <p>The <strong>Incidents</strong> module captures reports of accidents, disasters, or safety events affecting informal settlements and intervention project areas. Incidents can be filed publicly via the landing page (no login required) or internally by staff. Each incident is assigned a unique reference code in the format <strong>INC-YYYY-NNNN</strong>.</p>
-
-          <h2>Accessing the listing</h2>
-          <img src="${incidentListingImg}" alt="Incidents listing" class="docs-screenshot" />
-          <p>Navigate to <strong>Incidents</strong> in the main menu. The listing is a paginated table sorted newest first. Only authenticated users with the appropriate role can access the internal listing. The public can look up an individual incident by its reference code on the landing page without logging in.</p>
-
-          <h2>Columns</h2>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Code</strong></td><td>Unique reference (INC-YYYY-NNNN)</td></tr>
-            <tr><td><strong>Reported By</strong></td><td>Name of the person who filed the report</td></tr>
-            <tr><td><strong>County / Settlement</strong></td><td>Geographic location of the incident</td></tr>
-            <tr><td><strong>Incident Types</strong></td><td>One or more incident categories selected at submission</td></tr>
-            <tr><td><strong>Severity</strong></td><td>Severity level assigned to the incident</td></tr>
-            <tr><td><strong>Status</strong></td><td>Current workflow status (Open, In Progress, Closed, etc.)</td></tr>
-            <tr><td><strong>Date Occurred</strong></td><td>Date and time the incident took place</td></tr>
-          </tbody></table>
-
-          <h2>Search and filters</h2>
-          <img src="${incidentSearchImg}" alt="Incident search and filters" class="docs-screenshot" />
-          <p>Use the <strong>search bar</strong> to filter by keyword across the incident description, reference code, and location text. Use the <strong>County</strong> and <strong>Settlement</strong> filter dropdowns to narrow results by location. All filters can be combined.</p>
-
-          <h2>SMS notifications on submission</h2>
-          <p>When a new incident is submitted, the system automatically sends two sets of SMS notifications:</p>
-          <ul>
-            <li><strong>Reporter acknowledgement</strong> &mdash; an SMS is sent to the reporter&apos;s phone confirming receipt of the report, including the reference code and a public tracking link</li>
-            <li><strong>Safeguards team alert</strong> &mdash; all users with the safeguards role receive an SMS with the reference code, location, incident type, severity, and a direct link to the record</li>
-          </ul>
-        `
-      },
-      {
-        id: 'incidents-reporting',
-        label: 'Reporting an Incident',
-        content: `
-          <img src="${incidentAddButtonImg}" alt="Report Incident button" class="docs-screenshot" />
-          <p>Click the <strong>Report Incident</strong> button in the toolbar to open the reporting drawer. The form pre-populates the reporter name, phone, and role from your logged-in account. County-restricted users will have their county locked and can only select settlements within their assigned county.</p>
-          <img src="${incidentAddImg}" alt="Report incident form" class="docs-screenshot" />
-
-          <h2>Form steps</h2>
-          <p>The form is a seven-step wizard. Each step must pass validation before proceeding. Use the arrow buttons at the top of the drawer to move between steps.</p>
-          <table><thead><tr><th>Step</th><th>Fields</th><th>Required</th></tr></thead><tbody>
-            <tr><td><strong>1 &mdash; Incident Details</strong></td><td>Date occurred, time occurred, county, settlement, location text, reporter name, reporter role, reporter phone</td><td>All fields required</td></tr>
-            <tr><td><strong>2 &mdash; Worker Details</strong></td><td>Worker name, designation, site supervisor, department</td><td>All fields required</td></tr>
-            <tr><td><strong>3 &mdash; Categories</strong></td><td>Incident types (multi-select), mechanisms, indirect causes, activity leading to incident</td><td>At least one selection each</td></tr>
-            <tr><td><strong>4 &mdash; Causes</strong></td><td>Direct causes, root causes (multi-select checklists)</td><td>At least one selection each</td></tr>
-            <tr><td><strong>5 &mdash; Narrative</strong></td><td>Full description, consequences, immediate action taken, severity</td><td>All fields required</td></tr>
-            <tr><td><strong>6 &mdash; Actions</strong></td><td>Corrective actions to prevent recurrence &mdash; each entry requires: action description, responsible party, priority (High/Medium/Low), due date</td><td>At least one action required</td></tr>
-            <tr><td><strong>7 &mdash; Prepared By</strong></td><td>Preparer name and job title</td><td>Both required</td></tr>
-          </tbody></table>
-
-          <h2>After submission</h2>
-          <p>On submission the system assigns a unique <strong>INC-YYYY-NNNN</strong> reference code, sends an <strong>SMS acknowledgement</strong> to the reporter&apos;s phone with the code and a public tracking link, and notifies all <strong>safeguards team members</strong> via SMS with the reference code, location, type, severity, and a direct link to the record.</p>
-        `
-      },
-      {
-        id: 'incidents-management',
-        label: 'Management',
-        content: `
-          <img src="${incidentManagementButtonsImg}" alt="Incident management action buttons" class="docs-screenshot" />
-          <p>Each incident row in the listing has a set of action buttons. On mobile these collapse into a dropdown menu.</p>
-          <table><thead><tr><th>Button</th><th>Function</th></tr></thead><tbody>
-            <tr><td><strong>Edit</strong></td><td>Opens the multi-step edit drawer pre-filled with the incident&apos;s current data. All fields can be updated. Changes are tracked in the audit history.</td></tr>
-            <tr><td><strong>Change Status</strong></td><td>Opens a drawer to update the incident status. A mandatory <em>Action Taken</em> note must be provided. Optionally attach supporting documents to the status update.</td></tr>
-            <tr><td><strong>View History</strong></td><td>Opens a side panel showing the full audit trail — every create, edit, and status change — plus a Documents tab listing all attached files with download links.</td></tr>
-            <tr><td><strong>Generate PDF</strong></td><td>Generates and downloads a formatted PDF report of the incident including basic info, worker details, causes, narrative, corrective actions, attached documents list, and change history. A QR code linking to the public status page is embedded on the first page.</td></tr>
-            <tr><td><strong>Delete</strong></td><td>Permanently deletes the incident after confirmation. All associated documents (including files on disk) and history records are also removed. This action cannot be undone.</td></tr>
-          </tbody></table>
-
-          <h2>Incident record fields</h2>
-          <table><thead><tr><th>Section</th><th>Fields</th></tr></thead><tbody>
-            <tr><td><strong>Reporter</strong></td><td>Reported by, reporter role, reporter phone, date and time reported</td></tr>
-            <tr><td><strong>Location</strong></td><td>County, sub-county, ward, settlement, location text, site supervisor, department</td></tr>
-            <tr><td><strong>Worker</strong></td><td>Worker name, designation (relevant for project-site incidents)</td></tr>
-            <tr><td><strong>Incident</strong></td><td>Date and time occurred, incident types (multi-select), severity, description (full narrative)</td></tr>
-            <tr><td><strong>Causes</strong></td><td>Mechanisms, direct causes, indirect causes, activity leading to incident, root causes (all multi-select checklists)</td></tr>
-            <tr><td><strong>Consequences &amp; Response</strong></td><td>Consequences of the incident, immediate action taken</td></tr>
-            <tr><td><strong>Corrective Actions</strong></td><td>Structured list of actions to avoid recurrence &mdash; each action has a responsible party, priority level, and due date</td></tr>
-            <tr><td><strong>Prepared By</strong></td><td>Name, job title, and date of the person preparing the report</td></tr>
-          </tbody></table>
-
-          <h2>Updating an incident</h2>
-          <img src="${incidentEditImg}" alt="Incident edit form" class="docs-screenshot" />
-          <p>Authorised staff can edit any field on the incident record. All changes are tracked in the audit history. If the <strong>status</strong> is being changed, an <strong>Action Taken</strong> narrative is required before saving &mdash; this is enforced by the system and the update will be rejected without it.</p>
-
-          <h2>Status workflow</h2>
-          <p>Incidents progress through a status lifecycle. The current status is shown as a badge on the record and in the listing. Changing status opens a prompt for an action note that is logged to the incident history.</p>
-
-          <h2>Documents</h2>
-          <p>Supporting documents (photos, reports, forms) can be attached to an incident. Upload files from the documents section on the incident detail page. The system accepts all common image and document formats. Uploaded files are stored securely and can be downloaded or deleted by authorised users.</p>
-
-          <h2>Audit history</h2>
-          <p>Every create, update, status change, and deletion is recorded in the incident history. Each history entry captures the action type, the fields changed (with old and new values), the user who made the change, and the timestamp. The history is read-only and cannot be altered.</p>
-
-          <h2>PDF report</h2>
-          <img src="${incidentPdfImg}" alt="Incident PDF report" class="docs-screenshot" />
-          <p>A formatted PDF report can be generated from the incident detail page. It compiles the full incident record, attached documents list, and audit history into a printable document suitable for safeguards reporting and external submission.</p>
-
-          <h2>Deleting an incident</h2>
-          <p>Deleting an incident permanently removes the record along with all associated documents (including physical files on disk) and history entries. This action is irreversible. Only authorised admin users can delete incidents.</p>
-        `
-      }
-    ]
-  },
-  {
     id: 'repository',
     label: 'Repository',
     icon: 'mdi:folder-multiple-outline',
     roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
+    subgroups: [
+      {
+        id: 'media',
+        label: 'Media',
+        icon: 'mdi:play-circle-outline',
+        roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
+        children: [
+        {
+          id: 'media-overview',
+          label: 'Overview',
+          content: `
+            <p>The <strong>Media</strong> module centralises multimedia content related to programme activities. It sits under <strong>Repository &rarr; Media</strong> in the sidebar and is divided into three sections:</p>
+            <table><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Videos</strong></td><td>YouTube videos from the official KISIP channel, displayed in an embedded card grid.</td></tr>
+              <tr><td><strong>Live Streams</strong></td><td>Real-time WebRTC live streams initiated from field devices, viewable directly in the browser.</td></tr>
+              <tr><td><strong>Articles</strong></td><td>News articles, press releases and media coverage — each with a cover photo, description, external link and downloadable attachments.</td></tr>
+            </tbody></table>
+            <h2>Permissions</h2>
+            <p>All authenticated users can view media content. Adding, editing and deleting articles requires administrator or editor access (<code>showAdminButtons</code> permission). Live stream viewing is available to all authenticated users.</p>
+          `
+        },
+        {
+          id: 'media-videos',
+          label: 'Videos',
+          content: `
+            <p>The <strong>Videos</strong> page displays YouTube videos published on the official KISIP YouTube channel, fetched automatically via the YouTube Data API v3.</p>
+
+            <h2>Video listing</h2>
+            <img src="${videoListingImg}" alt="Video listing" class="docs-screenshot" />
+            <p>Videos are displayed in a responsive card grid (3 columns on desktop, 2 on tablet, 1 on mobile). Each card shows:</p>
+            <ul>
+              <li>An embedded YouTube player (inline preview, 200 px height)</li>
+              <li>The publication date and time</li>
+              <li>A <strong>View Video</strong> button</li>
+            </ul>
+            <p>Up to 100 most-recent videos are loaded per page, ordered by upload date (newest first).</p>
+
+            <h2>Viewing a video</h2>
+            <p>Clicking <strong>View Video</strong> opens a fullscreen dialog (900 px wide) with an embedded YouTube player at full height (600 px) with autoplay enabled. Close the dialog with the <strong>Close</strong> button or by clicking outside the dialog.</p>
+
+            <h2>Technical notes</h2>
+            <ul>
+              <li>Videos are sourced from a fixed YouTube channel ID configured in the system.</li>
+              <li>The YouTube API key is stored in the <code>VITE_APP_YOUTUBE_API</code> environment variable. If the key is missing or quota is exceeded, the grid will be empty and an error will appear in the browser console.</li>
+              <li>No video files are stored on the KeSMIS server — all playback is handled by YouTube's embedded player.</li>
+            </ul>
+          `
+        },
+        {
+          id: 'media-live',
+          label: 'Live Streams',
+          content: `
+            <p>The <strong>Live Streams</strong> page allows users to watch real-time video streams initiated from field devices (phones or cameras) via WebRTC technology. Streams are coordinated through the KeSMIS signaling server.</p>
+
+            <h2>Stream listing</h2>
+            <img src="${liveStreamImg}" alt="Live streams listing" class="docs-screenshot" />
+
+            <h2>Mobile view</h2>
+            <img src="${liveStreamMobile1Img}" alt="Live streams on mobile" class="docs-screenshot" />
+            <img src="${liveStreamMobile2Img}" alt="Live stream player on mobile" class="docs-screenshot" />
+
+            <h2>Connection workflow</h2>
+            <ol>
+              <li>The page automatically attempts to connect to the signaling server on load.</li>
+              <li>The connection status indicator in the top-right of the page shows <strong>CONNECTED</strong> (green) or <strong>DISCONNECTED</strong> (red).</li>
+              <li>If auto-connect fails, click the <strong>Connect to Server</strong> button manually.</li>
+              <li>Once connected, the stream list is populated automatically.</li>
+              <li>The list refreshes every <strong>30 seconds</strong> while no stream is being watched.</li>
+            </ol>
+
+            <h2>Stream listing columns</h2>
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Streamer</strong></td><td>Name of the user broadcasting the stream.</td></tr>
+              <tr><td><strong>Location</strong></td><td>Ward, Sub-county and County of the stream origin.</td></tr>
+              <tr><td><strong>Start Time</strong></td><td>How long ago the stream started (e.g. "5m ago", "2h 10m ago"). Streams older than 24 hours show the full date.</td></tr>
+              <tr><td><strong>Stream ID</strong></td><td>Truncated unique identifier for the stream (first 8 characters shown).</td></tr>
+              <tr><td><strong>Status</strong></td><td>Current stream state — <em>LIVE</em> (green) for active streams.</td></tr>
+              <tr><td><strong>Actions</strong></td><td>A <strong>Watch</strong> button, enabled only when connected to the server.</td></tr>
+            </tbody></table>
+
+            <h2>Watching a stream</h2>
+            <img src="${liveStreamWatchImg}" alt="Live stream watch view" class="docs-screenshot" />
+            <ol>
+              <li>Ensure the status shows <strong>CONNECTED</strong>.</li>
+              <li>Click <strong>Watch</strong> on any active stream row.</li>
+              <li>A video dialog opens with the stream title, streamer name, and a live video player.</li>
+              <li>The player uses WebRTC — click the video area if it does not start automatically (required by some browsers as a user-gesture).</li>
+              <li>Click <strong>Close</strong> or the dialog X button to stop watching and release the WebRTC connection.</li>
+            </ol>
+
+            <h2>Refreshing streams</h2>
+            <p>Click the <strong>Refresh Streams</strong> button at any time to manually fetch the latest stream list from the signaling server. Auto-refresh is paused while a stream is being watched to avoid interrupting playback.</p>
+
+            <h2>Technical notes</h2>
+            <ul>
+              <li>The signaling server is proxied through <code>/stream</code> on the KeSMIS nginx server.</li>
+              <li>WebRTC requires a modern browser with WebRTC support (Chrome, Firefox, Edge, Safari 15+).</li>
+              <li>Streams are broadcast from the SlumMapper mobile app or compatible devices.</li>
+              <li>If the signaling server is unreachable, the stream list will be empty and an error will be shown.</li>
+            </ul>
+          `
+        },
+        {
+          id: 'media-articles',
+          label: 'Articles',
+          content: `
+            <p>The <strong>Articles</strong> section manages news articles, press releases, blog posts and media coverage related to the KISIP programme. Each article has a cover photo, summary description, an external link and optional downloadable attachments (e.g. newspaper cuttings, PDFs).</p>
+
+            <h2>Article listing</h2>
+            <img src="${articlesListingImg}" alt="Articles listing" class="docs-screenshot" />
+            <p>Articles are displayed in a responsive card grid (3 columns on desktop, 2 on tablet, 1 on mobile). Each card shows:</p>
+            <ul>
+              <li><strong>Title</strong> (truncated to 1 line in the card header; hover to see the full title in a popover)</li>
+              <li><strong>Cover photo</strong> (150 px tall; fetched from the document store)</li>
+              <li><strong>Description</strong> (truncated to 3 lines)</li>
+              <li><strong>Read Full Story</strong> link — opens the external article URL in a new tab</li>
+              <li><strong>Attachments</strong> — a list of downloadable files attached to the article (e.g. scanned newspaper cuttings)</li>
+              <li><strong>Edit</strong> and <strong>Delete</strong> action buttons (admin only)</li>
+            </ul>
+
+            <h2>Searching articles</h2>
+            <p>Use the search bar at the top to filter articles by title keyword. Type part of a title and the list updates automatically. Click the <strong>Filter (Clear)</strong> button to reset the search and reload all articles.</p>
+
+            <h2>Adding an article</h2>
+            <img src="${articlesAddImg}" alt="Add article dialog" class="docs-screenshot" />
+            <p>Click the <strong>+</strong> button (admin only) to open the two-step Add Article dialog:</p>
+            <h3>Step 1 — Details</h3>
+            <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Article Title</strong></td><td>Yes</td><td>Full title of the article or press release.</td></tr>
+              <tr><td><strong>Type</strong></td><td>Yes</td><td>Media type — <em>TV</em>, <em>Article</em>, <em>Blog</em>, or <em>Newspaper</em>.</td></tr>
+              <tr><td><strong>Link</strong></td><td>No</td><td>URL to the full article online (e.g. newspaper website, blog post).</td></tr>
+            </tbody></table>
+            <h3>Step 2 — Media</h3>
+            <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Description</strong></td><td>Yes</td><td>Summary or body text for the article.</td></tr>
+              <tr><td><strong>Cover Photo</strong></td><td>Yes</td><td>A single image file used as the card thumbnail. Accepted formats: any image type (JPEG, PNG, etc.). Limited to 1 file.</td></tr>
+              <tr><td><strong>Other Documents</strong></td><td>No</td><td>Additional attachments such as newspaper cuttings, PDFs or supporting files. Multiple files allowed.</td></tr>
+            </tbody></table>
+            <p>Click <strong>Submit</strong> to save the article. The record is created first, then the cover photo and other documents are uploaded and linked automatically.</p>
+
+            <h2>Editing an article</h2>
+            <p>Click the <strong>Edit</strong> (pencil) button on any article card to open the same dialog pre-filled with the article's current data. Update the fields as needed and click <strong>Save</strong>. A new cover photo or additional attachments can be added; existing attachments can be removed individually using the delete icon next to each file in the upload list.</p>
+
+            <h2>Deleting an article</h2>
+            <p>Click the <strong>Delete</strong> (bin) button on any article card (admin only) to remove the article and all its associated files permanently.</p>
+
+            <h2>Downloading attachments</h2>
+            <p>In the <em>Attachments</em> section of each card, click the file name to download it directly. The file is streamed from the server and saved with its original filename.</p>
+
+            <h2>Guided tour</h2>
+            <p>Inside the Add/Edit dialog, click the <strong>Help</strong> (info) button in the footer to launch a step-by-step guided tour that explains each field.</p>
+          `
+        }
+        ]
+      },
+    ],
     children: [
       {
         id: 'repo-documents',
@@ -3083,322 +3280,170 @@ const allNavGroups: NavGroup[] = [
     ]
   },
   {
-    id: 'media',
-    label: 'Media',
-    icon: 'mdi:play-circle-outline',
-    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'grm', 'consultant', 'national_monitoring', 'county_admin'],
-    children: [
-      {
-        id: 'media-overview',
-        label: 'Overview',
-        content: `
-          <p>The <strong>Media</strong> module centralises multimedia content related to programme activities. It is divided into three sections:</p>
-          <table><thead><tr><th>Section</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Videos</strong></td><td>YouTube videos from the official KISIP channel, displayed in an embedded card grid.</td></tr>
-            <tr><td><strong>Live Streams</strong></td><td>Real-time WebRTC live streams initiated from field devices, viewable directly in the browser.</td></tr>
-            <tr><td><strong>Articles</strong></td><td>News articles, press releases and media coverage — each with a cover photo, description, external link and downloadable attachments.</td></tr>
-          </tbody></table>
-          <h2>Permissions</h2>
-          <p>All authenticated users can view media content. Adding, editing and deleting articles requires administrator or editor access (<code>showAdminButtons</code> permission). Live stream viewing is available to all authenticated users.</p>
-        `
-      },
-      {
-        id: 'media-videos',
-        label: 'Videos',
-        content: `
-          <p>The <strong>Videos</strong> page displays YouTube videos published on the official KISIP YouTube channel, fetched automatically via the YouTube Data API v3.</p>
-
-          <h2>Video listing</h2>
-          <img src="${videoListingImg}" alt="Video listing" class="docs-screenshot" />
-          <p>Videos are displayed in a responsive card grid (3 columns on desktop, 2 on tablet, 1 on mobile). Each card shows:</p>
-          <ul>
-            <li>An embedded YouTube player (inline preview, 200 px height)</li>
-            <li>The publication date and time</li>
-            <li>A <strong>View Video</strong> button</li>
-          </ul>
-          <p>Up to 100 most-recent videos are loaded per page, ordered by upload date (newest first).</p>
-
-          <h2>Viewing a video</h2>
-          <p>Clicking <strong>View Video</strong> opens a fullscreen dialog (900 px wide) with an embedded YouTube player at full height (600 px) with autoplay enabled. Close the dialog with the <strong>Close</strong> button or by clicking outside the dialog.</p>
-
-          <h2>Technical notes</h2>
-          <ul>
-            <li>Videos are sourced from a fixed YouTube channel ID configured in the system.</li>
-            <li>The YouTube API key is stored in the <code>VITE_APP_YOUTUBE_API</code> environment variable. If the key is missing or quota is exceeded, the grid will be empty and an error will appear in the browser console.</li>
-            <li>No video files are stored on the KeSMIS server — all playback is handled by YouTube's embedded player.</li>
-          </ul>
-        `
-      },
-      {
-        id: 'media-live',
-        label: 'Live Streams',
-        content: `
-          <p>The <strong>Live Streams</strong> page allows users to watch real-time video streams initiated from field devices (phones or cameras) via WebRTC technology. Streams are coordinated through the KeSMIS signaling server.</p>
-
-          <h2>Stream listing</h2>
-          <img src="${liveStreamImg}" alt="Live streams listing" class="docs-screenshot" />
-
-          <h2>Mobile view</h2>
-          <img src="${liveStreamMobile1Img}" alt="Live streams on mobile" class="docs-screenshot" />
-          <img src="${liveStreamMobile2Img}" alt="Live stream player on mobile" class="docs-screenshot" />
-
-          <h2>Connection workflow</h2>
-          <ol>
-            <li>The page automatically attempts to connect to the signaling server on load.</li>
-            <li>The connection status indicator in the top-right of the page shows <strong>CONNECTED</strong> (green) or <strong>DISCONNECTED</strong> (red).</li>
-            <li>If auto-connect fails, click the <strong>Connect to Server</strong> button manually.</li>
-            <li>Once connected, the stream list is populated automatically.</li>
-            <li>The list refreshes every <strong>30 seconds</strong> while no stream is being watched.</li>
-          </ol>
-
-          <h2>Stream listing columns</h2>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Streamer</strong></td><td>Name of the user broadcasting the stream.</td></tr>
-            <tr><td><strong>Location</strong></td><td>Ward, Sub-county and County of the stream origin.</td></tr>
-            <tr><td><strong>Start Time</strong></td><td>How long ago the stream started (e.g. "5m ago", "2h 10m ago"). Streams older than 24 hours show the full date.</td></tr>
-            <tr><td><strong>Stream ID</strong></td><td>Truncated unique identifier for the stream (first 8 characters shown).</td></tr>
-            <tr><td><strong>Status</strong></td><td>Current stream state — <em>LIVE</em> (green) for active streams.</td></tr>
-            <tr><td><strong>Actions</strong></td><td>A <strong>Watch</strong> button, enabled only when connected to the server.</td></tr>
-          </tbody></table>
-
-          <h2>Watching a stream</h2>
-          <img src="${liveStreamWatchImg}" alt="Live stream watch view" class="docs-screenshot" />
-          <ol>
-            <li>Ensure the status shows <strong>CONNECTED</strong>.</li>
-            <li>Click <strong>Watch</strong> on any active stream row.</li>
-            <li>A video dialog opens with the stream title, streamer name, and a live video player.</li>
-            <li>The player uses WebRTC — click the video area if it does not start automatically (required by some browsers as a user-gesture).</li>
-            <li>Click <strong>Close</strong> or the dialog X button to stop watching and release the WebRTC connection.</li>
-          </ol>
-
-          <h2>Refreshing streams</h2>
-          <p>Click the <strong>Refresh Streams</strong> button at any time to manually fetch the latest stream list from the signaling server. Auto-refresh is paused while a stream is being watched to avoid interrupting playback.</p>
-
-          <h2>Technical notes</h2>
-          <ul>
-            <li>The signaling server is proxied through <code>/stream</code> on the KeSMIS nginx server.</li>
-            <li>WebRTC requires a modern browser with WebRTC support (Chrome, Firefox, Edge, Safari 15+).</li>
-            <li>Streams are broadcast from the SlumMapper mobile app or compatible devices.</li>
-            <li>If the signaling server is unreachable, the stream list will be empty and an error will be shown.</li>
-          </ul>
-        `
-      },
-      {
-        id: 'media-articles',
-        label: 'Articles',
-        content: `
-          <p>The <strong>Articles</strong> section manages news articles, press releases, blog posts and media coverage related to the KISIP programme. Each article has a cover photo, summary description, an external link and optional downloadable attachments (e.g. newspaper cuttings, PDFs).</p>
-
-          <h2>Article listing</h2>
-          <img src="${articlesListingImg}" alt="Articles listing" class="docs-screenshot" />
-          <p>Articles are displayed in a responsive card grid (3 columns on desktop, 2 on tablet, 1 on mobile). Each card shows:</p>
-          <ul>
-            <li><strong>Title</strong> (truncated to 1 line in the card header; hover to see the full title in a popover)</li>
-            <li><strong>Cover photo</strong> (150 px tall; fetched from the document store)</li>
-            <li><strong>Description</strong> (truncated to 3 lines)</li>
-            <li><strong>Read Full Story</strong> link — opens the external article URL in a new tab</li>
-            <li><strong>Attachments</strong> — a list of downloadable files attached to the article (e.g. scanned newspaper cuttings)</li>
-            <li><strong>Edit</strong> and <strong>Delete</strong> action buttons (admin only)</li>
-          </ul>
-
-          <h2>Searching articles</h2>
-          <p>Use the search bar at the top to filter articles by title keyword. Type part of a title and the list updates automatically. Click the <strong>Filter (Clear)</strong> button to reset the search and reload all articles.</p>
-
-          <h2>Adding an article</h2>
-          <img src="${articlesAddImg}" alt="Add article dialog" class="docs-screenshot" />
-          <p>Click the <strong>+</strong> button (admin only) to open the two-step Add Article dialog:</p>
-          <h3>Step 1 — Details</h3>
-          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Article Title</strong></td><td>Yes</td><td>Full title of the article or press release.</td></tr>
-            <tr><td><strong>Type</strong></td><td>Yes</td><td>Media type — <em>TV</em>, <em>Article</em>, <em>Blog</em>, or <em>Newspaper</em>.</td></tr>
-            <tr><td><strong>Link</strong></td><td>No</td><td>URL to the full article online (e.g. newspaper website, blog post).</td></tr>
-          </tbody></table>
-          <h3>Step 2 — Media</h3>
-          <table><thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Description</strong></td><td>Yes</td><td>Summary or body text for the article.</td></tr>
-            <tr><td><strong>Cover Photo</strong></td><td>Yes</td><td>A single image file used as the card thumbnail. Accepted formats: any image type (JPEG, PNG, etc.). Limited to 1 file.</td></tr>
-            <tr><td><strong>Other Documents</strong></td><td>No</td><td>Additional attachments such as newspaper cuttings, PDFs or supporting files. Multiple files allowed.</td></tr>
-          </tbody></table>
-          <p>Click <strong>Submit</strong> to save the article. The record is created first, then the cover photo and other documents are uploaded and linked automatically.</p>
-
-          <h2>Editing an article</h2>
-          <p>Click the <strong>Edit</strong> (pencil) button on any article card to open the same dialog pre-filled with the article's current data. Update the fields as needed and click <strong>Save</strong>. A new cover photo or additional attachments can be added; existing attachments can be removed individually using the delete icon next to each file in the upload list.</p>
-
-          <h2>Deleting an article</h2>
-          <p>Click the <strong>Delete</strong> (bin) button on any article card (admin only) to remove the article and all its associated files permanently.</p>
-
-          <h2>Downloading attachments</h2>
-          <p>In the <em>Attachments</em> section of each card, click the file name to download it directly. The file is streamed from the server and saved with its original filename.</p>
-
-          <h2>Guided tour</h2>
-          <p>Inside the Add/Edit dialog, click the <strong>Help</strong> (info) button in the footer to launch a step-by-step guided tour that explains each field.</p>
-        `
-      }
-    ]
-  },
-  {
-    id: 'users',
-    label: 'Users & Access',
-    icon: 'mdi:shield-account-outline',
-    roles: ['root_admin', 'super_admin', 'admin'],
-    children: [
-      {
-        id: 'users-listing',
-        label: 'User Listing & Filtering',
-        content: `
-          <p>The <strong>Users</strong> section lists all system users and provides filtering, search, and export tools. Users are organised into sub-views accessible from the top navigation: <em>All</em>, <em>Admin</em>, <em>GRM</em>, <em>Support</em>, and <em>New Accounts</em>.</p>
-          <img src="${userListingImg}" alt="User listing" class="docs-screenshot" />
-
-          <h2>Location-level tabs (Admin &amp; GRM views)</h2>
-          <p>The <strong>Admin</strong> and <strong>GRM</strong> sub-views split users into three tabs by their assigned location level:</p>
-          <table><thead><tr><th>Tab</th><th>Who is shown</th><th>Visible to</th></tr></thead><tbody>
-            <tr><td><strong>National Level</strong></td><td>Users with a national-scope role assignment.</td><td>National admins, super admins, root admins only.</td></tr>
-            <tr><td><strong>County Level</strong></td><td>Users with a county-scope role assignment.</td><td>All admins; county admins see only users in their own county.</td></tr>
-            <tr><td><strong>Settlement Level</strong></td><td>Users with a settlement-scope role assignment.</td><td>All admins; county admins see only users in settlements within their county.</td></tr>
-          </tbody></table>
-          <blockquote>County-level administrators land on the <strong>County Level</strong> tab by default and cannot see the National Level tab. They have <strong>read-only</strong> access — the Operations column is hidden.</blockquote>
-
-          <h2>Table columns</h2>
-          <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>#</strong></td><td>Row number.</td></tr>
-            <tr><td><strong>Avatar</strong></td><td>User's profile photo.</td></tr>
-            <tr><td><strong>Name</strong></td><td>Full name of the user.</td></tr>
-            <tr><td><strong>Username</strong></td><td>Login username.</td></tr>
-            <tr><td><strong>Country</strong></td><td>Country of the user.</td></tr>
-            <tr><td><strong>Organization</strong></td><td>Organisation affiliation.</td></tr>
-            <tr><td><strong>County / Settlement</strong></td><td>Assigned county (County tab) or settlement name (Settlement tab).</td></tr>
-            <tr><td><strong>Last Login</strong></td><td>Date and time of the user's most recent login. Shows <em>Never</em> if the user has never logged in.</td></tr>
-            <tr><td><strong>Operations</strong></td><td>Activate/deactivate switch, Edit, Force Logout, and Reset Password actions (permission-gated). Hidden for county-restricted admins.</td></tr>
-          </tbody></table>
-
-          <h2>Filtering</h2>
-          <p>Use the filter bar above the table to narrow results:</p>
-          <ul>
-            <li><strong>Filter by County</strong> — multi-select dropdown; choose one or more counties to show only users assigned to those counties. Hidden for county-restricted admins (their county is pre-applied).</li>
-            <li><strong>Search by name, username, email or phone</strong> — remote search field; type to filter results in real time.</li>
-            <li><strong>Clear filters</strong> (Filter icon button) — resets all active filters and reloads the full list.</li>
-          </ul>
-
-          <h2>Pagination</h2>
-          <p>Results are paginated. Use the page size selector (5 / 10 / 20 / 50 / 100 per page) and the page navigation at the bottom of the table. Page changes respect any active filters.</p>
-
-          <h2>Exporting users</h2>
-          <p>Click the <strong>Download</strong> (arrow) button in the toolbar to export the current user list to an Excel (.xlsx) file. The export includes: Name, Email, Username, Phone, and County columns. A second <strong>Download All</strong> button exports all records without pagination limits.</p>
-        `
-      },
-      {
-        id: 'users-activation',
-        label: 'Activation & Deactivation',
-        content: `
-          <p>User accounts can be enabled or disabled without being deleted. This controls whether a user can log in to KeSMIS.</p>
-          <img src="${userActivationImg}" alt="User activation toggle" class="docs-screenshot" />
-
-          <h2>Toggling a user's status</h2>
-          <ol>
-            <li>Locate the user in the table.</li>
-            <li>In the <strong>Operations</strong> column, click the <strong>toggle switch</strong> next to the user's row.</li>
-            <li>The switch turns <em>green</em> for active accounts and <em>grey</em> for inactive ones.</li>
-            <li>A loading spinner appears on the switch while the change is being saved.</li>
-            <li>A success or error message confirms the outcome.</li>
-          </ol>
-
-          <h2>Permission required</h2>
-          <p>Only users with the <code>user:activate</code> permission can toggle the status. Users without this permission see a disabled (read-only) switch. Attempting to toggle without permission will show an error message.</p>
-
-          <h2>On mobile</h2>
-          <p>On small screens the Operations column is replaced by a dropdown menu (chevron icon). Expand it to access the activate/deactivate switch and the Edit action.</p>
-
-          <h2>Effect of deactivation</h2>
-          <p>Deactivated users cannot log in. Their data and history remain intact. Reactivating the account restores full access based on their assigned role.</p>
-        `
-      },
-      {
-        id: 'users-roles',
-        label: 'Rights & Role Allocation',
-        content: `
-          <p>KeSMIS uses <strong>role-based access control (RBAC)</strong>. Each role carries a set of permissions that determine what a user can see and do across all modules. The <strong>permission catalogue</strong> for each role is maintained under <strong>Admin &rarr; Roles</strong> in the app (see <strong>Admin &rarr; Roles</strong> in this documentation). The following explains how to <strong>assign</strong> a role and geographic scope to a user from <strong>Users &amp; Access</strong>.</p>
-          <img src="${userRolesImg}" alt="Roles and permissions" class="docs-screenshot" />
-
-          <h2>Allocating a role and location to a user</h2>
-          <p>Click the <strong>Edit</strong> (pencil) button on any user row to open the User Details dialog. This is where you assign both the user's <strong>role</strong> and their <strong>geographic scope</strong>. Each role assignment has three components: the role itself, the access level, and the specific location tied to that level.</p>
-
-          <h3>Dialog fields</h3>
-          <table><thead><tr><th>Field</th><th>Editable</th><th>Description</th></tr></thead><tbody>
-            <tr><td><strong>Name</strong></td><td>Yes</td><td>Full display name of the user.</td></tr>
-            <tr><td><strong>Email</strong></td><td>National / super / root admins only</td><td>Login email. Editable by national admins, super admins, and root admins. Read-only for county-level admins.</td></tr>
-            <tr><td><strong>Username</strong></td><td>No</td><td>System username — read-only after registration.</td></tr>
-            <tr><td><strong>Phone</strong></td><td>Yes</td><td>Contact phone number.</td></tr>
-            <tr><td><strong>Role</strong></td><td>Yes</td><td>The system role to assign (e.g. Admin, Staff, GRM).</td></tr>
-            <tr><td><strong>Level</strong></td><td>Yes</td><td>The geographic scope of the role — National, County, or Settlement. Controls which data the user can access under that role.</td></tr>
-            <tr><td><strong>County</strong></td><td>Yes</td><td>Required for County and Settlement levels. Disabled when Level is set to National.</td></tr>
-            <tr><td><strong>Settlement</strong></td><td>Yes</td><td>Required for Settlement level only. Disabled until a County is selected and Level is set to Settlement. Type to search by name.</td></tr>
-          </tbody></table>
-
-          <h3>Access levels explained</h3>
-          <table><thead><tr><th>Level</th><th>Scope</th><th>County required</th><th>Settlement required</th></tr></thead><tbody>
-            <tr><td><strong>National</strong></td><td>User can access data across all counties and settlements.</td><td>No</td><td>No</td></tr>
-            <tr><td><strong>County</strong></td><td>User is restricted to data within the selected county.</td><td>Yes</td><td>No</td></tr>
-            <tr><td><strong>Settlement</strong></td><td>User is restricted to data within a specific settlement inside the selected county.</td><td>Yes</td><td>Yes</td></tr>
-          </tbody></table>
-
-          <h3>How to assign a role</h3>
-          <ol>
-            <li>Select the <strong>Role</strong> from the dropdown in the roles table row.</li>
-            <li>Select the <strong>Level</strong> — National, County, or Settlement.</li>
-            <li>If County or Settlement level, choose the <strong>County</strong> from the dropdown.</li>
-            <li>If Settlement level, type in the <strong>Settlement</strong> field to search and select the specific settlement.</li>
-            <li>Click <strong>Confirm</strong> to save. The user's access updates immediately on their next page load.</li>
-          </ol>
-
-          <p><em>Note: County-level administrators can only assign roles within their own county and cannot grant National-level access. When viewing the Admin, GRM, Support, or New Accounts user lists, county admins have read-only access — the Operations column (edit, activate, force logout) is not shown.</em></p>
-
-          <h2>Standard built-in roles</h2>
-          <table><thead><tr><th>Role</th><th>Typical access level</th></tr></thead><tbody>
-            <tr><td><strong>Admin</strong></td><td>Manage users, settlements, data, and most modules.</td></tr>
-            <tr><td><strong>Staff</strong></td><td>Data entry and read access across core modules.</td></tr>
-            <tr><td><strong>Monitoring</strong></td><td>M&amp;E-focused access — indicators, reports, beneficiaries.</td></tr>
-            <tr><td><strong>GRM</strong></td><td>Grievance intake, updates, resolution workflow.</td></tr>
-            <tr><td><strong>GBV</strong></td><td>Restricted access to GBV case records only.</td></tr>
-            <tr><td><strong>Consultant</strong></td><td>Read-only access across most modules.</td></tr>
-            <tr><td><strong>Support</strong></td><td>Technical support; limited admin tools.</td></tr>
-          </tbody></table>
-        `
-      },
-      {
-        id: 'users-reset-password',
-        label: 'Reset Password',
-        content: `
-          <p>Administrators can trigger a password reset for any user directly from the user listing. The reset sends instructions to the user's registered email or phone number.</p>
-          <img src="${userResetPasswordImg}" alt="Reset password" class="docs-screenshot" />
-
-          <h2>How to reset a user's password</h2>
-          <ol>
-            <li>Locate the user in any user listing view (All, Admin, GRM, Support, etc.).</li>
-            <li>In the <strong>Operations</strong> column, click the <strong>Reset Password</strong> button (key icon).</li>
-            <li>A loading spinner appears on the button while the request is being processed.</li>
-            <li>A success message confirms that reset instructions have been sent.</li>
-          </ol>
-
-          <h2>How the reset is delivered</h2>
-          <ul>
-            <li>If the user has an <strong>email</strong> address on file, reset instructions are sent to that email.</li>
-            <li>If no email is recorded but a <strong>phone number</strong> is available, the reset is sent via SMS.</li>
-            <li>The button is disabled if the user has neither an email nor a phone number on record.</li>
-          </ul>
-
-          <h2>Permission required</h2>
-          <p>Only users with the <code>user:reset_password</code> permission can trigger a reset. The button is hidden or disabled for users without this permission.</p>
-
-          <h2>On mobile</h2>
-          <p>On small screens the reset option is listed inside the row's dropdown menu (chevron icon) alongside Edit and Activate actions.</p>
-        `
-      }
-    ]
-  },
-  {
     id: 'admin',
     label: 'Admin',
     icon: 'mdi:shield-crown-outline',
+    subgroups: [
+      {
+        id: 'users',
+        label: 'Users',
+        icon: 'mdi:shield-account-outline',
+        roles: ['root_admin', 'super_admin', 'admin'],
+        children: [
+        {
+          id: 'users-listing',
+          label: 'User Listing & Filtering',
+          content: `
+            <p>The <strong>Users</strong> section lists all system users and provides filtering, search, and export tools. It sits under <strong>Admin &rarr; Users</strong> in the sidebar, with sub-views for <em>All</em>, <em>Admin</em>, <em>Super Admins</em>, <em>GRM</em>, <em>Support</em> and <em>New Accounts</em>.</p>
+            <img src="${userListingImg}" alt="User listing" class="docs-screenshot" />
+
+            <h2>Location-level tabs (Admin &amp; GRM views)</h2>
+            <p>The <strong>Admin</strong> and <strong>GRM</strong> sub-views split users into three tabs by their assigned location level:</p>
+            <table><thead><tr><th>Tab</th><th>Who is shown</th><th>Visible to</th></tr></thead><tbody>
+              <tr><td><strong>National Level</strong></td><td>Users with a national-scope role assignment.</td><td>National admins, super admins, root admins only.</td></tr>
+              <tr><td><strong>County Level</strong></td><td>Users with a county-scope role assignment.</td><td>All admins; county admins see only users in their own county.</td></tr>
+              <tr><td><strong>Settlement Level</strong></td><td>Users with a settlement-scope role assignment.</td><td>All admins; county admins see only users in settlements within their county.</td></tr>
+            </tbody></table>
+            <blockquote>County-level administrators land on the <strong>County Level</strong> tab by default and cannot see the National Level tab. They have <strong>read-only</strong> access — the Operations column is hidden.</blockquote>
+
+            <h2>Table columns</h2>
+            <table><thead><tr><th>Column</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>#</strong></td><td>Row number.</td></tr>
+              <tr><td><strong>Avatar</strong></td><td>User's profile photo.</td></tr>
+              <tr><td><strong>Name</strong></td><td>Full name of the user.</td></tr>
+              <tr><td><strong>Username</strong></td><td>Login username.</td></tr>
+              <tr><td><strong>Country</strong></td><td>Country of the user.</td></tr>
+              <tr><td><strong>Organization</strong></td><td>Organisation affiliation.</td></tr>
+              <tr><td><strong>County / Settlement</strong></td><td>Assigned county (County tab) or settlement name (Settlement tab).</td></tr>
+              <tr><td><strong>Last Login</strong></td><td>Date and time of the user's most recent login. Shows <em>Never</em> if the user has never logged in.</td></tr>
+              <tr><td><strong>Operations</strong></td><td>Activate/deactivate switch, Edit, Force Logout, and Reset Password actions (permission-gated). Hidden for county-restricted admins.</td></tr>
+            </tbody></table>
+
+            <h2>Filtering</h2>
+            <p>Use the filter bar above the table to narrow results:</p>
+            <ul>
+              <li><strong>Filter by County</strong> — multi-select dropdown; choose one or more counties to show only users assigned to those counties. Hidden for county-restricted admins (their county is pre-applied).</li>
+              <li><strong>Search by name, username, email or phone</strong> — remote search field; type to filter results in real time.</li>
+              <li><strong>Clear filters</strong> (Filter icon button) — resets all active filters and reloads the full list.</li>
+            </ul>
+
+            <h2>Pagination</h2>
+            <p>Results are paginated. Use the page size selector (5 / 10 / 20 / 50 / 100 per page) and the page navigation at the bottom of the table. Page changes respect any active filters.</p>
+
+            <h2>Exporting users</h2>
+            <p>Click the <strong>Download</strong> (arrow) button in the toolbar to export the current user list to an Excel (.xlsx) file. The export includes: Name, Email, Username, Phone, and County columns. A second <strong>Download All</strong> button exports all records without pagination limits.</p>
+          `
+        },
+        {
+          id: 'users-activation',
+          label: 'Activation & Deactivation',
+          content: `
+            <p>User accounts can be enabled or disabled without being deleted. This controls whether a user can log in to KeSMIS.</p>
+            <img src="${userActivationImg}" alt="User activation toggle" class="docs-screenshot" />
+
+            <h2>Toggling a user's status</h2>
+            <ol>
+              <li>Locate the user in the table.</li>
+              <li>In the <strong>Operations</strong> column, click the <strong>toggle switch</strong> next to the user's row.</li>
+              <li>The switch turns <em>green</em> for active accounts and <em>grey</em> for inactive ones.</li>
+              <li>A loading spinner appears on the switch while the change is being saved.</li>
+              <li>A success or error message confirms the outcome.</li>
+            </ol>
+
+            <h2>Permission required</h2>
+            <p>Only users with the <code>user:activate</code> permission can toggle the status. Users without this permission see a disabled (read-only) switch. Attempting to toggle without permission will show an error message.</p>
+
+            <h2>On mobile</h2>
+            <p>On small screens the Operations column is replaced by a dropdown menu (chevron icon). Expand it to access the activate/deactivate switch and the Edit action.</p>
+
+            <h2>Effect of deactivation</h2>
+            <p>Deactivated users cannot log in. Their data and history remain intact. Reactivating the account restores full access based on their assigned role.</p>
+          `
+        },
+        {
+          id: 'users-roles',
+          label: 'Rights & Role Allocation',
+          content: `
+            <p>KeSMIS uses <strong>role-based access control (RBAC)</strong>. Each role carries a set of permissions that determine what a user can see and do across all modules. The <strong>permission catalogue</strong> for each role is maintained under <strong>Admin &rarr; Roles</strong> in the app (see <strong>Admin &rarr; Roles</strong> in this documentation). The following explains how to <strong>assign</strong> a role and geographic scope to a user from <strong>Users &amp; Access</strong>.</p>
+            <img src="${userRolesImg}" alt="Roles and permissions" class="docs-screenshot" />
+
+            <h2>Allocating a role and location to a user</h2>
+            <p>Click the <strong>Edit</strong> (pencil) button on any user row to open the User Details dialog. This is where you assign both the user's <strong>role</strong> and their <strong>geographic scope</strong>. Each role assignment has three components: the role itself, the access level, and the specific location tied to that level.</p>
+
+            <h3>Dialog fields</h3>
+            <table><thead><tr><th>Field</th><th>Editable</th><th>Description</th></tr></thead><tbody>
+              <tr><td><strong>Name</strong></td><td>Yes</td><td>Full display name of the user.</td></tr>
+              <tr><td><strong>Email</strong></td><td>National / super / root admins only</td><td>Login email. Editable by national admins, super admins, and root admins. Read-only for county-level admins.</td></tr>
+              <tr><td><strong>Username</strong></td><td>No</td><td>System username — read-only after registration.</td></tr>
+              <tr><td><strong>Phone</strong></td><td>Yes</td><td>Contact phone number.</td></tr>
+              <tr><td><strong>Role</strong></td><td>Yes</td><td>The system role to assign (e.g. Admin, Staff, GRM).</td></tr>
+              <tr><td><strong>Level</strong></td><td>Yes</td><td>The geographic scope of the role — National, County, or Settlement. Controls which data the user can access under that role.</td></tr>
+              <tr><td><strong>County</strong></td><td>Yes</td><td>Required for County and Settlement levels. Disabled when Level is set to National.</td></tr>
+              <tr><td><strong>Settlement</strong></td><td>Yes</td><td>Required for Settlement level only. Disabled until a County is selected and Level is set to Settlement. Type to search by name.</td></tr>
+            </tbody></table>
+
+            <h3>Access levels explained</h3>
+            <table><thead><tr><th>Level</th><th>Scope</th><th>County required</th><th>Settlement required</th></tr></thead><tbody>
+              <tr><td><strong>National</strong></td><td>User can access data across all counties and settlements.</td><td>No</td><td>No</td></tr>
+              <tr><td><strong>County</strong></td><td>User is restricted to data within the selected county.</td><td>Yes</td><td>No</td></tr>
+              <tr><td><strong>Settlement</strong></td><td>User is restricted to data within a specific settlement inside the selected county.</td><td>Yes</td><td>Yes</td></tr>
+            </tbody></table>
+
+            <h3>How to assign a role</h3>
+            <ol>
+              <li>Select the <strong>Role</strong> from the dropdown in the roles table row.</li>
+              <li>Select the <strong>Level</strong> — National, County, or Settlement.</li>
+              <li>If County or Settlement level, choose the <strong>County</strong> from the dropdown.</li>
+              <li>If Settlement level, type in the <strong>Settlement</strong> field to search and select the specific settlement.</li>
+              <li>Click <strong>Confirm</strong> to save. The user's access updates immediately on their next page load.</li>
+            </ol>
+
+            <p><em>Note: County-level administrators can only assign roles within their own county and cannot grant National-level access. When viewing the Admin, GRM, Support, or New Accounts user lists, county admins have read-only access — the Operations column (edit, activate, force logout) is not shown.</em></p>
+
+            <h2>Standard built-in roles</h2>
+            <table><thead><tr><th>Role</th><th>Typical access level</th></tr></thead><tbody>
+              <tr><td><strong>Admin</strong></td><td>Manage users, settlements, data, and most modules.</td></tr>
+              <tr><td><strong>Staff</strong></td><td>Data entry and read access across core modules.</td></tr>
+              <tr><td><strong>Monitoring</strong></td><td>M&amp;E-focused access — indicators, reports, beneficiaries.</td></tr>
+              <tr><td><strong>GRM</strong></td><td>Grievance intake, updates, resolution workflow.</td></tr>
+              <tr><td><strong>GBV</strong></td><td>Restricted access to GBV case records only.</td></tr>
+              <tr><td><strong>Consultant</strong></td><td>Read-only access across most modules.</td></tr>
+              <tr><td><strong>Support</strong></td><td>Technical support; limited admin tools.</td></tr>
+            </tbody></table>
+          `
+        },
+        {
+          id: 'users-reset-password',
+          label: 'Reset Password',
+          content: `
+            <p>Administrators can trigger a password reset for any user directly from the user listing. The reset sends instructions to the user's registered email or phone number.</p>
+            <img src="${userResetPasswordImg}" alt="Reset password" class="docs-screenshot" />
+
+            <h2>How to reset a user's password</h2>
+            <ol>
+              <li>Locate the user in any user listing view (All, Admin, GRM, Support, etc.).</li>
+              <li>In the <strong>Operations</strong> column, click the <strong>Reset Password</strong> button (key icon).</li>
+              <li>A loading spinner appears on the button while the request is being processed.</li>
+              <li>A success message confirms that reset instructions have been sent.</li>
+            </ol>
+
+            <h2>How the reset is delivered</h2>
+            <ul>
+              <li>If the user has an <strong>email</strong> address on file, reset instructions are sent to that email.</li>
+              <li>If no email is recorded but a <strong>phone number</strong> is available, the reset is sent via SMS.</li>
+              <li>The button is disabled if the user has neither an email nor a phone number on record.</li>
+            </ul>
+
+            <h2>Permission required</h2>
+            <p>Only users with the <code>user:reset_password</code> permission can trigger a reset. The button is hidden or disabled for users without this permission.</p>
+
+            <h2>On mobile</h2>
+            <p>On small screens the reset option is listed inside the row's dropdown menu (chevron icon) alongside Edit and Activate actions.</p>
+          `
+        }
+        ]
+      },
+    ],
     children: [
       {
         id: 'admin-roles',
@@ -3560,6 +3605,143 @@ const allNavGroups: NavGroup[] = [
     ]
   },
   {
+    id: 'ai',
+    label: 'Document AI',
+    icon: 'mdi:robot-outline',
+    roles: ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring', 'consultant', 'county_admin'],
+    children: [
+      {
+        id: 'ai-assistant',
+        label: 'Asking Questions',
+        content: `
+          <p>The <strong>Document AI assistant</strong> answers questions from the documents held in KeSMIS. Open it from the robot icon in the header; it slides out as a panel on the right and stays available while you work. Every answer cites the documents it came from, and you can widen the panel with the expand button when an answer contains a table.</p>
+
+          <blockquote>The assistant only uses indexed KeSMIS documents. It does not answer from general knowledge, and it says so plainly when the documents do not cover your question.</blockquote>
+
+          <h2>What it can answer</h2>
+          <table><thead><tr><th>Kind of question</th><th>Example</th><th>How it answers</th></tr></thead><tbody>
+            <tr><td><strong>About content</strong></td><td>&ldquo;Socio-economic summary of Sabaki-Tuffoam&rdquo;</td><td>Finds the relevant passages and summarises them, citing each document</td></tr>
+            <tr><td><strong>Lists of documents</strong></td><td>&ldquo;List the county slum upgrading strategies that are indexed&rdquo;</td><td>Returns the matching documents from the index catalogue</td></tr>
+            <tr><td><strong>Counts of records</strong></td><td>&ldquo;How many settlements are in the register?&rdquo;</td><td>Counts the register itself, with a breakdown by status and type</td></tr>
+            <tr><td><strong>Most recent upload</strong></td><td>&ldquo;What is the latest document?&rdquo;</td><td>Looks up the newest indexed document rather than searching text</td></tr>
+          </tbody></table>
+
+          <h2>Spelling does not have to be exact</h2>
+          <p>Misspelled place names are matched against the words that actually appear in the documents, so <em>&ldquo;socio-economci summary of kichecko&rdquo;</em> finds Kicheko. When a word is corrected, the answer shows what was searched for, in the same way a search engine reports &ldquo;showing results for&hellip;&rdquo;.</p>
+
+          <h2>How passages are found</h2>
+          <p>Three searches run together and their results are merged, which is what makes a specific place name reliable to look up:</p>
+          <ul>
+            <li><strong>Meaning</strong> &mdash; finds passages about the same subject even when they use different words</li>
+            <li><strong>Exact phrase</strong> &mdash; finds passages containing your words as written</li>
+            <li><strong>Distinctive words</strong> &mdash; weights rare words such as a settlement name far above common ones, so a document that merely mentions &ldquo;economic&rdquo; cannot outrank the one that names your settlement</li>
+          </ul>
+          <p>A note under an answer tells you when only word matching was available, which means the answer may be less complete than usual.</p>
+
+          <h2>Choosing a provider and model</h2>
+          <p>The picker at the top of the panel lists the services an administrator has made available, with their models newest first. Leave it alone to use the server default. An administrator controls this list under <strong>Settings &rarr; Platform &rarr; AI Settings &rarr; Providers</strong>.</p>
+
+          <h2>Sources and history</h2>
+          <ul>
+            <li><strong>Sources</strong> &mdash; expand the sources line under an answer to see each document, how many passages were used and a preview</li>
+            <li><strong>Conversation</strong> &mdash; the assistant remembers recent turns in the thread, so follow-up questions such as &ldquo;and in Machakos?&rdquo; make sense. Clearing the thread forgets them</li>
+          </ul>
+        `
+      },
+      {
+        id: 'ai-index',
+        label: 'Indexed Documents',
+        content: `
+          <p><strong>Repository &rarr; AI Index</strong> lists every document the assistant can search. Use it to check whether a document has been read, and to re-read one after it changes.</p>
+
+          <h2>What the table shows</h2>
+          <table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>Document</strong></td><td>Filename as indexed</td></tr>
+            <tr><td><strong>Source</strong></td><td><em>Upload</em> for a file added in KeSMIS, <em>Folder</em> for a file indexed from disk, <em>Record</em> for a database row</td></tr>
+            <tr><td><strong>Type</strong> / <strong>Size</strong></td><td>File extension and size</td></tr>
+            <tr><td><strong>Chunks</strong></td><td>How many passages the document was split into. A larger document yields more passages</td></tr>
+            <tr><td><strong>Indexed</strong></td><td>When it was last read</td></tr>
+          </tbody></table>
+
+          <h2>Re-reading a document</h2>
+          <p>The actions menu on each row offers <strong>Reindex</strong>, which re-reads that document and replaces its passages. Use it after a file has been corrected or replaced. Records are re-indexed automatically whenever they are saved, so they have no button.</p>
+          <p>The header offers <strong>Index new uploads</strong> for documents not yet read, and <strong>Re-index all uploads</strong> under the arrow for a full pass. Both run in the background; press Refresh after a moment to see the result.</p>
+
+          <blockquote>A document whose file is missing from the server cannot be re-read. The reindex reports &ldquo;File not found&rdquo; rather than failing silently.</blockquote>
+        `
+      },
+      {
+        id: 'ai-what-is-indexed',
+        label: 'What Gets Indexed',
+        content: `
+          <p>Indexing has two parts: the text is extracted and split into passages, then each passage is turned into a numerical form that makes searching by meaning possible. A document is searchable by words as soon as its text is read; searching by meaning needs the second step as well.</p>
+
+          <h2>File types</h2>
+          <table><thead><tr><th>Type</th><th>Indexed</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>PDF, DOCX</td><td>Yes</td><td>The bulk of the register</td></tr>
+            <tr><td>CSV, TSV</td><td>Yes</td><td>Each row is kept with its column names</td></tr>
+            <tr><td>TXT, MD, JSON, XML, HTML, LOG</td><td>Yes</td><td>Read as plain text</td></tr>
+            <tr><td><strong>ZIP archives</strong></td><td>Yes</td><td>Supported files inside are read and cited by their path within the archive</td></tr>
+            <tr><td>Images (JPG, PNG, TIF)</td><td>No</td><td>Would need text recognition</td></tr>
+            <tr><td>XLSX, XLS, DOC, DWG</td><td>No</td><td>Not yet supported</td></tr>
+            <tr><td>GeoJSON, shapefiles</td><td>No</td><td>Coordinates make poor search text</td></tr>
+          </tbody></table>
+
+          <h2>Archives</h2>
+          <p>Bundled reports are common in the register, so archives are opened and their contents indexed. An answer drawn from inside one cites the file within the archive, for example <em>Approved Strategies/Turkana/Turkana Slum Upgrading Strategy.pdf</em>, so provenance survives the bundling.</p>
+          <p>Limits keep one bad archive from disrupting a run: at most 60 files per archive, 40&nbsp;MB per file and 200&nbsp;MB in total, archives inside archives are not opened, and a file that cannot be read is skipped while the rest are indexed.</p>
+          <p>An archive holding only shapefiles, drawings or photographs is reported as <strong>No text extracted</strong>. That is the expected outcome, not a failure &mdash; roughly half of the archives in the register are of this kind.</p>
+
+          <h2>Why a document might not be searchable</h2>
+          <ul>
+            <li><strong>Unsupported file type</strong> &mdash; see the table above</li>
+            <li><strong>No text extracted</strong> &mdash; a scanned PDF with no text layer, or an archive with no readable members</li>
+            <li><strong>Keyword only</strong> &mdash; the text was read but the meaning step did not finish; the document is still findable by its words. An administrator can complete it without re-reading the file</li>
+          </ul>
+        `
+      },
+      {
+        id: 'ai-settings-page',
+        label: 'AI Settings',
+        content: `
+          <p><strong>Settings &rarr; Platform &rarr; AI Settings</strong> controls the assistant. Changes apply immediately &mdash; no restart &mdash; and every setting falls back to a server default until you override it, with a <strong>Reset</strong> link to return to that default.</p>
+
+          <h2>Tabs</h2>
+          <table><thead><tr><th>Tab</th><th>What it covers</th></tr></thead><tbody>
+            <tr><td><strong>Status</strong></td><td>Read-only health: whether the vector database is reachable, whether the chat and embedding services answer, and how large the index is</td></tr>
+            <tr><td><strong>Providers</strong></td><td>Tick the services users may choose from, and store each provider&apos;s API key</td></tr>
+            <tr><td><strong>Chat</strong></td><td>The default service and model, answer length, timeout and context size</td></tr>
+            <tr><td><strong>Embeddings</strong></td><td>Which service turns text into searchable form. Changing these requires a reindex</td></tr>
+            <tr><td><strong>Retrieval</strong></td><td>How many passages an answer is built from, and the similarity floor</td></tr>
+            <tr><td><strong>Indexing</strong></td><td>How documents are split into passages</td></tr>
+            <tr><td><strong>General</strong></td><td>Turns the assistant and all indexing off</td></tr>
+          </tbody></table>
+
+          <h2>Providers and keys</h2>
+          <p>A provider that is not ticked is refused even if a request names it directly, so unticking one removes it for everyone. A provider the server holds no key for cannot be ticked.</p>
+          <p>Keys are entered under <strong>API keys</strong> on the same tab. A key is encrypted before it is stored and is never shown again &mdash; only a masked hint such as <code>sk-p&hellip;lZYA</code>. Leaving a field empty keeps whatever key the server environment provides.</p>
+          <ul>
+            <li><strong>Save key</strong> &mdash; store a new key, replacing any current one</li>
+            <li><strong>Use OPENAI_API_KEY</strong> &mdash; discard the stored key and fall back to the server environment</li>
+            <li><strong>Revoke</strong> &mdash; clear the key <em>and</em> ignore the environment one, taking the provider out of service until a new key is saved. Revoking here does not invalidate the key at the provider; delete it there as well</li>
+          </ul>
+
+          <h2>Settings worth understanding</h2>
+          <table><thead><tr><th>Setting</th><th>Why it matters</th></tr></thead><tbody>
+            <tr><td><strong>Max answer tokens</strong></td><td>Reasoning models spend this budget thinking as well as writing. Too low and a long answer comes back empty; around 4,096 is a safe floor</td></tr>
+            <tr><td><strong>Embedding model and dimensions</strong></td><td>Must match each other. A mismatch disables search by meaning and falls back to word matching</td></tr>
+            <tr><td><strong>Chunks per question</strong></td><td>More passages give a fuller answer and a slower, costlier one</td></tr>
+            <tr><td><strong>Maximum context characters</strong></td><td>Caps the text sent with a question. Raising the context window alone achieves nothing if this still trims it</td></tr>
+            <tr><td><strong>Chunk size and overlap</strong></td><td>Applies to documents indexed from now on; existing passages are unchanged until reindexed</td></tr>
+          </tbody></table>
+
+          <h2>Index maintenance</h2>
+          <p>At the foot of the page, <strong>Index new documents</strong> reads anything not yet indexed and <strong>Reindex all</strong> re-reads everything. Both run in the background. Reindex after changing the embedding model or dimensions, otherwise existing passages no longer match and searches quietly fall back to word matching.</p>
+        `
+      }
+    ]
+  },
+  {
     id: 'settings',
     label: 'Settings',
     icon: 'mdi:cog-outline',
@@ -3606,6 +3788,34 @@ const allNavGroups: NavGroup[] = [
 
           <h2>Saving changes</h2>
           <p>After adjusting toggles across any tab, click <strong>Save All Changes</strong> to persist the configuration. Click <strong>Refresh</strong> to reload the current saved state and discard unsaved changes.</p>
+        `
+      },
+      {
+        id: 'settings-settlement-types',
+        label: 'Settlement Types',
+        content: `
+          <p><strong>Settings &rarr; Platform &rarr; Settlement Types</strong> holds the list behind every settlement type picker in KeSMIS &mdash; on the web, on the settlement forms and in SlumMapper. Before this screen existed each form carried its own hardcoded list, and they had drifted apart: the same field was being saved as <code>1</code>, as <code>slum</code> and as <code>Slum</code> depending on where it was edited.</p>
+
+          <h2>The table</h2>
+          <table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>Type</strong></td><td>The label shown in pickers, and the value stored on a settlement</td></tr>
+            <tr><td><strong>Code</strong></td><td>A stable identifier used internally, so renaming a label does not break reports</td></tr>
+            <tr><td><strong>Settlements</strong></td><td>How many settlements currently use the type</td></tr>
+            <tr><td><strong>Offered</strong></td><td>Whether it appears in pickers</td></tr>
+          </tbody></table>
+
+          <h2>Adding and editing</h2>
+          <ul>
+            <li><strong>Add type</strong> &mdash; a label and an optional note. Duplicate labels are rejected</li>
+            <li><strong>Edit</strong> &mdash; renaming a type <em>also renames it on every settlement using it</em>, in one operation. The dialog states how many settlements will change before you confirm</li>
+            <li><strong>Deactivate</strong> &mdash; retires a type: settlements keep it, but nobody can choose it again. This is the right way to phase one out</li>
+            <li><strong>Remove</strong> &mdash; only offered for a type no settlement uses. The server refuses to delete one in use rather than leaving settlements with a blank type</li>
+          </ul>
+
+          <blockquote>SlumMapper takes this list from the server and caches it, so a new type reaches the mobile app on its next sync. A phone that has never synced cannot create settlements until it does, because the app no longer carries a built-in list of its own.</blockquote>
+
+          <h2>Values written by older versions</h2>
+          <p>Mobile builds already installed in the field may still send older spellings. The server folds those onto the canonical label as they arrive, so <code>slum</code> is stored as <strong>Slum</strong>. A value it does not recognise is kept as sent rather than guessed at, and shows up here as an inactive type for you to decide about.</p>
         `
       },
       {
