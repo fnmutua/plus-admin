@@ -653,7 +653,7 @@ const getUserUnreadCount = (userId: string) => {
       <div class="drawer-header">
         <div class="header-left">
           <div class="conversation-info">
-            <Icon :icon="activeConversationInfo.icon" width="18" color="var(--el-text-color-primary)" />
+            <Icon :icon="activeConversationInfo.icon" :size="18" color="var(--el-text-color-primary)" />
             <span class="conversation-title">{{ activeConversationInfo.title }}</span>
           </div>
         </div>
@@ -664,13 +664,13 @@ const getUserUnreadCount = (userId: string) => {
             v-if="unreadCount > 0" 
             class="unread-indicator"
           >
-            <Icon icon="material-symbols:mark-email-unread" width="16" color="#f56c6c" />
+            <Icon icon="material-symbols:mark-email-unread" :size="16" color="#f56c6c" />
             <span class="unread-count">{{ unreadCount }}</span>
           </div>
           
           <!-- Online Users Button -->
           <div class="online-users-btn" @click="showUsersSidebar = !showUsersSidebar">
-            <Icon icon="material-symbols:people" width="18" />
+            <Icon icon="material-symbols:people" :size="18" />
             <div class="online-avatars">
               <el-avatar 
                 v-for="user in onlineUsers.slice(0, 3)" 
@@ -692,17 +692,17 @@ const getUserUnreadCount = (userId: string) => {
             :content="`Reconnecting... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`" 
             placement="bottom"
           >
-            <Icon icon="material-symbols:sync" width="16" color="#e6a23c" class="rotating" />
+            <Icon icon="material-symbols:sync" :size="16" color="#e6a23c" class="rotating" />
           </el-tooltip>
           <el-tooltip 
             v-else-if="!isConnected" 
             :content="connectionError || 'Disconnected'" 
             placement="bottom"
           >
-            <Icon icon="material-symbols:wifi-off" width="16" color="#f56c6c" />
+            <Icon icon="material-symbols:wifi-off" :size="16" color="#f56c6c" />
           </el-tooltip>
           <el-tooltip v-else content="Connected" placement="bottom">
-            <Icon icon="material-symbols:wifi" width="16" color="#67c23a" />
+            <Icon icon="material-symbols:wifi" :size="16" color="#67c23a" />
           </el-tooltip>
         </div>
       </div>
@@ -717,7 +717,7 @@ const getUserUnreadCount = (userId: string) => {
         <div class="sidebar-header">
           <h3>Online Users</h3>
           <el-button @click="showUsersSidebar = false" type="text" size="small">
-            <Icon icon="material-symbols:close" width="16" />
+            <Icon icon="material-symbols:close" :size="16" />
           </el-button>
         </div>
         
@@ -777,11 +777,11 @@ const getUserUnreadCount = (userId: string) => {
         <!-- Messages -->
         <div ref="chatContainer" class="chat-messages" @scroll="markMessagesAsRead">
           <div v-if="!activeConversation" class="no-messages">
-            <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
+            <Icon icon="material-symbols:chat-bubble-outline" :size="48" color="var(--el-text-color-placeholder)" />
             <p>Select a user from the sidebar to start chatting</p>
           </div>
           <div v-else-if="filteredMessages.length === 0" class="no-messages">
-            <Icon icon="material-symbols:chat-bubble-outline" width="48" color="var(--el-text-color-placeholder)" />
+            <Icon icon="material-symbols:chat-bubble-outline" :size="48" color="var(--el-text-color-placeholder)" />
             <p>No messages with this user yet. Start the conversation!</p>
           </div>
           
@@ -812,14 +812,14 @@ const getUserUnreadCount = (userId: string) => {
                     <Icon 
                       v-if="message.isRead" 
                       icon="material-symbols:done-all" 
-                      width="16" 
+                      :size="16" 
                       color="#409eff" 
                       class="status-icon read"
                     />
                     <Icon 
                       v-else 
                       icon="material-symbols:done-all" 
-                      width="16" 
+                      :size="16" 
                       color="#909399" 
                       class="status-icon"
                     />
@@ -848,7 +848,7 @@ const getUserUnreadCount = (userId: string) => {
               :disabled="!currentMessage.trim() || !activeConversation"
               class="send-button"
             >
-              <Icon icon="material-symbols:send" width="16" />
+              <Icon icon="material-symbols:send" :size="16" />
             </el-button>
           </div>
         </div>

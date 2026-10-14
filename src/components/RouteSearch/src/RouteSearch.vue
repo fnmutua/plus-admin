@@ -111,11 +111,11 @@ onBeforeUnmount(() => {
       title="Search pages"
       @click="openSearch"
     >
-      <Icon icon="mdi:magnify" width="18" height="18" />
+      <Icon icon="mdi:magnify" :size="20" />
     </button>
 
     <div v-else class="route-search__field">
-      <Icon icon="mdi:magnify" width="16" height="16" class="route-search__icon" />
+      <Icon icon="mdi:magnify" :size="16" class="route-search__icon" />
       <input
         ref="inputRef"
         v-model="query"
@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
             @mouseenter="activeIndex = index"
             @mousedown.prevent="go(item)"
           >
-            <Icon :icon="item.icon || 'mdi:file-outline'" width="16" height="16" />
+            <Icon :icon="item.icon || 'mdi:file-outline'" :size="16" />
             <span class="route-search__result-text">
               <span class="route-search__result-title">{{ item.title }}</span>
               <span v-if="item.trail.length" class="route-search__result-trail">
@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="isMobile && open" class="route-search-sheet" role="dialog" aria-label="Search pages">
         <div class="route-search-sheet__bar">
-          <Icon icon="mdi:magnify" width="20" height="20" class="route-search__icon" />
+          <Icon icon="mdi:magnify" :size="20" class="route-search__icon" />
           <input
             ref="mobileInputRef"
             v-model="query"
@@ -192,14 +192,14 @@ onBeforeUnmount(() => {
             @keydown.esc="closeSearch"
           />
           <button type="button" class="route-search-sheet__close" aria-label="Close search" @click="closeSearch">
-            <Icon icon="mdi:close" width="20" height="20" />
+            <Icon icon="mdi:close" :size="20" />
           </button>
         </div>
 
         <ul v-if="results.length" class="route-search-sheet__results" role="listbox">
           <li v-for="item in results" :key="item.path" role="option" :aria-selected="false">
             <button type="button" class="route-search-sheet__result" @click="go(item)">
-              <Icon :icon="item.icon || 'mdi:file-outline'" width="20" height="20" />
+              <Icon :icon="item.icon || 'mdi:file-outline'" :size="20" />
               <span class="route-search__result-text">
                 <span class="route-search-sheet__title">{{ item.title }}</span>
                 <span class="route-search__result-trail">
