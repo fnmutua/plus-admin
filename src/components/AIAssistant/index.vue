@@ -220,11 +220,13 @@ const render = (raw: string) => {
       i -= 1
 
       out.push(
-        '<table class="answer-table"><thead><tr>'
+        '<div class="answer-table-wrap">'
+        + '<button type="button" class="table-download">Download CSV</button>'
+        + '<table class="answer-table"><thead><tr>'
         + header.map((cell) => `<th>${inline(cell)}</th>`).join('')
         + '</tr></thead><tbody>'
         + body.map((row) => `<tr>${row.map((cell) => `<td>${inline(cell)}</td>`).join('')}</tr>`).join('')
-        + '</tbody></table>'
+        + '</tbody></table></div>'
       )
       continue
     }
@@ -250,6 +252,40 @@ const render = (raw: string) => {
 
   return out.join('')
     .replace(/\u0000PRE([A-Za-z0-9+/=]+)\u0000/g, (_m, code) => `<pre><code>${decodeURIComponent(escape(atob(code)))}</code></pre>`)
+}
+
+/** One CSV field. A line break inside a cell (a stacked list) stays in that field. */
+const csvField = (value: string) => {
+  const text = value.replace(/\s*\n\s*/g, '; ').replace(/[ \t]+/g, ' ').trim()
+  return /[",]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+const tableToCsv = (table: HTMLTableElement) => {
+  const rows = [...table.querySelectorAll('tr')]
+  return rows
+    .map((row) => [...row.querySelectorAll('th, td')]
+      .map((cell) => csvField((cell as HTMLElement).innerText))
+      .join(','))
+    .join('\r\n')
+}
+
+/** The download control is inside rendered HTML, so the click is caught here. */
+const downloadTable = (event: MouseEvent) => {
+  const button = (event.target as HTMLElement | null)?.closest?.('.table-download')
+  if (!button) return
+  event.preventDefault()
+  const table = button.parentElement?.querySelector('table')
+  if (!(table instanceof HTMLTableElement)) return
+
+  const heading = table.querySelector('th')?.textContent?.trim().toLowerCase() || 'table'
+  const name = heading.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'table'
+  const file = new Blob([`\uFEFF${tableToCsv(table)}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(file)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${name}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 /** Group a message's chunk-level sources into one entry per document. */
@@ -579,6 +615,7 @@ defineExpose({ openModal, closeModal })
                   class="prose"
                   :class="{ 'is-error': message.isError }"
                   v-html="render(message.content)"
+                  @click="downloadTable"
                 ></div>
 
                 <!-- Spelling corrections, the way a search engine reports them. -->
@@ -892,9 +929,30 @@ defineExpose({ openModal, closeModal })
 
 .prose :deep(li) { margin: 2px 0; }
 
+.prose :deep(.answer-table-wrap) {
+  margin: 10px 0;
+}
+
+.prose :deep(.table-download) {
+  display: inline-flex;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+}
+
+.prose :deep(.table-download:hover) {
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-light);
+}
+
 .prose :deep(table.answer-table) {
   width: 100%;
-  margin: 10px 0;
+  margin: 0;
   border-collapse: collapse;
   font-size: 13px;
 }
