@@ -148,7 +148,7 @@ getNewFeedback()
     <el-badge v-show="showBadge" :is-dot="activeDot">
       <el-dropdown trigger="click" @command="handleCommand">
         <span class="el-dropdown-link">
-          <Icon icon="material-symbols:circle-notifications-rounded" color="white" :size="18" />
+          <Icon icon="material-symbols:circle-notifications-rounded" color="white" :size="20" />
 
         </span>
         <template #dropdown>

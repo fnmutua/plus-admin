@@ -28,7 +28,7 @@ const setCurrentSize = (size: ElememtPlusSize) => {
 
 <template>
   <ElDropdown :class="prefixCls" trigger="click" @command="setCurrentSize">
-    <Icon :size="18" icon="mdi:format-size" :color="color" class="cursor-pointer" />
+    <Icon :size="20" icon="mdi:format-size" :color="color" class="cursor-pointer" />
     <template #dropdown>
       <ElDropdownMenu>
         <ElDropdownItem

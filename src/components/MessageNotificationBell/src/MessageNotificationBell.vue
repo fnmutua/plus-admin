@@ -39,11 +39,11 @@ watch(
 
 <template>
   <div
-    class="hover-tigger cursor-pointer flex items-center justify-center w-8 h-8 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors relative"
+    class="hover-tigger cursor-pointer flex items-center justify-center w-9 h-9 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors relative"
     title="My notifications"
     @click="openNotifications"
   >
-    <Icon icon="mdi:bell-outline" width="18" color="var(--top-header-text-color)" />
+    <Icon icon="mdi:bell-outline" :size="20" color="var(--top-header-text-color)" />
     <span
       v-if="notificationUnreadCount > 0"
       class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-4 h-4 flex items-center justify-center px-1"

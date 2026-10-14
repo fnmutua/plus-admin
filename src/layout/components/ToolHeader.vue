@@ -109,13 +109,13 @@ export default defineComponent({
 
           {/* Chat Icon with Badge */}
           <div 
-            class="hover-tigger cursor-pointer flex items-center justify-center w-8 h-8 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors relative"
+            class="hover-tigger cursor-pointer flex items-center justify-center w-9 h-9 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors relative"
             onClick={openChat}
             title="Chat"
           >
             <Icon 
               icon="majesticons:chat-2-line"
-              size="32" 
+              size={20}
               color="var(--top-header-text-color)"
             />
             {unreadChatCount.value > 0 && (
@@ -127,13 +127,13 @@ export default defineComponent({
 
           {/* AI Assistant Icon */}
           <div 
-            class="hover-tigger cursor-pointer flex items-center justify-center w-8 h-8 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors"
+            class="hover-tigger cursor-pointer flex items-center justify-center w-9 h-9 rounded-md hover:bg-[var(--el-fill-color-light)] transition-colors"
             onClick={openAIAssistant}
             title="AI Assistant"
           >
             <Icon 
-              icon="hugeicons:ai-brain-02" 
-              width="18" 
+              icon="hugeicons:ai-brain-02"
+              size={20}
               color="var(--top-header-text-color)"
             />
           </div>
