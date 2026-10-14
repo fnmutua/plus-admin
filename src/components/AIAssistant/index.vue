@@ -6,6 +6,8 @@ import {
 } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import { askAIDocument, getAIProviders, getAIModels, clearAISession } from '@/api/ai'
+import { useDocHelp } from '@/hooks/web/useDocHelp'
+import { DOC_SECTION_AI_ASSISTANT } from '@/config/docsRouteMap'
 import { getFile } from '@/api/summary'
 import { useAppStore } from '@/store/modules/app'
 import type { AISource } from '@/api/ai/types'
@@ -34,6 +36,10 @@ interface ChatMessage {
 
 const visible = ref(false)
 const wide = ref(false)
+
+// Contextual help: the panel has no route of its own, so the help icon opens
+// the assistant's documentation section directly.
+const openHelp = useDocHelp(DOC_SECTION_AI_ASSISTANT)
 const messages = ref<ChatMessage[]>([])
 const draft = ref('')
 const isProcessing = ref(false)
@@ -510,6 +516,12 @@ defineExpose({ openModal, closeModal })
           <ElTooltip content="New chat" placement="bottom">
             <button class="icon-button" :disabled="!messages.length" @click="startNewChat">
               <Icon icon="material-symbols:add-comment-outline" />
+            </button>
+          </ElTooltip>
+
+          <ElTooltip content="How this works" placement="bottom">
+            <button class="icon-button" @click="openHelp()">
+              <Icon icon="material-symbols:help-outline" />
             </button>
           </ElTooltip>
 

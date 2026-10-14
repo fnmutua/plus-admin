@@ -7,6 +7,7 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Settlements: 'data-settlements-listing',
   List: 'data-settlements-listing',
   SettlementDetails: 'data-settlements-details',
+  SettlementReview: 'data-settlements-management',
   AddSettlement: 'data-settlements-creating',
   AddSettlementX: 'data-settlements-creating',
   AddSettlementNew: 'data-settlements-creating',
@@ -47,6 +48,7 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Feedback: 'admin-feedback',
   Logs: 'admin-logs',
   Repository: 'repo-documents',
+  AIIndexedDocuments: 'ai-index',
   RepositoryTagged: 'repo-documents',
   ImportDocuments: 'repo-documents',
   DroneImagery: 'repo-imagery',
@@ -66,6 +68,8 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   SettingsAnalytics: 'config-dashboards-list',
   ModuleSettings: 'settings-sms',
   SystemSettings: 'settings-system',
+  AISettings: 'ai-settings-page',
+  SettlementTypes: 'settings-settlement-types',
   ClimateSettings: 'settings-climate',
   PopulationSettings: 'settings-population',
   DataCleanupSettings: 'settings-data-cleanup',
@@ -87,6 +91,9 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Subcounties: 'config-admin-units',
   Wards: 'config-admin-units',
 }
+
+/** The assistant is a panel rather than a page, so it links to its section directly. */
+export const DOC_SECTION_AI_ASSISTANT = 'ai-assistant'
 
 export function openDocsSection(sectionId?: string) {
   const query = sectionId ? `?section=${sectionId}` : ''
