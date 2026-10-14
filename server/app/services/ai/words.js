@@ -31,13 +31,22 @@ function editDistance(a, b, max = 2) {
 /**
  * Is any of `tokens` this word, or a near-miss of it?
  *
- * Longer words are allowed two edits, short ones one: at two edits a
- * five-letter word turns into a different word altogether.
+ * Short words get one edit, longer words two, and words of nine letters or
+ * more three: "poplatuoon" is three edits from "population", and "settleemtns"
+ * three from "settlements". At two edits those questions never reached the
+ * register. A five-letter word still stops at one, because two edits there is
+ * a different word.
  */
+function allowedEdits(word) {
+  if (word.length >= 9) return 3
+  if (word.length > 6) return 2
+  return 1
+}
+
 const matchesAny = (tokens, words) =>
   tokens.some((token) =>
     token.length >= 3
-    && words.some((word) => editDistance(token, word) <= (word.length > 6 ? 2 : 1)))
+    && words.some((word) => editDistance(token, word, allowedEdits(word)) <= allowedEdits(word)))
 
 /** Words of a question, lower-cased, punctuation dropped. */
 const tokenise = (question) =>
