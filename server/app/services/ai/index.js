@@ -355,24 +355,25 @@ async function retrieve(question) {
   const corrections = resolved.filter((entry) => entry.corrected !== entry.term)
   const searchTerms = resolved.length ? [...new Set(resolved.map((entry) => entry.corrected))] : terms
 
-  // A counting question about the register is answered from the tables, not
-  // from documents: asked of the index alone, "how many settlements are in the
-  // register?" produced "60 indexed document entries" against a true 1,049.
-  const registerCounts = await register.counts(question, searchTerms).catch(() => null)
-  if (registerCounts) {
+  // A question about the register — how many, or the top ten by population —
+  // is answered from the tables, not from documents: asked of the index alone,
+  // "how many settlements are in the register?" produced "60 indexed document
+  // entries" against a true 1,049.
+  const registerFacts = await register.lookup(question, searchTerms).catch(() => null)
+  if (registerFacts) {
     const counts = {
       filename: 'KeSMIS database',
       file_type: 'counts',
       chunk_index: 0,
       similarity: 1,
       retrieval: 'counts',
-      content: registerCounts.text
+      content: registerFacts.text
     }
 
     // Excerpts only when the question asks something the counts do not cover,
     // such as a place or a programme. Sent alongside a figure they can only
     // answer, a small model tabulated all twelve sources with a count of 0.
-    if (registerCounts.exhaustive) {
+    if (registerFacts.exhaustive) {
       return { chunks: [counts], mode: 'counts', vectorError: null, corrections }
     }
 
