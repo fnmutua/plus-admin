@@ -8522,14 +8522,28 @@ exports.downloadFile = async (req, res) => {
 
     if (!filePath || !fs.existsSync(filePath)) {
       const cleanupName = doc?.name || filename
+      // A read must not destroy metadata. This used to delete the document
+      // whenever its file was missing, so simply opening a page — the article
+      // list fetches a cover per row — removed the record. An unmounted volume,
+      // a permissions change or a restored database without its uploads then
+      // quietly erased history. Deleting is now opt-in, for a deliberate
+      // cleanup run rather than a page view.
       if (cleanupName) {
-        await destroyDocumentsWithDependencies(
-          doc?.id ? { id: doc.id } : { name: cleanupName },
-        ).catch((delErr) => {
-          console.error('Could not remove document after missing file:', delErr)
-        })
+        if (process.env.DELETE_DOCUMENTS_WITH_MISSING_FILES === 'true') {
+          await destroyDocumentsWithDependencies(
+            doc?.id ? { id: doc.id } : { name: cleanupName },
+          ).catch((delErr) => {
+            console.error('Could not remove document after missing file:', delErr)
+          })
+        } else {
+          console.warn(`[download] file missing for "${cleanupName}"`
+            + `${doc?.id ? ` (document ${doc.id})` : ''}: ${filePath || 'no path resolved'}`)
+        }
       }
-      return res.status(500).send({
+      // 404, not 500: the request was valid and the server is healthy — the
+      // file is simply not there, and a 500 both misreports that and buries
+      // real faults in the logs.
+      return res.status(404).send({
         message: 'File not found.',
         code: '0000'
       })

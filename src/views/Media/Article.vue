@@ -681,12 +681,11 @@ const fetchCoverPhoto = async (article) => {
 
 
 async function getCover(article) {
-  const cover_photo = article.documents.find((doc) => doc.category === 52);
+  // documents is absent when the listing is fetched without them, and find()
+  // on undefined took the whole page down rather than showing it coverless.
+  const cover_photo = (article.documents || []).find((doc) => doc.category === 52);
 
-  if (!cover_photo) {
-    console.error("Cover photo not found in category 52");
-    return null;
-  }
+  if (!cover_photo) return null;
 
   const formData = {
     filename: cover_photo.name,
@@ -701,8 +700,10 @@ async function getCover(article) {
     const base64 = await blobToBase64(response.data);
     return base64; // Return the Base64 string to use as src
   } catch (error) {
-    console.error("Failed to fetch the file:", error);
-    ElMessage.error("Failed to fetch the cover photo.");
+    // A missing cover is ordinary — the file may never have been uploaded, or
+    // may be absent from this environment. The article still lists; one toast
+    // per row for something the reader cannot act on is noise.
+    console.warn(`No cover available for "${article.title}":`, error?.message || error);
     return null;
   }
 }

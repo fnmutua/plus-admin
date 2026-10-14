@@ -72,7 +72,6 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   SettlementTypes: 'settings-settlement-types',
   ClimateSettings: 'settings-climate',
   PopulationSettings: 'settings-population',
-  DataCleanupSettings: 'settings-data-cleanup',
   PageVisits: 'settings-page-visits',
   ReferenceDataSettings: 'config-common',
   CommonSettings: 'config-common',
@@ -90,6 +89,30 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Counties: 'config-admin-units',
   Subcounties: 'config-admin-units',
   Wards: 'config-admin-units',
+  // Group landing pages, so help from a parent menu entry still lands somewhere
+  Dashboard: 'dash-overview',
+  xSettlements: 'data-settlements-overview',
+  Settlements: 'data-settlements-listing',
+  // Facility sub-types all share one documentation page
+  AddFacility: 'data-facilities-adding',
+  SocialAmenities: 'data-facilities-overview',
+  SocialCommunityHall: 'data-facilities-overview',
+  SocialCommunityProjects: 'data-facilities-overview',
+  SocialPolice: 'data-facilities-overview',
+  Infrastructure: 'data-facilities-overview',
+  InfrastructureRailway: 'data-facilities-overview',
+  InfrastructureMast: 'data-facilities-overview',
+  Lighting: 'data-facilities-overview',
+  Others: 'data-facilities-overview',
+  Committees: 'data-community-sec',
+  sec_grc: 'data-community-secgrc',
+  Surveys: 'data-surveys-listing',
+  // Imports: the GIS importer has its own page, the spreadsheet ones share the data page
+  Importgeo: 'data-import',
+  ImportHH: 'data-import',
+  Fuzzy: 'data-import',
+  Support_Staff: 'users-listing',
+  AdminSmsLogs: 'settings-sms',
 }
 
 /** The assistant is a panel rather than a page, so it links to its section directly. */
