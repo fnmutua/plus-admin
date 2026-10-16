@@ -759,6 +759,9 @@ function reset() {
  * document would be thousands of writes for one batch.
  */
 async function saveJob(job) {
+  // The table is created by init(); a batch can be the first AI work this
+  // process has done, so make sure that has happened before writing.
+  await init()
   const db = getPool()
   if (!db) return
   await db.query(
@@ -785,6 +788,7 @@ async function saveJob(job) {
  * apart from the truth.
  */
 async function listJobs(limit = 20) {
+  await init()
   const db = getPool()
   if (!db) return []
 
