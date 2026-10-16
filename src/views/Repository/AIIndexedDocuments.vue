@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import {
   ElCard, ElTable, ElTableColumn, ElTag, ElAlert, ElButton, ElDropdown, ElDropdownMenu,
-  ElDropdownItem, ElMessageBox, ElPagination, ElSelect, ElOption
+  ElDropdownItem, ElMessageBox, ElPagination, ElSelect, ElOption, ElProgress
 } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { getAIIndexedDocuments, reindexAIIndexEntry, reindexDocuments } from '@/api/ai'
-import type { AIIndexedDocument } from '@/api/ai/types'
+import {
+  getAIIndexedDocuments, getAIIndexJobs, reindexAIIndexEntry, reindexDocuments
+} from '@/api/ai'
+import type { AIIndexedDocument, AIIndexJob } from '@/api/ai/types'
 
 const loading = ref(false)
 const documents = ref<AIIndexedDocument[]>([])
@@ -120,6 +122,45 @@ const reindexRow = async (row: AIIndexedDocument) => {
 
 const bulkRunning = ref(false)
 
+// ── Progress ────────────────────────────────────────────────────────────────
+// Indexing runs in the background, and "indexing 1,661 document(s)" followed
+// by silence is indistinguishable from a job that died. The server reports
+// every batch; this polls while one is running and stops when none is.
+
+const jobs = ref<AIIndexJob[]>([])
+const runningJobs = computed(() => jobs.value.filter((job) => job.status === 'running'))
+const recentJob = computed(() => jobs.value.find((job) => job.status !== 'running') || null)
+
+let poll: ReturnType<typeof setTimeout> | null = null
+let wasRunning = false
+
+/** Seconds and minutes, for a duration a person is watching tick by. */
+const formatDuration = (ms: number | null) => {
+  if (ms == null) return '—'
+  const seconds = Math.round(ms / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
+const readJobs = async () => {
+  try {
+    const response = await getAIIndexJobs()
+    jobs.value = response.data || []
+  } catch {
+    // A failed poll is not worth a toast; the next one will tell the story.
+  }
+
+  const running = runningJobs.value.length > 0
+  // The list only changes when a batch finishes, so that is when to reload it.
+  if (wasRunning && !running) load()
+  wasRunning = running
+
+  // Fast while something is happening, slow enough to be free when not.
+  poll = setTimeout(readJobs, running ? 2000 : 15000)
+}
+
 /**
  * Queue uploaded documents for background indexing. Folder imports live on
  * disk rather than in the document table, so they are re-indexed per row or
@@ -142,6 +183,8 @@ const reindexUploads = async (force: boolean) => {
   try {
     // "Indexing N document(s) in the background" is toasted by the interceptor.
     await reindexDocuments({ processAll: true, force })
+    // Show the batch immediately rather than at the next poll.
+    await readJobs()
   } catch {
     // Already shown by the interceptor.
   } finally {
@@ -152,6 +195,11 @@ const reindexUploads = async (force: boolean) => {
 onMounted(() => {
   pageSize.value = responsivePageSize()
   load()
+  readJobs()
+})
+
+onBeforeUnmount(() => {
+  if (poll) clearTimeout(poll)
 })
 </script>
 
@@ -175,6 +223,40 @@ onMounted(() => {
     </template>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="mb-3" />
+
+    <!-- What the background is doing, while it is doing it. -->
+    <div v-for="job in runningJobs" :key="job.id" class="job">
+      <div class="job-head">
+        <span class="job-label">{{ job.label }}</span>
+        <span class="job-counts">
+          {{ job.done }} / {{ job.total }}
+          <span v-if="job.failed" class="job-failed">· {{ job.failed }} failed</span>
+        </span>
+      </div>
+      <el-progress :percentage="job.percent" :stroke-width="10" striped striped-flow />
+      <div class="job-foot">
+        <span class="job-current">{{ job.current || 'Starting…' }}</span>
+        <span>
+          {{ formatDuration(job.elapsedMs) }} elapsed<template v-if="job.etaMs !== null">
+            · about {{ formatDuration(job.etaMs) }} left</template>
+        </span>
+      </div>
+    </div>
+
+    <el-alert
+      v-if="!runningJobs.length && recentJob"
+      :type="recentJob.failed ? 'warning' : 'success'"
+      :closable="false"
+      show-icon
+      class="mb-3"
+      :title="`${recentJob.label} — ${recentJob.indexed} indexed`
+        + (recentJob.failed ? `, ${recentJob.failed} failed` : '')
+        + ` in ${formatDuration(recentJob.elapsedMs)}`"
+    >
+      <template v-if="recentJob.lastError" #default>
+        <span class="job-error">Last error: {{ recentJob.lastError }}</span>
+      </template>
+    </el-alert>
 
     <el-table
       :data="pageRows"
@@ -247,6 +329,56 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.job {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+
+.job-head,
+.job-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.job-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.job-counts {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.job-failed {
+  color: var(--el-color-warning);
+}
+
+.job-foot {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+/* The filename can be long; the elapsed time beside it must not be pushed out. */
+.job-current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.job-error {
+  font-size: 12px;
+  color: var(--el-color-warning);
+}
+
 .pagination-wrapper {
   margin-top: 20px;
 }

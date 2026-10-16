@@ -249,4 +249,13 @@ module.exports = function (app) {
    *       400: { description: Neither documentIds nor processAll supplied }
    */
   app.post('/api/ai/reindex', [authJwt.verifyToken, hasPermission('document:update')], controller.reindex)
+
+  /**
+   * @swagger
+   * /api/ai/jobs:
+   *   get:
+   *     summary: Progress of indexing batches running in the background
+   *     tags: [AI]
+   */
+  app.get('/api/ai/jobs', [authJwt.verifyToken, hasPermission('document:read')], controller.jobs)
 }

@@ -6,6 +6,7 @@ import type {
   AIHealth,
   AIStats,
   AIIndexedDocument,
+  AIIndexJob,
   AIQuestion,
   AIAnswer,
   AIDocumentStatus,
@@ -63,6 +64,10 @@ export const getDocumentAIStatus = (documentId: string | number): Promise<IRespo
   request.get({ url: `${base}/api/ai/documents/${documentId}/status` })
 
 /** Queue background indexing. Returns once queued, not once finished. */
+/** Progress of indexing batches running on the server. */
+export const getAIIndexJobs = (): Promise<IResponse<AIIndexJob[]>> =>
+  request.get({ url: `${base}/api/ai/jobs` })
+
 export const reindexDocuments = (data: {
   documentIds?: (string | number)[]
   processAll?: boolean

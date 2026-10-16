@@ -85,6 +85,29 @@ export interface AIIndexedDocument {
   updatedAt: string
 }
 
+/** One batch of indexing running on the server, as /api/ai/jobs reports it. */
+export interface AIIndexJob {
+  id: string
+  label: string
+  /** 'reindex', or the upload path the batch came from. */
+  source: string
+  status: 'running' | 'done' | 'failed'
+  total: number
+  done: number
+  indexed: number
+  failed: number
+  /** The document being read right now, if any. */
+  current: string | null
+  recent: Array<{ filename: string; ok: boolean; message: string | null }>
+  percent: number
+  elapsedMs: number
+  /** Only once enough documents are done for the estimate to mean anything. */
+  etaMs: number | null
+  startedAt: string
+  finishedAt: string | null
+  lastError: string | null
+}
+
 export interface AIStats {
   available: boolean
   documents: number

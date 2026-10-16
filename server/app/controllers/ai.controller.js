@@ -7,6 +7,8 @@ const fs = require('fs')
 const path = require('path')
 const { Op } = require('sequelize')
 const ai = require('../services/ai')
+const jobs = require('../services/ai/jobs')
+const { isSupported } = require('../services/ai/extract')
 const { config } = require('../services/ai/config')
 const db = require('../models')
 
@@ -196,27 +198,46 @@ exports.reindex = async (req, res) => {
     // the previous pipeline recorded as failed.
     if (!force) where.aiProcessed = { [Op.not]: true }
 
-    const documents = await db.models.document.findAll({
+    const found = await db.models.document.findAll({
       where,
       attributes: ['id', 'name', 'location', 'size']
     })
+
+    // A photo has no text to index, and the register holds 11,887 of them.
+    // Attempting each one only produced a progress bar made of failures and a
+    // warning written to every row.
+    const documents = found.filter((doc) => isSupported(doc.name || ''))
+    const skipped = found.length - documents.length
 
     if (!documents.length) {
       return res.json({
         success: true,
         code: '0000',
-        message: 'Nothing to index',
-        data: { queued: 0 }
+        message: skipped
+          ? `Nothing to index — ${skipped} document(s) are file types the indexer cannot read`
+          : 'Nothing to index',
+        data: { queued: 0, skipped }
       })
     }
 
-    setImmediate(() => runReindex(documents))
+    const job = jobs.start({
+      label: documentIds?.length ? `Re-indexing ${documents.length} selected document(s)`
+        : force ? `Re-indexing all ${documents.length} uploads`
+        : `Indexing ${documents.length} document(s) not yet indexed`,
+      total: documents.length,
+      source: 'reindex'
+    })
+
+    setImmediate(() => runReindex(documents, job))
 
     return res.status(202).json({
       success: true,
       code: '0000',
-      message: `Indexing ${documents.length} document(s) in the background`,
-      data: { queued: documents.length }
+      message: `Indexing ${documents.length} document(s) in the background`
+        + (skipped ? `, skipping ${skipped} unreadable file type(s)` : ''),
+      // The id the page polls: a batch that says nothing for an hour is
+      // indistinguishable from one that died.
+      data: { queued: documents.length, skipped, jobId: job.id }
     })
   } catch (error) {
     return fail(res, error, 'Failed to start AI indexing')
@@ -243,22 +264,35 @@ async function indexUpload(document) {
   return result
 }
 
-async function runReindex(documents) {
+async function runReindex(documents, job) {
   let indexed = 0
   let failed = 0
 
   for (const document of documents) {
+    job?.begin(document.name)
     try {
       const result = await indexUpload(document)
       if (result.success) indexed += 1
       else failed += 1
+      job?.advance({ filename: document.name, ok: Boolean(result.success), message: result.message })
     } catch (error) {
       failed += 1
       console.error(`[ai] reindex failed for document ${document.id}:`, error.message)
+      job?.advance({ filename: document.name, ok: false, message: error.message })
     }
   }
 
+  job?.finish()
   console.log(`[ai] reindex complete — ${indexed} indexed, ${failed} failed`)
+}
+
+/** Progress for every batch still running, and those recently finished. */
+exports.jobs = (req, res) => {
+  try {
+    return res.json({ success: true, code: '0000', data: jobs.list() })
+  } catch (error) {
+    return fail(res, error, 'Failed to read indexing progress')
+  }
 }
 
 /**

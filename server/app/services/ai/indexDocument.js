@@ -13,6 +13,7 @@
 // not fail the upload at all. The outcome is recorded on the document row.
 
 const ai = require('./index')
+const jobs = require('./jobs')
 
 /** One at a time per upload batch: embedding is the bottleneck, not us. */
 const CONCURRENCY = 2
@@ -87,18 +88,36 @@ function indexDocuments(db, saved, source = 'upload') {
 
   console.log(`[ai] indexing ${pending.length} document(s) from ${source}`)
 
+  // Registered so the index page can show this running, the same as a
+  // re-index: an upload that is still being read looks identical to one that
+  // was never read at all.
+  const job = jobs.start({
+    label: `Indexing ${pending.length} document(s) from ${source}`,
+    total: pending.length,
+    source
+  })
+
   const queue = [...pending]
   const worker = async () => {
     while (queue.length) {
       const doc = queue.shift()
-      await indexOne(db, doc)
+      const name = doc.name ?? doc.get?.('name')
+      job.begin(name)
+      const ok = await indexOne(db, doc)
+      job.advance({ filename: name, ok })
     }
   }
 
   // Detached on purpose: the upload response does not wait for embeddings.
   Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker))
-    .then(() => console.log(`[ai] finished indexing ${pending.length} document(s) from ${source}`))
-    .catch((error) => console.log('[ai] indexing batch failed:', error.message))
+    .then(() => {
+      job.finish()
+      console.log(`[ai] finished indexing ${pending.length} document(s) from ${source}`)
+    })
+    .catch((error) => {
+      job.finish('failed')
+      console.log('[ai] indexing batch failed:', error.message)
+    })
 }
 
 module.exports = { indexDocuments, indexOne }
