@@ -7,17 +7,22 @@
 // stalled one except by watching the row count. Each batch now registers
 // here, reports every document as it finishes, and the page polls it.
 //
-// In memory on purpose: PM2 runs one process per app, the state is worth
-// nothing once that process restarts, and a job table would have to be
-// cleaned up by something.
+// Live state is in memory, because only this process knows which file is in
+// hand; it is written through to index_jobs every ten documents and at each
+// end, so progress survives leaving the page and a restart leaves a record
+// rather than a batch that appears to run for ever.
 
 const { randomUUID } = require('crypto')
+const store = require('./store')
 
 /** Finished jobs stay visible this long, so a page that polls still sees the result. */
 const KEEP_FINISHED_MS = 30 * 60 * 1000
 
 /** The last few filenames, enough to show what it is working through. */
 const RECENT = 5
+
+/** How often progress is written through to the database, in documents. */
+const PERSIST_EVERY = 10
 
 const jobs = new Map()
 
@@ -53,6 +58,7 @@ function start({ label, total, source = 'reindex' }) {
     lastError: null
   }
   jobs.set(job.id, job)
+  store.saveJob(job)
 
   return {
     id: job.id,
@@ -73,12 +79,18 @@ function start({ label, total, source = 'reindex' }) {
       job.current = null
       job.recent.unshift({ filename, ok, message: ok ? null : message || null })
       job.recent = job.recent.slice(0, RECENT)
+
+      // Written through every so often rather than per document: one batch
+      // would otherwise be thousands of writes, and a page that comes back
+      // ten documents late is close enough.
+      if (job.done % PERSIST_EVERY === 0) store.saveJob(job)
     },
 
     finish(status = 'done') {
       job.status = status
       job.current = null
       job.finishedAt = Date.now()
+      store.saveJob(job)
     }
   }
 }
@@ -110,15 +122,51 @@ function shape(job) {
   }
 }
 
-/** Running jobs first, then the most recently finished. */
-function list() {
+/** Shape a row the database kept, which has no live detail to report. */
+function shapeStored(row) {
+  const started = new Date(row.startedAt).getTime()
+  const finished = row.finishedAt ? new Date(row.finishedAt).getTime() : Date.now()
+
+  return {
+    id: row.id,
+    label: row.label,
+    source: row.source,
+    status: row.status,
+    total: row.total,
+    done: row.done,
+    indexed: row.indexed,
+    failed: row.failed,
+    current: row.current,
+    recent: [],
+    percent: row.total ? Math.round((row.done / row.total) * 100) : 0,
+    elapsedMs: finished - started,
+    etaMs: null,
+    startedAt: new Date(started).toISOString(),
+    finishedAt: row.finishedAt ? new Date(row.finishedAt).toISOString() : null,
+    lastError: row.lastError
+  }
+}
+
+/**
+ * Running batches first, then recent history.
+ *
+ * History comes from the database, so a batch survives leaving the page, and
+ * a restart that killed one mid-way shows as interrupted instead of as
+ * running for ever. The live copy wins where both have the same job, because
+ * only it knows the file in hand.
+ */
+async function list() {
   prune()
-  return [...jobs.values()]
-    .sort((a, b) => {
-      if ((a.status === 'running') !== (b.status === 'running')) return a.status === 'running' ? -1 : 1
-      return b.startedAt - a.startedAt
-    })
-    .map(shape)
+
+  const live = [...jobs.values()].map(shape)
+  const stored = await store.listJobs(20).catch(() => [])
+  const seen = new Set(live.map((job) => job.id))
+  const history = stored.filter((row) => !seen.has(row.id)).map(shapeStored)
+
+  return [...live, ...history].sort((a, b) => {
+    if ((a.status === 'running') !== (b.status === 'running')) return a.status === 'running' ? -1 : 1
+    return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+  })
 }
 
 const get = (id) => {

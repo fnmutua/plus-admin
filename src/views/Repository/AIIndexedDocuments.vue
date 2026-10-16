@@ -130,6 +130,17 @@ const bulkRunning = ref(false)
 const jobs = ref<AIIndexJob[]>([])
 const runningJobs = computed(() => jobs.value.filter((job) => job.status === 'running'))
 const recentJob = computed(() => jobs.value.find((job) => job.status !== 'running') || null)
+/** Everything else that has run this week, kept in the database. */
+const pastJobs = computed(() => jobs.value.filter((job) => job.status !== 'running').slice(0, 8))
+const showHistory = ref(false)
+
+const JOB_STATUS: Record<string, { label: string; type: 'success' | 'warning' | 'danger' | 'info' }> = {
+  done: { label: 'Finished', type: 'success' },
+  failed: { label: 'Failed', type: 'danger' },
+  // Left running by a restart: the process that was working on it is gone.
+  interrupted: { label: 'Interrupted', type: 'warning' }
+}
+const jobStatus = (job: AIIndexJob) => JOB_STATUS[job.status] || { label: job.status, type: 'info' as const }
 
 let poll: ReturnType<typeof setTimeout> | null = null
 let wasRunning = false
@@ -258,6 +269,35 @@ onBeforeUnmount(() => {
       </template>
     </el-alert>
 
+    <!-- Kept in the database for a week, so a batch you walked away from is
+         still here when you come back. -->
+    <div v-if="pastJobs.length" class="history">
+      <el-button link type="primary" size="small" @click="showHistory = !showHistory">
+        {{ showHistory ? 'Hide' : 'Show' }} indexing history ({{ pastJobs.length }})
+      </el-button>
+
+      <el-table v-if="showHistory" :data="pastJobs" size="small" class="mt-2">
+        <el-table-column prop="label" label="Batch" min-width="220" show-overflow-tooltip />
+        <el-table-column label="Status" width="120">
+          <template #default="{ row }">
+            <el-tag :type="jobStatus(row).type" size="small">{{ jobStatus(row).label }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Indexed" width="110" align="right">
+          <template #default="{ row }">{{ row.indexed }} / {{ row.total }}</template>
+        </el-table-column>
+        <el-table-column label="Failed" width="90" align="right">
+          <template #default="{ row }">{{ row.failed || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="Took" width="100" align="right">
+          <template #default="{ row }">{{ formatDuration(row.elapsedMs) }}</template>
+        </el-table-column>
+        <el-table-column label="Started" min-width="170">
+          <template #default="{ row }">{{ formatDate(row.startedAt) }}</template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <el-table
       :data="pageRows"
       stripe
@@ -329,6 +369,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.history {
+  margin-bottom: 14px;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
 .job {
   margin-bottom: 14px;
   padding: 12px 14px;

@@ -287,9 +287,9 @@ async function runReindex(documents, job) {
 }
 
 /** Progress for every batch still running, and those recently finished. */
-exports.jobs = (req, res) => {
+exports.jobs = async (req, res) => {
   try {
-    return res.json({ success: true, code: '0000', data: jobs.list() })
+    return res.json({ success: true, code: '0000', data: await jobs.list() })
   } catch (error) {
     return fail(res, error, 'Failed to read indexing progress')
   }

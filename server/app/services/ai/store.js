@@ -117,6 +117,26 @@ function init() {
       `)
       await db.query(`CREATE INDEX IF NOT EXISTS ix_conversations_session ON ai_conversations(session_id, created_at DESC)`)
 
+      // Indexing batches, so progress outlives both the page and the process.
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS index_jobs (
+          id UUID PRIMARY KEY,
+          label TEXT NOT NULL,
+          source VARCHAR(60),
+          status VARCHAR(20) NOT NULL,
+          total INTEGER NOT NULL DEFAULT 0,
+          done INTEGER NOT NULL DEFAULT 0,
+          indexed INTEGER NOT NULL DEFAULT 0,
+          failed INTEGER NOT NULL DEFAULT 0,
+          current_file TEXT,
+          last_error TEXT,
+          started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          finished_at TIMESTAMPTZ,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `)
+      await db.query(`CREATE INDEX IF NOT EXISTS ix_index_jobs_started ON index_jobs(started_at DESC)`)
+
       vectorSearchEnabled = await verifyDimensions(db)
       if (vectorSearchEnabled) await ensureAnnIndex(db)
 
@@ -731,7 +751,73 @@ function reset() {
   lastError = null
 }
 
+/**
+ * Write a batch's progress, so leaving the page — or restarting the server —
+ * does not lose it.
+ *
+ * Called on start, on finish, and sparingly in between: a row written per
+ * document would be thousands of writes for one batch.
+ */
+async function saveJob(job) {
+  const db = getPool()
+  if (!db) return
+  await db.query(
+    `INSERT INTO index_jobs
+       (id, label, source, status, total, done, indexed, failed, current_file, last_error, started_at, finished_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
+     ON CONFLICT (id) DO UPDATE SET
+       status = EXCLUDED.status, done = EXCLUDED.done, indexed = EXCLUDED.indexed,
+       failed = EXCLUDED.failed, current_file = EXCLUDED.current_file,
+       last_error = EXCLUDED.last_error, finished_at = EXCLUDED.finished_at, updated_at = now()`,
+    [
+      job.id, job.label, job.source, job.status, job.total, job.done, job.indexed,
+      job.failed, job.current, job.lastError,
+      new Date(job.startedAt), job.finishedAt ? new Date(job.finishedAt) : null
+    ]
+  ).catch((error) => console.warn('[ai] could not record job progress:', error.message))
+}
+
+/**
+ * Recent batches, newest first.
+ *
+ * A job left "running" by a restart is reported as interrupted rather than
+ * as still working, which is the lie the in-memory version could not tell
+ * apart from the truth.
+ */
+async function listJobs(limit = 20) {
+  const db = getPool()
+  if (!db) return []
+
+  const { rows } = await db.query(
+    `SELECT id, label, source, status, total, done, indexed, failed,
+            current_file, last_error, started_at, finished_at, updated_at,
+            (status = 'running' AND updated_at < now() - interval '5 minutes') AS stale
+       FROM index_jobs
+      WHERE started_at > now() - interval '7 days'
+      ORDER BY started_at DESC
+      LIMIT $1`,
+    [limit]
+  )
+
+  return rows.map((row) => ({
+    id: row.id,
+    label: row.label,
+    source: row.source,
+    status: row.stale ? 'interrupted' : row.status,
+    total: row.total,
+    done: row.done,
+    indexed: row.indexed,
+    failed: row.failed,
+    current: row.stale ? null : row.current_file,
+    lastError: row.last_error,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at
+  }))
+}
+
 module.exports = {
+  saveJob,
+  listJobs,
   init,
   reset,
   replaceDocument,

@@ -12,6 +12,7 @@ import { NotificationBadge } from '@/components/NotificationBadge'
 import { MessageNotificationBell } from '@/components/MessageNotificationBell'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
 import { RouteSearch } from '@/components/RouteSearch'
+import { IndexingIndicator } from '@/components/IndexingIndicator'
 import AIAssistant from '@/components/AIAssistant'
 import Chat from '@/components/Chat'
 import { Icon } from '@iconify/vue'
@@ -73,6 +74,7 @@ export default defineComponent({
   components: {
     AIAssistant,
     Chat,
+    IndexingIndicator,
     MessageNotificationBell
   },
   setup() {
@@ -104,6 +106,9 @@ export default defineComponent({
           {size.value ? (
             <SizeDropdown class="hover-tigger" color="var(--top-header-text-color)"></SizeDropdown>
           ) : undefined}
+          {/* Only visible while documents are being indexed */}
+          <IndexingIndicator />
+
           <NotificationBadge class="hover-tigger"></NotificationBadge>
           <MessageNotificationBell />
 
