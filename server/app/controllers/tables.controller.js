@@ -115,6 +115,7 @@ var request = require('request');
 
 // Document AI: indexing and retrieval live in services/ai.
 const aiService = require('../services/ai')
+const { indexDocuments } = require('../services/ai/indexDocument')
 
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
@@ -7815,8 +7816,16 @@ exports.ReportDocumentationUpload = async (req, res) => {
       await db.models[reg_model].create(obj)
         .then(function (item) {
           console.log("Movig to public...", location)
-          myFiles[i].mv(location)
-        
+          // Indexed after the move, not before: until mv() finishes there is
+          // nothing at obj.location to read.
+          myFiles[i].mv(location, (moveErr) => {
+            if (moveErr) {
+              console.log('[ai] skipped indexing, move failed:', moveErr.message)
+              return
+            }
+            indexDocuments(db, [item], 'report documentation')
+          })
+
         })
         .catch(function (err) {
           // handle error;
@@ -8251,6 +8260,10 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
       // Create all documents
       const createdDocuments = await db.models['document'].bulkCreate(objs);
       console.log('Created documents:', createdDocuments.length);
+
+      // Index them, as the repository upload does. Without this, everything
+      // uploaded from the app reached the register and never the assistant.
+      indexDocuments(db, createdDocuments, 'app upload');
 
       res.status(200).send({
         message: `Upload via App Successful. Created ${createdDocuments.length} documents.`,
@@ -9968,6 +9981,7 @@ exports.submitPublicUpload = async (req, res) => {
           defaults: { document_id: savedDoc.id, entity_type: fresh.entity_type, entity_id: fresh.entity_id }
         })
         created.push({ id: savedDoc.id, name: savedDoc.name })
+        indexDocuments(db, [savedDoc], 'share link upload')
       } catch (fileErr) {
         console.error('submitPublicUpload file error', fileErr)
         failed.push(file.originalname)
