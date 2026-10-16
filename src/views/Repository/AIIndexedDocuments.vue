@@ -2,7 +2,8 @@
 import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import {
   ElCard, ElTable, ElTableColumn, ElTag, ElAlert, ElButton, ElDropdown, ElDropdownMenu,
-  ElDropdownItem, ElMessageBox, ElPagination, ElSelect, ElOption, ElProgress
+  ElDropdownItem, ElMessageBox, ElPagination, ElSelect, ElOption, ElProgress,
+  ElTabs, ElTabPane, ElEmpty
 } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import {
@@ -131,8 +132,12 @@ const jobs = ref<AIIndexJob[]>([])
 const runningJobs = computed(() => jobs.value.filter((job) => job.status === 'running'))
 const recentJob = computed(() => jobs.value.find((job) => job.status !== 'running') || null)
 /** Everything else that has run this week, kept in the database. */
-const pastJobs = computed(() => jobs.value.filter((job) => job.status !== 'running').slice(0, 8))
-const showHistory = ref(false)
+const pastJobs = computed(() => jobs.value.filter((job) => job.status !== 'running').slice(0, 20))
+
+// Two tabs: what the index holds, and what indexing has been doing. Polling
+// belongs to the page rather than to the tab, so a batch keeps being tracked
+// while you read the document list.
+const activeTab = ref<'documents' | 'indexing'>('documents')
 
 const JOB_STATUS: Record<string, { label: string; type: 'success' | 'warning' | 'danger' | 'info' }> = {
   done: { label: 'Finished', type: 'success' },
@@ -194,7 +199,9 @@ const reindexUploads = async (force: boolean) => {
   try {
     // "Indexing N document(s) in the background" is toasted by the interceptor.
     await reindexDocuments({ processAll: true, force })
-    // Show the batch immediately rather than at the next poll.
+    // Switch to the tab that shows it, and fill it now rather than at the
+    // next poll.
+    activeTab.value = 'indexing'
     await readJobs()
   } catch {
     // Already shown by the interceptor.
@@ -218,7 +225,9 @@ onBeforeUnmount(() => {
   <el-card v-loading="loading">
     <template #header>
       <div class="flex items-center justify-between">
-        <h3 style="margin: 0">AI Indexed Documents ({{ documents.length }})</h3>
+        <!-- The count rides on the tab label; repeating it here only makes
+             two numbers to keep in step. -->
+        <h3 style="margin: 0">AI Index</h3>
         <div class="flex items-center gap-2">
           <el-button :icon="Refresh" :loading="loading" @click="load">Refresh</el-button>
           <el-dropdown split-button type="primary" :disabled="bulkRunning" @click="reindexUploads(false)">
@@ -235,142 +244,183 @@ onBeforeUnmount(() => {
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="mb-3" />
 
-    <!-- What the background is doing, while it is doing it. -->
-    <div v-for="job in runningJobs" :key="job.id" class="job">
-      <div class="job-head">
-        <span class="job-label">{{ job.label }}</span>
-        <span class="job-counts">
-          {{ job.done }} / {{ job.total }}
-          <span v-if="job.failed" class="job-failed">· {{ job.failed }} failed</span>
-        </span>
-      </div>
-      <el-progress :percentage="job.percent" :stroke-width="10" striped striped-flow />
-      <div class="job-foot">
-        <span class="job-current">{{ job.current || 'Starting…' }}</span>
-        <span>
-          {{ formatDuration(job.elapsedMs) }} elapsed<template v-if="job.etaMs !== null">
-            · about {{ formatDuration(job.etaMs) }} left</template>
-        </span>
-      </div>
-    </div>
+    <el-tabs v-model="activeTab">
+      <el-tab-pane name="documents" :label="`Indexed documents (${documents.length})`">
+        <el-table
+          :data="pageRows"
+          stripe
+          border
+          :default-sort="{ prop: 'updatedAt', order: 'descending' }"
+          @sort-change="handleSortChange"
+        >
+          <el-table-column type="index" :index="rowNumber" label="#" width="60" />
+          <el-table-column prop="filename" label="Document" min-width="240" sortable="custom" show-overflow-tooltip />
+          <el-table-column label="Source" width="100">
+            <template #default="{ row }">
+              <el-tag :type="sourceOf(row).type" size="small">{{ sourceOf(row).label }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="fileType" label="Type" width="90" sortable="custom" />
+          <el-table-column prop="fileSize" label="Size" width="100" sortable="custom">
+            <template #default="{ row }">{{ formatSize(row.fileSize) }}</template>
+          </el-table-column>
+          <el-table-column prop="chunks" label="Chunks" width="100" sortable="custom" />
+          <el-table-column prop="updatedAt" label="Indexed" width="190" sortable="custom">
+            <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
+          </el-table-column>
+          <el-table-column label="" width="120" align="center">
+            <template #default="{ row }">
+              <el-button
+                v-if="sourceOf(row).label !== 'Record'"
+                size="small"
+                :loading="busy[row.id]"
+                @click="reindexRow(row)"
+              >
+                Reindex
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-    <el-alert
-      v-if="!runningJobs.length && recentJob"
-      :type="recentJob.failed ? 'warning' : 'success'"
-      :closable="false"
-      show-icon
-      class="mb-3"
-      :title="`${recentJob.label} — ${recentJob.indexed} indexed`
-        + (recentJob.failed ? `, ${recentJob.failed} failed` : '')
-        + ` in ${formatDuration(recentJob.elapsedMs)}`"
-    >
-      <template v-if="recentJob.lastError" #default>
-        <span class="job-error">Last error: {{ recentJob.lastError }}</span>
-      </template>
-    </el-alert>
+        <div class="pagination-wrapper" v-if="documents.length > 0">
+          <div class="pagination-controls">
+            <div class="page-size-selector">
+              <span class="page-size-label">Show:</span>
+              <el-select
+                v-model="pageSize"
+                size="small"
+                style="width: 80px; margin-left: 8px"
+                @change="handlePageSizeChange"
+              >
+                <el-option label="5" :value="5" />
+                <el-option label="8" :value="8" />
+                <el-option label="10" :value="10" />
+                <el-option label="25" :value="25" />
+                <el-option label="50" :value="50" />
+                <el-option label="100" :value="100" />
+              </el-select>
+              <span class="page-size-label" style="margin-left: 8px">per page</span>
+            </div>
 
-    <!-- Kept in the database for a week, so a batch you walked away from is
-         still here when you come back. -->
-    <div v-if="pastJobs.length" class="history">
-      <el-button link type="primary" size="small" @click="showHistory = !showHistory">
-        {{ showHistory ? 'Hide' : 'Show' }} indexing history ({{ pastJobs.length }})
-      </el-button>
+            <el-pagination
+              :current-page="currentPage"
+              :page-size="pageSize"
+              background
+              small
+              layout="total, prev, pager, next, jumper"
+              :total="documents.length"
+              @current-change="handlePageChange"
+            />
+          </div>
+        </div>
+      </el-tab-pane>
 
-      <el-table v-if="showHistory" :data="pastJobs" size="small" class="mt-2">
-        <el-table-column prop="label" label="Batch" min-width="220" show-overflow-tooltip />
-        <el-table-column label="Status" width="120">
-          <template #default="{ row }">
-            <el-tag :type="jobStatus(row).type" size="small">{{ jobStatus(row).label }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Indexed" width="110" align="right">
-          <template #default="{ row }">{{ row.indexed }} / {{ row.total }}</template>
-        </el-table-column>
-        <el-table-column label="Failed" width="90" align="right">
-          <template #default="{ row }">{{ row.failed || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="Took" width="100" align="right">
-          <template #default="{ row }">{{ formatDuration(row.elapsedMs) }}</template>
-        </el-table-column>
-        <el-table-column label="Started" min-width="170">
-          <template #default="{ row }">{{ formatDate(row.startedAt) }}</template>
-        </el-table-column>
-      </el-table>
-    </div>
-
-    <el-table
-      :data="pageRows"
-      stripe
-      border
-      :default-sort="{ prop: 'updatedAt', order: 'descending' }"
-      @sort-change="handleSortChange"
-    >
-      <el-table-column type="index" :index="rowNumber" label="#" width="60" />
-      <el-table-column prop="filename" label="Document" min-width="240" sortable="custom" show-overflow-tooltip />
-      <el-table-column label="Source" width="100">
-        <template #default="{ row }">
-          <el-tag :type="sourceOf(row).type" size="small">{{ sourceOf(row).label }}</el-tag>
+      <el-tab-pane name="indexing">
+        <template #label>
+          <span class="tab-label">
+            Indexing
+            <span v-if="runningJobs.length" class="tab-running">{{ runningJobs[0].percent }}%</span>
+          </span>
         </template>
-      </el-table-column>
-      <el-table-column prop="fileType" label="Type" width="90" sortable="custom" />
-      <el-table-column prop="fileSize" label="Size" width="100" sortable="custom">
-        <template #default="{ row }">{{ formatSize(row.fileSize) }}</template>
-      </el-table-column>
-      <el-table-column prop="chunks" label="Chunks" width="100" sortable="custom" />
-      <el-table-column prop="updatedAt" label="Indexed" width="190" sortable="custom">
-        <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
-      </el-table-column>
-      <el-table-column label="" width="120" align="center">
-        <template #default="{ row }">
-          <el-button
-            v-if="sourceOf(row).label !== 'Record'"
-            size="small"
-            :loading="busy[row.id]"
-            @click="reindexRow(row)"
-          >
-            Reindex
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
 
-    <div class="pagination-wrapper" v-if="documents.length > 0">
-      <div class="pagination-controls">
-        <div class="page-size-selector">
-          <span class="page-size-label">Show:</span>
-          <el-select
-            v-model="pageSize"
-            size="small"
-            style="width: 80px; margin-left: 8px"
-            @change="handlePageSizeChange"
-          >
-            <el-option label="5" :value="5" />
-            <el-option label="8" :value="8" />
-            <el-option label="10" :value="10" />
-            <el-option label="25" :value="25" />
-            <el-option label="50" :value="50" />
-            <el-option label="100" :value="100" />
-          </el-select>
-          <span class="page-size-label" style="margin-left: 8px">per page</span>
+        <!-- What the background is doing, while it is doing it. -->
+        <div v-for="job in runningJobs" :key="job.id" class="job">
+          <div class="job-head">
+            <span class="job-label">{{ job.label }}</span>
+            <span class="job-counts">
+              {{ job.done }} / {{ job.total }}
+              <span v-if="job.failed" class="job-failed">· {{ job.failed }} failed</span>
+            </span>
+          </div>
+          <el-progress :percentage="job.percent" :stroke-width="10" striped striped-flow />
+          <div class="job-foot">
+            <span class="job-current">{{ job.current || 'Starting…' }}</span>
+            <span>
+              {{ formatDuration(job.elapsedMs) }} elapsed<template v-if="job.etaMs !== null">
+                · about {{ formatDuration(job.etaMs) }} left</template>
+            </span>
+          </div>
         </div>
 
-        <el-pagination
-          :current-page="currentPage"
-          :page-size="pageSize"
-          background
-          small
-          layout="total, prev, pager, next, jumper"
-          :total="documents.length"
-          @current-change="handlePageChange"
+        <el-alert
+          v-if="!runningJobs.length && recentJob"
+          :type="recentJob.failed ? 'warning' : 'success'"
+          :closable="false"
+          show-icon
+          class="mb-3"
+          :title="`${recentJob.label} — ${recentJob.indexed} indexed`
+            + (recentJob.failed ? `, ${recentJob.failed} failed` : '')
+            + ` in ${formatDuration(recentJob.elapsedMs)}`"
+        >
+          <template v-if="recentJob.lastError" #default>
+            <span class="job-error">Last error: {{ recentJob.lastError }}</span>
+          </template>
+        </el-alert>
+
+        <!-- Kept in the database for a week, so a batch you walked away from is
+             still here when you come back. -->
+        <div v-if="pastJobs.length" class="history">
+          <h4 class="history-title">Recent batches</h4>
+          <el-table :data="pastJobs" size="small">
+            <el-table-column prop="label" label="Batch" min-width="220" show-overflow-tooltip />
+            <el-table-column label="Status" width="120">
+              <template #default="{ row }">
+                <el-tag :type="jobStatus(row).type" size="small">{{ jobStatus(row).label }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="Indexed" width="110" align="right">
+              <template #default="{ row }">{{ row.indexed }} / {{ row.total }}</template>
+            </el-table-column>
+            <el-table-column label="Failed" width="90" align="right">
+              <template #default="{ row }">{{ row.failed || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="Took" width="100" align="right">
+              <template #default="{ row }">{{ formatDuration(row.elapsedMs) }}</template>
+            </el-table-column>
+            <el-table-column label="Started" min-width="170">
+              <template #default="{ row }">{{ formatDate(row.startedAt) }}</template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <el-empty
+          v-if="!runningJobs.length && !pastJobs.length"
+          description="Nothing has been indexed recently"
+          :image-size="80"
         />
-      </div>
-    </div>
+      </el-tab-pane>
+    </el-tabs>
+
   </el-card>
 </template>
 
 <style scoped>
 .history {
-  margin-bottom: 14px;
+  margin-top: 18px;
+}
+
+.history-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-regular);
+}
+
+/* The percentage rides on the tab label, so a batch is visible from the
+   document list without leaving it. */
+.tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-running {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 99px;
+  color: #fff;
+  background: var(--el-color-primary);
 }
 
 .mt-2 {
