@@ -72,6 +72,7 @@
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "brew": "^0.0.8",
+    "cheerio": "^1.2.0",
     "child_process": "^1.0.2",
     "chroma-js": "^2.4.2",
     "compression": "^1.8.1",

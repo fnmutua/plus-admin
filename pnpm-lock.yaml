@@ -82,6 +82,9 @@ importers:
       brew:
         specifier: ^0.0.8
         version: 0.0.8
+      cheerio:
+        specifier: ^1.2.0
+        version: 1.2.0
       child_process:
         specifier: ^1.0.2
         version: 1.0.2

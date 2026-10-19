@@ -137,7 +137,7 @@ export default defineComponent({
             title="AI Assistant"
           >
             <Icon 
-              icon="hugeicons:ai-brain-02"
+              icon="mingcute:ai-fill"
               size={20}
               color="var(--top-header-text-color)"
             />
