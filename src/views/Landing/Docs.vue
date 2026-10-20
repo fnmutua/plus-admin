@@ -2005,6 +2005,61 @@ const allNavGroups: NavGroup[] = [
           <p>A success notification shows the number of imported features. Failed features are listed with reasons; successfully validated features are still imported.</p>
           <blockquote>Geometry coordinates with a Z (altitude) component are automatically stripped to 2D before storage.</blockquote>
         `
+      },
+      {
+        id: 'data-import-history',
+        label: 'Import History & Undo',
+        roles: ['root_admin', 'super_admin'],
+        content: `
+          <p><strong>Import History</strong> (<strong>Data &rarr; Import &rarr; Import History</strong>) lists every bulk import sent to KeSMIS, shows exactly which records each one created or changed, and lets you <strong>undo</strong> an import that went wrong &mdash; for example parcels added to the wrong settlement from the QGIS connector &mdash; without losing anything people have done since.</p>
+
+          <h2>What is recorded</h2>
+          <p>Every real import through the bulk import service is recorded as one entry: GIS and Excel imports in KeSMIS, and <strong>Submit</strong> or <strong>Sync Settlements</strong> in the Connector for ODK QGIS plugin. For each record the import created or changed, KeSMIS keeps the field values before and after. Dry runs are not recorded.</p>
+          <blockquote>Imports made before this feature was deployed were not recorded and cannot be undone from this page.</blockquote>
+
+          <h2>The import list</h2>
+          <table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody>
+            <tr><td><strong>Imported / By</strong></td><td>When the import ran and who ran it</td></tr>
+            <tr><td><strong>Data type</strong></td><td>The table written to, e.g. <code>parcel</code> or <code>settlement</code></td></tr>
+            <tr><td><strong>Layer / file</strong></td><td>The QGIS layer or file name, and the source (e.g. <code>qgis-connector</code>)</td></tr>
+            <tr><td><strong>Created / Updated / Failed</strong></td><td>Record counts reported when the import ran</td></tr>
+            <tr><td><strong>Status</strong></td><td><em>Active</em>, <em>Partly undone</em> or <em>Undone</em></td></tr>
+          </tbody></table>
+          <p>Filter by data type or status. Super admins and users with the <code>import:revert</code> permission see every import; other users see only their own.</p>
+
+          <h2>Reviewing an import</h2>
+          <p>Click an import to open it. The top of the panel shows who imported what and when, with counts: <em>Created</em>, <em>Updated</em>, <em>Can be undone</em>, <em>Conflicts</em> and <em>Already undone</em>. Click one of the last three to show only those records.</p>
+          <ul>
+            <li><strong>Records</strong> tab &mdash; each record, five per page, whether it was created or updated, and whether it can be undone. Expand a row to see the fields: for updates, the old value is struck through beside the imported one.</li>
+            <li><strong>Map</strong> tab &mdash; the imported geometry, coloured green (can undo), orange (conflict) or grey (undone). Hover a shape for its code.</li>
+          </ul>
+
+          <h2>What undo does</h2>
+          <table><thead><tr><th>The import&hellip;</th><th>Undo&hellip;</th></tr></thead><tbody>
+            <tr><td>Created a record</td><td>Deletes it</td></tr>
+            <tr><td>Updated a record</td><td>Puts back the values it overwrote, geometry included</td></tr>
+          </tbody></table>
+          <p>Undo runs in one database transaction: either everything it can undo is undone, or nothing changes. Search (Document AI) results and settlement population locations are updated to match.</p>
+
+          <h2>When a record is not undone</h2>
+          <p>KeSMIS checks every record at the moment you undo and leaves it alone &mdash; marked <strong>Conflict</strong>, with the reason in the <strong>Why</strong> column &mdash; when undoing it could lose someone else's work:</p>
+          <table><thead><tr><th>Why</th><th>What to do</th></tr></thead><tbody>
+            <tr><td><em>Edited after the import: &hellip;</em></td><td>Someone changed these fields since. Fix the record by hand, or set the fields back to the imported values and undo again.</td></tr>
+            <tr><td><em>Other records refer to it: &hellip;</em></td><td>E.g. a beneficiary is linked to the parcel. Remove or move those links first.</td></tr>
+            <tr><td><em>A later import also changed this record&hellip;</em></td><td>Undo the later import first; imports unwind newest first.</td></tr>
+            <tr><td><em>The record was deleted after the import.</em></td><td>Nothing to restore; fix by hand if needed.</td></tr>
+          </tbody></table>
+          <p>Records marked <strong>Already gone</strong> were created by the import and deleted since; undo simply marks them as done. Conflicts are rechecked each time you open the import, so a record moves to <em>Can be undone</em> once its cause is fixed.</p>
+
+          <h2>Undoing</h2>
+          <ol>
+            <li>Open the import and check the <strong>Records</strong> and <strong>Map</strong> tabs.</li>
+            <li>Click <strong>Undo this import</strong>, or tick records (across pages) and click <strong>Undo selected</strong>.</li>
+            <li>A confirmation shows how many records will be deleted, restored and left alone. Click <strong>Undo</strong>.</li>
+          </ol>
+          <p>The import becomes <em>Undone</em>, or <em>Partly undone</em> while conflicts remain, with who undid it and when. Each deletion and restore also appears in the audit log. An undone import cannot be added to; import again as a new import.</p>
+          <blockquote>Undo requires the <code>import:revert</code> permission, granted to root admins, super admins and admins.</blockquote>
+        `
       }
     ]
   },

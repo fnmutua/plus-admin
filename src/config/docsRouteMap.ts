@@ -111,6 +111,7 @@ export const ROUTE_TO_DOC_SECTION: Record<string, string> = {
   Importgeo: 'data-import',
   ImportHH: 'data-import',
   Fuzzy: 'data-import',
+  ImportHistory: 'data-import-history',
   Support_Staff: 'users-listing',
   AdminSmsLogs: 'settings-sms',
 }
