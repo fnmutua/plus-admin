@@ -4367,15 +4367,17 @@ const allNavGroups: NavGroup[] = [
 
 const navGroups = computed(() => allNavGroups.filter((g) => canSeeGroup(g)))
 
+/** A group's visible pages in sidebar order (its own pages, then each subgroup's),
+ *  which is the order Previous/Next walk. */
 function getAllGroupPages(g: NavGroup): NavPage[] {
   const pages: NavPage[] = []
+  if (g.children) pages.push(...g.children.filter((p) => canSeeNavItem(p.roles, p.permissions)))
   if (g.subgroups) {
     for (const sub of g.subgroups) {
       if (!canSeeNavItem(sub.roles, sub.permissions)) continue
       pages.push(...sub.children.filter((p) => canSeeNavItem(p.roles, p.permissions)))
     }
   }
-  if (g.children) pages.push(...g.children.filter((p) => canSeeNavItem(p.roles, p.permissions)))
   return pages
 }
 
