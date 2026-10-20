@@ -243,11 +243,11 @@ const DEFINITIONS = [
     key: 'ai_max_chunks_per_document',
     path: 'chunk.maxPerDocument',
     type: 'int',
-    min: 10,
-    max: 5000,
+    min: 0,
+    max: 100000,
     group: 'indexing',
     label: 'Maximum chunks per document',
-    description: 'Excerpt ceiling per file. Longer documents are truncated.',
+    description: '0 = no limit (default): every document is indexed in full. Any other value truncates longer documents.',
     reindex: true
   },
   {

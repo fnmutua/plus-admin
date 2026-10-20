@@ -270,7 +270,9 @@ const config = {
   chunk: {
     size: int(process.env.CHUNK_SIZE, 1200),
     overlap: int(process.env.OVERLAP_SIZE, 200),
-    maxPerDocument: int(process.env.MAX_CHUNKS_PER_DOCUMENT, 200)
+    // 0 = no limit: a document is indexed in full. A ceiling made long
+    // reports unsearchable past roughly the first 50 pages, without a word.
+    maxPerDocument: int(process.env.MAX_CHUNKS_PER_DOCUMENT, 0)
   },
 
   retrieval: {

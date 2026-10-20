@@ -299,10 +299,9 @@ function chunkText(text, { size = config.chunk.size, overlap = config.chunk.over
   }
   if (buffer.trim()) chunks.push(buffer)
 
-  return chunks
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .slice(0, max)
+  const kept = chunks.map((chunk) => chunk.trim()).filter(Boolean)
+  // max of 0 (the default) means no limit.
+  return max > 0 ? kept.slice(0, max) : kept
 }
 
 module.exports = { extractText, recordToText, chunkText, isSupported, SUPPORTED, ARCHIVE_LIMITS }
