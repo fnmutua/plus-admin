@@ -762,6 +762,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           },
           {
+            path: 'imports',
+            component: () => import('@/views/ImportData/ImportHistory.vue'),
+            name: 'ImportHistory',
+            meta: {
+              title: 'Import History',
+              icon: 'mdi:history',
+              permissions: ['data:import']
+            }
+          },
+          {
             path: 'collector',
         //    component: 'views/ImportData/excel',
             component: () => import('@/views/ImportData/Collector.vue'),

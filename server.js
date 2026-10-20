@@ -122,6 +122,7 @@ require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/ai.routes')(app)
 require('./server/app/routes/summary.routes')(app)
 require('./server/app/routes/settlementType.routes')(app)
+require('./server/app/routes/importBatch.routes')(app)
 
 // Dashboard bundle payloads (cards + all chart data) can be large; gzip cuts
 // them ~70-85%. Scoped to /api/v1/dashboard so it never touches the video

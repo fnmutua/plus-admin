@@ -2,6 +2,7 @@
 
 const settlementPopulationGeo = require('./settlementPopulationGeo')
 const { enrichIndicatorCategoryReportRecords } = require('./monitoringReportImport')
+const { resolveImportBatch, recordBatchItem, addBatchCounts, snapshot, trackedFields } = require('./importBatch.service')
 
 const ID_FIELDS = ['project_id', 'county_id', 'subcounty_id', 'ward_id', 'settlement_id', 'implementer']
 
@@ -307,12 +308,12 @@ async function applyUpdate({
   item,
   dryRun,
   txOptions,
-  updated,
-  aiProcessed,
-  processRecordForAI
+  batch
 }) {
   const updateData = { ...item }
   if (item.code) delete updateData.code
+
+  const before = batch ? snapshot(existing, trackedFields(updateData, Model)) : null
 
   const shouldSyncPopulationGeo =
     !dryRun &&
@@ -326,23 +327,23 @@ async function applyUpdate({
       county_id: existing.county_id,
       subcounty_id: existing.subcounty_id,
       ward_id: existing.ward_id
-    })
+    }, txOptions)
   }
 
-  updated.push(item.code || existing.id)
-
-  if (!dryRun && processRecordForAI) {
-    try {
-      const aiResult = await processRecordForAI(existing, modelName)
-      aiProcessed.push({ recordId: existing.id, action: 'updated', aiResult })
-    } catch (aiError) {
-      aiProcessed.push({
-        recordId: existing.id,
-        action: 'updated',
-        aiResult: { success: false, error: aiError.message }
-      })
-    }
+  if (batch) {
+    await recordBatchItem(db, { batch, Model, modelName, record: existing, action: 'update', item: updateData, before, txOptions })
   }
+
+  return { action: 'updated', key: item.code || existing.id, record: existing }
+}
+
+/** Model.create inside a savepoint, so a unique violation leaves the
+ *  surrounding transaction usable for the update fallback below. */
+async function createRecord(db, Model, item, txOptions) {
+  if (!txOptions.transaction) return Model.create(item, txOptions)
+  return db.sequelize.transaction({ transaction: txOptions.transaction }, (savepoint) =>
+    Model.create(item, { ...txOptions, transaction: savepoint })
+  )
 }
 
 async function applyInsert({
@@ -350,32 +351,17 @@ async function applyInsert({
   Model,
   modelName,
   item,
-  attributes,
-  forceInsert,
   dryRun,
   txOptions,
-  inserted,
-  updated,
   errors,
-  aiProcessed,
-  processRecordForAI
+  batch
 }) {
   try {
-    const rec = await Model.create(item, txOptions)
-    inserted.push(rec.id)
-
-    if (!dryRun && processRecordForAI) {
-      try {
-        const aiResult = await processRecordForAI(rec, modelName)
-        aiProcessed.push({ recordId: rec.id, action: 'inserted', aiResult })
-      } catch (aiError) {
-        aiProcessed.push({
-          recordId: rec.id,
-          action: 'inserted',
-          aiResult: { success: false, error: aiError.message }
-        })
-      }
+    const rec = await createRecord(db, Model, item, txOptions)
+    if (batch) {
+      await recordBatchItem(db, { batch, Model, modelName, record: rec, action: 'insert', item, txOptions })
     }
+    return { action: 'inserted', key: rec.id, record: rec }
   } catch (createErr) {
     if (createErr.name !== 'SequelizeUniqueConstraintError') throw createErr
 
@@ -387,10 +373,10 @@ async function applyInsert({
 
     if (!rec) {
       errors.push({ item, error: createErr.name, detail: createErr.message })
-      return
+      return null
     }
 
-    await applyUpdate({
+    return applyUpdate({
       db,
       Model,
       modelName,
@@ -398,11 +384,17 @@ async function applyInsert({
       item,
       dryRun,
       txOptions,
-      updated,
-      aiProcessed,
-      processRecordForAI
+      batch
     })
   }
+}
+
+async function upsertOne({ db, Model, modelName, item, attributes, forceInsert, dryRun, txOptions, errors, batch }) {
+  const existing = await findExistingRecord(Model, item, attributes, forceInsert, txOptions)
+  if (existing) {
+    return applyUpdate({ db, Model, modelName, existing, item, dryRun, txOptions, batch })
+  }
+  return applyInsert({ db, Model, modelName, item, dryRun, txOptions, errors, batch })
 }
 
 async function runUpsertLoop({
@@ -414,52 +406,49 @@ async function runUpsertLoop({
   forceInsert,
   dryRun,
   transaction,
+  batch,
   processRecordForAI
 }) {
   const inserted = []
   const updated = []
   const errors = []
   const aiProcessed = []
-  const txOptions = dryRun && transaction ? { transaction } : {}
+  const written = []
+  const sharedTxOptions = dryRun && transaction ? { transaction } : {}
 
   for (const item of validData) {
     try {
       if (pushFieldLengthErrors(item, attributes, errors)) continue
 
-      const existing = await findExistingRecord(Model, item, attributes, forceInsert, txOptions)
+      const args = { db, Model, modelName, item, attributes, forceInsert, dryRun, errors, batch }
+      // A tracked import writes each record and its ledger entry together, so
+      // undo never meets a row it has no record of.
+      const outcome = batch
+        ? await db.sequelize.transaction((t) => upsertOne({ ...args, txOptions: { transaction: t } }))
+        : await upsertOne({ ...args, txOptions: sharedTxOptions })
 
-      if (existing) {
-        await applyUpdate({
-          db,
-          Model,
-          modelName,
-          existing,
-          item,
-          dryRun,
-          txOptions,
-          updated,
-          aiProcessed,
-          processRecordForAI
-        })
-      } else {
-        await applyInsert({
-          db,
-          Model,
-          modelName,
-          item,
-          attributes,
-          forceInsert,
-          dryRun,
-          txOptions,
-          inserted,
-          updated,
-          errors,
-          aiProcessed,
-          processRecordForAI
-        })
-      }
+      if (!outcome) continue
+      if (outcome.action === 'inserted') inserted.push(outcome.key)
+      else updated.push(outcome.key)
+      written.push(outcome)
     } catch (err) {
       pushSequelizeError(item, err, attributes, errors)
+    }
+  }
+
+  // Indexing runs once the rows are committed, so a rolled-back row is never indexed.
+  if (!dryRun && processRecordForAI) {
+    for (const { action, record } of written) {
+      try {
+        const aiResult = await processRecordForAI(record, modelName)
+        aiProcessed.push({ recordId: record.id, action, aiResult })
+      } catch (aiError) {
+        aiProcessed.push({
+          recordId: record.id,
+          action,
+          aiResult: { success: false, error: aiError.message }
+        })
+      }
     }
   }
 
@@ -476,7 +465,7 @@ async function runUpsertLoop({
            WHEN monthly_income::int > 50000 THEN 'above_50000'
          END
          WHERE monthly_income ~ '^[0-9]+$';`,
-      txOptions.transaction ? { transaction: txOptions.transaction } : undefined
+      sharedTxOptions.transaction ? { transaction: sharedTxOptions.transaction } : undefined
     )
   }
 
@@ -490,6 +479,10 @@ async function executeImportUpsert({
   forceInsert = false,
   dryRun = false,
   currentUser = null,
+  currentUserName = null,
+  importBatchId = null,
+  importSource = null,
+  importLabel = null,
   processRecordForAI = null
 }) {
   const Model = db.models[modelName]
@@ -540,6 +533,21 @@ async function executeImportUpsert({
     validData = await enrichIndicatorCategoryReportRecords(db, validData)
   }
 
+  // Real imports are recorded so they can be reviewed and undone later.
+  let batch = null
+  if (!dryRun && db.importBatch && db.importBatchItem) {
+    const resolved = await resolveImportBatch(db, {
+      batchId: importBatchId,
+      modelName,
+      currentUser,
+      currentUserName,
+      source: importSource,
+      label: importLabel
+    })
+    if (!resolved.ok) return resolved
+    batch = resolved.batch
+  }
+
   let transaction = null
   if (dryRun) {
     transaction = await db.sequelize.transaction()
@@ -555,11 +563,20 @@ async function executeImportUpsert({
       forceInsert,
       dryRun,
       transaction,
+      batch,
       processRecordForAI
     })
 
     if (dryRun && transaction) {
       await transaction.rollback()
+    }
+
+    if (batch) {
+      await addBatchCounts(db, batch.id, {
+        inserted: result.inserted.length,
+        updated: result.updated.length,
+        failed: result.errors.length + errors.length
+      })
     }
 
     const hasErrors = result.errors.length > 0
@@ -584,6 +601,7 @@ async function executeImportUpsert({
         },
         errors: result.errors,
         code: hasErrors ? '0001' : '0000',
+        importBatchId: batch ? batch.id : undefined,
         dryRun: dryRun || undefined
       }
     }

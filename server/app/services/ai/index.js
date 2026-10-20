@@ -5,6 +5,7 @@
 // Public surface used by the rest of the application:
 //   ingestFile()    — index an uploaded file
 //   ingestRecord()  — index a database row
+//   removeRecord()  — drop a database row from the index
 //   ask()           — answer a question from indexed content
 //   stats(), listDocuments(), health()
 
@@ -203,6 +204,13 @@ async function ingestRecord(record, modelName) {
     console.error(`[ai] ingestRecord failed for ${modelName}#${record.id}:`, error.message)
     return { success: false, message: error.message }
   }
+}
+
+/** Drop a database row from the index, e.g. after an import is undone. */
+async function removeRecord(modelName, recordId) {
+  if (!(await store.init())) return { success: false, message: 'AI database unavailable' }
+  const removed = await store.deleteDocument(`record:${modelName}:${recordId}`)
+  return { success: true, removed }
 }
 
 // "What is the latest document?" asks about metadata, not meaning. No chunk
@@ -646,6 +654,7 @@ async function health() {
 module.exports = {
   ingestFile,
   ingestRecord,
+  removeRecord,
   ask,
   stats,
   listDocuments,

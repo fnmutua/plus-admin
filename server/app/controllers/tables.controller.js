@@ -960,6 +960,10 @@ exports.modelImportDataUpsert = async (req, res) => {
       forceInsert,
       dryRun,
       currentUser: req.thisUser?.id,
+      currentUserName: req.thisUser?.username,
+      importBatchId: body.importBatchId,
+      importSource: body.importSource,
+      importLabel: body.importLabel,
       processRecordForAI: dryRun ? null : aiService.ingestRecord
     })
 

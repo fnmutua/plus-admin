@@ -38,7 +38,12 @@ function buildMockDb(modelName, model, queryImpl) {
   const db = {
     models: { [modelName]: model },
     sequelize: {
-      transaction: async () => transaction,
+      // Like Sequelize: the callback form runs the work (a savepoint when a
+      // parent transaction is passed); the plain form hands back a transaction.
+      transaction: async (optionsOrCallback, maybeCallback) => {
+        const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback
+        return callback ? callback(transaction) : transaction
+      },
       query: queryImpl || (async () => [])
     },
     _transactionState: {

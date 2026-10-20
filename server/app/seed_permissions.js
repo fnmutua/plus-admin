@@ -251,6 +251,7 @@ async function seedPermissions() {
       // Data Import/Export
       { name: 'data:import', description: 'Import data' },
       { name: 'data:export', description: 'Export data' },
+      { name: 'import:revert', description: 'Review bulk imports and undo them' },
 
       // GeoServer
       { name: 'geoserver:create', description: 'Upload/Create GeoServer layers' },
@@ -924,6 +925,7 @@ async function seedPermissions() {
     "settings:read",
     "settings:update",
     "data:import",
+    "import:revert",
     "disbursement:create",
     "disbursement:delete",
     "disbursement:read",
@@ -1371,6 +1373,7 @@ async function seedPermissions() {
     "settings:read",
     "settings:update",
     "data:import",
+    "import:revert",
     "disbursement:create",
     "disbursement:delete",
     "disbursement:read",
@@ -1813,6 +1816,7 @@ async function seedPermissions() {
     "dashboard_section_chart:update",
     "data:export",
     "data:import",
+    "import:revert",
     "disbursement:create",
     "disbursement:delete",
     "disbursement:read",

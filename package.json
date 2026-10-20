@@ -31,6 +31,7 @@
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:status": "sequelize-cli db:migrate:status",
     "test:import-upsert": "node --test server/tests/import-upsert-dry-run.test.js",
+    "test:import-batch": "node --test server/tests/import-batch.integration.test.js",
     "test:auth-settings": "node --test server/tests/auth-settings.test.js",
     "test:grievance-workflow": "node --test server/tests/grievance-workflow.test.js",
     "swagger:generate": "node swagger-generate.js",

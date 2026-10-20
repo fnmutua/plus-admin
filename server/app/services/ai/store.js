@@ -602,6 +602,12 @@ async function listFingerprints(prefix) {
   return new Map(rows.map((row) => [row.source_key, row.metadata || {}]))
 }
 
+/** Remove one indexed document; chunks and embeddings go with it. */
+async function deleteDocument(sourceKey) {
+  const { rowCount } = await getPool().query('DELETE FROM documents WHERE source_key = $1', [sourceKey])
+  return rowCount
+}
+
 async function recentTurns(sessionId, limit) {
   if (!sessionId || limit <= 0) return []
   const { rows } = await getPool().query(`
@@ -834,6 +840,7 @@ module.exports = {
   resolveTerms,
   latestDocumentChunks,
   listFingerprints,
+  deleteDocument,
   recentTurns,
   saveTurn,
   clearSession,

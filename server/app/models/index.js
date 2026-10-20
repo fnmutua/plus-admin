@@ -32,6 +32,8 @@ db.userStatus = require('../models/user_status.js')(sequelize)
 // Video streaming models
 db.videoStream = require('../models/videoStream.js')(sequelize, Sequelize)
 db.auditLog = require('../models/audit_log.js')(sequelize, Sequelize)
+db.importBatch = require('../models/import_batch.js')(sequelize, Sequelize)
+db.importBatchItem = require('../models/import_batch_item.js')(sequelize, Sequelize)
 
 var initModels = require('../models/init-models.js')
 db.models = initModels(sequelize)
