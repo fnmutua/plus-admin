@@ -2011,7 +2011,7 @@ const allNavGroups: NavGroup[] = [
         label: 'Import History & Undo',
         roles: ['root_admin', 'super_admin'],
         content: `
-          <p><strong>Import History</strong> (<strong>Data &rarr; Import &rarr; Import History</strong>) lists every bulk import sent to KeSMIS, shows exactly which records each one created or changed, and lets you <strong>undo</strong> an import that went wrong &mdash; for example parcels added to the wrong settlement from the QGIS connector &mdash; without losing anything people have done since.</p>
+          <p><strong>Import History</strong> (<strong>Data &rarr; Import &rarr; History</strong>) lists every bulk import sent to KeSMIS, shows exactly which records each one created or changed, and lets you <strong>undo</strong> an import that went wrong &mdash; for example parcels added to the wrong settlement from the QGIS connector &mdash; without losing anything people have done since.</p>
 
           <h2>What is recorded</h2>
           <p>Every real import through the bulk import service is recorded as one entry: GIS and Excel imports in KeSMIS, and <strong>Submit</strong> or <strong>Sync Settlements</strong> in the Connector for ODK QGIS plugin. For each record the import created or changed, KeSMIS keeps the field values before and after. Dry runs are not recorded.</p>
