@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const shortid = require('shortid');
 const { Op } = require('sequelize');
 const db = require('../models');
@@ -78,7 +79,7 @@ const regionalReportDocumentStorage = multer.diskStorage({
   },
 });
 
-const regionalReportDocumentUpload = multer({
+const regionalReportDocumentUpload = rejectEmptyUploads(multer({
   storage: regionalReportDocumentStorage,
   limits: { fileSize: MAX_DOCUMENT_BYTES, files: MAX_SUBMISSION_DOCUMENTS },
   fileFilter(_req, file, cb) {
@@ -93,7 +94,7 @@ const regionalReportDocumentUpload = multer({
     }
     cb(null, true);
   },
-});
+}));
 
 function serializeSubmissionDocument(row) {
   return {

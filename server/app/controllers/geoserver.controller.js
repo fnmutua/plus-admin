@@ -3,6 +3,7 @@ const path = require('path');
 const shortid = require('shortid');
 const axios = require('axios');
 const multer = require('multer');
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const imageryLayerService = require('../services/imageryLayer.service');
 
 const GEO_USERNAME = process.env.GEOSERVER_USERNAME || process.env.VITE_GEOSERVER_USERNAME || 'admin';
@@ -261,12 +262,12 @@ async function waitForCoverageStore(workspace, storeName, auth, { attempts = 18,
   return false;
 }
 
-const upload = multer({
+const upload = rejectEmptyUploads(multer({
   storage: storage,
   limits: {
     fileSize: MAX_IMAGERY_UPLOAD_MB * 1024 * 1024,
   },
-});
+}));
 
  
 

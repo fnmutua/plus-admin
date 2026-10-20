@@ -7369,6 +7369,7 @@ exports.getFieldQUnique = async (req, res) => {
 
 
 const multer = require('multer');
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const settlement_history = require('../models/settlement_history')
 const { UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
@@ -7420,17 +7421,17 @@ const storage = multer.diskStorage({
 
 
 
-const upload = multer({
+const upload = rejectEmptyUploads(multer({
   storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 * 1024, // 1GB limit
   },
-});
+}));
 
-const baselineExcelUpload = multer({
+const baselineExcelUpload = rejectEmptyUploads(multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
-});
+}));
 
 
  
@@ -9868,7 +9869,7 @@ exports.getPublicUploadShare = async (req, res) => {
 const BLOCKED_UPLOAD_EXTENSIONS = new Set([
   '.exe', '.bat', '.cmd', '.sh', '.msi', '.php', '.jar', '.com', '.scr', '.vbs', '.ps1', '.dll', '.apk', '.js'
 ])
-const publicUpload = multer({
+const publicUpload = rejectEmptyUploads(multer({
   storage,
   limits: { fileSize: 200 * 1024 * 1024, files: 20 },
   fileFilter: (req, file, cb) => {
@@ -9878,7 +9879,7 @@ const publicUpload = multer({
     }
     cb(null, true)
   }
-})
+}))
 
 // Public (unauthenticated): submit files against a share-upload token
 exports.submitPublicUpload = async (req, res) => {

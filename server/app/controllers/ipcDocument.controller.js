@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const shortid = require('shortid');
 const db = require('../models');
 const { IPC_UPLOAD_DIR, UPLOAD_DIR, ensureDir } = require('../config/paths.config');
@@ -20,10 +21,10 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({
+const upload = rejectEmptyUploads(multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 },
-});
+}));
 
 function unlinkIfExists(filePath) {
   try {

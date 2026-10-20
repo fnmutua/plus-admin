@@ -1361,6 +1361,7 @@ exports.getGrievances = async (req, res) => {
 
 
 const multer = require('multer');
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const { GRIEVANCE_UPLOAD_DIR, UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
 const uploadDir = GRIEVANCE_UPLOAD_DIR;
@@ -1388,12 +1389,12 @@ const storage = multer.diskStorage({
 
 
 
-const upload = multer({
+const upload = rejectEmptyUploads(multer({
   storage: storage,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit (adjust as needed)
   },
-});
+}));
 
 exports.uploadGrievanceDocument = (req, res) => {
         // The uploaded files can be accessed using `req.files`

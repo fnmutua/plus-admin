@@ -18,6 +18,7 @@ import './permission'
 import { createHead } from '@unhead/vue'
 import { restoreAuthSessionFromLocalStorage } from '@/hooks/web/authStorage'
 import { watchAndPatchGoogleMapsDeclutter } from '@/utils/googleMapStyles'
+import { installEmptyFileGuard } from '@/utils/emptyFileGuard'
 
 const head = createHead()
 
@@ -37,5 +38,6 @@ export async function setupAdminApp() {
   app.use(head)
 
   watchAndPatchGoogleMapsDeclutter()
+  installEmptyFileGuard()
   app.mount('#app')
 }

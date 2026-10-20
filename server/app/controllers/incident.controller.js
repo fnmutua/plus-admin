@@ -2,6 +2,7 @@ const db = require('../models')
 const Sequelize = require('sequelize')
 const moment = require('moment')
 const multer = require('multer')
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const fs = require('fs')
 const path = require('path')
 const shortid = require('shortid')
@@ -500,7 +501,7 @@ const incStorage = multer.diskStorage({
     cb(null, file.originalname)
   }
 })
-const incUpload = multer({ storage: incStorage, limits: { fileSize: 100 * 1024 * 1024 } })
+const incUpload = rejectEmptyUploads(multer({ storage: incStorage, limits: { fileSize: 100 * 1024 * 1024 } }))
 
 exports.uploadIncidentDocument = (req, res) => {
   incUpload.array('files')(req, res, async (err) => {

@@ -1221,6 +1221,7 @@ exports.modelActivateUser = async (req, res) => {
 
 
 const multer = require('multer');
+const { rejectEmptyUploads } = require('../utils/rejectEmptyUploads')
 const { UPLOAD_DIR, ensureDir } = require('../config/paths.config');
 
 ensureDir(UPLOAD_DIR);
@@ -1235,12 +1236,12 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({
+const upload = rejectEmptyUploads(multer({
   storage: storage,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB limit (adjust as needed)
   },
-});
+}));
 
 exports.updateByUser = (req, res) => {
      
