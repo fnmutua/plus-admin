@@ -54,6 +54,7 @@
     "@dafcoe/vue-collapsible-panel": "^0.2.0",
     "@element-plus/icons-vue": "^2.3.1",
     "@googlemaps/js-api-loader": "^2.1.1",
+    "@googlemaps/markerclusterer": "^2.6.2",
     "@iconify/iconify": "^2.2.1",
     "@mapbox/mapbox-gl-draw": "^1.4.2",
     "@mapbox/mapbox-gl-geocoder": "^5.0.1",
