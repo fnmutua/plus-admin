@@ -13,6 +13,7 @@ import type { AIIndexedDocument, AIIndexJob } from '@/api/ai/types'
 
 const loading = ref(false)
 const documents = ref<AIIndexedDocument[]>([])
+const total = ref(0)
 const error = ref<string | null>(null)
 
 const formatDate = (value: string) =>
@@ -38,30 +39,43 @@ const SOURCES: Record<string, { label: string; type: 'primary' | 'success' | 'in
 const sourceOf = (row: AIIndexedDocument) =>
   SOURCES[(row.sourceKey || '').split(':')[0]] || { label: 'Other', type: 'info' as const }
 
-const load = async () => {
-  loading.value = true
-  error.value = null
-  try {
-    const response = await getAIIndexedDocuments()
-    documents.value = response.data || []
-    // Stay on the current page after a refresh unless the list got shorter.
-    const lastPage = Math.max(1, Math.ceil(documents.value.length / pageSize.value))
-    if (currentPage.value > lastPage) currentPage.value = lastPage
-  } catch (e: any) {
-    error.value = e?.response?.data?.message || e?.message || 'Could not load the AI index'
-  } finally {
-    loading.value = false
-  }
-}
-
-// Paged in the browser: the whole index arrives in one small request, and
-// sorting has to cover every page, not just the one on screen.
 const currentPage = ref(1)
 const pageSize = ref(10)
 const sort = ref<{ prop: string | null; order: 'ascending' | 'descending' | null }>({
   prop: 'updatedAt',
   order: 'descending'
 })
+
+const load = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const response = await getAIIndexedDocuments({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      sort: sort.value.prop,
+      order: sort.value.order
+    })
+    total.value = Number(response.total) || 0
+    documents.value = response.data || []
+    const lastPage = Math.max(1, Math.ceil(total.value / pageSize.value) || 1)
+    if (currentPage.value > lastPage) {
+      currentPage.value = lastPage
+      const again = await getAIIndexedDocuments({
+        page: currentPage.value,
+        pageSize: pageSize.value,
+        sort: sort.value.prop,
+        order: sort.value.order
+      })
+      total.value = Number(again.total) || 0
+      documents.value = again.data || []
+    }
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || e?.message || 'Could not load the AI index'
+  } finally {
+    loading.value = false
+  }
+}
 
 /** Same screen-height page sizes as the Documents list. */
 const responsivePageSize = () => {
@@ -71,38 +85,26 @@ const responsivePageSize = () => {
   return 15
 }
 
-const sorted = computed(() => {
-  const { prop, order } = sort.value
-  if (!prop || !order) return documents.value
-  const direction = order === 'ascending' ? 1 : -1
-  return [...documents.value].sort((a, b) => {
-    const x = (a as any)[prop] ?? ''
-    const y = (b as any)[prop] ?? ''
-    if (typeof x === 'number' && typeof y === 'number') return (x - y) * direction
-    return String(x).localeCompare(String(y), undefined, { numeric: true }) * direction
-  })
-})
-
-const pageRows = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return sorted.value.slice(start, start + pageSize.value)
-})
-
 /** Row numbers continue across pages rather than restarting at 1. */
 const rowNumber = (index: number) => (currentPage.value - 1) * pageSize.value + index + 1
 
 const handleSortChange = ({ prop, order }: { prop: string | null; order: 'ascending' | 'descending' | null }) => {
+  const same = sort.value.prop === prop && sort.value.order === order
   sort.value = { prop, order }
+  if (same) return
   currentPage.value = 1
+  load()
 }
 
 const handlePageChange = (page: number) => {
   currentPage.value = page
+  load()
 }
 
 const handlePageSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
+  load()
 }
 
 /** Index ids currently being re-indexed, so each row shows its own spinner. */
@@ -245,9 +247,9 @@ onBeforeUnmount(() => {
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="mb-3" />
 
     <el-tabs v-model="activeTab">
-      <el-tab-pane name="documents" :label="`Indexed documents (${documents.length})`">
+      <el-tab-pane name="documents" :label="`Indexed documents (${total})`">
         <el-table
-          :data="pageRows"
+          :data="documents"
           stripe
           border
           :default-sort="{ prop: 'updatedAt', order: 'descending' }"
@@ -282,7 +284,7 @@ onBeforeUnmount(() => {
           </el-table-column>
         </el-table>
 
-        <div class="pagination-wrapper" v-if="documents.length > 0">
+        <div class="pagination-wrapper" v-if="total > 0">
           <div class="pagination-controls">
             <div class="page-size-selector">
               <span class="page-size-label">Show:</span>
@@ -308,7 +310,7 @@ onBeforeUnmount(() => {
               background
               small
               layout="total, prev, pager, next, jumper"
-              :total="documents.length"
+              :total="total"
               @current-change="handlePageChange"
             />
           </div>

@@ -146,8 +146,15 @@ exports.stats = async (req, res) => {
 
 exports.documents = async (req, res) => {
   try {
-    const documents = await ai.listDocuments()
-    return res.json({ success: true, code: '0000', data: documents, total: documents.length })
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 10))
+    const { documents, total } = await ai.listDocuments({
+      page,
+      pageSize,
+      sort: req.query.sort,
+      order: req.query.order
+    })
+    return res.json({ success: true, code: '0000', data: documents, total, page, pageSize })
   } catch (error) {
     return fail(res, error, 'Failed to list indexed documents')
   }

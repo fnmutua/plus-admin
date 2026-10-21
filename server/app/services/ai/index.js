@@ -568,9 +568,9 @@ async function stats() {
   return { available: true, ...(await store.stats()), ...store.status() }
 }
 
-async function listDocuments() {
+async function listDocuments(options) {
   if (!(await store.init())) throw Object.assign(new Error('AI database is unavailable'), { status: 503 })
-  return store.listDocuments()
+  return store.listDocuments(options)
 }
 
 async function getDocument(id) {

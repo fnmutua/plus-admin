@@ -127,7 +127,20 @@ module.exports = function (app) {
    *   get:
    *     tags: [AI]
    *     summary: List indexed documents
-   *     description: Every document in the AI index with its chunk and embedding counts, newest first.
+   *     description: One page of the AI index, newest first, with chunk and embedding counts for that page only.
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema: { type: integer, default: 1 }
+   *       - in: query
+   *         name: pageSize
+   *         schema: { type: integer, default: 10, maximum: 100 }
+   *       - in: query
+   *         name: sort
+   *         schema: { type: string, enum: [filename, fileType, fileSize, chunks, updatedAt, createdAt] }
+   *       - in: query
+   *         name: order
+   *         schema: { type: string, enum: [ascending, descending, ASC, DESC] }
    *     security: [{ bearerAuth: [] }]
    *     responses:
    *       200: { description: Indexed documents }

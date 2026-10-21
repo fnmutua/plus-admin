@@ -46,9 +46,14 @@ export const clearAISession = (sessionId: string): Promise<IResponse<{ removed: 
 export const getAIStats = (): Promise<IResponse<AIStats>> =>
   request.get({ url: `${base}/api/ai/stats` })
 
-/** Every document in the AI index, newest first. */
-export const getAIIndexedDocuments = (): Promise<IResponse<AIIndexedDocument[]>> =>
-  request.get({ url: `${base}/api/ai/documents` })
+/** One page of the AI index. Counts are computed only for the rows returned. */
+export const getAIIndexedDocuments = (params: {
+  page?: number
+  pageSize?: number
+  sort?: string | null
+  order?: 'ascending' | 'descending' | null
+} = {}): Promise<IResponse<AIIndexedDocument[]> & { total?: number }> =>
+  request.get({ url: `${base}/api/ai/documents`, params })
 
 /**
  * Re-index one entry of the AI index by its index id. Waits for the result,

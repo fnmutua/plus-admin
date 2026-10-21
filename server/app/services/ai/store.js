@@ -648,30 +648,87 @@ async function stats() {
   }
 }
 
-/** Every indexed document with its chunk and embedding counts, newest first. */
-async function listDocuments() {
-  const { rows } = await getPool().query(`
-    SELECT d.id, d.source_key, d.filename, d.file_path, d.file_type, d.file_size,
-           d.created_at, d.updated_at,
-           (SELECT COUNT(*) FROM document_chunks c WHERE c.document_id = d.id) AS chunks,
-           (SELECT COUNT(*) FROM embeddings e
-              JOIN document_chunks c ON c.id = e.chunk_id
-             WHERE c.document_id = d.id) AS embeddings
-    FROM documents d
-    ORDER BY d.updated_at DESC
-  `)
-  return rows.map((row) => ({
-    id: row.id,
-    sourceKey: row.source_key,
-    filename: row.filename,
-    filePath: row.file_path,
-    fileType: row.file_type,
-    fileSize: Number(row.file_size) || 0,
-    chunks: Number(row.chunks),
-    embeddings: Number(row.embeddings),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  }))
+// Document columns only. Sorting by chunk count is separate: it needs one
+// grouped count, and it must not pull the embeddings table in with it.
+const DOCUMENT_SORTS = {
+  filename: 'd.filename',
+  fileType: 'd.file_type',
+  fileSize: 'd.file_size',
+  updatedAt: 'd.updated_at',
+  createdAt: 'd.created_at'
+}
+
+/**
+ * One page of indexed documents, newest first unless another sort is asked for.
+ *
+ * Chunk and embedding counts run only for the rows on the page. Counting them
+ * for the whole corpus, once per document, is what made this request time out.
+ */
+async function listDocuments({ page = 1, pageSize = 10, sort = 'updatedAt', order = 'DESC' } = {}) {
+  const db = getPool()
+  const limit = Math.min(100, Math.max(1, Number(pageSize) || 10))
+  const pageNumber = Math.max(1, Number(page) || 1)
+  const offset = (pageNumber - 1) * limit
+  const requested = String(order || '').toLowerCase()
+  const direction = requested === 'asc' || requested === 'ascending' ? 'ASC' : 'DESC'
+  const byChunks = sort === 'chunks'
+
+  const { rows: [countRow] } = await db.query('SELECT COUNT(*)::int AS total FROM documents')
+  const total = countRow.total
+
+  const { rows } = byChunks
+    ? await db.query(`
+        SELECT d.id, d.source_key, d.filename, d.file_path, d.file_type, d.file_size,
+               d.created_at, d.updated_at
+          FROM documents d
+          LEFT JOIN (
+            SELECT document_id, COUNT(*) AS chunks
+              FROM document_chunks
+             GROUP BY document_id
+          ) ch ON ch.document_id = d.id
+         ORDER BY COALESCE(ch.chunks, 0) ${direction}, d.id ASC
+         LIMIT $1 OFFSET $2
+      `, [limit, offset])
+    : await db.query(`
+        SELECT d.id, d.source_key, d.filename, d.file_path, d.file_type, d.file_size,
+               d.created_at, d.updated_at
+          FROM documents d
+         ORDER BY ${DOCUMENT_SORTS[sort] || DOCUMENT_SORTS.updatedAt} ${direction}, d.id ASC
+         LIMIT $1 OFFSET $2
+      `, [limit, offset])
+
+  const counts = new Map()
+  if (rows.length) {
+    const { rows: countRows } = await db.query(`
+      SELECT c.document_id,
+             COUNT(*)::int AS chunks,
+             COUNT(e.id)::int AS embeddings
+        FROM document_chunks c
+        LEFT JOIN embeddings e ON e.chunk_id = c.id
+       WHERE c.document_id = ANY($1::uuid[])
+       GROUP BY c.document_id
+    `, [rows.map((row) => row.id)])
+    for (const row of countRows) counts.set(row.document_id, row)
+  }
+
+  return {
+    total,
+    documents: rows.map((row) => {
+      const count = counts.get(row.id) || { chunks: 0, embeddings: 0 }
+      return {
+        id: row.id,
+        sourceKey: row.source_key,
+        filename: row.filename,
+        filePath: row.file_path,
+        fileType: row.file_type,
+        fileSize: Number(row.file_size) || 0,
+        chunks: Number(count.chunks),
+        embeddings: Number(count.embeddings),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    })
+  }
 }
 
 /**
