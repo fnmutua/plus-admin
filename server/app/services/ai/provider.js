@@ -14,12 +14,155 @@ const { config, providerId } = require('./config')
 const { describeError } = require('./describeError')
 
 class ProviderError extends Error {
-  constructor(message, { provider, status } = {}) {
+  constructor(message, { provider, status, kind } = {}) {
     super(message)
     this.name = 'ProviderError'
     this.provider = provider
     this.status = status
+    this.kind = kind || 'failed'
   }
+}
+
+const BILLING_CODES = new Set([
+  'insufficient_quota',
+  'billing_hard_limit_reached',
+  'credit_balance_exhausted',
+  'organization_spend_limit_exceeded',
+  'project_spend_limit_exceeded',
+  'organization_usage_limit_exceeded'
+])
+
+const providerLabel = (provider) => {
+  if (provider === 'openai') return 'OpenAI'
+  if (provider === 'ollama') return 'Ollama'
+  return provider || 'The assistant'
+}
+
+/** OpenAI nests the reason under error.message; Ollama puts a string in error. */
+function parseErrorBody(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return { code: '', type: '', message: '' }
+  try {
+    const body = JSON.parse(raw)
+    const error = body && body.error
+    if (typeof error === 'string') return { code: '', type: '', message: error }
+    if (error && typeof error === 'object') {
+      return {
+        code: String(error.code || ''),
+        type: String(error.type || ''),
+        message: String(error.message || '')
+      }
+    }
+    if (typeof body.message === 'string') return { code: '', type: '', message: body.message }
+  } catch {
+    // A plain-text body is the message.
+  }
+  return { code: '', type: '', message: raw }
+}
+
+/**
+ * Turn an OpenAI or Ollama failure into one sentence for the assistant.
+ * Billing codes stay distinct from a temporary rate limit: both often arrive as HTTP 429.
+ */
+function explainProviderFailure(provider, status, detail) {
+  const parsed = parseErrorBody(detail)
+  const blob = `${parsed.code} ${parsed.type} ${parsed.message}`.toLowerCase()
+  const name = providerLabel(provider)
+  const spendLimit = parsed.code === 'organization_spend_limit_exceeded'
+    || parsed.code === 'project_spend_limit_exceeded'
+    || /spend limit/.test(blob)
+  const outOfCredit = status === 402
+    || BILLING_CODES.has(parsed.code)
+    || parsed.type === 'insufficient_quota'
+    || /insufficient[_\s-]?quota|credit.?balance|out of credits?|no prepaid credit|billing hard limit|usage limit exceeded|quota exceeded|exceeded your current quota|weekly usage/.test(blob)
+
+  if (outOfCredit) {
+    const statusCode = 402
+    if (provider === 'ollama') {
+      return {
+        kind: 'out_of_credit',
+        status: statusCode,
+        message: 'Ollama is out of credit. Add credit in your Ollama account, or switch the assistant to another provider in AI Settings.'
+      }
+    }
+    if (spendLimit) {
+      return {
+        kind: 'out_of_credit',
+        status: statusCode,
+        message: `${name} has reached its spend limit. Raise the limit in billing, or switch the assistant to another provider in AI Settings.`
+      }
+    }
+    return {
+      kind: 'out_of_credit',
+      status: statusCode,
+      message: `${name} is out of credit. Add credits in billing, or switch the assistant to another provider in AI Settings.`
+    }
+  }
+
+  if (status === 429 || /rate limit/.test(blob)) {
+    return {
+      kind: 'rate_limit',
+      status: 429,
+      message: `${name} is busy right now. Wait a moment and try again.`
+    }
+  }
+
+  if (status === 401 || /invalid[_\s-]?api[_\s-]?key|incorrect api key|unauthorized/.test(blob)) {
+    return {
+      kind: 'auth',
+      status: 401,
+      message: provider === 'ollama'
+        ? 'Ollama refused the sign-in. Check the API key in AI Settings.'
+        : `${name} refused the API key. Check it in AI Settings.`
+    }
+  }
+
+  if ((status === 404 || /model/.test(blob)) && /not found/.test(blob)) {
+    return {
+      kind: 'model',
+      status: 404,
+      message: provider === 'ollama'
+        ? 'That model is not installed in Ollama. Pull it, or pick another model.'
+        : `${name} does not have that model. Pick another one in the assistant.`
+    }
+  }
+
+  if (/out of memory|requires more system memory|system memory/.test(blob)) {
+    return {
+      kind: 'resources',
+      status: status || 503,
+      message: 'Ollama ran out of memory for that model. Try a smaller model.'
+    }
+  }
+
+  if (!status || status >= 500) {
+    return {
+      kind: 'upstream',
+      status: status || 502,
+      message: provider === 'ollama'
+        ? 'Ollama could not answer just now. Check that it is running, then try again.'
+        : `${name} could not answer just now. Try again in a moment.`
+    }
+  }
+
+  const plain = parsed.message.replace(/\s+/g, ' ').trim()
+  if (plain && plain.length <= 180 && !plain.startsWith('{') && !plain.startsWith('<')) {
+    return { kind: 'failed', status: status || 502, message: `${name} could not answer. ${plain}` }
+  }
+  return {
+    kind: 'failed',
+    status: status || 502,
+    message: `${name} could not answer. Try again, or switch provider in AI Settings.`
+  }
+}
+
+function failureError(provider, status, detail) {
+  const explained = explainProviderFailure(provider, status, detail)
+  return new ProviderError(explained.message, {
+    provider,
+    status: explained.status,
+    kind: explained.kind
+  })
 }
 
 async function postJson(url, body, { headers = {}, timeoutMs, provider, signal }) {
@@ -40,20 +183,27 @@ async function postJson(url, body, { headers = {}, timeoutMs, provider, signal }
     }
     if (error.name === 'TimeoutError') {
       throw new ProviderError(
-        `${provider} did not respond within ${Math.round(timeoutMs / 1000)}s. `
-        + 'Try a smaller model, fewer chunks per question, or raise the timeout in AI Settings.',
-        { provider, status: 504 }
+        `${providerLabel(provider)} took too long to answer. Try again, or pick a smaller model in AI Settings.`,
+        { provider, status: 504, kind: 'timeout' }
       )
     }
-    throw new ProviderError(`${provider} request failed: ${describeError(error)}`, { provider })
+    const described = describeError(error)
+    console.error(`[ai] ${provider} request failed: ${described}`)
+    if (/ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|EAI_AGAIN|fetch failed/i.test(described)) {
+      throw new ProviderError(
+        provider === 'ollama'
+          ? 'Ollama is not running, or KeSMIS cannot reach it. Start Ollama and try again.'
+          : `${providerLabel(provider)} could not be reached. Check the connection and try again.`,
+        { provider, status: 503, kind: 'unreachable' }
+      )
+    }
+    throw failureError(provider, 502, described)
   }
 
   if (!response.ok) {
-    const detail = (await response.text().catch(() => '')).slice(0, 500)
-    throw new ProviderError(
-      `${provider} returned ${response.status}${detail ? `: ${detail}` : ''}`,
-      { provider, status: response.status }
-    )
+    const detail = (await response.text().catch(() => '')).slice(0, 2000)
+    console.error(`[ai] ${provider} returned ${response.status}${detail ? `: ${detail}` : ''}`)
+    throw failureError(provider, response.status, detail)
   }
 
   return response.json()

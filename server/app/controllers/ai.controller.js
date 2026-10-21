@@ -25,6 +25,7 @@ const fail = (res, error, fallbackMessage) => {
   return res.status(upstream ? (error.status || 502) : status).json({
     success: false,
     code: String(status),
+    kind: error.kind || undefined,
     message: upstream || status < 500 ? error.message : fallbackMessage
   })
 }

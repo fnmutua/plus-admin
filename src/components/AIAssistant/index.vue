@@ -29,6 +29,8 @@ interface ChatMessage {
   /** Misspellings mapped to indexed words, e.g. kichecko -> kicheko. */
   corrections?: Array<{ term: string; corrected: string }>
   isError?: boolean
+  /** out_of_credit, rate_limit, auth, model, timeout, unreachable, upstream, failed */
+  errorKind?: string
   stopped?: boolean
 }
 
@@ -342,6 +344,48 @@ const SUGGESTIONS = [
   'What does the latest report cover?'
 ]
 
+const ERROR_TITLES: Record<string, string> = {
+  out_of_credit: 'Out of credit',
+  rate_limit: 'Please wait',
+  auth: 'Sign-in problem',
+  model: 'Model unavailable',
+  timeout: 'Took too long',
+  unreachable: 'Cannot reach the model',
+  resources: 'Not enough memory',
+  upstream: "Couldn't answer",
+  failed: "Couldn't answer"
+}
+
+const errorTitle = (kind?: string) => ERROR_TITLES[kind || ''] || "Couldn't answer"
+
+/** A sentence for the thread. The server already phrases OpenAI and Ollama failures. */
+const describeAssistantFailure = (error: any): { content: string; kind: string } => {
+  const data = error?.response?.data
+  const message = typeof data?.message === 'string' ? data.message.trim() : ''
+  if (data?.kind && message) return { kind: data.kind, content: message }
+  if (message && message.length < 400 && !message.trim().startsWith('<')) {
+    return { kind: 'failed', content: message }
+  }
+
+  const raw = String(error?.message || '')
+  if (error?.code === 'ECONNABORTED' || /timeout/i.test(raw)) {
+    return {
+      kind: 'timeout',
+      content: 'The assistant took too long to answer. Try again, or pick a smaller model.'
+    }
+  }
+  if (!error?.response) {
+    return {
+      kind: 'unreachable',
+      content: 'The assistant could not be reached. Check your connection and try again.'
+    }
+  }
+  return {
+    kind: 'failed',
+    content: 'The assistant could not answer. Try again in a moment.'
+  }
+}
+
 const askSuggestion = (text: string) => {
   draft.value = text
   sendQuestion()
@@ -398,16 +442,14 @@ const sendQuestion = async () => {
       return
     }
 
-    const detail = error?.response?.data?.message
-      || error?.response?.data?.details
-      || error?.message
-      || 'Something went wrong'
+    const failure = describeAssistantFailure(error)
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
-      content: detail,
+      content: failure.content,
       timestamp: new Date(),
-      isError: true
+      isError: true,
+      errorKind: failure.kind
     })
   } finally {
     inFlight = null
@@ -606,14 +648,34 @@ defineExpose({ openModal, closeModal })
 
             <!-- assistant turn: full width, no bubble -->
             <div v-else class="turn turn--assistant">
-              <span class="turn-avatar" :class="{ 'is-error': message.isError }">
-                <Icon :icon="message.isError ? 'material-symbols:error-outline' : 'mingcute:ai-fill'" />
+              <span
+                class="turn-avatar"
+                :class="{
+                  'is-error': message.isError && message.errorKind !== 'out_of_credit',
+                  'is-credit': message.errorKind === 'out_of_credit'
+                }"
+              >
+                <Icon :icon="message.errorKind === 'out_of_credit'
+                  ? 'material-symbols:credit-card-off-outline'
+                  : message.isError
+                    ? 'material-symbols:error-outline'
+                    : 'mingcute:ai-fill'" />
               </span>
 
               <div class="turn-body">
+                <p
+                  v-if="message.isError"
+                  class="error-kicker"
+                  :class="{ 'is-credit': message.errorKind === 'out_of_credit' }"
+                >
+                  {{ errorTitle(message.errorKind) }}
+                </p>
                 <div
                   class="prose"
-                  :class="{ 'is-error': message.isError }"
+                  :class="{
+                    'is-error': message.isError && message.errorKind !== 'out_of_credit',
+                    'is-credit': message.errorKind === 'out_of_credit'
+                  }"
                   v-html="render(message.content)"
                   @click="downloadTable"
                 ></div>
@@ -632,7 +694,7 @@ defineExpose({ openModal, closeModal })
                      weaker but not broken. -->
                 <div v-if="message.vectorError" class="degraded">
                   <Icon icon="material-symbols:warning-outline" />
-                  Semantic search failed ({{ message.vectorError }}) — this used word matching only.
+                  {{ message.vectorError }} Word matching was used instead.
                 </div>
                 <div v-else-if="message.retrieval === 'keyword' || message.retrieval === 'terms'" class="degraded">
                   <Icon icon="material-symbols:info-outline" />
@@ -886,6 +948,21 @@ defineExpose({ openModal, closeModal })
   background: var(--el-color-danger-light-3);
 }
 
+.turn-avatar.is-credit {
+  background: var(--el-color-warning);
+}
+
+.error-kicker {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--el-color-danger);
+}
+
+.error-kicker.is-credit {
+  color: var(--el-color-warning-dark-2);
+}
+
 .turn-body { flex: 1; min-width: 0; }
 
 .prose {
@@ -896,6 +973,8 @@ defineExpose({ openModal, closeModal })
 }
 
 .prose.is-error { color: var(--el-color-danger); }
+
+.prose.is-credit { color: var(--el-text-color-primary); }
 
 .prose :deep(pre) {
   padding: 12px;

@@ -36,7 +36,7 @@ export const askAIDocument = (
   data: AIQuestion,
   signal?: AbortSignal
 ): Promise<IResponse<AIAnswer> & AIAnswer> =>
-  request.post({ url: `${base}/api/ai/ask`, data, signal })
+  request.post({ url: `${base}/api/ai/ask`, data, signal, timeout: 200000 })
 
 /** Drop a conversation thread's stored history. */
 export const clearAISession = (sessionId: string): Promise<IResponse<{ removed: number }>> =>
