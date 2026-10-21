@@ -95,7 +95,7 @@
               @click="emit('action', item.action)"
             >
               <span class="gok-hero__quick-icon" aria-hidden="true">
-                <Icon :icon="item.icon" width="28" height="28" />
+                <Icon :icon="item.icon" width="20" height="20" />
               </span>
               <span class="gok-hero__quick-label">{{ item.label }}</span>
             </button>
@@ -227,10 +227,10 @@ onBeforeUnmount(() => {
   z-index: 2;
   background:
     linear-gradient(
-      105deg,
-      rgba(62, 39, 18, 0.72) 0%,
-      rgba(92, 58, 28, 0.55) 42%,
-      rgba(0, 0, 0, 0.32) 100%
+      180deg,
+      rgba(0, 0, 0, 0.08) 0%,
+      rgba(0, 0, 0, 0.18) 50%,
+      rgba(0, 0, 0, 0.45) 100%
     );
 }
 
@@ -261,12 +261,12 @@ onBeforeUnmount(() => {
   left: 50%;
   bottom: 0;
   z-index: 4;
-  width: min(100% - 2rem, var(--gok-max, 1160px));
+  width: min(100% - 2rem, 940px);
   transform: translate(-50%, 18%);
 }
 
 .gok-hero__intro {
-  margin: 0 0 1.1rem;
+  margin: 0 0 0.8rem;
   max-width: none;
   width: 100%;
   color: #fff;
@@ -300,16 +300,16 @@ onBeforeUnmount(() => {
   width: 100%;
   border-radius: 16px;
   overflow: hidden;
-  border: 1.5px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
   animation: gok-hero-in 0.55s ease-out both;
 }
 
 .gok-hero__panel-main {
-  padding: 1.25rem 1.35rem 1.15rem;
-  background: color-mix(in srgb, #1a2228 75%, transparent);
+  padding: 0.85rem 1.15rem 0.6rem;
+  background: color-mix(in srgb, #1a2228 55%, transparent);
 }
 
 .gok-hero__search {
@@ -391,9 +391,9 @@ onBeforeUnmount(() => {
 
 .gok-hero__quick {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 0.35rem;
-  margin-top: 1.15rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 .gok-hero__quick-item {
@@ -403,10 +403,10 @@ onBeforeUnmount(() => {
   color: #fff;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.45rem 0.2rem;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
   border-radius: 10px;
   transition: background 0.15s ease, transform 0.15s ease;
   font: inherit;
@@ -421,16 +421,16 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: #fff;
 }
 
 .gok-hero__quick-label {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.25;
-  text-align: center;
+  text-align: left;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
-  padding: 0.95rem 1.35rem;
+  padding: 0.55rem 1.15rem;
   background: color-mix(in srgb, var(--gok-green, #00843d) 92%, #003d1c);
 }
 

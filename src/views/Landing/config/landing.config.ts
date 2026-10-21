@@ -33,18 +33,16 @@ export const INSTITUTION = {
    */
   sudUrl: 'https://housingandurban.go.ke/kenya-slum-upgrading-programme-kensup/',
   /** Default / OG fallback */
-  heroImage: '/landing/hero/hero-01-street.webp',
+  heroImage: '/landing/hero/hero-03-aerial-roads.webp',
 } as const
 
 /** Rotating full-bleed hero backgrounds (compressed WebP, ~1600×900). */
 export const HERO_IMAGES = [
-  '/landing/hero/hero-01-street.webp',
   '/landing/hero/hero-03-aerial-roads.webp',
-  '/landing/hero/hero-06-hillside-sky.webp',
-  '/landing/hero/hero-02-hillside.webp',
-  '/landing/hero/hero-07-rooftops.webp',
-  '/landing/hero/hero-05-settlement-yard.webp',
+  '/landing/hero/hero-00-settlement-skyline.webp',
   '/landing/hero/hero-04-aerial-loop.webp',
+  '/landing/hero/hero-07-rooftops.webp',
+  '/landing/hero/hero-08-satellite.webp',
 ] as const
 
 /** Primary nav — path, home section, or authenticated portal destination */
@@ -87,7 +85,7 @@ export const MAIN_NAV: NavItem[] = [
 ]
 
 export const HERO = {
-  headline: 'Transforming Informal Settlements and Slums Through Data, Planning and Inclusive Development',
+  headline: "Using data to plan and upgrade Kenya's informal settlements.",
   support:
     'Access settlement information, programme progress, maps, reports and digital services supporting sustainable urban development across Kenya.',
   primaryCta: { label: 'Sign in', action: 'route:/login' },
@@ -127,34 +125,6 @@ export const HERO_QUICK_LINKS = [
     icon: 'mdi:database-outline',
     action: 'route:/data-request',
     hideOnMobile: true,
-  },
-  {
-    id: 'about',
-    label: 'About KeSMIS',
-    icon: 'mdi:information-outline',
-    action: 'route:/about',
-    hideOnMobile: false,
-  },
-  {
-    id: 'contact',
-    label: 'Contact Us',
-    icon: 'mdi:email-outline',
-    action: 'route:/contact',
-    hideOnMobile: true,
-  },
-  {
-    id: 'portal',
-    label: 'Management Portal',
-    icon: 'mdi:monitor-dashboard',
-    action: 'route:/login',
-    hideOnMobile: true,
-  },
-  {
-    id: 'docs',
-    label: 'Documentation',
-    icon: 'mdi:book-open-page-variant-outline',
-    action: 'route:/docs',
-    hideOnMobile: false,
   },
 ] as const
 
