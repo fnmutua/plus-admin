@@ -242,6 +242,27 @@ html.landing-page-active {
   line-height: 1.4;
 }
 
+.kesmis-map-popup__zoom {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--gok-green, #00843d) 35%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gok-green, #00843d);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kesmis-map-popup__zoom:hover {
+  background: var(--gok-green-soft, #e8f5ee);
+}
+
 .kesmis-map-popup__loading {
   margin: 0.45rem 0 0;
   font-size: 0.8rem;

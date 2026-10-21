@@ -271,6 +271,15 @@
                   </p>
                   <p v-if="popupPlaceLine" class="kesmis-map-popup__place">{{ popupPlaceLine }}</p>
                 </template>
+                <button
+                  v-if="!isProjects && popupBoundaryPaths"
+                  type="button"
+                  class="kesmis-map-popup__zoom"
+                  @click="zoomToPopupBoundary"
+                >
+                  <Icon icon="mdi:fit-to-screen-outline" width="14" />
+                  Zoom to boundary
+                </button>
               </div>
             </InfoWindow>
           </template>
@@ -296,6 +305,7 @@ import {
   getPublicProjectsMap,
   getPublicRegisterCounties,
   getPublicRegisterSettlement,
+  getPublicRegisterSettlementMap,
   getPublicRegisterSettlementsMap,
   getPublicRegisterSubcounties,
   getPublicRegisterWards,
@@ -382,6 +392,10 @@ const subcountyOptions = ref<Array<{ value: number; label: string }>>([])
 const wardOptions = ref<Array<{ value: number; label: string }>>([])
 
 const popupDetail = ref<any>(null)
+/** Settlement polygon rings for the open popup; null when it is a point or not loaded */
+const popupBoundaryPaths = ref<google.maps.LatLngLiteral[][] | null>(null)
+/** Greys out everything outside the focused settlement */
+let focusMask: google.maps.Polygon | null = null
 const popupPosition = ref<{ lat: number; lng: number } | null>(null)
 const popupLoading = ref(false)
 const popupTitleHint = ref('')
@@ -392,6 +406,7 @@ let clusterer: MarkerClusterer | null = null
 let gMarkers: google.maps.Marker[] = []
 let gPolygons: Array<google.maps.Polygon | google.maps.Polyline> = []
 let polygonLoadSeq = 0
+let searchFitSeq = 0
 let polygonFetchTimer: ReturnType<typeof setTimeout> | null = null
 let userLocationMarker: google.maps.Marker | null = null
 const locatingMe = ref(false)
@@ -399,6 +414,8 @@ const LOCATE_ZOOM = 14
 
 /** Show settlement boundary polygons at this zoom and above */
 const MIN_ZOOM_FOR_POLYGONS = 12
+/** Searches with at most this many settlements zoom to their boundaries */
+const MAX_SEARCH_POLYGON_FIT = 50
 
 function ringToPath(ring: number[][]): google.maps.LatLngLiteral[] {
   return ring
@@ -665,10 +682,54 @@ function clearMapMarkers() {
   gMarkers = []
 }
 
+async function fitToSearchPolygons(): Promise<boolean> {
+  const map = getGoogleMap()
+  const searchTerm = searchKeyword.value?.trim() || ''
+  if (!map || isProjects.value || !searchTerm) return false
+  if (!markers.value.length || markers.value.length > MAX_SEARCH_POLYGON_FIT) return false
+
+  const seq = ++searchFitSeq
+  try {
+    const fc = await getPublicRegisterSettlementsMap({
+      county_id: selectedCounty.value ?? undefined,
+      subcounty_id: selectedSubcounty.value ?? undefined,
+      ward_id: selectedWard.value ?? undefined,
+      search: searchTerm,
+      polygons: true,
+      limit: MAX_SEARCH_POLYGON_FIT,
+    })
+    if (seq !== searchFitSeq) return true
+    const bounds = new google.maps.LatLngBounds()
+    let hasPoints = false
+    for (const feature of fc?.features || []) {
+      for (const path of geometryToPolygonPaths(feature?.geometry)) {
+        path.forEach((p) => bounds.extend(p))
+        hasPoints = hasPoints || path.length > 0
+      }
+    }
+    if (!hasPoints) return false
+    map.fitBounds(bounds, 48)
+    return true
+  } catch (e) {
+    console.warn('Search polygon fit skipped', e)
+    return false
+  }
+}
+
 function fitToMarkers() {
   const map = getGoogleMap()
   const list = markers.value
   if (!map || !window.google?.maps || !list.length) return
+  if (!isProjects.value && searchKeyword.value?.trim()) {
+    fitToSearchPolygons().then((fitted) => {
+      if (!fitted) fitToMarkerBounds(map, list)
+    })
+    return
+  }
+  fitToMarkerBounds(map, list)
+}
+
+function fitToMarkerBounds(map: google.maps.Map, list: MapMarker[]) {
   try {
     if (!map.getBounds()) return
     if (list.length === 1) {
@@ -972,6 +1033,7 @@ function resetFilters() {
   mapCenter.value = { ...MAP_INITIAL_CENTER }
   mapZoom.value = MAP_INITIAL_ZOOM
   closePopup()
+  clearFocusMask()
   clearSettlementPolygons()
   const map = getGoogleMap()
   if (map) {
@@ -987,17 +1049,79 @@ function resetFilters() {
 
 function closePopup() {
   popupDetail.value = null
+  popupBoundaryPaths.value = null
   popupPosition.value = null
   popupLoading.value = false
   popupTitleHint.value = ''
+}
+
+async function loadPopupBoundary(id: number, requestId: number) {
+  try {
+    const feature = await getPublicRegisterSettlementMap(id)
+    if (requestId !== popupRequestId) return
+    const paths = geometryToPolygonPaths(feature?.geometry).filter((p) => p.length >= 3)
+    popupBoundaryPaths.value = paths.length ? paths : null
+  } catch (e) {
+    console.warn('Settlement boundary load failed', e)
+  }
+}
+
+function clearFocusMask() {
+  focusMask?.setMap(null)
+  focusMask = null
+}
+
+/** Signed area sign tells ring direction; Maps needs holes opposite to the outer ring */
+function isClockwise(path: google.maps.LatLngLiteral[]) {
+  let sum = 0
+  for (let i = 0; i < path.length; i++) {
+    const a = path[i]
+    const b = path[(i + 1) % path.length]
+    sum += (b.lng - a.lng) * (b.lat + a.lat)
+  }
+  return sum > 0
+}
+
+function showFocusMask(map: google.maps.Map, holes: google.maps.LatLngLiteral[][]) {
+  clearFocusMask()
+  // Clockwise world ring; holes are made counter-clockwise
+  const world: google.maps.LatLngLiteral[] = [
+    { lat: 85, lng: -179.99 },
+    { lat: 85, lng: 0 },
+    { lat: 85, lng: 179.99 },
+    { lat: -85, lng: 179.99 },
+    { lat: -85, lng: 0 },
+    { lat: -85, lng: -179.99 },
+  ]
+  focusMask = new google.maps.Polygon({
+    map,
+    paths: [world, ...holes.map((h) => (isClockwise(h) ? [...h].reverse() : h))],
+    fillColor: '#4b5563',
+    fillOpacity: 0.5,
+    strokeWeight: 0,
+    clickable: false,
+    zIndex: 0,
+  })
+}
+
+function zoomToPopupBoundary() {
+  const map = getGoogleMap()
+  const paths = popupBoundaryPaths.value
+  if (!map || !paths) return
+  const bounds = new google.maps.LatLngBounds()
+  paths.forEach((path) => path.forEach((p) => bounds.extend(p)))
+  map.fitBounds(bounds, 48)
+  showFocusMask(map, paths)
 }
 
 async function onMarkerClick(marker: MapMarker) {
   popupPosition.value = marker.position
   popupLoading.value = true
   popupDetail.value = null
+  popupBoundaryPaths.value = null
   popupTitleHint.value = marker.title || marker.locationName || ''
   const requestId = ++popupRequestId
+  if (!isProjects.value) loadPopupBoundary(marker.id, requestId)
   try {
     const res = isProjects.value
       ? await getPublicProjectLocation(marker.id)
@@ -1034,6 +1158,7 @@ function hydrateSearchFromRoute() {
 
 watch(mode, () => {
   closePopup()
+  clearFocusMask()
   selectedCounty.value = null
   selectedSubcounty.value = null
   selectedWard.value = null
@@ -1075,6 +1200,7 @@ onUnmounted(() => {
   clearSettlementPolygons()
   clearMapMarkers()
   clearUserLocationMarker()
+  clearFocusMask()
 })
 </script>
 
