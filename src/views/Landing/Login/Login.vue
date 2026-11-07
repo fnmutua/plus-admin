@@ -275,7 +275,11 @@ const getRole = async (authenticatedUser: any, formData: UserType) => {
     push({ path: '/dashboard/national' })
     return
   }
-  push({ path: redirect.value || routers[0].path })
+  const fallbackPath =
+    (typeof routers[0]?.redirect === 'string' && routers[0].redirect) ||
+    routers[0]?.path ||
+    '/dashboard/national'
+  push({ path: redirect.value || fallbackPath })
 }
 
 const signIn = async () => {
@@ -312,7 +316,12 @@ const signIn = async () => {
               addRoute(route as RouteRecordRaw)
             })
             permissionStore.setIsAddRouters(true)
-            push({ path: redirect.value || permissionStore.addRouters[0].path })
+            const first = permissionStore.addRouters[0]
+            const fallbackPath =
+              (typeof first?.redirect === 'string' && first.redirect) ||
+              first?.path ||
+              '/dashboard/national'
+            push({ path: redirect.value || fallbackPath })
           }
         }
       } catch (error: any) {

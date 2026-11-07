@@ -577,19 +577,22 @@ const planningStatusOptions = [
   { label: 'Unplanned', value: 'Unplanned' }
 ]
 
-// Landuse options matching SQL normalized values (supports multiple selection)
+// Handbook 2025 §3.4.3 classes (+ legacy values for existing settlement rows)
 const landuseOptions = [
-  { label: 'Mixed', value: 'Mixed' },
   { label: 'Residential', value: 'Residential' },
-  { label: 'Commercial', value: 'Commercial' },
   { label: 'Industrial', value: 'Industrial' },
   { label: 'Educational', value: 'Educational' },
+  { label: 'Recreational', value: 'Recreational' },
   { label: 'Public Purpose', value: 'Public Purpose' },
-  { label: 'Public Utility', value: 'Public Utility' },
+  { label: 'Commercial', value: 'Commercial' },
+  { label: 'Public Utilities', value: 'Public Utilities' },
   { label: 'Transportation', value: 'Transportation' },
-  { label: 'Agricultural', value: 'Agricultural' },
-  { label: 'Undeveloped', value: 'Undeveloped' },
   { label: 'Conservation', value: 'Conservation' },
+  { label: 'Agricultural', value: 'Agricultural' },
+  { label: 'Mixed use', value: 'Mixed use' },
+  { label: 'Public Utility (legacy)', value: 'Public Utility' },
+  { label: 'Undeveloped (legacy)', value: 'Undeveloped' },
+  { label: 'Mixed (legacy)', value: 'Mixed' },
   { label: 'Other', value: 'Other' }
 ]
 

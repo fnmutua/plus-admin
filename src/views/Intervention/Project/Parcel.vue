@@ -11,7 +11,8 @@ ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPa
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
-import { ref, reactive, h } from 'vue'
+import { ref, reactive, h, onMounted } from 'vue'
+import { useLanduseTypesStore } from '@/store/modules/landuseTypes'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -52,6 +53,10 @@ const searchString = ref()
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const landuseTypesStore = useLanduseTypesStore()
+onMounted(() => {
+  landuseTypesStore.load()
+})
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
@@ -699,26 +704,7 @@ const loadMap = () => {
             "type": "fill",
             'source': 'polygons',
             'paint': {
-                'fill-color': [
-                    'case',
-                    ['==', ['get', 'landuse_id'], 0],
-                    'brown',
-                    ['==', ['get', 'landuse_id'], 1],
-                    'yellow',
-                    ['==', ['get', 'landuse_id'], 2],
-                    'orange',
-                    ['==', ['get', 'landuse_id'], 3],
-                    'green',
-                    ['==', ['get', 'landuse_id'], 4],
-                    'yellow',
-                    ['==', ['get', 'landuse_id'], 5],
-                    'red',
-                    ['==', ['get', 'landuse_id'], 6],
-                    'gray',
-                    ['==', ['get', 'landuse_id'], 7],
-                    'yellow',
-                    'white'],
-
+                'fill-color': landuseTypesStore.mapboxFillExpression(),
                 'fill-opacity': 0.5
             }
         });

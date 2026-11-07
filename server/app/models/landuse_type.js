@@ -10,6 +10,28 @@ module.exports = function(sequelize, DataTypes) {
     use: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    color: {
+      type: DataTypes.STRING(32),
+      allowNull: true
+    },
+    aliases: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
+    sort_order: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
     }
   }, {
     sequelize,

@@ -97,17 +97,27 @@ const LONGTEXT_KEYS = new Set([
   'comment',
 ])
 
+/** @deprecated Prefer useLanduseTypesStore().labelFor — kept for offline fallback. */
+/** Handbook 2025 §3.4.3 zone names — prefer useLanduseTypesStore().labelFor. */
 export const LANDUSE_LABELS: Record<number, string> = {
   0: 'Residential',
   1: 'Industrial',
-  2: 'Education',
-  3: 'Recreation',
+  2: 'Educational',
+  3: 'Recreational',
   4: 'Public Purpose',
   5: 'Commercial',
-  6: 'Public Utility',
+  6: 'Public Utilities',
   7: 'Transportation',
-  8: 'Undeveloped',
+  8: 'Conservation',
   9: 'Agricultural',
+  10: 'Mixed use',
+}
+
+let landuseLabelResolver: ((id: number) => string) | null = null
+
+/** Wired by the app once the land-use types store is available. */
+export const setLanduseLabelResolver = (resolver: ((id: number) => string) | null) => {
+  landuseLabelResolver = resolver
 }
 
 const SETTLEMENT_SCHEMAS: SchemaSection[] = [
@@ -917,6 +927,9 @@ const formatDisplayValue = (key: string, value: unknown, format?: FieldFormat): 
   if (format === 'landuse') {
     const landuseId = Number(value)
     if (!Number.isNaN(landuseId)) {
+      if (landuseLabelResolver) {
+        return landuseLabelResolver(landuseId)
+      }
       return LANDUSE_LABELS[landuseId] ?? String(value)
     }
   }

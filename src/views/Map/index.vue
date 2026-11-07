@@ -6,7 +6,8 @@ import { getSettlementListByCounty, getfilteredGeo } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { Form } from '@/components/Form'
-import { ref, h, reactive, onBeforeMount } from 'vue'
+import { ref, h, reactive, onBeforeMount, onMounted } from 'vue'
+import { useLanduseTypesStore } from '@/store/modules/landuseTypes'
 import { ElSwitch, ElPagination, ELCollapse } from 'element-plus'
 import { LMap, LGeoJson, LTileLayer, LControlLayers, LControlZoom } from '@vue-leaflet/vue-leaflet'
 import { featureGroup } from 'leaflet'
@@ -14,6 +15,10 @@ import { nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
+const landuseTypesStore = useLanduseTypesStore()
+onMounted(() => {
+  landuseTypesStore.load()
+})
 
 interface Params {
   pageIndex?: number
@@ -150,39 +155,7 @@ const schema = reactive<FormSchema[]>([
 ])
 
 function getColor(d) {
-  // console.log(d)
-
-  // recieve the prop
-  if (d > 7) {
-    // as many conditionals you need
-    return 'green'
-  }
-  if (d === 0) {
-    return 'brown'
-  }
-  if (d == 1) {
-    return 'purple'
-  }
-  if (d == 2) {
-    return 'orange'
-  }
-  if (d == 3) {
-    return 'green'
-  }
-  if (d == 4) {
-    return 'yellow'
-  }
-  if (d == 5) {
-    return 'red'
-  }
-
-  if (d == 6) {
-    return 'gray'
-  }
-
-  if (d == 7) {
-    return 'yellow'
-  }
+  return landuseTypesStore.colorFor(d)
 }
 
 function updateStyle() {

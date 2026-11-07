@@ -3,7 +3,8 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getOneGeo, getfilteredGeo } from '@/api/settlements'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useLanduseTypesStore } from '@/store/modules/landuseTypes'
 
 import { useRoute } from 'vue-router'
 
@@ -23,6 +24,10 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 import "mapbox-layer-switcher/styles.css";
 
 const route = useRoute()
+const landuseTypesStore = useLanduseTypesStore()
+onMounted(() => {
+  landuseTypesStore.load()
+})
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -233,26 +238,7 @@ const loadMap = () => {
       "type": "fill",
       'source': 'parcels',
       'paint': {
-        'fill-color': [
-          'case',
-          ['==', ['get', 'landuse_id'], 0],
-          'brown',
-          ['==', ['get', 'landuse_id'], 1],
-          'yellow',
-          ['==', ['get', 'landuse_id'], 2],
-          'orange',
-          ['==', ['get', 'landuse_id'], 3],
-          'green',
-          ['==', ['get', 'landuse_id'], 4],
-          'yellow',
-          ['==', ['get', 'landuse_id'], 5],
-          'red',
-          ['==', ['get', 'landuse_id'], 6],
-          'gray',
-          ['==', ['get', 'landuse_id'], 7],
-          'yellow',
-          'white'],
-
+        'fill-color': landuseTypesStore.mapboxFillExpression(),
         'fill-opacity': 0.5
       }
     });

@@ -26,6 +26,14 @@ export const PLATFORM_SETTINGS: SettingsLeafDefinition[] = [
     component: () => import('@/views/settings/SettlementTypes.vue'),
   },
   {
+    path: 'landuse-types',
+    name: 'LanduseTypes',
+    title: 'Land Use Types',
+    icon: 'material-symbols:landscape',
+    permissions: ['landuse_type:manage'],
+    component: () => import('@/views/settings/LanduseTypes.vue'),
+  },
+  {
     path: 'ai-settings',
     name: 'AISettings',
     title: 'AI Settings',

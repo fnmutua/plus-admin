@@ -18,6 +18,7 @@ import {
   normalizeFacilityProperties,
   prepareDrawerRecordData,
   resolveFeatureType,
+  setLanduseLabelResolver,
   type DrawerInlineSection,
   type FacilityDetailNavigation,
   type FeatureKind,
@@ -42,6 +43,7 @@ import {
 } from './settlementMapDrawerInline'
 import { inlineSelectOptionsBase } from '@/views/Settlement/settlementInlineEditConfig'
 import { useSettlementTypesStore } from '@/store/modules/settlementTypes'
+import { useLanduseTypesStore } from '@/store/modules/landuseTypes'
 import { surveyStatusOptionsForPlanning } from '@/utils/validateSettlementAttributes'
 import InlineEditableDescriptions from '@/views/Settlement/components/InlineEditableDescriptions.vue'
 import { getSettlementMapData, getNeighboringSettlements, getSettlementImageryLayers, updateOneRecord } from '@/api/settlements'
@@ -226,18 +228,47 @@ const layerFeatureCounts = ref({
   neighboringSettlements: 0,
 })
 
-const legendItems = ref([
-  { label: 'Residential', color: '#8C675D', landuseId: 0, show: false },
-  { label: 'Industrial', color: '#800080', landuseId: 1, show: false },
-  { label: 'Education', color: '#F6C567', landuseId: 2, show: false },
-  { label: 'Recreation', color: '#6FDC6E', landuseId: 3, show: false },
-  { label: 'Public Purpose', color: '#FFFF00', landuseId: 4, show: false },
-  { label: 'Commercial', color: '#FF1D1E', landuseId: 5, show: false },
-  { label: 'Public Utility', color: '#73B2FF', landuseId: 6, show: false },
-  { label: 'Transportation', color: '#DCDCDC', landuseId: 7, show: false },
-  { label: 'Undeveloped', color: '#FDFD96', landuseId: 8, show: false },
-  { label: 'Agricultural', color: '#FDFD96', landuseId: 9, show: false },
-])
+const landuseTypesStore = useLanduseTypesStore()
+const legendItems = ref(landuseTypesStore.legendItems.map((item) => ({ ...item })))
+
+const refreshLegendFromTypes = (landuseIdsFound?: Set<any>) => {
+  const source =
+    landuseIdsFound ||
+    new Set(legendItems.value.filter((item) => item.show).map((item) => item.landuseId))
+  // GeoJSON often returns landuse_id as a string; legend ids are numbers.
+  const found = new Set<number>()
+  for (const id of source) {
+    const numeric = Number(id)
+    if (Number.isFinite(numeric)) found.add(numeric)
+  }
+  legendItems.value = landuseTypesStore.legendItems.map((item) => ({
+    ...item,
+    show: found.has(item.landuseId),
+  }))
+}
+
+const colorForLanduse = (landuseId: number | string | null | undefined) =>
+  landuseTypesStore.colorFor(landuseId)
+
+/** Keep parcel fills and KEY swatches in sync with configured land-use colours. */
+const syncParcelColorsFromLanduse = () => {
+  if (parcels.value.length) {
+    parcels.value = parcels.value.map((parcel) => ({
+      ...parcel,
+      fillColor: colorForLanduse(parcel.properties?.landuse_id ?? -1),
+    }))
+  }
+  const found = new Set(
+    parcels.value
+      .map((parcel) => parcel.properties?.landuse_id)
+      .filter((id) => id !== null && id !== undefined)
+  )
+  if (found.size || legendItems.value.some((item) => item.show)) {
+    refreshLegendFromTypes(found.size ? found : undefined)
+  } else {
+    refreshLegendFromTypes()
+  }
+}
 
 const PointLegendItems = ref([
   { layer: 'crime_hotspot', label: 'Crime Hotspot', icon: 'icons/theft.png', show: false },
@@ -335,9 +366,7 @@ const applyMapDataToState = (mapData: SettlementMapData) => {
       const landuseIdsFound = new Set(
         mapData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
       )
-      legendItems.value.forEach(item => {
-        item.show = landuseIdsFound.has(item.landuseId)
-      })
+      refreshLegendFromTypes(landuseIdsFound)
       console.log(`✅ Loaded ${mapData.parcel.features.length} parcels`)
     }
 
@@ -515,16 +544,7 @@ const loadSelectedLayersWithProgress = async (
             return point
           }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
           const landuseId = properties.landuse_id ?? -1
-          const fillColor = landuseId === 0 ? '#8C675D' :
-            landuseId === 1 ? '#800080' :
-            landuseId === 2 ? '#F6C567' :
-            landuseId === 3 ? '#6FDC6E' :
-            landuseId === 4 ? '#FFFF00' :
-            landuseId === 5 ? '#FF1D1E' :
-            landuseId === 6 ? '#73B2FF' :
-            landuseId === 7 ? '#DCDCDC' :
-            landuseId === 8 ? '#FDFD96' :
-            landuseId === 9 ? '#FDFD96' : 'white'
+          const fillColor = colorForLanduse(landuseId)
           parcels.value.push({
             id: `parcel-${properties?.id || index}`,
             paths,
@@ -558,9 +578,7 @@ const loadSelectedLayersWithProgress = async (
     const landuseIdsFound = new Set(
       allData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
     )
-    legendItems.value.forEach(item => {
-      item.show = landuseIdsFound.has(item.landuseId)
-    })
+    refreshLegendFromTypes(landuseIdsFound)
     console.log(`✅ Loaded ${allData.parcel.features.length} parcels`)
   }
 
@@ -920,16 +938,7 @@ const loadSelectedLayers = async (layers: string[]) => {
             return point
           }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
           const landuseId = properties.landuse_id ?? -1
-          const fillColor = landuseId === 0 ? '#8C675D' :
-            landuseId === 1 ? '#800080' :
-            landuseId === 2 ? '#F6C567' :
-            landuseId === 3 ? '#6FDC6E' :
-            landuseId === 4 ? '#FFFF00' :
-            landuseId === 5 ? '#FF1D1E' :
-            landuseId === 6 ? '#73B2FF' :
-            landuseId === 7 ? '#DCDCDC' :
-            landuseId === 8 ? '#FDFD96' :
-            landuseId === 9 ? '#FDFD96' : 'white'
+          const fillColor = colorForLanduse(landuseId)
           parcels.value.push({
             id: `parcel-${properties?.id || index}`,
             paths,
@@ -1273,10 +1282,7 @@ const refreshMapKeyLegend = () => {
       .map((p) => p.properties?.landuse_id)
       .filter((id) => id !== null && id !== undefined)
   )
-  legendItems.value = legendItems.value.map((item) => ({
-    ...item,
-    show: landuseIdsFound.has(item.landuseId),
-  }))
+  refreshLegendFromTypes(landuseIdsFound)
 
   // Ensure per-type toggles exist for any newly shown facility layers
   PointLegendItems.value.forEach((item) => {
@@ -1351,16 +1357,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
             return point
           }).filter((path: { lng: number; lat: number }) => isFinite(path.lng) && isFinite(path.lat))
           const landuseId = properties.landuse_id ?? -1
-          const fillColor = landuseId === 0 ? '#8C675D' :
-            landuseId === 1 ? '#800080' :
-            landuseId === 2 ? '#F6C567' :
-            landuseId === 3 ? '#6FDC6E' :
-            landuseId === 4 ? '#FFFF00' :
-            landuseId === 5 ? '#FF1D1E' :
-            landuseId === 6 ? '#73B2FF' :
-            landuseId === 7 ? '#DCDCDC' :
-            landuseId === 8 ? '#FDFD96' :
-            landuseId === 9 ? '#FDFD96' : 'white'
+          const fillColor = colorForLanduse(landuseId)
           parcels.value.push({
             id: `parcel-${idPrefix}${properties?.id || index}`,
             paths,
@@ -1386,11 +1383,7 @@ const appendSettlementMapData = async (settlementId: string, settlementName: str
     const landuseIdsFound = new Set(
       mapData.parcel.features.map(f => f.properties?.landuse_id).filter(id => id !== null && id !== undefined)
     )
-    legendItems.value.forEach(item => {
-      if (landuseIdsFound.has(item.landuseId)) {
-        item.show = true
-      }
-    })
+    refreshLegendFromTypes(landuseIdsFound)
   }
 
   if (layers.includes('structures') && mapData.structure?.features?.length) {
@@ -3152,8 +3145,14 @@ watch(userLocation, (newLocation) => {
   }
 })
 
-onMounted(async () => {
+onMounted(() => {
   settlementTypesStore.load()
+  // Do not await before wiring the map: if Google Maps becomes ready while we
+  // wait on land-use types, a non-immediate watch never fires and the map stalls.
+  landuseTypesStore.load().then(() => {
+    setLanduseLabelResolver((id) => landuseTypesStore.labelFor(id))
+    syncParcelColorsFromLanduse()
+  })
   loadDrawerVulnerabilitySelectOptions()
 
   // Setup window resize listener for responsive drawer
@@ -3205,7 +3204,8 @@ onMounted(async () => {
           if (mapReady.value) applyMapTheme()
         })
       }
-    }
+    },
+    { immediate: true }
   )
 })
 
@@ -3365,8 +3365,12 @@ const loadMapData = async () => {
 
   try {
     updateLoadingStatus('Initializing map...', 0)
+    // Colours/labels before parcels so KEY and fills use configured land uses.
+    await landuseTypesStore.load().catch(() => {})
+    setLanduseLabelResolver((id) => landuseTypesStore.labelFor(id))
     updateLoadingStatus('Fetching map data...', 10)
     await loadSelectedLayersWithProgress(['settlement', 'parcels', 'structures', 'other_points'])
+    syncParcelColorsFromLanduse()
     updateLoadingStatus('Setting up map controls...', 90)
     applyMapTheme()
     updateLoadingStatus('Map ready!', 100)
