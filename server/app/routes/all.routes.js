@@ -1438,6 +1438,7 @@ module.exports = function (app) {
   app.post('/api/v1/data/settlements/population-baseline/seed', [authJwt.verifyToken], controller.seedSettlementPopulationBaseline)
   app.post('/api/v1/data/settlements/population-baseline/import-excel', [authJwt.verifyToken], controller.importSettlementPopulationBaselineExcel)
   app.post('/api/v1/data/settlements/population-projection/apply', [authJwt.verifyToken], controller.applySettlementPopulationProjection)
+  app.post('/api/v1/data/settlements/population-projection/backfill-observed', [authJwt.verifyToken], controller.backfillObservedPopulationSeries)
   app.post('/api/v1/data/admin-units-from-coords', [authJwt.verifyToken], controller.getAdminUnitsFromCoordinates)
 
   /**

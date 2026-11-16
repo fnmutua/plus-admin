@@ -3651,6 +3651,74 @@ exports.seedSettlementPopulationBaseline = async (req, res) => {
   }
 }
 
+/**
+ * Backfill baseline + projections for settlements that already have profile
+ * population (building estimates) but no year series yet — e.g. pending/new
+ * settlements created before the sync ran.
+ */
+exports.backfillObservedPopulationSeries = async (req, res) => {
+  const t = await db.sequelize.transaction()
+  try {
+    const body = req.body || {}
+    const countyId =
+      body.county_id !== undefined && body.county_id !== null && body.county_id !== ''
+        ? parseInt(body.county_id, 10)
+        : null
+    const dryRun = body.dry_run === true
+    const scope = body.scope || 'pending'
+    const baselineYear =
+      body.baseline_year != null
+        ? parseInt(body.baseline_year, 10)
+        : populationProjection.DEFAULT_BASELINE_YEAR
+    const observedYear =
+      body.year != null ? parseInt(body.year, 10) : new Date().getFullYear()
+    const projectThroughYear =
+      body.project_through_year != null
+        ? parseInt(body.project_through_year, 10)
+        : Math.max(observedYear, 2040)
+    const settlementIds = Array.isArray(body.settlement_ids) ? body.settlement_ids : []
+
+    const result = await populationProjection.backfillObservedPopulationSeries(db, {
+      scope,
+      baseline_year: baselineYear,
+      year: observedYear,
+      project_through_year: projectThroughYear,
+      county_id: countyId,
+      settlement_ids: settlementIds,
+      dry_run: dryRun,
+      source: body.population_source || 'building_estimate',
+      method: body.population_method || 'production_backfill',
+      transaction: t,
+    })
+
+    if (dryRun) {
+      await t.rollback()
+    } else {
+      await t.commit()
+    }
+
+    return res.status(200).json({
+      code: '0000',
+      message: dryRun
+        ? `Preview: ${result.total_candidates} settlement(s) would get a projected series`
+        : `Backfilled ${result.projected} projected, ${result.partial} partial, ${result.errors} error(s)`,
+      data: result,
+    })
+  } catch (error) {
+    try {
+      await t.rollback()
+    } catch (_) {
+      /* ignore */
+    }
+    console.error('❌ Error in backfillObservedPopulationSeries:', error)
+    return res.status(500).json({
+      message: 'Failed to backfill population series',
+      code: 'SERVER_ERROR',
+      error: error.message,
+    })
+  }
+}
+
 /** Project settlement_population using county annual rates. */
 exports.applySettlementPopulationProjection = async (req, res) => {
   const t = await db.sequelize.transaction()

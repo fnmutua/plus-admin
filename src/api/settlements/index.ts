@@ -909,6 +909,22 @@ export const applySettlementPopulationProjection = (data: {
   return request.post({ url: prod + '/api/v1/data/settlements/population-projection/apply', data, timeout: 0 })
 }
 
+export const backfillObservedPopulationSeries = (data: {
+  scope?: 'pending' | 'missing_baseline' | 'all'
+  baseline_year?: number
+  year?: number
+  project_through_year?: number
+  county_id?: number | null
+  settlement_ids?: number[]
+  dry_run?: boolean
+}): Promise<{ code: string; message: string; data: Record<string, unknown> }> => {
+  return request.post({
+    url: prod + '/api/v1/data/settlements/population-projection/backfill-observed',
+    data,
+    timeout: 0
+  })
+}
+
 // Get imagery layers for a settlement - returns layer names that intersect with settlement bbox
 export const getSettlementImageryLayers = (data: {
   settlementId: string | number

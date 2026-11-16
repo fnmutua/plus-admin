@@ -1734,6 +1734,172 @@ async function importCountyGrowthRatesFromExcel(db, buffers = {}, options = {}) 
   }
 }
 
+/**
+ * Backfill baseline + county-rate projections for settlements that already
+ * have a profile population (e.g. building estimates on new/pending rows)
+ * but no census-year settlement_population series yet.
+ *
+ * scope:
+ *  - pending — Pending settlements missing baseline (default for new rows)
+ *  - missing_baseline — any settlement with population and no baseline year
+ *  - all — every settlement with population (re-runs series)
+ */
+async function backfillObservedPopulationSeries(db, options = {}) {
+  const baselineYear = options.baseline_year ?? DEFAULT_BASELINE_YEAR
+  const observedYear =
+    options.year != null && Number.isFinite(Number(options.year))
+      ? Number(options.year)
+      : new Date().getFullYear()
+  const projectThroughYear =
+    options.project_through_year != null && Number.isFinite(Number(options.project_through_year))
+      ? Number(options.project_through_year)
+      : Math.max(observedYear, 2040)
+  const scope = options.scope || 'pending'
+  const countyId =
+    options.county_id != null && options.county_id !== ''
+      ? Number(options.county_id)
+      : null
+  const settlementIds = Array.isArray(options.settlement_ids)
+    ? options.settlement_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+    : []
+  const dryRun = options.dry_run === true
+  const source = options.source || 'building_estimate'
+  const method = options.method || 'production_backfill'
+  const transaction = options.transaction ?? null
+
+  const filters = ['s.population IS NOT NULL', 'CAST(s.population AS FLOAT) > 0']
+  const replacements = { baselineYear }
+
+  if (scope === 'pending') {
+    filters.push(`s."isApproved" = 'Pending'`)
+  }
+
+  if (scope === 'pending' || scope === 'missing_baseline') {
+    filters.push(`NOT EXISTS (
+      SELECT 1 FROM settlement_population sp
+      WHERE sp.settlement_id = s.id AND sp.year = :baselineYear
+    )`)
+  }
+
+  if (countyId != null && Number.isFinite(countyId)) {
+    filters.push('s.county_id = :countyId')
+    replacements.countyId = countyId
+  }
+
+  if (settlementIds.length > 0) {
+    filters.push('s.id IN (:settlementIds)')
+    replacements.settlementIds = settlementIds
+  }
+
+  const settlements = await db.sequelize.query(
+    `
+      SELECT
+        s.id,
+        s.name,
+        s.county_id,
+        s.subcounty_id,
+        s.ward_id,
+        s.population,
+        s.pop_male,
+        s.pop_female,
+        s.num_households,
+        s.avg_household_size,
+        s."isApproved" AS is_approved
+      FROM settlement s
+      WHERE ${filters.join(' AND ')}
+      ORDER BY s.id
+    `,
+    {
+      replacements,
+      type: db.sequelize.QueryTypes.SELECT,
+      transaction,
+    }
+  )
+
+  if (dryRun) {
+    return {
+      scope,
+      baseline_year: baselineYear,
+      observed_year: observedYear,
+      project_through_year: projectThroughYear,
+      total_candidates: settlements.length,
+      projected: 0,
+      partial: 0,
+      errors: 0,
+      dry_run: true,
+      preview: settlements.slice(0, 50).map((s) => ({
+        settlement_id: s.id,
+        name: s.name,
+        county_id: s.county_id,
+        population: roundCount(s.population),
+        isApproved: s.is_approved,
+      })),
+    }
+  }
+
+  const results = []
+  let projected = 0
+  let partial = 0
+  let errors = 0
+
+  for (const settlement of settlements) {
+    try {
+      const outcome = await projectSeriesFromObservedYear(db, settlement, {
+        baseline_year: baselineYear,
+        year: observedYear,
+        project_through_year: projectThroughYear,
+        source,
+        method,
+        transaction,
+      })
+
+      if (outcome?.projected) {
+        projected += 1
+        results.push({
+          settlement_id: settlement.id,
+          name: settlement.name,
+          status: 'projected',
+          baseline_population: outcome.baseline_population ?? null,
+          observed_year: outcome.observed_year,
+          project_through_year: outcome.project_through_year,
+        })
+      } else {
+        partial += 1
+        results.push({
+          settlement_id: settlement.id,
+          name: settlement.name,
+          status: 'partial',
+          reason: outcome?.reason || 'not_projected',
+          missing_rate_year: outcome?.missing_rate_year ?? null,
+          observed_year: outcome?.observed_year ?? observedYear,
+        })
+      }
+    } catch (err) {
+      errors += 1
+      results.push({
+        settlement_id: settlement.id,
+        name: settlement.name,
+        status: 'error',
+        detail: err.message || String(err),
+      })
+    }
+  }
+
+  return {
+    scope,
+    baseline_year: baselineYear,
+    observed_year: observedYear,
+    project_through_year: projectThroughYear,
+    total_candidates: settlements.length,
+    projected,
+    partial,
+    errors,
+    dry_run: false,
+    preview: results.slice(0, 50),
+    results,
+  }
+}
+
 module.exports = {
   DEFAULT_BASELINE_YEAR,
   splitSexFromCounty,
@@ -1746,5 +1912,6 @@ module.exports = {
   applySettlementPopulationProjection,
   syncSettlementReportingYear,
   projectSeriesFromObservedYear,
+  backfillObservedPopulationSeries,
   bulkUpsertCountyGrowthRates,
 }

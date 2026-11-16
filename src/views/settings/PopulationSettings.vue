@@ -863,6 +863,63 @@
                 </div>
               </div>
 
+              <ElDivider />
+              <p class="option-label">Backfill building-estimate series</p>
+              <p class="section-desc section-desc--tab">
+                For settlements that already have population on the profile (e.g. new/pending rows from structures)
+                but no year series yet: back-calculate the <strong>{{ baselineYear }}</strong> baseline and project
+                with county growth rates through <strong>{{ projectThroughYear }}</strong>. Keeps the reporting year
+                as the building estimate.
+              </p>
+              <div class="bulk-options">
+                <div class="bulk-options-row">
+                  <div class="bulk-option-group">
+                    <p class="option-label">Scope</p>
+                    <ElSelect v-model="backfillScope" style="width: 280px">
+                      <ElOption label="Pending (new) missing baseline" value="pending" />
+                      <ElOption label="Any missing baseline" value="missing_baseline" />
+                      <ElOption label="All with population (rebuild)" value="all" />
+                    </ElSelect>
+                  </div>
+                  <div class="bulk-option-group">
+                    <p class="option-label">County</p>
+                    <ElSelect v-model="backfillCountyId" placeholder="All counties" clearable filterable style="width: 280px">
+                      <ElOption label="All counties" :value="null" />
+                      <ElOption v-for="c in countyOptions" :key="c.value" :label="c.label" :value="c.value" />
+                    </ElSelect>
+                  </div>
+                </div>
+                <div class="bulk-actions-row">
+                  <ElButton type="warning" plain :loading="backfillPreviewing" @click="previewBackfillSeries">
+                    Preview backfill
+                  </ElButton>
+                  <ElButton type="warning" :loading="backfillApplying" @click="applyBackfillSeries">
+                    Run backfill
+                  </ElButton>
+                </div>
+              </div>
+
+              <div v-if="backfillSummary" class="density-summary">
+                <div class="density-summary__row">
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ backfillSummary.total_candidates ?? '—' }}</span>
+                    <span class="stat-label">candidates</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num stat-num--primary">{{ backfillSummary.projected ?? (backfillSummary.dry_run ? '—' : 0) }}</span>
+                    <span class="stat-label">projected</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ backfillSummary.partial ?? '—' }}</span>
+                    <span class="stat-label">partial</span>
+                  </div>
+                  <div class="density-summary__stat">
+                    <span class="stat-num">{{ backfillSummary.errors ?? '—' }}</span>
+                    <span class="stat-label">errors</span>
+                  </div>
+                </div>
+              </div>
+
               <div v-if="projSummary" class="density-summary">
                 <div class="density-summary__row">
                   <div class="density-summary__stat">
@@ -961,6 +1018,7 @@ import {
   importSettlementPopulationBaselineExcel,
   importCountyPopulationGrowthRatesExcel,
   applySettlementPopulationProjection,
+  backfillObservedPopulationSeries,
   type BaselineImportResultRow,
   type CountyRateImportResultRow,
   type DensityTypologyComputeRow,
@@ -1664,6 +1722,11 @@ const projPreviewing = ref(false)
 const projApplying = ref(false)
 const projSummary = ref<Record<string, any> | null>(null)
 const projPreviewRows = ref<any[]>([])
+const backfillScope = ref<'pending' | 'missing_baseline' | 'all'>('pending')
+const backfillCountyId = ref<any>(null)
+const backfillPreviewing = ref(false)
+const backfillApplying = ref(false)
+const backfillSummary = ref<Record<string, any> | null>(null)
 
 const onBaselineFileChange = (uploadFile: { raw?: File }) => {
   baselineImportFile.value = uploadFile?.raw ?? null
@@ -1956,6 +2019,44 @@ const applyProjection = async () => {
     ElMessage.error(e?.message || 'Projection failed')
   } finally {
     projApplying.value = false
+  }
+}
+
+const previewBackfillSeries = async () => {
+  backfillPreviewing.value = true
+  try {
+    const res = await backfillObservedPopulationSeries({
+      scope: backfillScope.value,
+      baseline_year: baselineYear.value,
+      project_through_year: projectThroughYear.value,
+      county_id: backfillCountyId.value,
+      dry_run: true
+    })
+    backfillSummary.value = res?.data || null
+    ElMessage.info(res?.message || 'Backfill preview ready')
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Backfill preview failed')
+  } finally {
+    backfillPreviewing.value = false
+  }
+}
+
+const applyBackfillSeries = async () => {
+  backfillApplying.value = true
+  try {
+    const res = await backfillObservedPopulationSeries({
+      scope: backfillScope.value,
+      baseline_year: baselineYear.value,
+      project_through_year: projectThroughYear.value,
+      county_id: backfillCountyId.value,
+      dry_run: false
+    })
+    backfillSummary.value = res?.data || null
+    ElMessage.success(res?.message || 'Backfill applied')
+  } catch (e: any) {
+    ElMessage.error(e?.message || 'Backfill failed')
+  } finally {
+    backfillApplying.value = false
   }
 }
 
