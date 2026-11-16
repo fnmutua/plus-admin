@@ -12,7 +12,6 @@ import {
   getSettlementListByCounty,
   DeleteRecord,
   updateOneRecord,
-  CreateRecord,
   getNeighboringSettlements,
   getSettlementMapData,
   getOneSettlement,
@@ -1187,6 +1186,8 @@ const profileLoading = ref(true)
 const populationHistoryRows = ref<any[]>([])
 const populationHistoryLoading = ref(false)
 const populationReportingYear = new Date().getFullYear()
+/** Avoid re-writing settlement history on every details open when rates are missing. */
+const populationSeriesBackfillAttempted = new Set<number>()
 
 const loadPopulationHistory = async (settlementOrId: any) => {
   const settlementId =
@@ -1215,38 +1216,45 @@ const loadPopulationHistory = async (settlementOrId: any) => {
 
     let rows = await fetchRows()
 
-    // New settlements often store building-based population only on the
-    // settlement row. Seed the reporting year so this section is not empty.
+    // New settlements often have building-based population on the settlement
+    // row (and maybe only the reporting year). Re-sync through the settlement
+    // update path so we also get the 2019 baseline + county-rate projections.
     const profilePop = parseNumberish(settlementSnap?.population ?? profile.population)
-    if (!rows.length && profilePop != null && profilePop > 0 && settlementId != null) {
+    const hasBaseline = rows.some((row: any) => Number(row.year) === 2019)
+    const settlementIdNum = Number(settlementId)
+    if (
+      (!rows.length || !hasBaseline) &&
+      profilePop != null &&
+      profilePop > 0 &&
+      Number.isFinite(settlementIdNum) &&
+      !populationSeriesBackfillAttempted.has(settlementIdNum)
+    ) {
+      populationSeriesBackfillAttempted.add(settlementIdNum)
       try {
-        const year = populationReportingYear
         const male = parseNumberish(settlementSnap?.pop_male ?? profile.pop_male)
         const female = parseNumberish(settlementSnap?.pop_female ?? profile.pop_female)
         const households = parseNumberish(settlementSnap?.num_households ?? profile.num_households)
         const avgHh = parseNumberish(settlementSnap?.avg_household_size ?? profile.avg_household_size)
-        await CreateRecord({
-          model: 'settlement_population',
-          settlement_id: Number(settlementId),
-          county_id: settlementSnap?.county_id ?? profile.county_id ?? null,
-          subcounty_id: settlementSnap?.subcounty_id ?? null,
-          ward_id: settlementSnap?.ward_id ?? null,
-          year,
-          population: Math.round(profilePop),
-          pop_male: male != null ? Math.round(male) : null,
-          pop_female: female != null ? Math.round(female) : null,
-          num_households:
-            households != null
-              ? Math.round(households)
+        await updateOneRecord(
+          {
+            model: 'settlement',
+            id: settlementIdNum,
+            population: Math.round(profilePop),
+            ...(male != null ? { pop_male: Math.round(male) } : {}),
+            ...(female != null ? { pop_female: Math.round(female) } : {}),
+            ...(households != null
+              ? { num_households: Math.round(households) }
               : avgHh != null && avgHh > 0
-                ? Math.round(profilePop / avgHh)
-                : null,
-          source: 'building_estimate',
-          method: 'settlement_profile_backfill'
-        } as any)
+                ? { num_households: Math.round(profilePop / avgHh) }
+                : {}),
+            population_source: 'building_estimate',
+            population_method: 'settlement_profile_backfill'
+          } as any,
+          { silent: true }
+        )
         rows = await fetchRows()
       } catch {
-        // Non-fatal: leave the table empty if the seed fails.
+        // Non-fatal: leave whatever rows we already have.
       }
     }
 
@@ -3684,7 +3692,7 @@ const updateDocumentCategory = async () => {
           <ElCollapseTransition>
             <div v-show="!collapsedSections.populationHistory" :class="[`${prefixCls}-content`, 'p-10px']">
               <p class="text-13px text-[var(--el-text-color-secondary)] mb-10px">
-                Annual estimates from census baseline, county growth rates, and manual updates. Current profile fields above reflect the latest reporting year when synced.
+                Annual estimates from census baseline, county growth rates, building-based estimates, and manual updates. Building estimates back-calculate a 2019 baseline and project with the same county rates used in Population Settings; the reporting year keeps the structure-based figure.
               </p>
               <ElTable
                 v-loading="populationHistoryLoading"
@@ -3692,7 +3700,7 @@ const updateDocumentCategory = async () => {
                 size="small"
                 border
                 stripe
-                empty-text="No annual population records yet. Building-based estimates are written here on save; otherwise seed baseline in Population Settings."
+                empty-text="No annual population records yet. Building-based estimates seed a baseline and project with county growth rates on save."
               >
                 <ElTableColumn prop="year" label="Year" width="72" align="right" sortable />
                 <ElTableColumn label="Population" width="120" align="right">

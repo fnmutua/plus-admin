@@ -495,37 +495,15 @@ function buildCountyMap(countyRows) {
 }
 
 /**
- * Write (or refresh) the reporting-year settlement_population row from the
- * settlement profile. New settlements often get population from building
- * footprints; without this sync, Details → Population by year stays empty.
+ * Normalize settlement population fields used when writing a year row.
  */
-async function syncSettlementReportingYear(db, settlement, options = {}) {
-  if (!settlement || settlement.id == null) return null
-
+async function resolveSettlementPopulationSnapshot(db, settlement, options = {}) {
   const population = roundCount(settlement.population)
   if (population == null || population <= 0) return null
 
-  const year =
-    options.year != null && Number.isFinite(Number(options.year))
-      ? Number(options.year)
-      : new Date().getFullYear()
-  const source = options.source || 'building_estimate'
-  const method = options.method || 'settlement_profile_sync'
-  const transaction = options.transaction ?? null
-  const onlyIfMissing = options.onlyIfMissing === true
-
-  if (onlyIfMissing) {
-    const existing = await db.models.settlement_population.findOne({
-      where: { settlement_id: settlement.id, year },
-      attributes: ['id'],
-      transaction,
-      raw: true,
-    })
-    if (existing) return null
-  }
-
   let pop_male = roundCount(settlement.pop_male)
   let pop_female = roundCount(settlement.pop_female)
+  const transaction = options.transaction ?? null
 
   if (pop_male == null && pop_female == null) {
     let countyRow = null
@@ -539,6 +517,10 @@ async function syncSettlementReportingYear(db, settlement, options = {}) {
     const split = splitSexFromCounty(population, countyRow)
     pop_male = split.pop_male
     pop_female = split.pop_female
+  } else {
+    const reconciled = reconcileSexTotals(population, pop_male, pop_female)
+    pop_male = reconciled.pop_male
+    pop_female = reconciled.pop_female
   }
 
   let num_households = roundCount(settlement.num_households)
@@ -549,19 +531,243 @@ async function syncSettlementReportingYear(db, settlement, options = {}) {
     }
   }
 
+  return {
+    settlement_id: settlement.id,
+    county_id: settlement.county_id ?? null,
+    subcounty_id: settlement.subcounty_id ?? null,
+    ward_id: settlement.ward_id ?? null,
+    population,
+    pop_male,
+    pop_female,
+    num_households,
+  }
+}
+
+/**
+ * Back-calculate a census baseline from an observed (e.g. building-estimate)
+ * year using the inverse of county compound growth rates, then run the same
+ * forward projection used by Population Settings. The observed year is kept
+ * as building_estimate / manual so the structure-based figure is not replaced
+ * by the projected value for that year.
+ */
+async function projectSeriesFromObservedYear(db, settlement, options = {}) {
+  const snapshot = await resolveSettlementPopulationSnapshot(db, settlement, options)
+  if (!snapshot) return null
+
+  const baselineYear = options.baseline_year ?? DEFAULT_BASELINE_YEAR
+  const observedYear =
+    options.year != null && Number.isFinite(Number(options.year))
+      ? Number(options.year)
+      : new Date().getFullYear()
+  const projectThroughYear =
+    options.project_through_year != null && Number.isFinite(Number(options.project_through_year))
+      ? Number(options.project_through_year)
+      : Math.max(observedYear, 2040)
+  const source = options.source || 'building_estimate'
+  const method = options.method || 'building_footprints'
+  const transaction = options.transaction ?? null
+
+  const observedRow = {
+    ...snapshot,
+    year: observedYear,
+    source,
+    method,
+  }
+
+  // Observed year at or before baseline: just store that year.
+  if (observedYear <= baselineYear) {
+    await upsertSettlementPopulationRows(db, [{ ...observedRow, year: baselineYear, source: 'census_2019', method: `observed_${method}` }], {
+      transaction,
+    })
+    if (projectThroughYear > baselineYear) {
+      await applySettlementPopulationProjection(db, {
+        baseline_year: baselineYear,
+        project_through_year: projectThroughYear,
+        settlement_ids: [settlement.id],
+        sync_settlement: false,
+        transaction,
+      })
+      await upsertSettlementPopulationRows(db, [observedRow], { transaction })
+    }
+    return {
+      settlement_id: settlement.id,
+      observed_year: observedYear,
+      baseline_year: baselineYear,
+      project_through_year: projectThroughYear,
+      projected: projectThroughYear > baselineYear,
+      source,
+      method,
+    }
+  }
+
+  if (snapshot.county_id == null) {
+    await upsertSettlementPopulationRows(db, [observedRow], { transaction })
+    return {
+      settlement_id: settlement.id,
+      observed_year: observedYear,
+      projected: false,
+      reason: 'missing_county_id',
+      source,
+      method,
+    }
+  }
+
+  const rateRows = await db.models.county_population_growth_rate.findAll({
+    attributes: ['county_id', 'year', 'annual_rate', 'household_growth_rate'],
+    where: {
+      county_id: Number(snapshot.county_id),
+      year: {
+        [db.Sequelize.Op.gt]: baselineYear,
+        [db.Sequelize.Op.lte]: Math.max(observedYear, projectThroughYear),
+      },
+    },
+    raw: true,
+    transaction,
+  })
+  const rateMap = buildCountyRateMap(rateRows)
+
+  let population = snapshot.population
+  let pop_male = snapshot.pop_male
+  let pop_female = snapshot.pop_female
+  let num_households = snapshot.num_households
+
+  for (let year = observedYear; year > baselineYear; year--) {
+    const rate = rateMap.get(`${snapshot.county_id}:${year}`)
+    if (
+      rate == null ||
+      !Number.isFinite(rate.population) ||
+      !Number.isFinite(rate.households)
+    ) {
+      await upsertSettlementPopulationRows(db, [observedRow], { transaction })
+      return {
+        settlement_id: settlement.id,
+        observed_year: observedYear,
+        projected: false,
+        reason: 'missing_county_rate',
+        missing_rate_year: year,
+        source,
+        method,
+      }
+    }
+
+    const popFactor = 1 + rate.population
+    const hhFactor = 1 + rate.households
+    if (!(popFactor > 0) || !(hhFactor > 0)) {
+      await upsertSettlementPopulationRows(db, [observedRow], { transaction })
+      return {
+        settlement_id: settlement.id,
+        observed_year: observedYear,
+        projected: false,
+        reason: 'invalid_county_rate',
+        missing_rate_year: year,
+        source,
+        method,
+      }
+    }
+
+    population = roundCount(population / popFactor)
+    if (pop_male != null) pop_male = roundCount(pop_male / popFactor)
+    if (pop_female != null) pop_female = roundCount(pop_female / popFactor)
+    if (num_households != null) num_households = roundCount(num_households / hhFactor)
+  }
+
+  const baselineSplit = reconcileSexTotals(population, pop_male, pop_female)
   await upsertSettlementPopulationRows(
     db,
     [
       {
-        settlement_id: settlement.id,
-        county_id: settlement.county_id ?? null,
-        subcounty_id: settlement.subcounty_id ?? null,
-        ward_id: settlement.ward_id ?? null,
-        year,
+        settlement_id: snapshot.settlement_id,
+        county_id: snapshot.county_id,
+        subcounty_id: snapshot.subcounty_id,
+        ward_id: snapshot.ward_id,
+        year: baselineYear,
         population,
-        pop_male,
-        pop_female,
+        pop_male: baselineSplit.pop_male,
+        pop_female: baselineSplit.pop_female,
         num_households,
+        source: 'census_2019',
+        method: `back_calculated_from_${method}`,
+      },
+    ],
+    { transaction }
+  )
+
+  const projection = await applySettlementPopulationProjection(db, {
+    baseline_year: baselineYear,
+    project_through_year: projectThroughYear,
+    settlement_ids: [settlement.id],
+    sync_settlement: false,
+    transaction,
+  })
+
+  // Keep the structure-based / manual observed year authoritative.
+  await upsertSettlementPopulationRows(db, [observedRow], { transaction })
+
+  return {
+    settlement_id: settlement.id,
+    observed_year: observedYear,
+    baseline_year: baselineYear,
+    baseline_population: population,
+    project_through_year: projectThroughYear,
+    projected: true,
+    projection,
+    source,
+    method,
+  }
+}
+
+/**
+ * Write (or refresh) settlement_population from the settlement profile.
+ * By default this also back-calculates the census baseline and applies the
+ * same county-rate projection used in Population Settings, so new settlements
+ * with building-based population get a full year series — not only the
+ * reporting year.
+ */
+async function syncSettlementReportingYear(db, settlement, options = {}) {
+  if (!settlement || settlement.id == null) return null
+
+  const population = roundCount(settlement.population)
+  if (population == null || population <= 0) return null
+
+  const year =
+    options.year != null && Number.isFinite(Number(options.year))
+      ? Number(options.year)
+      : new Date().getFullYear()
+  const baselineYear = options.baseline_year ?? DEFAULT_BASELINE_YEAR
+  const transaction = options.transaction ?? null
+  const onlyIfMissing = options.onlyIfMissing === true
+  const project = options.project !== false
+
+  if (onlyIfMissing) {
+    const baseline = await db.models.settlement_population.findOne({
+      where: { settlement_id: settlement.id, year: baselineYear },
+      attributes: ['id'],
+      transaction,
+      raw: true,
+    })
+    if (baseline) return null
+  }
+
+  if (project) {
+    return projectSeriesFromObservedYear(db, settlement, {
+      ...options,
+      year,
+      baseline_year: baselineYear,
+    })
+  }
+
+  const snapshot = await resolveSettlementPopulationSnapshot(db, settlement, options)
+  if (!snapshot) return null
+
+  const source = options.source || 'building_estimate'
+  const method = options.method || 'settlement_profile_sync'
+
+  await upsertSettlementPopulationRows(
+    db,
+    [
+      {
+        ...snapshot,
+        year,
         source,
         method,
       },
@@ -569,7 +775,7 @@ async function syncSettlementReportingYear(db, settlement, options = {}) {
     { transaction }
   )
 
-  return { settlement_id: settlement.id, year, population, source, method }
+  return { settlement_id: settlement.id, year, population, source, method, projected: false }
 }
 
 /** PostgreSQL upsert for settlement_population (Sequelize bulkCreate updateOnDuplicate is MySQL-oriented). */
@@ -852,6 +1058,13 @@ async function applySettlementPopulationProjection(db, options = {}) {
     settlementFilters.push('s.county_id = :countyId')
     replacements.countyId = Number(countyId)
   }
+  const settlementIds = Array.isArray(options.settlement_ids)
+    ? options.settlement_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+    : []
+  if (settlementIds.length > 0) {
+    settlementFilters.push('s.id IN (:settlementIds)')
+    replacements.settlementIds = settlementIds
+  }
   const settlementWhere = settlementFilters.length ? `AND ${settlementFilters.join(' AND ')}` : ''
 
   const baselines = await db.sequelize.query(
@@ -880,17 +1093,30 @@ async function applySettlementPopulationProjection(db, options = {}) {
     }
   )
 
+  const rateWhere = {
+    year: {
+      [db.Sequelize.Op.gt]: baselineYear,
+      [db.Sequelize.Op.lte]: projectThroughYear,
+    },
+  }
+  if (countyId != null && Number.isFinite(Number(countyId))) {
+    rateWhere.county_id = Number(countyId)
+  } else if (settlementIds.length > 0) {
+    const countyIdsForRates = [
+      ...new Set(
+        baselines
+          .map((row) => Number(row.county_id))
+          .filter((id) => Number.isFinite(id))
+      ),
+    ]
+    if (countyIdsForRates.length > 0) {
+      rateWhere.county_id = { [db.Sequelize.Op.in]: countyIdsForRates }
+    }
+  }
+
   const rateRows = await db.models.county_population_growth_rate.findAll({
     attributes: ['county_id', 'year', 'annual_rate', 'household_growth_rate'],
-    where: {
-      year: {
-        [db.Sequelize.Op.gt]: baselineYear,
-        [db.Sequelize.Op.lte]: projectThroughYear,
-      },
-      ...(countyId != null && Number.isFinite(Number(countyId))
-        ? { county_id: Number(countyId) }
-        : {}),
-    },
+    where: rateWhere,
     raw: true,
     transaction,
   })
@@ -999,11 +1225,16 @@ async function applySettlementPopulationProjection(db, options = {}) {
 
     if (syncSettlement) {
       const syncReplacements = { syncYear: syncSettlementYear }
-      let syncWhere = ''
+      const syncFilters = []
       if (countyId != null && Number.isFinite(Number(countyId))) {
-        syncWhere = 'AND s.county_id = :countyId'
+        syncFilters.push('s.county_id = :countyId')
         syncReplacements.countyId = Number(countyId)
       }
+      if (settlementIds.length > 0) {
+        syncFilters.push('s.id IN (:settlementIds)')
+        syncReplacements.settlementIds = settlementIds
+      }
+      const syncWhere = syncFilters.length ? `AND ${syncFilters.join(' AND ')}` : ''
 
       await db.sequelize.query(
         `
@@ -1514,5 +1745,6 @@ module.exports = {
   importCountyGrowthRatesFromExcel,
   applySettlementPopulationProjection,
   syncSettlementReportingYear,
+  projectSeriesFromObservedYear,
   bulkUpsertCountyGrowthRates,
 }
