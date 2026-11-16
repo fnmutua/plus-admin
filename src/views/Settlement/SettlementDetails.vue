@@ -12,6 +12,7 @@ import {
   getSettlementListByCounty,
   DeleteRecord,
   updateOneRecord,
+  CreateRecord,
   getNeighboringSettlements,
   getSettlementMapData,
   getOneSettlement,
@@ -581,7 +582,7 @@ const getFilteredData = async (selFilters: string[], selfilterValues: any[][]) =
     profile.createdAt = formatDateDisplay(settlementData.createdAt)
     profile.updatedAt = formatDateDisplay(settlementData.updatedAt)
 
-    await loadPopulationHistory(settlementData.id)
+    await loadPopulationHistory(settlementData)
 
     // Set vulnerability assessment data (raw values for Vulnerability tab conditions)
     vulnerability.climate_region = settlementData.climate_region || '';
@@ -1187,21 +1188,68 @@ const populationHistoryRows = ref<any[]>([])
 const populationHistoryLoading = ref(false)
 const populationReportingYear = new Date().getFullYear()
 
-const loadPopulationHistory = async (settlementId: number | string) => {
+const loadPopulationHistory = async (settlementOrId: any) => {
+  const settlementId =
+    typeof settlementOrId === 'object' && settlementOrId != null
+      ? settlementOrId.id
+      : settlementOrId
+  const settlementSnap =
+    typeof settlementOrId === 'object' && settlementOrId != null ? settlementOrId : null
+
   populationHistoryLoading.value = true
   try {
-    const res = await getSettlementListByCounty({
-      limit: 100,
-      page: 1,
-      curUser: 1,
-      model: 'settlement_population',
-      searchField: 'year',
-      searchKeyword: '',
-      filters: ['settlement_id'],
-      filterValues: [[Number(settlementId)]],
-      returnAll: true
-    } as any)
-    const rows = Array.isArray(res?.data) ? res.data : []
+    const fetchRows = async () => {
+      const res = await getSettlementListByCounty({
+        limit: 100,
+        page: 1,
+        curUser: 1,
+        model: 'settlement_population',
+        searchField: 'year',
+        searchKeyword: '',
+        filters: ['settlement_id'],
+        filterValues: [[Number(settlementId)]],
+        returnAll: true
+      } as any)
+      return Array.isArray(res?.data) ? res.data : []
+    }
+
+    let rows = await fetchRows()
+
+    // New settlements often store building-based population only on the
+    // settlement row. Seed the reporting year so this section is not empty.
+    const profilePop = parseNumberish(settlementSnap?.population ?? profile.population)
+    if (!rows.length && profilePop != null && profilePop > 0 && settlementId != null) {
+      try {
+        const year = populationReportingYear
+        const male = parseNumberish(settlementSnap?.pop_male ?? profile.pop_male)
+        const female = parseNumberish(settlementSnap?.pop_female ?? profile.pop_female)
+        const households = parseNumberish(settlementSnap?.num_households ?? profile.num_households)
+        const avgHh = parseNumberish(settlementSnap?.avg_household_size ?? profile.avg_household_size)
+        await CreateRecord({
+          model: 'settlement_population',
+          settlement_id: Number(settlementId),
+          county_id: settlementSnap?.county_id ?? profile.county_id ?? null,
+          subcounty_id: settlementSnap?.subcounty_id ?? null,
+          ward_id: settlementSnap?.ward_id ?? null,
+          year,
+          population: Math.round(profilePop),
+          pop_male: male != null ? Math.round(male) : null,
+          pop_female: female != null ? Math.round(female) : null,
+          num_households:
+            households != null
+              ? Math.round(households)
+              : avgHh != null && avgHh > 0
+                ? Math.round(profilePop / avgHh)
+                : null,
+          source: 'building_estimate',
+          method: 'settlement_profile_backfill'
+        } as any)
+        rows = await fetchRows()
+      } catch {
+        // Non-fatal: leave the table empty if the seed fails.
+      }
+    }
+
     populationHistoryRows.value = [...rows].sort(
       (a: any, b: any) => Number(b.year) - Number(a.year)
     )
@@ -1457,6 +1505,18 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
       ),
     }
 
+    const populationFields = new Set([
+      'population',
+      'pop_male',
+      'pop_female',
+      'num_households',
+      'avg_household_size'
+    ])
+    if (populationFields.has(field) || Object.keys(derivedFields).some((k) => populationFields.has(k))) {
+      updatePayload.population_source = 'manual'
+      updatePayload.population_method = 'settlement_inline_edit'
+    }
+
     // Keep pop_density computed from population and area(ha -> sq.km).
     let computedDensity: number | null = null
     if (field === 'population' || field === 'area') {
@@ -1623,6 +1683,24 @@ async function saveSettlementInline(payload: { field: string; value: unknown }) 
 
     if ((CLIMATE_VULN_ATTR_FIELDS as readonly string[]).includes(field)) {
       await persistVulnerabilityScoreIfComplete()
+    }
+
+    if (
+      field === 'population' ||
+      field === 'pop_male' ||
+      field === 'pop_female' ||
+      field === 'num_households' ||
+      field === 'avg_household_size'
+    ) {
+      await loadPopulationHistory({
+        id: Number(route.params.id),
+        population: profile.population,
+        pop_male: profile.pop_male,
+        pop_female: profile.pop_female,
+        num_households: profile.num_households,
+        avg_household_size: profile.avg_household_size,
+        county_id: profile.county_id
+      })
     }
 
     ElMessage.success('Saved')
@@ -3614,7 +3692,7 @@ const updateDocumentCategory = async () => {
                 size="small"
                 border
                 stripe
-                empty-text="No annual population records yet — seed baseline and run projections in Population Settings."
+                empty-text="No annual population records yet. Building-based estimates are written here on save; otherwise seed baseline in Population Settings."
               >
                 <ElTableColumn prop="year" label="Year" width="72" align="right" sortable />
                 <ElTableColumn label="Population" width="120" align="right">

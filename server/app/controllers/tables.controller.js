@@ -41,6 +41,7 @@ const {
   importOvertureStructuresForSettlement,
 } = require('../utils/overtureBuildings')
 const settlementPopulationGeo = require('../services/settlementPopulationGeo')
+const populationProjection = require('../services/populationProjection')
 const { parseDryRunFlag, executeImportUpsert } = require('../services/importUpsert.service')
 const { getRequestContext } = require('../utils/requestContext')
 const { normalizeSettlementGeom } = require('../utils/settlementGeometry')
@@ -1194,6 +1195,11 @@ exports.modelCreateOneRecord = async (req, res) => {
     delete obj.id;
   }
   delete obj.checkFields; // Used for duplicate check only, not a model field
+  // Not settlement columns — only instruct the reporting-year population sync.
+  const populationSourceHint = obj.population_source
+  const populationMethodHint = obj.population_method
+  delete obj.population_source
+  delete obj.population_method
 
   if (reg_model === 'settlement_population') {
     Object.assign(obj, await settlementPopulationGeo.applySettlementPopulationGeo(db, obj))
@@ -1247,6 +1253,21 @@ exports.modelCreateOneRecord = async (req, res) => {
           err
         )
       })
+
+      // Population-from-structures fills settlement.population but Details reads
+      // settlement_population — keep the reporting year in sync for new rows.
+      try {
+        await populationProjection.syncSettlementReportingYear(db, item, {
+          source: populationSourceHint || 'building_estimate',
+          method: populationMethodHint || 'building_footprints',
+          onlyIfMissing: true,
+        })
+      } catch (err) {
+        console.warn(
+          `[settlement_population] reporting-year sync failed for settlement ${settlementId}:`,
+          err.message
+        )
+      }
      }
     
     
@@ -3496,8 +3517,6 @@ exports.applyPopulationEstimate = async (req, res) => {
   }
 }
 
-const populationProjection = require('../services/populationProjection')
-
 /** List county growth rates for the admin grid (optional county + year range). */
 exports.getCountyPopulationGrowthRates = async (req, res) => {
   try {
@@ -4405,6 +4424,10 @@ exports.modelEditOneRecord = (req, res) => {
   var updateObj = { ...req.body };
   delete updateObj.model;
   delete updateObj.id;
+  const populationSourceHint = updateObj.population_source
+  const populationMethodHint = updateObj.population_method
+  delete updateObj.population_source
+  delete updateObj.population_method
 
   // Remove undefined fields
   Object.keys(updateObj).forEach(key => {
@@ -4670,7 +4693,24 @@ exports.modelEditOneRecord = (req, res) => {
           })
         }
 
-       
+        const populationFieldsTouched =
+          reg_model === 'settlement' &&
+          ['population', 'pop_male', 'pop_female', 'num_households', 'avg_household_size'].some(
+            (field) => Object.prototype.hasOwnProperty.call(updateObj, field)
+          )
+        if (populationFieldsTouched) {
+          try {
+            await populationProjection.syncSettlementReportingYear(db, result, {
+              source: populationSourceHint || 'manual',
+              method: populationMethodHint || 'settlement_profile_edit',
+            })
+          } catch (err) {
+            console.warn(
+              `[settlement_population] reporting-year sync failed for settlement ${result.id}:`,
+              err.message
+            )
+          }
+        }
 
         edit_event.status='Successful'
         logEvents(edit_event)

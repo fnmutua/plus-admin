@@ -2556,7 +2556,19 @@ const submitForm = async () => {
       proximity_to_river: settlementForm.proximity_to_river || null,
       proximity_to_flood_plain: settlementForm.proximity_to_flood_plain || null,
       vulnerability_total_score: (computedScore.value?.total_score ?? settlementForm.vulnerability_total_score) ?? null,
-      vulnerability_rating: (computedScore.value?.rating ?? settlementForm.vulnerability_rating) || null
+      vulnerability_rating: (computedScore.value?.rating ?? settlementForm.vulnerability_rating) || null,
+      // Instruct API to upsert settlement_population for the reporting year.
+      ...(populationEstimateSource.value
+        ? {
+            population_source: populationEstimateSource.value,
+            population_method: populationEstimateMethod.value || 'building_footprints'
+          }
+        : settlementForm.population
+          ? {
+              population_source: 'building_estimate',
+              population_method: 'building_footprints'
+            }
+          : {})
     })
 
     if (isEditMode.value && editingSettlementId.value) {
@@ -2728,6 +2740,9 @@ let lastOvertureDensitySyncKey = ''
 const updateStructuresFromOverture = ref(false)
 /** Edit mode only: when checked, population estimate and save include population fields. */
 const updatePopulationOnEdit = ref(false)
+/** When set, create/update also writes settlement_population for the reporting year. */
+const populationEstimateSource = ref<'building_estimate' | 'manual' | null>(null)
+const populationEstimateMethod = ref<string | null>(null)
 
 const editEstimateActionMode = computed(() => {
   if (!isEditMode.value) return 'population' as const
@@ -3253,7 +3268,12 @@ const formatPpbSourceLabel = (ppb: number, source: PersonsPerBuildingSource) => 
 
 const applyPopulationTotals = async (
   total: number,
-  options?: { avgHouseholdSize?: number | null; message?: string }
+  options?: {
+    avgHouseholdSize?: number | null
+    message?: string
+    source?: 'building_estimate' | 'manual'
+    method?: string
+  }
 ) => {
   const population = roundPopulationToNearestHundred(total)
   if (population <= 0) return
@@ -3264,6 +3284,8 @@ const applyPopulationTotals = async (
     settlementForm.avg_household_size = ppb
   }
   await applyCountySexSplit(population)
+  populationEstimateSource.value = options?.source || 'building_estimate'
+  populationEstimateMethod.value = options?.method || 'building_footprints'
   if (options?.message) {
     ElMessage.success(options.message.replace('{population}', population.toLocaleString()))
   }
@@ -3297,6 +3319,8 @@ const fetchPopulationEstimate = async (geometry: any) => {
           : ''
       await applyPopulationTotals(data.estimated_population, {
         avgHouseholdSize: data.persons_per_building ?? ppb,
+        source: 'building_estimate',
+        method: 'open_buildings',
         message: `Population estimated (Open Buildings fallback): {population} (${data.buildings} buildings${hhLabel})`,
       })
       return data
@@ -3355,6 +3379,8 @@ const applyPopulationEstimateFromBuildings = async (
       }
       await applyPopulationTotals(total, {
         avgHouseholdSize: ppb,
+        source: 'building_estimate',
+        method: 'overture_buildings',
         message: options?.silent
           ? undefined
           : `Population estimated from Overture: {population} (${overtureCount} buildings × ${formatPpbSourceLabel(ppb, source)})`,

@@ -49,6 +49,8 @@ const acting = ref(false)
 
 const rejectOpen = ref(false)
 const rejectReason = ref('')
+const approveOpen = ref(false)
+const approveComment = ref('')
 
 const isHistory = computed(() => Boolean(historyId.value))
 
@@ -157,18 +159,23 @@ const load = async () => {
   }
 }
 
-/** Both decisions write the same record; only the status and reason differ. */
-const decide = async (isApproved: 'Approved' | 'Rejected', rejectMessage?: string) => {
+/** Both decisions write the same record; only the status and notes differ. */
+const decide = async (
+  isApproved: 'Approved' | 'Rejected',
+  note?: string
+) => {
   acting.value = true
   try {
+    const trimmed = note?.trim() || null
     await updateOneRecord({
       id: record.value.id,
       model: 'settlement',
       isApproved,
       reviewerId: userInfo?.id,
       reviewedAt: new Date().toISOString(),
-      // Cleared on approval so a previous rejection's reason does not linger.
-      reject_msg: isApproved === 'Approved' ? null : rejectMessage
+      // Keep only the note that matches this decision.
+      reject_msg: isApproved === 'Rejected' ? trimmed : null,
+      approve_msg: isApproved === 'Approved' ? trimmed : null
     } as any)
 
     ElMessage.success(`${record.value.name} ${isApproved.toLowerCase()}`)
@@ -181,7 +188,10 @@ const decide = async (isApproved: 'Approved' | 'Rejected', rejectMessage?: strin
   }
 }
 
-const approve = () => decide('Approved')
+const confirmApprove = () => {
+  approveOpen.value = false
+  decide('Approved', approveComment.value)
+}
 
 const confirmReject = () => {
   if (!rejectReason.value.trim()) {
@@ -259,6 +269,16 @@ onMounted(() => {
           class="block"
           :title="record?.reviewedAt ? `Rejected on ${formatDate(record.reviewedAt)}` : 'Previously rejected'"
           :description="record?.reject_msg || 'No reason was recorded.'"
+        />
+
+        <el-alert
+          v-else-if="status === 'Approved' && record?.approve_msg"
+          type="success"
+          :closable="false"
+          show-icon
+          class="block"
+          :title="record?.reviewedAt ? `Approved on ${formatDate(record.reviewedAt)}` : 'Approved'"
+          :description="record.approve_msg"
         />
 
         <el-alert
@@ -351,13 +371,26 @@ onMounted(() => {
             >
               Reject
             </el-button>
-            <el-button type="success" :icon="Check" :loading="acting" @click="approve">
+            <el-button type="success" :icon="Check" :loading="acting" @click="approveOpen = true">
               Approve
             </el-button>
           </template>
         </div>
       </template>
     </el-card>
+
+    <el-dialog v-model="approveOpen" title="Approval comment" width="420px">
+      <el-input
+        v-model="approveComment"
+        type="textarea"
+        :rows="3"
+        placeholder="Optional note for this approval (visible on the review record)"
+      />
+      <template #footer>
+        <el-button @click="approveOpen = false">Cancel</el-button>
+        <el-button type="success" :loading="acting" @click="confirmApprove">Approve settlement</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="rejectOpen" title="Reason for rejection" width="420px">
       <el-input

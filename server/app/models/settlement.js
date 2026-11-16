@@ -181,8 +181,13 @@ module.exports = function (sequelize, DataTypes) {
       },
 
       // Review trail. The reject reason is shown back to the submitter, so a
-      // rejection explains itself rather than only changing a status.
+      // rejection explains itself rather than only changing a status. Approval
+      // can carry an optional note in approve_msg.
       reject_msg: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      approve_msg: {
         type: DataTypes.TEXT,
         allowNull: true
       },

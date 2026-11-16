@@ -6191,9 +6191,22 @@ duplicateRecords.value.forEach(county => {
 
 
     <div v-if="activeSegment === 'New'">
+      <el-alert
+        type="info"
+        :closable="false"
+        :show-icon="false"
+        style="margin-top: 8px; margin-bottom: 4px; padding: 6px 12px;">
+        <template #default>
+          <span style="font-size: 12px;">💡 Double-click on any row to view settlement details</span>
+        </template>
+      </el-alert>
       <el-table
         table-layout="fixed"
-        :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
+        :data="tableDataListNew"
+        @row-dblclick="handleRowDblClick"
+        :show-overflow-tooltip="true"
+        style="width: 100% ; margin-top: 10px;"
+        border
         row-key="id"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" :selectable="(row) => canUserAccessSettlement(row, 'edit')" />

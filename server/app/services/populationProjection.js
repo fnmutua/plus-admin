@@ -494,6 +494,84 @@ function buildCountyMap(countyRows) {
   return map
 }
 
+/**
+ * Write (or refresh) the reporting-year settlement_population row from the
+ * settlement profile. New settlements often get population from building
+ * footprints; without this sync, Details → Population by year stays empty.
+ */
+async function syncSettlementReportingYear(db, settlement, options = {}) {
+  if (!settlement || settlement.id == null) return null
+
+  const population = roundCount(settlement.population)
+  if (population == null || population <= 0) return null
+
+  const year =
+    options.year != null && Number.isFinite(Number(options.year))
+      ? Number(options.year)
+      : new Date().getFullYear()
+  const source = options.source || 'building_estimate'
+  const method = options.method || 'settlement_profile_sync'
+  const transaction = options.transaction ?? null
+  const onlyIfMissing = options.onlyIfMissing === true
+
+  if (onlyIfMissing) {
+    const existing = await db.models.settlement_population.findOne({
+      where: { settlement_id: settlement.id, year },
+      attributes: ['id'],
+      transaction,
+      raw: true,
+    })
+    if (existing) return null
+  }
+
+  let pop_male = roundCount(settlement.pop_male)
+  let pop_female = roundCount(settlement.pop_female)
+
+  if (pop_male == null && pop_female == null) {
+    let countyRow = null
+    if (settlement.county_id != null) {
+      countyRow = await db.models.county.findByPk(settlement.county_id, {
+        attributes: ['id', 'pop_male', 'pop_female', 'pop_total'],
+        raw: true,
+        transaction,
+      })
+    }
+    const split = splitSexFromCounty(population, countyRow)
+    pop_male = split.pop_male
+    pop_female = split.pop_female
+  }
+
+  let num_households = roundCount(settlement.num_households)
+  if (num_households == null) {
+    const avg = Number(settlement.avg_household_size)
+    if (Number.isFinite(avg) && avg > 0) {
+      num_households = Math.round(population / avg)
+    }
+  }
+
+  await upsertSettlementPopulationRows(
+    db,
+    [
+      {
+        settlement_id: settlement.id,
+        county_id: settlement.county_id ?? null,
+        subcounty_id: settlement.subcounty_id ?? null,
+        ward_id: settlement.ward_id ?? null,
+        year,
+        population,
+        pop_male,
+        pop_female,
+        num_households,
+        source,
+        method,
+      },
+    ],
+    { transaction }
+  )
+
+  return { settlement_id: settlement.id, year, population, source, method }
+}
+
 /** PostgreSQL upsert for settlement_population (Sequelize bulkCreate updateOnDuplicate is MySQL-oriented). */
 async function upsertSettlementPopulationRows(db, rows, options = {}) {
   if (!rows.length) return
@@ -1435,5 +1513,6 @@ module.exports = {
   importSettlementPopulationBaselineFromExcel,
   importCountyGrowthRatesFromExcel,
   applySettlementPopulationProjection,
+  syncSettlementReportingYear,
   bulkUpsertCountyGrowthRates,
 }
